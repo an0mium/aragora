@@ -3,19 +3,25 @@ Compliance HTTP Handlers for Aragora.
 
 Provides REST API endpoints for compliance and audit operations:
 - SOC 2 Type II report generation
-- GDPR data export requests
-- GDPR Right-to-be-Forgotten workflow
+- GDPR data export requests and Right-to-be-Forgotten workflow
+- CCPA compliance (Right to Know, Delete, Opt-Out, Correct)
+- HIPAA compliance (PHI access logging, breach assessment, BAA management)
 - Audit trail verification
 - SIEM-compatible event export
 - Legal hold management
 
 Endpoints:
+    # General
     GET  /api/v2/compliance/status               - Overall compliance status
+    POST /api/v2/compliance/audit-verify         - Verify audit trail integrity
+    GET  /api/v2/compliance/audit-events         - Export audit events (SIEM)
+
+    # SOC 2
     GET  /api/v2/compliance/soc2-report          - Generate SOC 2 compliance summary
+
+    # GDPR
     GET  /api/v2/compliance/gdpr-export          - Export user data for GDPR
     POST /api/v2/compliance/gdpr/right-to-be-forgotten - Execute GDPR right to erasure
-    POST /api/v2/compliance/audit-verify         - Verify audit trail integrity
-    GET  /api/v2/compliance/audit-events         - Export audit events (Elasticsearch/SIEM)
     GET  /api/v2/compliance/gdpr/deletions       - List scheduled deletions
     GET  /api/v2/compliance/gdpr/deletions/:id   - Get deletion request
     POST /api/v2/compliance/gdpr/deletions/:id/cancel - Cancel deletion
@@ -26,6 +32,21 @@ Endpoints:
     POST /api/v2/compliance/gdpr/execute-pending - Execute pending deletions
     GET  /api/v2/compliance/gdpr/backup-exclusions - List backup exclusions
     POST /api/v2/compliance/gdpr/backup-exclusions - Add backup exclusion
+
+    # CCPA
+    GET  /api/v2/compliance/ccpa/disclosure      - Right to Know disclosure
+    POST /api/v2/compliance/ccpa/delete          - Right to Delete
+    POST /api/v2/compliance/ccpa/opt-out         - Right to Opt-Out
+    POST /api/v2/compliance/ccpa/correct         - Right to Correct
+    GET  /api/v2/compliance/ccpa/status          - CCPA request status
+
+    # HIPAA
+    GET  /api/v2/compliance/hipaa/status         - HIPAA compliance status
+    GET  /api/v2/compliance/hipaa/phi-access     - PHI access audit log
+    POST /api/v2/compliance/hipaa/breach-assessment - Breach risk assessment
+    GET  /api/v2/compliance/hipaa/baa            - List Business Associate Agreements
+    POST /api/v2/compliance/hipaa/baa            - Register new BAA
+    GET  /api/v2/compliance/hipaa/security-report - Security Rule compliance report
 
 These endpoints support enterprise compliance requirements.
 """
@@ -42,6 +63,8 @@ from aragora.observability.metrics import track_handler
 
 from .soc2 import SOC2Mixin
 from .gdpr import GDPRMixin
+from .ccpa import CCPAMixin
+from .hipaa import HIPAAMixin
 from .legal_hold import LegalHoldMixin
 from .audit_verify import AuditVerifyMixin, parse_timestamp
 
@@ -52,6 +75,8 @@ class ComplianceHandler(
     BaseHandler,
     SOC2Mixin,
     GDPRMixin,
+    CCPAMixin,
+    HIPAAMixin,
     LegalHoldMixin,
     AuditVerifyMixin,
 ):
@@ -59,11 +84,13 @@ class ComplianceHandler(
     HTTP handler for compliance and audit operations.
 
     Provides REST API access to compliance reports, GDPR exports,
-    and audit verification.
+    CCPA compliance, HIPAA compliance, and audit verification.
 
     Uses mixins to organize functionality:
     - SOC2Mixin: SOC 2 Type II report generation and control evaluation
     - GDPRMixin: GDPR data export, right-to-be-forgotten, deletion management
+    - CCPAMixin: CCPA Right to Know, Delete, Opt-Out, Correct
+    - HIPAAMixin: HIPAA PHI access logging, breach assessment, BAA management
     - LegalHoldMixin: Legal hold creation, listing, and release
     - AuditVerifyMixin: Audit trail verification and SIEM event export
     """
@@ -162,6 +189,57 @@ class ComplianceHandler(
 
             if path == "/api/v2/compliance/gdpr/backup-exclusions" and method == "POST":
                 return await self._add_backup_exclusion(body)
+
+            # =================================================================
+            # CCPA Endpoints
+            # =================================================================
+
+            # CCPA Disclosure (Right to Know)
+            if path == "/api/v2/compliance/ccpa/disclosure" and method == "GET":
+                return await self._ccpa_disclosure(query_params)
+
+            # CCPA Delete (Right to Delete)
+            if path == "/api/v2/compliance/ccpa/delete" and method == "POST":
+                return await self._ccpa_delete(body)
+
+            # CCPA Opt-Out (Do Not Sell/Share)
+            if path == "/api/v2/compliance/ccpa/opt-out" and method == "POST":
+                return await self._ccpa_opt_out(body)
+
+            # CCPA Correct (Right to Correct)
+            if path == "/api/v2/compliance/ccpa/correct" and method == "POST":
+                return await self._ccpa_correct(body)
+
+            # CCPA Request Status
+            if path == "/api/v2/compliance/ccpa/status" and method == "GET":
+                return await self._ccpa_get_status(query_params)
+
+            # =================================================================
+            # HIPAA Endpoints
+            # =================================================================
+
+            # HIPAA Compliance Status
+            if path == "/api/v2/compliance/hipaa/status" and method == "GET":
+                return await self._hipaa_status(query_params)
+
+            # HIPAA PHI Access Log
+            if path == "/api/v2/compliance/hipaa/phi-access" and method == "GET":
+                return await self._hipaa_phi_access_log(query_params)
+
+            # HIPAA Breach Risk Assessment
+            if path == "/api/v2/compliance/hipaa/breach-assessment" and method == "POST":
+                return await self._hipaa_breach_assessment(body)
+
+            # HIPAA BAA Management
+            if path == "/api/v2/compliance/hipaa/baa" and method == "GET":
+                return await self._hipaa_list_baas(query_params)
+
+            if path == "/api/v2/compliance/hipaa/baa" and method == "POST":
+                return await self._hipaa_create_baa(body)
+
+            # HIPAA Security Rule Report
+            if path == "/api/v2/compliance/hipaa/security-report" and method == "GET":
+                return await self._hipaa_security_report(query_params)
 
             return error_response("Not found", 404)
 

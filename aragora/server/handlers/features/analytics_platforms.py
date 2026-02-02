@@ -299,7 +299,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
         credentials = body.get("credentials", {})
         if not credentials:
-            return self._error_response(400, "Credentials are required")
+            return self._error_response(400, "Missing required credentials")
 
         # Validate required credentials per platform
         required_fields = self._get_required_credentials(platform)
@@ -978,14 +978,22 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
     def _normalize_ga_report(self, report: Any) -> dict[str, Any]:
         """Normalize GA4 report to unified format."""
+
+        def _header_name(header: Any) -> Any:
+            if hasattr(header, "name"):
+                return header.name
+            return header
+
         return {
             "dimensions": (
-                [h.name for h in report.dimension_headers]
+                [_header_name(h) for h in report.dimension_headers]
                 if hasattr(report, "dimension_headers")
                 else []
             ),
             "metrics": (
-                [h.name for h in report.metric_headers] if hasattr(report, "metric_headers") else []
+                [_header_name(h) for h in report.metric_headers]
+                if hasattr(report, "metric_headers")
+                else []
             ),
             "rows": [
                 {

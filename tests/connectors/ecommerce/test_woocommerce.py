@@ -10,6 +10,9 @@ Covers:
 6. Pagination and batch operations
 7. Error handling (API errors, rate limits, network issues)
 8. Data transformation and validation
+9. Timeout handling
+10. Input validation
+11. Circuit breaker behavior
 
 Dependencies:
     pytest
@@ -29,6 +32,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.connectors.ecommerce.woocommerce import (
+    DEFAULT_REQUEST_TIMEOUT,
     WooAddress,
     WooCommerceConnector,
     WooCommerceCredentials,
@@ -43,9 +47,16 @@ from aragora.connectors.ecommerce.woocommerce import (
     WooStockStatus,
     get_mock_woo_orders,
     get_mock_woo_products,
+    validate_id,
 )
 from aragora.connectors.enterprise.base import SyncState
-from aragora.connectors.exceptions import ConnectorAPIError
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorCircuitOpenError,
+    ConnectorTimeoutError,
+    ConnectorValidationError,
+)
+from aragora.resilience.circuit_breaker import CircuitBreaker
 
 
 # ---------------------------------------------------------------------------
@@ -2342,3 +2353,418 @@ class TestPaginationLimits:
         async for v in connector.sync_product_variations(2001, per_page=100):
             variations.append(v)
         assert len(variations) == 0
+
+
+# ========================================================================
+# Timeout handling tests
+# ========================================================================
+
+
+class TestTimeoutHandling:
+    """Tests for request timeout functionality."""
+
+    @pytest.mark.asyncio
+    async def test_request_timeout_default(self, connector):
+        """Request uses default timeout from credentials."""
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"ok": True}))
+        connector._client = mock_session
+
+        # This should work with default timeout (30s)
+        result = await connector._request("GET", "test")
+        assert result == {"ok": True}
+
+    @pytest.mark.asyncio
+    async def test_request_timeout_raises_error(self, connector):
+        """Request timeout raises ConnectorTimeoutError."""
+
+        mock_session = MagicMock()
+
+        async def timeout_side_effect(*args, **kwargs):
+            import asyncio
+
+            raise asyncio.TimeoutError()
+
+        # Create a mock context manager that raises timeout
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(side_effect=timeout_side_effect)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._client = mock_session
+
+        with pytest.raises(ConnectorTimeoutError) as exc_info:
+            await connector._request("GET", "test", timeout=0.001)
+
+        assert "timed out" in str(exc_info.value.message)
+        assert exc_info.value.connector_name == "woocommerce"
+
+    @pytest.mark.asyncio
+    async def test_custom_timeout_override(self, connector):
+        """Custom timeout parameter overrides default."""
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"ok": True}))
+        connector._client = mock_session
+
+        # Explicitly pass a timeout
+        result = await connector._request("GET", "test", timeout=60)
+        assert result == {"ok": True}
+
+    @pytest.mark.asyncio
+    async def test_timeout_records_circuit_breaker_failure(self, connector):
+        """Timeout records a failure in the circuit breaker."""
+        import asyncio
+
+        mock_session = MagicMock()
+
+        async def timeout_side_effect(*args, **kwargs):
+            raise asyncio.TimeoutError()
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(side_effect=timeout_side_effect)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._client = mock_session
+
+        initial_failures = connector._circuit_breaker._single_failures
+
+        with pytest.raises(ConnectorTimeoutError):
+            await connector._request("GET", "test", timeout=0.001)
+
+        # Circuit breaker should have recorded the failure
+        assert connector._circuit_breaker._single_failures > initial_failures
+
+
+# ========================================================================
+# Input validation tests
+# ========================================================================
+
+
+class TestInputValidation:
+    """Tests for input validation functionality."""
+
+    def test_validate_id_valid_numeric(self):
+        """validate_id accepts numeric IDs."""
+
+        # Should not raise
+        validate_id(123, "test_id")
+        validate_id(0, "test_id")
+        validate_id(999999, "test_id")
+
+    def test_validate_id_valid_alphanumeric(self):
+        """validate_id accepts alphanumeric strings."""
+
+        # Should not raise
+        validate_id("abc123", "test_id")
+        validate_id("ABC123", "test_id")
+        validate_id("product_123", "test_id")
+        validate_id("order-456", "test_id")
+
+    def test_validate_id_invalid_characters(self):
+        """validate_id rejects IDs with invalid characters."""
+        from aragora.connectors.exceptions import ConnectorValidationError
+
+        # SQL injection attempt
+        with pytest.raises(ConnectorValidationError) as exc_info:
+            validate_id("123; DROP TABLE orders;", "order_id")
+        assert "invalid characters" in str(exc_info.value.message).lower()
+        assert exc_info.value.connector_name == "woocommerce"
+
+    def test_validate_id_path_traversal(self):
+        """validate_id rejects path traversal attempts."""
+        from aragora.connectors.exceptions import ConnectorValidationError
+
+        with pytest.raises(ConnectorValidationError):
+            validate_id("../../../etc/passwd", "product_id")
+
+    def test_validate_id_special_characters(self):
+        """validate_id rejects special characters."""
+        from aragora.connectors.exceptions import ConnectorValidationError
+
+        invalid_ids = [
+            "123/456",
+            "product?id=1",
+            "order&status=completed",
+            "item#1",
+            "test@example",
+            "item%20name",
+            "order\nid",
+            "product\tid",
+        ]
+        for invalid_id in invalid_ids:
+            with pytest.raises(ConnectorValidationError):
+                validate_id(invalid_id, "test_id")
+
+    @pytest.mark.asyncio
+    async def test_get_order_validates_id(self, connector):
+        """get_order validates order_id."""
+
+        with pytest.raises(ConnectorValidationError) as exc_info:
+            await connector.get_order("123; DROP TABLE orders;")
+        assert "order_id" in str(exc_info.value.message)
+
+    @pytest.mark.asyncio
+    async def test_get_product_validates_id(self, connector):
+        """get_product validates product_id."""
+
+        with pytest.raises(ConnectorValidationError) as exc_info:
+            await connector.get_product("../../../etc/passwd")
+        assert "product_id" in str(exc_info.value.message)
+
+    @pytest.mark.asyncio
+    async def test_update_order_status_validates_id(self, connector):
+        """update_order_status validates order_id."""
+
+        with pytest.raises(ConnectorValidationError):
+            await connector.update_order_status("invalid/id", WooOrderStatus.COMPLETED)
+
+    @pytest.mark.asyncio
+    async def test_update_product_stock_validates_id(self, connector):
+        """update_product_stock validates product_id."""
+
+        with pytest.raises(ConnectorValidationError):
+            await connector.update_product_stock("../passwd", 10)
+
+    @pytest.mark.asyncio
+    async def test_update_variation_stock_validates_ids(self, connector):
+        """update_variation_stock validates both product_id and variation_id."""
+
+        # Invalid product_id
+        with pytest.raises(ConnectorValidationError):
+            await connector.update_variation_stock("invalid/id", 123, 10)
+
+        # Invalid variation_id
+        with pytest.raises(ConnectorValidationError):
+            await connector.update_variation_stock(123, "invalid/id", 10)
+
+    @pytest.mark.asyncio
+    async def test_create_refund_validates_id(self, connector):
+        """create_refund validates order_id."""
+
+        with pytest.raises(ConnectorValidationError):
+            await connector.create_refund("invalid?id=1", reason="Test")
+
+    @pytest.mark.asyncio
+    async def test_get_refunds_validates_id(self, connector):
+        """get_refunds validates order_id."""
+
+        with pytest.raises(ConnectorValidationError):
+            await connector.get_refunds("123&foo=bar")
+
+    @pytest.mark.asyncio
+    async def test_delete_coupon_validates_id(self, connector):
+        """delete_coupon validates coupon_id."""
+
+        with pytest.raises(ConnectorValidationError):
+            await connector.delete_coupon("bad/id")
+
+    @pytest.mark.asyncio
+    async def test_delete_webhook_validates_id(self, connector):
+        """delete_webhook validates webhook_id."""
+
+        with pytest.raises(ConnectorValidationError):
+            await connector.delete_webhook("../../etc")
+
+    @pytest.mark.asyncio
+    async def test_get_shipping_methods_validates_id(self, connector):
+        """get_shipping_methods validates zone_id."""
+
+        with pytest.raises(ConnectorValidationError):
+            await connector.get_shipping_methods("zone?id=1")
+
+
+# ========================================================================
+# Circuit breaker tests
+# ========================================================================
+
+
+class TestCircuitBreaker:
+    """Tests for circuit breaker functionality."""
+
+    def test_connector_has_circuit_breaker(self, connector):
+        """Connector initializes with a circuit breaker."""
+        assert connector._circuit_breaker is not None
+        assert connector._circuit_breaker.name == "woocommerce"
+
+    def test_circuit_breaker_property(self, connector):
+        """circuit_breaker property returns the breaker instance."""
+        assert connector.circuit_breaker is connector._circuit_breaker
+
+    def test_custom_circuit_breaker(self, credentials):
+        """Connector accepts custom circuit breaker."""
+
+        custom_breaker = CircuitBreaker(
+            name="custom-woo",
+            failure_threshold=10,
+            cooldown_seconds=120.0,
+        )
+        connector = WooCommerceConnector(credentials, circuit_breaker=custom_breaker)
+        assert connector._circuit_breaker is custom_breaker
+        assert connector._circuit_breaker.failure_threshold == 10
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_blocks_when_open(self, connector):
+        """Request fails immediately when circuit breaker is open."""
+
+        # Open the circuit breaker manually
+        connector._circuit_breaker._single_open_at = 999999999999.0
+
+        with pytest.raises(ConnectorCircuitOpenError) as exc_info:
+            await connector._request("GET", "test")
+
+        assert "circuit breaker is open" in str(exc_info.value.message).lower()
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_records_success(self, connector):
+        """Successful requests record success in circuit breaker."""
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"ok": True}))
+        connector._client = mock_session
+
+        # Force some failures first
+        connector._circuit_breaker._single_failures = 2
+
+        await connector._request("GET", "test")
+
+        # Success should reset failures (depending on implementation)
+        # At minimum, the breaker should still allow requests
+        assert connector._circuit_breaker.can_proceed()
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_records_failure_on_5xx(self, connector):
+        """5xx errors record failures in circuit breaker."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 500
+        resp_mock.text = AsyncMock(return_value="Internal Server Error")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._client = mock_session
+
+        initial_failures = connector._circuit_breaker._single_failures
+
+        with pytest.raises(ConnectorAPIError):
+            await connector._request("GET", "test")
+
+        # Circuit breaker should have recorded the failure
+        assert connector._circuit_breaker._single_failures > initial_failures
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_records_failure_on_429(self, connector):
+        """429 rate limit errors record failures in circuit breaker."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 429
+        resp_mock.text = AsyncMock(return_value="Rate limited")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._client = mock_session
+
+        initial_failures = connector._circuit_breaker._single_failures
+
+        with pytest.raises(ConnectorAPIError):
+            await connector._request("GET", "test")
+
+        # Circuit breaker should have recorded the failure
+        assert connector._circuit_breaker._single_failures > initial_failures
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_no_failure_on_4xx(self, connector):
+        """4xx client errors (except 429) don't record circuit breaker failures."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 404
+        resp_mock.text = AsyncMock(return_value="Not found")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._client = mock_session
+
+        initial_failures = connector._circuit_breaker._single_failures
+
+        with pytest.raises(ConnectorAPIError):
+            await connector._request("GET", "test")
+
+        # Circuit breaker should NOT have recorded the failure for 404
+        assert connector._circuit_breaker._single_failures == initial_failures
+
+    @pytest.mark.asyncio
+    async def test_circuit_opens_after_threshold(self, connector):
+        """Circuit opens after reaching failure threshold."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 500
+        resp_mock.text = AsyncMock(return_value="Server Error")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._client = mock_session
+
+        # Default threshold is 5, make 5 failures
+        for _ in range(5):
+            try:
+                await connector._request("GET", "test")
+            except ConnectorAPIError:
+                pass
+
+        # Circuit should now be open
+        assert connector._circuit_breaker.get_status() == "open"
+
+    def test_circuit_breaker_cooldown_remaining(self, connector):
+        """cooldown_remaining returns remaining time until circuit can be tried."""
+        import time
+
+        # Set circuit open 30 seconds ago (with 60s cooldown)
+        connector._circuit_breaker._single_open_at = time.time() - 30
+
+        remaining = connector._circuit_breaker.cooldown_remaining()
+
+        # Should have about 30 seconds remaining
+        assert 25 < remaining < 35
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_error_includes_cooldown(self, connector):
+        """ConnectorCircuitOpenError includes cooldown_remaining."""
+        import time
+
+        # Set circuit open 30 seconds ago
+        connector._circuit_breaker._single_open_at = time.time() - 30
+
+        with pytest.raises(ConnectorCircuitOpenError) as exc_info:
+            await connector._request("GET", "test")
+
+        # Error should include cooldown info
+        assert exc_info.value.cooldown_remaining is not None
+        assert exc_info.value.cooldown_remaining > 0
+
+
+# ========================================================================
+# Default timeout constant tests
+# ========================================================================
+
+
+class TestDefaultConstants:
+    """Tests for default constant values."""
+
+    def test_default_request_timeout(self):
+        """DEFAULT_REQUEST_TIMEOUT is 30 seconds."""
+
+        assert DEFAULT_REQUEST_TIMEOUT == 30
+
+    def test_credentials_default_timeout(self):
+        """WooCommerceCredentials defaults to 30 second timeout."""
+        creds = WooCommerceCredentials(
+            store_url="https://example.com",
+            consumer_key="key",
+            consumer_secret="secret",
+        )
+        assert creds.timeout == 30

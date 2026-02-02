@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 _scheduler_circuit_breaker = CircuitBreaker.from_config(
     CircuitBreakerConfig(
         failure_threshold=5,
-        timeout_seconds=60.0,
+        cooldown_seconds=60.0,
         success_threshold=2,
     ),
     name="scheduler",

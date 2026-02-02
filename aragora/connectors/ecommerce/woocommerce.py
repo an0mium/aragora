@@ -21,8 +21,10 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -33,11 +35,41 @@ from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
+    ConnectorCircuitOpenError,
+    ConnectorTimeoutError,
+    ConnectorValidationError,
 )
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.reasoning.provenance import SourceType
+from aragora.resilience.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
+
+# Default request timeout in seconds
+DEFAULT_REQUEST_TIMEOUT = 30
+
+# Regex pattern for validating IDs (alphanumeric, underscore, hyphen only)
+ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def validate_id(id_value: int | str, field_name: str = "ID") -> None:
+    """Validate that an ID contains only alphanumeric characters.
+
+    Args:
+        id_value: The ID to validate
+        field_name: Name of the field for error messages
+
+    Raises:
+        ConnectorValidationError: If the ID contains invalid characters
+    """
+    str_id = str(id_value)
+    if not ID_PATTERN.match(str_id):
+        raise ConnectorValidationError(
+            f"Invalid {field_name}: '{str_id}' contains invalid characters. "
+            "Only alphanumeric characters, underscores, and hyphens are allowed.",
+            connector_name="woocommerce",
+            field=field_name,
+        )
 
 
 class WooOrderStatus(str, Enum):
@@ -338,15 +370,26 @@ class WooCommerceConnector(EnterpriseConnector):
         ```
     """
 
-    def __init__(self, credentials: WooCommerceCredentials):
+    def __init__(
+        self,
+        credentials: WooCommerceCredentials,
+        circuit_breaker: CircuitBreaker | None = None,
+    ):
         """Initialize WooCommerce connector.
 
         Args:
             credentials: WooCommerce API credentials
+            circuit_breaker: Optional circuit breaker for API quota protection.
+                            If not provided, a default one is created.
         """
         super().__init__(connector_id="woocommerce", tenant_id="default")
         self._woo_credentials = credentials
         self._client: Any = None
+        self._circuit_breaker = circuit_breaker or CircuitBreaker(
+            name="woocommerce",
+            failure_threshold=5,
+            cooldown_seconds=60.0,
+        )
 
     @property
     def name(self) -> str:
@@ -400,37 +443,74 @@ class WooCommerceConnector(EnterpriseConnector):
             await self._client.close()
             self._client = None
 
+    @property
+    def circuit_breaker(self) -> CircuitBreaker:
+        """Get the circuit breaker instance."""
+        return self._circuit_breaker
+
     async def _request(
         self,
         method: str,
         endpoint: str,
         params: Optional[dict[str, Any]] = None,
         json_data: Optional[dict[str, Any]] = None,
+        timeout: float | None = None,
     ) -> Any:
-        """Make an API request.
+        """Make an API request with timeout and circuit breaker protection.
 
         Args:
             method: HTTP method
             endpoint: API endpoint
             params: Query parameters
             json_data: JSON body data
+            timeout: Request timeout in seconds (defaults to credentials.timeout or 30s)
 
         Returns:
             Response data
+
+        Raises:
+            ConnectorTimeoutError: If the request times out
+            ConnectorCircuitOpenError: If the circuit breaker is open
+            ConnectorAPIError: If the API returns an error
         """
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            cooldown = self._circuit_breaker.cooldown_remaining()
+            raise ConnectorCircuitOpenError(
+                "WooCommerce API circuit breaker is open due to repeated failures",
+                connector_name="woocommerce",
+                cooldown_remaining=cooldown,
+            )
+
         if not self._client:
             await self.connect()
 
         url = f"{self.base_url}/{endpoint}"
-        async with self._client.request(method, url, params=params, json=json_data) as resp:
-            if resp.status >= 400:
-                error_text = await resp.text()
-                raise ConnectorAPIError(
-                    f"WooCommerce API error: {error_text}",
-                    connector_name="woocommerce",
-                    status_code=resp.status,
-                )
-            return await resp.json()
+        request_timeout = timeout or self._woo_credentials.timeout or DEFAULT_REQUEST_TIMEOUT
+
+        try:
+            async with asyncio.timeout(request_timeout):
+                async with self._client.request(method, url, params=params, json=json_data) as resp:
+                    if resp.status >= 400:
+                        error_text = await resp.text()
+                        # Record failure for circuit breaker on server errors or rate limits
+                        if resp.status >= 500 or resp.status == 429:
+                            self._circuit_breaker.record_failure()
+                        raise ConnectorAPIError(
+                            f"WooCommerce API error: {error_text}",
+                            connector_name="woocommerce",
+                            status_code=resp.status,
+                        )
+                    # Record success
+                    self._circuit_breaker.record_success()
+                    return await resp.json()
+        except asyncio.TimeoutError:
+            self._circuit_breaker.record_failure()
+            raise ConnectorTimeoutError(
+                f"WooCommerce API request timed out after {request_timeout}s",
+                connector_name="woocommerce",
+                timeout_seconds=request_timeout,
+            )
 
     # =========================================================================
     # Orders
@@ -545,11 +625,29 @@ class WooCommerceConnector(EnterpriseConnector):
         )
 
     async def get_order(self, order_id: int) -> WooOrder | None:
-        """Get a single order by ID."""
+        """Get a single order by ID.
+
+        Args:
+            order_id: Order ID (must be alphanumeric)
+
+        Returns:
+            WooOrder or None if not found
+
+        Raises:
+            ConnectorValidationError: If order_id contains invalid characters
+        """
+        validate_id(order_id, "order_id")
         try:
             data = await self._request("GET", f"orders/{order_id}")
             return self._parse_order(data)
-        except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
+        except (
+            ConnectorAPIError,
+            ConnectorCircuitOpenError,
+            ConnectorTimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"Failed to get order {order_id}: {e}")
             return None
 
@@ -561,12 +659,16 @@ class WooCommerceConnector(EnterpriseConnector):
         """Update order status.
 
         Args:
-            order_id: Order ID
+            order_id: Order ID (must be alphanumeric)
             status: New status
 
         Returns:
             True if successful
+
+        Raises:
+            ConnectorValidationError: If order_id contains invalid characters
         """
+        validate_id(order_id, "order_id")
         try:
             await self._request(
                 "PUT",
@@ -574,7 +676,7 @@ class WooCommerceConnector(EnterpriseConnector):
                 json_data={"status": status.value},
             )
             return True
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to update order {order_id}: {e}")
             return False
 
@@ -772,11 +874,29 @@ class WooCommerceConnector(EnterpriseConnector):
         )
 
     async def get_product(self, product_id: int) -> WooProduct | None:
-        """Get a single product by ID."""
+        """Get a single product by ID.
+
+        Args:
+            product_id: Product ID (must be alphanumeric)
+
+        Returns:
+            WooProduct or None if not found
+
+        Raises:
+            ConnectorValidationError: If product_id contains invalid characters
+        """
+        validate_id(product_id, "product_id")
         try:
             data = await self._request("GET", f"products/{product_id}")
             return self._parse_product(data)
-        except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
+        except (
+            ConnectorAPIError,
+            ConnectorCircuitOpenError,
+            ConnectorTimeoutError,
+            OSError,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"Failed to get product {product_id}: {e}")
             return None
 
@@ -789,13 +909,17 @@ class WooCommerceConnector(EnterpriseConnector):
         """Update product stock.
 
         Args:
-            product_id: Product ID
+            product_id: Product ID (must be alphanumeric)
             quantity: New stock quantity
             stock_status: Optional stock status
 
         Returns:
             True if successful
+
+        Raises:
+            ConnectorValidationError: If product_id contains invalid characters
         """
+        validate_id(product_id, "product_id")
         try:
             update_data: dict[str, Any] = {
                 "stock_quantity": quantity,
@@ -810,7 +934,7 @@ class WooCommerceConnector(EnterpriseConnector):
                 json_data=update_data,
             )
             return True
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to update product stock {product_id}: {e}")
             return False
 
@@ -896,14 +1020,19 @@ class WooCommerceConnector(EnterpriseConnector):
         """Update variation stock.
 
         Args:
-            product_id: Parent product ID
-            variation_id: Variation ID
+            product_id: Parent product ID (must be alphanumeric)
+            variation_id: Variation ID (must be alphanumeric)
             quantity: New stock quantity
             stock_status: Optional stock status
 
         Returns:
             True if successful
+
+        Raises:
+            ConnectorValidationError: If IDs contain invalid characters
         """
+        validate_id(product_id, "product_id")
+        validate_id(variation_id, "variation_id")
         try:
             update_data: dict[str, Any] = {
                 "stock_quantity": quantity,
@@ -918,7 +1047,7 @@ class WooCommerceConnector(EnterpriseConnector):
                 json_data=update_data,
             )
             return True
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to update variation stock {variation_id}: {e}")
             return False
 
@@ -991,7 +1120,7 @@ class WooCommerceConnector(EnterpriseConnector):
         """Create a refund for an order.
 
         Args:
-            order_id: Order ID to refund
+            order_id: Order ID to refund (must be alphanumeric)
             amount: Refund amount (if None, refunds full order)
             reason: Reason for refund
             line_items: Specific line items to refund [{"id": 123, "quantity": 1}]
@@ -999,7 +1128,11 @@ class WooCommerceConnector(EnterpriseConnector):
 
         Returns:
             Refund data or None on failure
+
+        Raises:
+            ConnectorValidationError: If order_id contains invalid characters
         """
+        validate_id(order_id, "order_id")
         try:
             refund_data: dict[str, Any] = {
                 "reason": reason,
@@ -1017,7 +1150,7 @@ class WooCommerceConnector(EnterpriseConnector):
                 json_data=refund_data,
             )
             return data
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to create refund for order {order_id}: {e}")
             return None
 
@@ -1025,15 +1158,19 @@ class WooCommerceConnector(EnterpriseConnector):
         """Get refunds for an order.
 
         Args:
-            order_id: Order ID
+            order_id: Order ID (must be alphanumeric)
 
         Returns:
             List of refund data
+
+        Raises:
+            ConnectorValidationError: If order_id contains invalid characters
         """
+        validate_id(order_id, "order_id")
         try:
             data = await self._request("GET", f"orders/{order_id}/refunds")
             return data if isinstance(data, list) else []
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to get refunds for order {order_id}: {e}")
             return []
 
@@ -1136,12 +1273,16 @@ class WooCommerceConnector(EnterpriseConnector):
         """Delete a coupon.
 
         Args:
-            coupon_id: Coupon ID
+            coupon_id: Coupon ID (must be alphanumeric)
             force: Permanently delete (vs trash)
 
         Returns:
             True if successful
+
+        Raises:
+            ConnectorValidationError: If coupon_id contains invalid characters
         """
+        validate_id(coupon_id, "coupon_id")
         try:
             await self._request(
                 "DELETE",
@@ -1149,7 +1290,7 @@ class WooCommerceConnector(EnterpriseConnector):
                 params={"force": force},
             )
             return True
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to delete coupon {coupon_id}: {e}")
             return False
 
@@ -1208,12 +1349,16 @@ class WooCommerceConnector(EnterpriseConnector):
         """Delete a webhook.
 
         Args:
-            webhook_id: Webhook ID
+            webhook_id: Webhook ID (must be alphanumeric)
             force: Permanently delete
 
         Returns:
             True if successful
+
+        Raises:
+            ConnectorValidationError: If webhook_id contains invalid characters
         """
+        validate_id(webhook_id, "webhook_id")
         try:
             await self._request(
                 "DELETE",
@@ -1221,7 +1366,7 @@ class WooCommerceConnector(EnterpriseConnector):
                 params={"force": force},
             )
             return True
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to delete webhook {webhook_id}: {e}")
             return False
 
@@ -1292,15 +1437,19 @@ class WooCommerceConnector(EnterpriseConnector):
         """Get shipping methods for a zone.
 
         Args:
-            zone_id: Shipping zone ID
+            zone_id: Shipping zone ID (must be alphanumeric)
 
         Returns:
             List of shipping method data
+
+        Raises:
+            ConnectorValidationError: If zone_id contains invalid characters
         """
+        validate_id(zone_id, "zone_id")
         try:
             data = await self._request("GET", f"shipping/zones/{zone_id}/methods")
             return data if isinstance(data, list) else []
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
             logger.error(f"Failed to get shipping methods for zone {zone_id}: {e}")
             return []
 
@@ -1719,4 +1868,6 @@ __all__ = [
     "WooStockStatus",
     "get_mock_woo_orders",
     "get_mock_woo_products",
+    "validate_id",
+    "DEFAULT_REQUEST_TIMEOUT",
 ]

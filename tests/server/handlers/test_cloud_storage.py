@@ -655,7 +655,7 @@ class TestCloudStorageHandlerDownloadFile:
         assert result is not None
         assert result.status == 200
         assert result.body == sample_file_content
-        assert result.headers["Content-Type"] == "text/plain"
+        assert result.content_type == "text/plain"
 
     @pytest.mark.asyncio
     async def test_download_file_not_found(self, handler):

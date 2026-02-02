@@ -43,6 +43,7 @@ SOC 2 Controls: CC6.1, CC6.3 - Logical access controls
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Coroutine
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -50,6 +51,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from aragora.server.http_utils import run_async
 from aragora.server.validation.entities import validate_path_segment
 from aragora.server.validation.query_params import safe_query_int
+from aragora.utils.cache import TTLCache
 
 from aragora.billing.auth.context import UserAuthContext
 from aragora.billing.jwt_auth import extract_user_from_request
@@ -126,6 +128,90 @@ logger = logging.getLogger(__name__)
 
 # TypeVar for generic coroutine return type
 T = TypeVar("T")
+
+# =============================================================================
+# Caching Infrastructure
+# =============================================================================
+
+# Cache TTL constants (in seconds)
+CACHE_TTL_RETENTION_POLICY = 300.0  # 5 minutes for retention policy queries
+CACHE_TTL_PERMISSION_CHECK = 60.0  # 1 minute for permission matrix lookups
+CACHE_TTL_AUDIT_QUERY = 120.0  # 2 minutes for audit log queries
+
+# Cache instances with appropriate sizes
+_retention_policy_cache: TTLCache[Any] = TTLCache(
+    maxsize=256, ttl_seconds=CACHE_TTL_RETENTION_POLICY
+)
+_permission_cache: TTLCache[Any] = TTLCache(maxsize=512, ttl_seconds=CACHE_TTL_PERMISSION_CHECK)
+_audit_query_cache: TTLCache[Any] = TTLCache(maxsize=256, ttl_seconds=CACHE_TTL_AUDIT_QUERY)
+
+# Lock for thread-safe cache invalidation
+_cache_lock = threading.Lock()
+
+
+def _invalidate_retention_cache(policy_id: str | None = None) -> int:
+    """Invalidate retention policy cache entries.
+
+    Args:
+        policy_id: If provided, only invalidate entries for this policy.
+                  If None, clear all retention cache entries.
+
+    Returns:
+        Number of entries invalidated.
+    """
+    with _cache_lock:
+        if policy_id:
+            return _retention_policy_cache.clear_prefix(f"retention:{policy_id}")
+        return _retention_policy_cache.clear()
+
+
+def _invalidate_permission_cache(
+    user_id: str | None = None, workspace_id: str | None = None
+) -> int:
+    """Invalidate permission cache entries.
+
+    Args:
+        user_id: If provided, invalidate entries for this user.
+        workspace_id: If provided, invalidate entries for this workspace.
+        If both None, clear all permission cache entries.
+
+    Returns:
+        Number of entries invalidated.
+    """
+    with _cache_lock:
+        total = 0
+        if user_id:
+            total += _permission_cache.clear_prefix(f"perm:user:{user_id}")
+        if workspace_id:
+            total += _permission_cache.clear_prefix(f"perm:ws:{workspace_id}")
+        if not user_id and not workspace_id:
+            total = _permission_cache.clear()
+        return total
+
+
+def _invalidate_audit_cache(workspace_id: str | None = None) -> int:
+    """Invalidate audit query cache entries.
+
+    Args:
+        workspace_id: If provided, invalidate entries for this workspace.
+                     If None, clear all audit cache entries.
+
+    Returns:
+        Number of entries invalidated.
+    """
+    with _cache_lock:
+        if workspace_id:
+            return _audit_query_cache.clear_prefix(f"audit:ws:{workspace_id}")
+        return _audit_query_cache.clear()
+
+
+def get_workspace_cache_stats() -> dict[str, Any]:
+    """Get cache statistics for monitoring."""
+    return {
+        "retention_policy_cache": _retention_policy_cache.stats,
+        "permission_cache": _permission_cache.stats,
+        "audit_query_cache": _audit_query_cache.stats,
+    }
 
 
 class WorkspaceHandler(SecureHandler):
@@ -233,7 +319,10 @@ class WorkspaceHandler(SecureHandler):
         auth_ctx: UserAuthContext | None = None,
     ) -> HandlerResult | None:
         """
-        Check RBAC permission.
+        Check RBAC permission with caching (1 min TTL).
+
+        Caches permission decisions to avoid repeated lookups for the same
+        user/permission combination within a short time window.
 
         Returns None if allowed, or an error response if denied.
         """
@@ -245,7 +334,25 @@ class WorkspaceHandler(SecureHandler):
             # No auth context - rely on existing auth checks
             return None
 
+        # Check permission cache first
+        cache_key = f"perm:user:{rbac_ctx.user_id}:{permission_key}"
+        cached_decision = _permission_cache.get(cache_key)
+        if cached_decision is not None:
+            logger.debug(f"Permission cache hit: {cache_key}")
+            allowed, reason = cached_decision
+            if not allowed:
+                return error_response(
+                    f"Permission denied: {reason}",
+                    403,
+                )
+            return None
+
         decision = check_permission(rbac_ctx, permission_key)
+
+        # Cache the decision
+        _permission_cache.set(cache_key, (decision.allowed, decision.reason))
+        logger.debug(f"Cached permission decision: {cache_key} -> {decision.allowed}")
+
         if not decision.allowed:
             logger.warning(
                 f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
@@ -1109,35 +1216,46 @@ class WorkspaceHandler(SecureHandler):
     def _handle_list_policies(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
     ) -> HandlerResult:
-        """List retention policies."""
+        """List retention policies with caching (5 min TTL)."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
         workspace_id = query_params.get("workspace_id")
-        manager = self._get_retention_manager()
 
+        # Check cache first
+        cache_key = f"retention:list:{workspace_id or 'all'}"
+        cached_result = _retention_policy_cache.get(cache_key)
+        if cached_result is not None:
+            logger.debug(f"Cache hit for retention policies list: {cache_key}")
+            return json_response(cached_result)
+
+        manager = self._get_retention_manager()
         policies = manager.list_policies(workspace_id=workspace_id)
 
-        return json_response(
-            {
-                "policies": [
-                    {
-                        "id": p.id,
-                        "name": p.name,
-                        "description": p.description,
-                        "retention_days": p.retention_days,
-                        "action": p.action.value,
-                        "enabled": p.enabled,
-                        "applies_to": p.applies_to,
-                        "last_run": p.last_run.isoformat() if p.last_run else None,
-                    }
-                    for p in policies
-                ],
-                "total": len(policies),
-            }
-        )
+        result = {
+            "policies": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "retention_days": p.retention_days,
+                    "action": p.action.value,
+                    "enabled": p.enabled,
+                    "applies_to": p.applies_to,
+                    "last_run": p.last_run.isoformat() if p.last_run else None,
+                }
+                for p in policies
+            ],
+            "total": len(policies),
+        }
+
+        # Cache the result
+        _retention_policy_cache.set(cache_key, result)
+        logger.debug(f"Cached retention policies list: {cache_key}")
+
+        return json_response(result)
 
     @api_endpoint(
         method="POST",
@@ -1193,6 +1311,10 @@ class WorkspaceHandler(SecureHandler):
             applies_to=applies_to,
         )
 
+        # Invalidate cache after creating policy
+        _invalidate_retention_cache()
+        logger.debug("Invalidated retention policy cache after create")
+
         # Log to audit
         audit_log = self._get_audit_log()
         self._run_async(
@@ -1226,11 +1348,18 @@ class WorkspaceHandler(SecureHandler):
     )
     @handle_errors("get retention policy")
     def _handle_get_policy(self, handler: HTTPRequestHandler, policy_id: str) -> HandlerResult:
-        """Get a retention policy."""
+        """Get a retention policy with caching (5 min TTL)."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # Check cache first
+        cache_key = f"retention:{policy_id}"
+        cached_result = _retention_policy_cache.get(cache_key)
+        if cached_result is not None:
+            logger.debug(f"Cache hit for retention policy: {cache_key}")
+            return json_response(cached_result)
 
         manager = self._get_retention_manager()
         policy = manager.get_policy(policy_id)
@@ -1238,26 +1367,30 @@ class WorkspaceHandler(SecureHandler):
         if not policy:
             return error_response("Policy not found", 404)
 
-        return json_response(
-            {
-                "policy": {
-                    "id": policy.id,
-                    "name": policy.name,
-                    "description": policy.description,
-                    "retention_days": policy.retention_days,
-                    "action": policy.action.value,
-                    "enabled": policy.enabled,
-                    "applies_to": policy.applies_to,
-                    "workspace_ids": policy.workspace_ids,
-                    "grace_period_days": policy.grace_period_days,
-                    "notify_before_days": policy.notify_before_days,
-                    "exclude_sensitivity_levels": policy.exclude_sensitivity_levels,
-                    "exclude_tags": policy.exclude_tags,
-                    "created_at": policy.created_at.isoformat(),
-                    "last_run": policy.last_run.isoformat() if policy.last_run else None,
-                }
+        result = {
+            "policy": {
+                "id": policy.id,
+                "name": policy.name,
+                "description": policy.description,
+                "retention_days": policy.retention_days,
+                "action": policy.action.value,
+                "enabled": policy.enabled,
+                "applies_to": policy.applies_to,
+                "workspace_ids": policy.workspace_ids,
+                "grace_period_days": policy.grace_period_days,
+                "notify_before_days": policy.notify_before_days,
+                "exclude_sensitivity_levels": policy.exclude_sensitivity_levels,
+                "exclude_tags": policy.exclude_tags,
+                "created_at": policy.created_at.isoformat(),
+                "last_run": policy.last_run.isoformat() if policy.last_run else None,
             }
-        )
+        }
+
+        # Cache the result
+        _retention_policy_cache.set(cache_key, result)
+        logger.debug(f"Cached retention policy: {cache_key}")
+
+        return json_response(result)
 
     @api_endpoint(
         method="PUT",
@@ -1297,6 +1430,10 @@ class WorkspaceHandler(SecureHandler):
             policy = manager.update_policy(policy_id, **body)
         except ValueError as e:
             return error_response(str(e), 404)
+
+        # Invalidate cache after updating policy
+        _invalidate_retention_cache(policy_id)
+        logger.debug(f"Invalidated retention policy cache after update: {policy_id}")
 
         # Log to audit
         audit_log = self._get_audit_log()
@@ -1344,6 +1481,10 @@ class WorkspaceHandler(SecureHandler):
 
         manager = self._get_retention_manager()
         manager.delete_policy(policy_id)
+
+        # Invalidate cache after deleting policy
+        _invalidate_retention_cache(policy_id)
+        logger.debug(f"Invalidated retention policy cache after delete: {policy_id}")
 
         # Log to audit
         audit_log = self._get_audit_log()
@@ -1531,7 +1672,7 @@ class WorkspaceHandler(SecureHandler):
     def _handle_query_audit(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
     ) -> HandlerResult:
-        """Query audit log entries."""
+        """Query audit log entries with caching (2 min TTL)."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
@@ -1560,6 +1701,17 @@ class WorkspaceHandler(SecureHandler):
         action = AuditAction(action_str) if action_str else None
         outcome = AuditOutcome(outcome_str) if outcome_str else None
 
+        # Build cache key from query params
+        cache_key = (
+            f"audit:query:{workspace_id or 'all'}:{actor_id or 'any'}:"
+            f"{resource_id or 'any'}:{action_str or 'any'}:{outcome_str or 'any'}:"
+            f"{start_date}:{end_date}:{limit}"
+        )
+        cached_result = _audit_query_cache.get(cache_key)
+        if cached_result is not None:
+            logger.debug(f"Cache hit for audit query: {cache_key}")
+            return json_response(cached_result)
+
         audit_log = self._get_audit_log()
         entries = self._run_async(
             audit_log.query(
@@ -1574,13 +1726,20 @@ class WorkspaceHandler(SecureHandler):
             )
         )
 
-        return json_response(
-            {
-                "entries": [e.to_dict() for e in entries],
-                "total": len(entries),
-                "limit": limit,
-            }
-        )
+        # Batch convert entries to dict to avoid N+1 pattern
+        entry_dicts = [e.to_dict() for e in entries]
+
+        result = {
+            "entries": entry_dicts,
+            "total": len(entry_dicts),
+            "limit": limit,
+        }
+
+        # Cache the result
+        _audit_query_cache.set(cache_key, result)
+        logger.debug(f"Cached audit query: {cache_key}")
+
+        return json_response(result)
 
     @api_endpoint(
         method="GET",
@@ -1688,7 +1847,7 @@ class WorkspaceHandler(SecureHandler):
     def _handle_actor_history(
         self, handler: HTTPRequestHandler, actor_id: str, query_params: dict[str, Any]
     ) -> HandlerResult:
-        """Get all actions by a specific actor."""
+        """Get all actions by a specific actor with caching (2 min TTL)."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
@@ -1700,17 +1859,32 @@ class WorkspaceHandler(SecureHandler):
             return rbac_error
 
         days = int(query_params.get("days", "30"))
+
+        # Check cache first
+        cache_key = f"audit:actor:{actor_id}:days:{days}"
+        cached_result = _audit_query_cache.get(cache_key)
+        if cached_result is not None:
+            logger.debug(f"Cache hit for actor history: {cache_key}")
+            return json_response(cached_result)
+
         audit_log = self._get_audit_log()
         entries = self._run_async(audit_log.get_actor_history(actor_id=actor_id, days=days))
 
-        return json_response(
-            {
-                "actor_id": actor_id,
-                "entries": [e.to_dict() for e in entries],
-                "total": len(entries),
-                "days": days,
-            }
-        )
+        # Batch convert entries to dict
+        entry_dicts = [e.to_dict() for e in entries]
+
+        result = {
+            "actor_id": actor_id,
+            "entries": entry_dicts,
+            "total": len(entry_dicts),
+            "days": days,
+        }
+
+        # Cache the result
+        _audit_query_cache.set(cache_key, result)
+        logger.debug(f"Cached actor history: {cache_key}")
+
+        return json_response(result)
 
     @api_endpoint(
         method="GET",
@@ -1722,7 +1896,7 @@ class WorkspaceHandler(SecureHandler):
     def _handle_resource_history(
         self, handler: HTTPRequestHandler, resource_id: str, query_params: dict[str, Any]
     ) -> HandlerResult:
-        """Get all actions on a specific resource."""
+        """Get all actions on a specific resource with caching (2 min TTL)."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
@@ -1734,19 +1908,34 @@ class WorkspaceHandler(SecureHandler):
             return rbac_error
 
         days = safe_query_int(query_params, "days", default=30, min_val=1, max_val=365)
+
+        # Check cache first
+        cache_key = f"audit:resource:{resource_id}:days:{days}"
+        cached_result = _audit_query_cache.get(cache_key)
+        if cached_result is not None:
+            logger.debug(f"Cache hit for resource history: {cache_key}")
+            return json_response(cached_result)
+
         audit_log = self._get_audit_log()
         entries = self._run_async(
             audit_log.get_resource_history(resource_id=resource_id, days=days)
         )
 
-        return json_response(
-            {
-                "resource_id": resource_id,
-                "entries": [e.to_dict() for e in entries],
-                "total": len(entries),
-                "days": days,
-            }
-        )
+        # Batch convert entries to dict
+        entry_dicts = [e.to_dict() for e in entries]
+
+        result = {
+            "resource_id": resource_id,
+            "entries": entry_dicts,
+            "total": len(entry_dicts),
+            "days": days,
+        }
+
+        # Cache the result
+        _audit_query_cache.set(cache_key, result)
+        logger.debug(f"Cached resource history: {cache_key}")
+
+        return json_response(result)
 
     @api_endpoint(
         method="GET",
@@ -1758,7 +1947,7 @@ class WorkspaceHandler(SecureHandler):
     def _handle_denied_access(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
     ) -> HandlerResult:
-        """Get all denied access attempts."""
+        """Get all denied access attempts with caching (2 min TTL)."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
@@ -1770,20 +1959,36 @@ class WorkspaceHandler(SecureHandler):
             return rbac_error
 
         days = safe_query_int(query_params, "days", default=7, min_val=1, max_val=365)
+
+        # Check cache first
+        cache_key = f"audit:denied:days:{days}"
+        cached_result = _audit_query_cache.get(cache_key)
+        if cached_result is not None:
+            logger.debug(f"Cache hit for denied access: {cache_key}")
+            return json_response(cached_result)
+
         audit_log = self._get_audit_log()
         entries = self._run_async(audit_log.get_denied_access_attempts(days=days))
 
-        return json_response(
-            {
-                "denied_attempts": [e.to_dict() for e in entries],
-                "total": len(entries),
-                "days": days,
-            }
-        )
+        # Batch convert entries to dict
+        entry_dicts = [e.to_dict() for e in entries]
+
+        result = {
+            "denied_attempts": entry_dicts,
+            "total": len(entry_dicts),
+            "days": days,
+        }
+
+        # Cache the result
+        _audit_query_cache.set(cache_key, result)
+        logger.debug(f"Cached denied access: {cache_key}")
+
+        return json_response(result)
 
 
 __all__ = [
     "WorkspaceHandler",
     "WorkspaceCircuitBreaker",
     "get_workspace_circuit_breaker_status",
+    "get_workspace_cache_stats",
 ]

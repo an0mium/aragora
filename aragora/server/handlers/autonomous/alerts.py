@@ -40,7 +40,9 @@ def get_alert_circuit_breaker() -> CircuitBreaker:
 
 def get_alert_circuit_breaker_status() -> dict:
     """Get current status of the alert circuit breaker."""
-    return _alert_circuit_breaker.to_dict()
+    status = _alert_circuit_breaker.to_dict()
+    status.setdefault("name", _alert_circuit_breaker.name)
+    return status
 
 
 # Global alert analyzer instance

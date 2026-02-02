@@ -466,13 +466,14 @@ class CloudStorageHandler(BaseHandler):
             # File-specific routes
             if path.startswith("/api/v2/storage/files/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/storage/files/:file_id -> ["", "api", "v2", "storage", "files", file_id]
+                if len(parts) < 6:
                     return error_response("Invalid file path", 400)
 
-                file_id = parts[4]
+                file_id = parts[5]
 
                 # Download endpoint
-                if len(parts) > 5 and parts[5] == "download":
+                if len(parts) > 6 and parts[6] == "download":
                     return await self._download_file(file_id, handler)
 
                 # Get file metadata
@@ -481,10 +482,11 @@ class CloudStorageHandler(BaseHandler):
             # Bucket-specific routes
             if path.startswith("/api/v2/storage/buckets/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/storage/buckets/:bucket_id -> ["", "api", "v2", "storage", "buckets", bucket_id]
+                if len(parts) < 6:
                     return error_response("Invalid bucket path", 400)
 
-                bucket_id = parts[4]
+                bucket_id = parts[5]
                 return await self._get_bucket(bucket_id, handler)
 
             return None
@@ -533,13 +535,14 @@ class CloudStorageHandler(BaseHandler):
             # File-specific POST routes
             if path.startswith("/api/v2/storage/files/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/storage/files/:file_id/presign -> ["", "api", "v2", "storage", "files", file_id, "presign"]
+                if len(parts) < 6:
                     return error_response("Invalid file path", 400)
 
-                file_id = parts[4]
+                file_id = parts[5]
 
                 # Presigned URL endpoint
-                if len(parts) > 5 and parts[5] == "presign":
+                if len(parts) > 6 and parts[6] == "presign":
                     return await self._generate_presigned_url(file_id, body, handler)
 
             return None
@@ -577,17 +580,19 @@ class CloudStorageHandler(BaseHandler):
             # Delete file
             if path.startswith("/api/v2/storage/files/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/storage/files/:file_id -> ["", "api", "v2", "storage", "files", file_id]
+                if len(parts) < 6:
                     return error_response("Invalid file path", 400)
-                file_id = parts[4]
+                file_id = parts[5]
                 return await self._delete_file(file_id, handler)
 
             # Delete bucket
             if path.startswith("/api/v2/storage/buckets/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/storage/buckets/:bucket_id -> ["", "api", "v2", "storage", "buckets", bucket_id]
+                if len(parts) < 6:
                     return error_response("Invalid bucket path", 400)
-                bucket_id = parts[4]
+                bucket_id = parts[5]
                 return await self._delete_bucket(bucket_id, handler)
 
             return None
@@ -679,10 +684,10 @@ class CloudStorageHandler(BaseHandler):
 
             # Return file data with proper content type
             return HandlerResult(
+                status_code=200,
+                content_type=file_meta.content_type,
                 body=data,
-                status=200,
                 headers={
-                    "Content-Type": file_meta.content_type,
                     "Content-Disposition": f'attachment; filename="{file_meta.original_filename}"',
                     "Content-Length": str(len(data)),
                 },

@@ -518,3 +518,353 @@ class TestGatewayUnavailable:
 
             assert result is not None
             assert result.status_code == 503
+
+    def test_gateway_unavailable_get_agent(self, server_context: dict[str, Any]) -> None:
+        """GET agent returns 503 when gateway not available."""
+        with patch("aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", False):
+            h = GatewayAgentsHandler(server_context)
+            mock_handler = make_mock_handler()
+
+            result = h.handle("/api/v1/gateway/agents/my-agent", {}, mock_handler)
+
+            assert result is not None
+            assert result.status_code == 503
+
+    def test_gateway_unavailable_delete(self, server_context: dict[str, Any]) -> None:
+        """DELETE returns 503 when gateway not available."""
+        with patch("aragora.server.handlers.gateway_agents_handler.GATEWAY_AVAILABLE", False):
+            h = GatewayAgentsHandler(server_context)
+            mock_handler = make_mock_handler()
+
+            result = h.handle_delete("/api/v1/gateway/agents/my-agent", {}, mock_handler)
+
+            assert result is not None
+            assert result.status_code == 503
+
+
+# ===========================================================================
+# Circuit Breaker Tests
+# ===========================================================================
+
+
+class TestCircuitBreaker:
+    """Test circuit breaker functionality."""
+
+    def test_circuit_breaker_exists(self) -> None:
+        """Test that circuit breaker can be retrieved."""
+        from aragora.server.handlers.gateway_agents_handler import (
+            get_gateway_agents_circuit_breaker,
+        )
+
+        cb = get_gateway_agents_circuit_breaker()
+        assert cb is not None
+        assert cb.name == "gateway_agents_handler"
+
+    def test_circuit_breaker_status(self) -> None:
+        """Test that circuit breaker status can be retrieved."""
+        from aragora.server.handlers.gateway_agents_handler import (
+            get_gateway_agents_circuit_breaker_status,
+        )
+
+        status = get_gateway_agents_circuit_breaker_status()
+        assert isinstance(status, dict)
+        # Status dict has config, entity_mode, and single_mode keys
+        assert "config" in status or "single_mode" in status
+
+    def test_circuit_breaker_reset(self) -> None:
+        """Test that circuit breaker can be reset."""
+        from aragora.server.handlers.gateway_agents_handler import (
+            get_gateway_agents_circuit_breaker,
+            reset_gateway_agents_circuit_breaker,
+        )
+
+        cb = get_gateway_agents_circuit_breaker()
+        reset_gateway_agents_circuit_breaker()
+        assert cb._single_failures == 0
+
+    def test_circuit_breaker_threshold(self) -> None:
+        """Test circuit breaker has correct failure threshold."""
+        from aragora.server.handlers.gateway_agents_handler import (
+            get_gateway_agents_circuit_breaker,
+        )
+
+        cb = get_gateway_agents_circuit_breaker()
+        assert cb.failure_threshold == 5
+
+    def test_circuit_breaker_cooldown(self) -> None:
+        """Test circuit breaker has correct cooldown."""
+        from aragora.server.handlers.gateway_agents_handler import (
+            get_gateway_agents_circuit_breaker,
+        )
+
+        cb = get_gateway_agents_circuit_breaker()
+        assert cb.cooldown_seconds == 30.0
+
+
+# ===========================================================================
+# Agent Name Validation Tests
+# ===========================================================================
+
+
+class TestAgentNameValidation:
+    """Test agent name validation edge cases."""
+
+    def test_agent_name_with_underscore(self, handler: GatewayAgentsHandler) -> None:
+        """Agent name with underscore should be valid."""
+        body = valid_agent_body(name="my_agent")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_agent_name_with_numbers(self, handler: GatewayAgentsHandler) -> None:
+        """Agent name with numbers should be valid."""
+        body = valid_agent_body(name="agent123")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_agent_name_starting_with_number(self, handler: GatewayAgentsHandler) -> None:
+        """Agent name starting with number should be valid."""
+        body = valid_agent_body(name="123agent")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_agent_name_starting_with_hyphen(self, handler: GatewayAgentsHandler) -> None:
+        """Agent name starting with hyphen should be invalid."""
+        body = valid_agent_body(name="-invalid")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_agent_name_at_max_length(self, handler: GatewayAgentsHandler) -> None:
+        """Agent name at max length (64) should be valid."""
+        body = valid_agent_body(name="a" * 64)
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+
+# ===========================================================================
+# Framework Type Validation Tests
+# ===========================================================================
+
+
+class TestFrameworkTypeValidation:
+    """Test framework type validation."""
+
+    def test_all_valid_frameworks(self, handler: GatewayAgentsHandler) -> None:
+        """All valid framework types should be accepted."""
+        for framework in ALLOWED_FRAMEWORKS:
+            h = GatewayAgentsHandler({"external_agents": {}})
+            body = valid_agent_body(framework_type=framework, name=f"agent-{framework}")
+            mock_handler = make_mock_handler(body)
+
+            result = h.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+            assert result is not None, f"Failed for framework: {framework}"
+            assert result.status_code == 201, f"Failed for framework: {framework}"
+
+    def test_openclaw_framework(self, handler: GatewayAgentsHandler) -> None:
+        """openclaw framework should be valid."""
+        body = valid_agent_body(framework_type="openclaw")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_autogen_framework(self, handler: GatewayAgentsHandler) -> None:
+        """autogen framework should be valid."""
+        body = valid_agent_body(framework_type="autogen", name="autogen-agent")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+
+# ===========================================================================
+# URL Validation Tests
+# ===========================================================================
+
+
+class TestURLValidation:
+    """Test base_url validation."""
+
+    def test_empty_base_url(self, handler: GatewayAgentsHandler) -> None:
+        """Empty base_url should be rejected."""
+        url_error = handler._validate_base_url("")
+        assert url_error is not None
+        assert url_error.status_code == 400
+
+    def test_invalid_protocol(self, handler: GatewayAgentsHandler) -> None:
+        """Non-HTTP/HTTPS protocol should be rejected."""
+        url_error = handler._validate_base_url("ftp://example.com")
+        assert url_error is not None
+        assert url_error.status_code == 400
+
+
+# ===========================================================================
+# Handler Method Routing Tests
+# ===========================================================================
+
+
+class TestHandlerMethodRouting:
+    """Test that handlers correctly route to sub-methods."""
+
+    def test_handle_returns_none_for_invalid_path(self, handler: GatewayAgentsHandler) -> None:
+        """Test handle returns None for non-agent paths."""
+        mock_handler = make_mock_handler()
+        result = handler.handle("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_post_returns_none_for_invalid_path(self, handler: GatewayAgentsHandler) -> None:
+        """Test handle_post returns None for non-agent paths."""
+        mock_handler = make_mock_handler(valid_agent_body())
+        result = handler.handle_post("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_delete_returns_none_for_invalid_path(
+        self, handler: GatewayAgentsHandler
+    ) -> None:
+        """Test handle_delete returns None for non-agent paths."""
+        mock_handler = make_mock_handler()
+        result = handler.handle_delete("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_delete_returns_none_for_base_path(self, handler: GatewayAgentsHandler) -> None:
+        """Test handle_delete returns None for base agents path."""
+        mock_handler = make_mock_handler()
+        result = handler.handle_delete("/api/v1/gateway/agents", {}, mock_handler)
+        assert result is None
+
+
+# ===========================================================================
+# Path Extraction Tests
+# ===========================================================================
+
+
+class TestPathExtraction:
+    """Test agent name extraction from paths."""
+
+    def test_extract_agent_name_basic(self, handler: GatewayAgentsHandler) -> None:
+        """Test basic agent name extraction."""
+        name = handler._extract_agent_name("/api/v1/gateway/agents/my-agent")
+        assert name == "my-agent"
+
+    def test_extract_agent_name_with_trailing_slash(self, handler: GatewayAgentsHandler) -> None:
+        """Test agent name extraction with trailing slash."""
+        name = handler._extract_agent_name("/api/v1/gateway/agents/my-agent/")
+        assert name == "my-agent"
+
+    def test_extract_agent_name_base_path(self, handler: GatewayAgentsHandler) -> None:
+        """Test agent name extraction returns None for base path."""
+        name = handler._extract_agent_name("/api/v1/gateway/agents")
+        assert name is None
+
+
+# ===========================================================================
+# Optional Fields Tests
+# ===========================================================================
+
+
+class TestOptionalFields:
+    """Test optional agent fields."""
+
+    def test_register_with_custom_timeout(self, handler: GatewayAgentsHandler) -> None:
+        """Agent with custom timeout should be stored correctly."""
+        body = valid_agent_body(timeout=120)
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+        agents = handler._get_external_agents()
+        assert agents["my-crewai-agent"]["timeout"] == 120
+
+    def test_register_with_api_key_env(self, handler: GatewayAgentsHandler) -> None:
+        """Agent with api_key_env should be stored correctly."""
+        body = valid_agent_body(api_key_env="MY_AGENT_API_KEY")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/agents", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+        agents = handler._get_external_agents()
+        assert agents["my-crewai-agent"]["api_key_env"] == "MY_AGENT_API_KEY"
+
+
+# ===========================================================================
+# Get Agent Details Extended Tests
+# ===========================================================================
+
+
+class TestGetAgentDetailsExtended:
+    """Extended tests for getting agent details."""
+
+    def test_get_agent_returns_all_fields(
+        self, handler: GatewayAgentsHandler, server_context: dict[str, Any]
+    ) -> None:
+        """Getting agent returns all stored fields."""
+        server_context["external_agents"]["full-agent"] = {
+            "name": "full-agent",
+            "framework_type": "langgraph",
+            "base_url": "https://full.example.com",
+            "timeout": 90,
+            "config": {"model": "claude-3", "temperature": 0.5},
+            "api_key_env": "FULL_AGENT_KEY",
+        }
+
+        mock_handler = make_mock_handler()
+        result = handler.handle("/api/v1/gateway/agents/full-agent", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+
+        data = json.loads(result.body)
+        assert data["name"] == "full-agent"
+        assert data["framework_type"] == "langgraph"
+        assert data["base_url"] == "https://full.example.com"
+        assert data["timeout"] == 90
+        assert data["config"] == {"model": "claude-3", "temperature": 0.5}
+
+    def test_get_agent_default_timeout(
+        self, handler: GatewayAgentsHandler, server_context: dict[str, Any]
+    ) -> None:
+        """Getting agent without timeout returns default."""
+        server_context["external_agents"]["no-timeout-agent"] = {
+            "name": "no-timeout-agent",
+            "framework_type": "crewai",
+            "base_url": "https://example.com",
+        }
+
+        mock_handler = make_mock_handler()
+        result = handler.handle("/api/v1/gateway/agents/no-timeout-agent", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+
+        data = json.loads(result.body)
+        assert data["timeout"] == 30  # DEFAULT_TIMEOUT

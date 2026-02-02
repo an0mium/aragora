@@ -536,3 +536,548 @@ class TestProxyFallback:
 
         # CRITICAL: no value stored in metadata
         assert "value" not in credentials[cred_id]
+
+
+# ===========================================================================
+# Circuit Breaker Tests
+# ===========================================================================
+
+
+class TestCircuitBreaker:
+    """Test circuit breaker functionality."""
+
+    def test_circuit_breaker_exists(self) -> None:
+        """Test that circuit breaker can be retrieved."""
+        from aragora.server.handlers.gateway_credentials_handler import (
+            get_gateway_credentials_circuit_breaker,
+        )
+
+        cb = get_gateway_credentials_circuit_breaker()
+        assert cb is not None
+        assert cb.name == "gateway_credentials_handler"
+
+    def test_circuit_breaker_status(self) -> None:
+        """Test that circuit breaker status can be retrieved."""
+        from aragora.server.handlers.gateway_credentials_handler import (
+            get_gateway_credentials_circuit_breaker_status,
+        )
+
+        status = get_gateway_credentials_circuit_breaker_status()
+        assert isinstance(status, dict)
+        # Status dict has config, entity_mode, and single_mode keys
+        assert "config" in status or "single_mode" in status
+
+    def test_circuit_breaker_reset(self) -> None:
+        """Test that circuit breaker can be reset."""
+        from aragora.server.handlers.gateway_credentials_handler import (
+            get_gateway_credentials_circuit_breaker,
+            reset_gateway_credentials_circuit_breaker,
+        )
+
+        cb = get_gateway_credentials_circuit_breaker()
+        reset_gateway_credentials_circuit_breaker()
+        assert cb._single_failures == 0
+
+    def test_circuit_breaker_threshold(self) -> None:
+        """Test circuit breaker has correct failure threshold."""
+        from aragora.server.handlers.gateway_credentials_handler import (
+            get_gateway_credentials_circuit_breaker,
+        )
+
+        cb = get_gateway_credentials_circuit_breaker()
+        assert cb.failure_threshold == 5
+
+    def test_circuit_breaker_cooldown(self) -> None:
+        """Test circuit breaker has correct cooldown."""
+        from aragora.server.handlers.gateway_credentials_handler import (
+            get_gateway_credentials_circuit_breaker,
+        )
+
+        cb = get_gateway_credentials_circuit_breaker()
+        assert cb.cooldown_seconds == 30.0
+
+
+# ===========================================================================
+# Service Name Validation Tests
+# ===========================================================================
+
+
+class TestServiceNameValidation:
+    """Test service_name validation edge cases."""
+
+    def test_service_name_with_numbers(self, handler: GatewayCredentialsHandler) -> None:
+        """Service name with numbers should be valid."""
+        body = valid_credential_body(service_name="service123")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_service_name_with_hyphens(self, handler: GatewayCredentialsHandler) -> None:
+        """Service name with hyphens should be valid."""
+        body = valid_credential_body(service_name="my-service-name")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_service_name_starting_with_hyphen(self, handler: GatewayCredentialsHandler) -> None:
+        """Service name starting with hyphen should be invalid."""
+        body = valid_credential_body(service_name="-invalid")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_service_name_max_length(self, handler: GatewayCredentialsHandler) -> None:
+        """Service name at max length (128) should be valid."""
+        body = valid_credential_body(service_name="a" * 128)
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_service_name_exceeds_max_length(self, handler: GatewayCredentialsHandler) -> None:
+        """Service name exceeding max length should be invalid."""
+        body = valid_credential_body(service_name="a" * 129)
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# Credential Type Tests
+# ===========================================================================
+
+
+class TestCredentialTypeValidation:
+    """Test credential_type validation."""
+
+    def test_oauth_token_type(self, handler: GatewayCredentialsHandler) -> None:
+        """oauth_token credential type should be valid."""
+        body = valid_credential_body(credential_type="oauth_token")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_bearer_token_type(self, handler: GatewayCredentialsHandler) -> None:
+        """bearer_token credential type should be valid."""
+        body = valid_credential_body(credential_type="bearer_token")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_basic_auth_type(self, handler: GatewayCredentialsHandler) -> None:
+        """basic_auth credential type should be valid."""
+        body = valid_credential_body(credential_type="basic_auth")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_custom_type(self, handler: GatewayCredentialsHandler) -> None:
+        """custom credential type should be valid."""
+        body = valid_credential_body(credential_type="custom")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_all_valid_types(self, handler: GatewayCredentialsHandler) -> None:
+        """All valid credential types should be accepted."""
+        for cred_type in VALID_CREDENTIAL_TYPES:
+            h = GatewayCredentialsHandler({})  # Fresh handler for each
+            # Service name must be alphanumeric with hyphens only (no underscores)
+            safe_name = cred_type.replace("_", "-")
+            body = valid_credential_body(credential_type=cred_type, service_name=f"svc-{safe_name}")
+            mock_handler = make_mock_handler(body)
+
+            result = h.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+            assert result is not None, f"Failed for type: {cred_type}"
+            assert result.status_code == 201, f"Failed for type: {cred_type}"
+
+
+# ===========================================================================
+# Value Validation Tests
+# ===========================================================================
+
+
+class TestValueValidation:
+    """Test credential value validation."""
+
+    def test_whitespace_only_value(self, handler: GatewayCredentialsHandler) -> None:
+        """Whitespace-only value should be rejected."""
+        body = valid_credential_body(value="   ")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_non_string_value(self, handler: GatewayCredentialsHandler) -> None:
+        """Non-string value should be rejected."""
+        body = valid_credential_body()
+        body["value"] = 12345  # Integer instead of string
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# Optional Fields Tests
+# ===========================================================================
+
+
+class TestOptionalFields:
+    """Test optional credential fields."""
+
+    def test_store_with_tenant_id(self, handler: GatewayCredentialsHandler) -> None:
+        """Credential with tenant_id should be stored correctly."""
+        body = valid_credential_body(tenant_id="tenant-123")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+        data = json.loads(result.body)
+        assert data["tenant_id"] == "tenant-123"
+
+    def test_store_with_expires_at(self, handler: GatewayCredentialsHandler) -> None:
+        """Credential with expires_at should be stored correctly."""
+        body = valid_credential_body(expires_at="2026-12-31T23:59:59Z")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+        data = json.loads(result.body)
+        assert data["expires_at"] == "2026-12-31T23:59:59Z"
+
+    def test_store_with_metadata(self, handler: GatewayCredentialsHandler) -> None:
+        """Credential with metadata should be stored correctly."""
+        body = valid_credential_body(metadata={"env": "production", "region": "us-east"})
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 201
+
+        # Check metadata is stored in internal store
+        data = json.loads(result.body)
+        cred_id = data["credential_id"]
+        meta = handler._get_credentials()[cred_id]
+        assert meta["metadata"] == {"env": "production", "region": "us-east"}
+
+    def test_get_credential_returns_optional_fields(
+        self, handler: GatewayCredentialsHandler
+    ) -> None:
+        """Getting credential should return all optional fields."""
+        body = valid_credential_body(
+            tenant_id="tenant-456",
+            scopes=["read", "write"],
+            expires_at="2027-01-01T00:00:00Z",
+            metadata={"key": "value"},
+        )
+        _, cred_id = store_credential(handler, body)
+        assert cred_id is not None
+
+        mock_handler = make_mock_handler()
+        result = handler.handle(f"/api/v1/gateway/credentials/{cred_id}", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+
+        data = json.loads(result.body)
+        assert data["tenant_id"] == "tenant-456"
+        assert data["scopes"] == ["read", "write"]
+        assert data["expires_at"] == "2027-01-01T00:00:00Z"
+        assert data["metadata"] == {"key": "value"}
+
+
+# ===========================================================================
+# Rotation Edge Cases Tests
+# ===========================================================================
+
+
+class TestRotationEdgeCases:
+    """Test credential rotation edge cases."""
+
+    def test_rotate_preserves_service_name(self, handler: GatewayCredentialsHandler) -> None:
+        """Rotated credential preserves original service_name."""
+        _, old_cred_id = store_credential(handler, valid_credential_body(service_name="my-service"))
+        assert old_cred_id is not None
+
+        rotate_body = {"value": "sk-new-rotated-value"}
+        mock_handler = make_mock_handler(rotate_body)
+
+        result = handler.handle_post(
+            f"/api/v1/gateway/credentials/{old_cred_id}/rotate",
+            {},
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 201
+
+        data = json.loads(result.body)
+        assert data["service_name"] == "my-service"
+
+    def test_rotate_preserves_credential_type(self, handler: GatewayCredentialsHandler) -> None:
+        """Rotated credential preserves original credential_type."""
+        _, old_cred_id = store_credential(
+            handler, valid_credential_body(credential_type="oauth_token")
+        )
+        assert old_cred_id is not None
+
+        rotate_body = {"value": "new-oauth-token"}
+        mock_handler = make_mock_handler(rotate_body)
+
+        result = handler.handle_post(
+            f"/api/v1/gateway/credentials/{old_cred_id}/rotate",
+            {},
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 201
+
+        data = json.loads(result.body)
+        assert data["credential_type"] == "oauth_token"
+
+    def test_rotate_empty_value_rejected(self, handler: GatewayCredentialsHandler) -> None:
+        """Rotation with empty value should be rejected."""
+        _, old_cred_id = store_credential(handler)
+        assert old_cred_id is not None
+
+        rotate_body = {"value": ""}
+        mock_handler = make_mock_handler(rotate_body)
+
+        result = handler.handle_post(
+            f"/api/v1/gateway/credentials/{old_cred_id}/rotate",
+            {},
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_rotate_whitespace_value_rejected(self, handler: GatewayCredentialsHandler) -> None:
+        """Rotation with whitespace-only value should be rejected."""
+        _, old_cred_id = store_credential(handler)
+        assert old_cred_id is not None
+
+        rotate_body = {"value": "   "}
+        mock_handler = make_mock_handler(rotate_body)
+
+        result = handler.handle_post(
+            f"/api/v1/gateway/credentials/{old_cred_id}/rotate",
+            {},
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# Path Extraction Tests
+# ===========================================================================
+
+
+class TestPathExtraction:
+    """Test credential ID extraction from paths."""
+
+    def test_extract_credential_id_basic(self, handler: GatewayCredentialsHandler) -> None:
+        """Test basic credential ID extraction."""
+        cred_id = handler._extract_credential_id("/api/v1/gateway/credentials/cred_abc123")
+        assert cred_id == "cred_abc123"
+
+    def test_extract_credential_id_with_trailing_slash(
+        self, handler: GatewayCredentialsHandler
+    ) -> None:
+        """Test credential ID extraction with trailing slash."""
+        cred_id = handler._extract_credential_id("/api/v1/gateway/credentials/cred_abc123/")
+        assert cred_id == "cred_abc123"
+
+    def test_extract_credential_id_from_rotate_path(
+        self, handler: GatewayCredentialsHandler
+    ) -> None:
+        """Test credential ID extraction from rotate path."""
+        cred_id = handler._extract_credential_id("/api/v1/gateway/credentials/cred_abc123/rotate")
+        assert cred_id == "cred_abc123"
+
+    def test_is_rotate_path_positive(self, handler: GatewayCredentialsHandler) -> None:
+        """Test rotate path detection - positive case."""
+        assert handler._is_rotate_path("/api/v1/gateway/credentials/cred_abc123/rotate")
+
+    def test_is_rotate_path_negative(self, handler: GatewayCredentialsHandler) -> None:
+        """Test rotate path detection - negative case."""
+        assert not handler._is_rotate_path("/api/v1/gateway/credentials/cred_abc123")
+
+
+# ===========================================================================
+# Handler Method Routing Tests
+# ===========================================================================
+
+
+class TestHandlerMethodRouting:
+    """Test that handlers correctly route to sub-methods."""
+
+    def test_handle_returns_none_for_invalid_path(self, handler: GatewayCredentialsHandler) -> None:
+        """Test handle returns None for non-credential paths."""
+        mock_handler = make_mock_handler()
+        result = handler.handle("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_post_returns_none_for_invalid_path(
+        self, handler: GatewayCredentialsHandler
+    ) -> None:
+        """Test handle_post returns None for non-credential paths."""
+        mock_handler = make_mock_handler(valid_credential_body())
+        result = handler.handle_post("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_delete_returns_none_for_invalid_path(
+        self, handler: GatewayCredentialsHandler
+    ) -> None:
+        """Test handle_delete returns None for non-credential paths."""
+        mock_handler = make_mock_handler()
+        result = handler.handle_delete("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_delete_returns_none_for_base_path(
+        self, handler: GatewayCredentialsHandler
+    ) -> None:
+        """Test handle_delete returns None for base credentials path."""
+        mock_handler = make_mock_handler()
+        result = handler.handle_delete("/api/v1/gateway/credentials", {}, mock_handler)
+        assert result is None
+
+
+# ===========================================================================
+# Credential Metadata Helper Tests
+# ===========================================================================
+
+
+class TestCredentialMetadataHelper:
+    """Test credential metadata helper function."""
+
+    def test_make_credential_metadata_basic(self, handler: GatewayCredentialsHandler) -> None:
+        """Test basic metadata creation."""
+        meta = handler._make_credential_metadata(
+            credential_id="cred_test",
+            service_name="test-service",
+            credential_type="api_key",
+        )
+
+        assert meta["credential_id"] == "cred_test"
+        assert meta["service_name"] == "test-service"
+        assert meta["credential_type"] == "api_key"
+        assert meta["status"] == "active"
+        assert "created_at" in meta
+
+    def test_make_credential_metadata_with_optionals(
+        self, handler: GatewayCredentialsHandler
+    ) -> None:
+        """Test metadata creation with optional fields."""
+        meta = handler._make_credential_metadata(
+            credential_id="cred_test",
+            service_name="test-service",
+            credential_type="api_key",
+            tenant_id="tenant-1",
+            scopes=["read"],
+            expires_at="2027-01-01T00:00:00Z",
+            metadata={"env": "test"},
+            status="rotated",
+        )
+
+        assert meta["tenant_id"] == "tenant-1"
+        assert meta["scopes"] == ["read"]
+        assert meta["expires_at"] == "2027-01-01T00:00:00Z"
+        assert meta["metadata"] == {"env": "test"}
+        assert meta["status"] == "rotated"
+
+
+# ===========================================================================
+# Security Tests - Value Never Leaked
+# ===========================================================================
+
+
+class TestSecurityValueNeverLeaked:
+    """Critical security tests to ensure credential values are never leaked."""
+
+    def test_store_response_no_value(self, handler: GatewayCredentialsHandler) -> None:
+        """Store response must never contain value field."""
+        body = valid_credential_body(value="super-secret-key-12345")
+        mock_handler = make_mock_handler(body)
+
+        result = handler.handle_post("/api/v1/gateway/credentials", {}, mock_handler)
+
+        assert result is not None
+        raw_body = result.body.decode("utf-8") if isinstance(result.body, bytes) else result.body
+        assert "super-secret-key-12345" not in raw_body
+
+    def test_rotate_response_no_value(self, handler: GatewayCredentialsHandler) -> None:
+        """Rotate response must never contain value field."""
+        _, old_cred_id = store_credential(handler)
+        assert old_cred_id is not None
+
+        rotate_body = {"value": "new-super-secret-key-67890"}
+        mock_handler = make_mock_handler(rotate_body)
+
+        result = handler.handle_post(
+            f"/api/v1/gateway/credentials/{old_cred_id}/rotate",
+            {},
+            mock_handler,
+        )
+
+        assert result is not None
+        raw_body = result.body.decode("utf-8") if isinstance(result.body, bytes) else result.body
+        assert "new-super-secret-key-67890" not in raw_body
+
+    def test_internal_storage_no_value(self, handler: GatewayCredentialsHandler) -> None:
+        """Internal metadata storage must never contain value field."""
+        body = valid_credential_body(value="stored-secret-value")
+        _, cred_id = store_credential(handler, body)
+        assert cred_id is not None
+
+        credentials = handler._get_credentials()
+        meta = credentials[cred_id]
+
+        # Check all keys in metadata
+        assert "value" not in meta
+        # Also check no value string in any field
+        for key, val in meta.items():
+            if isinstance(val, str):
+                assert "stored-secret-value" not in val

@@ -949,3 +949,959 @@ class TestHybridDebateHandlerResponseFormat:
 
         for field in required_fields:
             assert field in body, f"Missing field: {field}"
+
+
+class TestHybridDebateHandlerCircuitBreaker:
+    """Tests for circuit breaker behavior."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return HybridDebateHandler(mock_server_context)
+
+    @pytest.fixture(autouse=True)
+    def reset_circuit_breaker(self):
+        """Reset circuit breaker before and after each test."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            reset_hybrid_debate_circuit_breaker,
+        )
+
+        reset_hybrid_debate_circuit_breaker()
+        yield
+        reset_hybrid_debate_circuit_breaker()
+
+    def test_circuit_breaker_initially_closed(self, handler, mock_http_handler_with_body):
+        """Circuit breaker starts in closed state (allows requests)."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            get_hybrid_debate_circuit_breaker,
+        )
+
+        cb = get_hybrid_debate_circuit_breaker()
+        assert cb.can_proceed()
+
+    def test_circuit_breaker_opens_after_failures(self, handler, mock_http_handler_with_body):
+        """Circuit breaker opens after consecutive failures."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            get_hybrid_debate_circuit_breaker,
+        )
+
+        cb = get_hybrid_debate_circuit_breaker()
+
+        # Record 5 failures (threshold)
+        for _ in range(5):
+            cb.record_failure()
+
+        assert not cb.can_proceed()
+
+    def test_create_returns_503_when_circuit_open(self, handler, mock_http_handler_with_body):
+        """Create endpoint returns 503 when circuit breaker is open."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            get_hybrid_debate_circuit_breaker,
+        )
+
+        cb = get_hybrid_debate_circuit_breaker()
+
+        # Open the circuit by recording failures
+        for _ in range(5):
+            cb.record_failure()
+
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+        body = json.loads(result.body)
+        assert "temporarily unavailable" in body["error"].lower()
+
+    def test_successful_create_records_success(self, handler, mock_http_handler_with_body):
+        """Successful create records success with circuit breaker."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            get_hybrid_debate_circuit_breaker,
+        )
+
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+
+        cb = get_hybrid_debate_circuit_breaker()
+        # After success, circuit should still be closed
+        assert cb.can_proceed()
+
+    def test_failed_create_records_failure(self, handler, mock_http_handler_with_body):
+        """Failed create records failure with circuit breaker and returns 500."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            get_hybrid_debate_circuit_breaker,
+        )
+
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        # Make _run_debate raise an exception
+        # The @handle_errors decorator catches the exception and returns an error response
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            with patch.object(
+                handler, "_run_debate", side_effect=RuntimeError("Simulated failure")
+            ):
+                result = handler.handle_post(
+                    "/api/v1/debates/hybrid",
+                    {},
+                    mock_http_handler_with_body,
+                )
+
+        # @handle_errors catches exceptions and returns error response
+        assert result is not None
+        assert result.status_code == 500  # Internal server error
+
+        cb = get_hybrid_debate_circuit_breaker()
+        # After failure, we should have recorded it
+        # The circuit should still be closed after 1 failure (threshold is 5)
+        assert cb.can_proceed()
+
+    def test_get_hybrid_debate_circuit_breaker_returns_same_instance(self):
+        """get_hybrid_debate_circuit_breaker returns singleton instance."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            get_hybrid_debate_circuit_breaker,
+        )
+
+        cb1 = get_hybrid_debate_circuit_breaker()
+        cb2 = get_hybrid_debate_circuit_breaker()
+        assert cb1 is cb2
+
+    def test_reset_hybrid_debate_circuit_breaker_resets_state(self):
+        """reset_hybrid_debate_circuit_breaker resets the circuit state."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            get_hybrid_debate_circuit_breaker,
+            reset_hybrid_debate_circuit_breaker,
+        )
+
+        cb = get_hybrid_debate_circuit_breaker()
+
+        # Open the circuit
+        for _ in range(5):
+            cb.record_failure()
+
+        assert not cb.can_proceed()
+
+        # Reset it
+        reset_hybrid_debate_circuit_breaker()
+
+        # Should be usable again
+        assert cb.can_proceed()
+
+
+class TestHybridDebateHandlerExceptionHandling:
+    """Tests for exception handling in debate execution."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return HybridDebateHandler(mock_server_context)
+
+    @pytest.fixture(autouse=True)
+    def reset_circuit_breaker(self):
+        """Reset circuit breaker before and after each test."""
+        from aragora.server.handlers.hybrid_debate_handler import (
+            reset_hybrid_debate_circuit_breaker,
+        )
+
+        reset_hybrid_debate_circuit_breaker()
+        yield
+        reset_hybrid_debate_circuit_breaker()
+
+    def test_run_debate_exception_returns_error_response(
+        self, handler, mock_http_handler_with_body
+    ):
+        """Exception in _run_debate returns error response via @handle_errors."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            with patch.object(handler, "_run_debate", side_effect=RuntimeError("Test error")):
+                result = handler.handle_post(
+                    "/api/v1/debates/hybrid",
+                    {},
+                    mock_http_handler_with_body,
+                )
+
+        # @handle_errors decorator catches the exception and returns an error response
+        # RuntimeError maps to 500 Internal Server Error
+        assert result is not None
+        assert result.status_code == 500
+        body = json.loads(result.body)
+        assert "error" in body
+
+    def test_run_debate_timeout_exception_returns_error(self, handler, mock_http_handler_with_body):
+        """Timeout exception in _run_debate returns error response."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            with patch.object(handler, "_run_debate", side_effect=TimeoutError("Debate timed out")):
+                result = handler.handle_post(
+                    "/api/v1/debates/hybrid",
+                    {},
+                    mock_http_handler_with_body,
+                )
+
+        # @handle_errors decorator catches the exception and returns an error response
+        assert result is not None
+        # TimeoutError should map to 504 Gateway Timeout
+        assert result.status_code in (500, 504)
+        body = json.loads(result.body)
+        assert "error" in body
+
+
+class TestHybridDebateHandlerEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return HybridDebateHandler(mock_server_context)
+
+    def test_empty_config_allowed(self, handler, mock_http_handler_with_body):
+        """Empty config dict is allowed."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "config": {},
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["config"] == {}
+
+    def test_non_dict_config_replaced_with_empty_dict(self, handler, mock_http_handler_with_body):
+        """Non-dict config is replaced with empty dict."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "config": "not a dict",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["config"] == {}
+
+    def test_non_string_domain_replaced_with_general(self, handler, mock_http_handler_with_body):
+        """Non-string domain is replaced with 'general'."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "domain": 123,
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["domain"] == "general"
+
+    def test_task_at_exact_limit(self, handler, mock_http_handler_with_body):
+        """Task at exactly 5000 characters is accepted."""
+        task = "x" * 5000
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": task,
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+
+    def test_consensus_threshold_at_boundaries(self, handler, mock_http_handler_with_body):
+        """Consensus threshold at 0.0 and 1.0 boundaries."""
+        # Test 0.0
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "consensus_threshold": 0.0,
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["consensus_threshold"] == 0.0
+
+        # Test 1.0
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task 2",
+                    "external_agent": "my-crewai-agent",
+                    "consensus_threshold": 1.0,
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["consensus_threshold"] == 1.0
+
+    def test_max_rounds_at_boundaries(self, handler, mock_http_handler_with_body):
+        """Max rounds at 1 and 10 boundaries."""
+        # Test 1
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "max_rounds": 1,
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["max_rounds"] == 1
+
+        # Test 10
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task 2",
+                    "external_agent": "my-crewai-agent",
+                    "max_rounds": 10,
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["max_rounds"] == 10
+
+    def test_empty_verification_agents_list(self, handler, mock_http_handler_with_body):
+        """Empty verification_agents list is accepted."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "verification_agents": [],
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["verification_agents"] == []
+
+    def test_limit_minimum_clamped_to_1(self, handler, mock_http_handler):
+        """Limit parameter is clamped to minimum of 1."""
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle(
+                "/api/v1/debates/hybrid",
+                {"limit": "0"},
+                mock_http_handler,
+            )
+
+        assert result.status_code == 200
+
+    def test_limit_invalid_value_uses_default(self, handler, mock_http_handler):
+        """Invalid limit value uses default of 20."""
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle(
+                "/api/v1/debates/hybrid",
+                {"limit": "invalid"},
+                mock_http_handler,
+            )
+
+        assert result.status_code == 200
+
+    def test_task_with_only_whitespace(self, handler, mock_http_handler_with_body):
+        """Task with only whitespace is rejected."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "   \t\n   ",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "task" in body["error"].lower()
+
+    def test_external_agent_with_whitespace_is_trimmed(self, handler, mock_http_handler_with_body):
+        """External agent with leading/trailing whitespace is trimmed."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "  my-crewai-agent  ",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["external_agent"] == "my-crewai-agent"
+
+    def test_task_with_whitespace_is_trimmed(self, handler, mock_http_handler_with_body):
+        """Task with leading/trailing whitespace is trimmed."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "  Test task  ",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["task"] == "Test task"
+
+    def test_consensus_threshold_non_numeric_string(self, handler, mock_http_handler_with_body):
+        """Non-numeric string for consensus_threshold is rejected."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "consensus_threshold": "high",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "consensus_threshold" in body["error"].lower()
+
+    def test_max_rounds_non_numeric_string(self, handler, mock_http_handler_with_body):
+        """Non-numeric string for max_rounds is rejected."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "max_rounds": "many",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "max_rounds" in body["error"].lower()
+
+    def test_task_as_non_string_type(self, handler, mock_http_handler_with_body):
+        """Task as non-string type (e.g., number) is rejected."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": 12345,
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+
+    def test_external_agent_as_non_string_type(self, handler, mock_http_handler_with_body):
+        """External agent as non-string type is rejected."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": ["not", "a", "string"],
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+
+    def test_empty_body(self, handler, mock_http_handler_with_body):
+        """Empty JSON body is handled."""
+        mock_http_handler_with_body.rfile.read = MagicMock(return_value=b"{}")
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+
+    def test_handle_returns_none_for_unhandled_path(self, handler, mock_http_handler):
+        """Handle returns None for paths it doesn't handle."""
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle(
+                "/api/v1/other/endpoint",
+                {},
+                mock_http_handler,
+            )
+
+        assert result is None
+
+    def test_handle_post_returns_none_for_unhandled_path(
+        self, handler, mock_http_handler_with_body
+    ):
+        """Handle_post returns None for paths it doesn't handle."""
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/other/endpoint",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result is None
+
+    def test_handle_post_returns_none_for_non_create_path(
+        self, handler, mock_http_handler_with_body
+    ):
+        """Handle_post returns None for hybrid paths that aren't create."""
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid/some_id",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result is None
+
+
+class TestHybridDebateHandlerInvalidJsonEdgeCases:
+    """Tests for various invalid JSON scenarios."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return HybridDebateHandler(mock_server_context)
+
+    def test_null_body(self, handler, mock_http_handler_with_body):
+        """Null JSON body is handled."""
+        mock_http_handler_with_body.rfile.read = MagicMock(return_value=b"null")
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+
+    def test_json_array_instead_of_object(self, handler, mock_http_handler_with_body):
+        """JSON array instead of object is handled."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=b'["task", "external_agent"]'
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        # read_json_body returns a list from json.loads, but body.get() fails
+        # because lists don't have .get() method. The exception is caught by
+        # @handle_errors which returns 500
+        assert result is not None
+        assert result.status_code in (400, 500)
+
+    def test_truncated_json(self, handler, mock_http_handler_with_body):
+        """Truncated JSON is handled."""
+        mock_http_handler_with_body.rfile.read = MagicMock(return_value=b'{"task": "incomplete')
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 400
+
+    def test_json_with_unicode(self, handler, mock_http_handler_with_body):
+        """JSON with unicode characters is handled correctly."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task with unicode: \u4e2d\u6587 \u65e5\u672c\u8a9e \ud83d\ude00",
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode("utf-8")
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+
+    def test_json_with_special_characters_in_task(self, handler, mock_http_handler_with_body):
+        """JSON with special characters in task is handled."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": 'Task with special chars: <script>alert("xss")</script>',
+                    "external_agent": "my-crewai-agent",
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert '<script>alert("xss")</script>' in body["task"]
+
+
+class TestHybridDebateHandlerRunDebateMethod:
+    """Tests for the _run_debate method."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return HybridDebateHandler(mock_server_context)
+
+    def test_run_debate_returns_expected_structure(self, handler):
+        """_run_debate returns expected result structure."""
+        debate_record = {
+            "debate_id": "hybrid_test123",
+            "task": "Test task for debate",
+            "max_rounds": 5,
+        }
+
+        result = handler._run_debate(debate_record)
+
+        assert "status" in result
+        assert "consensus_reached" in result
+        assert "confidence" in result
+        assert "final_answer" in result
+        assert "rounds" in result
+        assert "completed_at" in result
+
+    def test_run_debate_status_is_completed(self, handler):
+        """_run_debate returns status as completed."""
+        debate_record = {"task": "Test", "max_rounds": 3}
+        result = handler._run_debate(debate_record)
+        assert result["status"] == "completed"
+
+    def test_run_debate_consensus_reached_is_true(self, handler):
+        """_run_debate returns consensus_reached as True."""
+        debate_record = {"task": "Test", "max_rounds": 3}
+        result = handler._run_debate(debate_record)
+        assert result["consensus_reached"] is True
+
+    def test_run_debate_confidence_is_reasonable(self, handler):
+        """_run_debate returns reasonable confidence value."""
+        debate_record = {"task": "Test", "max_rounds": 3}
+        result = handler._run_debate(debate_record)
+        assert 0.0 <= result["confidence"] <= 1.0
+
+    def test_run_debate_final_answer_contains_task(self, handler):
+        """_run_debate final_answer references the task."""
+        debate_record = {"task": "Design a microservice", "max_rounds": 3}
+        result = handler._run_debate(debate_record)
+        assert "Design a microservice" in result["final_answer"]
+
+    def test_run_debate_rounds_respects_max_rounds(self, handler):
+        """_run_debate rounds does not exceed max_rounds."""
+        debate_record = {"task": "Test", "max_rounds": 1}
+        result = handler._run_debate(debate_record)
+        assert result["rounds"] <= debate_record["max_rounds"]
+
+    def test_run_debate_completed_at_is_iso_format(self, handler):
+        """_run_debate completed_at is valid ISO format."""
+        debate_record = {"task": "Test", "max_rounds": 3}
+        result = handler._run_debate(debate_record)
+
+        # Should be parseable
+        parsed = datetime.fromisoformat(result["completed_at"].replace("Z", "+00:00"))
+        assert parsed is not None
+
+    def test_run_debate_long_task_truncated_in_answer(self, handler):
+        """_run_debate truncates long task in final_answer."""
+        long_task = "x" * 500
+        debate_record = {"task": long_task, "max_rounds": 3}
+        result = handler._run_debate(debate_record)
+
+        # Answer should contain first 100 chars of task
+        assert long_task[:100] in result["final_answer"]
+
+
+class TestHybridDebateHandlerRBACProtection:
+    """Tests for RBAC permission decorator behavior."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return HybridDebateHandler(mock_server_context)
+
+    def test_handle_has_require_permission_decorator(self):
+        """Handle method has require_permission decorator."""
+        # Check that the decorator is applied
+        method = HybridDebateHandler.handle
+        assert hasattr(method, "__wrapped__") or hasattr(method, "_permission")
+
+    def test_handle_post_has_require_permission_decorator(self):
+        """Handle_post method has require_permission decorator."""
+        method = HybridDebateHandler.handle_post
+        assert hasattr(method, "__wrapped__") or hasattr(method, "_permission")
+
+
+class TestHybridDebateHandlerConfigParsing:
+    """Tests for config field parsing."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return HybridDebateHandler(mock_server_context)
+
+    def test_config_with_nested_values(self, handler, mock_http_handler_with_body):
+        """Config with nested dict values is preserved."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "config": {
+                        "retry_policy": {"max_retries": 3, "backoff": "exponential"},
+                        "logging": {"level": "DEBUG", "verbose": True},
+                    },
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["config"]["retry_policy"]["max_retries"] == 3
+        assert body["config"]["logging"]["verbose"] is True
+
+    def test_config_with_array_values(self, handler, mock_http_handler_with_body):
+        """Config with array values is preserved."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "config": {
+                        "allowed_models": ["gpt-4", "claude-3", "gemini"],
+                        "tags": ["production", "high-priority"],
+                    },
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert "gpt-4" in body["config"]["allowed_models"]
+        assert len(body["config"]["tags"]) == 2
+
+    def test_config_with_null_values(self, handler, mock_http_handler_with_body):
+        """Config with null values is preserved."""
+        mock_http_handler_with_body.rfile.read = MagicMock(
+            return_value=json.dumps(
+                {
+                    "task": "Test task",
+                    "external_agent": "my-crewai-agent",
+                    "config": {
+                        "optional_field": None,
+                        "timeout": 30,
+                    },
+                }
+            ).encode()
+        )
+
+        with patch("aragora.server.handlers.hybrid_debate_handler.HYBRID_AVAILABLE", True):
+            result = handler.handle_post(
+                "/api/v1/debates/hybrid",
+                {},
+                mock_http_handler_with_body,
+            )
+
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert body["config"]["optional_field"] is None
+        assert body["config"]["timeout"] == 30

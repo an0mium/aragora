@@ -26,7 +26,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
-from aragora.resilience import with_timeout, get_circuit_breaker, CircuitOpenError
+from aragora.resilience import with_timeout, get_circuit_breaker
 
 logger = logging.getLogger(__name__)
 

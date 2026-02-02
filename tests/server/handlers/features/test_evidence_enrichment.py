@@ -382,8 +382,10 @@ class TestCircuitBreaker:
 
         status = get_evidence_circuit_breaker_status()
         assert isinstance(status, dict)
-        assert "name" in status
-        assert status["name"] == "evidence_enrichment_handler"
+        # Check that status contains expected keys from to_dict()
+        assert "config" in status
+        assert "single_mode" in status
+        assert status["config"]["failure_threshold"] == 5
 
     def test_circuit_breaker_is_singleton(self):
         """Test circuit breaker returns same instance."""

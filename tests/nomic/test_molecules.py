@@ -1726,7 +1726,11 @@ class TestErrorHandling:
         result = await engine.execute(molecule)
 
         assert result.success is False
-        assert "Circular" in molecule.error_message or "unmet" in molecule.error_message.lower()
+        assert (
+            "Circular" in molecule.error_message
+            or "Cyclic" in molecule.error_message
+            or "unmet" in molecule.error_message.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_step_timeout(self, temp_dir, reset_engine):

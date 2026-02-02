@@ -184,4 +184,14 @@ export class CheckpointsAPI {
   async restoreKM(name: string): Promise<{ restored: boolean }> {
     return this.client.request('POST', `/api/v1/km/checkpoints/${name}/restore`);
   }
+
+  /**
+   * Delete a Knowledge Mound checkpoint.
+   *
+   * @param name - The checkpoint name to delete.
+   * @returns Confirmation of deletion.
+   */
+  async deleteKM(name: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/km/checkpoints/${name}`);
+  }
 }

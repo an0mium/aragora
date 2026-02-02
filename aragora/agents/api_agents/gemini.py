@@ -50,10 +50,42 @@ WEB_SEARCH_INDICATORS = [
     r"\barticle\b",  # Articles
 ]
 
+# Model name normalization: Map legacy/short names to current valid API names
+# Google Gemini API requires specific versioned model names
+GEMINI_MODEL_ALIASES = {
+    # Legacy names -> current valid names
+    "gemini-1.5-flash": "gemini-1.5-flash-latest",
+    "gemini-1.5-pro": "gemini-1.5-pro-latest",
+    "gemini-pro": "gemini-1.5-pro-latest",
+    "gemini-flash": "gemini-1.5-flash-latest",
+    # Keep versioned names as-is
+    "gemini-1.5-flash-latest": "gemini-1.5-flash-latest",
+    "gemini-1.5-flash-001": "gemini-1.5-flash-001",
+    "gemini-1.5-flash-002": "gemini-1.5-flash-002",
+    "gemini-1.5-pro-latest": "gemini-1.5-pro-latest",
+    "gemini-1.5-pro-001": "gemini-1.5-pro-001",
+    "gemini-1.5-pro-002": "gemini-1.5-pro-002",
+    "gemini-2.0-flash": "gemini-2.0-flash",
+    "gemini-2.0-flash-001": "gemini-2.0-flash-001",
+    "gemini-3-pro-preview": "gemini-2.0-flash",  # Map preview to stable
+}
+
+
+def _normalize_gemini_model(model: str) -> str:
+    """Normalize Gemini model names to valid API names.
+
+    Args:
+        model: User-provided model name (may be legacy/short name)
+
+    Returns:
+        Valid Google Gemini API model name
+    """
+    return GEMINI_MODEL_ALIASES.get(model, model)
+
 
 @AgentRegistry.register(
     "gemini",
-    default_model="gemini-3-pro-preview",
+    default_model="gemini-2.0-flash",
     agent_type="API",
     env_vars="GEMINI_API_KEY or GOOGLE_API_KEY",
     accepts_api_key=True,
@@ -85,15 +117,17 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     def __init__(
         self,
         name: str = "gemini",
-        model: str = "gemini-3-pro-preview",  # Gemini 3 Pro Preview - advanced reasoning
+        model: str = "gemini-2.0-flash",  # Gemini 2.0 Flash - fast and capable
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
     ) -> None:
+        # Normalize model name to handle legacy/short names
+        normalized_model = _normalize_gemini_model(model)
         super().__init__(
             name=name,
-            model=model,
+            model=normalized_model,
             role=role,
             timeout=timeout,
             api_key=api_key
@@ -105,6 +139,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
             base_url="https://generativelanguage.googleapis.com/v1beta",
         )
         self.agent_type = "gemini"
+        self._original_model = model  # Keep original for OpenRouter mapping
         # Use config setting if not explicitly provided
         if enable_fallback is None:
             from aragora.agents.fallback import get_default_fallback_enabled

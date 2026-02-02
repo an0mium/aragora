@@ -278,6 +278,11 @@ class CircuitBreaker:
             return self._can_proceed_single()
         return self.is_available(entity)
 
+    # Backward-compatible alias
+    def can_execute(self, entity: str | None = None) -> bool:
+        """Alias for can_proceed (legacy callers)."""
+        return self.can_proceed(entity)
+
     def cooldown_remaining(self, entity: str | None = None) -> float:
         """
         Get remaining cooldown time in seconds.

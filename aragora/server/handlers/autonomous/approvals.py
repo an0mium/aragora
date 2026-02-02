@@ -38,7 +38,6 @@ def _get_circuit_breaker():
             "approval_flow",
             failure_threshold=5,
             cooldown_seconds=30,
-            half_open_max_calls=2,
         )
     return _approval_circuit_breaker
 

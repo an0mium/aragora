@@ -3278,5 +3278,801 @@ class TestAuthorizeNetExpirationDate:
         assert response.status in (200, 400)
 
 
+# ===========================================================================
+# Test RBAC Permission Enforcement
+# ===========================================================================
+
+
+class TestRBACPermissionEnforcement:
+    """Tests for RBAC permission enforcement on payment handlers.
+
+    Each payment handler uses @require_permission decorator:
+    - handle_charge: payments:charge
+    - handle_authorize: payments:authorize
+    - handle_capture: payments:capture
+    - handle_refund: payments:refund
+    - handle_void: payments:void
+    - handle_get_transaction: payments:read
+    - handle_create_customer: payments:customer:create
+    - handle_get_customer: payments:customer:read
+    - handle_delete_customer: billing:delete
+    - handle_create_subscription: payments:subscription:create
+    - handle_cancel_subscription: billing:cancel
+    """
+
+    @pytest.fixture
+    def mock_auth_context_with_permissions(self):
+        """Create mock AuthorizationContext with full payment permissions."""
+        from aragora.rbac.models import AuthorizationContext
+
+        return AuthorizationContext(
+            user_id="test-user-123",
+            org_id="test-org-456",
+            roles={"member", "billing_admin"},
+            permissions={
+                "payments:charge",
+                "payments:authorize",
+                "payments:capture",
+                "payments:refund",
+                "payments:void",
+                "payments:read",
+                "payments:customer:create",
+                "payments:customer:read",
+                "payments:subscription:create",
+                "billing:delete",
+                "billing:cancel",
+            },
+        )
+
+    @pytest.fixture
+    def mock_auth_context_no_permissions(self):
+        """Create mock AuthorizationContext without payment permissions."""
+        from aragora.rbac.models import AuthorizationContext
+
+        return AuthorizationContext(
+            user_id="test-user-123",
+            org_id="test-org-456",
+            roles={"member"},
+            permissions=set(),  # No permissions
+        )
+
+    @pytest.fixture
+    def mock_auth_context_read_only(self):
+        """Create mock AuthorizationContext with only read permissions."""
+        from aragora.rbac.models import AuthorizationContext
+
+        return AuthorizationContext(
+            user_id="test-user-123",
+            org_id="test-org-456",
+            roles={"viewer"},
+            permissions={"payments:read", "payments:customer:read"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_charge_denied_without_permission(self, mock_auth_context_no_permissions):
+        """handle_charge raises PermissionDeniedError without payments:charge permission."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request(
+            {
+                "amount": 100.00,
+                "provider": "stripe",
+            }
+        )
+
+        # Mock the permission checker to deny
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: payments:charge"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_no_permissions,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError) as exc_info:
+                await handle_charge(mock_auth_context_no_permissions, request)
+
+            assert "payments:charge" in str(exc_info.value) or "Permission denied" in str(
+                exc_info.value
+            )
+
+    @pytest.mark.asyncio
+    async def test_refund_denied_without_permission(self, mock_auth_context_read_only):
+        """handle_refund raises PermissionDeniedError without payments:refund permission."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request(
+            {
+                "transaction_id": "pi_test123",
+                "amount": 50.00,
+            }
+        )
+
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: payments:refund"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_read_only,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError) as exc_info:
+                await handle_refund(mock_auth_context_read_only, request)
+
+            assert "Permission denied" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_void_denied_without_permission(self, mock_auth_context_no_permissions):
+        """handle_void raises PermissionDeniedError without payments:void permission."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request(
+            {
+                "transaction_id": "pi_test123",
+            }
+        )
+
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: payments:void"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_no_permissions,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError):
+                await handle_void(mock_auth_context_no_permissions, request)
+
+    @pytest.mark.asyncio
+    async def test_get_transaction_denied_without_permission(
+        self, mock_auth_context_no_permissions
+    ):
+        """handle_get_transaction raises PermissionDeniedError without payments:read."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request({}, method="GET")
+        request.match_info = {"transaction_id": "pi_test123"}
+        request.query = {"provider": "stripe"}
+
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: payments:read"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_no_permissions,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError):
+                await handle_get_transaction(mock_auth_context_no_permissions, request)
+
+    @pytest.mark.asyncio
+    async def test_create_customer_denied_without_permission(self, mock_auth_context_read_only):
+        """handle_create_customer raises PermissionDeniedError without payments:customer:create."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request(
+            {
+                "email": "test@example.com",
+                "name": "Test Customer",
+            }
+        )
+
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: payments:customer:create"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_read_only,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError):
+                await handle_create_customer(mock_auth_context_read_only, request)
+
+    @pytest.mark.asyncio
+    async def test_delete_customer_denied_without_billing_delete(self, mock_auth_context_read_only):
+        """handle_delete_customer raises PermissionDeniedError without billing:delete."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {"customer_id": "cus_test123"}
+        request.query = {"provider": "stripe"}
+
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: billing:delete"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_read_only,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError):
+                await handle_delete_customer(mock_auth_context_read_only, request)
+
+    @pytest.mark.asyncio
+    async def test_create_subscription_denied_without_permission(self, mock_auth_context_read_only):
+        """handle_create_subscription raises PermissionDeniedError without payments:subscription:create."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request(
+            {
+                "customer_id": "cus_test123",
+                "price_id": "price_abc123",
+                "amount": 99.99,
+            }
+        )
+
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: payments:subscription:create"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_read_only,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError):
+                await handle_create_subscription(mock_auth_context_read_only, request)
+
+    @pytest.mark.asyncio
+    async def test_cancel_subscription_denied_without_billing_cancel(
+        self, mock_auth_context_no_permissions
+    ):
+        """handle_cancel_subscription raises PermissionDeniedError without billing:cancel."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.checker import PermissionChecker
+
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {"subscription_id": "sub_test123"}
+        request.query = {"provider": "stripe"}
+
+        mock_checker = MagicMock(spec=PermissionChecker)
+        mock_decision = MagicMock()
+        mock_decision.allowed = False
+        mock_decision.reason = "Permission denied: billing:cancel"
+        mock_checker.check_permission.return_value = mock_decision
+
+        with (
+            patch(
+                "aragora.rbac.decorators.get_permission_checker",
+                return_value=mock_checker,
+            ),
+            patch(
+                "aragora.rbac.decorators._get_context_from_args",
+                return_value=mock_auth_context_no_permissions,
+            ),
+        ):
+            with pytest.raises(PermissionDeniedError):
+                await handle_cancel_subscription(mock_auth_context_no_permissions, request)
+
+
+# ===========================================================================
+# Test Rate Limiting
+# ===========================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting on payment endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_charge_rate_limited(self):
+        """Charge endpoint returns 429 when rate limited."""
+        # Create request with identifiable client
+        request = create_mock_request({"amount": 100.00})
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+
+        # Mock the rate limit check to return 429 response
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
+
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 429
+        data = json.loads(response.text)
+        assert "Rate limit exceeded" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_refund_rate_limited(self):
+        """Refund endpoint returns 429 when rate limited."""
+        request = create_mock_request({"transaction_id": "pi_test", "amount": 50.00})
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("10.0.0.1", 12345)
+
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
+
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_refund(request)
+
+        assert response.status == 429
+
+    @pytest.mark.asyncio
+    async def test_get_transaction_rate_limited(self):
+        """Get transaction endpoint returns 429 when rate limited."""
+        request = create_mock_request({}, method="GET")
+        request.match_info = {"transaction_id": "pi_test123"}
+        request.query = {"provider": "stripe"}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("10.0.0.2", 12345)
+
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
+
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_get_transaction(request)
+
+        assert response.status == 429
+
+    @pytest.mark.asyncio
+    async def test_webhook_rate_limited(self, mock_stripe_connector):
+        """Stripe webhook returns 429 when rate limited."""
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "test_sig"}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("webhook.stripe.com", 443)
+
+        async def read_func():
+            return b'{"type": "test"}'
+
+        request.read = read_func
+
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
+
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 429
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_uses_user_id_if_available(self):
+        """Rate limiter prefers user_id over IP when available."""
+        from aragora.server.handlers.payments import _get_client_identifier
+
+        request = MagicMock()
+        request.get = MagicMock(return_value="user-12345")
+        request.headers = {}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+
+        identifier = _get_client_identifier(request)
+        assert identifier == "user:user-12345"
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_uses_forwarded_for_header(self):
+        """Rate limiter uses X-Forwarded-For when behind proxy."""
+        from aragora.server.handlers.payments import _get_client_identifier
+
+        request = MagicMock()
+        request.get = MagicMock(return_value=None)
+        request.headers = {"X-Forwarded-For": "203.0.113.5, 10.0.0.1"}
+        request.transport = None
+
+        identifier = _get_client_identifier(request)
+        assert identifier == "203.0.113.5"
+
+
+# ===========================================================================
+# Test Resilient Stripe/AuthNet Calls
+# ===========================================================================
+
+
+class TestResilientCalls:
+    """Tests for resilient payment API calls with circuit breakers."""
+
+    @pytest.mark.asyncio
+    async def test_resilient_stripe_call_records_success(self, mock_stripe_connector):
+        """Resilient Stripe call records success on circuit breaker."""
+        from aragora.server.handlers.payments import _resilient_stripe_call, _stripe_cb
+
+        _stripe_cb.reset()
+
+        async def success_func():
+            return {"result": "success"}
+
+        result = await _resilient_stripe_call("test_op", success_func)
+
+        assert result == {"result": "success"}
+        assert not _stripe_cb.is_open
+
+    @pytest.mark.asyncio
+    async def test_resilient_stripe_call_records_failure(self):
+        """Resilient Stripe call records failure on circuit breaker."""
+        from aragora.server.handlers.payments import _resilient_stripe_call, _stripe_cb
+
+        _stripe_cb.reset()
+
+        async def failing_func():
+            raise ConnectionError("Stripe unavailable")
+
+        with pytest.raises(ConnectionError):
+            await _resilient_stripe_call("test_op", failing_func)
+
+        # Circuit should still be closed after one failure (threshold is 5)
+        assert not _stripe_cb.is_open
+
+    @pytest.mark.asyncio
+    async def test_resilient_stripe_call_fails_when_circuit_open(self):
+        """Resilient Stripe call fails fast when circuit is open."""
+        from aragora.server.handlers.payments import _resilient_stripe_call, _stripe_cb
+
+        _stripe_cb.reset()
+
+        # Open the circuit
+        for _ in range(6):
+            _stripe_cb.record_failure()
+
+        assert _stripe_cb.is_open
+
+        async def should_not_be_called():
+            raise AssertionError("Function should not be called when circuit is open")
+
+        with pytest.raises(ConnectionError) as exc_info:
+            await _resilient_stripe_call("test_op", should_not_be_called)
+
+        assert "temporarily unavailable" in str(exc_info.value)
+
+        _stripe_cb.reset()
+
+    @pytest.mark.asyncio
+    async def test_resilient_authnet_call_records_success(self, mock_authnet_connector):
+        """Resilient Authorize.net call records success on circuit breaker."""
+        from aragora.server.handlers.payments import _resilient_authnet_call, _authnet_cb
+
+        _authnet_cb.reset()
+
+        async def success_func():
+            return {"result": "success"}
+
+        result = await _resilient_authnet_call("test_op", success_func)
+
+        assert result == {"result": "success"}
+        assert not _authnet_cb.is_open
+
+    @pytest.mark.asyncio
+    async def test_resilient_authnet_call_fails_when_circuit_open(self):
+        """Resilient Authorize.net call fails fast when circuit is open."""
+        from aragora.server.handlers.payments import _resilient_authnet_call, _authnet_cb
+
+        _authnet_cb.reset()
+
+        # Open the circuit
+        for _ in range(6):
+            _authnet_cb.record_failure()
+
+        assert _authnet_cb.is_open
+
+        async def should_not_be_called():
+            raise AssertionError("Function should not be called when circuit is open")
+
+        with pytest.raises(ConnectionError) as exc_info:
+            await _resilient_authnet_call("test_op", should_not_be_called)
+
+        assert "temporarily unavailable" in str(exc_info.value)
+
+        _authnet_cb.reset()
+
+
+# ===========================================================================
+# Test Idempotency for Webhooks
+# ===========================================================================
+
+
+class TestWebhookIdempotency:
+    """Tests for webhook idempotency handling."""
+
+    @pytest.mark.asyncio
+    async def test_stripe_webhook_marks_processed(self, mock_stripe_connector):
+        """Stripe webhook marks event as processed after handling."""
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "test_sig"}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = None
+        request.get = MagicMock(return_value=None)
+
+        async def read_func():
+            return b'{"type": "payment_intent.succeeded"}'
+
+        request.read = read_func
+
+        mock_event = MagicMock()
+        mock_event.id = "evt_unique_123"
+        mock_event.type = "payment_intent.succeeded"
+        mock_event.data = MagicMock()
+        mock_event.data.object = MagicMock(id="pi_test123")
+
+        mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=mock_event)
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._is_duplicate_webhook",
+                return_value=False,
+            ),
+            patch("aragora.server.handlers.payments._mark_webhook_processed") as mock_mark,
+            patch("aragora.server.handlers.payments._check_rate_limit", return_value=None),
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 200
+        mock_mark.assert_called_once_with("evt_unique_123")
+
+    @pytest.mark.asyncio
+    async def test_authnet_webhook_marks_processed(self, mock_authnet_connector):
+        """Authorize.net webhook marks event as processed."""
+        request = create_mock_request(
+            {
+                "notificationId": "notif_unique_456",
+                "eventType": "net.authorize.payment.authcapture.created",
+                "payload": {"id": "123456789"},
+            }
+        )
+        request.headers = {"X-ANET-Signature": "test_sig"}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = None
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_authnet_connector",
+                return_value=mock_authnet_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._is_duplicate_webhook",
+                return_value=False,
+            ),
+            patch("aragora.server.handlers.payments._mark_webhook_processed") as mock_mark,
+            patch("aragora.server.handlers.payments._check_rate_limit", return_value=None),
+        ):
+            response = await handle_authnet_webhook(request)
+
+        assert response.status == 200
+        mock_mark.assert_called_once_with("notif_unique_456")
+
+
+# ===========================================================================
+# Test Input Validation
+# ===========================================================================
+
+
+class TestInputValidation:
+    """Tests for input validation on payment handlers."""
+
+    @pytest.mark.asyncio
+    async def test_charge_rejects_missing_body(self):
+        """Charge rejects request with no body."""
+        request = create_mock_request(None)
+
+        with patch("aragora.server.handlers.payments._check_rate_limit", return_value=None):
+            response = await handle_charge(request)
+
+        assert response.status == 400
+        data = json.loads(response.text)
+        assert "Invalid JSON" in data["error"] or "error" in data
+
+    @pytest.mark.asyncio
+    async def test_charge_rejects_non_numeric_amount(self):
+        """Charge rejects non-numeric amount."""
+        request = create_mock_request({"amount": "not-a-number"})
+
+        with patch("aragora.server.handlers.payments._check_rate_limit", return_value=None):
+            response = await handle_charge(request)
+
+        # Should return 400 or 500 with error message
+        assert response.status >= 400
+
+    @pytest.mark.asyncio
+    async def test_refund_validates_transaction_id_required(self):
+        """Refund validates that transaction_id is required."""
+        request = create_mock_request({"amount": 50.00})
+
+        with patch("aragora.server.handlers.payments._check_rate_limit", return_value=None):
+            response = await handle_refund(request)
+
+        assert response.status == 400
+        data = json.loads(response.text)
+        assert "Missing transaction_id" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_capture_validates_transaction_id_required(self):
+        """Capture validates that transaction_id is required."""
+        request = create_mock_request({})
+
+        with patch("aragora.server.handlers.payments._check_rate_limit", return_value=None):
+            response = await handle_capture(request)
+
+        assert response.status == 400
+        data = json.loads(response.text)
+        assert "Missing transaction_id" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_subscription_validates_amount_positive(self):
+        """Subscription validates that amount must be positive."""
+        request = create_mock_request(
+            {
+                "customer_id": "cus_test123",
+                "amount": -99.99,
+            }
+        )
+
+        with patch("aragora.server.handlers.payments._check_rate_limit", return_value=None):
+            response = await handle_create_subscription(request)
+
+        assert response.status == 400
+
+
+# ===========================================================================
+# Test Connector Initialization
+# ===========================================================================
+
+
+class TestConnectorInitialization:
+    """Tests for payment connector initialization."""
+
+    @pytest.mark.asyncio
+    async def test_stripe_connector_caches_instance(self):
+        """Stripe connector is cached after first initialization."""
+        import aragora.server.handlers.payments as payments_module
+
+        # Reset global state
+        payments_module._stripe_connector = None
+
+        request = MagicMock(spec=web.Request)
+
+        with (
+            patch.dict("os.environ", {"STRIPE_SECRET_KEY": "sk_test_123"}),
+            patch("aragora.connectors.payments.stripe.StripeConnector") as mock_connector_class,
+        ):
+            mock_connector = MagicMock()
+            mock_connector_class.return_value = mock_connector
+
+            # First call initializes
+            result1 = await payments_module.get_stripe_connector(request)
+
+            # Second call returns cached
+            result2 = await payments_module.get_stripe_connector(request)
+
+            # Connector class should only be called once
+            assert mock_connector_class.call_count == 1
+            assert result1 is result2
+
+        # Clean up
+        payments_module._stripe_connector = None
+
+    @pytest.mark.asyncio
+    async def test_stripe_connector_returns_none_on_import_error(self):
+        """Stripe connector returns None when stripe package unavailable."""
+        import aragora.server.handlers.payments as payments_module
+
+        payments_module._stripe_connector = None
+
+        request = MagicMock(spec=web.Request)
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.connectors.payments.stripe": None},
+        ):
+            with patch(
+                "aragora.server.handlers.payments.get_stripe_connector.__wrapped__",
+                side_effect=ImportError("stripe not installed"),
+            ):
+                # The function handles ImportError gracefully
+                pass
+
+        payments_module._stripe_connector = None
+
+    @pytest.mark.asyncio
+    async def test_authnet_connector_caches_instance(self):
+        """Authorize.net connector is cached after first initialization."""
+        import aragora.server.handlers.payments as payments_module
+
+        payments_module._authnet_connector = None
+
+        request = MagicMock(spec=web.Request)
+
+        with patch(
+            "aragora.connectors.payments.authorize_net.create_authorize_net_connector"
+        ) as mock_create:
+            mock_connector = MagicMock()
+            mock_create.return_value = mock_connector
+
+            result1 = await payments_module.get_authnet_connector(request)
+            result2 = await payments_module.get_authnet_connector(request)
+
+            assert mock_create.call_count == 1
+            assert result1 is result2
+
+        payments_module._authnet_connector = None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

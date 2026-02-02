@@ -20,10 +20,30 @@ from aragora.server.handlers.base import (
 )
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
-from aragora.storage.audit_store import get_audit_store
-from aragora.privacy.deletion import get_legal_hold_manager
+from aragora.storage.audit_store import get_audit_store as _base_get_audit_store
+from aragora.privacy.deletion import get_legal_hold_manager as _base_get_legal_hold_manager
 
 logger = logging.getLogger(__name__)
+
+
+def get_legal_hold_manager():  # type: ignore[override]
+    """Indirection for tests that patch compliance_handler.get_legal_hold_manager."""
+    try:
+        from aragora.server.handlers import compliance_handler as compat
+
+        return compat.get_legal_hold_manager()
+    except (ImportError, AttributeError):
+        return _base_get_legal_hold_manager()
+
+
+def get_audit_store():  # type: ignore[override]
+    """Indirection for tests that patch compliance_handler.get_audit_store."""
+    try:
+        from aragora.server.handlers import compliance_handler as compat
+
+        return compat.get_audit_store()
+    except (ImportError, AttributeError):
+        return _base_get_audit_store()
 
 
 def _extract_user_id_from_headers(headers: Optional[dict[str, str]]) -> str:

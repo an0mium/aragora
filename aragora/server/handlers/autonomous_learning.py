@@ -478,33 +478,37 @@ class AutonomousLearningHandler(BaseHandler):
             # Session-specific routes
             if path.startswith("/api/v2/learning/sessions/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/learning/sessions/:session_id -> ["", "api", "v2", "learning", "sessions", session_id]
+                if len(parts) < 6:
                     return error_response("Invalid session path", 400)
-                session_id = parts[4]
+                session_id = parts[5]
                 return await self._get_session(session_id, handler)
 
             # Metric-specific routes
             if path.startswith("/api/v2/learning/metrics/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/learning/metrics/:metric_type -> ["", "api", "v2", "learning", "metrics", metric_type]
+                if len(parts) < 6:
                     return error_response("Invalid metric path", 400)
-                metric_type = parts[4]
+                metric_type = parts[5]
                 return await self._get_metric_by_type(metric_type, query_params, handler)
 
             # Pattern-specific routes
             if path.startswith("/api/v2/learning/patterns/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/learning/patterns/:pattern_id -> ["", "api", "v2", "learning", "patterns", pattern_id]
+                if len(parts) < 6:
                     return error_response("Invalid pattern path", 400)
-                pattern_id = parts[4]
+                pattern_id = parts[5]
                 return await self._get_pattern(pattern_id, handler)
 
             # Knowledge-specific routes
             if path.startswith("/api/v2/learning/knowledge/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/learning/knowledge/:knowledge_id -> ["", "api", "v2", "learning", "knowledge", knowledge_id]
+                if len(parts) < 6:
                     return error_response("Invalid knowledge path", 400)
-                knowledge_id = parts[4]
+                knowledge_id = parts[5]
                 return await self._get_knowledge_item(knowledge_id, handler)
 
             return None
@@ -561,24 +565,26 @@ class AutonomousLearningHandler(BaseHandler):
             # Session-specific POST routes
             if path.startswith("/api/v2/learning/sessions/"):
                 parts = path.split("/")
-                if len(parts) < 5:
+                # Path: /api/v2/learning/sessions/:session_id/stop -> ["", "api", "v2", "learning", "sessions", session_id, "stop"]
+                if len(parts) < 6:
                     return error_response("Invalid session path", 400)
 
-                session_id = parts[4]
+                session_id = parts[5]
 
                 # Stop session
-                if len(parts) > 5 and parts[5] == "stop":
+                if len(parts) > 6 and parts[6] == "stop":
                     return await self._stop_session(session_id, handler)
 
             # Pattern validation
             if path.startswith("/api/v2/learning/patterns/"):
                 parts = path.split("/")
-                if len(parts) < 6:
+                # Path: /api/v2/learning/patterns/:pattern_id/validate -> ["", "api", "v2", "learning", "patterns", pattern_id, "validate"]
+                if len(parts) < 7:
                     return error_response("Invalid pattern path", 400)
 
-                pattern_id = parts[4]
+                pattern_id = parts[5]
 
-                if parts[5] == "validate":
+                if parts[6] == "validate":
                     return await self._validate_pattern(pattern_id, body, handler)
 
             return None

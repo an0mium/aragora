@@ -82,7 +82,7 @@ def get_dependency_analyzer():
 
                 _dependency_analyzer = DependencyAnalyzer()
                 cb.record_success()
-            except Exception as e:
+            except Exception:
                 cb.record_failure()
                 raise
         return _dependency_analyzer

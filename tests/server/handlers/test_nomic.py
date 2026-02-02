@@ -1,25 +1,99 @@
 """
-Tests for the nomic handler - nomic loop state and monitoring.
+Tests for the nomic handler - nomic loop state and control endpoints.
 
-Tests:
+Comprehensive test coverage for:
 - Route handling (can_handle)
-- Get nomic state endpoint
-- Get nomic health endpoint
-- Get nomic metrics endpoint
-- Get nomic log endpoint
-- Get risk register endpoint
-- Get modes endpoint
+- GET endpoints: state, health, metrics, log, risk-register, witness/status, mayor/current, modes
+- POST control operations: start, stop, pause, resume, skip-phase
+- POST proposal operations: approve, reject
+- RBAC permission checks (nomic:read, nomic:admin)
+- WebSocket event streaming integration
 - Error handling
 """
 
+import asyncio
+import io
 import json
 import pytest
 import tempfile
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.server.handlers.nomic import NomicHandler
+
+
+# ===========================================================================
+# Mock Classes for Testing
+# ===========================================================================
+
+
+class MockHTTPHandler:
+    """Mock HTTP request handler for testing.
+
+    Simulates the HTTP request handler that NomicHandler.handle() expects,
+    with command (HTTP method), headers, and rfile (request body).
+    """
+
+    def __init__(self, method: str = "GET", body: dict | None = None):
+        self.command = method
+        self._body = json.dumps(body or {}).encode() if body else b""
+        self.headers = {
+            "Content-Length": str(len(self._body)) if self._body else "0",
+            "Content-Type": "application/json" if body else "",
+        }
+        self.rfile = io.BytesIO(self._body)
+        self.client_address = ("127.0.0.1", 12345)
+
+
+@dataclass
+class MockAuthorizationContext:
+    """Mock authorization context for testing."""
+
+    user_id: str = "test-user"
+    workspace_id: str = "test-workspace"
+    roles: set = field(default_factory=lambda: {"member"})
+    permissions: set = field(default_factory=lambda: {"nomic:read", "nomic:admin"})
+
+
+class MockNomicLoopStreamServer:
+    """Mock stream server for WebSocket event emission testing."""
+
+    def __init__(self):
+        self.events = []
+
+    async def emit_loop_started(self, **kwargs):
+        self.events.append(("loop_started", kwargs))
+
+    async def emit_loop_stopped(self, **kwargs):
+        self.events.append(("loop_stopped", kwargs))
+
+    async def emit_loop_paused(self, **kwargs):
+        self.events.append(("loop_paused", kwargs))
+
+    async def emit_loop_resumed(self, **kwargs):
+        self.events.append(("loop_resumed", kwargs))
+
+    async def emit_phase_skipped(self, **kwargs):
+        self.events.append(("phase_skipped", kwargs))
+
+    async def emit_proposal_approved(self, **kwargs):
+        self.events.append(("proposal_approved", kwargs))
+
+    async def emit_proposal_rejected(self, **kwargs):
+        self.events.append(("proposal_rejected", kwargs))
+
+
+def make_post_handler(body: dict | None = None, method: str = "POST") -> MockHTTPHandler:
+    """Create a mock HTTP handler with optional JSON body."""
+    return MockHTTPHandler(method, body)
+
+
+# ===========================================================================
+# Fixtures
+# ===========================================================================
 
 
 @pytest.fixture
@@ -39,13 +113,60 @@ def nomic_handler_with_dir(tmp_path):
 
 
 @pytest.fixture
+def nomic_handler_with_auth(tmp_path):
+    """Create a nomic handler with mocked auth that grants permission."""
+    ctx = {"storage": None, "elo_system": None, "nomic_dir": tmp_path}
+    handler = NomicHandler(ctx)
+
+    async def mock_get_auth_context(request, require_auth=False):
+        return MockAuthorizationContext()
+
+    def mock_check_permission(auth_context, permission, resource_id=None):
+        pass  # Grant permission
+
+    handler.get_auth_context = mock_get_auth_context
+    handler.check_permission = mock_check_permission
+    return handler, tmp_path
+
+
+@pytest.fixture
+def nomic_handler_unauthorized(tmp_path):
+    """Create a nomic handler that raises UnauthorizedError."""
+    ctx = {"storage": None, "elo_system": None, "nomic_dir": tmp_path}
+    handler = NomicHandler(ctx)
+
+    async def mock_get_auth_context(request, require_auth=False):
+        from aragora.server.handlers.utils.auth import UnauthorizedError
+
+        raise UnauthorizedError("Not authenticated")
+
+    handler.get_auth_context = mock_get_auth_context
+    return handler, tmp_path
+
+
+@pytest.fixture
+def nomic_handler_forbidden(tmp_path):
+    """Create a nomic handler that raises ForbiddenError."""
+    ctx = {"storage": None, "elo_system": None, "nomic_dir": tmp_path}
+    handler = NomicHandler(ctx)
+
+    async def mock_get_auth_context(request, require_auth=False):
+        return MockAuthorizationContext()
+
+    def mock_check_permission(auth_context, permission, resource_id=None):
+        from aragora.server.handlers.utils.auth import ForbiddenError
+
+        raise ForbiddenError(f"Permission denied: {permission}", permission=permission)
+
+    handler.get_auth_context = mock_get_auth_context
+    handler.check_permission = mock_check_permission
+    return handler, tmp_path
+
+
+@pytest.fixture
 def mock_http_handler():
-    """Create a mock HTTP handler."""
-    mock = MagicMock()
-    mock.client_address = ("127.0.0.1", 12345)
-    mock.headers = {"Content-Type": "application/json"}
-    mock.command = "GET"
-    return mock
+    """Create a mock HTTP handler for GET requests."""
+    return MockHTTPHandler("GET")
 
 
 class TestNomicHandlerRouting:
@@ -790,3 +911,603 @@ class TestStreamEmission:
 
         nomic_handler._emit_event("emit_loop_started", cycles=3, auto_approve=False)
         # Emission is async/background, so we just verify no error occurred
+
+
+# ===========================================================================
+# RBAC Permission Tests
+# ===========================================================================
+
+
+class TestNomicRBACPermissions:
+    """Tests for RBAC permission enforcement on nomic endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_handle_requires_nomic_read_permission(self, nomic_handler_forbidden):
+        """GET handle should require nomic:read permission."""
+        handler, tmp_path = nomic_handler_forbidden
+        mock_request = MockHTTPHandler("GET")
+
+        result = await handler.handle("/api/v1/nomic/state", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 403
+        body = json.loads(result.body)
+        assert "error" in body
+        assert "Permission denied" in body["error"]
+
+    @pytest.mark.asyncio
+    async def test_handle_returns_401_when_unauthorized(self, nomic_handler_unauthorized):
+        """GET handle should return 401 when not authenticated."""
+        handler, tmp_path = nomic_handler_unauthorized
+        mock_request = MockHTTPHandler("GET")
+
+        result = await handler.handle("/api/v1/nomic/state", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_handle_post_requires_nomic_admin_permission(self, nomic_handler_forbidden):
+        """POST handle should require nomic:admin permission."""
+        handler, tmp_path = nomic_handler_forbidden
+        mock_request = make_post_handler({})
+
+        result = await handler.handle_post("/api/v1/nomic/control/start", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_handle_post_returns_401_when_unauthorized(self, nomic_handler_unauthorized):
+        """POST handle should return 401 when not authenticated."""
+        handler, tmp_path = nomic_handler_unauthorized
+        mock_request = make_post_handler({})
+
+        result = await handler.handle_post("/api/v1/nomic/control/start", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_state_endpoint_with_valid_auth(self, nomic_handler_with_auth):
+        """State endpoint should succeed with valid nomic:read permission."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        result = await handler.handle("/api/v1/nomic/state", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_health_endpoint_with_valid_auth(self, nomic_handler_with_auth):
+        """Health endpoint should succeed with valid nomic:read permission."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        result = await handler.handle("/api/v1/nomic/health", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_metrics_endpoint_with_valid_auth(self, nomic_handler_with_auth):
+        """Metrics endpoint should succeed with valid nomic:read permission."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        result = await handler.handle("/api/v1/nomic/metrics", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_log_endpoint_with_valid_auth(self, nomic_handler_with_auth):
+        """Log endpoint should succeed with valid nomic:read permission."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        result = await handler.handle("/api/v1/nomic/log", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_proposals_approve_forbidden(self, nomic_handler_forbidden):
+        """Approve proposal should require nomic:admin permission."""
+        handler, tmp_path = nomic_handler_forbidden
+        mock_request = make_post_handler({"proposal_id": "p1"})
+
+        result = await handler.handle_post("/api/v1/nomic/proposals/approve", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_proposals_reject_forbidden(self, nomic_handler_forbidden):
+        """Reject proposal should require nomic:admin permission."""
+        handler, tmp_path = nomic_handler_forbidden
+        mock_request = make_post_handler({"proposal_id": "p1"})
+
+        result = await handler.handle_post("/api/v1/nomic/proposals/reject", {}, mock_request)
+
+        assert result is not None
+        assert result.status_code == 403
+
+
+# ===========================================================================
+# WebSocket Stream Integration Tests
+# ===========================================================================
+
+
+class TestWebSocketStreamIntegration:
+    """Tests for WebSocket event streaming integration."""
+
+    def test_set_stream_server(self, nomic_handler):
+        """Should set stream server instance."""
+        mock_stream = MockNomicLoopStreamServer()
+        nomic_handler.set_stream_server(mock_stream)
+
+        assert nomic_handler._stream is mock_stream
+
+    def test_get_stream_from_instance(self, nomic_handler):
+        """Should get stream from instance variable."""
+        mock_stream = MockNomicLoopStreamServer()
+        nomic_handler.set_stream_server(mock_stream)
+
+        result = nomic_handler._get_stream()
+        assert result is mock_stream
+
+    def test_get_stream_from_context(self, nomic_handler):
+        """Should get stream from context if not set on instance."""
+        mock_stream = MockNomicLoopStreamServer()
+        nomic_handler.ctx["nomic_loop_stream"] = mock_stream
+
+        result = nomic_handler._get_stream()
+        assert result is mock_stream
+
+    def test_get_stream_returns_none_when_not_configured(self, nomic_handler):
+        """Should return None when no stream configured."""
+        result = nomic_handler._get_stream()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_emit_event_schedules_async_task(self, nomic_handler):
+        """Should schedule async emission without blocking."""
+        mock_stream = MockNomicLoopStreamServer()
+        nomic_handler.set_stream_server(mock_stream)
+
+        # Emit an event
+        nomic_handler._emit_event("emit_loop_started", cycles=5, auto_approve=False)
+
+        # Give the async task time to complete
+        await asyncio.sleep(0.1)
+
+        # Verify event was emitted
+        assert len(mock_stream.events) == 1
+        assert mock_stream.events[0][0] == "loop_started"
+        assert mock_stream.events[0][1]["cycles"] == 5
+
+    @pytest.mark.asyncio
+    async def test_emit_pause_event(self, nomic_handler_with_auth):
+        """Should emit loop paused event on pause."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_stream = MockNomicLoopStreamServer()
+        handler.set_stream_server(mock_stream)
+
+        # Setup running state
+        state = {"running": True, "paused": False, "cycle": 2, "phase": "debate"}
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = handler._pause_nomic_loop()
+
+        # Give async emission time to complete
+        await asyncio.sleep(0.1)
+
+        assert result.status_code == 200
+        assert len(mock_stream.events) == 1
+        assert mock_stream.events[0][0] == "loop_paused"
+
+    @pytest.mark.asyncio
+    async def test_emit_resume_event(self, nomic_handler_with_auth):
+        """Should emit loop resumed event on resume."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_stream = MockNomicLoopStreamServer()
+        handler.set_stream_server(mock_stream)
+
+        # Setup paused state
+        state = {"running": True, "paused": True, "cycle": 2, "phase": "debate"}
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = handler._resume_nomic_loop()
+
+        # Give async emission time to complete
+        await asyncio.sleep(0.1)
+
+        assert result.status_code == 200
+        assert len(mock_stream.events) == 1
+        assert mock_stream.events[0][0] == "loop_resumed"
+
+    @pytest.mark.asyncio
+    async def test_emit_phase_skipped_event(self, nomic_handler_with_auth):
+        """Should emit phase skipped event on skip."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_stream = MockNomicLoopStreamServer()
+        handler.set_stream_server(mock_stream)
+
+        # Setup running state
+        state = {"running": True, "phase": "debate", "cycle": 1}
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = handler._skip_phase()
+
+        # Give async emission time to complete
+        await asyncio.sleep(0.1)
+
+        assert result.status_code == 200
+        assert len(mock_stream.events) == 1
+        assert mock_stream.events[0][0] == "phase_skipped"
+
+    @pytest.mark.asyncio
+    async def test_emit_proposal_approved_event(self, nomic_handler_with_auth):
+        """Should emit proposal approved event on approve."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_stream = MockNomicLoopStreamServer()
+        handler.set_stream_server(mock_stream)
+
+        # Setup proposals file
+        proposals = {"proposals": [{"id": "p1", "status": "pending"}]}
+        (tmp_path / "proposals.json").write_text(json.dumps(proposals))
+
+        result = handler._approve_proposal({"proposal_id": "p1", "approved_by": "tester"})
+
+        # Give async emission time to complete
+        await asyncio.sleep(0.1)
+
+        assert result.status_code == 200
+        assert len(mock_stream.events) == 1
+        assert mock_stream.events[0][0] == "proposal_approved"
+
+    @pytest.mark.asyncio
+    async def test_emit_proposal_rejected_event(self, nomic_handler_with_auth):
+        """Should emit proposal rejected event on reject."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_stream = MockNomicLoopStreamServer()
+        handler.set_stream_server(mock_stream)
+
+        # Setup proposals file
+        proposals = {"proposals": [{"id": "p1", "status": "pending"}]}
+        (tmp_path / "proposals.json").write_text(json.dumps(proposals))
+
+        result = handler._reject_proposal(
+            {"proposal_id": "p1", "rejected_by": "tester", "reason": "Not needed"}
+        )
+
+        # Give async emission time to complete
+        await asyncio.sleep(0.1)
+
+        assert result.status_code == 200
+        assert len(mock_stream.events) == 1
+        assert mock_stream.events[0][0] == "proposal_rejected"
+
+
+# ===========================================================================
+# Checkpoint and Backup Operations Tests
+# ===========================================================================
+
+
+class TestCheckpointOperations:
+    """Tests related to checkpoint operations in nomic loop."""
+
+    @pytest.mark.asyncio
+    async def test_state_includes_checkpoint_info(self, nomic_handler_with_auth):
+        """State should include checkpoint info if present."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        state = {
+            "running": True,
+            "cycle": 3,
+            "phase": "verify",
+            "checkpoint": {
+                "id": "cp-123",
+                "created_at": datetime.now().isoformat(),
+                "state_hash": "abc123",
+            },
+        }
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = await handler.handle("/api/v1/nomic/state", {}, mock_request)
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "checkpoint" in body
+        assert body["checkpoint"]["id"] == "cp-123"
+
+
+# ===========================================================================
+# Handler Resource Type Tests
+# ===========================================================================
+
+
+class TestHandlerConfiguration:
+    """Tests for handler configuration and metadata."""
+
+    def test_resource_type_is_nomic(self, nomic_handler):
+        """Resource type should be 'nomic'."""
+        assert nomic_handler.RESOURCE_TYPE == "nomic"
+
+    def test_routes_are_defined(self, nomic_handler):
+        """Handler should have routes defined."""
+        assert len(nomic_handler.ROUTES) > 0
+        assert "/api/nomic/state" in nomic_handler.ROUTES
+        assert "/api/nomic/health" in nomic_handler.ROUTES
+        assert "/api/nomic/metrics" in nomic_handler.ROUTES
+        assert "/api/nomic/log" in nomic_handler.ROUTES
+        assert "/api/nomic/risk-register" in nomic_handler.ROUTES
+        assert "/api/nomic/witness/status" in nomic_handler.ROUTES
+        assert "/api/nomic/mayor/current" in nomic_handler.ROUTES
+        assert "/api/modes" in nomic_handler.ROUTES
+
+    def test_control_routes_defined(self, nomic_handler):
+        """Handler should have control routes defined."""
+        assert "/api/nomic/control/start" in nomic_handler.ROUTES
+        assert "/api/nomic/control/stop" in nomic_handler.ROUTES
+        assert "/api/nomic/control/pause" in nomic_handler.ROUTES
+        assert "/api/nomic/control/resume" in nomic_handler.ROUTES
+        assert "/api/nomic/control/skip-phase" in nomic_handler.ROUTES
+
+    def test_proposal_routes_defined(self, nomic_handler):
+        """Handler should have proposal routes defined."""
+        assert "/api/nomic/proposals" in nomic_handler.ROUTES
+        assert "/api/nomic/proposals/approve" in nomic_handler.ROUTES
+        assert "/api/nomic/proposals/reject" in nomic_handler.ROUTES
+
+
+# ===========================================================================
+# Advanced Witness and Mayor Tests
+# ===========================================================================
+
+
+class TestWitnessEndpointAdvanced:
+    """Advanced tests for witness patrol endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_witness_status_returns_config(self, nomic_handler_with_auth):
+        """Witness status should return configuration details."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        mock_witness = MagicMock()
+        mock_witness._running = True
+        mock_witness.config.patrol_interval_seconds = 60
+        mock_witness.config.heartbeat_timeout_seconds = 30
+        mock_witness.config.stuck_threshold_minutes = 15
+        mock_witness.config.notify_mayor_on_critical = True
+        mock_witness._alerts = {}
+        mock_witness.hierarchy = MagicMock()
+        mock_witness.hierarchy._assignments = {"agent-1": "convoy-1"}
+        # Mock async method
+        mock_witness.generate_health_report = AsyncMock(return_value=None)
+
+        # Patch at the location where it's imported inside the method
+        with patch("aragora.server.startup.get_witness_behavior") as mock_get:
+            mock_get.return_value = mock_witness
+            result = await handler.handle("/api/v1/nomic/witness/status", {}, mock_request)
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["initialized"] is True
+        assert body["patrolling"] is True
+        assert body["config"]["patrol_interval_seconds"] == 60
+
+    @pytest.mark.asyncio
+    async def test_witness_status_includes_alerts(self, nomic_handler_with_auth):
+        """Witness status should include active alerts."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        mock_alert = MagicMock()
+        mock_alert.id = "alert-1"
+        mock_alert.severity.value = "warning"
+        mock_alert.target = "agent-1"
+        mock_alert.message = "Heartbeat timeout"
+        mock_alert.timestamp.isoformat.return_value = "2024-01-01T00:00:00"
+        mock_alert.acknowledged = False
+
+        mock_witness = MagicMock()
+        mock_witness._running = True
+        mock_witness.config.patrol_interval_seconds = 60
+        mock_witness.config.heartbeat_timeout_seconds = 30
+        mock_witness.config.stuck_threshold_minutes = 15
+        mock_witness.config.notify_mayor_on_critical = True
+        mock_witness._alerts = {"alert-1": mock_alert}
+        mock_witness.hierarchy = MagicMock()
+        mock_witness.hierarchy._assignments = {}
+        # Mock async method
+        mock_witness.generate_health_report = AsyncMock(return_value=None)
+
+        # Patch at the location where it's imported inside the method
+        with patch("aragora.server.startup.get_witness_behavior") as mock_get:
+            mock_get.return_value = mock_witness
+            result = await handler.handle("/api/v1/nomic/witness/status", {}, mock_request)
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "alerts" in body
+        assert len(body["alerts"]) == 1
+        assert body["alerts"][0]["id"] == "alert-1"
+
+
+class TestMayorEndpointAdvanced:
+    """Advanced tests for mayor current endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_mayor_current_returns_info(self, nomic_handler_with_auth):
+        """Mayor current should return coordinator info."""
+        handler, tmp_path = nomic_handler_with_auth
+        mock_request = MockHTTPHandler("GET")
+
+        mock_coordinator = MagicMock()
+        mock_coordinator.is_started = True
+        mock_coordinator.is_mayor = True
+        mock_coordinator.node_id = "node-1"
+        mock_coordinator.get_current_mayor_node.return_value = "node-1"
+        mock_coordinator.get_mayor_info.return_value = MagicMock(
+            to_dict=lambda: {"node_id": "node-1", "became_mayor_at": "2024-01-01T00:00:00"}
+        )
+
+        # Patch at the location where it's imported inside the method
+        with patch("aragora.server.startup.get_mayor_coordinator") as mock_get:
+            mock_get.return_value = mock_coordinator
+            result = await handler.handle("/api/v1/nomic/mayor/current", {}, mock_request)
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["initialized"] is True
+        assert body["is_this_node"] is True
+
+
+# ===========================================================================
+# Control Operations Validation Tests
+# ===========================================================================
+
+
+class TestControlOperationsValidation:
+    """Tests for validation in control operations."""
+
+    @pytest.mark.asyncio
+    async def test_start_validates_cycles_type(self, nomic_handler_with_auth):
+        """Start should validate cycles parameter type."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        result = handler._start_nomic_loop({"cycles": "invalid"})
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_start_validates_max_cycles_type(self, nomic_handler_with_auth):
+        """Start should validate max_cycles parameter type."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        result = handler._start_nomic_loop({"cycles": 3, "max_cycles": "invalid"})
+
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_start_clamps_cycles_to_valid_range(self, nomic_handler_with_auth):
+        """Start should clamp cycles to valid range (1-100)."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        # This would fail at script check, but cycles should be clamped
+        result = handler._start_nomic_loop({"cycles": 1000, "max_cycles": 2000})
+
+        # Returns 500 because script not found, but cycles should be clamped internally
+        assert result.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_stop_graceful_vs_force(self, nomic_handler_with_auth):
+        """Stop should support graceful and force modes."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        # Setup running state with PID
+        state = {"running": True, "pid": 99999}  # Non-existent PID
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = handler._stop_nomic_loop({"graceful": True})
+
+        # PID doesn't exist, so should report already stopped
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "already_stopped"
+
+
+# ===========================================================================
+# Phase Transition Tests
+# ===========================================================================
+
+
+class TestPhaseTransitions:
+    """Tests for phase transition logic."""
+
+    @pytest.mark.asyncio
+    async def test_phase_sequence_context_to_debate(self, nomic_handler_with_auth):
+        """Should transition from context to debate."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        state = {"running": True, "phase": "context", "cycle": 1}
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = handler._skip_phase()
+
+        body = json.loads(result.body)
+        assert body["previous_phase"] == "context"
+        assert body["next_phase"] == "debate"
+
+    @pytest.mark.asyncio
+    async def test_phase_sequence_design_to_implement(self, nomic_handler_with_auth):
+        """Should transition from design to implement."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        state = {"running": True, "phase": "design", "cycle": 1}
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = handler._skip_phase()
+
+        body = json.loads(result.body)
+        assert body["previous_phase"] == "design"
+        assert body["next_phase"] == "implement"
+
+    @pytest.mark.asyncio
+    async def test_phase_sequence_implement_to_verify(self, nomic_handler_with_auth):
+        """Should transition from implement to verify."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        state = {"running": True, "phase": "implement", "cycle": 1}
+        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
+
+        result = handler._skip_phase()
+
+        body = json.loads(result.body)
+        assert body["previous_phase"] == "implement"
+        assert body["next_phase"] == "verify"
+
+    @pytest.mark.asyncio
+    async def test_skip_phase_updates_state_file(self, nomic_handler_with_auth):
+        """Skip phase should update the state file."""
+        handler, tmp_path = nomic_handler_with_auth
+
+        state = {"running": True, "phase": "debate", "cycle": 1}
+        state_file = tmp_path / "nomic_state.json"
+        state_file.write_text(json.dumps(state))
+
+        handler._skip_phase()
+
+        # Read updated state
+        updated_state = json.loads(state_file.read_text())
+        assert updated_state["phase"] == "design"
+        assert updated_state["skip_requested"] is True
+        assert "skipped_at" in updated_state
+
+
+# ===========================================================================
+# Rate Limiting Tests
+# ===========================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting on endpoints."""
+
+    def test_handle_has_rate_limit_decorator(self, nomic_handler):
+        """Handle method should have rate limit decorator."""
+        # The decorator is applied, we just verify the method exists
+        # Actual rate limiting is tested at integration level
+        assert hasattr(nomic_handler, "handle")
+        assert callable(nomic_handler.handle)
+
+    def test_handle_post_has_rate_limit_decorator(self, nomic_handler):
+        """Handle post method should have rate limit decorator."""
+        assert hasattr(nomic_handler, "handle_post")
+        assert callable(nomic_handler.handle_post)

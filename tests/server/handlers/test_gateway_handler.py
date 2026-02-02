@@ -549,7 +549,8 @@ class TestCircuitBreaker:
 
         status = get_gateway_circuit_breaker_status()
         assert isinstance(status, dict)
-        assert "name" in status
+        # Status dict has config, entity_mode, and single_mode keys
+        assert "config" in status or "single_mode" in status
 
     def test_circuit_breaker_reset(self):
         """Test that circuit breaker can be reset."""

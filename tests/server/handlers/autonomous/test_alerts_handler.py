@@ -1064,14 +1064,13 @@ class TestThresholdConfiguration:
             assert body["success"] is True
             assert body["metric_name"] == "memory_usage"
 
-            # Verify analyzer was called with correct args
-            mock_analyzer.set_threshold.assert_called_once_with(
-                metric_name="memory_usage",
-                warning_threshold=75.0,
-                critical_threshold=90.0,
-                comparison="gte",
-                enabled=True,
-            )
+            # Verify threshold was stored in analyzer
+            assert "memory_usage" in mock_analyzer._thresholds
+            stored = mock_analyzer._thresholds["memory_usage"]
+            assert stored["warning_threshold"] == 75.0
+            assert stored["critical_threshold"] == 90.0
+            assert stored["comparison"] == "gte"
+            assert stored["enabled"] is True
 
     @pytest.mark.asyncio
     async def test_set_threshold_with_disabled(

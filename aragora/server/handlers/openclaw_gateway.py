@@ -36,10 +36,14 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import re
+import time
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from threading import Lock
 from typing import Any
 
 from aragora.observability.metrics import track_handler
@@ -62,6 +66,364 @@ from aragora.server.handlers.utils.rate_limit import (
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Input Validation Constants
+# =============================================================================
+
+# Length limits for credential values (security constraint)
+MAX_CREDENTIAL_NAME_LENGTH = 128
+MAX_CREDENTIAL_SECRET_LENGTH = 8192  # 8KB max for secrets (API keys, tokens, etc.)
+MAX_CREDENTIAL_METADATA_SIZE = 4096  # 4KB max for metadata JSON
+MIN_CREDENTIAL_SECRET_LENGTH = 8  # Minimum for meaningful secrets
+
+# Session config limits
+MAX_SESSION_CONFIG_SIZE = 8192  # 8KB max for session config
+MAX_SESSION_METADATA_SIZE = 4096  # 4KB max for session metadata
+MAX_SESSION_CONFIG_KEYS = 50  # Max number of keys in config
+MAX_SESSION_CONFIG_DEPTH = 5  # Max nesting depth
+
+# Action parameter limits
+MAX_ACTION_TYPE_LENGTH = 64
+MAX_ACTION_INPUT_SIZE = 65536  # 64KB max for action input
+MAX_ACTION_METADATA_SIZE = 4096  # 4KB
+
+# Allowed characters for credential names (alphanumeric, hyphens, underscores)
+SAFE_CREDENTIAL_NAME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,127}$")
+
+# Allowed characters for action types (alphanumeric, dots, hyphens, underscores)
+SAFE_ACTION_TYPE_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9._-]{0,63}$")
+
+# Shell metacharacters that could be used for command injection
+SHELL_METACHARACTERS = re.compile(r'[;&|`$(){}[\]<>\\"\'\n\r\x00]')
+
+# Rate limiting for credential rotation (per user)
+CREDENTIAL_ROTATION_WINDOW_SECONDS = 3600  # 1 hour window
+MAX_CREDENTIAL_ROTATIONS_PER_HOUR = 10
+
+
+# =============================================================================
+# Rate Limiting for Credential Rotation
+# =============================================================================
+
+
+class CredentialRotationRateLimiter:
+    """Rate limiter specifically for credential rotation operations.
+
+    Implements a sliding window rate limit to prevent abuse of credential
+    rotation functionality. This is separate from the general rate limit
+    to provide fine-grained control over this sensitive operation.
+    """
+
+    def __init__(
+        self,
+        max_rotations: int = MAX_CREDENTIAL_ROTATIONS_PER_HOUR,
+        window_seconds: int = CREDENTIAL_ROTATION_WINDOW_SECONDS,
+    ):
+        self._max_rotations = max_rotations
+        self._window_seconds = window_seconds
+        self._rotation_history: dict[str, list[float]] = defaultdict(list)
+        self._lock = Lock()
+
+    def is_allowed(self, user_id: str) -> bool:
+        """Check if a rotation is allowed for the given user.
+
+        Args:
+            user_id: The user ID attempting the rotation
+
+        Returns:
+            True if rotation is allowed, False if rate limited
+        """
+        now = time.time()
+        cutoff = now - self._window_seconds
+
+        with self._lock:
+            # Clean old entries
+            self._rotation_history[user_id] = [
+                ts for ts in self._rotation_history[user_id] if ts > cutoff
+            ]
+
+            # Check limit
+            if len(self._rotation_history[user_id]) >= self._max_rotations:
+                return False
+
+            # Record this rotation
+            self._rotation_history[user_id].append(now)
+            return True
+
+    def get_remaining(self, user_id: str) -> int:
+        """Get remaining rotations allowed for the user."""
+        now = time.time()
+        cutoff = now - self._window_seconds
+
+        with self._lock:
+            recent = [ts for ts in self._rotation_history[user_id] if ts > cutoff]
+            return max(0, self._max_rotations - len(recent))
+
+    def get_retry_after(self, user_id: str) -> int:
+        """Get seconds until the next rotation is allowed."""
+        now = time.time()
+        cutoff = now - self._window_seconds
+
+        with self._lock:
+            recent = sorted([ts for ts in self._rotation_history[user_id] if ts > cutoff])
+            if len(recent) < self._max_rotations:
+                return 0
+            # Return time until oldest rotation expires
+            oldest = recent[0]
+            return max(0, int((oldest + self._window_seconds) - now))
+
+
+# Global credential rotation rate limiter
+_credential_rotation_limiter: CredentialRotationRateLimiter | None = None
+
+
+def _get_credential_rotation_limiter() -> CredentialRotationRateLimiter:
+    """Get or create the credential rotation rate limiter."""
+    global _credential_rotation_limiter
+    if _credential_rotation_limiter is None:
+        _credential_rotation_limiter = CredentialRotationRateLimiter()
+    return _credential_rotation_limiter
+
+
+# =============================================================================
+# Input Validation Functions
+# =============================================================================
+
+
+def validate_credential_name(name: str | None) -> tuple[bool, str | None]:
+    """Validate credential name for security and format.
+
+    Args:
+        name: The credential name to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not name:
+        return False, "name is required"
+
+    if not isinstance(name, str):
+        return False, "name must be a string"
+
+    name = name.strip()
+    if not name:
+        return False, "name cannot be empty"
+
+    if len(name) > MAX_CREDENTIAL_NAME_LENGTH:
+        return False, f"name exceeds maximum length of {MAX_CREDENTIAL_NAME_LENGTH} characters"
+
+    if not SAFE_CREDENTIAL_NAME_PATTERN.match(name):
+        return False, (
+            "name must start with a letter and contain only letters, "
+            "numbers, hyphens, and underscores"
+        )
+
+    return True, None
+
+
+def validate_credential_secret(
+    secret: str | None, credential_type: str | None = None
+) -> tuple[bool, str | None]:
+    """Validate credential secret value.
+
+    Args:
+        secret: The secret value to validate
+        credential_type: Optional type for type-specific validation
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not secret:
+        return False, "secret is required"
+
+    if not isinstance(secret, str):
+        return False, "secret must be a string"
+
+    if len(secret) < MIN_CREDENTIAL_SECRET_LENGTH:
+        return False, f"secret must be at least {MIN_CREDENTIAL_SECRET_LENGTH} characters"
+
+    if len(secret) > MAX_CREDENTIAL_SECRET_LENGTH:
+        return False, f"secret exceeds maximum length of {MAX_CREDENTIAL_SECRET_LENGTH} characters"
+
+    # Check for null bytes (potential injection)
+    if "\x00" in secret:
+        return False, "secret contains invalid characters"
+
+    return True, None
+
+
+def validate_session_config(config: dict[str, Any] | None) -> tuple[bool, str | None]:
+    """Validate session configuration for security.
+
+    Args:
+        config: The session config dict to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if config is None:
+        return True, None  # Config is optional
+
+    if not isinstance(config, dict):
+        return False, "config must be an object"
+
+    # Check size
+    import json
+
+    try:
+        config_str = json.dumps(config)
+        if len(config_str) > MAX_SESSION_CONFIG_SIZE:
+            return False, f"config exceeds maximum size of {MAX_SESSION_CONFIG_SIZE} bytes"
+    except (TypeError, ValueError) as e:
+        return False, f"config contains invalid data: {e}"
+
+    # Check number of keys
+    if len(config) > MAX_SESSION_CONFIG_KEYS:
+        return False, f"config exceeds maximum of {MAX_SESSION_CONFIG_KEYS} keys"
+
+    # Check nesting depth
+    def check_depth(obj: Any, current_depth: int = 0) -> bool:
+        if current_depth > MAX_SESSION_CONFIG_DEPTH:
+            return False
+        if isinstance(obj, dict):
+            return all(check_depth(v, current_depth + 1) for v in obj.values())
+        if isinstance(obj, list):
+            return all(check_depth(item, current_depth + 1) for item in obj)
+        return True
+
+    if not check_depth(config):
+        return False, f"config exceeds maximum nesting depth of {MAX_SESSION_CONFIG_DEPTH}"
+
+    return True, None
+
+
+def validate_action_type(action_type: str | None) -> tuple[bool, str | None]:
+    """Validate action type for security.
+
+    Args:
+        action_type: The action type to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not action_type:
+        return False, "action_type is required"
+
+    if not isinstance(action_type, str):
+        return False, "action_type must be a string"
+
+    action_type = action_type.strip()
+    if not action_type:
+        return False, "action_type cannot be empty"
+
+    if len(action_type) > MAX_ACTION_TYPE_LENGTH:
+        return False, f"action_type exceeds maximum length of {MAX_ACTION_TYPE_LENGTH} characters"
+
+    if not SAFE_ACTION_TYPE_PATTERN.match(action_type):
+        return False, (
+            "action_type must start with a letter and contain only letters, "
+            "numbers, dots, hyphens, and underscores"
+        )
+
+    return True, None
+
+
+def sanitize_action_parameters(params: dict[str, Any] | None) -> dict[str, Any]:
+    """Sanitize action parameters to prevent command injection.
+
+    This function escapes shell metacharacters in string values to prevent
+    command injection attacks when parameters might be used in shell commands.
+
+    Args:
+        params: The action parameters dict to sanitize
+
+    Returns:
+        Sanitized parameters dict
+    """
+    if not params:
+        return {}
+
+    if not isinstance(params, dict):
+        return {}
+
+    def sanitize_value(value: Any) -> Any:
+        if isinstance(value, str):
+            # Remove null bytes
+            value = value.replace("\x00", "")
+            # Escape shell metacharacters by replacing with escaped versions
+            # This prevents command injection if values are used in shell contexts
+            sanitized = SHELL_METACHARACTERS.sub(
+                lambda m: "\\" + m.group(0) if m.group(0) not in "\n\r\x00" else " ",
+                value,
+            )
+            return sanitized
+        elif isinstance(value, dict):
+            return {k: sanitize_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [sanitize_value(item) for item in value]
+        else:
+            return value
+
+    return sanitize_value(params)
+
+
+def validate_action_input(input_data: dict[str, Any] | None) -> tuple[bool, str | None]:
+    """Validate action input data for size and security.
+
+    Args:
+        input_data: The action input dict to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if input_data is None:
+        return True, None  # Input is optional
+
+    if not isinstance(input_data, dict):
+        return False, "input must be an object"
+
+    import json
+
+    try:
+        input_str = json.dumps(input_data)
+        if len(input_str) > MAX_ACTION_INPUT_SIZE:
+            return False, f"input exceeds maximum size of {MAX_ACTION_INPUT_SIZE} bytes"
+    except (TypeError, ValueError) as e:
+        return False, f"input contains invalid data: {e}"
+
+    return True, None
+
+
+def validate_metadata(
+    metadata: dict[str, Any] | None, max_size: int = MAX_ACTION_METADATA_SIZE
+) -> tuple[bool, str | None]:
+    """Validate metadata dict for size.
+
+    Args:
+        metadata: The metadata dict to validate
+        max_size: Maximum allowed size in bytes
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if metadata is None:
+        return True, None
+
+    if not isinstance(metadata, dict):
+        return False, "metadata must be an object"
+
+    import json
+
+    try:
+        metadata_str = json.dumps(metadata)
+        if len(metadata_str) > max_size:
+            return False, f"metadata exceeds maximum size of {max_size} bytes"
+    except (TypeError, ValueError) as e:
+        return False, f"metadata contains invalid data: {e}"
+
+    return True, None
+
 
 # =============================================================================
 # Resilience Configuration
@@ -991,6 +1353,16 @@ class OpenClawGatewayHandler(BaseHandler):
             config = body.get("config", {})
             metadata = body.get("metadata", {})
 
+            # Validate config
+            is_valid, error = validate_session_config(config)
+            if not is_valid:
+                return error_response(error, 400)
+
+            # Validate metadata
+            is_valid, error = validate_metadata(metadata, MAX_SESSION_METADATA_SIZE)
+            if not is_valid:
+                return error_response(error, 400)
+
             session = store.create_session(
                 user_id=user_id,
                 tenant_id=tenant_id,
@@ -1032,8 +1404,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 return error_response("session_id is required", 400)
 
             action_type = body.get("action_type")
-            if not action_type:
-                return error_response("action_type is required", 400)
+
+            # Validate action_type
+            is_valid, error = validate_action_type(action_type)
+            if not is_valid:
+                return error_response(error, 400)
 
             # Verify session exists and is owned by user
             session = store.get_session(session_id)
@@ -1056,11 +1431,24 @@ class OpenClawGatewayHandler(BaseHandler):
             input_data = body.get("input", {})
             metadata = body.get("metadata", {})
 
-            # Create action
+            # Validate input data
+            is_valid, error = validate_action_input(input_data)
+            if not is_valid:
+                return error_response(error, 400)
+
+            # Validate metadata
+            is_valid, error = validate_metadata(metadata)
+            if not is_valid:
+                return error_response(error, 400)
+
+            # Sanitize input data to prevent command injection
+            sanitized_input = sanitize_action_parameters(input_data)
+
+            # Create action with sanitized input
             action = store.create_action(
                 session_id=session_id,
                 action_type=action_type,
-                input_data=input_data,
+                input_data=sanitized_input,
                 metadata=metadata,
             )
 
@@ -1150,11 +1538,13 @@ class OpenClawGatewayHandler(BaseHandler):
             user_id = self._get_user_id(handler)
             tenant_id = self._get_tenant_id(handler)
 
-            # Validate required fields
+            # Validate credential name
             name = body.get("name")
-            if not name:
-                return error_response("name is required", 400)
+            is_valid, error = validate_credential_name(name)
+            if not is_valid:
+                return error_response(error, 400)
 
+            # Validate credential type
             credential_type_str = body.get("type")
             if not credential_type_str:
                 return error_response("type is required", 400)
@@ -1165,9 +1555,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 valid_types = [t.value for t in CredentialType]
                 return error_response(f"Invalid credential type. Valid types: {valid_types}", 400)
 
+            # Validate secret value
             secret_value = body.get("secret")
-            if not secret_value:
-                return error_response("secret is required", 400)
+            is_valid, error = validate_credential_secret(secret_value, credential_type_str)
+            if not is_valid:
+                return error_response(error, 400)
 
             # Optional expiration
             expires_at = None
@@ -1177,10 +1569,14 @@ class OpenClawGatewayHandler(BaseHandler):
                 except ValueError:
                     return error_response("Invalid expires_at format (use ISO 8601)", 400)
 
+            # Validate metadata
             metadata = body.get("metadata", {})
+            is_valid, error = validate_metadata(metadata, MAX_CREDENTIAL_METADATA_SIZE)
+            if not is_valid:
+                return error_response(error, 400)
 
             credential = store.store_credential(
-                name=name,
+                name=name.strip(),
                 credential_type=credential_type,
                 secret_value=secret_value,
                 user_id=user_id,
@@ -1220,6 +1616,39 @@ class OpenClawGatewayHandler(BaseHandler):
             store = _get_store()
             user_id = self._get_user_id(handler)
 
+            # Check credential rotation rate limit (per-user, in addition to general rate limit)
+            rotation_limiter = _get_credential_rotation_limiter()
+            if not rotation_limiter.is_allowed(user_id):
+                remaining = rotation_limiter.get_remaining(user_id)
+                retry_after = rotation_limiter.get_retry_after(user_id)
+
+                # Audit rate limit hit
+                store.add_audit_entry(
+                    action="credential.rotate.rate_limited",
+                    actor_id=user_id,
+                    resource_type="credential",
+                    resource_id=credential_id,
+                    result="rate_limited",
+                    details={
+                        "remaining": remaining,
+                        "retry_after_seconds": retry_after,
+                    },
+                )
+
+                logger.warning(
+                    "Credential rotation rate limit exceeded for user %s (credential: %s)",
+                    user_id,
+                    credential_id,
+                )
+
+                headers = {"Retry-After": str(retry_after)} if retry_after > 0 else {}
+                return error_response(
+                    f"Too many credential rotations. Limit: {MAX_CREDENTIAL_ROTATIONS_PER_HOUR}/hour. "
+                    f"Please try again in {retry_after} seconds.",
+                    status=429,
+                    headers=headers,
+                )
+
             credential = store.get_credential(credential_id)
             if not credential:
                 return error_response(f"Credential not found: {credential_id}", 404)
@@ -1233,9 +1662,13 @@ class OpenClawGatewayHandler(BaseHandler):
                 if not is_admin:
                     return error_response("Access denied", 403)
 
+            # Validate new secret
             new_secret = body.get("secret")
-            if not new_secret:
-                return error_response("secret is required", 400)
+            is_valid, error = validate_credential_secret(
+                new_secret, credential.credential_type.value
+            )
+            if not is_valid:
+                return error_response(error, 400)
 
             # Rotate
             credential = store.rotate_credential(credential_id, new_secret)
@@ -1685,4 +2118,24 @@ __all__ = [
     # Store (for testing)
     "OpenClawGatewayStore",
     "_get_store",
+    # Validation constants (for testing)
+    "MAX_CREDENTIAL_NAME_LENGTH",
+    "MAX_CREDENTIAL_SECRET_LENGTH",
+    "MIN_CREDENTIAL_SECRET_LENGTH",
+    "MAX_SESSION_CONFIG_SIZE",
+    "MAX_ACTION_TYPE_LENGTH",
+    "MAX_ACTION_INPUT_SIZE",
+    "MAX_CREDENTIAL_ROTATIONS_PER_HOUR",
+    "CREDENTIAL_ROTATION_WINDOW_SECONDS",
+    # Validation functions (for testing)
+    "validate_credential_name",
+    "validate_credential_secret",
+    "validate_session_config",
+    "validate_action_type",
+    "validate_action_input",
+    "validate_metadata",
+    "sanitize_action_parameters",
+    # Rate limiting (for testing)
+    "CredentialRotationRateLimiter",
+    "_get_credential_rotation_limiter",
 ]
