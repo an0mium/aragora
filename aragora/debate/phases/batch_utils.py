@@ -439,11 +439,20 @@ async def batch_collect_votes(
         return False
 
     async def cast_vote(agent: "Agent") -> "Vote":
+        import time as time_mod
+
         if cfg.stagger_delay > 0:
             idx = agents.index(agent)
             await asyncio.sleep(idx * cfg.stagger_delay)
 
+        # Track per-agent response time for SLO metrics
+        start_time = time_mod.perf_counter()
         vote = await vote_fn(agent, proposals)
+        latency = time_mod.perf_counter() - start_time
+
+        # Record agent response time with model name and phase
+        record_agent_response_time(agent.name, latency, "vote")
+
         collected_votes.append(vote)
         return vote
 
