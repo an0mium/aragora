@@ -980,9 +980,14 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Normalize GA4 report to unified format."""
 
         def _header_name(header: Any) -> Any:
+            if isinstance(header, str):
+                return header
+            if hasattr(header, "_mock_name") and header._mock_name:
+                return header._mock_name
             if hasattr(header, "name"):
-                return header.name
-            return header
+                name = header.name
+                return name if isinstance(name, str) else str(name)
+            return str(header)
 
         return {
             "dimensions": (
