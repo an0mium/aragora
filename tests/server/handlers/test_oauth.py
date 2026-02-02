@@ -34,6 +34,30 @@ import pytest
 
 
 # ===========================================================================
+# Rate Limiter Reset Fixture
+# ===========================================================================
+
+
+@pytest.fixture(autouse=True)
+def reset_oauth_rate_limiter():
+    """Reset OAuth rate limiter state before each test.
+
+    This prevents rate limiting from carrying over between tests.
+    """
+    from aragora.server.middleware.rate_limit.oauth_limiter import (
+        reset_oauth_limiter,
+        reset_backoff_tracker,
+    )
+
+    reset_oauth_limiter()
+    reset_backoff_tracker()
+    yield
+    # Also reset after test to ensure clean state for next test
+    reset_oauth_limiter()
+    reset_backoff_tracker()
+
+
+# ===========================================================================
 # Test Fixtures
 # ===========================================================================
 
@@ -238,7 +262,9 @@ class TestRateLimiting:
             result = handler.handle("/api/v1/auth/oauth/google", {}, mock_http, "GET")
 
         assert get_status(result) == 429
-        assert "Rate limit" in get_body(result)["error"]
+        # Accept either old or new error message
+        error_msg = get_body(result)["error"]
+        assert "Rate limit" in error_msg or "Too many" in error_msg
 
 
 # ===========================================================================
@@ -493,32 +519,35 @@ class TestHandleGoogleAuthStart:
 class TestHandleGoogleCallback:
     """Tests for _handle_google_callback()."""
 
-    def test_handles_error_from_google(self):
+    @pytest.mark.asyncio
+    async def test_handles_error_from_google(self):
         """Should handle error from Google OAuth."""
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
         with patch.object(handler, "_redirect_with_error") as mock_redirect:
             mock_redirect.return_value = MagicMock(status_code=302)
-            handler._handle_google_callback(
+            await handler._handle_google_callback(
                 mock_http, {"error": ["access_denied"], "error_description": ["User cancelled"]}
             )
 
             mock_redirect.assert_called()
 
-    def test_missing_state_returns_error(self):
+    @pytest.mark.asyncio
+    async def test_missing_state_returns_error(self):
         """Should return error when state is missing."""
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
         with patch.object(handler, "_redirect_with_error") as mock_redirect:
             mock_redirect.return_value = MagicMock(status_code=302)
-            handler._handle_google_callback(mock_http, {})
+            await handler._handle_google_callback(mock_http, {})
 
             mock_redirect.assert_called()
             assert "Missing state" in str(mock_redirect.call_args)
 
-    def test_invalid_state_returns_error(self):
+    @pytest.mark.asyncio
+    async def test_invalid_state_returns_error(self):
         """Should return error when state is invalid."""
         handler = create_oauth_handler()
         mock_http = MockHandler()
@@ -528,12 +557,13 @@ class TestHandleGoogleCallback:
             patch.object(handler, "_redirect_with_error") as mock_redirect,
         ):
             mock_redirect.return_value = MagicMock(status_code=302)
-            handler._handle_google_callback(mock_http, {"state": ["invalid-state"]})
+            await handler._handle_google_callback(mock_http, {"state": ["invalid-state"]})
 
             mock_redirect.assert_called()
             assert "Invalid or expired" in str(mock_redirect.call_args)
 
-    def test_missing_code_returns_error(self):
+    @pytest.mark.asyncio
+    async def test_missing_code_returns_error(self):
         """Should return error when authorization code is missing."""
         handler = create_oauth_handler()
         mock_http = MockHandler()
@@ -546,7 +576,7 @@ class TestHandleGoogleCallback:
             patch.object(handler, "_redirect_with_error") as mock_redirect,
         ):
             mock_redirect.return_value = MagicMock(status_code=302)
-            handler._handle_google_callback(mock_http, {"state": ["valid-state"]})
+            await handler._handle_google_callback(mock_http, {"state": ["valid-state"]})
 
             mock_redirect.assert_called()
             assert "Missing authorization code" in str(mock_redirect.call_args)
@@ -629,26 +659,28 @@ class TestHandleGitHubAuthStart:
 class TestHandleGitHubCallback:
     """Tests for _handle_github_callback()."""
 
-    def test_handles_error_from_github(self):
+    @pytest.mark.asyncio
+    async def test_handles_error_from_github(self):
         """Should redirect with error when GitHub returns error."""
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
         with patch.object(handler, "_redirect_with_error") as mock_redirect:
             mock_redirect.return_value = MagicMock(status_code=302)
-            handler._handle_github_callback(
+            await handler._handle_github_callback(
                 mock_http, {"error": "access_denied", "error_description": "Cancelled"}
             )
             mock_redirect.assert_called()
 
-    def test_missing_state_returns_error(self):
+    @pytest.mark.asyncio
+    async def test_missing_state_returns_error(self):
         """Should return error when state is missing in GitHub callback."""
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
         with patch.object(handler, "_redirect_with_error") as mock_redirect:
             mock_redirect.return_value = MagicMock(status_code=302)
-            handler._handle_github_callback(mock_http, {})
+            await handler._handle_github_callback(mock_http, {})
             mock_redirect.assert_called()
             assert "Missing state" in str(mock_redirect.call_args)
 

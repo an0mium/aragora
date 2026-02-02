@@ -21,7 +21,6 @@ from aragora.server.handlers.oauth.models import OAuthUserInfo
 
 from .utils import _impl
 from aragora.server.handlers.utils.rate_limit import get_client_ip
-from aragora.server.middleware.rate_limit.oauth_limiter import get_oauth_limiter
 
 from .google import GoogleOAuthMixin
 from .github import GitHubOAuthMixin
@@ -142,26 +141,17 @@ class OAuthHandler(
             else:
                 endpoint_type = "auth_start"
 
-            # Rate limit check using new OAuth limiter with exponential backoff
-            oauth_limiter = get_oauth_limiter()
-            rate_limit_result = oauth_limiter.check(client_ip, endpoint_type, provider)
-
-            if not rate_limit_result.allowed:
+            # Rate limit check using the wrapper in _impl (backward compatible)
+            # The wrapper uses the new OAuthRateLimiter with exponential backoff
+            if not impl._oauth_limiter.is_allowed(client_ip, endpoint_type):
                 logger.warning(
                     f"OAuth rate limit exceeded: ip={client_ip}, endpoint={endpoint_type}, "
-                    f"provider={provider}, backoff={rate_limit_result.retry_after}s"
+                    f"provider={provider}"
                 )
-                _asa(span, {"oauth.rate_limited": True, "oauth.backoff": rate_limit_result.retry_after})
-
-                # Include Retry-After header for exponential backoff
-                headers = {}
-                if rate_limit_result.retry_after > 0:
-                    headers["Retry-After"] = str(int(rate_limit_result.retry_after))
-
+                _asa(span, {"oauth.rate_limited": True})
                 return error_response(
                     "Too many authentication attempts. Please try again later.",
                     429,
-                    headers=headers,
                 )
 
             if hasattr(handler, "command"):

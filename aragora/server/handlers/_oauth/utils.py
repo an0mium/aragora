@@ -18,7 +18,6 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.middleware.rate_limit.oauth_limiter import (
-    OAuthRateLimiter,
     get_oauth_limiter,
 )
 
@@ -153,11 +152,10 @@ class OAuthRateLimiterWrapper:
     This wrapper provides the old `is_allowed(key)` interface expected by
     existing code while using the new OAuth rate limiting infrastructure
     with exponential backoff and stricter limits.
-    """
 
-    def __init__(self):
-        """Initialize wrapper with the global OAuth limiter."""
-        self._limiter = get_oauth_limiter()
+    The wrapper does NOT cache the limiter - it always gets the current global
+    instance to support reset between tests.
+    """
 
     def is_allowed(self, key: str, endpoint_type: str = "auth_start") -> bool:
         """Check if request is allowed.
@@ -169,14 +167,17 @@ class OAuthRateLimiterWrapper:
         Returns:
             True if request is allowed, False if rate limited
         """
-        result = self._limiter.check(key, endpoint_type)
+        # Always get fresh limiter instance to support reset
+        limiter = get_oauth_limiter()
+        result = limiter.check(key, endpoint_type)
         return result.allowed
 
     @property
     def rpm(self) -> int:
         """Get approximate requests per minute (for logging compatibility)."""
         # Return auth_start limit as RPM equivalent (15 per 15 min = 1/min)
-        return self._limiter.config.auth_start_limit
+        limiter = get_oauth_limiter()
+        return limiter.config.auth_start_limit
 
 
 # Rate limiter for OAuth endpoints - now uses the new OAuthRateLimiter with
