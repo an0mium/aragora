@@ -18,7 +18,7 @@ try:
 
     HAS_NUMPY = True
 except ImportError:
-    np = None  # type: ignore[assignment]
+    np = None  # type: ignore[assignment]  # Necessary: np typed as module but None when unavailable; guarded by HAS_NUMPY
     HAS_NUMPY = False
 
 from aragora.debate.cache.embeddings_lru import (

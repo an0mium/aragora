@@ -127,7 +127,8 @@ class DebateTrace:
             )
             object.__setattr__(self, "_checksum_dirty", False)
             object.__setattr__(self, "_last_event_count", current_count)
-        return self._cached_checksum  # type: ignore[return-value]
+        assert self._cached_checksum is not None  # Set above when _checksum_dirty
+        return self._cached_checksum
 
     @property
     def duration_ms(self) -> int | None:

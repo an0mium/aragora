@@ -276,6 +276,7 @@ class Arena(ArenaDelegatesMixin):
         supermemory_outcome_container_tag: str | None = None,
         supermemory_enable_privacy_filter: bool = True,
         supermemory_enable_resilience: bool = True,
+        supermemory_enable_km_adapter: bool = False,
         enable_belief_guidance: bool = False,
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.8,
@@ -408,6 +409,7 @@ class Arena(ArenaDelegatesMixin):
             supermemory_outcome_container_tag=supermemory_outcome_container_tag,
             supermemory_enable_privacy_filter=supermemory_enable_privacy_filter,
             supermemory_enable_resilience=supermemory_enable_resilience,
+            supermemory_enable_km_adapter=supermemory_enable_km_adapter,
             enable_belief_guidance=enable_belief_guidance,
             enable_auto_revalidation=enable_auto_revalidation,
             revalidation_staleness_threshold=revalidation_staleness_threshold,
@@ -556,6 +558,7 @@ class Arena(ArenaDelegatesMixin):
         supermemory_outcome_container_tag = cfg.supermemory_outcome_container_tag
         supermemory_enable_privacy_filter = cfg.supermemory_enable_privacy_filter
         supermemory_enable_resilience = cfg.supermemory_enable_resilience
+        supermemory_enable_km_adapter = cfg.supermemory_enable_km_adapter
         enable_belief_guidance = cfg.enable_belief_guidance
         vertical = cfg.vertical
         vertical_persona_manager = cfg.vertical_persona_manager
@@ -728,6 +731,7 @@ class Arena(ArenaDelegatesMixin):
         self.supermemory_outcome_container_tag = supermemory_outcome_container_tag
         self.supermemory_enable_privacy_filter = supermemory_enable_privacy_filter
         self.supermemory_enable_resilience = supermemory_enable_resilience
+        self.supermemory_enable_km_adapter = supermemory_enable_km_adapter
 
         # Adaptive rounds (memory-based debate strategy)
         self._init_debate_strategy(enable_adaptive_rounds, debate_strategy)
@@ -1041,6 +1045,7 @@ class Arena(ArenaDelegatesMixin):
             supermemory_outcome_container_tag=self.supermemory_outcome_container_tag,
             supermemory_enable_privacy_filter=self.supermemory_enable_privacy_filter,
             supermemory_enable_resilience=self.supermemory_enable_resilience,
+            supermemory_enable_km_adapter=self.supermemory_enable_km_adapter,
             enable_auto_revalidation=self.enable_auto_revalidation,
             revalidation_staleness_threshold=getattr(self, "revalidation_staleness_threshold", 0.7),
             revalidation_check_interval_seconds=getattr(
@@ -1239,7 +1244,7 @@ class Arena(ArenaDelegatesMixin):
                 logger.debug("DebateStrategy not available")
                 self.debate_strategy = None
             except (TypeError, ValueError) as e:
-                logger.warning("Failed to initialize DebateStrategy: %s", e)
+                logger.warning(f"Failed to initialize DebateStrategy: {e}")
                 self.debate_strategy = None
             except Exception as e:
                 logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
@@ -1408,7 +1413,7 @@ class Arena(ArenaDelegatesMixin):
             else:
                 self._channel_integration = None
         except (ImportError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-            logger.debug("[channels] Channel setup failed (non-critical): %s", e)
+            logger.debug(f"[channels] Channel setup failed (non-critical): {e}")
             self._channel_integration = None
 
     async def _teardown_agent_channels(self) -> None:
@@ -1418,7 +1423,7 @@ class Arena(ArenaDelegatesMixin):
         try:
             await self._channel_integration.teardown()
         except (ConnectionError, OSError, RuntimeError) as e:
-            logger.debug("[channels] Channel teardown failed (non-critical): %s", e)
+            logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
         finally:
             self._channel_integration = None
 
@@ -1435,7 +1440,7 @@ class Arena(ArenaDelegatesMixin):
                     timeout=self.protocol.timeout_seconds,
                 )
             except asyncio.TimeoutError:
-                logger.warning("debate_timeout timeout_seconds=%s", self.protocol.timeout_seconds)
+                logger.warning(f"debate_timeout timeout_seconds={self.protocol.timeout_seconds}")
                 return DebateResult(
                     task=self.env.task,
                     messages=getattr(self, "_partial_messages", []),

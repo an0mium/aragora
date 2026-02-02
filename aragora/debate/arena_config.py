@@ -43,7 +43,7 @@ Builder usage
 from __future__ import annotations
 
 from dataclasses import dataclass, fields as dataclass_fields
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.debate.protocol import CircuitBreaker
@@ -527,6 +527,9 @@ class SupermemorySubConfig:
 
     # Master switch (opt-in, disabled by default)
     enable_supermemory: bool = False
+
+    # KM adapter toggle (auto-enable adapter in bidirectional coordinator)
+    supermemory_enable_km_adapter: bool = False
 
     # Pre-configured adapter instance (optional)
     supermemory_adapter: Any | None = None
@@ -1108,6 +1111,7 @@ class ArenaConfig:
             "extraction_min_confidence": self.extraction_min_confidence,
             # Supermemory (external memory integration)
             "enable_supermemory": self.enable_supermemory,
+            "supermemory_enable_km_adapter": self.supermemory_enable_km_adapter,
             "supermemory_adapter": self.supermemory_adapter,
             "supermemory_inject_on_start": self.supermemory_inject_on_start,
             "supermemory_max_context_items": self.supermemory_max_context_items,
@@ -1246,7 +1250,9 @@ class DebateConfig:
     convergence_threshold: float = 0.85  # Similarity threshold for convergence
     divergence_threshold: float = 0.3  # Threshold for divergence detection
     timeout_seconds: int = 0  # Overall debate timeout (0 = no timeout)
-    judge_selection: str = "elo_ranked"  # Judge selection mode
+    judge_selection: Literal[
+        "random", "voted", "last", "elo_ranked", "calibrated", "crux_aware"
+    ] = "elo_ranked"  # Judge selection mode
 
     # Adaptive debate settings
     enable_adaptive_rounds: bool = False  # Use memory-based strategy for rounds
@@ -1268,7 +1274,7 @@ class DebateConfig:
         protocol.convergence_threshold = self.convergence_threshold
         protocol.divergence_threshold = self.divergence_threshold
         protocol.timeout_seconds = self.timeout_seconds
-        protocol.judge_selection = self.judge_selection  # type: ignore[assignment]
+        protocol.judge_selection = self.judge_selection
         return protocol
 
 

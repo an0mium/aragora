@@ -44,10 +44,10 @@ try:
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None  # type: ignore[misc, no-redef]
-    get_compressor = None  # type: ignore[misc, no-redef]
-    DebateContextAdapter = None  # type: ignore[misc, no-redef]
-    RLMBackendConfig = None  # type: ignore[misc, no-redef]
+    get_rlm = None  # type: ignore[misc, no-redef]  # Fallback when RLM factory unavailable
+    get_compressor = None  # type: ignore[misc, no-redef]  # Fallback when RLM factory unavailable
+    DebateContextAdapter = None  # type: ignore[misc, no-redef]  # Fallback when RLM bridge unavailable
+    RLMBackendConfig = None  # type: ignore[misc, no-redef]  # Fallback when RLM bridge unavailable
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
@@ -202,15 +202,15 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                 "Install with: pip install aragora[rlm]"
             )
 
-        # Extended stats (using cast to avoid dict-item type errors for mixed-type dicts)
-        rlm_stats: dict[str, Any] = {
+        # Widen stats type to support mixed int/float/dict values from RLM extension
+        self.stats: dict[str, Any] = {
+            **self.stats,
             "rlm_compressions": 0,
             "rlm_queries": 0,
             "real_rlm_used": 0,
             "compression_ratio_avg": 1.0,
             "abstraction_levels_used": {},
         }
-        self.stats.update(rlm_stats)
 
     @property
     def has_real_rlm(self) -> bool:
@@ -425,7 +425,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         ratio = result.compression_ratio
         compression_avg = float(self.stats.get("compression_ratio_avg", 1.0))
         new_avg: float = compression_avg * 0.9 + ratio * 0.1
-        self.stats["compression_ratio_avg"] = new_avg  # type: ignore[assignment]
+        self.stats["compression_ratio_avg"] = new_avg
 
         levels_used = self.stats.get("abstraction_levels_used")
         if isinstance(levels_used, dict):

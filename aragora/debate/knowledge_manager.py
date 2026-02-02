@@ -62,6 +62,7 @@ class ArenaKnowledgeManager:
         supermemory_outcome_container_tag: str | None = None,
         supermemory_enable_privacy_filter: bool = True,
         supermemory_enable_resilience: bool = True,
+        supermemory_enable_km_adapter: bool = False,
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.7,
         revalidation_check_interval_seconds: int = 3600,
@@ -92,6 +93,7 @@ class ArenaKnowledgeManager:
         self.supermemory_outcome_container_tag = supermemory_outcome_container_tag
         self.supermemory_enable_privacy_filter = supermemory_enable_privacy_filter
         self.supermemory_enable_resilience = supermemory_enable_resilience
+        self.supermemory_enable_km_adapter = supermemory_enable_km_adapter
         self.enable_auto_revalidation = enable_auto_revalidation
         self.revalidation_staleness_threshold = revalidation_staleness_threshold
         self.revalidation_check_interval_seconds = revalidation_check_interval_seconds
@@ -224,8 +226,13 @@ class ArenaKnowledgeManager:
 
                 # Register adapters with coordinator
                 if self._km_adapters:
+                    enable_overrides = (
+                        {"supermemory"} if self.supermemory_enable_km_adapter else None
+                    )
                     registered = factory.register_with_coordinator(
-                        self._km_coordinator, self._km_adapters
+                        self._km_coordinator,
+                        self._km_adapters,
+                        enable_overrides=enable_overrides,
                     )
                     logger.info(
                         "[knowledge_mound] AdapterFactory created %d adapters, "

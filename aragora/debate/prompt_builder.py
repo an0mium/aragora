@@ -17,8 +17,8 @@ from typing import Any, TYPE_CHECKING, Optional
 try:
     from aragora.server.question_classifier import QuestionClassifier, QuestionClassification
 except ImportError:
-    QuestionClassifier: Any = None  # type: ignore[no-redef]
-    QuestionClassification: Any = None  # type: ignore[no-redef]
+    QuestionClassifier: Any = None  # type: ignore[no-redef]  # Fallback when server module unavailable
+    QuestionClassification: Any = None  # type: ignore[no-redef]  # Fallback when server module unavailable
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
@@ -44,8 +44,8 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    AbstractionLevel: Any = None  # type: ignore[no-redef]
-    RLMContextAdapter: Any = None  # type: ignore[no-redef]
+    AbstractionLevel: Any = None  # type: ignore[no-redef]  # Fallback when RLM not installed
+    RLMContextAdapter: Any = None  # type: ignore[no-redef]  # Fallback when RLM not installed
 
 logger = logging.getLogger(__name__)
 

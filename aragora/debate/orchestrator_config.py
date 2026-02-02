@@ -73,6 +73,7 @@ class MergedConfig:
         "supermemory_outcome_container_tag",
         "supermemory_enable_privacy_filter",
         "supermemory_enable_resilience",
+        "supermemory_enable_km_adapter",
         "enable_belief_guidance",
         "enable_auto_revalidation",
         "revalidation_staleness_threshold",
@@ -184,6 +185,7 @@ class MergedConfig:
     supermemory_outcome_container_tag: Any
     supermemory_enable_privacy_filter: bool
     supermemory_enable_resilience: bool
+    supermemory_enable_km_adapter: bool
     enable_belief_guidance: bool
     enable_auto_revalidation: bool
     revalidation_staleness_threshold: float
@@ -302,6 +304,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     supermemory_outcome_container_tag: Any,
     supermemory_enable_privacy_filter: bool,
     supermemory_enable_resilience: bool,
+    supermemory_enable_km_adapter: bool,
     enable_belief_guidance: bool,
     enable_auto_revalidation: bool,
     revalidation_staleness_threshold: float,
@@ -536,6 +539,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.supermemory_outcome_container_tag = supermemory_outcome_container_tag
     cfg.supermemory_enable_privacy_filter = supermemory_enable_privacy_filter
     cfg.supermemory_enable_resilience = supermemory_enable_resilience
+    cfg.supermemory_enable_km_adapter = supermemory_enable_km_adapter
     cfg.enable_belief_guidance = enable_belief_guidance
     cfg.enable_auto_revalidation = enable_auto_revalidation
     cfg.revalidation_staleness_threshold = revalidation_staleness_threshold

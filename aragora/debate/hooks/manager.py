@@ -117,7 +117,7 @@ class HookType(str, Enum):
 
 
 # Type alias for hook callbacks
-HookCallback = Callable[..., None] | Callable[..., Coroutine[Any, Any, None]]
+HookCallback = Callable[..., Any] | Callable[..., Coroutine[Any, Any, Any]]
 
 
 @dataclass
@@ -340,8 +340,7 @@ class HookManager:
 
                 # Await if coroutine
                 if asyncio.iscoroutine(result):
-                    awaited: Any = await result  # type: ignore[func-returns-value]
-                    result = awaited
+                    result = await result
 
                 results.append(result)
 
