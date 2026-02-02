@@ -121,6 +121,7 @@ def create_sample_proof(debate_id: str, num_agents: int = 3) -> ConsensusProof:
 # =============================================================================
 
 
+@pytest.mark.timeout(120)  # Load tests need extended time
 class TestHighConcurrencyDebates:
     """Tests for running many concurrent debates."""
 
@@ -299,6 +300,7 @@ class TestHighConcurrencyDebates:
         assert len(results) >= num_debates * 0.9  # Allow some tolerance
 
 
+@pytest.mark.timeout(60)
 class TestConcurrentChecksumGeneration:
     """Tests for concurrent checksum generation and verification."""
 
@@ -1004,6 +1006,7 @@ class TestCacheIsolation:
 # =============================================================================
 
 
+@pytest.mark.timeout(60)
 class TestAsyncIntegration:
     """Tests for async patterns with consensus system."""
 

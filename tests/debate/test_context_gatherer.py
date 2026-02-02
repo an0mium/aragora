@@ -368,6 +368,7 @@ class TestSetPromptBuilder:
 # =============================================================================
 
 
+@pytest.mark.timeout(30)  # Protect against unmocked external calls
 class TestGatherAll:
     """Tests for gather_all method."""
 

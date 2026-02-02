@@ -607,6 +607,7 @@ class TestContradictionDetection:
         assert not backend.is_contradictory("Python is great", "Python works well")
 
 
+@pytest.mark.timeout(300)  # NLI model loading may take time
 class TestNLIContradictionDetection:
     """Tests for NLI-based contradiction detection."""
 
