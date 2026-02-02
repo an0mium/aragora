@@ -72,8 +72,8 @@ class TypedHandler(BaseHandler):
     Existing handlers can be gradually migrated to use TypedHandler.
     """
 
-    # Server context containing shared resources
-    ctx: "ServerContext"  # type: ignore[assignment]
+    # Server context containing shared resources (narrowed from BaseHandler.ctx: dict[str, Any])
+    ctx: "ServerContext"  # type: ignore[assignment]  # Subclass narrows dict to ServerContext TypedDict
 
     # Class-level dependency injection points for testing
     # These can be overridden in test fixtures

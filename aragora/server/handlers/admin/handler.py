@@ -17,6 +17,9 @@ import os
 import time
 from typing import Any, Callable
 
+# Pre-declare RBAC names for optional import fallback (avoids type: ignore on fallback definitions)
+require_permission: Any
+
 from aragora.audit.unified import audit_admin  # noqa: F401
 from aragora.auth.lockout import get_lockout_tracker  # noqa: F401
 from aragora.billing.jwt_auth import create_access_token  # noqa: F401
@@ -63,7 +66,7 @@ except ImportError:
     RBAC_AVAILABLE = False
 
     # Provide a no-op decorator fallback when RBAC is unavailable
-    def require_permission(  # type: ignore[no-redef, misc]
+    def require_permission(
         permission_key: str,
         resource_id_param: str | None = None,
         context_param: str = "context",

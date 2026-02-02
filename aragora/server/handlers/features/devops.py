@@ -633,10 +633,7 @@ class DevOpsHandler(SecureHandler):
         service_ids_param = safe_query_string(params, "service_ids", "", max_length=500)
         if service_ids_param:
             service_ids = [s.strip() for s in service_ids_param.split(",") if s.strip()]
-            for sid in service_ids[:20]:  # Limit to 20 service IDs
-                is_valid, err = _validate_pagerduty_id(sid, "service_id")
-                if not is_valid:
-                    return error_response(err, 400)
+            # Limit to 20 service IDs; allow short IDs for read filters
             service_ids = service_ids[:20]
 
         # Validate and parse urgency filter

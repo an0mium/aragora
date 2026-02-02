@@ -730,15 +730,17 @@ class FixedSizeChunking(ChunkingStrategy):
 
 
 # RLM availability check (use factory for consistent initialization)
+# Pre-declare types for optional import
+get_compressor: Any = None
+RLMConfig: Any = None
+AbstractionLevel: Any = None
+
 try:
     from aragora.rlm import get_compressor, RLMConfig, AbstractionLevel
 
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    get_compressor = None  # type: ignore[misc, no-redef]
-    RLMConfig = None  # type: ignore[misc, no-redef]
-    AbstractionLevel = None  # type: ignore[misc, no-redef]
 
 
 class RLMChunking(ChunkingStrategy):

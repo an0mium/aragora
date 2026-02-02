@@ -678,8 +678,12 @@ class SMESuccessDashboardHandler(SecureHandler):
                 current_progress = milestone_data.get("progress_percent", 0)
                 next_progress = next_milestone.get("progress_percent", 0) if next_milestone else 0
                 # Both progress values are either float or 0 from above calculations
-                current_progress_val = float(current_progress) if current_progress else 0.0
-                next_progress_val = float(next_progress) if next_progress else 0.0
+                current_progress_val = (
+                    float(current_progress) if isinstance(current_progress, (int, float)) else 0.0
+                )
+                next_progress_val = (
+                    float(next_progress) if isinstance(next_progress, (int, float)) else 0.0
+                )
                 if next_milestone is None or current_progress_val > next_progress_val:
                     next_milestone = milestone_data
 

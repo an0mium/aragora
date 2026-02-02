@@ -258,7 +258,7 @@ class GauntletReceiptsMixin:
         from aragora.gauntlet.signing import SignedReceipt, verify_receipt
 
         # Parse request body
-        data = self.read_json_body(handler)  # type: ignore[attr-defined]
+        data = self.read_json_body(handler)  # Mixin method from base handler  # type: ignore[misc]
         if data is None:
             return error_response("Invalid or missing request body", 400)
 

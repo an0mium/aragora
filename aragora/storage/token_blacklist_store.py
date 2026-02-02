@@ -17,7 +17,10 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+# Pre-declare RedisBlacklist for optional import fallback
+RedisBlacklist: Any
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -275,7 +278,7 @@ class SQLiteBlacklist(BlacklistBackend):
 try:
     import redis
 
-    class RedisBlacklist(BlacklistBackend):
+    class RedisBlacklist(BlacklistBackend):  # type: ignore[misc]
         """
         Redis-backed token blacklist.
 
@@ -319,8 +322,8 @@ try:
     HAS_REDIS = True
 
 except ImportError:
-    # Fallback when redis package is not installed; redefines the class name as None
-    RedisBlacklist = None  # type: ignore[misc, no-redef]
+    # Fallback when redis package is not installed; pre-declared above
+    RedisBlacklist = None
     HAS_REDIS = False
 
 

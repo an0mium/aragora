@@ -39,6 +39,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.http_utils import run_async
 
 # RBAC imports
+AuthorizationContext: Any = None
 try:
     from aragora.rbac import AuthorizationContext, check_permission
     from aragora.billing.jwt_auth import extract_user_from_request
@@ -46,9 +47,10 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: ignore[misc, no-redef]
 
 # Gateway imports
+DeviceRegistry: Any = None
+get_canonical_gateway_stores: Any = None
 try:
     from aragora.gateway import (
         DeviceRegistry,
@@ -61,8 +63,6 @@ try:
     GATEWAY_AVAILABLE = True
 except ImportError:
     GATEWAY_AVAILABLE = False
-    DeviceRegistry = None  # type: ignore[misc, no-redef]
-    get_canonical_gateway_stores = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 

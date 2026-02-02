@@ -58,15 +58,14 @@ from aragora.billing.jwt_auth import extract_user_from_request
 from aragora.protocols import HTTPRequestHandler
 
 # RBAC imports - graceful fallback if not available
+AuthorizationContext: Any = None
+check_permission: Any = None
 try:
     from aragora.rbac import AuthorizationContext, check_permission
 
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    # Fallback: RBAC module not available, set to None for optional feature checks
-    AuthorizationContext = None  # type: ignore[misc,assignment]
-    check_permission = None
 from aragora.privacy import (
     AccessDeniedException,
     AuditAction,
@@ -84,6 +83,7 @@ from aragora.privacy import (
 from aragora.privacy.audit_log import Actor, Resource
 
 # RBAC profile imports for workspace role management
+RBACProfile: Any = None
 try:
     from aragora.rbac.profiles import (
         RBACProfile,
@@ -96,8 +96,6 @@ try:
     PROFILES_AVAILABLE = True
 except ImportError:
     PROFILES_AVAILABLE = False
-    # Fallback: RBAC profiles module not available
-    RBACProfile = None  # type: ignore[misc,assignment]
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.openapi_decorator import api_endpoint

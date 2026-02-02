@@ -105,7 +105,7 @@ class DebatesHandler(
         if server_context is not None:
             self.ctx = server_context
         else:
-            self.ctx = ctx or {}  # type: ignore[assignment]  # dict is runtime-compatible with ServerContext
+            self.ctx = ctx or {}  # dict is runtime-compatible with ServerContext
 
     # Route patterns this handler manages (from routing module)
     ROUTES = ROUTES
@@ -231,12 +231,12 @@ class DebatesHandler(
                 return error_response("Invalid or missing JSON body", 400)
             debate_ids = body.get("debate_ids", [])
             format = body.get("format", "json")
-            return self._start_batch_export(handler, debate_ids, format)  # type: ignore[misc]  # mixin protocol self
+            return self._start_batch_export(handler, debate_ids, format)  # Mixin method
 
         # GET /api/debates/export/batch - list export jobs
         if normalized == "/api/debates/export/batch":
             limit = min(get_int_param(query_params, "limit", 50), 100)
-            return self._list_batch_exports(limit)  # type: ignore[misc]  # mixin protocol self
+            return self._list_batch_exports(limit)  # Mixin method
 
         # Extract job ID from normalized path
         parts = normalized.split("/")
@@ -247,23 +247,25 @@ class DebatesHandler(
 
         # GET /api/debates/export/batch/{job_id}/status
         if path.endswith("/status"):
-            return self._get_batch_export_status(job_id)  # type: ignore[misc]  # mixin protocol self
+            return self._get_batch_export_status(job_id)  # Mixin method
 
         # GET /api/debates/export/batch/{job_id}/results
         if path.endswith("/results"):
-            return self._get_batch_export_results(job_id)  # type: ignore[misc]  # mixin protocol self
+            return self._get_batch_export_results(job_id)  # Mixin method
 
         # GET /api/debates/export/batch/{job_id}/stream - SSE stream
         if path.endswith("/stream"):
 
             async def stream() -> AsyncIterator[Any]:
-                async for chunk in self._stream_batch_export_progress(job_id):  # type: ignore[misc]  # mixin protocol self
+                async for chunk in self._stream_batch_export_progress(job_id):  # Mixin method
                     yield chunk
 
             return HandlerResult(
                 status_code=200,
                 content_type="text/event-stream",
-                body=run_async(stream()),  # type: ignore[arg-type]  # async generator used as SSE stream body
+                body=run_async(
+                    stream()
+                ),  # Async generator used as SSE stream body  # type: ignore[misc]
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",

@@ -37,14 +37,15 @@ MEMORY_READ_PERMISSION = "memory:read"
 _coordinator_limiter = RateLimiter(requests_per_minute=30)
 
 # Optional import for coordinator functionality
+# Pre-declare for type safety
+MemoryCoordinator: Any = None
+CoordinatorOptions: Any = None
 try:
     from aragora.memory.coordinator import CoordinatorOptions, MemoryCoordinator
 
     COORDINATOR_AVAILABLE = True
 except ImportError:
     COORDINATOR_AVAILABLE = False
-    MemoryCoordinator = None  # type: ignore[misc, no-redef]
-    CoordinatorOptions = None  # type: ignore[misc, no-redef]
 
 
 class CoordinatorHandler(SecureHandler):
@@ -66,7 +67,7 @@ class CoordinatorHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(  # type: ignore[override]
+    async def handle(  # type: ignore[misc]
         self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> MaybeAsyncHandlerResult:
         """Route coordinator requests with RBAC."""

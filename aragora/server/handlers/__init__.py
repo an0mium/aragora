@@ -642,7 +642,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WorkflowPatternTemplatesHandler": Stability.STABLE,  # Pattern-based workflow templates - new
     "TemplateRecommendationsHandler": Stability.STABLE,  # Template recommendations for onboarding - new
     "TemplateMarketplaceHandler": Stability.STABLE,  # Community template marketplace - graduated, circuit breaker + validation
-    "MarketplaceHandler": Stability.EXPERIMENTAL,  # Marketplace API - new
+    "MarketplaceHandler": Stability.STABLE,  # Marketplace API - Graduated, circuit breaker + rate limiting + validation
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
     "RepositoryHandler": Stability.STABLE,  # Repository indexing API - Graduated from Phase A3
     "UncertaintyHandler": Stability.STABLE,  # Uncertainty estimation API - Graduated from Phase A1
@@ -683,13 +683,13 @@ HANDLER_STABILITY: dict[str, Stability] = {
     # Code review handler (Phase 5 - SME Vertical)
     "CodeReviewHandler": Stability.EXPERIMENTAL,  # Multi-agent code review - new
     "LegalHandler": Stability.STABLE,  # Legal integrations API - RBAC, 104 tests
-    "DevOpsHandler": Stability.EXPERIMENTAL,  # DevOps integrations API - new
+    "DevOpsHandler": Stability.STABLE,  # DevOps integrations API - circuit breaker, rate limiting, input validation
     # Connector platform handlers (unified APIs)
     "AdvertisingHandler": Stability.EXPERIMENTAL,  # Unified advertising platforms API - new
     "AnalyticsPlatformsHandler": Stability.EXPERIMENTAL,  # Unified analytics platforms API - new
     "CRMHandler": Stability.EXPERIMENTAL,  # Unified CRM platforms API - new
     "SupportHandler": Stability.EXPERIMENTAL,  # Unified support platforms API - new
-    "EcommerceHandler": Stability.EXPERIMENTAL,  # Unified ecommerce platforms API - new
+    "EcommerceHandler": Stability.STABLE,  # Unified ecommerce platforms API - circuit breaker, RBAC, rate limiting, 67 tests
     # External agent gateway
     "ExternalAgentsHandler": Stability.EXPERIMENTAL,  # External agent framework gateway
     # OpenClaw enterprise gateway

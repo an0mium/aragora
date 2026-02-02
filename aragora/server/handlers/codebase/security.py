@@ -188,9 +188,11 @@ async def handle_scan_repository(
                     repo_scans[scan_id] = result
                     result.scan_id = scan_id
 
+                summary = getattr(result, "summary", result)
+                vuln_count = getattr(summary, "vulnerable_dependencies", 0)
                 logger.info(
                     f"[Security] Completed scan {scan_id} for {repo_id}: "
-                    f"{getattr(result, 'summary', result).vulnerable_dependencies} vulnerable deps found"  # type: ignore[attr-defined]
+                    f"{vuln_count} vulnerable deps found"
                 )
 
                 # Emit security events for findings (triggers debate for critical findings)

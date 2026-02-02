@@ -727,9 +727,8 @@ def oauth_rate_limit(
             setattr(async_wrapper, "_oauth_rate_limit", True)
             setattr(async_wrapper, "_endpoint_type", endpoint_type)
 
-            # Return type is F but wrapper is Callable[..., Any]; cast is implicit
-            # via the return annotation. This is safe because @wraps preserves signature.
-            return async_wrapper  # type: ignore[return-value]
+            # Return type is F but wrapper is Callable[..., Any]; @wraps preserves signature
+            return async_wrapper  # type: ignore[return-value]  # Generic decorator return
         else:
 
             @wraps(func)
@@ -755,9 +754,8 @@ def oauth_rate_limit(
             setattr(sync_wrapper, "_oauth_rate_limit", True)
             setattr(sync_wrapper, "_endpoint_type", endpoint_type)
 
-            # Return type is F but wrapper is Callable[..., Any]; cast is implicit
-            # via the return annotation. This is safe because @wraps preserves signature.
-            return sync_wrapper  # type: ignore[return-value]
+            # Return type is F but wrapper is Callable[..., Any]; @wraps preserves signature
+            return sync_wrapper  # type: ignore[return-value]  # Generic decorator return
 
     return decorator
 

@@ -41,14 +41,14 @@ except ImportError:
     BROADCAST_AVAILABLE = False
     broadcast_debate = None
 
+BroadcastPipeline: Any = None
+BroadcastOptions: Any = None
 try:
     from aragora.broadcast.pipeline import BroadcastOptions, BroadcastPipeline
 
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
-    BroadcastPipeline = None  # type: ignore[misc, no-redef]
-    BroadcastOptions = None  # type: ignore[misc, no-redef]
 
 try:
     from mutagen.mp3 import MP3

@@ -48,12 +48,15 @@ from .sso import (
 
 logger = logging.getLogger(__name__)
 
+# Pre-declare OneLogin_Saml2_Auth for optional import fallback
+OneLogin_Saml2_Auth: Any
+
 try:
-    from onelogin.saml2.auth import OneLogin_Saml2_Auth
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth  # type: ignore[misc]
 
     HAS_SAML_LIB = True
 except ImportError:
-    OneLogin_Saml2_Auth = None  # type: ignore[assignment]  # optional import fallback: class -> None when python3-saml unavailable
+    OneLogin_Saml2_Auth = None  # python3-saml not installed
     HAS_SAML_LIB = False
     logger.debug("python3-saml not installed - SAML authentication unavailable")
 

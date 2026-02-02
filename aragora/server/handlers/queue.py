@@ -76,7 +76,7 @@ async def _get_queue() -> Any | None:
             return None
 
 
-class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):
+class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  # type: ignore[misc]
     """Handler for job queue management endpoints.
 
     RBAC Permissions:
@@ -130,7 +130,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):
         return None
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
+    async def handle(  # type: ignore[misc]
         self, path: str, method: str, handler: Any | None = None
     ) -> HandlerResult | None:
         """Route request to appropriate handler method."""

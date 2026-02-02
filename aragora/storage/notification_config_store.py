@@ -31,6 +31,11 @@ from typing import Any
 
 from aragora.config import resolve_db_path
 
+# Pre-declare encryption names for optional import fallback
+EncryptionError: type[Exception]
+get_encryption_service: Any
+is_encryption_required: Any
+
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -56,8 +61,8 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
-    # Fallback class when security module is unavailable; redefines the name from failed import
-    class EncryptionError(Exception):  # type: ignore[no-redef]
+    # Fallback class when security module is unavailable; pre-declared above
+    class EncryptionError(Exception):  # type: ignore[misc]
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):

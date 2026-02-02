@@ -54,7 +54,9 @@ from aragora.audit.unified import audit_admin, audit_security
 logger = logging.getLogger(__name__)
 
 
-class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
+class NomicHandler(  # type: ignore[misc]
+    SecureEndpointMixin, SecureHandler
+):  # Mixin composition for secure Nomic endpoints
     """Handler for nomic loop state, monitoring, and control endpoints.
 
     Supports real-time WebSocket event streaming when a stream server is configured.

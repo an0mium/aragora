@@ -53,9 +53,9 @@ try:
 
     CONTINUUM_AVAILABLE = True
 except ImportError:
+    ContinuumMemory = None  # type: ignore[misc,assignment]
+    MemoryTier = None  # type: ignore[misc,assignment]
     CONTINUUM_AVAILABLE = False
-    ContinuumMemory = None  # type: ignore[misc, no-redef]
-    MemoryTier = None  # type: ignore[misc, no-redef]
 
 # Optional import for critique store - use canonical helper
 from aragora.stores.canonical import get_critique_store, is_critique_store_available

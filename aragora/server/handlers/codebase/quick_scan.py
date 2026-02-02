@@ -29,11 +29,12 @@ logger = logging.getLogger(__name__)
 SCAN_READ_PERMISSION = "codebase:scan:read"
 SCAN_EXECUTE_PERMISSION = "codebase:scan:execute"
 
+SecurityScanner: Any = None
+SecuritySeverity: Any = None
 try:
     from aragora.audit.security_scanner import SecurityScanner, SecuritySeverity
 except ImportError:  # pragma: no cover - optional dependency
-    SecurityScanner = None  # type: ignore[assignment, misc]
-    SecuritySeverity = None  # type: ignore[assignment, misc]
+    pass
 
 
 async def _check_permission(request: web.Request, permission: str) -> web.Response | None:
