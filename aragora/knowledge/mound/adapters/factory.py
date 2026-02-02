@@ -577,7 +577,7 @@ class AdapterFactory:
                 )
             elif spec.name == "consensus":
                 adapter = adapter_class(
-                    consensus_memory=deps.get("consensus_memory"),
+                    consensus=deps.get("consensus_memory"),
                     event_callback=self._event_callback,
                 )
             elif spec.name == "critique":
@@ -677,7 +677,7 @@ class AdapterFactory:
                 if spec.name == "continuum":
                     return adapter_class(continuum=deps.get("continuum_memory"))
                 elif spec.name == "consensus":
-                    return adapter_class(consensus_memory=deps.get("consensus_memory"))
+                    return adapter_class(consensus=deps.get("consensus_memory"))
                 elif spec.name == "critique":
                     return adapter_class(store=deps.get("memory"))
                 elif spec.name == "evidence":
