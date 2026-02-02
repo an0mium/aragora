@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.consensus import (
@@ -29,26 +29,14 @@ if TYPE_CHECKING:
 EventCallback = Callable[[str, dict[str, Any]], None]
 
 
-class SyncResult(TypedDict):
-    """Type for forward sync result."""
-
-    records_synced: int
-    records_skipped: int
-    records_failed: int
-    errors: list[str]
-    duration_ms: float
-
-
 logger = logging.getLogger(__name__)
 
 # Import mixins for shared adapter functionality
 from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
-from aragora.knowledge.mound.adapters._reverse_flow_base import (
-    ReverseFlowMixin,
-    ValidationSyncResult,
-)
+from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.adapters._types import SyncResult, ValidationSyncResult
 
 
 @dataclass
@@ -610,13 +598,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         from datetime import datetime
 
         start = time.time()
-        result: SyncResult = {
-            "records_synced": 0,
-            "records_skipped": 0,
-            "records_failed": 0,
-            "errors": [],
-            "duration_ms": 0.0,
-        }
+        result = SyncResult()
 
         # Find all pending records
         pending_records: list["ConsensusRecord"] = []
@@ -624,11 +606,11 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
             if record.metadata.get("km_sync_pending") and record.confidence >= min_confidence:
                 pending_records.append(record)
             elif record.confidence < min_confidence:
-                result["records_skipped"] += 1
+                result.records_skipped += 1
 
         if not pending_records:
             logger.debug("No pending consensus records to sync to KM")
-            result["duration_ms"] = (time.time() - start) * 1000
+            result.duration_ms = (time.time() - start) * 1000
             return result
 
         logger.info(f"Syncing {len(pending_records[:batch_size])} consensus records to KM")
@@ -654,7 +636,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
                 record.metadata["km_synced_at"] = datetime.now().isoformat()
                 record.metadata["km_item_id"] = km_item.id
 
-                result["records_synced"] += 1
+                result.records_synced += 1
 
                 # Emit event for successful sync
                 self._emit_event(
@@ -668,29 +650,29 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
                 )
 
             except Exception as e:
-                result["records_failed"] += 1
+                result.records_failed += 1
                 error_msg = f"Failed to sync consensus {record.id}: {str(e)}"
-                result["errors"].append(error_msg)
+                result.errors.append(error_msg)
                 logger.warning(error_msg)
 
                 # Mark as failed but keep pending for retry
                 record.metadata["km_sync_error"] = str(e)
                 record.metadata["km_sync_failed_at"] = datetime.now().isoformat()
 
-        result["duration_ms"] = (time.time() - start) * 1000
+        result.duration_ms = (time.time() - start) * 1000
 
         # Record metrics
         self._record_metric(
             "sync",
-            result["records_failed"] == 0,
-            result["duration_ms"] / 1000,
+            result.records_failed == 0,
+            result.duration_ms / 1000,
         )
 
         logger.info(
             f"Consensus KM sync complete: "
-            f"synced={result['records_synced']}, "
-            f"skipped={result['records_skipped']}, "
-            f"failed={result['records_failed']}"
+            f"synced={result.records_synced}, "
+            f"skipped={result.records_skipped}, "
+            f"failed={result.records_failed}"
         )
 
         return result
@@ -718,7 +700,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         from datetime import datetime
 
         start_time = time.time()
-        result: ValidationSyncResult = {
+        result: dict[str, Any] = {
             "records_analyzed": 0,
             "records_updated": 0,
             "records_skipped": 0,
@@ -779,7 +761,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
                 result["errors"].append(f"Failed to update {source_id}: {str(e)}")
                 logger.warning(f"Reverse sync failed for consensus {source_id}: {e}")
 
-        result["duration_ms"] = (time.time() - start_time) * 1000
+        duration_ms = (time.time() - start_time) * 1000
 
         logger.info(
             f"Consensus reverse sync complete: "
@@ -787,7 +769,13 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
             f"updated={result['records_updated']}"
         )
 
-        return result
+        return ValidationSyncResult(
+            records_analyzed=result["records_analyzed"],
+            records_updated=result["records_updated"],
+            records_skipped=result["records_skipped"],
+            errors=result["errors"],
+            duration_ms=duration_ms,
+        )
 
     # =========================================================================
     # FusionMixin Implementation
