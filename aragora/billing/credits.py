@@ -149,10 +149,6 @@ class CreditManager:
     - Transaction history
     """
 
-    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
-        "credit_manager_conn", default=None
-    )
-
     def __init__(self, db_path: str | None = None):
         """Initialize credit manager.
 
@@ -163,6 +159,9 @@ class CreditManager:
             db_path = "credits.db"
 
         self.db_path = resolve_db_path(db_path)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            "credit_manager_conn", default=None
+        )
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._connections: list[sqlite3.Connection] = []
         self._init_db()
