@@ -271,10 +271,11 @@ export interface AgentSelectionClientInterface {
  * Agent Selection API namespace.
  *
  * Provides methods for agent team selection and scoring:
- * - Listing available selection plugins
- * - Scoring agents for specific tasks
- * - Selecting optimal teams with role assignment
- * - Managing plugin configurations
+ * - List available selection plugins
+ * - Get default plugin configurations
+ * - Score agents for specific tasks
+ * - Select optimal teams with role assignment
+ * - Track selection history
  *
  * @example
  * ```typescript
@@ -285,121 +286,185 @@ export interface AgentSelectionClientInterface {
  *
  * // Score agents for a task
  * const scores = await client.agentSelection.scoreAgents({
- *   task: 'Code review for security vulnerabilities',
- *   top_k: 5,
+ *   agents: ['claude', 'gpt-4', 'gemini'],
+ *   context: 'security code review',
+ *   dimensions: ['accuracy', 'speed', 'cost'],
+ * });
+ *
+ * // Get the best agent
+ * const best = await client.agentSelection.getBestAgent({
+ *   pool: ['claude', 'gpt-4', 'gemini'],
+ *   task_type: 'code_review',
  * });
  *
  * // Select a team
  * const team = await client.agentSelection.selectTeam({
- *   task: 'Design system architecture',
- *   team_size: 4,
- *   required_roles: ['architect', 'security_expert', 'domain_expert'],
+ *   pool: ['claude', 'gpt-4', 'gemini', 'mistral'],
+ *   task_requirements: { domain: 'security', complexity: 'high' },
+ *   team_size: 3,
  * });
+ *
+ * // Assign roles to team members
+ * const roles = await client.agentSelection.assignRoles({
+ *   members: ['claude', 'gpt-4'],
+ *   roles: ['lead', 'reviewer'],
+ * });
+ *
+ * // Get selection history
+ * const history = await client.agentSelection.getHistory({ limit: 10 });
  * ```
  */
 export class AgentSelectionAPI {
   constructor(private client: AgentSelectionClientInterface) {}
 
+  // ===========================================================================
+  // Plugin Discovery
+  // ===========================================================================
+
   /**
    * List all available selection plugins.
    */
-  async listPlugins(): Promise<{ plugins: SelectionPlugin[] }> {
-    return this.client.request<{ plugins: SelectionPlugin[] }>('GET', '/api/v1/selection/plugins');
+  async listPlugins(): Promise<ListPluginsResponse> {
+    return this.client.request<ListPluginsResponse>('GET', '/api/v1/agent-selection/plugins');
   }
 
   /**
    * Get default plugin configuration.
    */
   async getDefaults(): Promise<DefaultPluginConfig> {
-    return this.client.request<DefaultPluginConfig>('GET', '/api/v1/selection/defaults');
+    return this.client.request<DefaultPluginConfig>('GET', '/api/v1/agent-selection/defaults');
   }
+
+  // ===========================================================================
+  // Agent Scoring
+  // ===========================================================================
+
+  /**
+   * Score agents for a specific task or context.
+   */
+  async scoreAgents(options: ScoreAgentsRequest): Promise<ScoreAgentsResponse> {
+    const data: Record<string, unknown> = { agents: options.agents };
+    if (options.context !== undefined) data.context = options.context;
+    if (options.dimensions !== undefined) data.dimensions = options.dimensions;
+    if (options.scorer !== undefined) data.scorer = options.scorer;
+    if (options.weights !== undefined) data.weights = options.weights;
+    if (options.top_k !== undefined) data.top_k = options.top_k;
+
+    return this.client.request<ScoreAgentsResponse>('POST', '/api/v1/agent-selection/score', {
+      json: data,
+    });
+  }
+
+  /**
+   * Get the best agent for a specific task from a pool.
+   */
+  async getBestAgent(options: GetBestAgentRequest): Promise<GetBestAgentResponse> {
+    const data: Record<string, unknown> = {
+      pool: options.pool,
+      task_type: options.task_type,
+    };
+    if (options.context !== undefined) data.context = options.context;
+
+    return this.client.request<GetBestAgentResponse>('POST', '/api/v1/agent-selection/best', {
+      json: data,
+    });
+  }
+
+  // ===========================================================================
+  // Team Selection
+  // ===========================================================================
+
+  /**
+   * Select an optimal team of agents for a task.
+   */
+  async selectTeam(options: SelectTeamRequest): Promise<SelectTeamResponse> {
+    const data: Record<string, unknown> = { pool: options.pool };
+    if (options.task_requirements !== undefined) data.task_requirements = options.task_requirements;
+    if (options.team_size !== undefined) data.team_size = options.team_size;
+    if (options.constraints !== undefined) data.constraints = options.constraints;
+    if (options.min_team_size !== undefined) data.min_team_size = options.min_team_size;
+    if (options.max_team_size !== undefined) data.max_team_size = options.max_team_size;
+    if (options.required_roles !== undefined) data.required_roles = options.required_roles;
+    if (options.excluded_agents !== undefined) data.excluded_agents = options.excluded_agents;
+    if (options.diversity_weight !== undefined) data.diversity_weight = options.diversity_weight;
+    if (options.selector !== undefined) data.selector = options.selector;
+    if (options.role_assigner !== undefined) data.role_assigner = options.role_assigner;
+
+    return this.client.request<SelectTeamResponse>('POST', '/api/v1/agent-selection/select-team', {
+      json: data,
+    });
+  }
+
+  /**
+   * Assign roles to a set of team members.
+   */
+  async assignRoles(options: AssignRolesRequest): Promise<AssignRolesResponse> {
+    const data: Record<string, unknown> = {
+      members: options.members,
+      roles: options.roles,
+    };
+    if (options.task_context !== undefined) data.task_context = options.task_context;
+    if (options.assigner !== undefined) data.assigner = options.assigner;
+
+    return this.client.request<AssignRolesResponse>('POST', '/api/v1/agent-selection/assign-roles', {
+      json: data,
+    });
+  }
+
+  // ===========================================================================
+  // History
+  // ===========================================================================
+
+  /**
+   * Get agent selection history.
+   */
+  async getHistory(options?: { limit?: number; since?: string }): Promise<SelectionHistoryResponse> {
+    const params: Record<string, unknown> = {};
+    if (options?.limit !== undefined) params.limit = options.limit;
+    if (options?.since !== undefined) params.since = options.since;
+
+    return this.client.request<SelectionHistoryResponse>('GET', '/api/v1/agent-selection/history', {
+      params,
+    });
+  }
+
+  // ===========================================================================
+  // Plugin Details
+  // ===========================================================================
 
   /**
    * Get details for a specific scorer plugin.
    */
   async getScorer(name: string): Promise<ScorerPlugin> {
-    return this.client.request<ScorerPlugin>('GET', `/api/v1/selection/scorers/${name}`);
+    return this.client.request<ScorerPlugin>(
+      'GET',
+      '/api/v1/agent-selection/scorers/' + encodeURIComponent(name)
+    );
   }
 
   /**
    * Get details for a specific team selector plugin.
    */
   async getTeamSelector(name: string): Promise<TeamSelectorPlugin> {
-    return this.client.request<TeamSelectorPlugin>('GET', `/api/v1/selection/team-selectors/${name}`);
+    return this.client.request<TeamSelectorPlugin>(
+      'GET',
+      '/api/v1/agent-selection/team-selectors/' + encodeURIComponent(name)
+    );
   }
 
   /**
    * Get details for a specific role assigner plugin.
    */
   async getRoleAssigner(name: string): Promise<RoleAssignerPlugin> {
-    return this.client.request<RoleAssignerPlugin>('GET', `/api/v1/selection/role-assigners/${name}`);
+    return this.client.request<RoleAssignerPlugin>(
+      'GET',
+      '/api/v1/agent-selection/role-assigners/' + encodeURIComponent(name)
+    );
   }
 
-  /**
-   * Score agents for a specific task.
-   */
-  async scoreAgents(request: ScoreAgentsRequest): Promise<ScoreAgentsResponse> {
-    return this.client.request<ScoreAgentsResponse>('POST', '/api/v1/selection/score', {
-      json: request,
-    });
-  }
-
-  /**
-   * Select an optimal team for a task.
-   */
-  async selectTeam(request: SelectTeamRequest): Promise<SelectTeamResponse> {
-    return this.client.request<SelectTeamResponse>('POST', '/api/v1/selection/team', {
-      json: request,
-    });
-  }
-
-  /**
-   * Convenience method to get the best agent for a task.
-   */
-  async getBestAgent(task: string, context?: string): Promise<AgentScore | null> {
-    const response = await this.scoreAgents({ task, context, top_k: 1 });
-    return response.scores[0] || null;
-  }
-
-  /**
-   * Convenience method to select a team with alternatives.
-   */
-  async selectTeamWithAlternatives(
-    request: SelectTeamRequest,
-    alternativeCount: number = 2
-  ): Promise<{
-    primary: SelectTeamResponse;
-    alternatives: SelectTeamResponse[];
-  }> {
-    // Select primary team
-    const primary = await this.selectTeam(request);
-
-    // Select alternatives by excluding primary team members
-    const alternatives: SelectTeamResponse[] = [];
-    let excludedAgents = request.excluded_agents || [];
-
-    for (let i = 0; i < alternativeCount; i++) {
-      // Add previous team members to exclusion list
-      const previousTeamIds = primary.team.map(m => m.agent_id);
-      excludedAgents = [...new Set([...excludedAgents, ...previousTeamIds])];
-
-      try {
-        const altTeam = await this.selectTeam({
-          ...request,
-          excluded_agents: excludedAgents,
-        });
-        alternatives.push(altTeam);
-
-        // Add this team's members to exclusion for next iteration
-        excludedAgents = [...excludedAgents, ...altTeam.team.map(m => m.agent_id)];
-      } catch {
-        // Not enough agents for more alternatives
-        break;
-      }
-    }
-
-    return { primary, alternatives };
-  }
+  // ===========================================================================
+  // Convenience Methods
+  // ===========================================================================
 
   /**
    * List all scorer plugins.
@@ -429,6 +494,39 @@ export class AgentSelectionAPI {
     return {
       assigners: plugins.filter((p): p is RoleAssignerPlugin => p.type === 'role_assigner'),
     };
+  }
+
+  /**
+   * Select a team with alternative team suggestions.
+   */
+  async selectTeamWithAlternatives(
+    options: SelectTeamRequest,
+    alternativeCount: number = 2
+  ): Promise<{
+    primary: SelectTeamResponse;
+    alternatives: SelectTeamResponse[];
+  }> {
+    const primary = await this.selectTeam(options);
+    const alternatives: SelectTeamResponse[] = [];
+    let excludedAgents = options.excluded_agents || [];
+
+    for (let i = 0; i < alternativeCount; i++) {
+      const previousTeamIds = primary.team.map(m => m.agent_id);
+      excludedAgents = Array.from(new Set([...excludedAgents, ...previousTeamIds]));
+
+      try {
+        const altTeam = await this.selectTeam({
+          ...options,
+          excluded_agents: excludedAgents,
+        });
+        alternatives.push(altTeam);
+        excludedAgents = [...excludedAgents, ...altTeam.team.map(m => m.agent_id)];
+      } catch {
+        break;
+      }
+    }
+
+    return { primary, alternatives };
   }
 }
 

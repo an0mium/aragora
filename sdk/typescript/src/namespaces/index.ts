@@ -1242,17 +1242,26 @@ export {
 // Agent Selection
 export {
   AgentSelectionAPI,
+  type AgentSelectionClientInterface,
   type SelectionPlugin,
   type ScorerPlugin,
   type TeamSelectorPlugin,
   type RoleAssignerPlugin,
   type DefaultPluginConfig,
+  type ListPluginsResponse,
   type ScoreAgentsRequest,
   type AgentScore,
   type ScoreAgentsResponse,
+  type GetBestAgentRequest,
+  type GetBestAgentResponse,
   type SelectTeamRequest,
   type TeamMember,
   type SelectTeamResponse,
+  type AssignRolesRequest,
+  type RoleAssignment,
+  type AssignRolesResponse,
+  type SelectionHistoryEntry,
+  type SelectionHistoryResponse,
 } from './agent-selection';
 
 // Computer Use (Safe Computer Control)
