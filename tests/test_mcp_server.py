@@ -16,6 +16,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any, Dict
 
+pytest.importorskip("mcp")
+
 from mcp.types import (
     Tool,
     TextContent,
