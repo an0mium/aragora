@@ -104,7 +104,7 @@ class GauntletRunnerMixin:
                                 )
 
         # Parse request body (with Content-Length validation)
-        data = self.read_json_body(handler)
+        data = self.read_json_body(handler)  # type: ignore[attr-defined]
         if data is None:
             return error_response("Invalid or too large request body", 400)
 
@@ -194,7 +194,7 @@ class GauntletRunnerMixin:
             except ImportError as ie:
                 logger.warning(f"Durable queue unavailable, falling back: {ie}")
                 create_tracked_task(
-                    self._run_gauntlet_async(
+                    self._run_gauntlet_async(  # type: ignore[misc]
                         gauntlet_id, input_content, input_type, persona, agents, profile
                     ),
                     name=f"gauntlet-{gauntlet_id}",
@@ -202,7 +202,7 @@ class GauntletRunnerMixin:
         else:
             # Fire-and-forget - simpler but doesn't survive restarts
             create_tracked_task(
-                self._run_gauntlet_async(
+                self._run_gauntlet_async(  # type: ignore[misc]
                     gauntlet_id, input_content, input_type, persona, agents, profile
                 ),
                 name=f"gauntlet-{gauntlet_id}",
@@ -220,7 +220,7 @@ class GauntletRunnerMixin:
             status=202,
         )
 
-    async def _run_gauntlet_async(
+    async def _run_gauntlet_async(  # type: ignore[misc]
         self: GauntletHandlerProtocol,
         gauntlet_id: str,
         input_content: str,
