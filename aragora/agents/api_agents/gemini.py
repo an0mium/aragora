@@ -67,7 +67,7 @@ GEMINI_MODEL_ALIASES = {
     "gemini-1.5-pro-002": "gemini-1.5-pro-002",
     "gemini-2.0-flash": "gemini-2.0-flash",
     "gemini-2.0-flash-001": "gemini-2.0-flash-001",
-    "gemini-3-pro-preview": "gemini-2.0-flash",  # Map preview to stable
+    "gemini-3-pro-preview": "gemini-3-pro-preview",
 }
 
 
@@ -85,7 +85,7 @@ def _normalize_gemini_model(model: str) -> str:
 
 @AgentRegistry.register(
     "gemini",
-    default_model="gemini-2.0-flash",
+    default_model="gemini-3-pro-preview",
     agent_type="API",
     env_vars="GEMINI_API_KEY or GOOGLE_API_KEY",
     accepts_api_key=True,
@@ -117,7 +117,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     def __init__(
         self,
         name: str = "gemini",
-        model: str = "gemini-2.0-flash",  # Gemini 2.0 Flash - fast and capable
+        model: str = "gemini-3-pro-preview",  # Gemini 3 Pro Preview - frontier model
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

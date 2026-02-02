@@ -15,7 +15,7 @@ from aragora.agents.api_agents import (
 )
 
 # Create an agent with automatic fallback
-agent = AnthropicAPIAgent(name="claude-debate", model="claude-opus-4-5-20251101")
+agent = AnthropicAPIAgent(name="claude-debate", model="claude-opus-4-1-20250805")
 
 # Generate a response
 response = await agent.generate("Analyze the trade-offs of microservices vs monoliths")
@@ -93,10 +93,10 @@ Agent (core.py)
 
 | Provider | Agent Class | Default Model | Env Var | Capabilities |
 |----------|-------------|---------------|---------|--------------|
-| Anthropic | `AnthropicAPIAgent` | claude-opus-4-5 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
-| OpenAI | `OpenAIAPIAgent` | gpt-5.2 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
-| Google | `GeminiAgent` | gemini-3-pro | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
-| xAI | `GrokAgent` | grok-4 | `XAI_API_KEY` | Streaming, Fallback |
+| Anthropic | `AnthropicAPIAgent` | claude-opus-4-1-20250805 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
+| OpenAI | `OpenAIAPIAgent` | gpt-5.1 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
+| Google | `GeminiAgent` | gemini-3-pro-preview | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
+| xAI | `GrokAgent` | grok-4-latest | `XAI_API_KEY` | Streaming, Fallback |
 | Mistral | `MistralAPIAgent` | mistral-large-2512 | `MISTRAL_API_KEY` | Streaming, Fallback |
 | Mistral | `CodestralAgent` | codestral-latest | `MISTRAL_API_KEY` | Code-optimized |
 
@@ -104,12 +104,12 @@ Agent (core.py)
 
 | Agent Class | Model | Description |
 |-------------|-------|-------------|
-| `DeepSeekAgent` | deepseek-v3.2 | Integrated thinking + tool-use |
+| `DeepSeekAgent` | deepseek-reasoner | Chain-of-thought reasoning |
 | `DeepSeekReasonerAgent` | deepseek-r1 | Chain-of-thought reasoning |
-| `LlamaAgent` | llama-3.3-70b | Meta's flagship open model |
+| `LlamaAgent` | llama-4-maverick | Meta's flagship model |
 | `Llama4MaverickAgent` | llama-4-maverick | 400B MoE, 1M context |
 | `Llama4ScoutAgent` | llama-4-scout | 109B MoE, 10M context |
-| `QwenAgent` | qwen3-235b | Alibaba's 235B MoE |
+| `QwenAgent` | qwen3-max | Alibaba's frontier model |
 | `QwenMaxAgent` | qwen3-max | Trillion-parameter frontier |
 | `MistralAgent` | mistral-large-2411 | Via OpenRouter |
 | `YiAgent` | yi-large | 01.AI flagship |

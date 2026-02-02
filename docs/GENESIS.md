@@ -28,7 +28,7 @@ genome = AgentGenome(
         "collaboration": 0.75
     },
     expertise=["distributed_systems", "databases", "api_design"],
-    base_model="claude-opus-4-5-20251101",
+    base_model="claude-opus-4-1-20250805",
     prompt_template="You are a systems architecture specialist...",
     fitness_score=0.82
 )
@@ -146,7 +146,7 @@ List all genomes with pagination.
   "genomes": [
     {
       "genome_id": "claude-systems-v3",
-      "base_model": "claude-opus-4-5-20251101",
+      "base_model": "claude-opus-4-1-20250805",
       "fitness_score": 0.92,
       "traits": {"reasoning_depth": 0.95, ...},
       "expertise": ["distributed_systems", "consensus"],

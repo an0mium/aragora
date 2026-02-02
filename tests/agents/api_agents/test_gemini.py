@@ -33,7 +33,7 @@ class TestGeminiAgentInitialization:
         agent = GeminiAgent()
 
         assert agent.name == "gemini"
-        assert agent.model == "gemini-2.0-flash"
+        assert agent.model == "gemini-3-pro-preview"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "gemini"
@@ -75,7 +75,7 @@ class TestGeminiAgentInitialization:
         spec = AgentRegistry.get_spec("gemini")
 
         assert spec is not None
-        assert spec.default_model == "gemini-2.0-flash"
+        assert spec.default_model == "gemini-3-pro-preview"
         assert spec.agent_type == "API"
 
     def test_init_with_fallback_enabled(self, mock_env_with_fallback_enabled):

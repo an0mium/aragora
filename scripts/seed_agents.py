@@ -49,7 +49,7 @@ AGENT_METADATA = [
     {
         "name": "claude-opus",
         "provider": "anthropic",
-        "model_id": "claude-opus-4-5-20251101",
+        "model_id": "claude-opus-4-1-20250805",
         "context_window": 200000,
         "specialties": ["reasoning", "analysis", "coding", "writing"],
         "strengths": ["Deep reasoning", "Nuanced analysis", "Long-form content"],

@@ -32,7 +32,7 @@ class TestAnthropicAgentInitialization:
         agent = AnthropicAPIAgent()
 
         assert agent.name == "claude-api"
-        assert agent.model == "claude-opus-4-5-20251101"
+        assert agent.model == "claude-opus-4-1-20250805"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "anthropic"
@@ -74,7 +74,7 @@ class TestAnthropicAgentInitialization:
         spec = AgentRegistry.get_spec("anthropic-api")
 
         assert spec is not None
-        assert spec.default_model == "claude-opus-4-5-20251101"
+        assert spec.default_model == "claude-opus-4-1-20250805"
         assert spec.agent_type == "API"
 
 

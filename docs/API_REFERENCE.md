@@ -1396,10 +1396,10 @@ API (direct):
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
-| `openai-api` | gpt-5.2 | OpenAI API, streaming |
+| `anthropic-api` | claude-opus-4-1-20250805 | Anthropic API, streaming |
+| `openai-api` | gpt-5.1 | OpenAI API, streaming |
 | `gemini` | gemini-3-pro-preview | Google API, streaming |
-| `grok` | grok-3 | xAI API, streaming |
+| `grok` | grok-4-latest | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |
 | `codestral` | codestral-latest | Mistral code model |
 | `ollama` | llama3.2 | Local Ollama |
@@ -1410,23 +1410,23 @@ OpenRouter:
 | Type | Default Model | Notes |
 |------|---------------|-------|
 | `openrouter` | deepseek/deepseek-chat-v3-0324 | Model via `model` parameter |
-| `deepseek` | deepseek/deepseek-chat-v3-0324 | DeepSeek V3 (chat) |
+| `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 (reasoning) |
 | `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek reasoning |
-| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `llama` | meta-llama/llama-4-maverick | Llama 4 Maverick |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
-| `qwen` | qwen/qwen-2.5-coder-32b-instruct | Qwen 2.5 Coder |
-| `qwen-max` | qwen/qwen-max | Qwen Max |
+| `qwen` | qwen/qwen3-max | Qwen3 Max |
+| `qwen-max` | qwen/qwen3-max | Qwen3 Max |
 | `yi` | 01-ai/yi-large | Yi Large |
 
 CLI:
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `claude` | claude-sonnet-4 | Claude CLI |
+| `claude` | claude-opus-4-1-20250805 | Claude CLI |
 | `codex` | gpt-5.2-codex | Codex CLI |
-| `openai` | gpt-4o | OpenAI CLI |
+| `openai` | gpt-5.1 | OpenAI CLI |
 | `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
-| `grok-cli` | grok-4 | Grok CLI |
+| `grok-cli` | grok-4-latest | Grok CLI |
 | `qwen-cli` | qwen3-coder | Qwen CLI |
 | `deepseek-cli` | deepseek-v3 | DeepSeek CLI |
 | `kilocode` | gemini-explorer | Codebase explorer |

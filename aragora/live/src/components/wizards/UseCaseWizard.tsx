@@ -97,7 +97,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: '%',
     category: 'architecture',
     defaults: { mode: 'adversarial', intensity: 'high' },
-    suggestedAgents: ['claude-opus', 'gpt-4o', 'grok-3', 'deepseek-v3'],
+    suggestedAgents: ['claude-opus', 'gpt-4o', 'grok-4-latest', 'deepseek-v3'],
     endpoint: '/api/gauntlet',
     rounds: 3,
   },

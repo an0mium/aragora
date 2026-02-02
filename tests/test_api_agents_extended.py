@@ -268,7 +268,7 @@ class TestAnthropicFallback:
     def test_anthropic_fallback_model_mapping(self, anthropic_agent):
         """Test that Anthropic models are mapped correctly to OpenRouter."""
         # Test various model mappings
-        assert "claude-opus-4-5-20251101" in AnthropicAPIAgent.OPENROUTER_MODEL_MAP
+        assert "claude-opus-4-1-20250805" in AnthropicAPIAgent.OPENROUTER_MODEL_MAP
         assert "claude-sonnet-4-20250514" in AnthropicAPIAgent.OPENROUTER_MODEL_MAP
 
         # Default should map to sonnet

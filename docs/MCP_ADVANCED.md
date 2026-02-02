@@ -111,8 +111,8 @@ Get available debate agents with their capabilities.
 ```json
 {
   "agents": [
-    {"name": "anthropic-api", "available": true, "model": "claude-opus-4-5-20251101"},
-    {"name": "openai-api", "available": true, "model": "gpt-5.2"},
+    {"name": "anthropic-api", "available": true, "model": "claude-opus-4-1-20250805"},
+    {"name": "openai-api", "available": true, "model": "gpt-5.1"},
     {"name": "mistral-api", "available": true, "model": "mistral-large-2512"}
   ]
 }

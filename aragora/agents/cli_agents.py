@@ -80,12 +80,13 @@ class CLIAgent(CritiqueMixin, Agent):
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
         "claude": "anthropic/claude-sonnet-4",  # Default claude CLI
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4",
+        "claude-opus-4-1-20250805": "anthropic/claude-opus-4",
         "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
         "claude-3-opus-20240229": "anthropic/claude-3-opus",
         "claude-3-sonnet-20240229": "anthropic/claude-3-sonnet",
         # OpenAI/Codex models
         "gpt-5.2-codex": "openai/gpt-4o",
+        "gpt-5.1": "openai/gpt-4o",
         "gpt-4o": "openai/gpt-4o",
         "gpt-4-turbo": "openai/gpt-4-turbo",
         "gpt-4": "openai/gpt-4",
@@ -95,6 +96,7 @@ class CLIAgent(CritiqueMixin, Agent):
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         # Grok models
+        "grok-4-latest": "x-ai/grok-4",
         "grok-4": "x-ai/grok-4",
         "grok-3": "x-ai/grok-4",
         "grok-2": "x-ai/grok-4",
@@ -551,7 +553,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-sonnet-4",
+    default_model="claude-opus-4-1-20250805",
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )
@@ -747,7 +749,7 @@ class KiloCodeAgent(CLIAgent):
 
 @AgentRegistry.register(
     "grok-cli",
-    default_model="grok-4",
+    default_model="grok-4-latest",
     agent_type="CLI",
     requires="grok CLI (npm install -g grok-cli)",
 )
@@ -872,7 +874,7 @@ class DeepseekCLIAgent(CLIAgent):
 
 @AgentRegistry.register(
     "openai",
-    default_model="gpt-4o",
+    default_model="gpt-5.1",
     agent_type="CLI",
     requires="openai CLI (pip install openai)",
     env_vars="OPENAI_API_KEY",
@@ -884,7 +886,7 @@ class OpenAIAgent(CLIAgent):
     """
 
     def __init__(
-        self, name: str, model: str = "gpt-4o", role: AgentRole = "proposer", timeout: int = 120
+        self, name: str, model: str = "gpt-5.1", role: AgentRole = "proposer", timeout: int = 120
     ) -> None:
         super().__init__(name, model, role, timeout)
 

@@ -1197,8 +1197,8 @@ API (direct):
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
-| `openai-api` | gpt-5.2 | OpenAI API, streaming |
+| `anthropic-api` | claude-opus-4-1-20250805 | Anthropic API, streaming |
+| `openai-api` | gpt-5.1 | OpenAI API, streaming |
 | `gemini` | gemini-3-pro-preview | Google API, streaming |
 | `grok` | grok-3 | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |

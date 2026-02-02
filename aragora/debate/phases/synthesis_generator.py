@@ -94,7 +94,7 @@ class SynthesisGenerator:
             # Create dedicated synthesizer (always Opus 4.5)
             synthesizer = AnthropicAPIAgent(
                 name="synthesis-agent",
-                model="claude-opus-4-5-20251101",
+                model="claude-opus-4-1-20250805",
             )
 
             # Build synthesis prompt

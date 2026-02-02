@@ -59,7 +59,7 @@ WEB_SEARCH_INDICATORS = [
 
 @AgentRegistry.register(
     "anthropic-api",
-    default_model="claude-opus-4-5-20251101",
+    default_model="claude-opus-4-1-20250805",
     default_name="claude-api",
     agent_type="API",
     env_vars="ANTHROPIC_API_KEY",
@@ -76,7 +76,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
     # Model mapping from Anthropic to OpenRouter format (used by QuotaFallbackMixin)
     OPENROUTER_MODEL_MAP = {
-        "claude-opus-4-5-20251101": "anthropic/claude-sonnet-4",
+        "claude-opus-4-1-20250805": "anthropic/claude-sonnet-4",
         "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
         "claude-3-5-sonnet-20241022": "anthropic/claude-3.5-sonnet",
         "claude-3-opus-20240229": "anthropic/claude-3-opus",
@@ -88,7 +88,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     def __init__(
         self,
         name: str = "claude-api",
-        model: str = "claude-opus-4-5-20251101",
+        model: str = "claude-opus-4-1-20250805",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

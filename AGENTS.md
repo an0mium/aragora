@@ -12,11 +12,11 @@ These agents invoke external CLI tools (use these agent type IDs with `create_ag
 
 | Agent Type | CLI Tool | Default Model |
 |------------|----------|---------------|
-| `claude` | `claude` (claude-code) | claude-sonnet-4 |
+| `claude` | `claude` (claude-code) | claude-opus-4-1-20250805 |
 | `codex` | `codex` | gpt-5.2-codex |
-| `openai` | `openai` | gpt-4o |
+| `openai` | `openai` | gpt-5.1 |
 | `gemini-cli` | `gemini` | gemini-3-pro-preview |
-| `grok-cli` | `grok` | grok-4 |
+| `grok-cli` | `grok` | grok-4-latest |
 | `qwen-cli` | `qwen` | qwen3-coder |
 | `deepseek-cli` | `deepseek` | deepseek-v3 |
 | `kilocode` | `kilocode` | gemini-explorer (provider id) |
@@ -27,10 +27,10 @@ These agents make direct HTTP API calls to provider endpoints:
 
 | Agent Type | API | Default Model | Env Var |
 |------------|-----|---------------|---------|
-| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` |
-| `openai-api` | OpenAI | gpt-5.2 | `OPENAI_API_KEY` |
+| `anthropic-api` | Anthropic | claude-opus-4-1-20250805 | `ANTHROPIC_API_KEY` |
+| `openai-api` | OpenAI | gpt-5.1 | `OPENAI_API_KEY` |
 | `gemini` | Google | gemini-3-pro-preview | `GEMINI_API_KEY` |
-| `grok` | xAI | grok-3 | `XAI_API_KEY` |
+| `grok` | xAI | grok-4-latest | `XAI_API_KEY` |
 | `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` |
 | `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` |
 | `ollama` | Local Ollama | llama3.2 | `OLLAMA_HOST` |
@@ -42,12 +42,12 @@ These agents use OpenRouter for unified multi-model access:
 
 | Agent Type | Model | Description |
 |------------|-------|-------------|
-| `deepseek` | deepseek/deepseek-chat-v3-0324 | DeepSeek V3 (chat) - excellent for coding |
+| `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 - reasoning model |
 | `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek R1 - chain-of-thought reasoning |
-| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `llama` | meta-llama/llama-4-maverick | Llama 4 Maverick |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large via OpenRouter |
-| `qwen` | qwen/qwen-2.5-coder-32b-instruct | Qwen 2.5 Coder |
-| `qwen-max` | qwen/qwen-max | Qwen Max - flagship reasoning |
+| `qwen` | qwen/qwen3-max | Qwen3 Max - frontier model |
+| `qwen-max` | qwen/qwen3-max | Qwen3 Max - frontier model |
 | `yi` | 01-ai/yi-large | Yi Large - balanced capabilities |
 
 All OpenRouter agents require `OPENROUTER_API_KEY`.

@@ -79,9 +79,9 @@ class OpenRouterAgent(APIAgent):
     and others through an OpenAI-compatible API.
 
     Supported models (via model parameter):
-    - deepseek/deepseek-chat (DeepSeek V3)
     - deepseek/deepseek-reasoner (DeepSeek R1)
-    - meta-llama/llama-3.3-70b-instruct
+    - deepseek/deepseek-chat (DeepSeek V3)
+    - meta-llama/llama-4-maverick
     - mistralai/mistral-large-2411
     - google/gemini-2.0-flash-exp:free
     - anthropic/claude-3.5-sonnet
@@ -562,19 +562,19 @@ REASONING: explanation"""
 # Convenience aliases for specific OpenRouter models
 @AgentRegistry.register(
     "deepseek",
-    default_model="deepseek/deepseek-chat-v3-0324",
+    default_model="deepseek/deepseek-reasoner",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="DeepSeek V3 - excellent for coding/math, very cost-effective",
+    description="DeepSeek R1 - reasoning model with chain-of-thought",
 )
 class DeepSeekAgent(OpenRouterAgent):
-    """DeepSeek V3.2 via OpenRouter - latest model with integrated thinking + tool-use."""
+    """DeepSeek R1 via OpenRouter - reasoning model with chain-of-thought."""
 
     def __init__(
         self,
         name: str = "deepseek",
         role: AgentRole = "analyst",
-        model: str = "deepseek/deepseek-v3.2",
+        model: str = "deepseek/deepseek-reasoner",
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -632,19 +632,19 @@ class DeepSeekV3Agent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "llama",
-    default_model="meta-llama/llama-3.3-70b-instruct",
+    default_model="meta-llama/llama-4-maverick",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Llama 3.3 70B Instruct",
+    description="Llama 4 Maverick",
 )
 class LlamaAgent(OpenRouterAgent):
-    """Llama 3.3 70B via OpenRouter."""
+    """Llama 4 Maverick via OpenRouter."""
 
     def __init__(
         self,
         name: str = "llama",
         role: AgentRole = "analyst",
-        model: str = "meta-llama/llama-3.3-70b-instruct",
+        model: str = "meta-llama/llama-4-maverick",
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -684,19 +684,19 @@ class MistralAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "qwen",
-    default_model="qwen/qwen3-235b-a22b",
+    default_model="qwen/qwen3-max",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Qwen3 235B - Alibaba's premier MoE model, GPT-5 class reasoning",
+    description="Qwen3 Max - Alibaba's frontier model, 256K context, trillion params",
 )
 class QwenAgent(OpenRouterAgent):
-    """Alibaba Qwen3 235B via OpenRouter - flagship MoE model with 235B params."""
+    """Alibaba Qwen3 Max via OpenRouter - frontier model with 256K context."""
 
     def __init__(
         self,
         name: str = "qwen",
         role: AgentRole = "analyst",
-        model: str = "qwen/qwen3-235b-a22b",
+        model: str = "qwen/qwen3-max",
         system_prompt: str | None = None,
     ):
         super().__init__(

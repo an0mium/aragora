@@ -385,7 +385,7 @@ class TestOpenRouterFallbackChain:
         from aragora.agents.cli_agents import ClaudeAgent
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}, clear=False):
-            agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101")
+            agent = ClaudeAgent(name="test", model="claude-opus-4-1-20250805")
             fallback = agent._get_fallback_agent()
             assert fallback is None
 

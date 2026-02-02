@@ -437,9 +437,9 @@ class TestOpenRouterModelMapping:
         from aragora.agents.cli_agents import CLIAgent
 
         mapping = CLIAgent.OPENROUTER_MODEL_MAP
-        assert "claude-opus-4-5-20251101" in mapping
+        assert "claude-opus-4-1-20250805" in mapping
         assert "claude-sonnet-4-20250514" in mapping
-        assert "anthropic/claude" in mapping.get("claude-opus-4-5-20251101", "")
+        assert "anthropic/claude" in mapping.get("claude-opus-4-1-20250805", "")
 
     def test_gpt_model_mapping(self):
         """Test GPT models map to OpenRouter correctly."""

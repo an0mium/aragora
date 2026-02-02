@@ -1759,13 +1759,13 @@ All stabilization items addressed:
 ### Active Agents (default config, 8 total)
 | Agent | Model | API |
 |-------|-------|-----|
-| `grok` | grok-3 | xAI |
-| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
-| `openai-api` | gpt-5.2 | OpenAI |
-| `deepseek` | deepseek/deepseek-chat-v3-0324 | OpenRouter |
+| `grok` | grok-4-latest | xAI |
+| `anthropic-api` | claude-opus-4-1-20250805 | Anthropic |
+| `openai-api` | gpt-5.1 | OpenAI |
+| `deepseek` | deepseek/deepseek-reasoner | OpenRouter |
 | `mistral-api` | mistral-large-2512 | Mistral |
 | `gemini` | gemini-3-pro-preview | Google |
-| `qwen-max` | qwen/qwen-max | OpenRouter |
+| `qwen-max` | qwen/qwen3-max | OpenRouter |
 | `kimi` | moonshot-v1-8k | Moonshot |
 
 ### Recent Changes (2026-01-27)
