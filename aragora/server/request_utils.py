@@ -13,10 +13,15 @@ and allow easier testing of request parsing logic.
 import re
 from typing import Any
 
+from aragora.server.middleware.body_size_limit import (
+    BodySizeLimitMiddleware,
+    get_body_size_config,
+)
 from aragora.server.validation import safe_query_float, safe_query_int
 
-# DoS protection limits
-MAX_JSON_CONTENT_LENGTH: int = 10 * 1024 * 1024  # 10MB for JSON API
+# DoS protection limits - now sourced from body_size_limit middleware
+# Keep this export for backwards compatibility
+MAX_JSON_CONTENT_LENGTH: int = get_body_size_config().max_request_size
 
 
 class RequestUtilsMixin:
@@ -122,32 +127,37 @@ class RequestUtilsMixin:
         """Validate Content-Length header for DoS protection.
 
         Returns content length if valid, None if invalid (error already sent).
+        Uses the BodySizeLimitMiddleware for consistent enforcement.
 
         Args:
             max_size: Maximum allowed content length in bytes.
-                     Defaults to MAX_JSON_CONTENT_LENGTH (10MB).
+                     Defaults to configured max request size (10MB).
 
         Returns:
             Content length as int if valid, None if invalid (error response sent)
         """
-        max_size = max_size or MAX_JSON_CONTENT_LENGTH
+        # Get the request path for endpoint-specific limits
+        path = getattr(self, "path", "")
 
+        # Convert headers to dict for middleware
+        headers_dict = {key: val for key, val in self.headers.items()}
+
+        # Use body size limit middleware for validation
+        middleware = BodySizeLimitMiddleware()
+        result = middleware.check_content_length(
+            headers_dict, path=path, max_size_override=max_size
+        )
+
+        if not result.allowed:
+            self._send_json({"error": result.message}, status=result.status_code)
+            return None
+
+        # Return actual content length
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
+            return content_length
         except ValueError:
-            self._send_json({"error": "Invalid Content-Length header"}, status=400)
-            return None
-
-        if content_length < 0:
-            self._send_json({"error": "Invalid Content-Length: negative value"}, status=400)
-            return None
-
-        if content_length > max_size:
-            size_mb = max_size / (1024 * 1024)
-            self._send_json({"error": f"Content too large. Max: {size_mb:.0f}MB"}, status=413)
-            return None
-
-        return content_length
+            return 0
 
 
 __all__ = ["RequestUtilsMixin", "MAX_JSON_CONTENT_LENGTH"]
