@@ -218,31 +218,50 @@ async def handle_list_invoices(
         offset: int (optional, default 0)
     }
     """
+    # Parse and validate filters
+    vendor_id = data.get("vendor_id")
+    status = data.get("status")
+    priority = data.get("priority")
+    start_date = None
+    end_date = None
+
     try:
-        ap = get_ap_automation()
-
-        # Parse filters
-        vendor_id = data.get("vendor_id")
-        status = data.get("status")
-        priority = data.get("priority")
-        start_date = None
-        end_date = None
-
         if data.get("start_date"):
             start_date = datetime.fromisoformat(data["start_date"])
         if data.get("end_date"):
             end_date = datetime.fromisoformat(data["end_date"])
+    except ValueError:
+        return error_response("Dates must be in ISO format", status=400)
 
+    try:
         limit = int(data.get("limit", 100))
         offset = int(data.get("offset", 0))
+        if limit < 1 or limit > 1000:
+            return error_response("limit must be 1-1000", status=400)
+        if offset < 0:
+            return error_response("offset must be non-negative", status=400)
+    except (ValueError, TypeError):
+        return error_response("limit and offset must be integers", status=400)
 
-        invoices = await ap.list_invoices(
-            vendor_id=vendor_id,
-            status=status,
-            priority=priority,
-            start_date=start_date,
-            end_date=end_date,
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
         )
+
+    try:
+        ap = get_ap_automation()
+
+        async with _ap_circuit_breaker.protected_call():
+            invoices = await ap.list_invoices(
+                vendor_id=vendor_id,
+                status=status,
+                priority=priority,
+                start_date=start_date,
+                end_date=end_date,
+            )
 
         # Apply pagination
         paginated = invoices[offset : offset + limit]
@@ -256,6 +275,8 @@ async def handle_list_invoices(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
@@ -273,15 +294,31 @@ async def handle_get_invoice(
 
     GET /api/v1/accounting/ap/invoices/{invoice_id}
     """
+    # Validate invoice_id
+    if not invoice_id or not invoice_id.strip():
+        return error_response("invoice_id is required", status=400)
+
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ap = get_ap_automation()
 
-        invoice = await ap.get_invoice(invoice_id)
+        async with _ap_circuit_breaker.protected_call():
+            invoice = await ap.get_invoice(invoice_id)
+
         if not invoice:
             return error_response(f"Invoice {invoice_id} not found", status=404)
 
         return success_response({"invoice": invoice.to_dict()})
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response(f"Failed to get invoice: {e}", status=500)
