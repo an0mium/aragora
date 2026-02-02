@@ -203,6 +203,7 @@ def init_phases(arena: "Arena") -> None:
         persona_manager=arena.persona_manager,
         flip_detector=arena.flip_detector,
         calibration_tracker=arena.calibration_tracker,
+        supermemory_adapter=getattr(arena, "supermemory_adapter", None),
     )
 
     # Initialize MemoryManager for centralized memory operations
@@ -262,6 +263,7 @@ def init_phases(arena: "Arena") -> None:
         get_successful_patterns_from_memory=arena._get_successful_patterns_from_memory,
         perform_research=arena._perform_research,
         fetch_knowledge_context=arena._fetch_knowledge_context,
+        inject_supermemory_context=arena._inject_supermemory_context,
     )
 
     # Phase 1: Initial Proposals

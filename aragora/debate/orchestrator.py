@@ -127,7 +127,6 @@ if TYPE_CHECKING:
     from aragora.debate.prompt_builder import PromptBuilder
     from aragora.debate.revalidation_scheduler import RevalidationScheduler
     from aragora.debate.strategy import DebateStrategy
-    from aragora.knowledge.mound.facade import KnowledgeMound
     from aragora.memory.consensus import ConsensusMemory
     from aragora.memory.continuum import ContinuumMemory
     from aragora.ml.delegation import MLDelegationStrategy
@@ -267,6 +266,16 @@ class Arena(ArenaDelegatesMixin):
         enable_knowledge_ingestion: bool = True,
         enable_knowledge_extraction: bool = False,
         extraction_min_confidence: float = 0.3,
+        enable_supermemory: bool = False,
+        supermemory_adapter: Any = None,
+        supermemory_inject_on_start: bool = True,
+        supermemory_max_context_items: int = 10,
+        supermemory_context_container_tag: str | None = None,
+        supermemory_sync_on_conclusion: bool = True,
+        supermemory_min_confidence_for_sync: float = 0.7,
+        supermemory_outcome_container_tag: str | None = None,
+        supermemory_enable_privacy_filter: bool = True,
+        supermemory_enable_resilience: bool = True,
         enable_belief_guidance: bool = False,
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.8,
@@ -389,6 +398,16 @@ class Arena(ArenaDelegatesMixin):
             enable_knowledge_ingestion=enable_knowledge_ingestion,
             enable_knowledge_extraction=enable_knowledge_extraction,
             extraction_min_confidence=extraction_min_confidence,
+            enable_supermemory=enable_supermemory,
+            supermemory_adapter=supermemory_adapter,
+            supermemory_inject_on_start=supermemory_inject_on_start,
+            supermemory_max_context_items=supermemory_max_context_items,
+            supermemory_context_container_tag=supermemory_context_container_tag,
+            supermemory_sync_on_conclusion=supermemory_sync_on_conclusion,
+            supermemory_min_confidence_for_sync=supermemory_min_confidence_for_sync,
+            supermemory_outcome_container_tag=supermemory_outcome_container_tag,
+            supermemory_enable_privacy_filter=supermemory_enable_privacy_filter,
+            supermemory_enable_resilience=supermemory_enable_resilience,
             enable_belief_guidance=enable_belief_guidance,
             enable_auto_revalidation=enable_auto_revalidation,
             revalidation_staleness_threshold=revalidation_staleness_threshold,
@@ -517,12 +536,26 @@ class Arena(ArenaDelegatesMixin):
         auto_create_knowledge_mound = cfg.auto_create_knowledge_mound
         if knowledge_mound is _KNOWLEDGE_MOUND_UNSET:
             knowledge_mound = None
-        if knowledge_mound_param_provided and knowledge_mound_param_none and knowledge_mound is None:
+        if (
+            knowledge_mound_param_provided
+            and knowledge_mound_param_none
+            and knowledge_mound is None
+        ):
             auto_create_knowledge_mound = False
         enable_knowledge_retrieval = cfg.enable_knowledge_retrieval
         enable_knowledge_ingestion = cfg.enable_knowledge_ingestion
         enable_knowledge_extraction = cfg.enable_knowledge_extraction
         extraction_min_confidence = cfg.extraction_min_confidence
+        enable_supermemory = cfg.enable_supermemory
+        supermemory_adapter = cfg.supermemory_adapter
+        supermemory_inject_on_start = cfg.supermemory_inject_on_start
+        supermemory_max_context_items = cfg.supermemory_max_context_items
+        supermemory_context_container_tag = cfg.supermemory_context_container_tag
+        supermemory_sync_on_conclusion = cfg.supermemory_sync_on_conclusion
+        supermemory_min_confidence_for_sync = cfg.supermemory_min_confidence_for_sync
+        supermemory_outcome_container_tag = cfg.supermemory_outcome_container_tag
+        supermemory_enable_privacy_filter = cfg.supermemory_enable_privacy_filter
+        supermemory_enable_resilience = cfg.supermemory_enable_resilience
         enable_belief_guidance = cfg.enable_belief_guidance
         vertical = cfg.vertical
         vertical_persona_manager = cfg.vertical_persona_manager
@@ -684,6 +717,17 @@ class Arena(ArenaDelegatesMixin):
         self.revalidation_staleness_threshold = revalidation_staleness_threshold
         self.revalidation_check_interval_seconds = revalidation_check_interval_seconds
         self.revalidation_scheduler = revalidation_scheduler
+        # Supermemory integration (external memory persistence)
+        self.enable_supermemory = enable_supermemory
+        self.supermemory_adapter = supermemory_adapter
+        self.supermemory_inject_on_start = supermemory_inject_on_start
+        self.supermemory_max_context_items = supermemory_max_context_items
+        self.supermemory_context_container_tag = supermemory_context_container_tag
+        self.supermemory_sync_on_conclusion = supermemory_sync_on_conclusion
+        self.supermemory_min_confidence_for_sync = supermemory_min_confidence_for_sync
+        self.supermemory_outcome_container_tag = supermemory_outcome_container_tag
+        self.supermemory_enable_privacy_filter = supermemory_enable_privacy_filter
+        self.supermemory_enable_resilience = supermemory_enable_resilience
 
         # Adaptive rounds (memory-based debate strategy)
         self._init_debate_strategy(enable_adaptive_rounds, debate_strategy)
@@ -987,6 +1031,16 @@ class Arena(ArenaDelegatesMixin):
             knowledge_mound=self.knowledge_mound,
             enable_retrieval=self.enable_knowledge_retrieval,
             enable_ingestion=self.enable_knowledge_ingestion,
+            enable_supermemory=self.enable_supermemory,
+            supermemory_adapter=self.supermemory_adapter,
+            supermemory_inject_on_start=self.supermemory_inject_on_start,
+            supermemory_max_context_items=self.supermemory_max_context_items,
+            supermemory_context_container_tag=self.supermemory_context_container_tag,
+            supermemory_sync_on_conclusion=self.supermemory_sync_on_conclusion,
+            supermemory_min_confidence_for_sync=self.supermemory_min_confidence_for_sync,
+            supermemory_outcome_container_tag=self.supermemory_outcome_container_tag,
+            supermemory_enable_privacy_filter=self.supermemory_enable_privacy_filter,
+            supermemory_enable_resilience=self.supermemory_enable_resilience,
             enable_auto_revalidation=self.enable_auto_revalidation,
             revalidation_staleness_threshold=getattr(self, "revalidation_staleness_threshold", 0.7),
             revalidation_check_interval_seconds=getattr(
@@ -1005,6 +1059,9 @@ class Arena(ArenaDelegatesMixin):
             pulse_manager=getattr(self, "pulse_manager", None),
             memory=self.memory,
         )
+        # Propagate supermemory adapter/config (may be initialized in manager)
+        self.supermemory_adapter = self._km_manager.supermemory_adapter
+        self.enable_supermemory = self._km_manager.enable_supermemory
         self._knowledge_ops = self._km_manager._knowledge_ops
         self.knowledge_bridge_hub = self._km_manager.knowledge_bridge_hub
         if self._km_manager.revalidation_scheduler is not None:

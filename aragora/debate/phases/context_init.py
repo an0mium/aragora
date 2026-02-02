@@ -105,6 +105,8 @@ class ContextInitializer:
         get_successful_patterns_from_memory: Callable | None = None,
         perform_research: Callable | None = None,
         fetch_knowledge_context: Callable | None = None,  # Callback to fetch knowledge context
+        inject_supermemory_context: Callable
+        | None = None,  # Callback for external memory injection
     ):
         """
         Initialize the context initializer.
@@ -128,6 +130,7 @@ class ContextInitializer:
             get_successful_patterns_from_memory: Callback to get memory patterns
             perform_research: Async callback to perform pre-debate research
             fetch_knowledge_context: Async callback to fetch knowledge from mound
+            inject_supermemory_context: Async callback to inject external memory context
         """
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic
@@ -176,6 +179,7 @@ class ContextInitializer:
         self._get_successful_patterns_from_memory = get_successful_patterns_from_memory
         self._perform_research = perform_research
         self._fetch_knowledge_context = fetch_knowledge_context
+        self._inject_supermemory_context_cb = inject_supermemory_context
 
     async def initialize(self, ctx: "DebateContext") -> None:
         """
@@ -251,6 +255,9 @@ class ContextInitializer:
 
         # 9. Fetch knowledge mound context (unified organizational knowledge)
         await self._inject_knowledge_context(ctx)
+
+        # 9b. Inject Supermemory external context (cross-session learnings)
+        await self._inject_supermemory_context(ctx)
 
         # 10. Inject learned patterns from InsightStore (async)
         await self._inject_insight_patterns(ctx)
@@ -464,6 +471,19 @@ class ContextInitializer:
             logger.warning("[knowledge_mound] Knowledge context fetch timed out")
         except Exception as e:
             logger.debug(f"[knowledge_mound] Knowledge context fetch error: {e}")
+
+    async def _inject_supermemory_context(self, ctx: "DebateContext") -> None:
+        """Inject external Supermemory context via orchestrator callback."""
+        if not self._inject_supermemory_context_cb:
+            return
+
+        try:
+            await self._inject_supermemory_context_cb(
+                debate_id=getattr(ctx, "debate_id", None),
+                debate_topic=ctx.env.task,
+            )
+        except Exception as e:
+            logger.debug(f"[supermemory] Context injection error: {e}")
 
     def _get_cached_knowledge(self, query_hash: str) -> str | None:
         """Get cached knowledge context if still valid.

@@ -63,6 +63,16 @@ class MergedConfig:
         "enable_knowledge_ingestion",
         "enable_knowledge_extraction",
         "extraction_min_confidence",
+        "enable_supermemory",
+        "supermemory_adapter",
+        "supermemory_inject_on_start",
+        "supermemory_max_context_items",
+        "supermemory_context_container_tag",
+        "supermemory_sync_on_conclusion",
+        "supermemory_min_confidence_for_sync",
+        "supermemory_outcome_container_tag",
+        "supermemory_enable_privacy_filter",
+        "supermemory_enable_resilience",
         "enable_belief_guidance",
         "enable_auto_revalidation",
         "revalidation_staleness_threshold",
@@ -164,6 +174,16 @@ class MergedConfig:
     enable_knowledge_ingestion: bool
     enable_knowledge_extraction: bool
     extraction_min_confidence: float
+    enable_supermemory: bool
+    supermemory_adapter: Any
+    supermemory_inject_on_start: bool
+    supermemory_max_context_items: int
+    supermemory_context_container_tag: Any
+    supermemory_sync_on_conclusion: bool
+    supermemory_min_confidence_for_sync: float
+    supermemory_outcome_container_tag: Any
+    supermemory_enable_privacy_filter: bool
+    supermemory_enable_resilience: bool
     enable_belief_guidance: bool
     enable_auto_revalidation: bool
     revalidation_staleness_threshold: float
@@ -272,6 +292,16 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     enable_knowledge_ingestion: bool,
     enable_knowledge_extraction: bool,
     extraction_min_confidence: float,
+    enable_supermemory: bool,
+    supermemory_adapter: Any,
+    supermemory_inject_on_start: bool,
+    supermemory_max_context_items: int,
+    supermemory_context_container_tag: Any,
+    supermemory_sync_on_conclusion: bool,
+    supermemory_min_confidence_for_sync: float,
+    supermemory_outcome_container_tag: Any,
+    supermemory_enable_privacy_filter: bool,
+    supermemory_enable_resilience: bool,
     enable_belief_guidance: bool,
     enable_auto_revalidation: bool,
     revalidation_staleness_threshold: float,
@@ -496,6 +526,16 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.enable_knowledge_ingestion = enable_knowledge_ingestion
     cfg.enable_knowledge_extraction = enable_knowledge_extraction
     cfg.extraction_min_confidence = extraction_min_confidence
+    cfg.enable_supermemory = enable_supermemory
+    cfg.supermemory_adapter = supermemory_adapter
+    cfg.supermemory_inject_on_start = supermemory_inject_on_start
+    cfg.supermemory_max_context_items = supermemory_max_context_items
+    cfg.supermemory_context_container_tag = supermemory_context_container_tag
+    cfg.supermemory_sync_on_conclusion = supermemory_sync_on_conclusion
+    cfg.supermemory_min_confidence_for_sync = supermemory_min_confidence_for_sync
+    cfg.supermemory_outcome_container_tag = supermemory_outcome_container_tag
+    cfg.supermemory_enable_privacy_filter = supermemory_enable_privacy_filter
+    cfg.supermemory_enable_resilience = supermemory_enable_resilience
     cfg.enable_belief_guidance = enable_belief_guidance
     cfg.enable_auto_revalidation = enable_auto_revalidation
     cfg.revalidation_staleness_threshold = revalidation_staleness_threshold

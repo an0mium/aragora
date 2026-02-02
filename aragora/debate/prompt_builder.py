@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from aragora.debate.protocol import DebateProtocol
     from aragora.debate.roles import RoleAssignment, RoleRotator
     from aragora.evidence.collector import EvidencePack
+    from aragora.knowledge.mound.adapters import SupermemoryAdapter, ContextInjectionResult
     from aragora.memory.consensus import DissentRetriever
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.store import CritiqueStore
@@ -286,6 +287,7 @@ class PromptBuilder:
         calibration_tracker: Optional["CalibrationTracker"] = None,
         elo_system: Optional["EloSystem"] = None,
         domain: str = "general",
+        supermemory_adapter: Optional["SupermemoryAdapter"] = None,
     ) -> None:
         """Initialize prompt builder with debate context.
 
@@ -302,6 +304,7 @@ class PromptBuilder:
             calibration_tracker: Optional calibration tracker for confidence feedback
             elo_system: Optional ELO system for agent ranking context
             domain: Debate domain for domain-specific ELO lookup
+            supermemory_adapter: Optional adapter for external memory context injection
         """
         self.protocol = protocol
         self.env = env
@@ -344,6 +347,11 @@ class PromptBuilder:
         self._evidence_cache: dict[str, str] = {}
         self._trending_cache: dict[str, str] = {}
         self._cache_max_size: int = 100
+
+        # Supermemory external memory integration (cross-session context)
+        self.supermemory_adapter = supermemory_adapter
+        self._supermemory_context: Optional["ContextInjectionResult"] = None
+        self._supermemory_context_cache: str = ""
 
     def clear_caches(self) -> None:
         """Clear all caches. Call at session boundaries (e.g., debate end)."""
@@ -684,6 +692,94 @@ class PromptBuilder:
     def get_continuum_context(self) -> str:
         """Get cached continuum memory context."""
         return self._continuum_context_cache
+
+    async def inject_supermemory_context(
+        self,
+        debate_topic: str | None = None,
+        debate_id: str | None = None,
+        container_tag: str | None = None,
+        limit: int | None = None,
+    ) -> str:
+        """Inject context from Supermemory external memory.
+
+        Called at debate start to load relevant context from cross-session
+        memory. Results are cached for subsequent prompt builds.
+
+        Args:
+            debate_topic: Optional topic to search for (defaults to task)
+            debate_id: Optional debate ID for tracking
+            container_tag: Optional container filter
+            limit: Max items to retrieve
+
+        Returns:
+            Formatted context string for prompt injection
+        """
+        if not self.supermemory_adapter:
+            return ""
+
+        try:
+            topic = debate_topic or self.env.task
+            result = await self.supermemory_adapter.inject_context(
+                debate_topic=topic,
+                debate_id=debate_id,
+                container_tag=container_tag,
+                limit=limit,
+            )
+
+            self._supermemory_context = result
+
+            if not result.context_content:
+                return ""
+
+            # Format as prompt context
+            lines = ["## External Memory Context"]
+            lines.append("Relevant memories from previous sessions:\n")
+
+            for i, content in enumerate(result.context_content[:5], 1):
+                # Truncate long memories
+                truncated = content[:400] if len(content) > 400 else content
+                if len(content) > 400:
+                    truncated += "..."
+                lines.append(f"[MEM-{i}] {truncated}")
+                lines.append("")
+
+            lines.append(
+                f"({result.memories_injected} memories loaded, "
+                f"~{result.total_tokens_estimate} tokens)"
+            )
+            lines.append("Consider these historical insights when formulating your response.")
+
+            self._supermemory_context_cache = "\n".join(lines)
+            return self._supermemory_context_cache
+
+        except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.warning(f"Supermemory context injection timed out: {e}")
+            return ""
+        except (AttributeError, TypeError, KeyError) as e:
+            logger.debug(f"Supermemory context injection error: {e}")
+            return ""
+        except Exception as e:
+            logger.warning(f"Unexpected supermemory context injection error: {e}")
+            return ""
+
+    def get_supermemory_context(self) -> str:
+        """Get cached supermemory context for prompt injection.
+
+        Returns:
+            Formatted supermemory context, or empty string if not available
+        """
+        return self._supermemory_context_cache
+
+    def set_supermemory_adapter(self, adapter: Optional["SupermemoryAdapter"]) -> None:
+        """Set the supermemory adapter for external memory integration.
+
+        Args:
+            adapter: SupermemoryAdapter instance or None to disable
+        """
+        self.supermemory_adapter = adapter
+        # Clear cached context when adapter changes
+        self._supermemory_context = None
+        self._supermemory_context_cache = ""
 
     def set_rlm_context(self, context: Optional["RLMContext"]) -> None:
         """Set hierarchical RLM context for drill-down access.
@@ -1196,6 +1292,12 @@ The system will provide relevant details from the full history."""
         if continuum_context:
             continuum_section = f"\n\n{continuum_context}"
 
+        # Include supermemory external context (cross-session learnings)
+        supermemory_section = ""
+        supermemory_context = self.get_supermemory_context()
+        if supermemory_context:
+            supermemory_section = f"\n\n{supermemory_context}"
+
         # Include historical belief cruxes (key disagreement points from past debates)
         belief_section = ""
         belief_context = self._inject_belief_context(limit=3)
@@ -1266,7 +1368,7 @@ The system will provide relevant details from the full history."""
             audience_section = f"\n\n{audience_section}"
 
         return f"""You are acting as a {agent.role} in a multi-agent debate (decision stress-test).{stance_section}{role_section}{persona_section}{flip_section}
-{historical_section}{continuum_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{elo_section}{evidence_section}{trending_section}{audience_section}
+{historical_section}{continuum_section}{supermemory_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{elo_section}{evidence_section}{trending_section}{audience_section}
 Task: {self.env.task}{context_str}{research_status}
 
 IMPORTANT: If this task mentions a specific website, company, product, or current topic, you MUST:

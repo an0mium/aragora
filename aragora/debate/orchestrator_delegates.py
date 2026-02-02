@@ -8,6 +8,7 @@ public API surface.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import Agent, Critique, DebateResult, Message, Vote
@@ -38,10 +39,15 @@ class ArenaDelegatesMixin:
     audience_manager: Any
     citation_extractor: Any
     debate_embeddings: Any
+    enable_supermemory: Any
     env: Any
     evidence_collector: Any
     prompt_builder: Any
     protocol: Any
+    supermemory_adapter: Any
+    supermemory_context_container_tag: Any
+    supermemory_inject_on_start: Any
+    supermemory_max_context_items: Any
     rlm_limiter: Any
     roles_manager: Any
     termination_checker: Any
@@ -82,6 +88,35 @@ class ArenaDelegatesMixin:
         Delegates to ArenaKnowledgeManager.fetch_context().
         """
         return await self._km_manager.fetch_context(task, limit)
+
+    async def _inject_supermemory_context(
+        self,
+        debate_id: str | None = None,
+        debate_topic: str | None = None,
+    ) -> None:
+        """Inject external Supermemory context into PromptBuilder."""
+        if not getattr(self, "enable_supermemory", False):
+            return
+        if not getattr(self, "supermemory_inject_on_start", True):
+            return
+
+        adapter = getattr(self, "supermemory_adapter", None)
+        if not adapter or not self.prompt_builder:
+            return
+
+        try:
+            if hasattr(self.prompt_builder, "set_supermemory_adapter"):
+                self.prompt_builder.set_supermemory_adapter(adapter)
+
+            await self.prompt_builder.inject_supermemory_context(
+                debate_topic=debate_topic,
+                debate_id=debate_id,
+                container_tag=self.supermemory_context_container_tag,
+                limit=self.supermemory_max_context_items,
+            )
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.debug(f"[supermemory] Context injection failed: {e}")
 
     async def _ingest_debate_outcome(self, result: "DebateResult") -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.

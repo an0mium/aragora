@@ -175,10 +175,44 @@ class PairwiseSimilarityCache:
             self._hits = 0
             self._misses = 0
 
+    def evict_expired(self) -> int:
+        """
+        Proactively evict all expired entries from the cache.
+
+        This provides eager TTL-based eviction rather than waiting for
+        entries to be accessed via get(). Useful for memory management
+        in long-running debates.
+
+        Returns:
+            Number of entries evicted
+        """
+        now = time.time()
+        evicted = 0
+
+        with self._lock:
+            expired_keys = [
+                key
+                for key, entry in self._cache.items()
+                if now - entry.computed_at > self.ttl_seconds
+            ]
+            for key in expired_keys:
+                del self._cache[key]
+                evicted += 1
+
+        if evicted > 0:
+            logger.debug(f"Evicted {evicted} expired entries from cache {self.session_id}")
+
+        return evicted
+
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
+        now = time.time()
         with self._lock:
             total = self._hits + self._misses
+            # Count expired entries (for diagnostics)
+            expired_count = sum(
+                1 for entry in self._cache.values() if now - entry.computed_at > self.ttl_seconds
+            )
             return {
                 "session_id": self.session_id,
                 "size": len(self._cache),
@@ -186,6 +220,8 @@ class PairwiseSimilarityCache:
                 "hits": self._hits,
                 "misses": self._misses,
                 "hit_rate": self._hits / total if total > 0 else 0.0,
+                "expired_entries": expired_count,
+                "ttl_seconds": self.ttl_seconds,
             }
 
 
@@ -229,6 +265,7 @@ class _PeriodicCacheCleanup:
         self._lock = threading.Lock()
         self._started = False
         self._cleanup_count = 0
+        self._entries_evicted_count = 0
         self._last_cleanup_time: float | None = None
 
     def start(self) -> None:
@@ -273,11 +310,21 @@ class _PeriodicCacheCleanup:
                 break  # Stop event was set
 
             try:
+                # Phase 1: Remove stale session caches (TTL-based at session level)
                 cleaned = cleanup_stale_similarity_caches()
-                self._last_cleanup_time = time.time()
                 self._cleanup_count += cleaned
-                if cleaned > 0:
-                    logger.info(f"Periodic cleanup: removed {cleaned} stale similarity caches")
+
+                # Phase 2: Evict expired entries within active caches (TTL-based at entry level)
+                entries_evicted = evict_expired_cache_entries()
+                self._entries_evicted_count += entries_evicted
+
+                self._last_cleanup_time = time.time()
+
+                if cleaned > 0 or entries_evicted > 0:
+                    logger.info(
+                        f"Periodic cleanup: removed {cleaned} stale caches, "
+                        f"evicted {entries_evicted} expired entries"
+                    )
             except Exception as e:
                 logger.warning(f"Error during periodic cache cleanup: {e}")
 
@@ -288,6 +335,7 @@ class _PeriodicCacheCleanup:
                 "running": self._started and self._thread is not None and self._thread.is_alive(),
                 "interval_seconds": self._interval,
                 "total_caches_cleaned": self._cleanup_count,
+                "total_entries_evicted": self._entries_evicted_count,
                 "last_cleanup_time": self._last_cleanup_time,
             }
 
@@ -326,7 +374,7 @@ def get_periodic_cleanup_stats() -> dict[str, Any]:
     Get statistics about the periodic cleanup thread.
 
     Returns:
-        Dict with running status, interval, total cleaned, last cleanup time
+        Dict with running status, interval, total cleaned, total entries evicted, last cleanup time
     """
     global _periodic_cleanup
     if _periodic_cleanup is None:
@@ -334,6 +382,7 @@ def get_periodic_cleanup_stats() -> dict[str, Any]:
             "running": False,
             "interval_seconds": PERIODIC_CLEANUP_INTERVAL_SECONDS,
             "total_caches_cleaned": 0,
+            "total_entries_evicted": 0,
             "last_cleanup_time": None,
         }
     return _periodic_cleanup.get_stats()
@@ -481,6 +530,37 @@ def cleanup_stale_similarity_caches(
     return cleaned
 
 
+def evict_expired_cache_entries() -> int:
+    """
+    Evict expired entries from all active similarity caches.
+
+    This performs TTL-based eviction at the entry level within each
+    active PairwiseSimilarityCache. Unlike the lazy eviction in get(),
+    this proactively removes all expired entries.
+
+    Thread-safety: Acquires _similarity_cache_lock to get cache list,
+    then calls evict_expired() on each cache (which has its own lock).
+
+    Returns:
+        Total number of entries evicted across all caches
+    """
+    total_evicted = 0
+
+    # Get list of caches while holding the lock
+    with _similarity_cache_lock:
+        caches = list(_similarity_cache_manager.values())
+
+    # Evict from each cache (each has its own internal lock)
+    for cache in caches:
+        try:
+            evicted = cache.evict_expired()
+            total_evicted += evicted
+        except Exception as e:
+            logger.warning(f"Error evicting expired entries from cache {cache.session_id}: {e}")
+
+    return total_evicted
+
+
 def cleanup_stale_caches(max_age_seconds: float | None = None) -> dict[str, Any]:
     """
     Public function to cleanup stale caches.
@@ -488,13 +568,18 @@ def cleanup_stale_caches(max_age_seconds: float | None = None) -> dict[str, Any]
     This is the externally-callable cleanup function that can be invoked
     by external processes, monitoring systems, or scheduled tasks.
 
+    Performs two-phase cleanup:
+    1. Remove entire caches that haven't been accessed recently (session-level TTL)
+    2. Evict expired entries within remaining active caches (entry-level TTL)
+
     Args:
-        max_age_seconds: Maximum age for cache entries. If None, uses
+        max_age_seconds: Maximum age for session caches. If None, uses
             CACHE_MANAGER_TTL_SECONDS (1 hour).
 
     Returns:
         Dict with cleanup statistics:
         - cleaned_count: Number of caches removed
+        - entries_evicted: Number of expired entries evicted from active caches
         - remaining_count: Number of caches still active
         - cleanup_time: Timestamp of this cleanup
         - periodic_cleanup_running: Whether background cleanup is active
@@ -502,13 +587,18 @@ def cleanup_stale_caches(max_age_seconds: float | None = None) -> dict[str, Any]
     if max_age_seconds is None:
         max_age_seconds = CACHE_MANAGER_TTL_SECONDS
 
+    # Phase 1: Remove stale session caches
     cleaned = cleanup_stale_similarity_caches(max_age_seconds)
+
+    # Phase 2: Evict expired entries within active caches
+    entries_evicted = evict_expired_cache_entries()
 
     with _similarity_cache_lock:
         remaining = len(_similarity_cache_manager)
 
     return {
         "cleaned_count": cleaned,
+        "entries_evicted": entries_evicted,
         "remaining_count": remaining,
         "cleanup_time": time.time(),
         "periodic_cleanup_running": _periodic_cleanup.is_running() if _periodic_cleanup else False,
@@ -1507,6 +1597,7 @@ __all__ = [
     "get_pairwise_similarity_cache",
     "cleanup_similarity_cache",
     "cleanup_stale_similarity_caches",
+    "evict_expired_cache_entries",
     "cleanup_stale_caches",
     "get_cache_manager_stats",
     "MAX_SIMILARITY_CACHES",

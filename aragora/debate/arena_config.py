@@ -504,6 +504,50 @@ class TranslationSubConfig:
     translation_cache_max_entries: int = 10000  # Max entries in translation cache
 
 
+@dataclass
+class SupermemorySubConfig:
+    """Supermemory external memory integration configuration.
+
+    Groups parameters for Supermemory integration, enabling cross-session
+    learning and context injection from external memory.
+
+    Supermemory provides persistent memory across projects:
+    - Context injection on debate start (reverse flow)
+    - Outcome persistence after debate (forward flow)
+    - Semantic search across historical memories
+
+    Example::
+
+        sm_cfg = SupermemorySubConfig(
+            enable_supermemory=True,
+            supermemory_inject_on_start=True,
+            supermemory_sync_on_conclusion=True,
+        )
+    """
+
+    # Master switch (opt-in, disabled by default)
+    enable_supermemory: bool = False
+
+    # Pre-configured adapter instance (optional)
+    supermemory_adapter: Any | None = None
+
+    # Context injection settings (reverse flow: Supermemory -> Aragora)
+    supermemory_inject_on_start: bool = True  # Inject context at debate start
+    supermemory_max_context_items: int = 10  # Max memories to inject
+    supermemory_context_container_tag: str | None = None  # Container to query
+
+    # Outcome sync settings (forward flow: Aragora -> Supermemory)
+    supermemory_sync_on_conclusion: bool = True  # Sync outcome after debate
+    supermemory_min_confidence_for_sync: float = 0.7  # Min confidence to sync
+    supermemory_outcome_container_tag: str | None = None  # Container for outcomes
+
+    # Privacy settings
+    supermemory_enable_privacy_filter: bool = True  # Filter sensitive data before sync
+
+    # Resilience settings
+    supermemory_enable_resilience: bool = True  # Use circuit breaker protection
+
+
 # =============================================================================
 # Sub-config field name -> sub-config attribute name mapping
 # Built once at module load for O(1) lookups.
@@ -525,6 +569,7 @@ _SUB_CONFIG_ATTRS: list[tuple[str, type]] = [
     ("cross_pollination_config", CrossPollinationConfig),
     ("km_bidirectional_config", KMBidirectionalConfig),
     ("translation_sub_config", TranslationSubConfig),
+    ("supermemory_sub_config", SupermemorySubConfig),
 ]
 
 for _attr_name, _cls in _SUB_CONFIG_ATTRS:
@@ -618,6 +663,10 @@ class ArenaConfigBuilder:
 
     def with_translation(self, **kwargs: Any) -> "ArenaConfigBuilder":
         """Set multi-language translation fields."""
+        return self._merge(kwargs)
+
+    def with_supermemory(self, **kwargs: Any) -> "ArenaConfigBuilder":
+        """Set Supermemory external memory integration fields."""
         return self._merge(kwargs)
 
     def build(self) -> "ArenaConfig":
@@ -807,6 +856,7 @@ class ArenaConfig:
         cross_pollination_config: CrossPollinationConfig | None = None,
         km_bidirectional_config: KMBidirectionalConfig | None = None,
         translation_sub_config: TranslationSubConfig | None = None,
+        supermemory_sub_config: SupermemorySubConfig | None = None,
         # ---- Flat kwargs that belong to sub-configs (backward compat) ----
         **kwargs: Any,
     ) -> None:
@@ -898,6 +948,9 @@ class ArenaConfig:
         )
         self.translation_sub_config = self._build_sub_config(
             TranslationSubConfig, translation_sub_config, kwargs
+        )
+        self.supermemory_sub_config = self._build_sub_config(
+            SupermemorySubConfig, supermemory_sub_config, kwargs
         )
 
         # Any remaining kwargs are unknown fields
@@ -1053,6 +1106,17 @@ class ArenaConfig:
             "enable_knowledge_ingestion": self.enable_knowledge_ingestion,
             "enable_knowledge_extraction": self.enable_knowledge_extraction,
             "extraction_min_confidence": self.extraction_min_confidence,
+            # Supermemory (external memory integration)
+            "enable_supermemory": self.enable_supermemory,
+            "supermemory_adapter": self.supermemory_adapter,
+            "supermemory_inject_on_start": self.supermemory_inject_on_start,
+            "supermemory_max_context_items": self.supermemory_max_context_items,
+            "supermemory_context_container_tag": self.supermemory_context_container_tag,
+            "supermemory_sync_on_conclusion": self.supermemory_sync_on_conclusion,
+            "supermemory_min_confidence_for_sync": self.supermemory_min_confidence_for_sync,
+            "supermemory_outcome_container_tag": self.supermemory_outcome_container_tag,
+            "supermemory_enable_privacy_filter": self.supermemory_enable_privacy_filter,
+            "supermemory_enable_resilience": self.supermemory_enable_resilience,
             # Auto-revalidation
             "enable_auto_revalidation": self.enable_auto_revalidation,
             "enable_belief_guidance": self.enable_belief_guidance,
@@ -1596,6 +1660,7 @@ SUB_CONFIG_CLASSES = (
     CrossPollinationConfig,
     KMBidirectionalConfig,
     TranslationSubConfig,
+    SupermemorySubConfig,
 )
 
 
@@ -1615,6 +1680,7 @@ __all__ = [
     "CrossPollinationConfig",
     "KMBidirectionalConfig",
     "TranslationSubConfig",
+    "SupermemorySubConfig",
     "SUB_CONFIG_CLASSES",
     # Primary config classes (for Arena constructor refactoring)
     "DebateConfig",

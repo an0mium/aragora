@@ -51,6 +51,17 @@ class ArenaKnowledgeManager:
         knowledge_mound: Optional["KnowledgeMound"] = None,
         enable_retrieval: bool = False,
         enable_ingestion: bool = False,
+        # Supermemory integration (external memory)
+        enable_supermemory: bool = False,
+        supermemory_adapter: Any | None = None,
+        supermemory_inject_on_start: bool = True,
+        supermemory_max_context_items: int = 10,
+        supermemory_context_container_tag: str | None = None,
+        supermemory_sync_on_conclusion: bool = True,
+        supermemory_min_confidence_for_sync: float = 0.7,
+        supermemory_outcome_container_tag: str | None = None,
+        supermemory_enable_privacy_filter: bool = True,
+        supermemory_enable_resilience: bool = True,
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.7,
         revalidation_check_interval_seconds: int = 3600,
@@ -70,6 +81,17 @@ class ArenaKnowledgeManager:
         self.knowledge_mound = knowledge_mound
         self.enable_retrieval = enable_retrieval
         self.enable_ingestion = enable_ingestion
+        # Supermemory config
+        self.enable_supermemory = enable_supermemory
+        self.supermemory_adapter = supermemory_adapter
+        self.supermemory_inject_on_start = supermemory_inject_on_start
+        self.supermemory_max_context_items = supermemory_max_context_items
+        self.supermemory_context_container_tag = supermemory_context_container_tag
+        self.supermemory_sync_on_conclusion = supermemory_sync_on_conclusion
+        self.supermemory_min_confidence_for_sync = supermemory_min_confidence_for_sync
+        self.supermemory_outcome_container_tag = supermemory_outcome_container_tag
+        self.supermemory_enable_privacy_filter = supermemory_enable_privacy_filter
+        self.supermemory_enable_resilience = supermemory_enable_resilience
         self.enable_auto_revalidation = enable_auto_revalidation
         self.revalidation_staleness_threshold = revalidation_staleness_threshold
         self.revalidation_check_interval_seconds = revalidation_check_interval_seconds
@@ -82,6 +104,7 @@ class ArenaKnowledgeManager:
         self.revalidation_scheduler: Any | None = None
         self._km_coordinator: Any | None = None
         self._km_adapters: dict[str, Any] = {}
+        self._supermemory_synced_debate_ids: set[str] = set()
 
         # Culture hint storage
         self._culture_consensus_hint: str | None = None
@@ -214,6 +237,53 @@ class ArenaKnowledgeManager:
                 logger.debug(f"[knowledge_mound] AdapterFactory unavailable: {e}")
             except Exception as e:
                 logger.warning(f"[knowledge_mound] Failed to initialize adapters: {e}")
+
+        # Initialize Supermemory adapter (external memory persistence)
+        self._init_supermemory_adapter()
+
+    def _init_supermemory_adapter(self) -> None:
+        """Initialize Supermemory adapter if enabled and available."""
+        if not self.enable_supermemory:
+            return
+
+        if self.supermemory_adapter is None:
+            try:
+                from aragora.connectors.supermemory import (
+                    SupermemoryClient,
+                    SupermemoryConfig,
+                )
+                from aragora.knowledge.mound.adapters import SupermemoryAdapter
+
+                config = SupermemoryConfig.from_env()
+                if config is None:
+                    logger.info("[supermemory] SUPERMEMORY_API_KEY not set; disabling integration")
+                    self.enable_supermemory = False
+                    return
+
+                client = SupermemoryClient(config)
+                self.supermemory_adapter = SupermemoryAdapter(
+                    client=client,
+                    config=config,
+                    min_importance_threshold=self.supermemory_min_confidence_for_sync,
+                    max_context_items=self.supermemory_max_context_items,
+                    enable_privacy_filter=self.supermemory_enable_privacy_filter,
+                    enable_resilience=self.supermemory_enable_resilience,
+                    event_callback=self._notify_callback,
+                )
+                logger.info("[supermemory] Adapter initialized")
+            except ImportError as e:
+                logger.debug(f"[supermemory] Integration unavailable: {e}")
+                self.enable_supermemory = False
+            except Exception as e:
+                logger.warning(f"[supermemory] Failed to initialize adapter: {e}")
+                self.enable_supermemory = False
+        else:
+            # If adapter is provided externally, wire event callback if supported.
+            if self._notify_callback and hasattr(self.supermemory_adapter, "set_event_callback"):
+                try:
+                    self.supermemory_adapter.set_event_callback(self._notify_callback)
+                except Exception as e:
+                    logger.debug(f"[supermemory] Failed to set event callback: {e}")
 
     async def init_context(
         self,
@@ -351,9 +421,34 @@ class ArenaKnowledgeManager:
             result: The debate result to store
             env: Environment with task context
         """
-        if self._knowledge_ops is None:
+        if self._knowledge_ops is not None:
+            await self._knowledge_ops.ingest_debate_outcome(result, env=env)
+
+        # Optional: sync outcome to Supermemory (external persistence)
+        if not self.enable_supermemory or not self.supermemory_adapter:
             return
-        await self._knowledge_ops.ingest_debate_outcome(result, env=env)
+        if not self.supermemory_sync_on_conclusion:
+            return
+
+        debate_id = getattr(result, "debate_id", None)
+        if debate_id and debate_id in self._supermemory_synced_debate_ids:
+            return
+
+        try:
+            sync_result = await self.supermemory_adapter.sync_debate_outcome(
+                result,
+                container_tag=self.supermemory_outcome_container_tag,
+            )
+            if sync_result.success:
+                if debate_id:
+                    self._supermemory_synced_debate_ids.add(debate_id)
+            else:
+                logger.debug(
+                    "[supermemory] Outcome sync failed: %s",
+                    sync_result.error,
+                )
+        except Exception as e:
+            logger.debug(f"[supermemory] Outcome sync error: {e}")
 
     @property
     def culture_consensus_hint(self) -> str | None:
