@@ -480,8 +480,7 @@ class TestInitPhasesWithAutoEvolve:
         mock_arena._store_evidence_in_memory = MagicMock()
 
         if GENESIS_AVAILABLE:
-            with patch("aragora.debate.arena_phases.PopulationManager") as mock_pm:
+            with patch("aragora.debate.arena_phases._PopulationManager") as mock_pm:
                 mock_pm.return_value = MagicMock()
                 init_phases(mock_arena)
-
-            mock_pm.assert_called_once()
+                mock_pm.assert_called_once()
