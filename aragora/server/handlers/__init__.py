@@ -539,7 +539,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "CrossPlatformAnalyticsHandler": Stability.STABLE,  # Cross-platform analytics aggregation - RBAC, full validation
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
-    "SLOHandler": Stability.EXPERIMENTAL,  # SLO tracking and monitoring
+    "SLOHandler": Stability.STABLE,  # SLO tracking and monitoring - RBAC, rate limiting, tested
     "MemoryHandler": Stability.STABLE,
     "CoordinatorHandler": Stability.STABLE,
     "LeaderboardViewHandler": Stability.STABLE,

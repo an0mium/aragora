@@ -1,6 +1,9 @@
 """
 Tests for SLOHandler - Service Level Objective HTTP endpoints.
 
+Stability: STABLE
+Handler Status: Graduated from EXPERIMENTAL to STABLE (2026-02-01)
+
 Tests cover:
 - Handler initialization and route matching
 - GET /api/slos/status - Overall SLO status
@@ -8,21 +11,27 @@ Tests cover:
 - GET /api/slos/error-budget - Error budget timeline
 - GET /api/slos/violations - Recent SLO violations
 - GET /api/slos/targets - Configured SLO targets
-- Rate limiting
-- RBAC permission enforcement
+- Rate limiting (30 RPM)
+- RBAC permission enforcement (slo:read)
 - Error handling
+- API version stripping
+- Response format validation
+- Edge cases and boundary conditions
+
+Target: 80%+ code coverage
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
-from aragora.server.handlers.slo import SLOHandler
+from aragora.server.handlers.slo import SLOHandler, SLO_SERVICE_TIMEOUT
 
 
 # ===========================================================================
