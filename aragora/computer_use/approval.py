@@ -24,6 +24,29 @@ from typing import Any, Callable
 logger = logging.getLogger(__name__)
 
 
+async def _audit_approval_action(
+    actor_id: str,
+    action: str,
+    request_id: str,
+    granted: bool,
+    **details: Any,
+) -> None:
+    """Emit a structured audit event for computer-use approval actions."""
+    try:
+        from aragora.observability.security_audit import audit_rbac_decision
+
+        await audit_rbac_decision(
+            user_id=actor_id,
+            permission=f"computer_use:{action}",
+            granted=granted,
+            resource_type="computer_use_approval",
+            resource_id=request_id,
+            **details,
+        )
+    except (ImportError, TypeError, RuntimeError):
+        pass
+
+
 class ApprovalStatus(str, Enum):
     """Status of an approval request."""
 
@@ -274,6 +297,15 @@ class ApprovalWorkflow:
                 f"for {context.action_type} ({context.category.value})"
             )
 
+        await _audit_approval_action(
+            actor_id=context.user_id or "system",
+            action="requested",
+            request_id=request_id,
+            granted=True,
+            action_type=context.action_type,
+            category=context.category.value,
+        )
+
         return request
 
     async def wait_for_decision(
@@ -341,6 +373,14 @@ class ApprovalWorkflow:
             await self._notify_all("decision", request)
 
         logger.info(f"Request {request_id} approved by {approver_id}")
+
+        await _audit_approval_action(
+            actor_id=approver_id,
+            action="approved",
+            request_id=request_id,
+            granted=True,
+        )
+
         return True
 
     async def deny(
@@ -375,6 +415,14 @@ class ApprovalWorkflow:
             await self._notify_all("decision", request)
 
         logger.info(f"Request {request_id} denied by {denier_id}")
+
+        await _audit_approval_action(
+            actor_id=denier_id,
+            action="denied",
+            request_id=request_id,
+            granted=False,
+        )
+
         return True
 
     async def cancel(self, request_id: str) -> bool:
@@ -419,6 +467,13 @@ class ApprovalWorkflow:
                     await self._notify_all("expiry", request)
 
             logger.warning(f"Request {request_id} expired")
+
+            await _audit_approval_action(
+                actor_id="system",
+                action="expired",
+                request_id=request_id,
+                granted=False,
+            )
 
         except asyncio.CancelledError:
             pass

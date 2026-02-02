@@ -15,7 +15,7 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry, DeviceStatus
 from aragora.stores.canonical import get_canonical_gateway_stores
@@ -24,6 +24,29 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+async def _audit_device_action(
+    actor_id: str,
+    action: str,
+    device_id: str,
+    granted: bool,
+    **details: Any,
+) -> None:
+    """Emit a structured audit event for device security actions."""
+    try:
+        from aragora.observability.security_audit import audit_rbac_decision
+
+        await audit_rbac_decision(
+            user_id=actor_id,
+            permission=f"device:{action}",
+            granted=granted,
+            resource_type="device",
+            resource_id=device_id,
+            **details,
+        )
+    except (ImportError, TypeError, RuntimeError):
+        pass
 
 
 class PairingStatus(Enum):
@@ -151,6 +174,15 @@ class SecureDeviceRegistry:
         self._pending_requests[request_id] = request
         logger.info(f"Pairing requested for {device_name} ({device_type}): {request_id}")
 
+        await _audit_device_action(
+            actor_id="system",
+            action="pairing_requested",
+            device_id=device_id,
+            granted=True,
+            device_name=device_name,
+            device_type=device_type,
+        )
+
         return request
 
     async def approve_pairing(
@@ -187,6 +219,15 @@ class SecureDeviceRegistry:
         request.approved_at = time.time()
 
         logger.info(f"Pairing approved for {request.device_name}: {request_id}")
+
+        await _audit_device_action(
+            actor_id=approved_by,
+            action="pairing_approved",
+            device_id=request.device_id,
+            granted=True,
+            request_id=request_id,
+        )
+
         return True
 
     async def confirm_pairing(
@@ -241,6 +282,15 @@ class SecureDeviceRegistry:
         del self._pending_requests[request_id]
 
         logger.info(f"Device paired successfully: {device.device_id}")
+
+        await _audit_device_action(
+            actor_id=request.approved_by or "system",
+            action="pairing_confirmed",
+            device_id=device.device_id,
+            granted=True,
+            request_id=request_id,
+        )
+
         return device
 
     async def reject_pairing(self, request_id: str) -> bool:
@@ -252,6 +302,15 @@ class SecureDeviceRegistry:
         request.status = PairingStatus.REJECTED
         del self._pending_requests[request_id]
         logger.info(f"Pairing rejected: {request_id}")
+
+        await _audit_device_action(
+            actor_id="system",
+            action="pairing_rejected",
+            device_id=request.device_id,
+            granted=False,
+            request_id=request_id,
+        )
+
         return True
 
     async def get_pending_requests(self) -> list[PairingRequest]:
