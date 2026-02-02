@@ -240,31 +240,30 @@ class PersistentOriginStore:
 
     def _create_sqlite_schema(self) -> None:
         """Create SQLite schema (synchronous)."""
-        conn = sqlite3.connect(self._sqlite_path)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS routing_origins (
-                origin_id TEXT PRIMARY KEY,
-                origin_type TEXT NOT NULL,
-                platform TEXT NOT NULL,
-                channel_id TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                created_at REAL NOT NULL,
-                expires_at REAL,
-                metadata_json TEXT,
-                thread_id TEXT,
-                message_id TEXT,
-                result_sent INTEGER DEFAULT 0,
-                result_sent_at REAL
+        with sqlite3.connect(self._sqlite_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS routing_origins (
+                    origin_id TEXT PRIMARY KEY,
+                    origin_type TEXT NOT NULL,
+                    platform TEXT NOT NULL,
+                    channel_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    expires_at REAL,
+                    metadata_json TEXT,
+                    thread_id TEXT,
+                    message_id TEXT,
+                    result_sent INTEGER DEFAULT 0,
+                    result_sent_at REAL
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_origins_expires ON routing_origins(expires_at)"
             )
-        """)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_origins_expires ON routing_origins(expires_at)"
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_origins_platform_channel ON routing_origins(platform, channel_id)"
-        )
-        conn.commit()
-        conn.close()
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_origins_platform_channel ON routing_origins(platform, channel_id)"
+            )
+            conn.commit()
 
     async def close(self) -> None:
         """Close database connections."""
@@ -590,32 +589,31 @@ class PersistentOriginStore:
 
     def _save_sqlite_sync(self, origin: OriginRecord) -> None:
         """Synchronous SQLite save."""
-        conn = sqlite3.connect(self._sqlite_path)
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO routing_origins
-                (origin_id, origin_type, platform, channel_id, user_id,
-                 created_at, expires_at, metadata_json, thread_id, message_id,
-                 result_sent, result_sent_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                origin.origin_id,
-                origin.origin_type,
-                origin.platform,
-                origin.channel_id,
-                origin.user_id,
-                origin.created_at,
-                origin.expires_at,
-                json.dumps(origin.metadata),
-                origin.thread_id,
-                origin.message_id,
-                1 if origin.result_sent else 0,
-                origin.result_sent_at,
-            ),
-        )
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self._sqlite_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO routing_origins
+                    (origin_id, origin_type, platform, channel_id, user_id,
+                     created_at, expires_at, metadata_json, thread_id, message_id,
+                     result_sent, result_sent_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    origin.origin_id,
+                    origin.origin_type,
+                    origin.platform,
+                    origin.channel_id,
+                    origin.user_id,
+                    origin.created_at,
+                    origin.expires_at,
+                    json.dumps(origin.metadata),
+                    origin.thread_id,
+                    origin.message_id,
+                    1 if origin.result_sent else 0,
+                    origin.result_sent_at,
+                ),
+            )
+            conn.commit()
 
     async def _load_sqlite(self, origin_id: str) -> OriginRecord | None:
         """Load origin from SQLite."""
@@ -624,10 +622,9 @@ class PersistentOriginStore:
 
     def _load_sqlite_sync(self, origin_id: str) -> OriginRecord | None:
         """Synchronous SQLite load."""
-        conn = sqlite3.connect(self._sqlite_path)
-        cursor = conn.execute("SELECT * FROM routing_origins WHERE origin_id = ?", (origin_id,))
-        row = cursor.fetchone()
-        conn.close()
+        with sqlite3.connect(self._sqlite_path) as conn:
+            cursor = conn.execute("SELECT * FROM routing_origins WHERE origin_id = ?", (origin_id,))
+            row = cursor.fetchone()
 
         if row:
             return OriginRecord(
@@ -660,8 +657,6 @@ class PersistentOriginStore:
         self, origin_type: str | None, platform: str | None, limit: int
     ) -> list[OriginRecord]:
         """Synchronous SQLite list pending."""
-        conn = sqlite3.connect(self._sqlite_path)
-
         conditions = ["result_sent = 0", "expires_at > ?"]
         params: list[Any] = [time.time()]
 
@@ -681,9 +676,9 @@ class PersistentOriginStore:
             LIMIT ?
         """
 
-        cursor = conn.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
+        with sqlite3.connect(self._sqlite_path) as conn:
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
 
         results = []
         for row in rows:
@@ -713,11 +708,10 @@ class PersistentOriginStore:
 
     def _cleanup_sqlite_sync(self) -> int:
         """Synchronous SQLite cleanup."""
-        conn = sqlite3.connect(self._sqlite_path)
-        cursor = conn.execute("DELETE FROM routing_origins WHERE expires_at < ?", (time.time(),))
-        count = cursor.rowcount
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self._sqlite_path) as conn:
+            cursor = conn.execute("DELETE FROM routing_origins WHERE expires_at < ?", (time.time(),))
+            count = cursor.rowcount
+            conn.commit()
         return count
 
     # ==================== Cache Operations ====================

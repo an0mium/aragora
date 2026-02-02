@@ -97,37 +97,10 @@ class TeamsMessagingMixin:
     - _record_failure(): Record failure for circuit breaker
     """
 
-    # Stub declarations for methods expected from the main connector class.
-    # These are overridden by the actual implementations in TeamsConnector.
-    def _check_circuit_breaker(self) -> tuple[bool, str | None]:
-        """Check circuit breaker state. Overridden by TeamsConnector."""
-        return True, None
-
-    async def _get_access_token(self) -> str:
-        """Get OAuth access token. Overridden by TeamsConnector."""
-        raise NotImplementedError
-
-    async def _http_request(
-        self,
-        method: str,
-        url: str,
-        headers: dict[str, str] | None = None,
-        json: dict[str, Any] | None = None,
-        data: Any | None = None,
-        content: bytes | None = None,
-        files: dict[str, Any] | None = None,
-        max_retries: int = 3,
-        base_delay: float = 1.0,
-        timeout: float | None = None,
-        return_raw: bool = False,
-        operation: str = "",
-    ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]:
-        """Make HTTP request with retry/circuit breaker. Overridden by TeamsConnector."""
-        raise NotImplementedError
-
-    def _record_failure(self, error: Exception | None = None) -> None:
-        """Record failure for circuit breaker. Overridden by TeamsConnector."""
-        pass
+    # Note: Methods expected from the main connector class are documented
+    # in _TeamsConnectorProtocol above. They are provided by:
+    # - HTTPResilienceMixin: _http_request, _check_circuit_breaker, _record_failure
+    # - TeamsConnector: _get_access_token
 
     async def send_message(
         self,

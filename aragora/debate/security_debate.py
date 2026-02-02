@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from aragora.agents.base import Agent
@@ -85,7 +85,7 @@ async def run_security_debate(
 
     protocol = DebateProtocol(
         rounds=DEBATE_DEFAULTS.security_debate_rounds,
-        consensus=DEBATE_DEFAULTS.security_debate_consensus,
+        consensus=cast(Any, DEBATE_DEFAULTS.security_debate_consensus),
         convergence_detection=True,
         convergence_threshold=DEBATE_DEFAULTS.convergence_threshold,
         timeout_seconds=timeout_seconds,

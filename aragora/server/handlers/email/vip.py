@@ -11,8 +11,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
+
 from .storage import (
-    _check_email_permission,
     _load_config_from_store,
     _save_config_to_store,
     _user_configs,
@@ -22,6 +23,10 @@ from .storage import (
 )
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission constants
+PERM_EMAIL_READ = "email:read"
+PERM_EMAIL_UPDATE = "email:update"
 
 # Import the module-level _prioritizer for reset
 import aragora.server.handlers.email.storage as storage_module

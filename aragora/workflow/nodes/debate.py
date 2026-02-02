@@ -135,7 +135,7 @@ class DebateStep(BaseStep):
                             interpolated_config[key] = value
 
                     # Filter to only valid ArenaConfig fields
-                    valid_fields = {f.name for f in dataclasses.fields(ArenaConfig)}
+                    valid_fields = {f.name for f in dataclasses.fields(ArenaConfig)}  # type: ignore[arg-type]
                     filtered_config = {
                         k: v for k, v in interpolated_config.items() if k in valid_fields
                     }

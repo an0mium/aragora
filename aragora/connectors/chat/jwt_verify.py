@@ -64,7 +64,9 @@ GOOGLE_VALID_ISSUERS = [
 ]
 
 # OpenID metadata cache TTL (seconds)
-_OPENID_METADATA_CACHE_TTL = 3600  # 1 hour
+# Default reduced from 1 hour to 15 minutes for faster key rotation response
+_DEFAULT_CACHE_TTL = 900  # 15 minutes
+_OPENID_METADATA_CACHE_TTL = int(os.environ.get("ARAGORA_JWT_CACHE_TTL", _DEFAULT_CACHE_TTL))
 
 
 @dataclass
@@ -128,13 +130,16 @@ class JWTVerifier:
     installed or JWKS keys cannot be fetched, all tokens are rejected.
     """
 
-    def __init__(self, cache_ttl: float = 3600):
+    def __init__(self, cache_ttl: float | None = None):
         """Initialize the verifier.
 
         Args:
             cache_ttl: Time-to-live for cached JWKS clients and OpenID metadata,
-                       in seconds. Defaults to 3600 (1 hour).
+                       in seconds. If None, uses ARAGORA_JWT_CACHE_TTL env var
+                       or defaults to 900 seconds (15 minutes).
         """
+        if cache_ttl is None:
+            cache_ttl = float(_OPENID_METADATA_CACHE_TTL)
         self._microsoft_jwks_client: Any | None = None
         self._google_jwks_client: Any | None = None
         self._microsoft_cache_time: float = 0
@@ -142,6 +147,35 @@ class JWTVerifier:
         self._cache_ttl: float = cache_ttl
         # OpenID metadata cache
         self._microsoft_metadata: _OpenIDMetadataCache | None = None
+        self._google_metadata: _OpenIDMetadataCache | None = None
+
+    def invalidate_cache(self) -> None:
+        """Invalidate cached metadata, forcing refresh on next use.
+
+        This should be called when signature verification fails to ensure
+        stale signing keys are not used after IdP key rotation.
+        """
+        self._microsoft_metadata = None
+        self._google_metadata = None
+        self._microsoft_jwks_client = None
+        self._google_jwks_client = None
+        self._microsoft_cache_time = 0
+        self._google_cache_time = 0
+        logger.debug("JWT verifier cache invalidated")
+
+    def invalidate_microsoft_cache(self) -> None:
+        """Invalidate only Microsoft-related cached metadata."""
+        self._microsoft_metadata = None
+        self._microsoft_jwks_client = None
+        self._microsoft_cache_time = 0
+        logger.debug("Microsoft JWT cache invalidated")
+
+    def invalidate_google_cache(self) -> None:
+        """Invalidate only Google-related cached metadata."""
+        self._google_metadata = None
+        self._google_jwks_client = None
+        self._google_cache_time = 0
+        logger.debug("Google JWT cache invalidated")
 
     def _resolve_microsoft_jwks_uri(self) -> str:
         """Resolve Microsoft JWKS URI via OpenID discovery, with fallback.
@@ -278,6 +312,14 @@ class JWTVerifier:
             return JWTVerificationResult(valid=True, claims=claims)
 
         except PyJWTError as e:
+            error_str = str(e).lower()
+            # Invalidate cache on signature-related errors that might indicate key rotation
+            if "signature" in error_str or "key" in error_str or "kid" in error_str:
+                logger.info(
+                    "Invalidating Microsoft JWT cache due to potential key rotation "
+                    f"(error: {e})"
+                )
+                self.invalidate_microsoft_cache()
             logger.warning(f"Microsoft token verification failed: {e}")
             return JWTVerificationResult(
                 valid=False,
@@ -372,6 +414,14 @@ class JWTVerifier:
             return JWTVerificationResult(valid=True, claims=claims)
 
         except PyJWTError as e:
+            error_str = str(e).lower()
+            # Invalidate cache on signature-related errors that might indicate key rotation
+            if "signature" in error_str or "key" in error_str or "kid" in error_str:
+                logger.info(
+                    "Invalidating Google JWT cache due to potential key rotation "
+                    f"(error: {e})"
+                )
+                self.invalidate_google_cache()
             logger.warning(f"Google token verification failed: {e}")
             return JWTVerificationResult(
                 valid=False,
@@ -472,4 +522,6 @@ __all__ = [
     "HAS_JWT",
     "_fetch_openid_metadata",
     "_OpenIDMetadataCache",
+    "_DEFAULT_CACHE_TTL",
+    "_OPENID_METADATA_CACHE_TTL",
 ]

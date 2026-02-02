@@ -144,6 +144,7 @@ class MemoryAnalyticsHandler(SecureHandler):
         return json_response(analytics.to_dict())
 
     @rate_limit(requests_per_minute=60, limiter_name="memory_analytics_read")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("tier stats")
     def _get_tier_stats(self, tier_name: str, days: int) -> HandlerResult:
         """Get stats for a specific memory tier.
@@ -178,6 +179,7 @@ class MemoryAnalyticsHandler(SecureHandler):
             return error_response("Memory tier module not available", 503)
 
     @rate_limit(requests_per_minute=20, limiter_name="memory_analytics_write")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("snapshot")
     def _take_snapshot(self) -> HandlerResult:
         """Take a manual analytics snapshot.

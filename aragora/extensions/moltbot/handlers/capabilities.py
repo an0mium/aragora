@@ -13,7 +13,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -39,7 +39,7 @@ def get_capability_matcher() -> "CapabilityMatcherProtocol":
     if _matcher is None:
         from aragora.extensions.moltbot.capabilities import CapabilityMatcher
 
-        _matcher = CapabilityMatcher()
+        _matcher = cast("CapabilityMatcherProtocol", CapabilityMatcher())
     return _matcher
 
 

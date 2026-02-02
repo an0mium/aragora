@@ -114,10 +114,24 @@ class CredentialVault:
         """Get encryption key from environment or create ephemeral key."""
         env_key = os.environ.get("ARAGORA_CREDENTIAL_VAULT_KEY")
         if env_key:
-            # Use PBKDF2 with salt for proper key derivation
-            salt = os.environ.get(
-                "ARAGORA_CREDENTIAL_VAULT_SALT", "aragora-vault-default-salt"
-            ).encode()
+            env = os.environ.get("ARAGORA_ENV", "").lower()
+            is_production = env in ("production", "prod", "staging")
+
+            salt_value = os.environ.get("ARAGORA_CREDENTIAL_VAULT_SALT")
+            if salt_value:
+                salt = salt_value.encode()
+            elif is_production:
+                raise RuntimeError(
+                    "ARAGORA_CREDENTIAL_VAULT_SALT must be set in production. "
+                    "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
+            else:
+                logger.warning(
+                    "Using default credential vault salt - NOT SAFE FOR PRODUCTION. "
+                    "Set ARAGORA_CREDENTIAL_VAULT_SALT environment variable."
+                )
+                salt = b"aragora-vault-default-salt"
+
             return hashlib.pbkdf2_hmac(
                 "sha256",
                 env_key.encode(),

@@ -134,7 +134,7 @@ class TinkerAgent(APIAgent):
             await self._client.close()
             self._client = None
 
-    def generate(self, prompt: str, context: list[Message] | None = None, **kwargs: Any) -> str:
+    def generate(self, prompt: str, context: list[Message] | None = None, **kwargs: Any) -> str:  # type: ignore[override]
         """Generate a response (sync wrapper for Agent Protocol compatibility).
 
         Args:

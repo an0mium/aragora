@@ -31,12 +31,12 @@ logger = logging.getLogger(__name__)
 # RBAC Permissions
 # =============================================================================
 
-NOTIFICATIONS_READ_PERMISSION = "knowledge:notifications:read"
-NOTIFICATIONS_WRITE_PERMISSION = "knowledge:notifications:write"
+KNOWLEDGE_WRITE_PERMISSION = "knowledge:write"
 
 # RBAC imports with fallback
 try:
     from aragora.rbac.checker import get_permission_checker
+    from aragora.rbac.decorators import require_permission
     from aragora.rbac.models import AuthorizationContext as RBACContext
 
     RBAC_AVAILABLE = True

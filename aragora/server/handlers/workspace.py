@@ -1438,7 +1438,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Classification"],
     )
     @handle_errors("get level policy")
-    def _handle_get_level_policy(self, handler, level: str) -> HandlerResult:
+    def _handle_get_level_policy(
+        self, handler: HTTPRequestHandler, level: str
+    ) -> HandlerResult:
         """Get recommended policy for a sensitivity level."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1467,7 +1469,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Audit"],
     )
     @handle_errors("query audit entries")
-    def _handle_query_audit(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_query_audit(
+        self, handler: HTTPRequestHandler, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Query audit log entries."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1526,7 +1530,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Audit"],
     )
     @handle_errors("generate audit report")
-    def _handle_audit_report(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_audit_report(
+        self, handler: HTTPRequestHandler, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Generate compliance report."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1578,7 +1584,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Audit"],
     )
     @handle_errors("verify audit integrity")
-    def _handle_verify_integrity(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_verify_integrity(
+        self, handler: HTTPRequestHandler, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Verify audit log integrity."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)

@@ -383,7 +383,7 @@ class HuggingFaceSpecialistLoader:
             if "device_map" not in load_kwargs and device != "cpu":
                 import torch
 
-                model = model.to(torch.device(device))
+                model = model.to(torch.device(device))  # type: ignore[arg-type]
 
             # Set evaluation mode
             model.eval()
