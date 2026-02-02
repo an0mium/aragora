@@ -409,7 +409,8 @@ async def handle_sso_logout(
 # =============================================================================
 
 
-@require_permission("auth:manage_sso")
+# NOTE: List providers is a public endpoint - allows UI to show SSO buttons
+# to unauthenticated users. RBAC protection via middleware.
 @auth_rate_limit(
     requests_per_minute=30,
     limiter_name="auth_sso_list_providers",
