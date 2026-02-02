@@ -403,10 +403,13 @@ class AuthHandler(SecureHandler):
             return error_response("Authentication service unavailable", 503)
 
         # Get user to ensure they still exist and are active (use async if available)
-        if hasattr(user_store, "get_user_by_id_async"):
+        get_user_by_id = getattr(user_store, "get_user_by_id", None)
+        if callable(get_user_by_id):
+            user = get_user_by_id(payload.user_id)
+        elif hasattr(user_store, "get_user_by_id_async"):
             user = _run_maybe_async(user_store.get_user_by_id_async(payload.user_id))
         else:
-            user = user_store.get_user_by_id(payload.user_id)
+            user = None
         if not user:
             return error_response("User not found", 401)
 
@@ -581,10 +584,13 @@ class AuthHandler(SecureHandler):
             )
 
         # Get full user data (use async method if available)
-        if hasattr(user_store, "get_user_by_id_async"):
+        get_user_by_id = getattr(user_store, "get_user_by_id", None)
+        if callable(get_user_by_id):
+            user = get_user_by_id(auth_ctx.user_id)
+        elif hasattr(user_store, "get_user_by_id_async"):
             user = _run_maybe_async(user_store.get_user_by_id_async(auth_ctx.user_id))
         else:
-            user = user_store.get_user_by_id(auth_ctx.user_id)
+            user = None
         logger.debug(f"Auth /me: user lookup {'found' if user else 'not found'}")
         if not user:
             return error_response("User not found", 404, headers=self.AUTH_NO_CACHE_HEADERS)
@@ -592,10 +598,13 @@ class AuthHandler(SecureHandler):
         # Get organization if user belongs to one
         org_data = None
         if user.org_id:
-            if hasattr(user_store, "get_organization_by_id_async"):
+            get_org_by_id = getattr(user_store, "get_organization_by_id", None)
+            if callable(get_org_by_id):
+                org = get_org_by_id(user.org_id)
+            elif hasattr(user_store, "get_organization_by_id_async"):
                 org = _run_maybe_async(user_store.get_organization_by_id_async(user.org_id))
             else:
-                org = user_store.get_organization_by_id(user.org_id)
+                org = None
             if org:
                 org_data = org.to_dict()
 
@@ -629,10 +638,13 @@ class AuthHandler(SecureHandler):
             return error_response("Authentication service unavailable", 503)
 
         # Get user (use async method if available)
-        if hasattr(user_store, "get_user_by_id_async"):
+        get_user_by_id = getattr(user_store, "get_user_by_id", None)
+        if callable(get_user_by_id):
+            user = get_user_by_id(auth_ctx.user_id)
+        elif hasattr(user_store, "get_user_by_id_async"):
             user = _run_maybe_async(user_store.get_user_by_id_async(auth_ctx.user_id))
         else:
-            user = user_store.get_user_by_id(auth_ctx.user_id)
+            user = None
         if not user:
             return error_response("User not found", 404)
 
@@ -643,12 +655,13 @@ class AuthHandler(SecureHandler):
 
         # Save updates
         if updates:
-            if hasattr(user_store, "update_user_async"):
+            update_user = getattr(user_store, "update_user", None)
+            if callable(update_user):
+                update_user(user.id, **updates)
+                user = update_user and user_store.get_user_by_id(user.id)
+            elif hasattr(user_store, "update_user_async"):
                 _run_maybe_async(user_store.update_user_async(user.id, **updates))
                 user = _run_maybe_async(user_store.get_user_by_id_async(user.id))
-            else:
-                user_store.update_user(user.id, **updates)
-                user = user_store.get_user_by_id(user.id)
 
         return json_response({"user": user.to_dict()})
 
