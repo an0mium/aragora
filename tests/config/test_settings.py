@@ -284,8 +284,9 @@ class TestDatabaseSettings:
             with pytest.raises(ValidationError, match="Database backend must be one of"):
                 DatabaseSettings()
 
-    def test_nomic_path_property(self):
+    def test_nomic_path_property(self, tmp_path, monkeypatch):
         with patch.dict(os.environ, _clean_env(), clear=True):
+            monkeypatch.chdir(tmp_path)
             s = DatabaseSettings()
         assert s.nomic_path == Path(".nomic")
 

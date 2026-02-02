@@ -215,11 +215,12 @@ class TestGetDefaultDbPath:
         assert elo_path.name == "elo.db"
         assert memory_path.name == "memory.db"
 
-    def test_default_nomic_directory(self):
+    def test_default_nomic_directory(self, tmp_path, monkeypatch):
         """Test that default db path uses get_nomic_dir() fallback (.nomic)."""
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("ARAGORA_DATA_DIR", None)
             os.environ.pop("ARAGORA_NOMIC_DIR", None)
+            monkeypatch.chdir(tmp_path)
             path = get_default_db_path("test")
             # Now uses get_nomic_dir() which returns .nomic (relative to CWD)
             expected_base = Path(".nomic") / "db"

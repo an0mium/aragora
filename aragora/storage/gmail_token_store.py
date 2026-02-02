@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aragora.config import resolve_db_path
+from aragora.persistence.db_config import get_default_data_dir
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -1044,8 +1045,7 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
             data_dir = None
 
         if backend_type == "redis":
-            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-            base_dir = Path(data_dir or env_dir or ".nomic")
+            base_dir = data_dir or get_default_data_dir()
             db_path = base_dir / "gmail_tokens.db"
             logger.info("Using Redis Gmail token store with SQLite fallback")
             _gmail_token_store = RedisGmailTokenStore(db_path)

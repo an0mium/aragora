@@ -159,7 +159,7 @@ class EventDLQPersistence:
 
         Args:
             db_path: Path to SQLite database. Defaults to
-                     $ARAGORA_DATA_DIR/.nomic/event_dlq.db
+                     $ARAGORA_DATA_DIR/event_dlq.db
         """
         if db_path is None:
             if os.getenv("PYTEST_CURRENT_TEST"):

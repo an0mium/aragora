@@ -77,11 +77,12 @@ class TestDatabaseMode:
 class TestNomicDir:
     """Tests for nomic directory configuration."""
 
-    def test_default_nomic_dir(self):
+    def test_default_nomic_dir(self, tmp_path, monkeypatch):
         """Default nomic dir is .nomic."""
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("ARAGORA_DATA_DIR", None)
             os.environ.pop("ARAGORA_NOMIC_DIR", None)
+            monkeypatch.chdir(tmp_path)
             nomic_dir = get_nomic_dir()
             assert nomic_dir == Path(".nomic")
 

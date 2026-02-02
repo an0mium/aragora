@@ -29,12 +29,12 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
-import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.persistence.db_config import get_default_data_dir
 from aragora.workflow.queue.queue import TaskQueue, TaskQueueConfig
 from aragora.workflow.queue.task import (
     TaskStatus,
@@ -138,8 +138,7 @@ class PersistentTaskQueue(TaskQueue):
         if db_path:
             self._db_path = Path(db_path)
         else:
-            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-            data_dir = Path(env_dir or ".nomic")
+            data_dir = get_default_data_dir()
             self._db_path = data_dir / "task_queue.db"
 
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
