@@ -47,4 +47,4 @@ def test_evaluate_action_denies_sensitive_text_patterns():
     )
 
     assert decision == PolicyDecision.DENY
-    assert "sensitive pattern" in reason
+    assert "credential" in reason.lower()
