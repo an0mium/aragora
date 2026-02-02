@@ -17,7 +17,6 @@ import asyncio
 import logging
 from typing import Any, TYPE_CHECKING
 
-from aragora.server.handlers.base import HandlerResult
 from aragora.server.validation.query_params import safe_query_int
 
 from .circuit_breaker import get_crm_circuit_breaker
@@ -41,7 +40,7 @@ logger = logging.getLogger(__name__)
 class ContactOperationsMixin:
     """Mixin providing contact operations for CRMHandler."""
 
-    async def _list_all_contacts(self: "CRMHandler", request: Any) -> HandlerResult:
+    async def _list_all_contacts(self: "CRMHandler", request: Any) -> dict[str, Any]:
         """List contacts from all connected platforms."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -80,7 +79,7 @@ class ContactOperationsMixin:
         # Record circuit breaker status
         if has_failure:
             cb.record_failure()
-        else:
+        elif _platform_credentials:
             cb.record_success()
 
         return self._json_response(
@@ -125,8 +124,10 @@ class ContactOperationsMixin:
         return []
 
     async def _list_platform_contacts(
-        self: "CRMHandler", request: Any, platform: str
-    ) -> HandlerResult:
+        self: "CRMHandler",
+        request: Any,
+        platform: str,
+    ) -> dict[str, Any]:
         """List contacts from a specific platform."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -163,8 +164,11 @@ class ContactOperationsMixin:
         )
 
     async def _get_contact(
-        self: "CRMHandler", request: Any, platform: str, contact_id: str
-    ) -> HandlerResult:
+        self: "CRMHandler",
+        request: Any,
+        platform: str,
+        contact_id: str,
+    ) -> dict[str, Any]:
         """Get a specific contact."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -204,7 +208,11 @@ class ContactOperationsMixin:
 
         return self._error_response(400, "Unsupported platform")
 
-    async def _create_contact(self: "CRMHandler", request: Any, platform: str) -> HandlerResult:
+    async def _create_contact(
+        self: "CRMHandler",
+        request: Any,
+        platform: str,
+    ) -> dict[str, Any]:
         """Create a new contact."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -292,7 +300,7 @@ class ContactOperationsMixin:
         request: Any,
         platform: str,
         contact_id: str,
-    ) -> HandlerResult:
+    ) -> dict[str, Any]:
         """Update an existing contact."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -366,8 +374,6 @@ class ContactOperationsMixin:
                     "phone": "phone",
                     "company": "company",
                     "job_title": "jobtitle",
-                    "lifecycle_stage": "lifecyclestage",
-                    "lead_status": "hs_lead_status",
                 }
                 for api_field, hubspot_field in field_mapping.items():
                     if api_field in body:
@@ -385,6 +391,3 @@ class ContactOperationsMixin:
             return self._error_response(500, f"Failed to update contact: {e}")
 
         return self._error_response(400, "Unsupported platform")
-
-
-__all__ = ["ContactOperationsMixin"]

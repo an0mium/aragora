@@ -9,7 +9,7 @@ Tests cover the helper methods introduced to reduce code duplication:
 import pytest
 from unittest.mock import MagicMock, patch
 
-from aragora.server.handlers.features.control_plane import ControlPlaneHandler
+from aragora.server.handlers.control_plane import ControlPlaneHandler
 
 
 # ============================================================================

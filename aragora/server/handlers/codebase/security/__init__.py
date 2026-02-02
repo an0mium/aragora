@@ -73,6 +73,12 @@ from .events import (
 
 # Storage utilities (internal use)
 from .storage import (
+    _scan_results,
+    _running_scans,
+    _secrets_scan_results,
+    _running_secrets_scans,
+    _sast_scan_results,
+    _running_sast_scans,
     get_cve_client,
     get_or_create_repo_scans,
     get_or_create_sbom_results,
@@ -103,6 +109,13 @@ _get_or_create_repo_scans = get_or_create_repo_scans
 __all__ = [
     # Main handler
     "SecurityHandler",
+    # Storage dicts (backwards compatibility for tests)
+    "_scan_results",
+    "_running_scans",
+    "_secrets_scan_results",
+    "_running_secrets_scans",
+    "_sast_scan_results",
+    "_running_sast_scans",
     # Vulnerability scanning
     "handle_scan_repository",
     "handle_get_scan_status",
