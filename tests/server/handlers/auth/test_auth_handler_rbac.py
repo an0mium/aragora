@@ -21,7 +21,7 @@ class TestAuthHandlerRBAC:
     @pytest.fixture
     def handler(self, mock_server_context):
         """Create handler instance."""
-        return AuthHandler(server_context=mock_server_context)
+        return AuthHandler(ctx=mock_server_context)
 
     @pytest.fixture
     def mock_http_handler(self):
@@ -127,7 +127,7 @@ class TestAuthHandlerPermissionKeys:
     @pytest.fixture
     def handler(self, mock_server_context):
         """Create handler instance."""
-        return AuthHandler(server_context=mock_server_context)
+        return AuthHandler(ctx=mock_server_context)
 
     @pytest.fixture
     def mock_http_handler(self):
@@ -181,7 +181,7 @@ class TestAuthHandlerRBACIntegration:
     @pytest.fixture
     def handler(self, mock_server_context):
         """Create handler instance."""
-        return AuthHandler(server_context=mock_server_context)
+        return AuthHandler(ctx=mock_server_context)
 
     @pytest.fixture
     def mock_http_handler(self):
