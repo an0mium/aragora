@@ -621,6 +621,8 @@ class TestVoiceDevice:
     async def test_handle_voice_request_default(self, connector):
         """Default implementation should return error response."""
         request = VoiceDeviceRequest(
+            request_id="req_123",
+            device_type=DeviceType.ALEXA,
             user_id="user_123",
             intent="test_intent",
             slots={},

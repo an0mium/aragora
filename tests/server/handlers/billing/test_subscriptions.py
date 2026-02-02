@@ -492,23 +492,12 @@ class TestRateLimiting:
 
 class TestHandlerRouting:
     @pytest.mark.asyncio
-    async def test_routes_to_correct_method(self, usage_handler, mock_user_store, mock_usage_meter):
-        """Handler routes requests to correct methods."""
-        handler = FakeHandler(method="GET")
-
-        with patch.object(usage_handler, "_get_usage_meter", return_value=mock_usage_meter):
-            # Patch the decorator chain for auth
-            with patch.object(
-                usage_handler,
-                "_get_usage",
-                usage_handler._get_usage.__wrapped__.__wrapped__,
-            ):
-                result = await usage_handler.handle(
-                    "/api/v1/billing/usage", {}, handler, method="GET"
-                )
-
-        # Will fail at permission check but confirms routing works
-        assert result is not None
+    async def test_routes_usage_path(self, usage_handler, mock_user_store, mock_usage_meter):
+        """Handler correctly identifies usage routes."""
+        # Test that can_handle recognizes the routes
+        assert usage_handler.can_handle("/api/v1/billing/usage") is True
+        assert usage_handler.can_handle("/api/v1/billing/usage/breakdown") is True
+        assert usage_handler.can_handle("/api/v1/billing/limits") is True
 
     @pytest.mark.asyncio
     async def test_rejects_invalid_method(self, usage_handler, mock_user_store):
@@ -516,5 +505,14 @@ class TestHandlerRouting:
         handler = FakeHandler(method="DELETE")
 
         result = await usage_handler.handle("/api/v1/billing/usage", {}, handler, method="DELETE")
+
+        assert result.status_code == 405
+
+    @pytest.mark.asyncio
+    async def test_rejects_post_on_get_routes(self, usage_handler, mock_user_store):
+        """Handler rejects POST on GET-only routes."""
+        handler = FakeHandler(method="POST")
+
+        result = await usage_handler.handle("/api/v1/billing/limits", {}, handler, method="POST")
 
         assert result.status_code == 405

@@ -296,7 +296,7 @@ class SemanticSearchMixin:
                     f"{len(enriched)} results for '{query[:50]}'"
                 )
 
-                # Emit event
+                # Emit event - _emit_event provided by KnowledgeMoundAdapter via inheritance
                 self._emit_event(  # type: ignore[attr-defined]
                     "km_adapter_semantic_search",
                     {
@@ -337,6 +337,7 @@ class SemanticSearchMixin:
             return fallback_results
 
         finally:
+            # _record_metric provided by KnowledgeMoundAdapter via inheritance
             self._record_metric("semantic_search", success, time.time() - start)  # type: ignore[attr-defined]
 
     def _enrich_semantic_results(self, results: list[Any]) -> list[dict[str, Any]]:

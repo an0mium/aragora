@@ -82,6 +82,8 @@ if TYPE_CHECKING:
     from aragora.types.protocols import EventEmitterProtocol
 
 
+# Multiple inheritance with 17 mixins causes mypy to report complex MRO issues.
+# The class is correctly composed and functions at runtime.
 class KnowledgeMound(  # type: ignore[misc]
     CRUDOperationsMixin,
     QueryOperationsMixin,
