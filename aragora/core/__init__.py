@@ -78,6 +78,15 @@ from aragora.core.routing_rules import (
     RULE_TEMPLATES,
 )
 
+# Import shared types
+from aragora.core.types import (
+    HealthLevel,
+    HealthReport,
+    HealthStatus,
+    SyncResult,
+    ValidationResult,
+)
+
 __all__ = [
     # Core types
     "AgentRole",
@@ -123,6 +132,12 @@ __all__ = [
     "RoutingRulesEngine",
     "RuleEvaluationResult",
     "RULE_TEMPLATES",
+    # Shared types
+    "HealthLevel",
+    "HealthReport",
+    "HealthStatus",
+    "SyncResult",
+    "ValidationResult",
 ]
 
 
