@@ -562,7 +562,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "RoutingHandler": Stability.STABLE,
     "RoutingRulesHandler": Stability.EXPERIMENTAL,  # Routing rules management
     "CompositeHandler": Stability.EXPERIMENTAL,  # Composite API endpoints - new
-    "MLHandler": Stability.EXPERIMENTAL,  # ML capabilities API - new
+    "MLHandler": Stability.STABLE,  # ML capabilities API - circuit breaker, RBAC, rate limiting, 80+ tests
     "RLMContextHandler": Stability.STABLE,  # RLM context compression and query API - 86 tests
     "RLMHandler": Stability.EXPERIMENTAL,  # RLM operations API
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
