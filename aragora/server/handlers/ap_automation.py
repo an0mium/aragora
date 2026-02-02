@@ -342,28 +342,53 @@ async def handle_record_payment(
         reference: str (optional)
     }
     """
+    # Validate invoice_id
+    if not invoice_id or not invoice_id.strip():
+        return error_response("invoice_id is required", status=400)
+
+    # Validate amount
+    amount = data.get("amount")
+    if amount is None:
+        return error_response("amount is required", status=400)
+
+    try:
+        amount_decimal = Decimal(str(amount))
+        if amount_decimal <= 0:
+            return error_response("amount must be positive", status=400)
+    except (ValueError, TypeError, ArithmeticError):
+        return error_response("amount must be a valid number", status=400)
+
+    # Validate payment_date if provided
+    payment_date = None
+    if data.get("payment_date"):
+        try:
+            payment_date = datetime.fromisoformat(data["payment_date"])
+        except ValueError:
+            return error_response("payment_date must be in ISO format", status=400)
+
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ap = get_ap_automation()
 
-        invoice = await ap.get_invoice(invoice_id)
-        if not invoice:
-            return error_response(f"Invoice {invoice_id} not found", status=404)
+        async with _ap_circuit_breaker.protected_call():
+            invoice = await ap.get_invoice(invoice_id)
+            if not invoice:
+                return error_response(f"Invoice {invoice_id} not found", status=404)
 
-        amount = data.get("amount")
-        if amount is None:
-            return error_response("amount is required", status=400)
-
-        payment_date = None
-        if data.get("payment_date"):
-            payment_date = datetime.fromisoformat(data["payment_date"])
-
-        updated_invoice = await ap.record_payment(
-            invoice_id=invoice_id,
-            amount=Decimal(str(amount)),
-            payment_date=payment_date,
-            payment_method=data.get("payment_method"),
-            reference=data.get("reference"),
-        )
+            updated_invoice = await ap.record_payment(
+                invoice_id=invoice_id,
+                amount=amount_decimal,
+                payment_date=payment_date,
+                payment_method=data.get("payment_method"),
+                reference=data.get("reference"),
+            )
 
         return success_response(
             {
@@ -372,6 +397,8 @@ async def handle_record_payment(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response(f"Failed to record payment: {e}", status=500)
@@ -398,37 +425,56 @@ async def handle_optimize_payments(
         prioritize_discounts: bool (optional, default true)
     }
     """
+    # Validate available_cash if provided
+    available_cash = data.get("available_cash")
+    cash_decimal = None
+    if available_cash is not None:
+        try:
+            cash_decimal = Decimal(str(available_cash))
+            if cash_decimal < 0:
+                return error_response("available_cash must be non-negative", status=400)
+        except (ValueError, TypeError, ArithmeticError):
+            return error_response("available_cash must be a valid number", status=400)
+
+    invoice_ids = data.get("invoice_ids")
+    prioritize_discounts = data.get("prioritize_discounts", True)
+
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ap = get_ap_automation()
 
-        invoice_ids = data.get("invoice_ids")
-        available_cash = data.get("available_cash")
-        prioritize_discounts = data.get("prioritize_discounts", True)
+        async with _ap_circuit_breaker.protected_call():
+            # Get invoices to optimize
+            if invoice_ids:
+                invoices = []
+                for inv_id in invoice_ids:
+                    inv = await ap.get_invoice(inv_id)
+                    if inv:
+                        invoices.append(inv)
+            else:
+                # Get all unpaid invoices
+                invoices = await ap.list_invoices(status="unpaid")
 
-        # Get invoices to optimize
-        if invoice_ids:
-            invoices = []
-            for inv_id in invoice_ids:
-                inv = await ap.get_invoice(inv_id)
-                if inv:
-                    invoices.append(inv)
-        else:
-            # Get all unpaid invoices
-            invoices = await ap.list_invoices(status="unpaid")
+            if not invoices:
+                return success_response(
+                    {
+                        "schedule": [],
+                        "message": "No invoices to optimize",
+                    }
+                )
 
-        if not invoices:
-            return success_response(
-                {
-                    "schedule": [],
-                    "message": "No invoices to optimize",
-                }
+            schedule = await ap.optimize_payment_timing(
+                invoices=invoices,
+                available_cash=cash_decimal,
+                prioritize_discounts=prioritize_discounts,
             )
-
-        schedule = await ap.optimize_payment_timing(
-            invoices=invoices,
-            available_cash=Decimal(str(available_cash)) if available_cash else None,
-            prioritize_discounts=prioritize_discounts,
-        )
 
         return success_response(
             {
@@ -438,6 +484,8 @@ async def handle_optimize_payments(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error optimizing payments")
         return error_response(f"Failed to optimize payments: {e}", status=500)

@@ -55,8 +55,8 @@ from aragora.server.handlers.policy import (
     PolicyHandler,
 )
 
-# Re-export from compliance_handler.py
-from aragora.server.handlers.compliance_handler import (
+# Re-export from compliance/handler.py
+from aragora.server.handlers.compliance.handler import (
     ComplianceHandler,
     create_compliance_handler,
 )

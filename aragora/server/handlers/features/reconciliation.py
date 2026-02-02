@@ -859,12 +859,23 @@ class ReconciliationHandler:
     # Generate Report
     # =========================================================================
 
+    @require_permission("reconciliation:read")
+    @rate_limit(requests_per_minute=30, limiter_name="reconciliation_report")
     async def _handle_report(
         self, request: Any, tenant_id: str, reconciliation_id: str
     ) -> HandlerResult:
         """Generate reconciliation report."""
+        # reconciliation_id already validated in handle()
+
         params = self._get_query_params(request)
         format_type = params.get("format", "json")
+
+        # Validate format type
+        valid_formats = {"json", "csv"}
+        if format_type not in valid_formats:
+            return error_response(
+                f"Invalid format. Must be one of: {', '.join(valid_formats)}", 400
+            )
 
         service = get_reconciliation_service(tenant_id)
         if not service:
@@ -982,6 +993,8 @@ async def handle_reconciliation(request: Any, path: str, method: str) -> Handler
 
 __all__ = [
     "ReconciliationHandler",
+    "ReconciliationCircuitBreaker",
     "handle_reconciliation",
     "get_reconciliation_handler",
+    "get_reconciliation_circuit_breaker_status",
 ]

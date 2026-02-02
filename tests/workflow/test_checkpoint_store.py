@@ -2545,9 +2545,8 @@ class TestRedisBackendSpecific:
 
             assert checkpoint is not None
 
-    @pytest.mark.asyncio
-    async def test_socket_timeout_configuration(self):
-        """Socket timeouts are configured on the connection pool."""
+    def test_socket_timeout_configuration(self):
+        """Socket timeouts are stored and applied when Redis is accessed."""
         # Create a mock redis client with mutable connection_kwargs dict
         mock_redis = MagicMock()
         mock_redis.setex = MagicMock()
@@ -2566,7 +2565,7 @@ class TestRedisBackendSpecific:
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
                 "aragora.workflow.checkpoint_store._get_redis_client",
-                return_value=lambda: mock_redis,
+                return_value=mock_redis,  # Return the mock directly
             ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
@@ -2575,6 +2574,10 @@ class TestRedisBackendSpecific:
                 socket_timeout=15.0,
                 socket_connect_timeout=5.0,
             )
+
+            # Verify socket timeout values are stored
+            assert store._socket_timeout == 15.0
+            assert store._socket_connect_timeout == 5.0
 
             # Access redis to trigger lazy initialization
             redis = store._get_redis()
