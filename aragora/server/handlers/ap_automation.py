@@ -582,14 +582,28 @@ async def handle_get_forecast(
         days_ahead: int (optional, default 30)
     }
     """
+    # Validate days_ahead
+    try:
+        days_ahead = int(data.get("days_ahead", 30))
+    except (ValueError, TypeError):
+        return error_response("days_ahead must be an integer", status=400)
+
+    if days_ahead < 1 or days_ahead > 365:
+        return error_response("days_ahead must be 1-365", status=400)
+
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ap = get_ap_automation()
 
-        days_ahead = int(data.get("days_ahead", 30))
-        if days_ahead < 1 or days_ahead > 365:
-            return error_response("days_ahead must be 1-365", status=400)
-
-        forecast = await ap.forecast_cash_needs(days_ahead=days_ahead)
+        async with _ap_circuit_breaker.protected_call():
+            forecast = await ap.forecast_cash_needs(days_ahead=days_ahead)
 
         return success_response(
             {
@@ -599,6 +613,8 @@ async def handle_get_forecast(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error generating forecast")
         return error_response(f"Failed to generate forecast: {e}", status=500)
