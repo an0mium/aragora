@@ -42,10 +42,23 @@ spec:
         app.kubernetes.io/component: database
     spec:
       securityContext:
-        fsGroup: 999
+        runAsNonRoot: true
+        runAsUser: 70  # postgres user in Alpine images
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:16-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            # Note: readOnlyRootFilesystem cannot be true for PostgreSQL
+            # as it needs to write to /var/run/postgresql for socket files
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 5432
               name: postgres
