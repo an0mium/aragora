@@ -71,7 +71,7 @@ class ReceiptsAPI:
         if signed_only:
             params["signed_only"] = signed_only
 
-        return self._client.request("GET", "/api/v2/receipts", params=params)
+        return self._client.request("GET", "/api/v1/receipts", params=params)
 
     def get(self, receipt_id: str) -> dict[str, Any]:
         """
@@ -83,7 +83,7 @@ class ReceiptsAPI:
         Returns:
             Receipt details
         """
-        return self._client.request("GET", f"/api/v2/receipts/{receipt_id}")
+        return self._client.request("GET", f"/api/v1/receipts/{receipt_id}")
 
     def search(
         self,
@@ -103,7 +103,7 @@ class ReceiptsAPI:
             Matching receipts
         """
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return self._client.request("GET", "/api/v2/receipts/search", params=params)
+        return self._client.request("GET", "/api/v1/receipts/search", params=params)
 
     def verify(self, receipt_id: str) -> dict[str, Any]:
         """
@@ -115,7 +115,7 @@ class ReceiptsAPI:
         Returns:
             Verification result with checksum and validity
         """
-        return self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify")
+        return self._client.request("POST", f"/api/v1/receipts/{receipt_id}/verify")
 
     def verify_signature(self, receipt_id: str) -> dict[str, Any]:
         """
@@ -127,7 +127,7 @@ class ReceiptsAPI:
         Returns:
             Signature verification result
         """
-        return self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify-signature")
+        return self._client.request("POST", f"/api/v1/receipts/{receipt_id}/verify-signature")
 
     def verify_batch(self, receipt_ids: _List[str]) -> dict[str, Any]:
         """
@@ -141,7 +141,7 @@ class ReceiptsAPI:
         """
         return self._client.request(
             "POST",
-            "/api/v2/receipts/verify-batch",
+            "/api/v1/receipts/verify-batch",
             json={"receipt_ids": receipt_ids},
         )
 
@@ -162,7 +162,7 @@ class ReceiptsAPI:
         """
         return self._client.request(
             "GET",
-            f"/api/v2/receipts/{receipt_id}/export",
+            f"/api/v1/receipts/{receipt_id}/export",
             params={"format": format},
         )
 
@@ -187,7 +187,7 @@ class ReceiptsAPI:
         if to_date:
             params["to_date"] = to_date
 
-        return self._client.request("GET", "/api/v2/receipts/stats", params=params)
+        return self._client.request("GET", "/api/v1/receipts/stats", params=params)
 
     def share(
         self,
@@ -210,7 +210,7 @@ class ReceiptsAPI:
         if max_accesses is not None:
             data["max_accesses"] = max_accesses
 
-        return self._client.request("POST", f"/api/v2/receipts/{receipt_id}/share", json=data)
+        return self._client.request("POST", f"/api/v1/receipts/{receipt_id}/share", json=data)
 
     def send_to_channel(
         self,
@@ -231,7 +231,7 @@ class ReceiptsAPI:
         """
         return self._client.request(
             "POST",
-            f"/api/v2/receipts/{receipt_id}/send-to-channel",
+            f"/api/v1/receipts/{receipt_id}/send-to-channel",
             json={"channel_type": channel_type, "channel_id": channel_id},
         )
 
@@ -242,7 +242,7 @@ class ReceiptsAPI:
         Returns:
             Retention information including expiry distribution
         """
-        return self._client.request("GET", "/api/v2/receipts/retention-status")
+        return self._client.request("GET", "/api/v1/receipts/retention-status")
 
     def get_dsar(self, user_id: str) -> dict[str, Any]:
         """
@@ -254,7 +254,7 @@ class ReceiptsAPI:
         Returns:
             User's receipts for DSAR compliance
         """
-        return self._client.request("GET", f"/api/v2/receipts/dsar/{user_id}")
+        return self._client.request("GET", f"/api/v1/receipts/dsar/{user_id}")
 
     # =========================================================================
     # Gauntlet Receipts / Results
@@ -343,7 +343,7 @@ class ReceiptsAPI:
         """
         return self._client.request(
             "POST",
-            "/api/v2/receipts/sign-batch",
+            "/api/v1/receipts/sign-batch",
             json={"receipt_ids": receipt_ids},
         )
 
@@ -364,7 +364,7 @@ class ReceiptsAPI:
         """
         return self._client.request(
             "POST",
-            "/api/v2/receipts/batch-export",
+            "/api/v1/receipts/batch-export",
             json={"receipt_ids": receipt_ids, "format": format},
         )
 
@@ -440,11 +440,11 @@ class AsyncReceiptsAPI:
         if signed_only:
             params["signed_only"] = signed_only
 
-        return await self._client.request("GET", "/api/v2/receipts", params=params)
+        return await self._client.request("GET", "/api/v1/receipts", params=params)
 
     async def get(self, receipt_id: str) -> dict[str, Any]:
         """Get a receipt by ID."""
-        return await self._client.request("GET", f"/api/v2/receipts/{receipt_id}")
+        return await self._client.request("GET", f"/api/v1/receipts/{receipt_id}")
 
     async def search(
         self,
@@ -454,21 +454,21 @@ class AsyncReceiptsAPI:
     ) -> dict[str, Any]:
         """Full-text search across receipts."""
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v2/receipts/search", params=params)
+        return await self._client.request("GET", "/api/v1/receipts/search", params=params)
 
     async def verify(self, receipt_id: str) -> dict[str, Any]:
         """Verify a receipt's integrity."""
-        return await self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify")
+        return await self._client.request("POST", f"/api/v1/receipts/{receipt_id}/verify")
 
     async def verify_signature(self, receipt_id: str) -> dict[str, Any]:
         """Verify a receipt's cryptographic signature."""
-        return await self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify-signature")
+        return await self._client.request("POST", f"/api/v1/receipts/{receipt_id}/verify-signature")
 
     async def verify_batch(self, receipt_ids: _List[str]) -> dict[str, Any]:
         """Verify multiple receipts in batch."""
         return await self._client.request(
             "POST",
-            "/api/v2/receipts/verify-batch",
+            "/api/v1/receipts/verify-batch",
             json={"receipt_ids": receipt_ids},
         )
 
@@ -480,7 +480,7 @@ class AsyncReceiptsAPI:
         """Export a receipt."""
         return await self._client.request(
             "GET",
-            f"/api/v2/receipts/{receipt_id}/export",
+            f"/api/v1/receipts/{receipt_id}/export",
             params={"format": format},
         )
 
@@ -496,7 +496,7 @@ class AsyncReceiptsAPI:
         if to_date:
             params["to_date"] = to_date
 
-        return await self._client.request("GET", "/api/v2/receipts/stats", params=params)
+        return await self._client.request("GET", "/api/v1/receipts/stats", params=params)
 
     async def share(
         self,
@@ -509,7 +509,7 @@ class AsyncReceiptsAPI:
         if max_accesses is not None:
             data["max_accesses"] = max_accesses
 
-        return await self._client.request("POST", f"/api/v2/receipts/{receipt_id}/share", json=data)
+        return await self._client.request("POST", f"/api/v1/receipts/{receipt_id}/share", json=data)
 
     async def send_to_channel(
         self,
@@ -520,17 +520,17 @@ class AsyncReceiptsAPI:
         """Send a receipt to a channel."""
         return await self._client.request(
             "POST",
-            f"/api/v2/receipts/{receipt_id}/send-to-channel",
+            f"/api/v1/receipts/{receipt_id}/send-to-channel",
             json={"channel_type": channel_type, "channel_id": channel_id},
         )
 
     async def get_retention_status(self) -> dict[str, Any]:
         """Get retention status for GDPR compliance."""
-        return await self._client.request("GET", "/api/v2/receipts/retention-status")
+        return await self._client.request("GET", "/api/v1/receipts/retention-status")
 
     async def get_dsar(self, user_id: str) -> dict[str, Any]:
         """Get receipts for a user (GDPR DSAR)."""
-        return await self._client.request("GET", f"/api/v2/receipts/dsar/{user_id}")
+        return await self._client.request("GET", f"/api/v1/receipts/dsar/{user_id}")
 
     # =========================================================================
     # Gauntlet Receipts / Results
@@ -579,7 +579,7 @@ class AsyncReceiptsAPI:
         """Sign multiple receipts in batch."""
         return await self._client.request(
             "POST",
-            "/api/v2/receipts/sign-batch",
+            "/api/v1/receipts/sign-batch",
             json={"receipt_ids": receipt_ids},
         )
 
@@ -591,6 +591,6 @@ class AsyncReceiptsAPI:
         """Export multiple receipts as a ZIP archive."""
         return await self._client.request(
             "POST",
-            "/api/v2/receipts/batch-export",
+            "/api/v1/receipts/batch-export",
             json={"receipt_ids": receipt_ids, "format": format},
         )

@@ -42,7 +42,7 @@ class AccountingAPI:
             Connection status with company info, financial stats,
             and recent customers/transactions if connected.
         """
-        return self._client._request("GET", "/api/v2/accounting/status")
+        return self._client._request("GET", "/api/v1/accounting/status")
 
     def connect(self) -> dict[str, Any]:
         """
@@ -51,7 +51,7 @@ class AccountingAPI:
         Returns:
             URL to redirect user for OAuth authorization.
         """
-        return self._client._request("POST", "/api/v2/accounting/connect")
+        return self._client._request("POST", "/api/v1/accounting/connect")
 
     def disconnect(self) -> dict[str, Any]:
         """
@@ -60,7 +60,7 @@ class AccountingAPI:
         Returns:
             Success status and message.
         """
-        return self._client._request("POST", "/api/v2/accounting/disconnect")
+        return self._client._request("POST", "/api/v1/accounting/disconnect")
 
     # =========================================================================
     # Customers
@@ -86,7 +86,7 @@ class AccountingAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if active is not None:
             params["active"] = active
-        return self._client._request("GET", "/api/v2/accounting/customers", params=params)
+        return self._client._request("GET", "/api/v1/accounting/customers", params=params)
 
     # =========================================================================
     # Transactions
@@ -120,7 +120,7 @@ class AccountingAPI:
             params["start_date"] = start_date
         if end_date:
             params["end_date"] = end_date
-        return self._client._request("GET", "/api/v2/accounting/transactions", params=params)
+        return self._client._request("GET", "/api/v1/accounting/transactions", params=params)
 
     # =========================================================================
     # Reports
@@ -148,7 +148,7 @@ class AccountingAPI:
             "start_date": start_date,
             "end_date": end_date,
         }
-        return self._client._request("POST", "/api/v2/accounting/reports", json=data)
+        return self._client._request("POST", "/api/v1/accounting/reports", json=data)
 
     # =========================================================================
     # Gusto Payroll
@@ -161,7 +161,7 @@ class AccountingAPI:
         Returns:
             Connection status and company name if connected.
         """
-        return self._client._request("GET", "/api/v2/gusto/status")
+        return self._client._request("GET", "/api/v1/gusto/status")
 
     def connect_gusto(self) -> dict[str, Any]:
         """
@@ -170,7 +170,7 @@ class AccountingAPI:
         Returns:
             URL to redirect user for OAuth authorization.
         """
-        return self._client._request("POST", "/api/v2/gusto/connect")
+        return self._client._request("POST", "/api/v1/gusto/connect")
 
     def disconnect_gusto(self) -> dict[str, Any]:
         """
@@ -179,7 +179,7 @@ class AccountingAPI:
         Returns:
             Success status and message.
         """
-        return self._client._request("POST", "/api/v2/gusto/disconnect")
+        return self._client._request("POST", "/api/v1/gusto/disconnect")
 
     def list_employees(
         self,
@@ -197,7 +197,7 @@ class AccountingAPI:
             List of employees with total count.
         """
         params = {"limit": limit, "offset": offset}
-        return self._client._request("GET", "/api/v2/gusto/employees", params=params)
+        return self._client._request("GET", "/api/v1/gusto/employees", params=params)
 
     def list_payrolls(
         self,
@@ -215,7 +215,7 @@ class AccountingAPI:
             List of payroll runs with total count.
         """
         params = {"limit": limit, "offset": offset}
-        return self._client._request("GET", "/api/v2/gusto/payrolls", params=params)
+        return self._client._request("GET", "/api/v1/gusto/payrolls", params=params)
 
     def get_payroll(self, payroll_id: str) -> dict[str, Any]:
         """
@@ -227,7 +227,7 @@ class AccountingAPI:
         Returns:
             Detailed payroll information including employee compensations.
         """
-        return self._client._request("GET", f"/api/v2/gusto/payrolls/{payroll_id}")
+        return self._client._request("GET", f"/api/v1/gusto/payrolls/{payroll_id}")
 
     def generate_journal_entry(self, payroll_id: str) -> dict[str, Any]:
         """
@@ -242,7 +242,7 @@ class AccountingAPI:
         Returns:
             Journal entry with debit/credit lines.
         """
-        return self._client._request("POST", f"/api/v2/gusto/payrolls/{payroll_id}/journal-entry")
+        return self._client._request("POST", f"/api/v1/gusto/payrolls/{payroll_id}/journal-entry")
 
 
 class AsyncAccountingAPI:
@@ -261,15 +261,15 @@ class AsyncAccountingAPI:
 
     async def get_status(self) -> dict[str, Any]:
         """Get QuickBooks connection status and dashboard data."""
-        return await self._client._request("GET", "/api/v2/accounting/status")
+        return await self._client._request("GET", "/api/v1/accounting/status")
 
     async def connect(self) -> dict[str, Any]:
         """Initiate QuickBooks OAuth connection."""
-        return await self._client._request("POST", "/api/v2/accounting/connect")
+        return await self._client._request("POST", "/api/v1/accounting/connect")
 
     async def disconnect(self) -> dict[str, Any]:
         """Disconnect QuickBooks integration."""
-        return await self._client._request("POST", "/api/v2/accounting/disconnect")
+        return await self._client._request("POST", "/api/v1/accounting/disconnect")
 
     # =========================================================================
     # Customers
@@ -285,7 +285,7 @@ class AsyncAccountingAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if active is not None:
             params["active"] = active
-        return await self._client._request("GET", "/api/v2/accounting/customers", params=params)
+        return await self._client._request("GET", "/api/v1/accounting/customers", params=params)
 
     # =========================================================================
     # Transactions
@@ -307,7 +307,7 @@ class AsyncAccountingAPI:
             params["start_date"] = start_date
         if end_date:
             params["end_date"] = end_date
-        return await self._client._request("GET", "/api/v2/accounting/transactions", params=params)
+        return await self._client._request("GET", "/api/v1/accounting/transactions", params=params)
 
     # =========================================================================
     # Reports
@@ -325,7 +325,7 @@ class AsyncAccountingAPI:
             "start_date": start_date,
             "end_date": end_date,
         }
-        return await self._client._request("POST", "/api/v2/accounting/reports", json=data)
+        return await self._client._request("POST", "/api/v1/accounting/reports", json=data)
 
     # =========================================================================
     # Gusto Payroll
@@ -333,15 +333,15 @@ class AsyncAccountingAPI:
 
     async def get_gusto_status(self) -> dict[str, Any]:
         """Get Gusto connection status."""
-        return await self._client._request("GET", "/api/v2/gusto/status")
+        return await self._client._request("GET", "/api/v1/gusto/status")
 
     async def connect_gusto(self) -> dict[str, Any]:
         """Initiate Gusto OAuth connection."""
-        return await self._client._request("POST", "/api/v2/gusto/connect")
+        return await self._client._request("POST", "/api/v1/gusto/connect")
 
     async def disconnect_gusto(self) -> dict[str, Any]:
         """Disconnect Gusto integration."""
-        return await self._client._request("POST", "/api/v2/gusto/disconnect")
+        return await self._client._request("POST", "/api/v1/gusto/disconnect")
 
     async def list_employees(
         self,
@@ -350,7 +350,7 @@ class AsyncAccountingAPI:
     ) -> dict[str, Any]:
         """List Gusto employees."""
         params = {"limit": limit, "offset": offset}
-        return await self._client._request("GET", "/api/v2/gusto/employees", params=params)
+        return await self._client._request("GET", "/api/v1/gusto/employees", params=params)
 
     async def list_payrolls(
         self,
@@ -359,14 +359,14 @@ class AsyncAccountingAPI:
     ) -> dict[str, Any]:
         """List payroll runs."""
         params = {"limit": limit, "offset": offset}
-        return await self._client._request("GET", "/api/v2/gusto/payrolls", params=params)
+        return await self._client._request("GET", "/api/v1/gusto/payrolls", params=params)
 
     async def get_payroll(self, payroll_id: str) -> dict[str, Any]:
         """Get payroll run details."""
-        return await self._client._request("GET", f"/api/v2/gusto/payrolls/{payroll_id}")
+        return await self._client._request("GET", f"/api/v1/gusto/payrolls/{payroll_id}")
 
     async def generate_journal_entry(self, payroll_id: str) -> dict[str, Any]:
         """Generate journal entry for a payroll run."""
         return await self._client._request(
-            "POST", f"/api/v2/gusto/payrolls/{payroll_id}/journal-entry"
+            "POST", f"/api/v1/gusto/payrolls/{payroll_id}/journal-entry"
         )

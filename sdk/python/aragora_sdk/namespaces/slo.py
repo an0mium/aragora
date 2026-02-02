@@ -55,7 +55,7 @@ class SLOAPI:
             - alerts: Active alerts
             - summary: Compliance summary statistics
         """
-        return self._client.request("GET", "/api/v2/slo/status")
+        return self._client.request("GET", "/api/v1/slo/status")
 
     def get_slo(self, slo_id: str) -> dict[str, Any]:
         """
@@ -73,7 +73,7 @@ class SLOAPI:
             - window_start/window_end: Measurement window
             - total_requests/successful_requests/failed_requests: Request counts
         """
-        return self._client.request("GET", f"/api/v2/slo/{slo_id}")
+        return self._client.request("GET", f"/api/v1/slo/{slo_id}")
 
     # ===========================================================================
     # Error Budget
@@ -100,7 +100,7 @@ class SLOAPI:
             - projected_exhaustion: Projected exhaustion timestamp (if applicable)
             - window_days: Budget window in days
         """
-        return self._client.request("GET", f"/api/v2/slo/{slo_id}/error-budget")
+        return self._client.request("GET", f"/api/v1/slo/{slo_id}/error-budget")
 
     # ===========================================================================
     # Violations
@@ -136,7 +136,7 @@ class SLOAPI:
             params["limit"] = limit
         if since is not None:
             params["since"] = since
-        return self._client.request("GET", f"/api/v2/slo/{slo_id}/violations", params=params)
+        return self._client.request("GET", f"/api/v1/slo/{slo_id}/violations", params=params)
 
     # ===========================================================================
     # Compliance
@@ -156,7 +156,7 @@ class SLOAPI:
             - current_percent: Current compliance percentage
             - target_percent: Target compliance percentage
         """
-        return self._client.request("GET", f"/api/v2/slo/{slo_id}/compliant")
+        return self._client.request("GET", f"/api/v1/slo/{slo_id}/compliant")
 
     # ===========================================================================
     # Alerts
@@ -185,7 +185,7 @@ class SLOAPI:
         params: dict[str, Any] = {}
         if active_only is not None:
             params["active_only"] = active_only
-        return self._client.request("GET", f"/api/v2/slo/{slo_id}/alerts", params=params)
+        return self._client.request("GET", f"/api/v1/slo/{slo_id}/alerts", params=params)
 
 
 class AsyncSLOAPI:
@@ -214,7 +214,7 @@ class AsyncSLOAPI:
         Returns status of all SLOs including compliance percentages,
         summary statistics, and active alerts.
         """
-        return await self._client.request("GET", "/api/v2/slo/status")
+        return await self._client.request("GET", "/api/v1/slo/status")
 
     async def get_slo(self, slo_id: str) -> dict[str, Any]:
         """
@@ -223,7 +223,7 @@ class AsyncSLOAPI:
         Args:
             slo_id: SLO identifier (e.g., 'availability', 'latency', 'debate-success')
         """
-        return await self._client.request("GET", f"/api/v2/slo/{slo_id}")
+        return await self._client.request("GET", f"/api/v1/slo/{slo_id}")
 
     # ===========================================================================
     # Error Budget
@@ -236,7 +236,7 @@ class AsyncSLOAPI:
         Args:
             slo_id: SLO identifier
         """
-        return await self._client.request("GET", f"/api/v2/slo/{slo_id}/error-budget")
+        return await self._client.request("GET", f"/api/v1/slo/{slo_id}/error-budget")
 
     # ===========================================================================
     # Violations
@@ -261,7 +261,7 @@ class AsyncSLOAPI:
             params["limit"] = limit
         if since is not None:
             params["since"] = since
-        return await self._client.request("GET", f"/api/v2/slo/{slo_id}/violations", params=params)
+        return await self._client.request("GET", f"/api/v1/slo/{slo_id}/violations", params=params)
 
     # ===========================================================================
     # Compliance
@@ -274,7 +274,7 @@ class AsyncSLOAPI:
         Args:
             slo_id: SLO identifier
         """
-        return await self._client.request("GET", f"/api/v2/slo/{slo_id}/compliant")
+        return await self._client.request("GET", f"/api/v1/slo/{slo_id}/compliant")
 
     # ===========================================================================
     # Alerts
@@ -295,4 +295,4 @@ class AsyncSLOAPI:
         params: dict[str, Any] = {}
         if active_only is not None:
             params["active_only"] = active_only
-        return await self._client.request("GET", f"/api/v2/slo/{slo_id}/alerts", params=params)
+        return await self._client.request("GET", f"/api/v1/slo/{slo_id}/alerts", params=params)

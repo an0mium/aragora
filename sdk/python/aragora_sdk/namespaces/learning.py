@@ -54,7 +54,7 @@ class LearningAPI:
             - top_learning_agents: Best performing agents
             - learning_trends: Trends over time
         """
-        return self._client.request("GET", "/api/v2/learning/stats")
+        return self._client.request("GET", "/api/v1/learning/stats")
 
     def list_sessions(
         self,
@@ -89,7 +89,7 @@ class LearningAPI:
         if offset:
             params["offset"] = offset
         return self._client.request(
-            "GET", "/api/v2/learning/sessions", params=params if params else None
+            "GET", "/api/v1/learning/sessions", params=params if params else None
         )
 
     def get_session(self, session_id: str) -> dict[str, Any]:
@@ -102,7 +102,7 @@ class LearningAPI:
         Returns:
             Dict with session details
         """
-        return self._client.request("GET", f"/api/v2/learning/sessions/{session_id}")
+        return self._client.request("GET", f"/api/v1/learning/sessions/{session_id}")
 
     def list_patterns(
         self,
@@ -125,7 +125,7 @@ class LearningAPI:
         if limit:
             params["limit"] = limit
         return self._client.request(
-            "GET", "/api/v2/learning/patterns", params=params if params else None
+            "GET", "/api/v1/learning/patterns", params=params if params else None
         )
 
     def get_efficiency(
@@ -149,7 +149,7 @@ class LearningAPI:
         """
         params = {"domain": domain} if domain else None
         return self._client.request(
-            "GET", f"/api/v2/learning/efficiency/{agent_name}", params=params
+            "GET", f"/api/v1/learning/efficiency/{agent_name}", params=params
         )
 
 
@@ -168,7 +168,7 @@ class AsyncLearningAPI:
 
     async def get_stats(self) -> dict[str, Any]:
         """Get meta-learning statistics across all agents."""
-        return await self._client.request("GET", "/api/v2/learning/stats")
+        return await self._client.request("GET", "/api/v1/learning/stats")
 
     async def list_sessions(
         self,
@@ -191,12 +191,12 @@ class AsyncLearningAPI:
         if offset:
             params["offset"] = offset
         return await self._client.request(
-            "GET", "/api/v2/learning/sessions", params=params if params else None
+            "GET", "/api/v1/learning/sessions", params=params if params else None
         )
 
     async def get_session(self, session_id: str) -> dict[str, Any]:
         """Get a specific learning session by ID."""
-        return await self._client.request("GET", f"/api/v2/learning/sessions/{session_id}")
+        return await self._client.request("GET", f"/api/v1/learning/sessions/{session_id}")
 
     async def list_patterns(
         self,
@@ -210,7 +210,7 @@ class AsyncLearningAPI:
         if limit:
             params["limit"] = limit
         return await self._client.request(
-            "GET", "/api/v2/learning/patterns", params=params if params else None
+            "GET", "/api/v1/learning/patterns", params=params if params else None
         )
 
     async def get_efficiency(
@@ -221,5 +221,5 @@ class AsyncLearningAPI:
         """Get learning efficiency metrics for an agent."""
         params = {"domain": domain} if domain else None
         return await self._client.request(
-            "GET", f"/api/v2/learning/efficiency/{agent_name}", params=params
+            "GET", f"/api/v1/learning/efficiency/{agent_name}", params=params
         )

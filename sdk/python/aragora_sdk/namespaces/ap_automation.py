@@ -96,7 +96,7 @@ class APAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return self._client._request("POST", "/api/v2/ap/invoices", json=data)
+        return self._client._request("POST", "/api/v1/ap/invoices", json=data)
 
     def list_invoices(
         self,
@@ -135,7 +135,7 @@ class APAutomationAPI:
         if due_after:
             params["due_after"] = due_after
 
-        return self._client._request("GET", "/api/v2/ap/invoices", params=params)
+        return self._client._request("GET", "/api/v1/ap/invoices", params=params)
 
     def get_invoice(self, invoice_id: str) -> dict[str, Any]:
         """
@@ -147,7 +147,7 @@ class APAutomationAPI:
         Returns:
             Invoice details.
         """
-        return self._client._request("GET", f"/api/v2/ap/invoices/{invoice_id}")
+        return self._client._request("GET", f"/api/v1/ap/invoices/{invoice_id}")
 
     def record_payment(
         self,
@@ -183,7 +183,7 @@ class APAutomationAPI:
             data["notes"] = notes
 
         return self._client._request(
-            "POST", f"/api/v2/ap/invoices/{invoice_id}/payments", json=data
+            "POST", f"/api/v1/ap/invoices/{invoice_id}/payments", json=data
         )
 
     # =========================================================================
@@ -221,7 +221,7 @@ class APAutomationAPI:
         if exclude_vendors:
             data["exclude_vendors"] = exclude_vendors
 
-        return self._client._request("POST", "/api/v2/ap/optimize", json=data)
+        return self._client._request("POST", "/api/v1/ap/optimize", json=data)
 
     def create_batch_payment(
         self,
@@ -250,7 +250,7 @@ class APAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return self._client._request("POST", "/api/v2/ap/batch-payments", json=data)
+        return self._client._request("POST", "/api/v1/ap/batch-payments", json=data)
 
     # =========================================================================
     # Cash Flow
@@ -272,7 +272,7 @@ class APAutomationAPI:
             Cash flow forecast with projections.
         """
         params = {"days": days, "include_pending": include_pending}
-        return self._client._request("GET", "/api/v2/ap/cash-flow", params=params)
+        return self._client._request("GET", "/api/v1/ap/cash-flow", params=params)
 
     def get_discount_opportunities(self) -> dict[str, Any]:
         """
@@ -281,7 +281,7 @@ class APAutomationAPI:
         Returns:
             List of invoices with discount opportunities and potential savings.
         """
-        return self._client._request("GET", "/api/v2/ap/discount-opportunities")
+        return self._client._request("GET", "/api/v1/ap/discount-opportunities")
 
 
 class AsyncAPAutomationAPI:
@@ -333,7 +333,7 @@ class AsyncAPAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return await self._client._request("POST", "/api/v2/ap/invoices", json=data)
+        return await self._client._request("POST", "/api/v1/ap/invoices", json=data)
 
     async def list_invoices(
         self,
@@ -358,11 +358,11 @@ class AsyncAPAutomationAPI:
         if due_after:
             params["due_after"] = due_after
 
-        return await self._client._request("GET", "/api/v2/ap/invoices", params=params)
+        return await self._client._request("GET", "/api/v1/ap/invoices", params=params)
 
     async def get_invoice(self, invoice_id: str) -> dict[str, Any]:
         """Get AP invoice details."""
-        return await self._client._request("GET", f"/api/v2/ap/invoices/{invoice_id}")
+        return await self._client._request("GET", f"/api/v1/ap/invoices/{invoice_id}")
 
     async def record_payment(
         self,
@@ -385,7 +385,7 @@ class AsyncAPAutomationAPI:
             data["notes"] = notes
 
         return await self._client._request(
-            "POST", f"/api/v2/ap/invoices/{invoice_id}/payments", json=data
+            "POST", f"/api/v1/ap/invoices/{invoice_id}/payments", json=data
         )
 
     # =========================================================================
@@ -411,7 +411,7 @@ class AsyncAPAutomationAPI:
         if exclude_vendors:
             data["exclude_vendors"] = exclude_vendors
 
-        return await self._client._request("POST", "/api/v2/ap/optimize", json=data)
+        return await self._client._request("POST", "/api/v1/ap/optimize", json=data)
 
     async def create_batch_payment(
         self,
@@ -429,7 +429,7 @@ class AsyncAPAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return await self._client._request("POST", "/api/v2/ap/batch-payments", json=data)
+        return await self._client._request("POST", "/api/v1/ap/batch-payments", json=data)
 
     # =========================================================================
     # Cash Flow
@@ -442,8 +442,8 @@ class AsyncAPAutomationAPI:
     ) -> dict[str, Any]:
         """Get cash flow forecast for AP."""
         params = {"days": days, "include_pending": include_pending}
-        return await self._client._request("GET", "/api/v2/ap/cash-flow", params=params)
+        return await self._client._request("GET", "/api/v1/ap/cash-flow", params=params)
 
     async def get_discount_opportunities(self) -> dict[str, Any]:
         """Get available early payment discount opportunities."""
-        return await self._client._request("GET", "/api/v2/ap/discount-opportunities")
+        return await self._client._request("GET", "/api/v1/ap/discount-opportunities")

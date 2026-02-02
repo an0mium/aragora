@@ -6386,42 +6386,42 @@ class OpenApiAPI:
     def request_get_api_v2_integrations(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v2/integrations", params=params)
+        return self._client.request("GET", "/api/v1/integrations", params=params)
 
     def request_get_api_v2_integrations_by_type(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v2/integrations/{type}", params=params)
+        return self._client.request("GET", f"/api/v1/integrations/{type}", params=params)
 
     def request_delete_api_v2_integrations_by_type(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v2/integrations/{type}", params=params)
+        return self._client.request("DELETE", f"/api/v1/integrations/{type}", params=params)
 
     def request_get_api_v2_integrations_by_type_health(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v2/integrations/{type}/health", params=params)
+        return self._client.request("GET", f"/api/v1/integrations/{type}/health", params=params)
 
     def request_post_api_v2_integrations_by_type_test(
         self, type, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request(
-            "POST", f"/api/v2/integrations/{type}/test", json=body, params=params
+            "POST", f"/api/v1/integrations/{type}/test", json=body, params=params
         )
 
     def request_get_api_v2_users_me(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v2/users/me", params=params)
+        return self._client.request("GET", "/api/v1/users/me", params=params)
 
     def request_get_api_v2_users_me_data_inventory(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v2/users/me/data-inventory", params=params)
+        return self._client.request("GET", "/api/v1/users/me/data-inventory", params=params)
 
     def request_get_api_v2_users_me_export(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v2/users/me/export", params=params)
+        return self._client.request("GET", "/api/v1/users/me/export", params=params)
 
     def request_get_audio(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/audio", params=params)
@@ -13366,46 +13366,46 @@ class AsyncOpenApiAPI:
     async def request_get_api_v2_integrations(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v2/integrations", params=params)
+        return await self._client.request("GET", "/api/v1/integrations", params=params)
 
     async def request_get_api_v2_integrations_by_type(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v2/integrations/{type}", params=params)
+        return await self._client.request("GET", f"/api/v1/integrations/{type}", params=params)
 
     async def request_delete_api_v2_integrations_by_type(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("DELETE", f"/api/v2/integrations/{type}", params=params)
+        return await self._client.request("DELETE", f"/api/v1/integrations/{type}", params=params)
 
     async def request_get_api_v2_integrations_by_type_health(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request(
-            "GET", f"/api/v2/integrations/{type}/health", params=params
+            "GET", f"/api/v1/integrations/{type}/health", params=params
         )
 
     async def request_post_api_v2_integrations_by_type_test(
         self, type, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request(
-            "POST", f"/api/v2/integrations/{type}/test", json=body, params=params
+            "POST", f"/api/v1/integrations/{type}/test", json=body, params=params
         )
 
     async def request_get_api_v2_users_me(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v2/users/me", params=params)
+        return await self._client.request("GET", "/api/v1/users/me", params=params)
 
     async def request_get_api_v2_users_me_data_inventory(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v2/users/me/data-inventory", params=params)
+        return await self._client.request("GET", "/api/v1/users/me/data-inventory", params=params)
 
     async def request_get_api_v2_users_me_export(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v2/users/me/export", params=params)
+        return await self._client.request("GET", "/api/v1/users/me/export", params=params)
 
     async def request_get_audio(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return await self._client.request("GET", "/audio", params=params)

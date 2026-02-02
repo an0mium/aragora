@@ -60,7 +60,7 @@ class DisasterRecoveryAPI:
             - issues: List of DR issues
             - overall_health: 'healthy', 'degraded', or 'critical'
         """
-        return self._client.request("GET", "/api/v2/dr/status")
+        return self._client.request("GET", "/api/v1/dr/status")
 
     def get_objectives(self) -> dict[str, Any]:
         """
@@ -76,7 +76,7 @@ class DisasterRecoveryAPI:
             - rto_compliant: Whether RTO target is met
             - last_measured_at: Timestamp of last measurement
         """
-        return self._client.request("GET", "/api/v2/dr/objectives")
+        return self._client.request("GET", "/api/v1/dr/objectives")
 
     # ===========================================================================
     # DR Drills
@@ -118,7 +118,7 @@ class DisasterRecoveryAPI:
             data["notify_team"] = notify_team
         if dry_run is not None:
             data["dry_run"] = dry_run
-        return self._client.request("POST", "/api/v2/dr/drill", json=data)
+        return self._client.request("POST", "/api/v1/dr/drill", json=data)
 
     # ===========================================================================
     # DR Validation
@@ -156,7 +156,7 @@ class DisasterRecoveryAPI:
             data["check_failover"] = check_failover
         if check_dns is not None:
             data["check_dns"] = check_dns
-        return self._client.request("POST", "/api/v2/dr/validate", json=data)
+        return self._client.request("POST", "/api/v1/dr/validate", json=data)
 
     # ===========================================================================
     # Convenience Methods
@@ -228,7 +228,7 @@ class AsyncDisasterRecoveryAPI:
             Dict with DR status including ready, last_backup_at, last_drill_at,
             rpo_met, rto_met, issues, and overall_health.
         """
-        return await self._client.request("GET", "/api/v2/dr/status")
+        return await self._client.request("GET", "/api/v1/dr/status")
 
     async def get_objectives(self) -> dict[str, Any]:
         """
@@ -239,7 +239,7 @@ class AsyncDisasterRecoveryAPI:
             current_rpo_minutes, current_rto_minutes, rpo_compliant,
             rto_compliant, and last_measured_at.
         """
-        return await self._client.request("GET", "/api/v2/dr/objectives")
+        return await self._client.request("GET", "/api/v1/dr/objectives")
 
     # ===========================================================================
     # DR Drills
@@ -272,7 +272,7 @@ class AsyncDisasterRecoveryAPI:
             data["notify_team"] = notify_team
         if dry_run is not None:
             data["dry_run"] = dry_run
-        return await self._client.request("POST", "/api/v2/dr/drill", json=data)
+        return await self._client.request("POST", "/api/v1/dr/drill", json=data)
 
     # ===========================================================================
     # DR Validation
@@ -307,7 +307,7 @@ class AsyncDisasterRecoveryAPI:
             data["check_failover"] = check_failover
         if check_dns is not None:
             data["check_dns"] = check_dns
-        return await self._client.request("POST", "/api/v2/dr/validate", json=data)
+        return await self._client.request("POST", "/api/v1/dr/validate", json=data)
 
     # ===========================================================================
     # Convenience Methods
