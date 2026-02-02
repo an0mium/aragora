@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from aragora.server.validation import validate_agent_name_with_version
 from aragora.server.versioning.compat import strip_version_prefix

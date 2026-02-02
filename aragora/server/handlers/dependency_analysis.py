@@ -424,13 +424,14 @@ class DependencyAnalysisHandler(BaseHandler):
         return None
 
     async def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any | None = None
     ) -> HandlerResult | None:
         """Handle POST requests."""
-        # Read JSON body from handler
-        data = self.read_json_body(handler)
-        if data is None:
-            data = {}
+        # Read JSON body from handler (or use provided dict in tests)
+        if handler is None:
+            data = query_params or {}
+        else:
+            data = self.read_json_body(handler) or {}
         # Create a default context for dependency analysis operations
         context = AuthorizationContext(user_id="system", roles=set())
         if path == "/api/v1/codebase/analyze-dependencies":

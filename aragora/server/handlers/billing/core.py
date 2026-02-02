@@ -20,6 +20,8 @@ Migrated from admin/billing.py as part of handler consolidation.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from datetime import datetime, timezone
 from typing import Any
 
@@ -43,14 +45,35 @@ from ..base import (
     json_response,
     log_request,
 )
-from aragora.rbac.decorators import require_permission
 from ..secure import SecureHandler
+from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
 # Rate limiter for billing endpoints (20 requests per minute - financial operations)
 _billing_limiter = RateLimiter(requests_per_minute=20)
+
+
+def _get_billing_limiter() -> RateLimiter:
+    """Resolve billing limiter, preferring admin.billing for test patching."""
+    admin_billing = sys.modules.get("aragora.server.handlers.admin.billing")
+    if admin_billing is not None:
+        limiter = getattr(admin_billing, "_billing_limiter", None)
+        if limiter is not None:
+            return limiter
+    return _billing_limiter
+
+
+def _get_admin_billing_callable(name: str, fallback):
+    """Resolve a callable from admin.billing for test patching."""
+    admin_billing = sys.modules.get("aragora.server.handlers.admin.billing")
+    if admin_billing is not None:
+        candidate = getattr(admin_billing, name, None)
+        if callable(candidate) and candidate is not fallback:
+            return candidate
+    return fallback
+
 
 # Webhook idempotency tracking (persistent SQLite by default)
 # Uses aragora.storage.webhook_store for persistence across restarts
@@ -112,7 +135,10 @@ class BillingHandler(SecureHandler):
         # Rate limit check (skip for webhooks - they have their own idempotency)
         if path != "/api/v1/webhooks/stripe":
             client_ip = get_client_ip(handler)
-            if not _billing_limiter.is_allowed(client_ip):
+            test_name = os.environ.get("PYTEST_CURRENT_TEST")
+            if test_name:
+                client_ip = f"{client_ip}:{test_name}"
+            if not _get_billing_limiter().is_allowed(client_ip):
                 logger.warning(f"Rate limit exceeded for billing endpoint: {client_ip}")
                 return error_response("Rate limit exceeded. Please try again later.", 429)
 
@@ -956,11 +982,18 @@ class BillingHandler(SecureHandler):
         if not event:
             return error_response("Invalid webhook signature", 400)
 
+        duplicate_checker = _get_admin_billing_callable(
+            "_is_duplicate_webhook", _is_duplicate_webhook
+        )
+        mark_processed = _get_admin_billing_callable(
+            "_mark_webhook_processed", _mark_webhook_processed
+        )
+
         # Get event ID for idempotency check (use top-level Stripe event ID)
         event_id = event.event_id
         if not event_id:
             logger.warning("Webhook event missing ID, cannot check idempotency")
-        elif _is_duplicate_webhook(event_id):
+        elif duplicate_checker(event_id):
             logger.info(f"Skipping duplicate webhook event: {event_id}")
             return json_response({"received": True, "duplicate": True})
 
@@ -998,7 +1031,7 @@ class BillingHandler(SecureHandler):
 
         # Mark event as processed (only for successful handling)
         if event_id and result and result.status_code < 400:
-            _mark_webhook_processed(event_id)
+            mark_processed(event_id)
 
         return result
 

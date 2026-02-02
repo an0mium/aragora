@@ -73,10 +73,18 @@ class PolicyHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=120)
     async def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any = None
+        self,
+        path: str,
+        query_params: dict[str, Any] | str,
+        handler: Any = None,
+        method: str | None = None,
     ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
-        method: str = "GET"
+        if method is None and isinstance(query_params, str):
+            method = query_params
+            query_params = {}
+        if method is None:
+            method = "GET"
         if handler:
             if hasattr(handler, "command"):
                 method = handler.command

@@ -166,7 +166,9 @@ def recover_stale_gauntlet_runs(max_age_seconds: int = 7200) -> int:
         Number of stale runs recovered/marked as interrupted
     """
     try:
-        storage = _get_storage()
+        from . import _get_storage as get_storage
+
+        storage = get_storage()
         stale_runs = storage.list_stale_inflight(max_age_seconds=max_age_seconds)
 
         if not stale_runs:

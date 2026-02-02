@@ -85,7 +85,6 @@ KNOWLEDGE_WRITE_PERMISSION = "knowledge:write"
 # RBAC imports with fallback for backwards compatibility
 try:
     from aragora.rbac import check_permission, AuthorizationContext
-    from aragora.rbac.decorators import require_permission
     from aragora.observability.metrics import record_rbac_check
 
     RBAC_AVAILABLE = True

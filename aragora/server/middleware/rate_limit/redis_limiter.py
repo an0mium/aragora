@@ -36,13 +36,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Optional Redis support
+# Optional Redis support - redis_lib is set to None when import fails.
+# The type: ignore is necessary because mypy sees this as redefining a module
+# type with None, but this is the standard pattern for optional dependencies.
 try:
     import redis as redis_lib
 
     REDIS_AVAILABLE = True
 except ImportError:
-    redis_lib = None  # type: ignore[no-redef]
+    redis_lib = None  # type: ignore[assignment]  # Optional dependency not installed
     REDIS_AVAILABLE = False
 
 # Redis rate limiter fail-open policy (SECURITY: default to fail-closed)

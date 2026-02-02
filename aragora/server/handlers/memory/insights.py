@@ -29,6 +29,7 @@ from aragora.server.validation.security import (
     execute_regex_finditer_with_timeout,
 )
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.server.http_utils import run_async as _run_async
 
 # RBAC permissions for insights endpoints
 INSIGHTS_PERMISSION = "insights:read"
@@ -49,9 +50,9 @@ class InsightsHandler(SecureHandler):
     Requires authentication and insights:read permission (RBAC).
     """
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     # Route patterns this handler manages (normalized without version prefix)
     ROUTES = [
@@ -99,13 +100,13 @@ class InsightsHandler(SecureHandler):
             return error_response(str(e), 403)
 
         if normalized == "/api/insights/recent":
-            return await self._get_recent_insights(query, ctx)
+            return self._get_recent_insights(query, ctx)
 
         if normalized == "/api/flips/recent":
-            return await self._get_recent_flips(query, ctx)
+            return self._get_recent_flips(query, ctx)
 
         if normalized == "/api/flips/summary":
-            return await self._get_flips_summary(query, ctx)
+            return self._get_flips_summary(query, ctx)
 
         return None
 
@@ -143,7 +144,7 @@ class InsightsHandler(SecureHandler):
 
     @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("recent insights retrieval")
-    async def _get_recent_insights(self, query: dict, ctx: dict) -> HandlerResult:
+    def _get_recent_insights(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent insights from InsightStore.
 
         Query params:
@@ -159,7 +160,7 @@ class InsightsHandler(SecureHandler):
 
         limit = max(1, min(get_int_param(query, "limit", 20), 100))
 
-        insights = await insight_store.get_recent_insights(limit=limit)
+        insights = _run_async(insight_store.get_recent_insights(limit=limit))
         return json_response(
             {
                 "insights": [
@@ -180,7 +181,7 @@ class InsightsHandler(SecureHandler):
 
     @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("recent flips retrieval")
-    async def _get_recent_flips(self, query: dict, ctx: dict) -> HandlerResult:
+    def _get_recent_flips(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent position flips/reversals.
 
         Query params:
@@ -205,7 +206,7 @@ class InsightsHandler(SecureHandler):
         # Get insights and filter for position reversals
         flips = []
         try:
-            insights = await insight_store.get_recent_insights(limit=limit * 2)
+            insights = _run_async(insight_store.get_recent_insights(limit=limit * 2))
             for i in insights:
                 if i.type.value == "position_reversal":
                     flips.append(
@@ -232,7 +233,7 @@ class InsightsHandler(SecureHandler):
 
     @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("flips summary retrieval")
-    async def _get_flips_summary(self, query: dict, ctx: dict) -> HandlerResult:
+    def _get_flips_summary(self, query: dict, ctx: dict) -> HandlerResult:
         """Get summary statistics for position flips.
 
         Query params:
@@ -255,7 +256,7 @@ class InsightsHandler(SecureHandler):
 
         total_flips = 0
         try:
-            insights = await insight_store.get_recent_insights(limit=limit)
+            insights = _run_async(insight_store.get_recent_insights(limit=limit))
             for i in insights:
                 if i.type.value == "position_reversal":
                     total_flips += 1

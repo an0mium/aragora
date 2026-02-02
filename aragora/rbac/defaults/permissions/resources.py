@@ -21,7 +21,7 @@ Contains permissions related to:
 
 from __future__ import annotations
 
-from aragora.rbac.models import Action, Permission, ResourceType
+from aragora.rbac.models import Action, ResourceType
 
 from ._helpers import _permission
 

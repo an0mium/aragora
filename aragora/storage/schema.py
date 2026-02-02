@@ -57,7 +57,7 @@ def _safe_log(level: int, msg: str) -> None:
         return
     try:
         logger.log(level, msg)
-    except Exception as e:
+    except Exception:
         # Logging failed (likely during shutdown), ignore silently
         # Cannot log this error since logging itself failed
         pass

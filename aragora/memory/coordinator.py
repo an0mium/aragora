@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from aragora.memory.consensus import ConsensusMemory, ConsensusRecord
     from aragora.memory.store import CritiqueStore
     from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound.adapters import SupermemoryAdapter
 
 
 # Protocols for the memory systems used in coordinator
@@ -149,6 +150,19 @@ class KnowledgeMoundProtocol(Protocol):
         ...
 
 
+@runtime_checkable
+class SupermemoryAdapterProtocol(Protocol):
+    """Protocol for SupermemoryAdapter-like objects used in coordinator."""
+
+    async def sync_debate_outcome(
+        self,
+        debate_result: Any,
+        container_tag: str | None = None,
+    ) -> Any:
+        """Sync debate outcome to Supermemory. Returns SyncOutcomeResult."""
+        ...
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -224,16 +238,21 @@ class CoordinatorOptions:
     write_consensus: bool = True
     write_critique: bool = True
     write_mound: bool = True
+    write_supermemory: bool = False  # External memory (opt-in, disabled by default)
 
     # Behavior
     rollback_on_failure: bool = True
     parallel_writes: bool = False  # Sequential by default for safety
     min_confidence_for_mound: float = 0.7  # Only write to mound if confidence >= threshold
+    min_confidence_for_supermemory: float = 0.7  # Only sync to Supermemory if >= threshold
     timeout_seconds: float = 30.0  # Timeout for entire transaction
 
     # Retry behavior
     max_retries: int = 2
     retry_delay_seconds: float = 0.5
+
+    # Supermemory-specific options
+    supermemory_container_tag: str | None = None  # Optional container tag override
 
 
 @dataclass
@@ -285,6 +304,7 @@ class MemoryCoordinator:
         consensus_memory: Optional["ConsensusMemory"] = None,
         critique_store: Optional["CritiqueStore"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
+        supermemory_adapter: Optional["SupermemoryAdapter"] = None,
         options: CoordinatorOptions | None = None,
     ):
         """
@@ -295,12 +315,14 @@ class MemoryCoordinator:
             consensus_memory: ConsensusMemory for historical outcomes
             critique_store: CritiqueStore for patterns
             knowledge_mound: KnowledgeMound for unified knowledge
+            supermemory_adapter: SupermemoryAdapter for external memory persistence
             options: Default coordinator options
         """
         self.continuum_memory = continuum_memory
         self.consensus_memory = consensus_memory
         self.critique_store = critique_store
         self.knowledge_mound = knowledge_mound
+        self.supermemory_adapter = supermemory_adapter
         self.options = options or CoordinatorOptions()
         self.metrics = CoordinatorMetrics()
 
@@ -334,6 +356,10 @@ class MemoryCoordinator:
         # Knowledge mound has delete methods via semantic/graph stores
         if self.knowledge_mound:
             self._rollback_handlers["mound"] = self._rollback_mound
+
+        # Supermemory adapter - external memory (rollback not supported, log only)
+        if self.supermemory_adapter:
+            self._rollback_handlers["supermemory"] = self._rollback_supermemory
 
     async def _rollback_continuum(self, op: WriteOperation) -> bool:
         """Rollback a continuum memory write."""
@@ -403,6 +429,22 @@ class MemoryCoordinator:
         except (KeyError, TypeError, ValueError, AttributeError) as e:
             logger.error("[coordinator] Mound rollback failed: %s", e)
             return False
+
+    async def _rollback_supermemory(self, op: WriteOperation) -> bool:
+        """Rollback a supermemory write.
+
+        Note: Supermemory is an external service, so rollback may not be possible.
+        We log a warning but accept that external state cannot always be undone.
+        """
+        if not self.supermemory_adapter or not op.result:
+            return False
+
+        # External services don't support rollback - log and return False
+        logger.warning(
+            "[coordinator] Supermemory write cannot be rolled back (external service): %s",
+            op.result,
+        )
+        return False
 
     async def commit_debate_outcome(
         self,
@@ -551,6 +593,23 @@ class MemoryCoordinator:
                 )
             )
 
+        # Only write to Supermemory if enabled and confidence meets threshold
+        if (
+            opts.write_supermemory
+            and self.supermemory_adapter
+            and result.confidence >= opts.min_confidence_for_supermemory
+        ):
+            operations.append(
+                WriteOperation(
+                    id=str(uuid.uuid4()),
+                    target="supermemory",
+                    data={
+                        "debate_result": result,
+                        "container_tag": opts.supermemory_container_tag,
+                    },
+                )
+            )
+
         return operations
 
     async def _execute_sequential(
@@ -594,6 +653,8 @@ class MemoryCoordinator:
                     result = await self._write_critique(op.data)
                 elif op.target == "mound":
                     result = await self._write_mound(op.data)
+                elif op.target == "supermemory":
+                    result = await self._write_supermemory(op.data)
                 else:
                     op.mark_failed(f"Unknown target: {op.target}")
                     return
@@ -751,6 +812,32 @@ class MemoryCoordinator:
 
         logger.debug("[coordinator] Stored in mound: %s", item_id)
         return item_id
+
+    async def _write_supermemory(self, data: dict[str, Any]) -> str | None:
+        """Write to Supermemory external memory."""
+        if not self.supermemory_adapter:
+            raise ValueError("SupermemoryAdapter not configured")
+
+        debate_result = data["debate_result"]
+        container_tag = data.get("container_tag")
+
+        # Use the adapter's sync_debate_outcome method
+        sync_result = await self.supermemory_adapter.sync_debate_outcome(
+            debate_result=debate_result,
+            container_tag=container_tag,
+        )
+
+        if sync_result.success:
+            logger.debug("[coordinator] Synced to supermemory: %s", sync_result.memory_id)
+            return sync_result.memory_id
+        else:
+            # Sync returned success=False but didn't raise an exception
+            # This can happen for below-threshold syncs or client unavailable
+            if sync_result.error:
+                raise ValueError(f"Supermemory sync failed: {sync_result.error}")
+            # Skipped due to threshold - not an error
+            logger.debug("[coordinator] Supermemory sync skipped: %s", sync_result.error)
+            return None
 
     async def _rollback_successful(self, transaction: MemoryTransaction) -> None:
         """Roll back successful operations after a partial failure."""

@@ -21,16 +21,19 @@ Supports:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import logging
 from typing import Any
 
+import aragora.rbac as rbac
 from aragora.connectors.automation import (
     AutomationEventType,
     N8NConnector,
     ZapierConnector,
 )
-from aragora.rbac import AuthorizationContext, check_permission
+from aragora.rbac import AuthorizationContext
 from aragora.rbac.defaults import get_role_permissions
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -91,6 +94,16 @@ class AutomationHandler(SecureHandler):
         }
         logger.info("[AutomationHandler] Initialized")
 
+    def can_handle(self, path: str) -> bool:
+        """Return True if the path is handled by this handler."""
+        if path in self.HANDLED_PATHS:
+            return True
+        if path.startswith("/api/v1/webhooks/"):
+            return True
+        if path.startswith("/api/v1/n8n/"):
+            return True
+        return False
+
     def _check_rbac_permission(
         self, handler: Any, permission: str, resource_id: str | None = None
     ) -> HandlerResult | None:
@@ -120,7 +133,7 @@ class AutomationHandler(SecureHandler):
             )
 
             # Check permission
-            decision = check_permission(rbac_context, permission, resource_id)
+            decision = rbac.check_permission(rbac_context, permission, resource_id)
             if not decision.allowed:
                 logger.warning(
                     f"Permission denied: user={auth_ctx.user_id} permission={permission} "
@@ -268,7 +281,9 @@ class AutomationHandler(SecureHandler):
         events: list[dict[str, Any]] = []
         for event_type in AutomationEventType:
             category, action = (
-                event_type.value.split(".") if "." in event_type.value else (event_type.value, event_type.value)
+                event_type.value.split(".")
+                if "." in event_type.value
+                else (event_type.value, event_type.value)
             )
             events.append(
                 {
@@ -384,8 +399,6 @@ class AutomationHandler(SecureHandler):
 
     def _unsubscribe(self, webhook_id: str) -> HandlerResult:
         """Remove a webhook subscription."""
-        import asyncio
-
         for connector in self._connectors.values():
             # Run async unsubscribe in event loop
             loop = asyncio.new_event_loop()
@@ -460,11 +473,13 @@ class AutomationHandler(SecureHandler):
 
         all_results = []
         for connector in self._connectors.values():
-            results = await connector.dispatch_event(
+            results = connector.dispatch_event(
                 event_type,
                 payload,
                 workspace_id=workspace_id,
             )
+            if inspect.isawaitable(results):
+                results = await results
             all_results.extend(results)
 
         success_count = sum(1 for r in all_results if r.success)

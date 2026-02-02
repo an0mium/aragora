@@ -217,7 +217,6 @@ class AnalyticsMetricsHandler(SecureHandler):
             return error_response(
                 "Rate limit exceeded. Please try again later.",
                 429,
-                code="RATE_LIMIT_EXCEEDED",
             )
 
         # RBAC: Require authentication and analytics:read permission
@@ -270,7 +269,9 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_overview")
     @handle_errors("get debates overview")
-    def _get_debates_overview(self, query_params: dict, auth_context: Any) -> HandlerResult:
+    def _get_debates_overview(
+        self, query_params: dict, auth_context: Any | None = None
+    ) -> HandlerResult:
         """
         Get debate overview statistics.
 
@@ -427,7 +428,9 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_trends")
     @handle_errors("get debates trends")
-    def _get_debates_trends(self, query_params: dict, auth_context: Any) -> HandlerResult:
+    def _get_debates_trends(
+        self, query_params: dict, auth_context: Any | None = None
+    ) -> HandlerResult:
         """
         Get debate trends over time.
 
@@ -545,7 +548,9 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_topics")
     @handle_errors("get debates topics")
-    def _get_debates_topics(self, query_params: dict, auth_context: Any) -> HandlerResult:
+    def _get_debates_topics(
+        self, query_params: dict, auth_context: Any | None = None
+    ) -> HandlerResult:
         """
         Get topic distribution for debates.
 
@@ -679,7 +684,9 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_outcomes")
     @handle_errors("get debates outcomes")
-    def _get_debates_outcomes(self, query_params: dict, auth_context: Any) -> HandlerResult:
+    def _get_debates_outcomes(
+        self, query_params: dict, auth_context: Any | None = None
+    ) -> HandlerResult:
         """
         Get debate outcome distribution (win/loss/draw).
 
@@ -944,13 +951,13 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         elo_system = self.get_elo_system()
         if not elo_system:
-            return error_response("ELO system not available", 503, code="SERVICE_UNAVAILABLE")
+            return error_response("ELO system not available", 503)
 
         # Get agent rating
         try:
             agent = elo_system.get_rating(agent_id)
         except (ValueError, KeyError):
-            return error_response(f"Agent not found: {agent_id}", 404, code="AGENT_NOT_FOUND")
+            return error_response(f"Agent not found: {agent_id}", 404)
 
         # Get ELO history
         elo_history = elo_system.get_elo_history(agent_id, limit=50)
@@ -1048,7 +1055,6 @@ class AnalyticsMetricsHandler(SecureHandler):
             return error_response(
                 "agents parameter is required (comma-separated list)",
                 400,
-                code="MISSING_AGENTS",
             )
 
         agent_names = [a.strip() for a in agents_param.split(",") if a.strip()]
@@ -1056,18 +1062,16 @@ class AnalyticsMetricsHandler(SecureHandler):
             return error_response(
                 "At least 2 agents required for comparison",
                 400,
-                code="INSUFFICIENT_AGENTS",
             )
         if len(agent_names) > 10:
             return error_response(
                 "Maximum 10 agents allowed for comparison",
                 400,
-                code="TOO_MANY_AGENTS",
             )
 
         elo_system = self.get_elo_system()
         if not elo_system:
-            return error_response("ELO system not available", 503, code="SERVICE_UNAVAILABLE")
+            return error_response("ELO system not available", 503)
 
         # Get ratings for all agents
         comparison = []
@@ -1157,7 +1161,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         elo_system = self.get_elo_system()
         if not elo_system:
-            return error_response("ELO system not available", 503, code="SERVICE_UNAVAILABLE")
+            return error_response("ELO system not available", 503)
 
         # Get agents to track
         agents_param = query_params.get("agents", "")
@@ -1236,7 +1240,9 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_usage_tokens")
     @handle_errors("get usage tokens")
-    def _get_usage_tokens(self, query_params: dict, auth_context: Any) -> HandlerResult:
+    def _get_usage_tokens(
+        self, query_params: dict, auth_context: Any | None = None
+    ) -> HandlerResult:
         """
         Get token consumption trends.
 
@@ -1267,7 +1273,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         """
         requested_org_id = query_params.get("org_id")
         if not requested_org_id:
-            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
+            return error_response("org_id is required", 400)
 
         # Validate org access
         org_id, err = self._validate_org_access(auth_context, requested_org_id)
@@ -1335,7 +1341,9 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_usage_costs")
     @handle_errors("get usage costs")
-    def _get_usage_costs(self, query_params: dict, auth_context: Any) -> HandlerResult:
+    def _get_usage_costs(
+        self, query_params: dict, auth_context: Any | None = None
+    ) -> HandlerResult:
         """
         Get cost breakdown by provider and model.
 
@@ -1367,7 +1375,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         """
         requested_org_id = query_params.get("org_id")
         if not requested_org_id:
-            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
+            return error_response("org_id is required", 400)
 
         # Validate org access
         org_id, err = self._validate_org_access(auth_context, requested_org_id)
@@ -1446,7 +1454,9 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_active_users")
     @handle_errors("get active users")
-    def _get_active_users(self, query_params: dict, auth_context: Any) -> HandlerResult:
+    def _get_active_users(
+        self, query_params: dict, auth_context: Any | None = None
+    ) -> HandlerResult:
         """
         Get active user counts.
 

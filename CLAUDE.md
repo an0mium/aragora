@@ -348,6 +348,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Gauntlet Receipts - cryptographic audit trails with SHA-256 hashing
 - Gauntlet Defense - proposer_agent param enables attack/defend cycles
 - KM Resilience - ResilientPostgresStore with retry, health monitoring, cache invalidation
+- Supermemory - cross-session external memory via `enable_supermemory` (112 tests)
 
 **Enterprise (production-ready):**
 - Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management, SCIM 2.0 provisioning

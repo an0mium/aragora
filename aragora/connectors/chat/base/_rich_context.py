@@ -11,7 +11,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..models import ChannelContext, ChatChannel, ChatMessage
+    from ..models import ChannelContext, ChatMessage
 
 logger = logging.getLogger(__name__)
 

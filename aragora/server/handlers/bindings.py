@@ -59,6 +59,18 @@ except ImportError:
     MessageBinding = None  # type: ignore[misc, no-redef]
 
 
+def _web_response_to_handler_result(response: web.Response) -> HandlerResult:
+    body = response.body if response.body is not None else b""
+    content_type = response.content_type or "application/json"
+    headers = dict(response.headers) if response.headers else {}
+    return HandlerResult(
+        status_code=response.status,
+        content_type=content_type,
+        body=body,
+        headers=headers,
+    )
+
+
 class BindingsHandler(BaseHandler):
     """Handler for message bindings management endpoints."""
 
@@ -379,6 +391,8 @@ class BindingsHandler(BaseHandler):
         # Parse request body
         body, err = await parse_json_body(request, context="create_binding")
         if err:
+            if isinstance(err, web.Response):
+                return _web_response_to_handler_result(err)
             return err
 
         # Validate required fields
@@ -442,6 +456,8 @@ class BindingsHandler(BaseHandler):
         # Parse request body
         body, err = await parse_json_body(request, context="resolve_binding")
         if err:
+            if isinstance(err, web.Response):
+                return _web_response_to_handler_result(err)
             return err
 
         # Validate required fields

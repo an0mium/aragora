@@ -18,6 +18,7 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import os
 import threading
@@ -197,17 +198,23 @@ class GitHubAuditClient:
             async with pool.get_session("github_audit") as client:
                 url = f"{self.base_url}/repos/{owner}/{repo}/issues"
                 response = await client.post(url, headers=headers, json=payload)
-                if response.status_code in (200, 201):
+                status = getattr(response, "status", None)
+                if status is None:
+                    status = getattr(response, "status_code", None)
+                if status in (200, 201):
                     data = response.json()
+                    if inspect.isawaitable(data):
+                        data = await data
                     return {
                         "success": True,
-                        "number": data["number"],
-                        "html_url": data["html_url"],
-                        "id": data["id"],
+                        "number": data.get("number"),
+                        "html_url": data.get("html_url"),
+                        "id": data.get("id"),
                     }
-                else:
-                    error = response.text
-                    return {"success": False, "error": error}
+                error = getattr(response, "text", None)
+                if inspect.isawaitable(error):
+                    error = await error
+                return {"success": False, "error": error}
 
         except Exception as e:
             logger.exception(f"Failed to create issue: {e}")

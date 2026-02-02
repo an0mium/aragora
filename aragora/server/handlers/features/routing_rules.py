@@ -648,9 +648,11 @@ class RoutingRulesHandler(SecureHandler):
 
             audit_data(
                 user_id=user_id,
+                actor_id=user_id,
                 resource_type="routing_rule",
                 resource_id=rule_id,
                 action=action,
+                event_type=f"routing_rule_{action}",
                 rule_name=rule_name,
             )
         except Exception as e:

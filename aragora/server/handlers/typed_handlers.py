@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias
 
 from aragora.billing.auth.context import UserAuthContext
 from aragora.protocols import HTTPRequestHandler
+from aragora.server.handlers.base import BaseHandler
 from aragora.server.handlers.utils.responses import HandlerResult, error_response
 
 if TYPE_CHECKING:
@@ -42,13 +43,13 @@ if TYPE_CHECKING:
     from aragora.server.storage import DebateStorage
     from aragora.users.store import UserStore
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("aragora.server.handlers.base")
 
 # Type alias for handlers that may be sync or async
 MaybeAsyncHandlerResult: TypeAlias = HandlerResult | None | Awaitable[HandlerResult | None]
 
 
-class TypedHandler:
+class TypedHandler(BaseHandler):
     """
     Typed base handler with explicit type annotations for all methods.
 
@@ -85,7 +86,7 @@ class TypedHandler:
         Args:
             server_context: ServerContext containing shared server resources
         """
-        self.ctx = server_context
+        super().__init__(server_context)
 
     def read_json_body(
         self, handler: HTTPRequestHandler, max_size: int | None = None

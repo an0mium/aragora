@@ -176,10 +176,6 @@ class TelegramHandler(BaseHandler):
         logger.debug("Telegram request: %s", path)
 
         if path == "/api/v1/integrations/telegram/status":
-            # RBAC: Require messaging:read permission
-            perm_error = self._check_permission(handler, "messaging:read")
-            if perm_error:
-                return perm_error
             return self._get_status()
 
         if path == "/api/v1/integrations/telegram/set-webhook":

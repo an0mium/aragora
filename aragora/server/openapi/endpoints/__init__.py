@@ -150,9 +150,17 @@ ALL_ENDPOINTS = {
     **ONBOARDING_ENDPOINTS,
     **COMPUTER_USE_ENDPOINTS,
     **GATEWAY_ENDPOINTS,
-    # Decorator-registered endpoints (merged last to allow overrides)
-    **_get_decorator_endpoints(),
 }
+
+# Deep merge decorator endpoints to preserve methods from manual definitions
+# when the same path has both manual and decorator definitions
+_decorator_eps = _get_decorator_endpoints()
+for path, methods in _decorator_eps.items():
+    if path in ALL_ENDPOINTS:
+        # Combine methods from both sources
+        ALL_ENDPOINTS[path] = {**ALL_ENDPOINTS[path], **methods}
+    else:
+        ALL_ENDPOINTS[path] = methods
 
 __all__ = [
     "SYSTEM_ENDPOINTS",

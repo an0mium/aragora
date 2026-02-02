@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.gauntlet.receipt import DecisionReceipt as GauntletReceipt
+    pass
 
 from aragora.server.handlers.base import (
     BaseHandler,

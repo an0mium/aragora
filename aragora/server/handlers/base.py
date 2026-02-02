@@ -42,12 +42,14 @@ Rate limiting is applied via the @rate_limit decorator from utils.rate_limit.
 
 from __future__ import annotations
 
+import functools
+import inspect
 import json
 import logging
 import os
 import re
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Optional, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Optional, TypeAlias, TypedDict, cast
 
 from aragora.billing.auth.context import UserAuthContext
 from aragora.config import DB_TIMEOUT_SECONDS
@@ -243,6 +245,9 @@ from aragora.server.handlers.utils.responses import (
     success_response,
 )
 
+# Type alias for handlers that may be sync or async
+MaybeAsyncHandlerResult: TypeAlias = HandlerResult | None | Awaitable[HandlerResult | None]
+
 # API decorators (from new module)
 from aragora.server.handlers.api_decorators import (
     api_endpoint,
@@ -258,16 +263,6 @@ from aragora.server.handlers.mixins import (
     PaginatedHandlerMixin,
 )
 
-# Typed handler classes (from new module)
-from aragora.server.handlers.typed_handlers import (
-    AdminHandler,
-    AsyncTypedHandler,
-    AuthenticatedHandler,
-    MaybeAsyncHandlerResult,
-    PermissionHandler,
-    ResourceHandler,
-    TypedHandler,
-)
 
 # =============================================================================
 # Module-level exports
@@ -349,12 +344,12 @@ __all__ = [
     "AuthenticatedHandlerMixin",
     "BaseHandler",
     # Typed handler base classes
-    "TypedHandler",
-    "AuthenticatedHandler",
-    "PermissionHandler",
-    "AdminHandler",
-    "AsyncTypedHandler",
-    "ResourceHandler",
+    "TypedHandler",  # noqa: F822
+    "AuthenticatedHandler",  # noqa: F822
+    "PermissionHandler",  # noqa: F822
+    "AdminHandler",  # noqa: F822
+    "AsyncTypedHandler",  # noqa: F822
+    "ResourceHandler",  # noqa: F822
     # Server context type
     "ServerContext",
     # Response type alias
@@ -564,6 +559,25 @@ class BaseHandler:
     ctx: dict[str, Any]
     _current_handler: Any = None
     _current_query_params: dict[str, Any] | None = None
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Allow server_context kwarg for handlers that only accept ctx."""
+        super().__init_subclass__(**kwargs)
+        original_init = cls.__init__
+        if original_init is BaseHandler.__init__:
+            return
+
+        signature = inspect.signature(original_init)
+        if "server_context" in signature.parameters:
+            return
+
+        @functools.wraps(original_init)
+        def _wrapped_init(self, *args: Any, server_context: Any = None, **kwargs: Any) -> None:
+            if server_context is not None and "ctx" in signature.parameters and "ctx" not in kwargs:
+                kwargs["ctx"] = server_context
+            original_init(self, *args, **kwargs)
+
+        cls.__init__ = _wrapped_init  # type: ignore[assignment]
 
     def __init__(self, server_context: "ServerContext | dict[str, Any]"):
         """
@@ -1162,3 +1176,20 @@ class BaseHandler:
             HandlerResult if handled, None if not handled by this handler
         """
         return None
+
+
+def __getattr__(name: str):
+    """Lazily expose typed handler classes to avoid circular imports."""
+    if name in {
+        "TypedHandler",  # noqa: F822
+        "AuthenticatedHandler",  # noqa: F822
+        "PermissionHandler",  # noqa: F822
+        "AdminHandler",  # noqa: F822
+        "AsyncTypedHandler",  # noqa: F822
+        "ResourceHandler",  # noqa: F822
+        "MaybeAsyncHandlerResult",
+    }:
+        from aragora.server.handlers import typed_handlers as _typed_handlers
+
+        return getattr(_typed_handlers, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

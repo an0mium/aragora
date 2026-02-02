@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import sys
 from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.resilience import with_timeout_sync
@@ -38,6 +39,15 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_validate_against_schema():
+    handler_module = sys.modules.get("aragora.server.handlers.debates.handler")
+    if handler_module is not None:
+        candidate = getattr(handler_module, "validate_against_schema", None)
+        if callable(candidate):
+            return candidate
+    return validate_against_schema
 
 
 class _DebatesHandlerProtocol(Protocol):
@@ -161,7 +171,7 @@ class CreateOperationsMixin:
             return error_response("No content provided", 400)
 
         # Schema validation for input sanitization
-        validation_result = validate_against_schema(body, DEBATE_START_SCHEMA)
+        validation_result = _get_validate_against_schema()(body, DEBATE_START_SCHEMA)
         if not validation_result.is_valid:
             return error_response(validation_result.error, 400)
 

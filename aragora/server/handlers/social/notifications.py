@@ -126,7 +126,11 @@ async def get_email_integration_for_org(org_id: str | None = None) -> EmailInteg
     1. Per-org config from NotificationConfigStore
     2. System-wide config from environment variables (fallback)
     """
-    # Check org-specific TTL cache first
+    # Backward-compat: check legacy in-memory cache first
+    if org_id and org_id in _org_email_integrations:
+        return _org_email_integrations[org_id]
+
+    # Check org-specific TTL cache
     if org_id:
         cached = _org_email_cache.get(org_id)
         if cached is not None:
@@ -215,7 +219,11 @@ async def get_telegram_integration_for_org(
     1. Per-org config from NotificationConfigStore
     2. System-wide config from environment variables (fallback)
     """
-    # Check org-specific TTL cache first
+    # Backward-compat: check legacy in-memory cache first
+    if org_id and org_id in _org_telegram_integrations:
+        return _org_telegram_integrations[org_id]
+
+    # Check org-specific TTL cache
     if org_id:
         cached = _org_telegram_cache.get(org_id)
         if cached is not None:
@@ -271,6 +279,8 @@ def invalidate_org_integration_cache(org_id: str) -> None:
     """Invalidate cached integrations when config changes."""
     _org_email_cache.invalidate(org_id)
     _org_telegram_cache.invalidate(org_id)
+    _org_email_integrations.pop(org_id, None)
+    _org_telegram_integrations.pop(org_id, None)
     logger.debug("Invalidated integration cache for org %s", org_id)
 
 
@@ -480,7 +490,7 @@ class NotificationsHandler(SecureHandler):
 
         # Log org context for debugging tenant isolation issues
         if org_id:
-            logger.debug(f"Getting notification status for org: {org_id}")
+            logger.debug("Getting notification status for org: %s", org_id)
 
         return json_response(
             {
@@ -567,10 +577,10 @@ class NotificationsHandler(SecureHandler):
                 finally:
                     loop.close()
         except Exception as e:
-            logger.warning(f"Failed to get recipients for org {org_id}: {e}")
+            logger.warning("Failed to get recipients for org %s: %s", org_id, e)
             return json_response({"recipients": [], "error": str(e)})
 
-        logger.debug(f"Getting email recipients for org: {org_id}")
+        logger.debug("Getting email recipients for org: %s", org_id)
 
         return json_response(
             {
@@ -641,7 +651,7 @@ class NotificationsHandler(SecureHandler):
                         finally:
                             loop.close()
                 except Exception as e:
-                    logger.error(f"Failed to save email config for org {org_id}: {e}")
+                    logger.error("Failed to save email config for org %s: %s", org_id, e)
                     return error_response(f"Failed to save configuration: {e}", 500)
 
                 return json_response(
@@ -680,7 +690,7 @@ class NotificationsHandler(SecureHandler):
         except ValueError as e:
             return error_response(f"Invalid configuration: {e}", 400)
         except Exception as e:
-            logger.error(f"Failed to configure email: {e}")
+            logger.error("Failed to configure email: %s", e)
             return error_response("Failed to configure email", 500)
 
     def _configure_telegram(self, handler: Any, org_id: str | None = None) -> HandlerResult:
@@ -734,7 +744,7 @@ class NotificationsHandler(SecureHandler):
                         finally:
                             loop.close()
                 except Exception as e:
-                    logger.error(f"Failed to save telegram config for org {org_id}: {e}")
+                    logger.error("Failed to save telegram config for org %s: %s", org_id, e)
                     return error_response(f"Failed to save configuration: {e}", 500)
 
                 return json_response(
@@ -765,7 +775,7 @@ class NotificationsHandler(SecureHandler):
         except ValueError as e:
             return error_response(f"Invalid configuration: {e}", 400)
         except Exception as e:
-            logger.error(f"Failed to configure telegram: {e}")
+            logger.error("Failed to configure telegram: %s", e)
             return error_response("Failed to configure telegram", 500)
 
     def _add_email_recipient(self, handler: Any, org_id: str | None = None) -> HandlerResult:
@@ -819,7 +829,7 @@ class NotificationsHandler(SecureHandler):
                     finally:
                         loop.close()
             except Exception as e:
-                logger.error(f"Failed to add recipient for org {org_id}: {e}")
+                logger.error("Failed to add recipient for org %s: %s", org_id, e)
                 return error_response(f"Failed to add recipient: {e}", 500)
 
             return json_response(
@@ -890,7 +900,7 @@ class NotificationsHandler(SecureHandler):
                     finally:
                         loop.close()
             except Exception as e:
-                logger.error(f"Failed to remove recipient for org {org_id}: {e}")
+                logger.error("Failed to remove recipient for org %s: %s", org_id, e)
                 return error_response(f"Failed to remove recipient: {e}", 500)
 
             if removed:
@@ -1144,7 +1154,7 @@ async def notify_debate_completed(result: Any) -> dict[str, bool]:
             sent = await email.send_debate_summary(result)
             results["email"] = sent > 0
         except Exception as e:
-            logger.error(f"Failed to send email notification: {e}")
+            logger.error("Failed to send email notification: %s", e)
             results["email"] = False
 
     telegram = get_telegram_integration()
@@ -1153,7 +1163,7 @@ async def notify_debate_completed(result: Any) -> dict[str, bool]:
             success = await telegram.post_debate_summary(result)
             results["telegram"] = success
         except Exception as e:
-            logger.error(f"Failed to send telegram notification: {e}")
+            logger.error("Failed to send telegram notification: %s", e)
             results["telegram"] = False
 
     return results
@@ -1184,7 +1194,7 @@ async def notify_consensus_reached(
             sent = await email.send_consensus_alert(debate_id, confidence, winner, task)
             results["email"] = sent > 0
         except Exception as e:
-            logger.error(f"Failed to send email consensus alert: {e}")
+            logger.error("Failed to send email consensus alert: %s", e)
             results["email"] = False
 
     telegram = get_telegram_integration()
@@ -1193,7 +1203,7 @@ async def notify_consensus_reached(
             success = await telegram.send_consensus_alert(debate_id, confidence, winner, task)
             results["telegram"] = success
         except Exception as e:
-            logger.error(f"Failed to send telegram consensus alert: {e}")
+            logger.error("Failed to send telegram consensus alert: %s", e)
             results["telegram"] = False
 
     return results
@@ -1226,7 +1236,7 @@ async def notify_error(
             )
             results["telegram"] = success
         except Exception as e:
-            logger.error(f"Failed to send telegram error alert: {e}")
+            logger.error("Failed to send telegram error alert: %s", e)
             results["telegram"] = False
 
     return results

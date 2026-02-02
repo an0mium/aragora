@@ -14,11 +14,31 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
+
+AB_TEST_LOG_SCHEMA_VERSION = "1.0"
+DEFAULT_AB_TEST_DIMENSIONS = (
+    "relevance",
+    "accuracy",
+    "completeness",
+    "clarity",
+    "reasoning",
+    "evidence",
+    "safety",
+)
+AB_TEST_LOG_METADATA_KEYS = (
+    "experiment",
+    "hypothesis",
+    "rubric",
+    "tags",
+    "notes",
+    "owner",
+)
 
 # Explicit column list for SELECT queries - must match ABTest.from_row() order
 AB_TEST_COLUMNS = """id, agent, baseline_prompt_version, evolved_prompt_version,
@@ -32,6 +52,97 @@ class ABTestStatus(Enum):
     ACTIVE = "active"
     CONCLUDED = "concluded"
     CANCELLED = "cancelled"
+
+
+@dataclass
+class ABTestRubric:
+    """Rubric metadata for evaluating A/B test outcomes."""
+
+    name: str
+    version: str = "1.0"
+    dimensions: list[str] = field(default_factory=lambda: list(DEFAULT_AB_TEST_DIMENSIONS))
+    weights: dict[str, float] = field(default_factory=dict)
+    scale: str = "1-5"
+    notes: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.dimensions:
+            self.dimensions = list(DEFAULT_AB_TEST_DIMENSIONS)
+        self.weights = _normalize_weights(self.dimensions, self.weights)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize rubric to a dict for storage/logging."""
+        return {
+            "name": self.name,
+            "version": self.version,
+            "dimensions": list(self.dimensions),
+            "weights": dict(self.weights),
+            "scale": self.scale,
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ABTestRubric":
+        """Parse rubric from a dictionary."""
+        return cls(
+            name=str(data.get("name", "default")),
+            version=str(data.get("version", "1.0")),
+            dimensions=list(data.get("dimensions") or list(DEFAULT_AB_TEST_DIMENSIONS)),
+            weights=dict(data.get("weights") or {}),
+            scale=str(data.get("scale", "1-5")),
+            notes=data.get("notes"),
+        )
+
+
+def _normalize_weights(
+    dimensions: list[str],
+    weights: dict[str, Any] | None,
+) -> dict[str, float]:
+    if not weights:
+        return {dim: 1.0 / max(len(dimensions), 1) for dim in dimensions}
+
+    normalized: dict[str, float] = {}
+    for dim in dimensions:
+        try:
+            normalized[dim] = float(weights.get(dim, 0.0))
+        except (TypeError, ValueError):
+            normalized[dim] = 0.0
+    total = sum(normalized.values())
+    if total <= 0:
+        return {dim: 1.0 / max(len(dimensions), 1) for dim in dimensions}
+    return {dim: value / total for dim, value in normalized.items()}
+
+
+def _extract_log_metadata(metadata: dict | None) -> dict[str, Any]:
+    if not isinstance(metadata, dict):
+        return {}
+    return {key: metadata[key] for key in AB_TEST_LOG_METADATA_KEYS if key in metadata}
+
+
+def _build_ab_test_log_event(
+    event: str,
+    test: "ABTest",
+    **extra: Any,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_version": AB_TEST_LOG_SCHEMA_VERSION,
+        "event": event,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "test_id": test.id,
+        "agent": test.agent,
+        "baseline_prompt_version": test.baseline_prompt_version,
+        "evolved_prompt_version": test.evolved_prompt_version,
+        "status": test.status.value,
+        "baseline_wins": test.baseline_wins,
+        "evolved_wins": test.evolved_wins,
+        "baseline_debates": test.baseline_debates,
+        "evolved_debates": test.evolved_debates,
+    }
+    metadata = _extract_log_metadata(test.metadata)
+    if metadata:
+        payload["metadata"] = metadata
+    payload.update({k: v for k, v in extra.items() if v is not None})
+    return payload
 
 
 @dataclass
@@ -117,6 +228,15 @@ class ABTest:
             "status": self.status.value,
             "metadata": self.metadata,
         }
+
+    @property
+    def rubric(self) -> ABTestRubric | None:
+        """Return rubric metadata if present."""
+        if isinstance(self.metadata, dict) and "rubric" in self.metadata:
+            rubric_data = self.metadata.get("rubric")
+            if isinstance(rubric_data, dict):
+                return ABTestRubric.from_dict(rubric_data)
+        return None
 
     @classmethod
     def from_row(cls, row: tuple) -> "ABTest":
@@ -207,6 +327,7 @@ class ABTestManager(SQLiteStore):
         baseline_version: int,
         evolved_version: int,
         metadata: dict | None = None,
+        rubric: ABTestRubric | dict[str, Any] | None = None,
     ) -> ABTest:
         """
         Start a new A/B test for an agent.
@@ -228,12 +349,19 @@ class ABTestManager(SQLiteStore):
         if existing:
             raise ValueError(f"Agent {agent} already has an active test: {existing.id}")
 
+        metadata_dict = dict(metadata or {})
+        if rubric is not None:
+            rubric_obj = (
+                rubric if isinstance(rubric, ABTestRubric) else ABTestRubric.from_dict(rubric)
+            )
+            metadata_dict["rubric"] = rubric_obj.to_dict()
+
         test = ABTest(
             id=str(uuid.uuid4()),
             agent=agent,
             baseline_prompt_version=baseline_version,
             evolved_prompt_version=evolved_version,
-            metadata=metadata or {},
+            metadata=metadata_dict,
         )
 
         with self.connection() as conn:
@@ -258,6 +386,9 @@ class ABTestManager(SQLiteStore):
 
         logger.info(
             f"Started A/B test {test.id} for {agent}: v{baseline_version} vs v{evolved_version}"
+        )
+        self._log_event(
+            "ab_test_started", test, rubric=test.rubric.to_dict() if test.rubric else None
         )
 
         return test
@@ -312,6 +443,9 @@ class ABTestManager(SQLiteStore):
         debate_id: str,
         variant: str,
         won: bool,
+        metrics: dict[str, Any] | None = None,
+        rubric: ABTestRubric | dict[str, Any] | None = None,
+        notes: str | None = None,
     ) -> ABTest | None:
         """
         Record a debate result for the active test.
@@ -379,6 +513,22 @@ class ABTestManager(SQLiteStore):
                 )
 
         logger.info(f"Recorded {variant} {'win' if won else 'loss'} for test {test.id}")
+
+        rubric_obj = (
+            rubric
+            if isinstance(rubric, ABTestRubric)
+            else (ABTestRubric.from_dict(rubric) if isinstance(rubric, dict) else test.rubric)
+        )
+        self._log_event(
+            "ab_test_result_recorded",
+            test,
+            debate_id=debate_id,
+            variant=variant,
+            won=bool(won),
+            metrics=metrics,
+            rubric=rubric_obj.to_dict() if rubric_obj else None,
+            notes=notes,
+        )
 
         return self.get_test(test.id)
 
@@ -466,6 +616,13 @@ class ABTestManager(SQLiteStore):
         )
 
         logger.info(f"Concluded A/B test {test_id}: winner={winner}, confidence={confidence:.2f}")
+        self._log_event(
+            "ab_test_concluded",
+            test,
+            winner=winner,
+            confidence=confidence,
+            stats=result.stats,
+        )
 
         return result
 
@@ -482,7 +639,12 @@ class ABTestManager(SQLiteStore):
                 """,
                 (datetime.now(timezone.utc).isoformat(), test_id),
             )
-            return cursor.rowcount > 0
+            cancelled = cursor.rowcount > 0
+        if cancelled:
+            test = self.get_test(test_id)
+            if test:
+                self._log_event("ab_test_cancelled", test)
+        return cancelled
 
     def get_variant_for_debate(self, agent: str) -> str | None:
         """
@@ -502,3 +664,7 @@ class ABTestManager(SQLiteStore):
         if test.baseline_debates <= test.evolved_debates:
             return "baseline"
         return "evolved"
+
+    def _log_event(self, event: str, test: ABTest, **extra: Any) -> None:
+        payload = _build_ab_test_log_event(event, test, **extra)
+        logger.info(event, extra={"ab_test_event": payload})

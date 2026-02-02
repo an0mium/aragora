@@ -6,12 +6,22 @@ Tests:
 - Route matching (can_handle)
 - Format endpoint (no auth required)
 - Parameter validation bounds
+- Circuit breaker functionality
+- Job route handling
 """
 
 import pytest
+import time
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from aragora.server.handlers.training import TrainingHandler
+from aragora.server.handlers.training import (
+    TrainingHandler,
+    TrainingCircuitBreaker,
+    get_training_circuit_breaker_status,
+    _clear_training_components,
+    _get_training_circuit_breaker,
+)
 
 
 class TestTrainingHandlerInit:
@@ -241,3 +251,291 @@ class TestTrainingHandlerStats:
         body = json.loads(result.body.decode("utf-8"))
         assert "exported_files" in body
         assert isinstance(body["exported_files"], list)
+
+
+# =============================================================================
+# Circuit Breaker Tests
+# =============================================================================
+
+
+class TestTrainingCircuitBreaker:
+    """Tests for TrainingCircuitBreaker class."""
+
+    def setup_method(self):
+        """Reset circuit breaker before each test."""
+        _clear_training_components()
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        _clear_training_components()
+
+    def test_initial_state_is_closed(self):
+        """Circuit breaker should start in CLOSED state."""
+        cb = TrainingCircuitBreaker()
+        assert cb.state == "closed"
+
+    def test_is_allowed_in_closed_state(self):
+        """Should allow requests in CLOSED state."""
+        cb = TrainingCircuitBreaker()
+        assert cb.is_allowed() is True
+
+    def test_state_transitions_to_open_after_failures(self):
+        """Should transition to OPEN after failure_threshold failures."""
+        cb = TrainingCircuitBreaker(failure_threshold=3)
+        assert cb.state == "closed"
+
+        # Record 3 failures
+        for _ in range(3):
+            cb.record_failure()
+
+        assert cb.state == "open"
+
+    def test_open_state_rejects_requests(self):
+        """Should reject requests in OPEN state."""
+        cb = TrainingCircuitBreaker(failure_threshold=1)
+        cb.record_failure()
+        assert cb.state == "open"
+        assert cb.is_allowed() is False
+
+    def test_transition_to_half_open_after_cooldown(self):
+        """Should transition to HALF_OPEN after cooldown period."""
+        cb = TrainingCircuitBreaker(failure_threshold=1, cooldown_seconds=0.01)
+        cb.record_failure()
+        assert cb.state == "open"
+
+        # Wait for cooldown
+        time.sleep(0.02)
+
+        # State check should trigger transition
+        assert cb.state == "half_open"
+
+    def test_half_open_allows_limited_requests(self):
+        """Should allow limited requests in HALF_OPEN state."""
+        cb = TrainingCircuitBreaker(
+            failure_threshold=1,
+            cooldown_seconds=0.01,
+            half_open_max_calls=2,
+        )
+        cb.record_failure()
+        time.sleep(0.02)
+
+        # Should allow first 2 calls
+        assert cb.is_allowed() is True
+        assert cb.is_allowed() is True
+        # Third should be rejected
+        assert cb.is_allowed() is False
+
+    def test_success_in_half_open_closes_circuit(self):
+        """Successful calls in HALF_OPEN should close the circuit."""
+        cb = TrainingCircuitBreaker(
+            failure_threshold=1,
+            cooldown_seconds=0.01,
+            half_open_max_calls=2,
+        )
+        cb.record_failure()
+        time.sleep(0.02)
+
+        # Make successful calls
+        cb.is_allowed()
+        cb.record_success()
+        cb.is_allowed()
+        cb.record_success()
+
+        assert cb.state == "closed"
+
+    def test_failure_in_half_open_reopens_circuit(self):
+        """Failure in HALF_OPEN should reopen the circuit."""
+        cb = TrainingCircuitBreaker(
+            failure_threshold=1,
+            cooldown_seconds=0.01,
+            half_open_max_calls=2,
+        )
+        cb.record_failure()
+        time.sleep(0.02)
+
+        cb.is_allowed()
+        cb.record_failure()
+
+        assert cb.state == "open"
+
+    def test_success_resets_failure_count(self):
+        """Success in CLOSED state should reset failure count."""
+        cb = TrainingCircuitBreaker(failure_threshold=3)
+
+        # Record 2 failures
+        cb.record_failure()
+        cb.record_failure()
+        assert cb._failure_count == 2
+
+        # Success resets count
+        cb.record_success()
+        assert cb._failure_count == 0
+
+    def test_reset_restores_initial_state(self):
+        """reset() should restore circuit to initial state."""
+        cb = TrainingCircuitBreaker(failure_threshold=1)
+        cb.record_failure()
+        assert cb.state == "open"
+
+        cb.reset()
+        assert cb.state == "closed"
+        assert cb._failure_count == 0
+
+    def test_get_status_returns_all_info(self):
+        """get_status() should return all circuit breaker info."""
+        cb = TrainingCircuitBreaker(failure_threshold=5, cooldown_seconds=30.0)
+        status = cb.get_status()
+
+        assert "state" in status
+        assert "failure_count" in status
+        assert "success_count" in status
+        assert "failure_threshold" in status
+        assert "cooldown_seconds" in status
+        assert status["failure_threshold"] == 5
+        assert status["cooldown_seconds"] == 30.0
+
+
+class TestGlobalCircuitBreaker:
+    """Tests for global circuit breaker functions."""
+
+    def setup_method(self):
+        """Reset circuit breaker before each test."""
+        _clear_training_components()
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        _clear_training_components()
+
+    def test_get_training_circuit_breaker_creates_instance(self):
+        """Should create circuit breaker on first call."""
+        cb = _get_training_circuit_breaker()
+        assert cb is not None
+        assert isinstance(cb, TrainingCircuitBreaker)
+
+    def test_get_training_circuit_breaker_returns_same_instance(self):
+        """Should return the same instance on subsequent calls."""
+        cb1 = _get_training_circuit_breaker()
+        cb2 = _get_training_circuit_breaker()
+        assert cb1 is cb2
+
+    def test_get_training_circuit_breaker_status(self):
+        """get_training_circuit_breaker_status() should return status dict."""
+        status = get_training_circuit_breaker_status()
+        assert isinstance(status, dict)
+        assert "state" in status
+
+    def test_clear_training_components(self):
+        """_clear_training_components() should reset and clear circuit breaker."""
+        cb1 = _get_training_circuit_breaker()
+        cb1.record_failure()
+
+        _clear_training_components()
+
+        # New instance should be created
+        cb2 = _get_training_circuit_breaker()
+        assert cb2._failure_count == 0
+
+
+class TestTrainingHandlerCircuitBreaker:
+    """Tests for circuit breaker integration in TrainingHandler."""
+
+    def setup_method(self):
+        """Reset circuit breaker before each test."""
+        _clear_training_components()
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        _clear_training_components()
+
+    def test_get_training_pipeline_respects_circuit_breaker(self):
+        """_get_training_pipeline should return None when circuit is open."""
+        handler = TrainingHandler({})
+
+        # Open the circuit
+        cb = _get_training_circuit_breaker()
+        for _ in range(5):
+            cb.record_failure()
+        assert cb.state == "open"
+
+        # Pipeline should return None
+        result = handler._get_training_pipeline()
+        assert result is None
+
+    def test_check_pipeline_circuit_breaker_returns_error_when_open(self):
+        """_check_pipeline_circuit_breaker should return error when circuit is open."""
+        handler = TrainingHandler({})
+
+        # Open the circuit
+        cb = _get_training_circuit_breaker()
+        for _ in range(5):
+            cb.record_failure()
+
+        result = handler._check_pipeline_circuit_breaker()
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_check_pipeline_circuit_breaker_returns_none_when_closed(self):
+        """_check_pipeline_circuit_breaker should return None when circuit is closed."""
+        handler = TrainingHandler({})
+
+        result = handler._check_pipeline_circuit_breaker()
+        assert result is None
+
+
+# =============================================================================
+# Job Route Handling Tests
+# =============================================================================
+
+
+class TestTrainingHandlerJobRoutes:
+    """Tests for job-specific route handling."""
+
+    def test_can_handle_job_routes(self):
+        """Should handle job-specific paths."""
+        handler = TrainingHandler({})
+        assert handler.can_handle("/api/v1/training/jobs/job123") is True
+        assert handler.can_handle("/api/v1/training/jobs/job123/metrics") is True
+        assert handler.can_handle("/api/v1/training/jobs/job123/artifacts") is True
+        assert handler.can_handle("/api/v1/training/jobs/job123/start") is True
+        assert handler.can_handle("/api/v1/training/jobs/job123/export") is True
+
+    def test_handle_job_route_validates_job_id(self):
+        """Should validate job_id format."""
+        handler = TrainingHandler({})
+
+        # Job ID with special characters should be rejected
+        # The path /api/v1/training/jobs/../../.. has job_id = ".."
+        result = handler._handle_job_route(
+            "/api/v1/training/jobs/<script>alert(1)</script>",
+            {},
+            None,
+        )
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_handle_job_route_invalid_path_length(self):
+        """Should reject paths with too few segments."""
+        handler = TrainingHandler({})
+
+        result = handler._handle_job_route(
+            "/api/v1/training",
+            {},
+            None,
+        )
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_handle_job_route_unknown_endpoint(self):
+        """Should return 404 for unknown job endpoints."""
+        handler = TrainingHandler({})
+
+        mock_handler = MagicMock()
+        mock_handler.command = "GET"
+
+        result = handler._handle_job_route(
+            "/api/v1/training/jobs/job123/unknown_action",
+            {},
+            mock_handler,
+        )
+        assert result is not None
+        assert result.status_code == 404

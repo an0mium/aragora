@@ -11,6 +11,7 @@ Provides REST API endpoints for:
 from __future__ import annotations
 
 import logging
+import sys
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -20,9 +21,19 @@ from aragora.server.handlers.base import (
     safe_error_message,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
-from aragora.server.handlers.utils.decorators import has_permission, require_permission
+from aragora.server.handlers.utils.decorators import has_permission as _has_permission
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
+
+
+def _get_has_permission():
+    control_plane = sys.modules.get("aragora.server.handlers.control_plane")
+    if control_plane is not None:
+        candidate = getattr(control_plane, "has_permission", None)
+        if callable(candidate):
+            return candidate
+    return _has_permission
 
 
 class PolicyHandlerMixin:
@@ -39,7 +50,7 @@ class PolicyHandlerMixin:
     # These methods are expected from the base class
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
-        raise NotImplementedError
+        return super().require_auth_or_error(handler)
 
     # Attribute declaration - provided by BaseHandler
     ctx: dict[str, Any]
@@ -79,7 +90,7 @@ class PolicyHandlerMixin:
             return err
 
         # Check permission for policy management
-        if not has_permission(
+        if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
             return error_response("Permission denied: controlplane:policies required", 403)
@@ -157,7 +168,7 @@ class PolicyHandlerMixin:
             return err
 
         # Check permission for policy management
-        if not has_permission(
+        if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
             return error_response("Permission denied: controlplane:policies required", 403)
@@ -194,7 +205,7 @@ class PolicyHandlerMixin:
             return err
 
         # Check permission for policy management
-        if not has_permission(
+        if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
             return error_response("Permission denied: controlplane:policies required", 403)
@@ -242,7 +253,7 @@ class PolicyHandlerMixin:
             return err
 
         # Check permission for policy management
-        if not has_permission(
+        if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
             return error_response("Permission denied: controlplane:policies required", 403)

@@ -594,7 +594,7 @@ class InboxCommandHandler:
                 ]
 
         except Exception as e:
-            logger.warning(f"Failed to fetch from Gmail, using demo data: {e}")
+            logger.warning("Failed to fetch from Gmail, using demo data: %s", e)
             return self._get_demo_emails(limit, offset, priority_filter)
 
     def _get_demo_emails(
@@ -748,7 +748,7 @@ class InboxCommandHandler:
                     )
 
             except Exception as e:
-                logger.warning(f"Action {action} failed for {email_id}: {e}")
+                logger.warning("Action %s failed for %s: %s", action, email_id, e)
                 results.append(
                     {
                         "emailId": email_id,
@@ -790,13 +790,13 @@ class InboxCommandHandler:
                 # hasattr check above confirms archive_message exists at runtime
                 archive_fn: Callable[[str], Any] = self.gmail_connector.archive_message
                 await archive_fn(email_id)
-                logger.info(f"Archived email {email_id}")
+                logger.info("Archived email %s", email_id)
                 return {"archived": True}
             except Exception as e:
-                logger.warning(f"Gmail archive failed: {e}")
+                logger.warning("Gmail archive failed: %s", e)
 
         # Fallback to demo mode
-        logger.info(f"[Demo] Archiving email {email_id}")
+        logger.info("[Demo] Archiving email %s", email_id)
         return {"archived": True, "demo": True}
 
     async def _snooze_email(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -816,12 +816,12 @@ class InboxCommandHandler:
         if self.gmail_connector and hasattr(self.gmail_connector, "snooze_message"):
             try:
                 await self.gmail_connector.snooze_message(email_id, snooze_until)
-                logger.info(f"Snoozed email {email_id} until {snooze_until}")
+                logger.info("Snoozed email %s until %s", email_id, snooze_until)
                 return {"snoozed": True, "until": snooze_until.isoformat()}
             except Exception as e:
-                logger.warning(f"Gmail snooze failed: {e}")
+                logger.warning("Gmail snooze failed: %s", e)
 
-        logger.info(f"[Demo] Snoozing email {email_id} for {duration}")
+        logger.info("[Demo] Snoozing email %s for %s", email_id, duration)
         return {"snoozed": True, "until": snooze_until.isoformat(), "demo": True}
 
     async def _create_reply_draft(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -834,12 +834,12 @@ class InboxCommandHandler:
                     in_reply_to=email_id,
                     body=body,
                 )
-                logger.info(f"Created reply draft for {email_id}")
+                logger.info("Created reply draft for %s", email_id)
                 return {"draftId": draft_id}
             except Exception as e:
-                logger.warning(f"Gmail draft creation failed: {e}")
+                logger.warning("Gmail draft creation failed: %s", e)
 
-        logger.info(f"[Demo] Creating reply draft for {email_id}")
+        logger.info("[Demo] Creating reply draft for %s", email_id)
         return {"draftId": f"draft_{email_id}", "demo": True}
 
     async def _create_forward_draft(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -852,12 +852,12 @@ class InboxCommandHandler:
                     message_id=email_id,
                     to=to,
                 )
-                logger.info(f"Created forward draft for {email_id}")
+                logger.info("Created forward draft for %s", email_id)
                 return {"draftId": draft_id}
             except Exception as e:
-                logger.warning(f"Gmail forward draft failed: {e}")
+                logger.warning("Gmail forward draft failed: %s", e)
 
-        logger.info(f"[Demo] Creating forward draft for {email_id}")
+        logger.info("[Demo] Creating forward draft for %s", email_id)
         return {"draftId": f"draft_fwd_{email_id}", "demo": True}
 
     async def _mark_spam(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -865,12 +865,12 @@ class InboxCommandHandler:
         if self.gmail_connector and hasattr(self.gmail_connector, "mark_spam"):
             try:
                 await self.gmail_connector.mark_spam(email_id)
-                logger.info(f"Marked {email_id} as spam")
+                logger.info("Marked %s as spam", email_id)
                 return {"spam": True}
             except Exception as e:
-                logger.warning(f"Gmail mark spam failed: {e}")
+                logger.warning("Gmail mark spam failed: %s", e)
 
-        logger.info(f"[Demo] Marking {email_id} as spam")
+        logger.info("[Demo] Marking %s as spam", email_id)
         return {"spam": True, "demo": True}
 
     async def _mark_important(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -881,12 +881,12 @@ class InboxCommandHandler:
                     email_id,
                     add_labels=["IMPORTANT"],
                 )
-                logger.info(f"Marked {email_id} as important")
+                logger.info("Marked %s as important", email_id)
                 return {"important": True}
             except Exception as e:
-                logger.warning(f"Gmail modify labels failed: {e}")
+                logger.warning("Gmail modify labels failed: %s", e)
 
-        logger.info(f"[Demo] Marking {email_id} as important")
+        logger.info("[Demo] Marking %s as important", email_id)
         return {"important": True, "demo": True}
 
     async def _mark_sender_vip(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -897,10 +897,10 @@ class InboxCommandHandler:
         if sender and self.prioritizer:
             # Add to VIP list in config
             self.prioritizer.config.vip_addresses.add(sender)
-            logger.info(f"Marked sender {sender} as VIP")
+            logger.info("Marked sender %s as VIP", sender)
             return {"vip": True, "sender": sender}
 
-        logger.info(f"[Demo] Marking sender of {email_id} as VIP")
+        logger.info("[Demo] Marking sender of %s as VIP", email_id)
         return {"vip": True, "demo": True}
 
     async def _block_sender(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -911,10 +911,10 @@ class InboxCommandHandler:
         if sender and self.prioritizer:
             # Add to auto-archive list
             self.prioritizer.config.auto_archive_senders.add(sender)
-            logger.info(f"Blocked sender {sender}")
+            logger.info("Blocked sender %s", sender)
             return {"blocked": True, "sender": sender}
 
-        logger.info(f"[Demo] Blocking sender of {email_id}")
+        logger.info("[Demo] Blocking sender of %s", email_id)
         return {"blocked": True, "demo": True}
 
     async def _delete_email(self, email_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -922,12 +922,12 @@ class InboxCommandHandler:
         if self.gmail_connector and hasattr(self.gmail_connector, "trash_message"):
             try:
                 await self.gmail_connector.trash_message(email_id)
-                logger.info(f"Deleted email {email_id}")
+                logger.info("Deleted email %s", email_id)
                 return {"deleted": True}
             except Exception as e:
-                logger.warning(f"Gmail delete failed: {e}")
+                logger.warning("Gmail delete failed: %s", e)
 
-        logger.info(f"[Demo] Deleting email {email_id}")
+        logger.info("[Demo] Deleting email %s", email_id)
         return {"deleted": True, "demo": True}
 
     async def _get_emails_by_filter(self, filter_type: str) -> list[str]:
@@ -984,7 +984,7 @@ class InboxCommandHandler:
                         ),
                     }
             except Exception as e:
-                logger.warning(f"Failed to get sender stats: {e}")
+                logger.warning("Failed to get sender stats: %s", e)
 
         # Check prioritizer config for VIP status
         is_vip = False
@@ -1020,7 +1020,7 @@ class InboxCommandHandler:
                 if today_stats:
                     return today_stats
             except Exception as e:
-                logger.debug(f"Daily summary not available: {e}")
+                logger.debug("Daily summary not available: %s", e)
 
         # Use cached data stats
         emails_in_cache = list(_email_cache.values())
@@ -1129,7 +1129,7 @@ class InboxCommandHandler:
             try:
                 email_messages = await self.gmail_connector.get_messages(email_ids_to_fetch)
             except Exception as e:
-                logger.warning(f"Batch email fetch failed: {e}")
+                logger.warning("Batch email fetch failed: %s", e)
                 # Fall back to individual fetches on batch failure
                 for eid in email_ids_to_fetch:
                     try:
@@ -1137,7 +1137,7 @@ class InboxCommandHandler:
                         if msg:
                             email_messages.append(msg)
                     except Exception as fetch_err:
-                        logger.debug(f"Could not fetch email {eid}: {fetch_err}")
+                        logger.debug("Could not fetch email %s: %s", eid, fetch_err)
 
         if not email_messages:
             # No Gmail connector or all fetches failed
@@ -1152,7 +1152,7 @@ class InboxCommandHandler:
         try:
             results = await self.prioritizer.score_emails(email_messages, force_tier=scoring_tier)
         except Exception as e:
-            logger.warning(f"Batch scoring failed: {e}")
+            logger.warning("Batch scoring failed: %s", e)
             return {
                 "count": 0,
                 "changes": [],

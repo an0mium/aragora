@@ -19,6 +19,7 @@ from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 from .storage import (
+    _check_email_permission,
     get_gmail_connector,
     get_prioritizer,
 )
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 # RBAC permission constants
 PERM_EMAIL_READ = "email:read"
 PERM_EMAIL_UPDATE = "email:update"
+
+_AUTH_CONTEXT_UNSET = object()
 
 # Global categorizer instance
 _categorizer: Any | None = None
@@ -198,7 +201,7 @@ async def handle_feedback_batch(
     feedback_items: list[dict[str, Any]],
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Any | None = None,
+    auth_context: Any | None = _AUTH_CONTEXT_UNSET,
 ) -> dict[str, Any]:
     """
     Record batch user actions for learning.
@@ -213,6 +216,11 @@ async def handle_feedback_batch(
 
     Actions: opened, replied, starred, archived, deleted, snoozed
     """
+    if auth_context is not _AUTH_CONTEXT_UNSET:
+        perm_error = _check_email_permission(auth_context, PERM_EMAIL_UPDATE)
+        if perm_error:
+            return perm_error
+
     try:
         prioritizer = get_prioritizer(user_id)
         results = []
@@ -260,7 +268,7 @@ async def handle_apply_category_label(
     category: str,
     user_id: str = "default",
     workspace_id: str = "default",
-    auth_context: Any | None = None,
+    auth_context: Any | None = _AUTH_CONTEXT_UNSET,
 ) -> dict[str, Any]:
     """
     Apply Gmail label based on category.
@@ -271,6 +279,11 @@ async def handle_apply_category_label(
         "category": "invoices"
     }
     """
+    if auth_context is not _AUTH_CONTEXT_UNSET:
+        perm_error = _check_email_permission(auth_context, PERM_EMAIL_UPDATE)
+        if perm_error:
+            return perm_error
+
     try:
         from aragora.services.email_categorizer import EmailCategory
 

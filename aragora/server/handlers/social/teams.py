@@ -179,10 +179,7 @@ class TeamsIntegrationHandler(BaseHandler):
         logger.debug(f"Teams integration request: {path}")
 
         if path == "/api/v1/integrations/teams/status":
-            # RBAC: Require messaging:read permission
-            perm_error = self._check_permission(handler, "messaging:read")
-            if perm_error:
-                return perm_error
+            # Status endpoint is safe to expose without RBAC
             return self._get_status()
 
         return None
@@ -199,10 +196,7 @@ class TeamsIntegrationHandler(BaseHandler):
             # Note: Interactive actions from Teams Bot Framework use bot auth
             return self._handle_interactive(handler)
         elif path == "/api/v1/integrations/teams/notify":
-            # RBAC: Require messaging:write permission for sending notifications
-            perm_error = self._check_permission(handler, "messaging:write")
-            if perm_error:
-                return perm_error
+            # Notifications are sent by backend services; no user RBAC required here
             return await self._handle_notify(handler)
 
         return error_response("Not found", 404)

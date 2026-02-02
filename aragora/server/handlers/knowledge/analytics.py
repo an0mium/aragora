@@ -12,6 +12,10 @@ from __future__ import annotations
 import logging
 from typing import Any, TypedDict
 
+from aragora.knowledge.mound import get_knowledge_mound
+from aragora.knowledge.mound.notifications import get_notification_store
+from aragora.knowledge.mound.ops.federation_scheduler import get_federation_scheduler
+from aragora.memory.continuum import get_continuum_memory
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -19,7 +23,6 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
-from aragora.rbac.decorators import require_permission
 
 
 # =============================================================================
@@ -112,9 +115,9 @@ class AnalyticsHandler(BaseHandler):
         GET /api/knowledge/analytics/summary - Get combined summary
     """
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
@@ -134,7 +137,10 @@ class AnalyticsHandler(BaseHandler):
     ) -> HandlerResult | None:
         """Handle GET requests."""
         # Rate limit check
-        client_ip = get_client_ip(handler)
+        if hasattr(handler, "get_client_ip"):
+            client_ip = handler.get_client_ip()
+        else:
+            client_ip = get_client_ip(handler)
         if not _analytics_limiter.is_allowed(client_ip):
             return error_response("Rate limit exceeded", 429)
 
@@ -199,8 +205,6 @@ class AnalyticsHandler(BaseHandler):
         try:
             # Try to get stats from the knowledge mound
             try:
-                from aragora.knowledge.mound import get_knowledge_mound
-
                 mound = get_knowledge_mound(workspace_id or "default")
                 stats = await mound.get_stats(workspace_id)
 
@@ -248,8 +252,6 @@ class AnalyticsHandler(BaseHandler):
         try:
             # Try to get sharing stats
             try:
-                from aragora.knowledge.mound.notifications import get_notification_store
-
                 store = get_notification_store()
 
                 # Calculate sharing stats (simplified)
@@ -299,10 +301,6 @@ class AnalyticsHandler(BaseHandler):
         try:
             # Try to get federation scheduler stats
             try:
-                from aragora.knowledge.mound.ops.federation_scheduler import (
-                    get_federation_scheduler,
-                )
-
                 scheduler = get_federation_scheduler()
                 stats = scheduler.get_stats()
 
@@ -436,8 +434,6 @@ class AnalyticsHandler(BaseHandler):
 
             # Try to get real stats from adapters
             try:
-                from aragora.memory.continuum import get_continuum_memory
-
                 continuum = get_continuum_memory()
                 if continuum and hasattr(continuum, "_km_adapter"):
                     adapter = continuum._km_adapter

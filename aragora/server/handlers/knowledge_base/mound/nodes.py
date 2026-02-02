@@ -65,6 +65,7 @@ class NodeOperationsMixin:
         workspace_id = data.get("workspace_id", "default")
         limit = data.get("limit", 10)
         min_confidence = data.get("min_confidence", 0.0)
+        node_types = data.get("node_types")
 
         mound = self._get_mound()
         if not mound:
@@ -77,6 +78,7 @@ class NodeOperationsMixin:
                     limit=limit,
                     min_confidence=min_confidence,
                     workspace_id=workspace_id,
+                    node_types=node_types,
                 )
             )
         except Exception as e:

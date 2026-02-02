@@ -118,8 +118,10 @@ aragora/live/playwright/.cache/
 
 # Nomic loop state (runtime artifacts, not needed in git)
 # All .nomic state should be excluded - keep only schema/config templates
+.nomic/audit_logs/
 .nomic/backups/
 .nomic/checkpoints/
+.nomic/eval/
 .nomic/replays/
 .nomic/sessions/
 .nomic/visualizations/

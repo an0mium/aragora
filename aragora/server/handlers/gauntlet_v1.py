@@ -177,7 +177,7 @@ class GauntletSchemaHandler(GauntletSecureHandler):
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        super().__init__(ctx or {})
 
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/schema/(?P<schema_type>[a-z-]+)"
@@ -366,7 +366,7 @@ class GauntletTemplateHandler(GauntletSecureHandler):
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        super().__init__(ctx or {})
 
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/templates/(?P<template_id>[a-z0-9-]+)"
@@ -781,7 +781,7 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        super().__init__(ctx or {})
 
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/validate/receipt"

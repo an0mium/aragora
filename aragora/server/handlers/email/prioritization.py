@@ -17,13 +17,15 @@ from aragora.rbac.decorators import require_permission
 from aragora.server.middleware.rate_limit import rate_limit
 from aragora.observability.metrics import track_handler
 
-from .storage import get_prioritizer
+from .storage import _check_email_permission, get_prioritizer
 
 logger = logging.getLogger(__name__)
 
 # RBAC permission constants
 PERM_EMAIL_READ = "email:read"
 PERM_EMAIL_UPDATE = "email:update"
+
+_AUTH_CONTEXT_UNSET = object()
 
 
 @require_permission(PERM_EMAIL_READ, context_param="auth_context")
@@ -191,7 +193,7 @@ async def handle_email_feedback(
     user_id: str = "default",
     workspace_id: str = "default",
     email_data: Optional[dict[str, Any]] = None,
-    auth_context: Any | None = None,
+    auth_context: Any | None = _AUTH_CONTEXT_UNSET,
 ) -> dict[str, Any]:
     """
     Record user action for learning.
@@ -204,6 +206,11 @@ async def handle_email_feedback(
     }
     """
     from aragora.connectors.enterprise.communication.models import EmailMessage
+
+    if auth_context is not _AUTH_CONTEXT_UNSET:
+        perm_error = _check_email_permission(auth_context, PERM_EMAIL_UPDATE)
+        if perm_error:
+            return perm_error
 
     try:
         # Convert email data if provided

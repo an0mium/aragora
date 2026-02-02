@@ -241,7 +241,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
+            return error_response("workspace_id is required", 400)
 
         time_range_str = query_params.get("time_range", "30d")
 
@@ -1235,7 +1235,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
+            return error_response("org_id is required", 400)
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 

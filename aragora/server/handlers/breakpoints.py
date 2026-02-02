@@ -37,6 +37,15 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 # Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
 _breakpoints_limiter = RateLimiter(requests_per_minute=60)
 
+try:
+    from aragora.debate.breakpoints import HumanGuidance
+except ImportError:
+    HumanGuidance = None  # type: ignore[assignment]
+try:
+    from aragora.debate.breakpoints import BreakpointManager
+except ImportError:
+    BreakpointManager = None  # type: ignore[assignment]
+
 
 class BreakpointsHandler(BaseHandler):
     """Handler for breakpoint management endpoints."""
@@ -52,18 +61,27 @@ class BreakpointsHandler(BaseHandler):
         """Initialize with optional storage backend."""
         super().__init__(storage)
         self._breakpoint_manager: Any = None
+        self._breakpoint_manager_loaded = False
 
     @property
     def breakpoint_manager(self) -> Any:
         """Lazy-load breakpoint manager."""
-        if self._breakpoint_manager is None:
-            try:
-                from aragora.debate.breakpoints import BreakpointManager
-
-                self._breakpoint_manager = BreakpointManager()
-            except ImportError:
-                pass
+        if self._breakpoint_manager is None and not self._breakpoint_manager_loaded:
+            manager_cls = BreakpointManager
+            if manager_cls is not None:
+                self._breakpoint_manager = manager_cls()
+            self._breakpoint_manager_loaded = True
         return self._breakpoint_manager
+
+    @breakpoint_manager.setter
+    def breakpoint_manager(self, value: Any) -> None:
+        self._breakpoint_manager = value
+        self._breakpoint_manager_loaded = True
+
+    @breakpoint_manager.deleter
+    def breakpoint_manager(self) -> None:
+        self._breakpoint_manager = None
+        self._breakpoint_manager_loaded = False
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -243,9 +261,11 @@ class BreakpointsHandler(BaseHandler):
         try:
             import uuid
 
-            from aragora.debate.breakpoints import HumanGuidance
+            guidance_cls = HumanGuidance
+            if guidance_cls is None:
+                return error_response("Breakpoints module not available", 503)
 
-            guidance = HumanGuidance(
+            guidance = guidance_cls(
                 guidance_id=str(uuid.uuid4()),
                 debate_id=breakpoint_id.split("_")[0] if "_" in breakpoint_id else "",
                 human_id=body.get("reviewer_id", "api_user"),

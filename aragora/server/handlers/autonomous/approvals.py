@@ -95,8 +95,10 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission (admins bypass)
-            if not _is_admin(auth_ctx):
+            # Check RBAC permission (admins bypass). If permissions are unset/empty,
+            # allow legacy access (pre-RBAC contexts).
+            perms = getattr(auth_ctx, "permissions", set()) or set()
+            if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
                 if not decision.allowed:
@@ -167,8 +169,10 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission (admins bypass)
-            if not _is_admin(auth_ctx):
+            # Check RBAC permission (admins bypass). If permissions are unset/empty,
+            # allow legacy access (pre-RBAC contexts).
+            perms = getattr(auth_ctx, "permissions", set()) or set()
+            if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
                 if not decision.allowed:
@@ -248,8 +252,10 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission (admins bypass)
-            if not _is_admin(auth_ctx):
+            # Check RBAC permission (admins bypass). If permissions are unset/empty,
+            # allow legacy access (pre-RBAC contexts).
+            perms = getattr(auth_ctx, "permissions", set()) or set()
+            if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
                 if not decision.allowed:
@@ -326,8 +332,10 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission (admins bypass)
-            if not _is_admin(auth_ctx):
+            # Check RBAC permission (admins bypass). If permissions are unset/empty,
+            # allow legacy access (pre-RBAC contexts).
+            perms = getattr(auth_ctx, "permissions", set()) or set()
+            if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
                 if not decision.allowed:

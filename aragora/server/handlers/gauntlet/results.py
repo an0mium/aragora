@@ -27,7 +27,14 @@ from ..base import (
     safe_error_message,
 )
 from ..openapi_decorator import api_endpoint
-from .storage import _get_storage, get_gauntlet_runs
+from .storage import get_gauntlet_runs
+
+
+def _get_storage_proxy():
+    """Resolve storage accessor dynamically for test patching."""
+    from . import _get_storage as get_storage
+
+    return get_storage()
 
 
 logger = logging.getLogger(__name__)
@@ -125,7 +132,7 @@ class GauntletResultsMixin:
 
         # Check persistent storage
         try:
-            storage = _get_storage()
+            storage = _get_storage_proxy()
 
             # Check inflight table first (for in-progress runs after restart)
             inflight = storage.get_inflight(gauntlet_id)
@@ -173,7 +180,7 @@ class GauntletResultsMixin:
     def _list_results(self, query_params: dict) -> HandlerResult:
         """List recent gauntlet results with pagination."""
         try:
-            storage = _get_storage()
+            storage = _get_storage_proxy()
 
             limit = get_int_param(query_params, "limit", 20)
             offset = get_int_param(query_params, "offset", 0)
@@ -245,7 +252,7 @@ class GauntletResultsMixin:
     def _compare_results(self, id1: str, id2: str, query_params: dict) -> HandlerResult:
         """Compare two gauntlet results."""
         try:
-            storage = _get_storage()
+            storage = _get_storage_proxy()
             comparison = storage.compare(id1, id2)
 
             if comparison is None:
@@ -283,7 +290,7 @@ class GauntletResultsMixin:
                 del gauntlet_runs[gauntlet_id]
 
             # Remove from persistent storage
-            storage = _get_storage()
+            storage = _get_storage_proxy()
             deleted = storage.delete(gauntlet_id)
 
             if deleted:
@@ -354,7 +361,7 @@ class GauntletResultsMixin:
             _result_obj = run.get("result_obj")
         else:
             try:
-                storage = _get_storage()
+                storage = _get_storage_proxy()
                 stored = storage.get(gauntlet_id)
                 if stored:
                     result = stored

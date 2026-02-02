@@ -29,13 +29,19 @@ from ..base import HandlerResult, error_response, json_response
 from ..openapi_decorator import api_endpoint
 from .storage import (
     _cleanup_gauntlet_runs,
-    _get_storage,
     create_tracked_task,
     get_gauntlet_broadcast_fn,
     get_gauntlet_runs,
     get_quota_lock,
     is_durable_queue_enabled,
 )
+
+
+def _get_storage_proxy():
+    """Resolve storage accessor dynamically for test patching."""
+    from . import _get_storage as get_storage
+
+    return get_storage()
 
 
 logger = logging.getLogger(__name__)
@@ -157,7 +163,7 @@ class GauntletRunnerMixin:
         )
 
         try:
-            storage = _get_storage()
+            storage = _get_storage_proxy()
             storage.save_inflight(
                 gauntlet_id=gauntlet_id,
                 status="pending",
@@ -254,7 +260,7 @@ class GauntletRunnerMixin:
             # Update status (both in-memory and persistent)
             gauntlet_runs[gauntlet_id]["status"] = "running"
             try:
-                storage = _get_storage()
+                storage = _get_storage_proxy()
                 storage.update_inflight_status(gauntlet_id, "running")
             except (OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Failed to update inflight status: {e}")
@@ -322,7 +328,7 @@ class GauntletRunnerMixin:
                 # Only update on significant progress changes (every 10%)
                 if int(progress.percent) % 10 == 0:
                     try:
-                        storage = _get_storage()
+                        storage = _get_storage_proxy()
                         storage.update_inflight_status(
                             gauntlet_id,
                             "running",
@@ -391,7 +397,7 @@ class GauntletRunnerMixin:
 
             # Persist to storage
             try:
-                storage = _get_storage()
+                storage = _get_storage_proxy()
                 storage.save(result)
                 logger.info(f"Gauntlet {gauntlet_id} persisted to storage")
 
@@ -413,7 +419,7 @@ class GauntletRunnerMixin:
 
             # Update persistent status to failed
             try:
-                storage = _get_storage()
+                storage = _get_storage_proxy()
                 storage.update_inflight_status(
                     gauntlet_id,
                     "failed",

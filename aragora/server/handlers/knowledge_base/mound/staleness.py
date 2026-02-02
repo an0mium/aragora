@@ -80,9 +80,11 @@ class StalenessOperationsMixin:
                         "staleness_score": item.staleness_score,
                         "reasons": [r.value if hasattr(r, "value") else r for r in item.reasons],
                         "last_checked_at": (
-                            item.last_checked_at.isoformat() if item.last_checked_at else None
+                            getattr(item, "last_checked_at", None).isoformat()
+                            if getattr(item, "last_checked_at", None)
+                            else None
                         ),
-                        "revalidation_recommended": item.revalidation_recommended,
+                        "revalidation_recommended": getattr(item, "revalidation_recommended", None),
                     }
                     for item in stale_items_typed
                 ],

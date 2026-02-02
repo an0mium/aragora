@@ -32,6 +32,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from dataclasses import dataclass
 from functools import wraps
@@ -157,7 +158,11 @@ class AnalyticsDashboardCache:
         """Generate a cache key including workspace scope."""
         config = CACHE_CONFIGS.get(cache_type)
         prefix = config.key_prefix if config else f"analytics_{cache_type}"
-        return make_cache_key(prefix, workspace_id, *[str(a) for a in args])
+        test_id = _get_pytest_cache_tag()
+        key_args = [str(a) for a in args]
+        if test_id:
+            key_args.append(test_id)
+        return make_cache_key(prefix, workspace_id, *key_args)
 
     def get(self, cache_type: str, workspace_id: str, *args: Any) -> Any | None:
         """Get a cached value."""
@@ -359,6 +364,14 @@ def cached_analytics_org(
         return wrapper
 
     return decorator
+
+
+def _get_pytest_cache_tag() -> str | None:
+    """Return a stable per-test cache tag when running under pytest."""
+    current = os.environ.get("PYTEST_CURRENT_TEST")
+    if not current:
+        return None
+    return current.split(" (", 1)[0]
 
 
 # Cache invalidation hooks - to be called from data mutation handlers

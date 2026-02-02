@@ -94,12 +94,7 @@ class DiscordOAuthHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(
-        self,
-        path: str,
-        query_params: Optional[dict[str, str]] = None,
-        handler: Any = None,
-    ) -> HandlerResult:
+    async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Route OAuth requests to appropriate methods.
 
         Authentication:
@@ -112,17 +107,49 @@ class DiscordOAuthHandler(SecureHandler):
             query_params: Parsed query parameters
             handler: HTTP request handler for accessing request context
         """
+        method: str = kwargs.pop("method", "GET")
+        handler: Any = kwargs.pop("handler", None)
+        query_params: Optional[dict[str, str]] = kwargs.pop("query_params", None)
+        body_param: Any = kwargs.pop("body", None)
+
+        path: Optional[str] = None
+        if args:
+            if (
+                len(args) >= 2
+                and isinstance(args[0], str)
+                and args[0].upper() in {"GET", "POST", "PUT", "PATCH", "DELETE"}
+                and isinstance(args[1], str)
+                and args[1].startswith("/")
+            ):
+                method = args[0]
+                path = args[1]
+                if len(args) >= 3 and query_params is None and isinstance(args[2], dict):
+                    query_params = args[2]
+                if len(args) >= 4 and handler is None:
+                    handler = args[3]
+            else:
+                path = args[0]
+                if len(args) >= 2 and query_params is None and isinstance(args[1], dict):
+                    query_params = args[1]
+                if len(args) >= 3 and handler is None:
+                    handler = args[2]
+
+        if path is None:
+            return error_response("Not found", 404)
+
         query_params = query_params or {}
 
         # Extract method from handler
-        method: str = "GET"
         if handler is not None and hasattr(handler, "command"):
             method = handler.command
 
         # Extract body from handler for POST requests
         body: dict[str, Any] = {}
-        if method == "POST" and handler is not None:
-            body = self.read_json_body(handler) or {}
+        if method == "POST":
+            if handler is not None:
+                body = self.read_json_body(handler) or {}
+            elif isinstance(body_param, dict):
+                body = body_param
 
         # OAuth callback from Discord - no auth required (external redirect)
         if path == "/api/integrations/discord/callback":

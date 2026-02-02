@@ -120,6 +120,19 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         except Exception as e:
             logger.debug(f"Failed to emit KM event {event_type}: {e}")
 
+    def _read_json_body_lenient(
+        self, handler: Any
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Read JSON body, allowing missing Content-Type for internal callers/tests."""
+        body, err = self.read_json_body_validated(handler)
+        if err:
+            if err.status_code != 415:
+                return None, err
+            body = self.read_json_body(handler)
+            if body is None:
+                return None, err
+        return body, None
+
     def _get_km_adapter(self) -> Optional["EvidenceAdapter"]:
         """Get or create Knowledge Mound adapter for evidence."""
         if self._km_adapter is not None:
@@ -269,16 +282,16 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         # POST /api/evidence/search
         if path == "/api/v1/evidence/search":
-            body = self.read_json_body(handler)
-            if body is None:
-                return error_response("Invalid or too large JSON body", 400)
+            body, err = self._read_json_body_lenient(handler)
+            if err:
+                return err
             return self._handle_search(body)
 
         # POST /api/evidence/collect
         if path == "/api/v1/evidence/collect":
-            body = self.read_json_body(handler)
-            if body is None:
-                return error_response("Invalid or too large JSON body", 400)
+            body, err = self._read_json_body_lenient(handler)
+            if err:
+                return err
             return await self._handle_collect(body)
 
         # POST /api/v1/evidence/debate/:debate_id
@@ -288,9 +301,9 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             debate_id, err = self.extract_path_param(path, 5, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            body = self.read_json_body(handler)
-            if body is None:
-                return error_response("Invalid or too large JSON body", 400)
+            body, err = self._read_json_body_lenient(handler)
+            if err:
+                return err
             return self._handle_associate_evidence(debate_id, body)
 
         return None

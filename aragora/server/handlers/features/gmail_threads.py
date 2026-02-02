@@ -100,8 +100,8 @@ class GmailThreadsHandler(SecureHandler):
 
         if path.startswith("/api/v1/gmail/threads/"):
             parts = path.split("/")
-            thread_id = parts[4] if len(parts) > 4 else None
-            if thread_id and len(parts) == 5:
+            thread_id = parts[5] if len(parts) > 5 else None
+            if thread_id and len(parts) == 6:
                 return await self._get_thread(state, thread_id)
 
         # Draft operations
@@ -110,17 +110,17 @@ class GmailThreadsHandler(SecureHandler):
 
         if path.startswith("/api/v1/gmail/drafts/"):
             parts = path.split("/")
-            draft_id = parts[4] if len(parts) > 4 else None
-            if draft_id and len(parts) == 5:
+            draft_id = parts[5] if len(parts) > 5 else None
+            if draft_id and len(parts) == 6:
                 return await self._get_draft(state, draft_id)
 
         # Attachment download
         if "/attachments/" in path and path.startswith("/api/v1/gmail/messages/"):
             parts = path.split("/")
             # /api/v1/gmail/messages/{message_id}/attachments/{attachment_id}
-            if len(parts) >= 7:
-                message_id = parts[4]
-                attachment_id = parts[6]
+            if len(parts) >= 8:
+                message_id = parts[5]
+                attachment_id = parts[7]
                 return await self._get_attachment(state, message_id, attachment_id)
 
         return error_response("Not found", 404)
@@ -153,9 +153,9 @@ class GmailThreadsHandler(SecureHandler):
         # Thread operations
         if path.startswith("/api/v1/gmail/threads/"):
             parts = path.split("/")
-            if len(parts) >= 6:
-                thread_id = parts[4]
-                action = parts[5]
+            if len(parts) >= 7:
+                thread_id = parts[5]
+                action = parts[6]
 
                 if action == "archive":
                     return await self._archive_thread(state, thread_id)
@@ -170,9 +170,9 @@ class GmailThreadsHandler(SecureHandler):
 
         if path.startswith("/api/v1/gmail/drafts/"):
             parts = path.split("/")
-            if len(parts) >= 6:
-                draft_id = parts[4]
-                action = parts[5]
+            if len(parts) >= 7:
+                draft_id = parts[5]
+                action = parts[6]
 
                 if action == "send":
                     return await self._send_draft(state, draft_id)

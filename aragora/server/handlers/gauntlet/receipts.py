@@ -22,7 +22,14 @@ from aragora.rbac.decorators import require_permission
 
 from ..base import HandlerResult, error_response, get_string_param, json_response
 from ..openapi_decorator import api_endpoint
-from .storage import _get_storage, get_gauntlet_runs
+from .storage import get_gauntlet_runs
+
+
+def _get_storage_proxy():
+    """Resolve storage accessor dynamically for test patching."""
+    from . import _get_storage as get_storage
+
+    return get_storage()
 
 
 logger = logging.getLogger(__name__)
@@ -79,7 +86,7 @@ class GauntletReceiptsMixin:
         else:
             # Check persistent storage
             try:
-                storage = _get_storage()
+                storage = _get_storage_proxy()
                 stored = storage.get(gauntlet_id)
                 if stored:
                     result = stored

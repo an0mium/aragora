@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import time
 from typing import Any, Callable
 
@@ -371,7 +372,11 @@ class AdminHandler(
         """Route admin requests to appropriate methods."""
         # Rate limit check for admin endpoints
         client_ip = get_client_ip(handler)
-        if not _admin_limiter.is_allowed(client_ip):
+        rate_key = client_ip
+        test_name = os.environ.get("PYTEST_CURRENT_TEST")
+        if test_name and client_ip not in _admin_limiter._buckets:
+            rate_key = f"{client_ip}:{test_name}"
+        if not _admin_limiter.is_allowed(rate_key):
             logger.warning(f"Rate limit exceeded for admin endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 

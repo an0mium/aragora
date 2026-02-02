@@ -1239,7 +1239,7 @@ class Arena(ArenaDelegatesMixin):
                 logger.debug("DebateStrategy not available")
                 self.debate_strategy = None
             except (TypeError, ValueError) as e:
-                logger.warning(f"Failed to initialize DebateStrategy: {e}")
+                logger.warning("Failed to initialize DebateStrategy: %s", e)
                 self.debate_strategy = None
             except Exception as e:
                 logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
@@ -1408,7 +1408,7 @@ class Arena(ArenaDelegatesMixin):
             else:
                 self._channel_integration = None
         except (ImportError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"[channels] Channel setup failed (non-critical): {e}")
+            logger.debug("[channels] Channel setup failed (non-critical): %s", e)
             self._channel_integration = None
 
     async def _teardown_agent_channels(self) -> None:
@@ -1418,7 +1418,7 @@ class Arena(ArenaDelegatesMixin):
         try:
             await self._channel_integration.teardown()
         except (ConnectionError, OSError, RuntimeError) as e:
-            logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
+            logger.debug("[channels] Channel teardown failed (non-critical): %s", e)
         finally:
             self._channel_integration = None
 
@@ -1435,7 +1435,7 @@ class Arena(ArenaDelegatesMixin):
                     timeout=self.protocol.timeout_seconds,
                 )
             except asyncio.TimeoutError:
-                logger.warning(f"debate_timeout timeout_seconds={self.protocol.timeout_seconds}")
+                logger.warning("debate_timeout timeout_seconds=%s", self.protocol.timeout_seconds)
                 return DebateResult(
                     task=self.env.task,
                     messages=getattr(self, "_partial_messages", []),

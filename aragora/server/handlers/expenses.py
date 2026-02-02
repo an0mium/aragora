@@ -38,8 +38,8 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    json_response,
     require_permission,
-    success_response,
 )
 from aragora.server.validation.query_params import safe_query_int
 
@@ -119,7 +119,7 @@ async def handle_upload_receipt(
             payment_method=payment_method,
         )
 
-        return success_response(
+        return json_response(
             {
                 "expense": expense.to_dict(),
                 "message": "Receipt processed successfully",
@@ -216,7 +216,7 @@ async def handle_create_expense(
             tags=data.get("tags"),
         )
 
-        return success_response(
+        return json_response(
             {
                 "expense": expense.to_dict(),
                 "message": "Expense created successfully",
@@ -286,7 +286,7 @@ async def handle_list_expenses(
                 logger.debug(f"Invalid end_date format '{end_date_str}', ignoring")
 
         limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
-        offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=100000)
 
         expenses, total = await tracker.list_expenses(
             category=category,
@@ -299,7 +299,7 @@ async def handle_list_expenses(
             offset=offset,
         )
 
-        return success_response(
+        return json_response(
             {
                 "expenses": [e.to_dict() for e in expenses],
                 "total": total,
@@ -308,7 +308,7 @@ async def handle_list_expenses(
             }
         )
 
-    except (RuntimeError, OSError, IOError, LookupError) as e:
+    except Exception as e:
         logger.exception("Error listing expenses")
         return error_response(f"Failed to list expenses: {e}", status=500)
 
@@ -330,7 +330,7 @@ async def handle_get_expense(
         if not expense:
             return error_response("Expense not found", status=404)
 
-        return success_response({"expense": expense.to_dict()})
+        return json_response({"expense": expense.to_dict()})
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error getting expense")
@@ -393,7 +393,7 @@ async def handle_update_expense(
         if not expense:
             return error_response("Expense not found", status=404)
 
-        return success_response(
+        return json_response(
             {
                 "expense": expense.to_dict(),
                 "message": "Expense updated successfully",
@@ -422,7 +422,7 @@ async def handle_delete_expense(
         if not deleted:
             return error_response("Expense not found", status=404)
 
-        return success_response({"message": "Expense deleted successfully"})
+        return json_response({"message": "Expense deleted successfully"})
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error deleting expense")
@@ -451,7 +451,7 @@ async def handle_approve_expense(
         if not expense:
             return error_response("Expense not found", status=404)
 
-        return success_response(
+        return json_response(
             {
                 "expense": expense.to_dict(),
                 "message": "Expense approved successfully",
@@ -485,7 +485,7 @@ async def handle_reject_expense(
         if not expense:
             return error_response("Expense not found", status=404)
 
-        return success_response(
+        return json_response(
             {
                 "expense": expense.to_dict(),
                 "message": "Expense rejected",
@@ -511,7 +511,7 @@ async def handle_get_pending_approvals(
 
         expenses = await tracker.get_pending_approval()
 
-        return success_response(
+        return json_response(
             {
                 "expenses": [e.to_dict() for e in expenses],
                 "count": len(expenses),
@@ -555,7 +555,7 @@ async def handle_categorize_expenses(
             else:
                 categorized[eid] = cat
 
-        return success_response(
+        return json_response(
             {
                 "categorized": categorized,
                 "count": len(results),
@@ -600,7 +600,7 @@ async def handle_sync_to_qbo(
             result_data = result
             success_count = result.get("synced", 0)
 
-        return success_response(
+        return json_response(
             {
                 "result": result_data,
                 "message": f"Synced {success_count} expenses to QBO",
@@ -657,7 +657,7 @@ async def handle_get_expense_stats(
         else:
             stats_data = stats
 
-        return success_response({"stats": stats_data})
+        return json_response({"stats": stats_data})
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error getting expense stats")
@@ -707,7 +707,7 @@ async def handle_export_expenses(
             end_date=end_date,
         )
 
-        return success_response(
+        return json_response(
             {
                 "data": data,
                 "format": export_format,
@@ -860,11 +860,20 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
+    async def handle_get(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any | None = None,
+    ) -> MaybeAsyncHandlerResult:
+        """Compatibility wrapper for GET handlers."""
+        return await self.handle(path, query_params, handler)
+
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
         query_params: dict[str, Any],
-        handler: Any,
+        handler: Any | None = None,
     ) -> MaybeAsyncHandlerResult:
         """Handle POST requests."""
         # Extract data from query_params for backwards compatibility
@@ -906,7 +915,7 @@ class ExpenseHandler(BaseHandler):
         self,
         path: str,
         query_params: dict[str, Any],
-        handler: Any,
+        handler: Any | None = None,
     ) -> MaybeAsyncHandlerResult:
         """Handle PUT requests."""
         # Extract data from query_params for backwards compatibility
@@ -927,8 +936,8 @@ class ExpenseHandler(BaseHandler):
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,
-        query_params: dict[str, Any],
-        handler: Any,
+        query_params: dict[str, Any] | None = None,
+        handler: Any | None = None,
     ) -> MaybeAsyncHandlerResult:
         """Handle DELETE requests."""
         # Note: handle_delete_expense already has @require_permission("admin:audit")

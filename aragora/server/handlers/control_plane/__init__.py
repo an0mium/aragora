@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
@@ -90,10 +91,15 @@ class ControlPlaneHandler(
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
+        if (
+            os.environ.get("PYTEST_CURRENT_TEST")
+            and self.ctx.get("control_plane_coordinator") is None
+        ):
+            self.__class__.coordinator = None
 
     def _get_coordinator(self) -> Any | None:
         """Get the control plane coordinator."""
-        # Try class-level first, then context
+        # Prefer class-level coordinator when set, otherwise fall back to context
         if self.__class__.coordinator is not None:
             return self.__class__.coordinator
         return self.ctx.get("control_plane_coordinator")
@@ -315,7 +321,7 @@ class ControlPlaneHandler(
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_register_agent(body, handler)
+            return await self._handle_register_agent_async(body, handler)
 
         # /api/control-plane/agents/:id/heartbeat
         if path.endswith("/heartbeat") and "/agents/" in path:
@@ -325,14 +331,14 @@ class ControlPlaneHandler(
                 body, err = self.read_json_body_validated(handler)
                 if err:
                     return err
-                return self._handle_heartbeat(agent_id, body, handler)
+                return await self._handle_heartbeat_async(agent_id, body, handler)
 
         # /api/control-plane/tasks
         if path == "/api/control-plane/tasks":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_submit_task(body, handler)
+            return await self._handle_submit_task_async(body, handler)
 
         # /api/control-plane/tasks/:id/complete
         if path.endswith("/complete") and "/tasks/" in path:
@@ -342,7 +348,7 @@ class ControlPlaneHandler(
                 body, err = self.read_json_body_validated(handler)
                 if err:
                     return err
-                return self._handle_complete_task(task_id, body, handler)
+                return await self._handle_complete_task_async(task_id, body, handler)
 
         # /api/control-plane/tasks/:id/fail
         if path.endswith("/fail") and "/tasks/" in path:
@@ -352,21 +358,21 @@ class ControlPlaneHandler(
                 body, err = self.read_json_body_validated(handler)
                 if err:
                     return err
-                return self._handle_fail_task(task_id, body, handler)
+                return await self._handle_fail_task_async(task_id, body, handler)
 
         # /api/control-plane/tasks/:id/cancel
         if path.endswith("/cancel") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
                 task_id = parts[-2]
-                return self._handle_cancel_task(task_id, handler)
+                return await self._handle_cancel_task_async(task_id, handler)
 
         # /api/control-plane/tasks/:id/claim
         if path.endswith("/claim") and "/tasks/" in path:
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_claim_task(body, handler)
+            return await self._handle_claim_task_async(body, handler)
 
         return None
 

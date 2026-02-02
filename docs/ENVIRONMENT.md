@@ -136,6 +136,58 @@ Run local LLMs through LM Studio's OpenAI-compatible server.
 LM_STUDIO_HOST=http://localhost:1234
 ```
 
+## Supermemory (Cross-Session Memory)
+
+Optional integration with [Supermemory](https://github.com/supermemoryai/supermemory) for cross-session learning and context injection. Supermemory provides external persistent memory that enables debates to learn from past sessions across projects.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `SUPERMEMORY_API_KEY` | Required for feature | Supermemory API key (sm_... format) | - |
+| `SUPERMEMORY_BASE_URL` | Optional | Base URL override | SDK default |
+| `SUPERMEMORY_TIMEOUT` | Optional | Request timeout (seconds) | `30` |
+| `SUPERMEMORY_SYNC_THRESHOLD` | Optional | Min importance to sync externally (0.0-1.0) | `0.7` |
+| `SUPERMEMORY_PRIVACY_FILTER` | Optional | Enable privacy filtering before sync | `true` |
+| `SUPERMEMORY_CONTAINER_TAG` | Optional | Default container tag for memories | `aragora` |
+
+**Features:**
+- **Context Injection**: Load relevant context from past sessions at debate start
+- **Outcome Persistence**: Sync debate conclusions to external memory
+- **Semantic Search**: Query historical memories across projects
+- **Privacy Filter**: Automatically redacts API keys, tokens, passwords before sync
+
+**Usage:**
+```bash
+# Enable Supermemory integration
+SUPERMEMORY_API_KEY=sm_xxxxxxxxxxxxx
+
+# Optional: adjust sync threshold (default: 0.7)
+# Only debates with >= 0.7 confidence are synced externally
+SUPERMEMORY_SYNC_THRESHOLD=0.8
+
+# Optional: disable privacy filter (not recommended)
+SUPERMEMORY_PRIVACY_FILTER=true
+
+# Optional: custom container for memories
+SUPERMEMORY_CONTAINER_TAG=aragora_production
+```
+
+**ArenaConfig Options:**
+```python
+from aragora.debate.arena_config import ArenaConfig
+
+config = (
+    ArenaConfig.builder()
+    .with_supermemory(
+        enable_supermemory=True,
+        supermemory_inject_on_start=True,
+        supermemory_sync_on_conclusion=True,
+    )
+    .build()
+)
+```
+
+**Note:** Supermemory is opt-in and disabled by default. Set `enable_supermemory=True` in ArenaConfig to activate.
+
 ## Persistence (Supabase)
 
 Optional but recommended for production.

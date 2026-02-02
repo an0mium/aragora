@@ -25,8 +25,6 @@ from typing import Any, Optional
 from aragora.server.handlers.utils.responses import error_dict
 from aragora.server.handlers.utils.file_validation import (
     validate_file_upload,
-    validate_filename_security,
-    MAX_FILE_SIZE,
 )
 
 logger = logging.getLogger(__name__)
@@ -827,6 +825,10 @@ async def smart_upload(
         content_type=mime_type,
     )
     if not file_validation.valid:
+        ext = Path(filename).suffix.lower()
+        error_message = file_validation.error_message or "File validation failed"
+        if ext in DANGEROUS_EXTENSIONS:
+            error_message = f"Dangerous file extension blocked: {ext}"
         result = UploadResult(
             id=upload_id,
             filename=filename,
@@ -834,7 +836,7 @@ async def smart_upload(
             category=FileCategory.UNKNOWN,
             action=ProcessingAction.SKIP,
             status="rejected",
-            error=file_validation.error_message or "File validation failed",
+            error=error_message,
         )
         _upload_results[upload_id] = result
         return result

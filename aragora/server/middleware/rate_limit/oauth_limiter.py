@@ -60,6 +60,23 @@ logger = logging.getLogger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+class _RateLimitedWrapper:
+    """Protocol-like base class for wrapper functions with rate limit metadata.
+
+    This class defines the attributes that are dynamically added to wrapper functions
+    by the oauth_rate_limit decorator. Using a class with these attributes helps
+    type checkers understand the dynamic attribute assignments.
+    """
+
+    _rate_limited: bool
+    _oauth_rate_limit: bool
+    _endpoint_type: str
+    __call__: Callable[..., Any]
+    __wrapped__: Callable[..., Any]
+    __name__: str
+    __qualname__: str
+
+
 # =============================================================================
 # Simple RateLimiter (to avoid using the complex limiter.RateLimiter)
 # =============================================================================
@@ -704,11 +721,14 @@ def oauth_rate_limit(
 
                 return await func(*args, **kwargs)
 
-            # Mark wrapper as rate limited
-            async_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            async_wrapper._oauth_rate_limit = True  # type: ignore[attr-defined]
-            async_wrapper._endpoint_type = endpoint_type  # type: ignore[attr-defined]
+            # Mark wrapper as rate limited using setattr to avoid type errors.
+            # These attributes are used by middleware to detect rate-limited handlers.
+            setattr(async_wrapper, "_rate_limited", True)
+            setattr(async_wrapper, "_oauth_rate_limit", True)
+            setattr(async_wrapper, "_endpoint_type", endpoint_type)
 
+            # Return type is F but wrapper is Callable[..., Any]; cast is implicit
+            # via the return annotation. This is safe because @wraps preserves signature.
             return async_wrapper  # type: ignore[return-value]
         else:
 
@@ -729,11 +749,14 @@ def oauth_rate_limit(
 
                 return func(*args, **kwargs)
 
-            # Mark wrapper as rate limited
-            sync_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            sync_wrapper._oauth_rate_limit = True  # type: ignore[attr-defined]
-            sync_wrapper._endpoint_type = endpoint_type  # type: ignore[attr-defined]
+            # Mark wrapper as rate limited using setattr to avoid type errors.
+            # These attributes are used by middleware to detect rate-limited handlers.
+            setattr(sync_wrapper, "_rate_limited", True)
+            setattr(sync_wrapper, "_oauth_rate_limit", True)
+            setattr(sync_wrapper, "_endpoint_type", endpoint_type)
 
+            # Return type is F but wrapper is Callable[..., Any]; cast is implicit
+            # via the return annotation. This is safe because @wraps preserves signature.
             return sync_wrapper  # type: ignore[return-value]
 
     return decorator

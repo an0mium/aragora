@@ -11,7 +11,9 @@ Provides REST API endpoints for:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
+import sys
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
@@ -22,10 +24,26 @@ from aragora.server.handlers.base import (
     safe_error_message,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
-from aragora.server.handlers.utils.decorators import has_permission, require_permission
+from aragora.server.handlers.utils.decorators import has_permission as _has_permission
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+
+def _get_has_permission():
+    control_plane = sys.modules.get("aragora.server.handlers.control_plane")
+    if control_plane is not None:
+        candidate = getattr(control_plane, "has_permission", None)
+        if callable(candidate):
+            return candidate
+    return _has_permission
+
+
+async def _await_if_needed(result: Any) -> Any:
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 class TaskHandlerMixin:
@@ -47,6 +65,14 @@ class TaskHandlerMixin:
         """Get the control plane coordinator."""
         raise NotImplementedError
 
+    def _require_coordinator(self) -> tuple[Any | None, HandlerResult | None]:
+        """Return coordinator and None, or None and error response if not initialized."""
+        raise NotImplementedError
+
+    def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
+        """Unified error handler for coordinator operations."""
+        raise NotImplementedError
+
     def _get_stream(self) -> Any | None:
         """Get the control plane stream server."""
         raise NotImplementedError
@@ -64,7 +90,7 @@ class TaskHandlerMixin:
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
-        raise NotImplementedError
+        return super().require_auth_or_error(handler)
 
     # Attribute declaration - provided by BaseHandler
     ctx: dict[str, Any]
@@ -82,9 +108,9 @@ class TaskHandlerMixin:
     @require_permission("controlplane:tasks.read")
     def _handle_get_task(self, task_id: str) -> HandlerResult:
         """Get task by ID."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         try:
             task = _run_async(coordinator.get_task(task_id))
@@ -93,12 +119,8 @@ class TaskHandlerMixin:
                 return error_response(f"Task not found: {task_id}", 404)
 
             return json_response(task.to_dict())
-        except (ValueError, KeyError, AttributeError) as e:
-            logger.warning(f"Data error getting task {task_id}: {type(e).__name__}: {e}")
-            return error_response(safe_error_message(e, "control plane"), 400)
         except Exception as e:
-            logger.error(f"Error getting task {task_id}: {e}")
-            return error_response(safe_error_message(e, "control plane"), 500)
+            return self._handle_coordinator_error(e, f"get_task:{task_id}")
 
     @api_endpoint(
         method="POST",
@@ -114,7 +136,9 @@ class TaskHandlerMixin:
             return err
 
         # Check permission for task management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()
@@ -163,6 +187,62 @@ class TaskHandlerMixin:
             logger.error(f"Error submitting task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    async def _handle_submit_task_async(self, body: dict[str, Any], handler: Any) -> HandlerResult:
+        """Submit a new task (async context)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        task_type = body.get("task_type")
+        if not task_type:
+            return error_response("task_type is required", 400)
+
+        payload = body.get("payload", {})
+        required_capabilities = body.get("required_capabilities", [])
+        priority = body.get("priority", "normal")
+        timeout_seconds = body.get("timeout_seconds")
+        metadata = body.get("metadata", {})
+
+        try:
+            from aragora.control_plane.scheduler import TaskPriority
+
+            priority_enum = TaskPriority[priority.upper()]
+
+            task_id = await _await_if_needed(
+                coordinator.submit_task(
+                    task_type=task_type,
+                    payload=payload,
+                    required_capabilities=required_capabilities,
+                    priority=priority_enum,
+                    timeout_seconds=timeout_seconds,
+                    metadata=metadata,
+                )
+            )
+
+            self._emit_event(
+                "emit_task_submitted",
+                task_id=task_id,
+                task_type=task_type,
+                priority=priority,
+                required_capabilities=required_capabilities,
+            )
+
+            return json_response({"task_id": task_id}, status=201)
+        except KeyError:
+            return error_response(f"Invalid priority: {priority}", 400)
+        except Exception as e:
+            logger.error(f"Error submitting task: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
     @api_endpoint(
         method="POST",
         path="/api/control-plane/tasks/claim",
@@ -178,7 +258,9 @@ class TaskHandlerMixin:
             return err
 
         # Check permission for task management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()
@@ -216,6 +298,51 @@ class TaskHandlerMixin:
             logger.error(f"Error claiming task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    async def _handle_claim_task_async(self, body: dict[str, Any], handler: Any) -> HandlerResult:
+        """Claim a task for an agent (async context)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        agent_id = body.get("agent_id")
+        if not agent_id:
+            return error_response("agent_id is required", 400)
+
+        capabilities = body.get("capabilities", [])
+        block_ms = body.get("block_ms", 5000)
+
+        try:
+            task = await _await_if_needed(
+                coordinator.claim_task(
+                    agent_id=agent_id,
+                    capabilities=capabilities,
+                    block_ms=block_ms,
+                )
+            )
+
+            if not task:
+                return json_response({"task": None})
+
+            self._emit_event(
+                "emit_task_claimed",
+                task_id=task.id,
+                agent_id=agent_id,
+            )
+
+            return json_response({"task": task.to_dict()})
+        except Exception as e:
+            logger.error(f"Error claiming task: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
     @api_endpoint(
         method="POST",
         path="/api/control-plane/tasks/{task_id}/complete",
@@ -233,7 +360,9 @@ class TaskHandlerMixin:
             return err
 
         # Check permission for task management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()
@@ -270,6 +399,52 @@ class TaskHandlerMixin:
             logger.error(f"Error completing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    async def _handle_complete_task_async(
+        self, task_id: str, body: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Mark task as completed (async context)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        result = body.get("result")
+        agent_id = body.get("agent_id")
+        latency_ms = body.get("latency_ms")
+
+        try:
+            success = await _await_if_needed(
+                coordinator.complete_task(
+                    task_id=task_id,
+                    result=result,
+                    agent_id=agent_id,
+                    latency_ms=latency_ms,
+                )
+            )
+
+            if not success:
+                return error_response(f"Task not found: {task_id}", 404)
+
+            self._emit_event(
+                "emit_task_completed",
+                task_id=task_id,
+                agent_id=agent_id or "unknown",
+                result=result,
+            )
+
+            return json_response({"completed": True})
+        except Exception as e:
+            logger.error(f"Error completing task: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
     @api_endpoint(
         method="POST",
         path="/api/control-plane/tasks/{task_id}/fail",
@@ -285,7 +460,9 @@ class TaskHandlerMixin:
             return err
 
         # Check permission for task management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()
@@ -325,6 +502,55 @@ class TaskHandlerMixin:
             logger.error(f"Error failing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    async def _handle_fail_task_async(
+        self, task_id: str, body: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Mark task as failed (async context)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        error = body.get("error", "Unknown error")
+        agent_id = body.get("agent_id")
+        latency_ms = body.get("latency_ms")
+        requeue = body.get("requeue", True)
+
+        try:
+            success = await _await_if_needed(
+                coordinator.fail_task(
+                    task_id=task_id,
+                    error=error,
+                    agent_id=agent_id,
+                    latency_ms=latency_ms,
+                    requeue=requeue,
+                )
+            )
+
+            if not success:
+                return error_response(f"Task not found: {task_id}", 404)
+
+            self._emit_event(
+                "emit_task_failed",
+                task_id=task_id,
+                agent_id=agent_id or "unknown",
+                error=error,
+                retries_left=0,
+            )
+
+            return json_response({"failed": True})
+        except Exception as e:
+            logger.error(f"Error failing task: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
     @api_endpoint(
         method="POST",
         path="/api/control-plane/tasks/{task_id}/cancel",
@@ -340,7 +566,9 @@ class TaskHandlerMixin:
             return err
 
         # Check permission for task management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()
@@ -349,6 +577,32 @@ class TaskHandlerMixin:
 
         try:
             success = _run_async(coordinator.cancel_task(task_id))
+
+            if not success:
+                return error_response(f"Task not found or already completed: {task_id}", 404)
+
+            return json_response({"cancelled": True})
+        except Exception as e:
+            logger.error(f"Error cancelling task: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
+    async def _handle_cancel_task_async(self, task_id: str, handler: Any) -> HandlerResult:
+        """Cancel a task (async context)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        try:
+            success = await _await_if_needed(coordinator.cancel_task(task_id))
 
             if not success:
                 return error_response(f"Task not found or already completed: {task_id}", 404)
@@ -367,9 +621,9 @@ class TaskHandlerMixin:
     @require_permission("controlplane:queue.read")
     def _handle_get_queue(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get current job queue (pending and running tasks)."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         try:
             from aragora.control_plane.scheduler import TaskStatus
@@ -485,7 +739,9 @@ class TaskHandlerMixin:
         if err:
             return err
 
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         from aragora.core.decision_results import get_decision_result
@@ -507,7 +763,9 @@ class TaskHandlerMixin:
         if err:
             return err
 
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         from aragora.core.decision_results import get_decision_status
@@ -528,7 +786,9 @@ class TaskHandlerMixin:
         if err:
             return err
 
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:tasks"
+        ):
             return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()

@@ -14,6 +14,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -52,6 +53,14 @@ class QueryResponse:
             "confidence": self.confidence,
             "query": self.query,
         }
+
+
+async def _get_user_state(user_id: str) -> Any:
+    """Resolve user state whether get_user_state is sync or async."""
+    state = get_user_state(user_id)
+    if inspect.isawaitable(state):
+        state = await state
+    return state
 
 
 class GmailQueryHandler(SecureHandler):
@@ -139,7 +148,7 @@ class GmailQueryHandler(SecureHandler):
 
     async def _handle_query(self, user_id: str, body: dict[str, Any]) -> HandlerResult:
         """Handle natural language query over email content."""
-        state = get_user_state(user_id)
+        state = await _get_user_state(user_id)
 
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
@@ -333,7 +342,7 @@ class GmailQueryHandler(SecureHandler):
         handler: Any,
     ) -> HandlerResult:
         """Handle voice input query."""
-        state = get_user_state(user_id)
+        state = await _get_user_state(user_id)
 
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
@@ -401,7 +410,7 @@ class GmailQueryHandler(SecureHandler):
         query_params: dict[str, Any],
     ) -> HandlerResult:
         """Get prioritized inbox list."""
-        state = get_user_state(user_id)
+        state = await _get_user_state(user_id)
 
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)

@@ -35,8 +35,16 @@ from functools import wraps
 from typing import Any, Callable
 
 from aragora.server.handlers.utils.responses import error_response, json_response
+from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+def extract_user_from_request(handler, user_store):
+    """Proxy extract_user_from_request for patching in tests without caching import."""
+    from aragora.billing import jwt_auth
+
+    return jwt_auth.extract_user_from_request(handler, user_store)
 
 
 def api_endpoint(
@@ -114,8 +122,6 @@ def rate_limit(*args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Call
         async def _stream_results(self, handler):
             ...
     """
-    from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
-
     decorator = _rate_limit(*args, **kwargs)
 
     def wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -242,8 +248,6 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Calla
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            from aragora.billing.jwt_auth import extract_user_from_request
-
             # Extract handler from kwargs or args
             handler = kwargs.get("handler")
             if handler is None and args:

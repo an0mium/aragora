@@ -198,10 +198,15 @@ class ProtocolMessageStore:
     - Time-range queries for audit trails
     - JSONL export for replay
     - Connection pooling with bounded size
+    - Non-blocking async methods via run_in_executor
 
     Thread Safety:
         Uses a connection pool for thread-safe database access. Each operation
         acquires a connection, performs the work, and returns it to the pool.
+
+    Async Safety:
+        All async methods use asyncio.run_in_executor() to avoid blocking the
+        event loop. For purely synchronous code, use the _sync suffix methods.
     """
 
     def __init__(self, db_path: str | None = None, max_connections: int = 5):
@@ -214,6 +219,7 @@ class ProtocolMessageStore:
         """
         self.db_path = db_path or ":memory:"
         self._pool = ConnectionPool(self.db_path, max_connections=max_connections)
+        self._executor = None  # Uses default ThreadPoolExecutor
         self._init_schema()
         logger.info(f"ProtocolMessageStore initialized: {self.db_path}")
 
@@ -224,6 +230,18 @@ class ProtocolMessageStore:
     def _return_connection(self, conn: sqlite3.Connection) -> None:
         """Return a connection to the pool."""
         self._pool.return_connection(conn)
+
+    async def _run_in_executor(self, func: functools.partial[T]) -> T:
+        """Run a blocking function in a thread pool executor.
+
+        Args:
+            func: Partial function to execute
+
+        Returns:
+            Result from the function
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, func)
 
     @contextmanager
     def _cursor(self) -> Iterator[sqlite3.Cursor]:
@@ -287,7 +305,9 @@ class ProtocolMessageStore:
 
     async def record(self, message: ProtocolMessage) -> str:
         """
-        Record a protocol message.
+        Record a protocol message (async, non-blocking).
+
+        Uses run_in_executor to avoid blocking the event loop.
 
         Args:
             message: The protocol message to record.
@@ -295,39 +315,7 @@ class ProtocolMessageStore:
         Returns:
             The message_id of the recorded message.
         """
-        with self._cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO protocol_messages (
-                    message_id, message_type, debate_id, agent_id, round_number,
-                    timestamp, correlation_id, parent_message_id, payload, metadata
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    message.message_id,
-                    message.message_type.value,
-                    message.debate_id,
-                    message.agent_id,
-                    message.round_number,
-                    message.timestamp.isoformat(),
-                    message.correlation_id,
-                    message.parent_message_id,
-                    (
-                        json.dumps(message.payload.to_dict())
-                        if message.payload and hasattr(message.payload, "to_dict")
-                        else json.dumps(message.payload)
-                        if message.payload
-                        else None
-                    ),
-                    json.dumps(message.metadata) if message.metadata else None,
-                ),
-            )
-
-        logger.debug(
-            f"Recorded protocol message: {message.message_type.value} "
-            f"for debate {message.debate_id[:8]}..."
-        )
-        return message.message_id
+        return await self._run_in_executor(functools.partial(self.record_sync, message))
 
     def record_sync(self, message: ProtocolMessage) -> str:
         """Synchronous version of record for non-async contexts."""
@@ -362,7 +350,9 @@ class ProtocolMessageStore:
 
     async def query(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
         """
-        Query protocol messages with filters.
+        Query protocol messages with filters (async, non-blocking).
+
+        Uses run_in_executor to avoid blocking the event loop.
 
         Args:
             filters: Query filters. If None, returns all messages.
@@ -370,6 +360,22 @@ class ProtocolMessageStore:
         Returns:
             List of matching protocol messages.
         """
+        return await self._run_in_executor(functools.partial(self._query_sync_impl, filters))
+
+    def query_sync(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
+        """Synchronous version of query."""
+        import asyncio
+
+        try:
+            asyncio.get_running_loop()
+            # We're in an async context, run synchronously
+            return self._query_sync_impl(filters)
+        except RuntimeError:
+            # No running loop, use asyncio.run
+            return asyncio.run(self.query(filters))
+
+    def _query_sync_impl(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
+        """Internal synchronous query implementation with full filter support."""
         filters = filters or QueryFilters()
         conditions: list[str] = []
         params: list[Any] = []
@@ -436,55 +442,15 @@ class ProtocolMessageStore:
 
         return [self._row_to_message(row) for row in rows]
 
-    def query_sync(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
-        """Synchronous version of query."""
-        import asyncio
-
-        try:
-            asyncio.get_running_loop()
-            # We're in an async context, run synchronously
-            return self._query_sync_impl(filters)
-        except RuntimeError:
-            # No running loop, use asyncio.run
-            return asyncio.run(self.query(filters))
-
-    def _query_sync_impl(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
-        """Internal synchronous query implementation."""
-        filters = filters or QueryFilters()
-        conditions: list[str] = []
-        params: list[Any] = []
-
-        if filters.debate_id:
-            conditions.append("debate_id = ?")
-            params.append(filters.debate_id)
-
-        if filters.agent_id:
-            conditions.append("agent_id = ?")
-            params.append(filters.agent_id)
-
-        if filters.message_type:
-            conditions.append("message_type = ?")
-            params.append(filters.message_type.value)
-
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-        order_direction = "DESC" if filters.order_desc else "ASC"
-
-        query = f"""
-            SELECT * FROM protocol_messages
-            WHERE {where_clause}
-            ORDER BY {filters.order_by} {order_direction}
-            LIMIT ? OFFSET ?
-        """
-        params.extend([filters.limit, filters.offset])
-
-        with self._cursor() as cursor:
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-
-        return [self._row_to_message(row) for row in rows]
-
     async def get(self, message_id: str) -> ProtocolMessage | None:
-        """Get a single message by ID."""
+        """Get a single message by ID (async, non-blocking).
+
+        Uses run_in_executor to avoid blocking the event loop.
+        """
+        return await self._run_in_executor(functools.partial(self._get_sync, message_id))
+
+    def _get_sync(self, message_id: str) -> ProtocolMessage | None:
+        """Synchronous version of get for non-async contexts."""
         with self._cursor() as cursor:
             cursor.execute(
                 "SELECT * FROM protocol_messages WHERE message_id = ?",
@@ -536,7 +502,14 @@ class ProtocolMessageStore:
         return await self.query(filters)
 
     async def count(self, filters: QueryFilters | None = None) -> int:
-        """Count messages matching filters."""
+        """Count messages matching filters (async, non-blocking).
+
+        Uses run_in_executor to avoid blocking the event loop.
+        """
+        return await self._run_in_executor(functools.partial(self._count_sync, filters))
+
+    def _count_sync(self, filters: QueryFilters | None = None) -> int:
+        """Synchronous version of count for non-async contexts."""
         filters = filters or QueryFilters()
         conditions: list[str] = []
         params: list[Any] = []
@@ -560,7 +533,9 @@ class ProtocolMessageStore:
 
     async def export_jsonl(self, debate_id: str, output_path: str) -> int:
         """
-        Export debate messages to JSONL file for replay.
+        Export debate messages to JSONL file for replay (async, non-blocking).
+
+        Uses run_in_executor to avoid blocking the event loop.
 
         Args:
             debate_id: The debate to export.
@@ -571,16 +546,21 @@ class ProtocolMessageStore:
         """
         messages = await self.get_debate_timeline(debate_id)
 
-        with open(output_path, "w") as f:
-            for msg in messages:
-                f.write(msg.to_json() + "\n")
+        def _write_sync() -> int:
+            with open(output_path, "w") as f:
+                for msg in messages:
+                    f.write(msg.to_json() + "\n")
+            return len(messages)
 
-        logger.info(f"Exported {len(messages)} messages to {output_path}")
-        return len(messages)
+        count = await self._run_in_executor(functools.partial(_write_sync))
+        logger.info(f"Exported {count} messages to {output_path}")
+        return count
 
     async def delete_debate(self, debate_id: str) -> int:
         """
-        Delete all messages for a debate.
+        Delete all messages for a debate (async, non-blocking).
+
+        Uses run_in_executor to avoid blocking the event loop.
 
         Args:
             debate_id: The debate to delete.
@@ -588,15 +568,18 @@ class ProtocolMessageStore:
         Returns:
             Number of messages deleted.
         """
+        count = await self._run_in_executor(functools.partial(self._delete_debate_sync, debate_id))
+        logger.info(f"Deleted {count} messages for debate {debate_id[:8]}...")
+        return count
+
+    def _delete_debate_sync(self, debate_id: str) -> int:
+        """Synchronous version of delete_debate for non-async contexts."""
         with self._cursor() as cursor:
             cursor.execute(
                 "DELETE FROM protocol_messages WHERE debate_id = ?",
                 (debate_id,),
             )
-            count = cursor.rowcount
-
-        logger.info(f"Deleted {count} messages for debate {debate_id[:8]}...")
-        return count
+            return cursor.rowcount
 
     async def cleanup_old(self, days: int = 30) -> int:
         """

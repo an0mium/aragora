@@ -14,6 +14,7 @@ from typing import Any
 from aragora.rbac.decorators import require_permission
 
 from .storage import (
+    _check_email_permission,
     _load_config_from_store,
     _save_config_to_store,
     _user_configs,
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 PERM_EMAIL_READ = "email:read"
 PERM_EMAIL_UPDATE = "email:update"
 
+_AUTH_CONTEXT_UNSET = object()
+
 # Import the module-level _prioritizer for reset
 import aragora.server.handlers.email.storage as storage_module
 
@@ -38,7 +41,7 @@ async def handle_add_vip(
     email: str | None = None,
     domain: str | None = None,
     workspace_id: str = "default",
-    auth_context: Any | None = None,
+    auth_context: Any | None = _AUTH_CONTEXT_UNSET,
 ) -> dict[str, Any]:
     """
     Add a VIP email or domain.
@@ -54,6 +57,11 @@ async def handle_add_vip(
 
     Now persists to SQLite for durability.
     """
+    if auth_context is not _AUTH_CONTEXT_UNSET:
+        perm_error = _check_email_permission(auth_context, PERM_EMAIL_UPDATE)
+        if perm_error:
+            return perm_error
+
     try:
         # Thread-safe config update
         with _user_configs_lock:
@@ -112,7 +120,7 @@ async def handle_remove_vip(
     email: str | None = None,
     domain: str | None = None,
     workspace_id: str = "default",
-    auth_context: Any | None = None,
+    auth_context: Any | None = _AUTH_CONTEXT_UNSET,
 ) -> dict[str, Any]:
     """
     Remove a VIP email or domain.
@@ -124,6 +132,11 @@ async def handle_remove_vip(
 
     Now persists removal to SQLite.
     """
+    if auth_context is not _AUTH_CONTEXT_UNSET:
+        perm_error = _check_email_permission(auth_context, PERM_EMAIL_UPDATE)
+        if perm_error:
+            return perm_error
+
     try:
         # Thread-safe config update
         with _user_configs_lock:

@@ -8,7 +8,7 @@ all workflow handler submodules.
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TYPE_CHECKING, cast
+from typing import Any, Literal, cast
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -23,21 +23,12 @@ from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.persistent_store import get_workflow_store, PersistentWorkflowStore
 from aragora.audit.unified import audit_data
 
-if TYPE_CHECKING:
-    from aragora.rbac import AuthorizationContext
-
 # Sentinel type for unauthenticated requests
 _UnauthenticatedSentinel = Literal["unauthenticated"]
 
-# RBAC imports
+# RBAC availability check
 try:
-    from aragora.rbac import (
-        AuthorizationContext,
-        check_permission,
-        PermissionDeniedError,
-        get_role_permissions,
-    )
-    from aragora.billing.auth import extract_user_from_request
+    import aragora.rbac  # noqa: F401
 
     RBAC_AVAILABLE = True
 except ImportError:

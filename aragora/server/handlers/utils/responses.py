@@ -46,6 +46,69 @@ class HandlerResult:
         if self.headers is None:
             self.headers = {}
 
+    @property
+    def status(self) -> int:
+        """Alias for status_code for compatibility with aiohttp-like responses."""
+        return self.status_code
+
+    def to_dict(self) -> dict:
+        """Return a structured dict with status and decoded JSON body."""
+        try:
+            body_data = json.loads(self.body.decode("utf-8")) if self.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            body_data = {}
+        return {
+            "status": self.status_code,
+            "body": body_data,
+            "headers": self.headers or {},
+            "content_type": self.content_type,
+        }
+
+    def _tuple_body(self) -> Any:
+        """Return a tuple-style body value (decoded JSON when applicable)."""
+        if self.body is None:
+            return b""
+        if self.content_type and "json" in self.content_type:
+            try:
+                raw = (
+                    self.body.decode("utf-8")
+                    if isinstance(self.body, (bytes, bytearray))
+                    else self.body
+                )
+                return json.loads(raw) if raw else {}
+            except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+                return self.body
+        return self.body
+
+    def __iter__(self) -> Any:
+        """Allow tuple-style unpacking (body, status, headers)."""
+        yield self._tuple_body()
+        yield self.status_code
+        yield self.headers or {}
+
+    def __getitem__(self, key: str | int) -> Any:
+        """Dictionary-like and tuple-style access for common response fields."""
+        if isinstance(key, int):
+            if key == 0:
+                return self._tuple_body()
+            if key == 1:
+                return self.status_code
+            if key == 2:
+                return self.headers or {}
+            raise IndexError(key)
+        if key == "status":
+            return self.status_code
+        if key == "body":
+            try:
+                return self.body.decode("utf-8") if self.body else ""
+            except (UnicodeDecodeError, AttributeError):
+                return self.body
+        if key == "headers":
+            return self.headers or {}
+        if key == "content_type":
+            return self.content_type
+        raise KeyError(key)
+
 
 def json_response(
     data: Any,

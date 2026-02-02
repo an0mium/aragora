@@ -13,6 +13,7 @@ Provides REST API endpoints for:
 from __future__ import annotations
 
 import logging
+import sys
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
@@ -23,10 +24,20 @@ from aragora.server.handlers.base import (
     safe_error_message,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
-from aragora.server.handlers.utils.decorators import has_permission, require_permission
+from aragora.server.handlers.utils.decorators import has_permission as _has_permission
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+
+def _get_has_permission():
+    control_plane = sys.modules.get("aragora.server.handlers.control_plane")
+    if control_plane is not None:
+        candidate = getattr(control_plane, "has_permission", None)
+        if callable(candidate):
+            return candidate
+    return _has_permission
 
 
 class HealthHandlerMixin:
@@ -59,7 +70,7 @@ class HealthHandlerMixin:
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
-        raise NotImplementedError
+        return super().require_auth_or_error(handler)
 
     # Attribute declaration - provided by BaseHandler
     ctx: dict[str, Any]
@@ -103,9 +114,9 @@ class HealthHandlerMixin:
     @require_permission("controlplane:health.read")
     def _handle_agent_health(self, agent_id: str) -> HandlerResult:
         """Get health status for specific agent."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         try:
             health = coordinator.get_agent_health(agent_id)
@@ -115,8 +126,7 @@ class HealthHandlerMixin:
 
             return json_response(health.to_dict())
         except Exception as e:
-            logger.error(f"Error getting agent health {agent_id}: {e}")
-            return error_response(safe_error_message(e, "control plane"), 500)
+            return self._handle_coordinator_error(e, f"agent_health:{agent_id}")
 
     @api_endpoint(
         method="GET",
@@ -422,7 +432,9 @@ class HealthHandlerMixin:
             return err
 
         # Check permission for audit access
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:audit"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:audit"
+        ):
             return error_response("Permission denied: controlplane:audit required", 403)
 
         try:
@@ -554,7 +566,9 @@ class HealthHandlerMixin:
             return err
 
         # Check permission for audit access
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:audit"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:audit"
+        ):
             return error_response("Permission denied: controlplane:audit required", 403)
 
         try:

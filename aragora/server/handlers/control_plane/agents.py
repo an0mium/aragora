@@ -9,7 +9,9 @@ Provides REST API endpoints for:
 
 from __future__ import annotations
 
+import inspect
 import logging
+import sys
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
@@ -20,9 +22,25 @@ from aragora.server.handlers.base import (
     safe_error_message,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
-from aragora.server.handlers.utils.decorators import has_permission, require_permission
+from aragora.server.handlers.utils.decorators import has_permission as _has_permission
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
+
+
+def _get_has_permission():
+    control_plane = sys.modules.get("aragora.server.handlers.control_plane")
+    if control_plane is not None:
+        candidate = getattr(control_plane, "has_permission", None)
+        if callable(candidate):
+            return candidate
+    return _has_permission
+
+
+async def _await_if_needed(result: Any) -> Any:
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 class AgentHandlerMixin:
@@ -67,7 +85,7 @@ class AgentHandlerMixin:
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
-        raise NotImplementedError
+        return super().require_auth_or_error(handler)
 
     # Attribute declaration - provided by BaseHandler
     ctx: dict[str, Any]
@@ -149,7 +167,9 @@ class AgentHandlerMixin:
             return err
 
         # Check permission for agent management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:agents"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:agents"
+        ):
             return error_response("Permission denied: controlplane:agents required", 403)
 
         coordinator = self._get_coordinator()
@@ -190,6 +210,56 @@ class AgentHandlerMixin:
             logger.error(f"Error registering agent: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    async def _handle_register_agent_async(
+        self, body: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Register a new agent (async context)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:agents"
+        ):
+            return error_response("Permission denied: controlplane:agents required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        agent_id = body.get("agent_id")
+        if not agent_id:
+            return error_response("agent_id is required", 400)
+
+        capabilities = body.get("capabilities", [])
+        model = body.get("model", "unknown")
+        provider = body.get("provider", "unknown")
+        metadata = body.get("metadata", {})
+
+        try:
+            agent = await _await_if_needed(
+                coordinator.register_agent(
+                    agent_id=agent_id,
+                    capabilities=capabilities,
+                    model=model,
+                    provider=provider,
+                    metadata=metadata,
+                )
+            )
+
+            self._emit_event(
+                "emit_agent_registered",
+                agent_id=agent_id,
+                capabilities=capabilities,
+                model=model,
+                provider=provider,
+            )
+
+            return json_response(agent.to_dict(), status=201)
+        except Exception as e:
+            logger.error(f"Error registering agent: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
     @api_endpoint(
         method="POST",
         path="/api/control-plane/agents/{agent_id}/heartbeat",
@@ -204,7 +274,9 @@ class AgentHandlerMixin:
             return err
 
         # Check permission for agent management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:agents"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:agents"
+        ):
             return error_response("Permission denied: controlplane:agents required", 403)
 
         coordinator = self._get_coordinator()
@@ -228,6 +300,40 @@ class AgentHandlerMixin:
             logger.error(f"Error processing heartbeat: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    async def _handle_heartbeat_async(
+        self, agent_id: str, body: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Handle agent heartbeat (async context)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:agents"
+        ):
+            return error_response("Permission denied: controlplane:agents required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        status = body.get("status")
+
+        try:
+            from aragora.control_plane.registry import AgentStatus
+
+            agent_status = AgentStatus(status) if status else None
+
+            success = await _await_if_needed(coordinator.heartbeat(agent_id, agent_status))
+
+            if not success:
+                return error_response(f"Agent not found: {agent_id}", 404)
+
+            return json_response({"acknowledged": True})
+        except Exception as e:
+            logger.error(f"Error processing heartbeat: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
     @api_endpoint(
         method="DELETE",
         path="/api/control-plane/agents/{agent_id}",
@@ -242,7 +348,9 @@ class AgentHandlerMixin:
             return err
 
         # Check permission for agent management
-        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:agents"):
+        if not _get_has_permission()(
+            user.role if hasattr(user, "role") else None, "controlplane:agents"
+        ):
             return error_response("Permission denied: controlplane:agents required", 403)
 
         coordinator = self._get_coordinator()

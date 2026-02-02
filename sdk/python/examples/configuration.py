@@ -41,9 +41,9 @@ def environment_variables() -> None:
     # Show current configuration
     print("Current Configuration:")
     print(f"  API URL: {os.environ.get('ARAGORA_API_URL', 'https://api.aragora.ai')}")
-    print(
-        f"  API Key: {'***' + os.environ.get('ARAGORA_API_KEY', 'not-set')[-4:] if os.environ.get('ARAGORA_API_KEY') else 'not-set'}"
-    )
+    api_key = os.environ.get("ARAGORA_API_KEY")
+    key_display = f"***{api_key[-4:]}" if api_key else "not-set"
+    print(f"  API Key: {key_display}")
     print(f"  Timeout: {os.environ.get('ARAGORA_TIMEOUT', '30')}s")
     print(f"  Log Level: {os.environ.get('ARAGORA_LOG_LEVEL', 'WARNING')}")
 

@@ -21,6 +21,7 @@ Routes:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import Any, cast, Callable, Coroutine
 
@@ -462,7 +463,12 @@ class GatewayHandler(BaseHandler):
         if not router:
             return error_response("Agent router not available", 503)
 
-        rules_result = run_async(router.list_rules()) if hasattr(router, "list_rules") else []
+        rules_result: Any = []
+        if hasattr(router, "list_rules"):
+            maybe_result = router.list_rules()
+            rules_result = (
+                run_async(maybe_result) if inspect.isawaitable(maybe_result) else maybe_result
+            )
         rules: list[Any] = list(rules_result) if rules_result else []
 
         return json_response(

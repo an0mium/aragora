@@ -190,13 +190,13 @@ class CrossPollinationMetricsHandler(BaseHandler):
             metrics_text = get_cross_pollination_metrics_text()
 
             # Return raw response dict for Prometheus format
-            return json_response(
-                {
-                    "status": "ok",
-                    "content_type": "text/plain; version=0.0.4; charset=utf-8",
-                    "metrics": metrics_text,
-                }
-            )
+            return {
+                "status": 200,
+                "body": metrics_text,
+                "headers": {
+                    "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+                },
+            }
 
         except ImportError:
             return error_response(
@@ -368,7 +368,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is None:
-                    ranking_adapter = RankingAdapter() # type: ignore[abstract]
+                    ranking_adapter = RankingAdapter()  # type: ignore[abstract]
                     setattr(manager, "_ranking_adapter", ranking_adapter)
 
                 stats = ranking_adapter.get_stats()

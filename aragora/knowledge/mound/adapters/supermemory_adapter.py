@@ -18,6 +18,7 @@ The adapter provides:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
@@ -32,6 +33,7 @@ from aragora.knowledge.mound.adapters._base import (
     AdapterCircuitBreakerConfig,
 )
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+from aragora.knowledge.mound.adapters._types import SyncResult
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +171,18 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         except ImportError:
             return None
 
+    def sync_to_km(self) -> SyncResult:
+        """No-op forward sync for external memory adapter.
+
+        Supermemory is an external persistence layer, not a KM source. This
+        method exists to satisfy the BidirectionalCoordinator interface
+        when the adapter is auto-registered via AdapterFactory.
+        """
+        start_time = time.time()
+        result = SyncResult(records_synced=0, records_skipped=0, records_failed=0)
+        result.duration_ms = (time.time() - start_time) * 1000
+        return result
+
     async def inject_context(
         self,
         debate_topic: str | None = None,
@@ -191,8 +205,6 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         if client is None:
             logger.debug("Supermemory client not available for context injection")
             return ContextInjectionResult()
-
-        import time
 
         start_time = time.time()
         limit = limit or self._max_context_items

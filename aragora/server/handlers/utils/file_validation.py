@@ -32,7 +32,6 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import PurePosixPath
-from typing import FrozenSet
 
 logger = logging.getLogger(__name__)
 
@@ -62,92 +61,166 @@ class FileValidationErrorCode(Enum):
 
 
 # MIME types allowed for upload (whitelist approach)
-ALLOWED_MIME_TYPES: FrozenSet[str] = frozenset({
-    # Documents
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
-    "application/rtf",
-    "application/vnd.oasis.opendocument.text",  # .odt
-    "application/vnd.oasis.opendocument.spreadsheet",  # .ods
-    "application/vnd.oasis.opendocument.presentation",  # .odp
-    # Text
-    "text/plain",
-    "text/csv",
-    "text/markdown",
-    "text/html",
-    "text/xml",
-    "text/x-python",
-    "text/x-java",
-    "text/x-c",
-    "text/x-c++",
-    "text/x-javascript",
-    "text/x-typescript",
-    # Data formats
-    "application/json",
-    "application/xml",
-    "application/x-yaml",
-    "text/yaml",
-    # Images (for OCR, documentation)
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-    "image/svg+xml",
-    "image/tiff",
-    "image/bmp",
-    # Audio (for transcription)
-    "audio/mpeg",
-    "audio/mp3",
-    "audio/wav",
-    "audio/x-wav",
-    "audio/webm",
-    "audio/ogg",
-    "audio/flac",
-    "audio/aac",
-    "audio/m4a",
-    "audio/x-m4a",
-    # Video (for transcription)
-    "video/mp4",
-    "video/webm",
-    "video/quicktime",
-    "video/x-msvideo",
-    "video/x-matroska",
-    # Archives (for batch processing)
-    "application/zip",
-    "application/x-tar",
-    "application/gzip",
-    "application/x-gzip",
-    # Generic binary (allow with extension check)
-    "application/octet-stream",
-})
+ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
+    {
+        # Documents
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
+        "application/rtf",
+        "application/vnd.oasis.opendocument.text",  # .odt
+        "application/vnd.oasis.opendocument.spreadsheet",  # .ods
+        "application/vnd.oasis.opendocument.presentation",  # .odp
+        # Text
+        "text/plain",
+        "text/csv",
+        "text/markdown",
+        "text/html",
+        "text/xml",
+        "text/x-python",
+        "text/x-java",
+        "text/x-c",
+        "text/x-c++",
+        "text/x-javascript",
+        "text/x-typescript",
+        # Data formats
+        "application/json",
+        "application/xml",
+        "application/x-yaml",
+        "text/yaml",
+        # Images (for OCR, documentation)
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/svg+xml",
+        "image/tiff",
+        "image/bmp",
+        # Audio (for transcription)
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/webm",
+        "audio/ogg",
+        "audio/flac",
+        "audio/aac",
+        "audio/m4a",
+        "audio/x-m4a",
+        # Video (for transcription)
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+        "video/x-msvideo",
+        "video/x-matroska",
+        # Archives (for batch processing)
+        "application/zip",
+        "application/x-tar",
+        "application/gzip",
+        "application/x-gzip",
+        # Generic binary (allow with extension check)
+        "application/octet-stream",
+    }
+)
 
 # Allowed file extensions (whitelist approach)
-ALLOWED_EXTENSIONS: FrozenSet[str] = frozenset({
-    # Documents
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".rtf", ".odt", ".ods", ".odp", ".epub",
-    # Text
-    ".txt", ".md", ".markdown", ".csv", ".html", ".htm", ".xml",
-    # Code (for indexing)
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".c", ".cpp", ".h", ".hpp",
-    ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".scala", ".r", ".jl",
-    ".sh", ".bash", ".zsh", ".sql", ".graphql", ".proto", ".ex", ".exs",
-    # Data formats
-    ".json", ".yaml", ".yml", ".toml", ".ini", ".conf", ".cfg",
-    # Images
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".tiff", ".tif", ".bmp", ".heic",
-    # Audio
-    ".mp3", ".m4a", ".wav", ".webm", ".ogg", ".flac", ".aac", ".wma",
-    # Video
-    ".mp4", ".mov", ".mkv", ".avi", ".wmv", ".m4v",
-    # Archives
-    ".zip", ".tar", ".gz", ".tgz",
-})
+ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        # Documents
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".rtf",
+        ".odt",
+        ".ods",
+        ".odp",
+        ".epub",
+        # Text
+        ".txt",
+        ".md",
+        ".markdown",
+        ".csv",
+        ".html",
+        ".htm",
+        ".xml",
+        # Code (for indexing)
+        ".py",
+        ".js",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".java",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".go",
+        ".rs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+        ".scala",
+        ".r",
+        ".jl",
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".sql",
+        ".graphql",
+        ".proto",
+        ".ex",
+        ".exs",
+        # Data formats
+        ".json",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".conf",
+        ".cfg",
+        # Images
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".svg",
+        ".tiff",
+        ".tif",
+        ".bmp",
+        ".heic",
+        # Audio
+        ".mp3",
+        ".m4a",
+        ".wav",
+        ".webm",
+        ".ogg",
+        ".flac",
+        ".aac",
+        ".wma",
+        # Video
+        ".mp4",
+        ".mov",
+        ".mkv",
+        ".avi",
+        ".wmv",
+        ".m4v",
+        # Archives
+        ".zip",
+        ".tar",
+        ".gz",
+        ".tgz",
+    }
+)
 
 # Dangerous patterns in filenames
 DANGEROUS_FILENAME_PATTERNS: tuple[re.Pattern, ...] = (
@@ -155,7 +228,9 @@ DANGEROUS_FILENAME_PATTERNS: tuple[re.Pattern, ...] = (
     re.compile(r"^\."),  # Hidden files (Unix)
     re.compile(r"[<>:\"|?*]"),  # Windows reserved characters
     re.compile(r"[\x00-\x1f]"),  # Control characters
-    re.compile(r"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\.|$)", re.IGNORECASE),  # Windows reserved names
+    re.compile(
+        r"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\.|$)", re.IGNORECASE
+    ),  # Windows reserved names
 )
 
 
@@ -250,7 +325,7 @@ def validate_file_size(
 
 def validate_mime_type(
     content_type: str | None,
-    allowed_types: FrozenSet[str] | None = None,
+    allowed_types: frozenset[str] | None = None,
 ) -> FileValidationResult:
     """
     Validate MIME type is in the allowed whitelist.
@@ -285,7 +360,7 @@ def validate_mime_type(
 
 def validate_extension(
     filename: str,
-    allowed_extensions: FrozenSet[str] | None = None,
+    allowed_extensions: frozenset[str] | None = None,
 ) -> FileValidationResult:
     """
     Validate file extension is in the allowed whitelist.
@@ -493,8 +568,8 @@ def validate_file_upload(
     size: int,
     content_type: str | None = None,
     max_size: int | None = None,
-    allowed_mime_types: FrozenSet[str] | None = None,
-    allowed_extensions: FrozenSet[str] | None = None,
+    allowed_mime_types: frozenset[str] | None = None,
+    allowed_extensions: frozenset[str] | None = None,
 ) -> FileValidationResult:
     """
     Comprehensive file upload validation.

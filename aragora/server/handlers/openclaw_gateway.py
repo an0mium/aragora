@@ -974,11 +974,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 result="success",
             )
 
-            logger.info(f"Created session {session.id} for user {user_id}")
+            logger.info("Created session %s for user %s", session.id, user_id)
             return json_response(session.to_dict(), status=201)
 
         except Exception as e:
-            logger.error(f"Error creating session: {e}")
+            logger.error("Error creating session: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:actions.execute")
@@ -1048,11 +1048,13 @@ class OpenClawGatewayHandler(BaseHandler):
             # For now, we just mark it as running
             store.update_action(action.id, status=ActionStatus.RUNNING)
 
-            logger.info(f"Created action {action.id} (type: {action_type}) in session {session_id}")
+            logger.info(
+                "Created action %s (type: %s) in session %s", action.id, action_type, session_id
+            )
             return json_response(action.to_dict(), status=202)
 
         except Exception as e:
-            logger.error(f"Error executing action: {e}")
+            logger.error("Error executing action: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:actions.cancel")
@@ -1095,11 +1097,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 result="success",
             )
 
-            logger.info(f"Cancelled action {action_id}")
+            logger.info("Cancelled action %s", action_id)
             return json_response({"cancelled": True, "action_id": action_id})
 
         except Exception as e:
-            logger.error(f"Error cancelling action {action_id}: {e}")
+            logger.error("Error cancelling action %s: %s", action_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:credentials.create")
@@ -1164,11 +1166,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 details={"name": name, "type": credential_type_str},
             )
 
-            logger.info(f"Stored credential {credential.id} ({name}) for user {user_id}")
+            logger.info("Stored credential %s (%s) for user %s", credential.id, name, user_id)
             return json_response(credential.to_dict(), status=201)
 
         except Exception as e:
-            logger.error(f"Error storing credential: {e}")
+            logger.error("Error storing credential: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:credentials.rotate")
@@ -1214,7 +1216,7 @@ class OpenClawGatewayHandler(BaseHandler):
                 result="success",
             )
 
-            logger.info(f"Rotated credential {credential_id}")
+            logger.info("Rotated credential %s", credential_id)
             return json_response(
                 {
                     "rotated": True,
@@ -1226,7 +1228,7 @@ class OpenClawGatewayHandler(BaseHandler):
             )
 
         except Exception as e:
-            logger.error(f"Error rotating credential {credential_id}: {e}")
+            logger.error("Error rotating credential %s: %s", credential_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     # =========================================================================
@@ -1248,7 +1250,7 @@ class OpenClawGatewayHandler(BaseHandler):
                 }
             )
         except Exception as e:
-            logger.error(f"Error getting policy rules: {e}")
+            logger.error("Error getting policy rules: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:policy.write")
@@ -1301,12 +1303,12 @@ class OpenClawGatewayHandler(BaseHandler):
                 details={"decision": decision, "action_types": action_types},
             )
 
-            logger.info(f"Added policy rule {name}")
+            logger.info("Added policy rule %s", name)
             result = rule.to_dict() if hasattr(rule, "to_dict") else rule
             return json_response(result, status=201)
 
         except Exception as e:
-            logger.error(f"Error adding policy rule: {e}")
+            logger.error("Error adding policy rule: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:policy.write")
@@ -1331,11 +1333,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 result="success",
             )
 
-            logger.info(f"Removed policy rule {rule_name}")
+            logger.info("Removed policy rule %s", rule_name)
             return json_response({"success": removed, "name": rule_name})
 
         except Exception as e:
-            logger.error(f"Error removing policy rule {rule_name}: {e}")
+            logger.error("Error removing policy rule %s: %s", rule_name, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:approvals.read")
@@ -1367,7 +1369,7 @@ class OpenClawGatewayHandler(BaseHandler):
                 }
             )
         except Exception as e:
-            logger.error(f"Error listing approvals: {e}")
+            logger.error("Error listing approvals: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:approvals.write")
@@ -1403,11 +1405,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 details={"approver_id": approver_id, "reason": reason},
             )
 
-            logger.info(f"Approved action {approval_id} by {approver_id}")
+            logger.info("Approved action %s by %s", approval_id, approver_id)
             return json_response({"success": success, "approval_id": approval_id})
 
         except Exception as e:
-            logger.error(f"Error approving action {approval_id}: {e}")
+            logger.error("Error approving action %s: %s", approval_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:approvals.write")
@@ -1443,11 +1445,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 details={"approver_id": approver_id, "reason": reason},
             )
 
-            logger.info(f"Denied action {approval_id} by {approver_id}")
+            logger.info("Denied action %s by %s", approval_id, approver_id)
             return json_response({"success": success, "approval_id": approval_id})
 
         except Exception as e:
-            logger.error(f"Error denying action {approval_id}: {e}")
+            logger.error("Error denying action %s: %s", approval_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:metrics.read")
@@ -1469,7 +1471,7 @@ class OpenClawGatewayHandler(BaseHandler):
                 }
             )
         except Exception as e:
-            logger.error(f"Error getting stats: {e}")
+            logger.error("Error getting stats: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:sessions.delete")
@@ -1505,11 +1507,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 result="success",
             )
 
-            logger.info(f"Ended session {session_id}")
+            logger.info("Ended session %s", session_id)
             return json_response({"success": True, "session_id": session_id})
 
         except Exception as e:
-            logger.error(f"Error ending session {session_id}: {e}")
+            logger.error("Error ending session %s: %s", session_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     # =========================================================================
@@ -1573,11 +1575,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 result="success",
             )
 
-            logger.info(f"Closed session {session_id}")
+            logger.info("Closed session %s", session_id)
             return json_response({"closed": True, "session_id": session_id})
 
         except Exception as e:
-            logger.error(f"Error closing session {session_id}: {e}")
+            logger.error("Error closing session %s: %s", session_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:credentials.delete")
@@ -1613,11 +1615,11 @@ class OpenClawGatewayHandler(BaseHandler):
                 result="success",
             )
 
-            logger.info(f"Deleted credential {credential_id}")
+            logger.info("Deleted credential %s", credential_id)
             return json_response({"deleted": True, "credential_id": credential_id})
 
         except Exception as e:
-            logger.error(f"Error deleting credential {credential_id}: {e}")
+            logger.error("Error deleting credential %s: %s", credential_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
 

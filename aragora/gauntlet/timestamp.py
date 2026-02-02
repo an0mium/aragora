@@ -19,8 +19,7 @@ import base64
 import hashlib
 import json
 import logging
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -183,7 +182,7 @@ class TimestampAuthority:
         or `pyasn1` packages would be used.
         """
         try:
-            from asn1crypto import tsp, algos, core
+            from asn1crypto import tsp, algos
 
             # Build proper ASN.1 timestamp request
             hash_oid_map = {
@@ -196,16 +195,20 @@ class TimestampAuthority:
             if not oid:
                 raise ValueError(f"No OID for algorithm: {self._hash_algorithm}")
 
-            msg_imprint = tsp.MessageImprint({
-                "hash_algorithm": algos.DigestAlgorithm({"algorithm": oid}),
-                "hashed_message": digest_bytes,
-            })
+            msg_imprint = tsp.MessageImprint(
+                {
+                    "hash_algorithm": algos.DigestAlgorithm({"algorithm": oid}),
+                    "hashed_message": digest_bytes,
+                }
+            )
 
-            ts_req = tsp.TimeStampReq({
-                "version": 1,
-                "message_imprint": msg_imprint,
-                "cert_req": True,
-            })
+            ts_req = tsp.TimeStampReq(
+                {
+                    "version": 1,
+                    "message_imprint": msg_imprint,
+                    "cert_req": True,
+                }
+            )
 
             return ts_req.dump()
 
@@ -216,12 +219,25 @@ class TimestampAuthority:
     def _build_minimal_ts_request(self, digest_bytes: bytes) -> bytes:
         """Build a minimal DER-encoded RFC 3161 timestamp request."""
         # SHA-256 OID: 2.16.840.1.101.3.4.2.1
-        sha256_oid = bytes([
-            0x30, 0x0D,  # SEQUENCE
-            0x06, 0x09,  # OID
-            0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
-            0x05, 0x00,  # NULL
-        ])
+        sha256_oid = bytes(
+            [
+                0x30,
+                0x0D,  # SEQUENCE
+                0x06,
+                0x09,  # OID
+                0x60,
+                0x86,
+                0x48,
+                0x01,
+                0x65,
+                0x03,
+                0x04,
+                0x02,
+                0x01,
+                0x05,
+                0x00,  # NULL
+            ]
+        )
 
         # MessageImprint: SEQUENCE { algorithm, hashedMessage }
         hash_octet = bytes([0x04, len(digest_bytes)]) + digest_bytes
@@ -375,12 +391,14 @@ class TimestampAuthority:
         else:
             raise ValueError(f"Unsupported hash algorithm: {hash_algorithm}")
 
-        token_payload = json.dumps({
-            "type": "local_timestamp",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "digest": digest,
-            "algorithm": hash_algorithm,
-        }).encode("utf-8")
+        token_payload = json.dumps(
+            {
+                "type": "local_timestamp",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "digest": digest,
+                "algorithm": hash_algorithm,
+            }
+        ).encode("utf-8")
 
         return TimestampToken(
             tsa_url="local",

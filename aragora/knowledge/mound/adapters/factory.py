@@ -241,6 +241,7 @@ def _init_specs() -> None:
     from .receipt_adapter import ReceiptAdapter
     from .rlm_adapter import RlmAdapter
     from .erc8004_adapter import ERC8004Adapter
+    from .supermemory_adapter import SupermemoryAdapter
 
     register_adapter_spec(
         AdapterSpec(
@@ -312,6 +313,18 @@ def _init_specs() -> None:
             reverse_method="find_related_decisions",
             priority=65,  # Medium-high priority - decision audit trail
             config_key="km_receipt_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="supermemory",
+            adapter_class=SupermemoryAdapter,
+            required_deps=[],  # Uses env-configured client
+            forward_method="sync_to_km",
+            reverse_method=None,
+            priority=15,  # Low priority - external memory persistence
+            enabled_by_default=False,  # Opt-in
         )
     )
 
@@ -653,6 +666,21 @@ class AdapterFactory:
                     mound=deps.get("mound"),
                     event_callback=self._event_callback,
                 )
+            elif spec.name == "supermemory":
+                from aragora.connectors.supermemory import SupermemoryConfig, SupermemoryClient
+
+                config = SupermemoryConfig.from_env()
+                if config is None:
+                    return None
+
+                client = SupermemoryClient(config)
+                adapter = adapter_class(
+                    client=client,
+                    config=config,
+                    min_importance_threshold=config.sync_threshold,
+                    enable_privacy_filter=config.privacy_filter_enabled,
+                    event_callback=self._event_callback,
+                )
             elif spec.name == "rlm":
                 adapter = adapter_class(
                     compressor=deps.get("compressor"),
@@ -710,6 +738,20 @@ class AdapterFactory:
                     return adapter_class(mound=deps.get("mound"))
                 elif spec.name == "receipt":
                     return adapter_class(mound=deps.get("mound"))
+                elif spec.name == "supermemory":
+                    from aragora.connectors.supermemory import SupermemoryConfig, SupermemoryClient
+
+                    config = SupermemoryConfig.from_env()
+                    if config is None:
+                        return None
+
+                    client = SupermemoryClient(config)
+                    return adapter_class(
+                        client=client,
+                        config=config,
+                        min_importance_threshold=config.sync_threshold,
+                        enable_privacy_filter=config.privacy_filter_enabled,
+                    )
                 elif spec.name == "rlm":
                     return adapter_class(compressor=deps.get("compressor"))
                 elif spec.name == "erc8004":

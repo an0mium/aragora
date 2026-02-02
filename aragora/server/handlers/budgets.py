@@ -76,7 +76,13 @@ class BudgetHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route budget requests to appropriate methods."""
-        method: str = getattr(handler, "command", "GET") if handler else "GET"
+        if isinstance(query_params, str):
+            method = query_params
+        else:
+            method = getattr(handler, "command", "GET") if handler else "GET"
+        if not isinstance(method, str):
+            method = "GET"
+        method = method.upper()
         # Authentication check
         from aragora.billing.jwt_auth import extract_user_from_request
 

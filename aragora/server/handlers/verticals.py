@@ -1,6 +1,8 @@
 """
 Vertical specialist endpoint handlers.
 
+Stability: STABLE
+
 Exposes the vertical specialist system for domain-specific AI agents.
 
 Endpoints:
@@ -12,11 +14,20 @@ Endpoints:
 - POST /api/verticals/:id/debate - Create vertical-specific debate
 - POST /api/verticals/:id/agent - Create specialist agent instance
 - GET /api/verticals/suggest - Suggest vertical for a task
+
+Features:
+- Circuit breaker pattern for registry access resilience
+- Rate limiting (60 requests/minute)
+- RBAC permission checks (verticals:read, verticals:update)
+- Comprehensive input validation with safe ID patterns
+- Error isolation (registry failures handled gracefully)
 """
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from typing import Any, cast
 
 from aragora.config import DEFAULT_ROUNDS
@@ -39,12 +50,179 @@ from .utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Circuit Breaker for Vertical Registry Access
+# =============================================================================
+
+
+class VerticalsCircuitBreaker:
+    """Circuit breaker for vertical registry access.
+
+    Prevents cascading failures when the vertical registry is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 3,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 2,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Verticals circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Verticals circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Verticals circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Verticals circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker instance for the vertical registry
+_circuit_breaker = VerticalsCircuitBreaker()
+_circuit_breaker_lock = threading.Lock()
+
+
+def get_verticals_circuit_breaker() -> VerticalsCircuitBreaker:
+    """Get the global circuit breaker for verticals registry."""
+    return _circuit_breaker
+
+
+def reset_verticals_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _circuit_breaker_lock:
+        _circuit_breaker.reset()
+
+
 class VerticalsHandler(SecureHandler):
-    """Handler for vertical specialist endpoints with RBAC protection."""
+    """Handler for vertical specialist endpoints with RBAC protection.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for registry access resilience
+    - Rate limiting (60 requests/minute)
+    - RBAC permission checks (verticals.read, verticals.update)
+    - Comprehensive input validation with safe ID patterns
+    """
+
+    # Input validation constants
+    MAX_TOPIC_LENGTH = 10000
+    MAX_AGENT_NAME_LENGTH = 100
+    MAX_ADDITIONAL_AGENTS = 10
+    MAX_TOOLS_COUNT = 50
+    MAX_FRAMEWORKS_COUNT = 20
+    MAX_KEYWORD_LENGTH = 200
+    MAX_TASK_LENGTH = 5000
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+        self._circuit_breaker = get_verticals_circuit_breaker()
 
     RESOURCE_TYPE = "verticals"
 
@@ -70,6 +248,10 @@ class VerticalsHandler(SecureHandler):
             return True
         return False
 
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
+        """Get the current status of the circuit breaker."""
+        return self._circuit_breaker.get_status()
+
     @require_permission("verticals:read")
     @rate_limit(requests_per_minute=60)
     async def handle(
@@ -92,6 +274,11 @@ class VerticalsHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response(str(e), 403)
+
+        # Check circuit breaker before proceeding
+        if not self._circuit_breaker.can_proceed():
+            logger.warning("Verticals circuit breaker is open, rejecting request")
+            return error_response("Service temporarily unavailable. Please try again later.", 503)
 
         # GET /api/verticals - List all verticals
         if path == "/api/verticals" and method == "GET":
@@ -155,15 +342,96 @@ class VerticalsHandler(SecureHandler):
 
         return None
 
-    def _get_registry(self) -> Any | None:
-        """Get the VerticalRegistry, handling import errors."""
+    def _get_registry_with_circuit_breaker(self) -> Any | None:
+        """Get the VerticalRegistry with circuit breaker tracking."""
         try:
             from aragora.verticals import VerticalRegistry
 
+            self._circuit_breaker.record_success()
             return VerticalRegistry
         except ImportError:
+            self._circuit_breaker.record_failure()
             logger.warning("Verticals module not available")
             return None
+        except Exception as e:
+            self._circuit_breaker.record_failure()
+            logger.error(f"Error loading verticals registry: {e}")
+            return None
+
+    def _get_registry(self) -> Any | None:
+        """Get the VerticalRegistry, handling import errors."""
+        return self._get_registry_with_circuit_breaker()
+
+    def _validate_keyword(self, keyword: str | None) -> tuple[bool, str]:
+        """Validate keyword parameter.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if keyword is None:
+            return True, ""
+        if len(keyword) > self.MAX_KEYWORD_LENGTH:
+            return False, f"keyword exceeds maximum length of {self.MAX_KEYWORD_LENGTH}"
+        return True, ""
+
+    def _validate_task(self, task: str | None) -> tuple[bool, str]:
+        """Validate task parameter.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if task is None:
+            return False, "Missing required parameter: task"
+        if not task.strip():
+            return False, "task cannot be empty"
+        if len(task) > self.MAX_TASK_LENGTH:
+            return False, f"task exceeds maximum length of {self.MAX_TASK_LENGTH}"
+        return True, ""
+
+    def _validate_topic(self, topic: str | None) -> tuple[bool, str]:
+        """Validate topic parameter.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if topic is None:
+            return False, "Missing required field: topic"
+        if not topic.strip():
+            return False, "topic cannot be empty"
+        if len(topic) > self.MAX_TOPIC_LENGTH:
+            return False, f"topic exceeds maximum length of {self.MAX_TOPIC_LENGTH}"
+        return True, ""
+
+    def _validate_agent_name(self, name: str | None) -> tuple[bool, str]:
+        """Validate agent name parameter.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if name is None:
+            return True, ""  # Name is optional
+        if len(name) > self.MAX_AGENT_NAME_LENGTH:
+            return False, f"agent name exceeds maximum length of {self.MAX_AGENT_NAME_LENGTH}"
+        # Validate safe characters
+        is_valid, err = validate_path_segment(name, "agent_name", SAFE_ID_PATTERN)
+        return is_valid, err
+
+    def _validate_additional_agents(self, agents: list | None) -> tuple[bool, str]:
+        """Validate additional agents list.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if agents is None:
+            return True, ""
+        if not isinstance(agents, list):
+            return False, "additional_agents must be a list"
+        if len(agents) > self.MAX_ADDITIONAL_AGENTS:
+            return (
+                False,
+                f"additional_agents exceeds maximum count of {self.MAX_ADDITIONAL_AGENTS}",
+            )
+        return True, ""
 
     def _list_verticals(self, query_params: dict[str, Any]) -> HandlerResult:
         """List all available verticals."""
@@ -179,8 +447,11 @@ class VerticalsHandler(SecureHandler):
             )
 
         try:
-            # Get optional keyword filter
+            # Get optional keyword filter with validation
             keyword = get_string_param(query_params, "keyword", None)
+            is_valid, err = self._validate_keyword(keyword)
+            if not is_valid:
+                return error_response(err, 400)
 
             if keyword:
                 # Filter by keyword
@@ -192,6 +463,7 @@ class VerticalsHandler(SecureHandler):
             else:
                 verticals = registry.list_all()
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
                     "verticals": [
@@ -206,9 +478,11 @@ class VerticalsHandler(SecureHandler):
             )
 
         except (KeyError, ValueError, TypeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Data error listing verticals: {e}")
             return error_response(safe_error_message(e, "list verticals"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error listing verticals: {e}")
             return error_response(safe_error_message(e, "list verticals"), 500)
 
@@ -223,11 +497,13 @@ class VerticalsHandler(SecureHandler):
             if spec is None:
                 available = registry.get_registered_ids()
                 return error_response(
-                    f"Vertical not found: {vertical_id}. Available: {', '.join(available)}", 404
+                    f"Vertical not found: {vertical_id}. Available: {', '.join(available)}",
+                    404,
                 )
 
             config = spec.config
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
                     "vertical_id": vertical_id,
@@ -245,9 +521,11 @@ class VerticalsHandler(SecureHandler):
             )
 
         except (KeyError, AttributeError, TypeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Data error getting vertical {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical"), 400)
         except (RuntimeError, OSError, ValueError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error getting vertical {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical"), 500)
 
@@ -265,6 +543,7 @@ class VerticalsHandler(SecureHandler):
             tools = config.tools
             enabled_tools = config.get_enabled_tools()
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
                     "vertical_id": vertical_id,
@@ -275,9 +554,11 @@ class VerticalsHandler(SecureHandler):
             )
 
         except (KeyError, AttributeError, TypeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Data error getting tools for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical tools"), 400)
         except (RuntimeError, OSError, ValueError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error getting tools for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical tools"), 500)
 
@@ -309,6 +590,7 @@ class VerticalsHandler(SecureHandler):
 
             frameworks = config.get_compliance_frameworks(level=level_enum)
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
                     "vertical_id": vertical_id,
@@ -318,11 +600,14 @@ class VerticalsHandler(SecureHandler):
             )
 
         except ImportError:
+            self._circuit_breaker.record_failure()
             return error_response("Compliance module not available", 503)
         except (KeyError, AttributeError, TypeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Data error getting compliance for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical compliance"), 400)
         except (RuntimeError, OSError, ValueError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error getting compliance for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical compliance"), 500)
 
@@ -333,8 +618,9 @@ class VerticalsHandler(SecureHandler):
             return error_response("Verticals module not available", 503)
 
         task = get_string_param(query_params, "task", None)
-        if not task:
-            return error_response("Missing required parameter: task", 400)
+        is_valid, err = self._validate_task(task)
+        if not is_valid:
+            return error_response(err, 400)
 
         try:
             suggested = registry.get_for_task(task)
@@ -351,6 +637,7 @@ class VerticalsHandler(SecureHandler):
             spec = registry.get(suggested)
             config = spec.config if spec else None
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
                     "suggestion": {
@@ -364,9 +651,11 @@ class VerticalsHandler(SecureHandler):
             )
 
         except (KeyError, AttributeError, TypeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Data error suggesting vertical: {e}")
             return error_response(safe_error_message(e, "suggest vertical"), 400)
         except (RuntimeError, OSError, ValueError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error suggesting vertical: {e}")
             return error_response(safe_error_message(e, "suggest vertical"), 500)
 
@@ -385,9 +674,28 @@ class VerticalsHandler(SecureHandler):
         if data is None:
             return error_response("Invalid or too large request body", 400)
 
+        # Validate topic
         topic = data.get("topic")
-        if not topic:
-            return error_response("Missing required field: topic", 400)
+        is_valid, err = self._validate_topic(topic)
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate agent name if provided
+        agent_name = data.get("agent_name")
+        is_valid, err = self._validate_agent_name(agent_name)
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate additional agents if provided
+        additional_agents = data.get("additional_agents", [])
+        is_valid, err = self._validate_additional_agents(additional_agents)
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate rounds
+        rounds = data.get("rounds", DEFAULT_ROUNDS)
+        if not isinstance(rounds, int) or rounds < 1 or rounds > 20:
+            return error_response("rounds must be an integer between 1 and 20", 400)
 
         try:
             # Import debate infrastructure
@@ -395,7 +703,8 @@ class VerticalsHandler(SecureHandler):
             from aragora.debate.orchestrator import Arena
 
             # Create specialist agent
-            agent_name = data.get("agent_name", f"{vertical_id}-specialist")
+            if agent_name is None:
+                agent_name = f"{vertical_id}-specialist"
             model = data.get("model")
             role = data.get("role", "specialist")
 
@@ -408,7 +717,6 @@ class VerticalsHandler(SecureHandler):
 
             # Get additional agents if specified
             agents = [specialist]
-            additional_agents = data.get("additional_agents", [])
 
             if additional_agents:
                 from aragora.agents.base import AgentType, create_agent
@@ -428,7 +736,7 @@ class VerticalsHandler(SecureHandler):
             # Create environment and protocol
             env = Environment(task=topic)
             protocol = DebateProtocol(
-                rounds=data.get("rounds", DEFAULT_ROUNDS),
+                rounds=rounds,
                 consensus=data.get("consensus", "weighted"),
             )
 
@@ -436,9 +744,10 @@ class VerticalsHandler(SecureHandler):
             arena = Arena(env, agents=agents, protocol=protocol)
             result = await arena.run()
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
-                    "debate_id": result.debate_id if hasattr(result, "debate_id") else None,
+                    "debate_id": (result.debate_id if hasattr(result, "debate_id") else None),
                     "vertical_id": vertical_id,
                     "topic": topic,
                     "consensus_reached": (
@@ -447,18 +756,21 @@ class VerticalsHandler(SecureHandler):
                     "final_answer": (
                         result.final_answer if hasattr(result, "final_answer") else None
                     ),
-                    "confidence": result.confidence if hasattr(result, "confidence") else 0.0,
+                    "confidence": (result.confidence if hasattr(result, "confidence") else 0.0),
                     "participants": [a.name for a in agents],
                 }
             )
 
         except ImportError as e:
+            self._circuit_breaker.record_failure()
             logger.error(f"Debate infrastructure not available: {e}")
             return error_response("Debate infrastructure not available", 503)
         except (ValueError, KeyError, TypeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Invalid data for debate creation in {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical debate"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error creating debate for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical debate"), 500)
 
@@ -477,9 +789,16 @@ class VerticalsHandler(SecureHandler):
         if data is None:
             return error_response("Invalid or too large request body", 400)
 
+        # Validate agent name if provided
+        name = data.get("name")
+        is_valid, err = self._validate_agent_name(name)
+        if not is_valid:
+            return error_response(err, 400)
+
         try:
             # Create specialist with provided config
-            name = data.get("name", f"{vertical_id}-agent")
+            if name is None:
+                name = f"{vertical_id}-agent"
             model = data.get("model")
             role = data.get("role", "specialist")
 
@@ -490,6 +809,7 @@ class VerticalsHandler(SecureHandler):
                 role=role,
             )
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
                     "agent": specialist.to_dict(),
@@ -504,11 +824,14 @@ class VerticalsHandler(SecureHandler):
             )
 
         except ValueError as e:
+            self._circuit_breaker.record_failure()
             return error_response(str(e), 400)
         except (KeyError, TypeError, AttributeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Data error creating agent for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical agent"), 400)
         except (RuntimeError, OSError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error creating agent for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical agent"), 500)
 
@@ -553,13 +876,24 @@ class VerticalsHandler(SecureHandler):
                 tools_data = data["tools"]
                 if not isinstance(tools_data, list):
                     return error_response("tools must be a list", 400)
+                if len(tools_data) > self.MAX_TOOLS_COUNT:
+                    return error_response(
+                        f"tools exceeds maximum count of {self.MAX_TOOLS_COUNT}", 400
+                    )
 
                 new_tools = []
                 for tool_data in tools_data:
                     if isinstance(tool_data, dict):
+                        # Validate tool name
+                        tool_name = tool_data.get("name", "")
+                        if tool_name and len(tool_name) > self.MAX_AGENT_NAME_LENGTH:
+                            return error_response(
+                                f"Tool name exceeds maximum length of {self.MAX_AGENT_NAME_LENGTH}",
+                                400,
+                            )
                         # Create new tool from data
                         tool = ToolConfig(
-                            name=tool_data.get("name", ""),
+                            name=tool_name,
                             description=tool_data.get("description", ""),
                             enabled=tool_data.get("enabled", True),
                             connector_type=tool_data.get("connector_type"),
@@ -574,6 +908,12 @@ class VerticalsHandler(SecureHandler):
                 frameworks_data = data["compliance_frameworks"]
                 if not isinstance(frameworks_data, list):
                     return error_response("compliance_frameworks must be a list", 400)
+                if len(frameworks_data) > self.MAX_FRAMEWORKS_COUNT:
+                    return error_response(
+                        f"compliance_frameworks exceeds maximum count of "
+                        f"{self.MAX_FRAMEWORKS_COUNT}",
+                        400,
+                    )
 
                 new_frameworks = []
                 for fw_data in frameworks_data:
@@ -600,6 +940,16 @@ class VerticalsHandler(SecureHandler):
                 if not isinstance(model_data, dict):
                     return error_response("model_config must be an object", 400)
 
+                # Validate temperature
+                temperature = model_data.get("temperature", config.model_config.temperature)
+                if not isinstance(temperature, (int, float)) or temperature < 0 or temperature > 2:
+                    return error_response("temperature must be a number between 0 and 2", 400)
+
+                # Validate max_tokens
+                max_tokens = model_data.get("max_tokens", config.model_config.max_tokens)
+                if not isinstance(max_tokens, int) or max_tokens < 1 or max_tokens > 200000:
+                    return error_response("max_tokens must be an integer between 1 and 200000", 400)
+
                 model_config = ModelConfig(
                     primary_model=model_data.get(
                         "primary_model", config.model_config.primary_model
@@ -607,21 +957,23 @@ class VerticalsHandler(SecureHandler):
                     primary_provider=model_data.get(
                         "primary_provider", config.model_config.primary_provider
                     ),
-                    temperature=model_data.get("temperature", config.model_config.temperature),
-                    max_tokens=model_data.get("max_tokens", config.model_config.max_tokens),
+                    temperature=temperature,
+                    max_tokens=max_tokens,
                 )
                 config.model_config = model_config
                 updates_applied.append("model_config")
 
             if not updates_applied:
                 return error_response(
-                    "No valid fields to update. Provide: tools, compliance_frameworks, or model_config",
+                    "No valid fields to update. Provide: tools, compliance_frameworks, "
+                    "or model_config",
                     400,
                 )
 
             # Log the update
             logger.info(f"Updated vertical {vertical_id} config: {updates_applied}")
 
+            self._circuit_breaker.record_success()
             return json_response(
                 {
                     "vertical_id": vertical_id,
@@ -638,11 +990,14 @@ class VerticalsHandler(SecureHandler):
             )
 
         except ImportError as e:
+            self._circuit_breaker.record_failure()
             logger.error(f"Verticals config module not available: {e}")
             return error_response("Verticals config module not available", 503)
         except (ValueError, KeyError, TypeError, AttributeError) as e:
+            self._circuit_breaker.record_failure()
             logger.warning(f"Data error updating config for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "update vertical config"), 400)
         except (RuntimeError, OSError) as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Unexpected error updating config for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "update vertical config"), 500)

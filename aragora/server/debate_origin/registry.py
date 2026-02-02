@@ -278,6 +278,13 @@ def register_debate_origin(
                 f"Redis connection failed: {e}",
             )
         logger.debug(f"Redis origin storage not available: {e}")
+    except Exception as e:
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "debate_origin",
+                f"Redis error: {e}",
+            )
+        logger.debug(f"Redis origin storage not available: {e}")
 
     logger.info(
         f"Registered debate origin: {debate_id} from {platform}:{channel_id} "
@@ -315,6 +322,8 @@ def get_debate_origin(debate_id: str) -> DebateOrigin | None:
         ValueError,
         json.JSONDecodeError,
     ) as e:
+        logger.debug(f"Redis origin lookup not available: {e}")
+    except Exception as e:
         logger.debug(f"Redis origin lookup not available: {e}")
 
     # Try PostgreSQL if configured

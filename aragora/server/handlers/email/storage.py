@@ -41,7 +41,7 @@ def _check_email_permission(
     """
     # Fail closed for write-sensitive operations if RBAC is unavailable.
     if not RBAC_AVAILABLE or auth_context is None:
-        if permission_key in {"email:write", "email:oauth"}:
+        if permission_key in {"email:write", "email:update", "email:oauth"}:
             return {
                 "success": False,
                 "error": "Permission denied: RBAC unavailable",

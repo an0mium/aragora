@@ -53,9 +53,9 @@ class CoordinatorHandler(SecureHandler):
     Requires authentication and memory:read permission (RBAC).
     """
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     ROUTES = [
         "/api/v1/memory/coordinator/metrics",

@@ -53,8 +53,37 @@ async def parse_json_body(
             ...
     """
     try:
-        # Check for empty body first
-        if request.content_length == 0 or request.content_length is None:
+        content_length = getattr(request, "content_length", None)
+        if content_length is None:
+            json_attr = getattr(request, "json", None)
+            if json_attr is not None:
+                try:
+                    parsed = await json_attr() if callable(json_attr) else json_attr
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.debug("Invalid JSON in %s: %s", context, e)
+                    return None, web.json_response(
+                        {"error": "Invalid JSON body", "code": "INVALID_JSON"},
+                        status=400,
+                    )
+            else:
+                body_bytes = await request.read()
+                if not body_bytes:
+                    if allow_empty:
+                        return {}, None
+                    logger.debug("Empty body in %s", context)
+                    return None, web.json_response(
+                        {"error": "Empty request body", "code": "EMPTY_BODY"},
+                        status=400,
+                    )
+                try:
+                    parsed = json.loads(body_bytes)
+                except json.JSONDecodeError as e:
+                    logger.debug("Invalid JSON in %s: %s", context, e)
+                    return None, web.json_response(
+                        {"error": "Invalid JSON body", "code": "INVALID_JSON"},
+                        status=400,
+                    )
+        elif content_length == 0:
             body_bytes = await request.read()
             if not body_bytes:
                 if allow_empty:
@@ -64,23 +93,25 @@ async def parse_json_body(
                     {"error": "Empty request body", "code": "EMPTY_BODY"},
                     status=400,
                 )
-            # Non-empty body, parse it
             try:
                 parsed = json.loads(body_bytes)
             except json.JSONDecodeError as e:
                 logger.debug("Invalid JSON in %s: %s", context, e)
                 return None, web.json_response(
-                    {"error": "Invalid JSON in request body", "code": "INVALID_JSON"},
+                    {"error": "Invalid JSON body", "code": "INVALID_JSON"},
                     status=400,
                 )
         else:
-            # Content-Length is set, use request.json()
             try:
-                parsed = await request.json()
-            except json.JSONDecodeError as e:
+                json_attr = getattr(request, "json", None)
+                if json_attr is not None and not callable(json_attr):
+                    parsed = json_attr
+                else:
+                    parsed = await request.json()
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
                 logger.debug("Invalid JSON in %s: %s", context, e)
                 return None, web.json_response(
-                    {"error": "Invalid JSON in request body", "code": "INVALID_JSON"},
+                    {"error": "Invalid JSON body", "code": "INVALID_JSON"},
                     status=400,
                 )
 
@@ -125,7 +156,36 @@ async def parse_json_body_allow_array(
         - If parsing fails: (None, web.Response with 400 error)
     """
     try:
-        if request.content_length == 0 or request.content_length is None:
+        content_length = getattr(request, "content_length", None)
+        if content_length is None:
+            json_attr = getattr(request, "json", None)
+            if json_attr is not None:
+                try:
+                    parsed = await json_attr() if callable(json_attr) else json_attr
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.debug("Invalid JSON in %s: %s", context, e)
+                    return None, web.json_response(
+                        {"error": "Invalid JSON body", "code": "INVALID_JSON"},
+                        status=400,
+                    )
+            else:
+                body_bytes = await request.read()
+                if not body_bytes:
+                    if allow_empty:
+                        return {}, None
+                    return None, web.json_response(
+                        {"error": "Empty request body", "code": "EMPTY_BODY"},
+                        status=400,
+                    )
+                try:
+                    parsed = json.loads(body_bytes)
+                except json.JSONDecodeError as e:
+                    logger.debug("Invalid JSON in %s: %s", context, e)
+                    return None, web.json_response(
+                        {"error": "Invalid JSON body", "code": "INVALID_JSON"},
+                        status=400,
+                    )
+        elif content_length == 0:
             body_bytes = await request.read()
             if not body_bytes:
                 if allow_empty:
@@ -139,16 +199,20 @@ async def parse_json_body_allow_array(
             except json.JSONDecodeError as e:
                 logger.debug("Invalid JSON in %s: %s", context, e)
                 return None, web.json_response(
-                    {"error": "Invalid JSON in request body", "code": "INVALID_JSON"},
+                    {"error": "Invalid JSON body", "code": "INVALID_JSON"},
                     status=400,
                 )
         else:
             try:
-                parsed = await request.json()
-            except json.JSONDecodeError as e:
+                json_attr = getattr(request, "json", None)
+                if json_attr is not None and not callable(json_attr):
+                    parsed = json_attr
+                else:
+                    parsed = await request.json()
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
                 logger.debug("Invalid JSON in %s: %s", context, e)
                 return None, web.json_response(
-                    {"error": "Invalid JSON in request body", "code": "INVALID_JSON"},
+                    {"error": "Invalid JSON body", "code": "INVALID_JSON"},
                     status=400,
                 )
 

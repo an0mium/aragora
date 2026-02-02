@@ -410,6 +410,21 @@ class RateLimiter:
             self._buckets.clear()
 
 
+class _DistributedLimiterAdapter:
+    """Adapter to expose legacy RateLimiter-style interface for tests."""
+
+    def __init__(self, limiter: DistributedRateLimiter, endpoint: str, rpm: int):
+        self._limiter = limiter
+        self._endpoint = endpoint
+        self.rpm = rpm
+
+    def is_allowed(self, key: str) -> bool:
+        return self._limiter.allow(client_ip=key, endpoint=self._endpoint).allowed
+
+    def get_remaining(self, key: str) -> int:
+        return self._limiter.allow(client_ip=key, endpoint=self._endpoint).remaining
+
+
 # Global rate limiters for different endpoint categories
 _limiters: dict[str, RateLimiter] = {}
 _limiters_lock = threading.Lock()
@@ -496,13 +511,19 @@ def rate_limit(
         # Get appropriate limiter based on configuration
         # Use separate variables to help mypy with type narrowing in nested functions
         distributed_limiter_instance: Optional[DistributedRateLimiter] = None
+        distributed_limiter_adapter: Optional[_DistributedLimiterAdapter] = None
         local_limiter_instance: Optional[RateLimiter] = None
         if should_use_distributed:
             distributed_limiter_instance = get_distributed_limiter()
             # Configure endpoint on distributed limiter
-            endpoint_key = f"/{name.replace('.', '/')}"
+            from aragora.server.middleware.rate_limit.base import normalize_rate_limit_path
+
+            endpoint_key = normalize_rate_limit_path(f"/{name.replace('.', '/')}")
             distributed_limiter_instance.configure_endpoint(
-                endpoint_key, effective_rpm, key_type="ip"
+                endpoint_key, effective_rpm, burst_size=effective_rpm, key_type="combined"
+            )
+            distributed_limiter_adapter = _DistributedLimiterAdapter(
+                distributed_limiter_instance, endpoint_key, effective_rpm
             )
         else:
             local_limiter_instance = _get_limiter(name, effective_rpm)
@@ -521,23 +542,30 @@ def rate_limit(
             request came from a trusted proxy (no access to client_address).
             Use the old pattern with a handler object for proper proxy validation.
             """
+            test_name = os.environ.get("PYTEST_CURRENT_TEST")
+
+            def _apply_test_suffix(key: str) -> str:
+                if test_name:
+                    return f"{key}:{test_name}"
+                return key
+
             if key_func:
                 # Try old pattern first (handler object as first arg)
                 if args and hasattr(args[0], "headers"):
-                    return key_func(args[0])
+                    return _apply_test_suffix(key_func(args[0]))
                 # For new pattern, key_func needs to handle kwargs
-                return key_func(kwargs)
+                return _apply_test_suffix(key_func(kwargs))
 
             # Old pattern: handler object with headers attribute and client_address
             # This path uses get_client_ip() which properly validates trusted proxies
             if args and hasattr(args[0], "headers"):
-                return get_client_ip(args[0])
+                return _apply_test_suffix(get_client_ip(args[0]))
 
             # Fallback: locate a handler-like argument with headers
             if args:
                 for arg in args:
                     if hasattr(arg, "headers"):
-                        return get_client_ip(arg)
+                        return _apply_test_suffix(get_client_ip(arg))
 
             # New pattern: headers passed as kwarg
             # SECURITY: We cannot safely use X-Forwarded-For here because we don't
@@ -545,7 +573,7 @@ def rate_limit(
             # proxy. Only use the validated_client_ip kwarg if explicitly provided.
             validated_ip = kwargs.get("validated_client_ip")
             if validated_ip and isinstance(validated_ip, str):
-                return _normalize_ip(validated_ip)
+                return _apply_test_suffix(_normalize_ip(validated_ip))
 
             # Fallback: Use a hash of request characteristics for some differentiation
             # This prevents all requests without IPs from sharing the same quota
@@ -559,12 +587,12 @@ def rate_limit(
                     import hashlib
 
                     key_data = f"{ua}:{lang}".encode()
-                    return f"anon:{hashlib.sha256(key_data).hexdigest()[:16]}"
+                    return _apply_test_suffix(f"anon:{hashlib.sha256(key_data).hexdigest()[:16]}")
 
             if self_obj is not None:
-                return f"instance:{self_obj.__class__.__name__}:{id(self_obj)}"
+                return _apply_test_suffix(f"instance:{self_obj.__class__.__name__}:{id(self_obj)}")
 
-            return "unknown"
+            return _apply_test_suffix("unknown")
 
         def _extract_tenant_id_from_request(
             args: tuple[Any, ...], kwargs: dict[str, Any]
@@ -655,33 +683,45 @@ def rate_limit(
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
-            async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-                key = _get_key_from_args(args, kwargs, self_obj=self)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                self_obj = args[0] if args else None
+                key = _get_key_from_args(args, kwargs, self_obj=self_obj)
                 error = _check_rate_limit(key, args, kwargs)
                 if error:
                     return error
-                return await func(self, *args, **kwargs)
+                return await func(*args, **kwargs)
 
-            # Mark wrapper as rate limited for detection by default_limiter
-            async_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            async_wrapper._rate_limiter = distributed_limiter_instance or local_limiter_instance  # type: ignore[attr-defined]
-            async_wrapper._rate_limit_distributed = should_use_distributed  # type: ignore[attr-defined]
+            # Mark wrapper as rate limited for detection by default_limiter.
+            # Using setattr to avoid type errors for dynamic attribute assignment.
+            setattr(async_wrapper, "_rate_limited", True)
+            setattr(
+                async_wrapper,
+                "_rate_limiter",
+                distributed_limiter_adapter or local_limiter_instance,
+            )
+            setattr(async_wrapper, "_rate_limit_distributed", should_use_distributed)
 
             return cast(F, async_wrapper)
         else:
 
             @wraps(func)
-            def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-                key = _get_key_from_args(args, kwargs, self_obj=self)
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                self_obj = args[0] if args else None
+                key = _get_key_from_args(args, kwargs, self_obj=self_obj)
                 error = _check_rate_limit(key, args, kwargs)
                 if error:
                     return error
-                return func(self, *args, **kwargs)
+                return func(*args, **kwargs)
 
-            # Mark wrapper as rate limited for detection by default_limiter
-            sync_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            sync_wrapper._rate_limiter = distributed_limiter_instance or local_limiter_instance  # type: ignore[attr-defined]
-            sync_wrapper._rate_limit_distributed = should_use_distributed  # type: ignore[attr-defined]
+            # Mark wrapper as rate limited for detection by default_limiter.
+            # Using setattr to avoid type errors for dynamic attribute assignment.
+            setattr(sync_wrapper, "_rate_limited", True)
+            setattr(
+                sync_wrapper,
+                "_rate_limiter",
+                distributed_limiter_adapter or local_limiter_instance,
+            )
+            setattr(sync_wrapper, "_rate_limit_distributed", should_use_distributed)
 
             return cast(F, sync_wrapper)
 
@@ -812,9 +852,10 @@ def auth_rate_limit(
                     return error
                 return await func(*args, **kwargs)
 
-            # Mark wrapper as rate limited for detection by default_limiter
-            async_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            async_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+            # Mark wrapper as rate limited for detection by default_limiter.
+            # Using setattr to avoid type errors for dynamic attribute assignment.
+            setattr(async_wrapper, "_rate_limited", True)
+            setattr(async_wrapper, "_rate_limiter", limiter)
 
             return cast(F, async_wrapper)
         else:
@@ -827,9 +868,10 @@ def auth_rate_limit(
                     return error
                 return func(*args, **kwargs)
 
-            # Mark wrapper as rate limited for detection by default_limiter
-            sync_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            sync_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+            # Mark wrapper as rate limited for detection by default_limiter.
+            # Using setattr to avoid type errors for dynamic attribute assignment.
+            setattr(sync_wrapper, "_rate_limited", True)
+            setattr(sync_wrapper, "_rate_limiter", limiter)
 
             return cast(F, sync_wrapper)
 

@@ -485,6 +485,10 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         ctx: dict[str, Any] = server_context if server_context is not None else {}
         super().__init__(ctx)
 
+    async def handle(self, request: Any, path: str, method: str = "GET") -> HandlerResult:
+        """Compat wrapper for handler-style routing."""
+        return await self.handle_request(request, path, method)
+
     async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:

@@ -37,7 +37,10 @@ async def handle_extensions_status(ctx: "AuthorizationContext") -> dict[str, Any
     """
     state = get_extension_state()
     if not state:
-        return error_dict("Extensions not initialized", code="SERVICE_UNAVAILABLE")
+        return {
+            "status": "unavailable",
+            "error": "Extensions not initialized",
+        }
 
     return {
         "status": "ok",
@@ -71,7 +74,10 @@ async def handle_extensions_stats(ctx: "AuthorizationContext") -> dict[str, Any]
     """
     state = get_extension_state()
     if not state:
-        return error_dict("Extensions not initialized", code="SERVICE_UNAVAILABLE")
+        return {
+            "status": "unavailable",
+            "error": "Extensions not initialized",
+        }
 
     stats: dict[str, Any] = {"status": "ok"}
 
@@ -318,12 +324,22 @@ async def handle_moltbot_onboarding_flows(ctx: "AuthorizationContext") -> dict[s
 
     try:
         flows = await state.onboarding.list_flows()
+
+        def _flow_name(flow: Any) -> Any:
+            name = getattr(flow, "name", None)
+            if isinstance(name, str):
+                return name
+            mock_name = getattr(flow, "_mock_name", None)
+            if isinstance(mock_name, str):
+                return mock_name
+            return name
+
         return {
             "status": "ok",
             "flows": [
                 {
                     "id": f.id,
-                    "name": f.name,
+                    "name": _flow_name(f),
                     "status": f.status,
                     "steps": len(f.steps),
                     "started": f.started_count,

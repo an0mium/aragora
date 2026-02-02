@@ -37,9 +37,9 @@ def _get_registry() -> "TemplateRegistry":
 class MarketplaceHandler(BaseHandler):
     """Handler for marketplace template operations."""
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     @require_permission("marketplace:read")
     def handle_list_templates(self) -> HandlerResult:

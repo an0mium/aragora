@@ -152,6 +152,8 @@ class OutputChannel:
         Special handling for URLs (webhook:https://...) to avoid splitting on
         the protocol colon.
         """
+        if channel_str.startswith(("http://", "https://")):
+            return cls(channel_type="webhook", channel_id=channel_str)
         if ":" not in channel_str:
             return cls(channel_type="webhook", channel_id=channel_str)
 
@@ -160,8 +162,15 @@ class OutputChannel:
         channel_type = parts[0].lower()
 
         # For webhooks with URLs, the rest is the channel_id
-        if channel_type == "webhook" or parts[1].startswith("http"):
-            return cls(channel_type=channel_type, channel_id=parts[1])
+        if (
+            channel_type == "webhook"
+            or channel_type in ("http", "https")
+            or parts[1].startswith("http")
+        ):
+            return cls(
+                channel_type="webhook" if channel_type in ("http", "https") else channel_type,
+                channel_id=parts[1] if channel_type == "webhook" else channel_str,
+            )
 
         # For other types, check for thread_id (type:id:thread_id)
         remaining = parts[1]
@@ -424,6 +433,8 @@ class OrchestrationHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response(str(e), 403)
+        except Exception:
+            return error_response("Authentication required", 401)
 
         # Check read permission
         try:
@@ -445,10 +456,15 @@ class OrchestrationHandler(SecureHandler):
         self,
         path: str,
         data: dict[str, Any],
-        query_params: dict[str, Any],
-        handler: Any,
+        query_params: dict[str, Any] | Any | None = None,
+        handler: Any | None = None,
     ) -> HandlerResult | None:
         """Route POST requests."""
+        if handler is None and query_params is not None and not isinstance(query_params, dict):
+            handler = query_params
+            query_params = {}
+        if query_params is None:
+            query_params = {}
         # Require authentication for all orchestration operations
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
