@@ -1177,6 +1177,9 @@ class TestCreateDebateBead:
         mock_bead_module.BeadPriority.LOW = "LOW"
         mock_bead_module.BeadType.DEBATE_DECISION = "DEBATE_DECISION"
 
+        # Pre-set the bead store on the arena to bypass _resolve_bead_store
+        arena._bead_store = mock_store
+
         with patch.dict("sys.modules", {"aragora.nomic.beads": mock_bead_module}):
             await arena._create_debate_bead(mock_result)
 
