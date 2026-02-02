@@ -257,6 +257,11 @@ async def handle_sso_callback(
             return error_response("No state parameter provided", status=400)
 
         # Validate state using OAuth state store (atomic get-and-delete)
+        # NOTE: State validation is timing-safe:
+        # - JWTOAuthStateStore uses hmac.compare_digest() for signature verification
+        # - InMemoryOAuthStateStore uses dictionary lookup (hash-based, constant-time)
+        # - SQLiteOAuthStateStore uses SQL index lookup (not timing-vulnerable)
+        # - RedisOAuthStateStore uses Redis key lookup (not timing-vulnerable)
         state_store = _get_sso_state_store()
         oauth_state = state_store.validate_and_consume(state)
 

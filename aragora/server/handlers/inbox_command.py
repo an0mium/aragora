@@ -165,10 +165,10 @@ class InboxCommandHandler:
                     self.gmail_connector = registry.resolve(GmailConnector)
                     logger.debug("Resolved GmailConnector from registry")
             except ImportError as e:
-                logger.debug(f"GmailConnector module not available: {e}")
+                logger.debug("GmailConnector module not available: %s", e)
             except (TypeError, RuntimeError) as e:
                 # TypeError: registry misconfiguration; RuntimeError: dependency issues
-                logger.debug(f"GmailConnector not available: {e}")
+                logger.debug("GmailConnector not available: %s", e)
 
         # Try to get or create EmailPrioritizer
         if self.prioritizer is None:
@@ -212,7 +212,7 @@ class InboxCommandHandler:
             )
         except (ValueError, KeyError, AttributeError) as e:
             # Auth extraction failed due to malformed token or missing fields
-            logger.warning(f"Auth extraction failed: {e}")
+            logger.warning("Auth extraction failed: %s", e)
             context = AuthorizationContext(
                 user_id="anonymous",
                 org_id=None,
@@ -231,7 +231,10 @@ class InboxCommandHandler:
 
         if not decision.allowed:
             logger.warning(
-                f"Permission denied: {permission} for user {context.user_id} - {decision.reason}"
+                "Permission denied: %s for user %s - %s",
+                permission,
+                context.user_id,
+                decision.reason,
             )
             raise web.HTTPForbidden(
                 text=f"Permission denied: {decision.reason}",
@@ -280,7 +283,7 @@ class InboxCommandHandler:
                 }
             )
         except Exception as e:
-            logger.exception(f"Failed to fetch inbox: {e}")
+            logger.exception("Failed to fetch inbox: %s", e)
             return web.json_response(
                 {"success": False, "error": str(e)},
                 status=500,
@@ -332,7 +335,7 @@ class InboxCommandHandler:
                 }
             )
         except Exception as e:
-            logger.exception(f"Failed to execute action: {e}")
+            logger.exception("Failed to execute action: %s", e)
             return web.json_response(
                 {"success": False, "error": str(e)},
                 status=500,

@@ -267,6 +267,16 @@ def get_client_ip(handler: Any) -> str:
     headers = getattr(handler, "headers", None)
     if headers and hasattr(headers, "get"):
         try:
+            # Cloudflare: trust only when a CF marker header is present
+            cf_ray = headers.get("CF-RAY") or headers.get("cf-ray")
+            cf_ip = headers.get("CF-Connecting-IP") or headers.get("cf-connecting-ip")
+            if cf_ray and cf_ip and isinstance(cf_ip, str):
+                return _normalize_ip(cf_ip.strip())
+
+            true_client_ip = headers.get("True-Client-IP") or headers.get("true-client-ip")
+            if cf_ray and true_client_ip and isinstance(true_client_ip, str):
+                return _normalize_ip(true_client_ip.strip())
+
             if remote_ip in TRUSTED_PROXIES:
                 # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
                 forwarded = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for") or ""

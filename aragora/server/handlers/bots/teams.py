@@ -49,6 +49,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
+from aragora.server.handlers.utils.auth_mixins import SecureEndpointMixin
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -1505,13 +1506,15 @@ Ready to make better decisions together!"""
             return False
 
 
-class TeamsHandler(BotHandlerMixin, SecureHandler):
+class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):
     """Handler for Microsoft Teams Bot endpoints.
 
     Uses BotHandlerMixin for shared auth/status patterns.
+    Uses SecureEndpointMixin for RBAC permission checks on management endpoints.
 
     RBAC Protected:
     - bots.read - required for status endpoint
+    - bots:manage - required for management endpoints (configure, install, uninstall)
 
     Note: Message webhook endpoints are authenticated via Bot Framework,
     not RBAC, since they are called by Microsoft servers directly.
@@ -1594,9 +1597,23 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Handle POST requests."""
+        """Handle POST requests.
+
+        Webhook endpoints (e.g., /messages) use platform signature verification,
+        not RBAC. Management endpoints (e.g., /configure) require bots:manage.
+        """
+        # Webhook endpoints - authenticated via Bot Framework JWT, not RBAC
         if path == "/api/v1/bots/teams/messages":
+            # Webhooks are verified via platform signatures, not user auth
             return await self._handle_messages(handler)
+
+        # Management endpoints would require RBAC:
+        # Example pattern for future management endpoints:
+        # if path == "/api/v1/bots/teams/configure":
+        #     _, perm_error = await self.require_permission_or_error(handler, "bots:manage")
+        #     if perm_error:
+        #         return perm_error
+        #     return await self._handle_configure(handler)
 
         return None
 

@@ -221,6 +221,15 @@ class ConfigValidator:
                         "(starting with postgresql:// or postgres://)"
                     )
 
+                # Validate PostgreSQL pool configuration
+                try:
+                    from aragora.storage.resilience import validate_postgres_pool_config
+
+                    pool_valid, pool_errors = validate_postgres_pool_config()
+                    errors.extend(pool_errors)
+                except ImportError:
+                    pass  # Resilience module not available
+
         # Check CORS configuration
         allowed_origins = os.getenv("ARAGORA_ALLOWED_ORIGINS", "")
         if is_production and not allowed_origins:
@@ -228,6 +237,20 @@ class ConfigValidator:
                 "ARAGORA_ALLOWED_ORIGINS not set in production. "
                 "CORS may block requests from web clients."
             )
+
+        # SECURITY: Enforce HTTPS origins in production
+        if is_production and allowed_origins:
+            origins_list = [o.strip() for o in allowed_origins.split(",") if o.strip()]
+            insecure_origins = [
+                o
+                for o in origins_list
+                if o.startswith("http://") and "localhost" not in o and "127.0.0.1" not in o
+            ]
+            if insecure_origins:
+                errors.append(
+                    f"SECURITY: Non-HTTPS origins in production: {', '.join(insecure_origins)}. "
+                    "All production origins must use HTTPS. Update ARAGORA_ALLOWED_ORIGINS to use https:// URLs."
+                )
 
         # Check rate limiting configuration
         rate_limit = os.getenv("ARAGORA_RATE_LIMIT")

@@ -46,7 +46,12 @@ import logging
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
-from aragora.server.handlers.base import BaseHandler, HandlerResult
+from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    safe_error_message,
+)
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 from aragora.server.handlers.utils.decorators import has_permission
 from aragora.observability.metrics import track_handler
@@ -92,6 +97,21 @@ class ControlPlaneHandler(
         if self.__class__.coordinator is not None:
             return self.__class__.coordinator
         return self.ctx.get("control_plane_coordinator")
+
+    def _require_coordinator(self) -> tuple[Any | None, HandlerResult | None]:
+        """Return coordinator and None, or None and error response if not initialized."""
+        coord = self._get_coordinator()
+        if not coord:
+            return None, error_response("Control plane not initialized", 503)
+        return coord, None
+
+    def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
+        """Unified error handler for coordinator operations."""
+        if isinstance(error, (ValueError, KeyError, AttributeError)):
+            logger.warning(f"Data error in {operation}: {type(error).__name__}: {error}")
+            return error_response(safe_error_message(error, "control plane"), 400)
+        logger.error(f"Error in {operation}: {error}")
+        return error_response(safe_error_message(error, "control plane"), 500)
 
     def _get_stream(self) -> Any | None:
         """Get the control plane stream server for event emissions."""

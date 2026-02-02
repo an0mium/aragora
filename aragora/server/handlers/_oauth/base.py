@@ -429,8 +429,7 @@ class OAuthHandler(
         """Redirect to frontend with tokens in URL fragment.
 
         Tokens in query params can leak via logs, referrers, and proxies.
-        We return an HTML page that sets window.location to a fragment URL
-        so tokens never reach the server in the request path.
+        Using a fragment keeps tokens client-side while allowing a 302 redirect.
         """
         params = urlencode(
             {
@@ -442,30 +441,17 @@ class OAuthHandler(
         )
         fragment_url = f"{redirect_url}#{params}"
 
-        body = f"""
-        <html>
-          <head>
-            <meta http-equiv="cache-control" content="no-store" />
-            <meta http-equiv="pragma" content="no-cache" />
-            <meta http-equiv="expires" content="0" />
-            <script>
-              window.location.replace({fragment_url!r});
-            </script>
-            <noscript>
-              <meta http-equiv="refresh" content="0;url={fragment_url}" />
-            </noscript>
-          </head>
-          <body>
-            Redirecting... If you are not redirected, <a href="{fragment_url}">continue</a>.
-          </body>
-        </html>
-        """
+        body = (
+            f'<html><head><meta http-equiv="refresh" content="0;url={fragment_url}"></head>'
+            f'<body>Redirecting... If you are not redirected, <a href="{fragment_url}">continue</a>.'
+            f"</body></html>"
+        )
 
         return HandlerResult(
-            status_code=200,
+            status_code=302,
             content_type="text/html",
             body=body.encode(),
-            headers={**self.OAUTH_NO_CACHE_HEADERS},
+            headers={"Location": fragment_url, **self.OAUTH_NO_CACHE_HEADERS},
         )
 
     def _redirect_with_error(self, error: str) -> HandlerResult:

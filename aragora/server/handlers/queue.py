@@ -119,6 +119,22 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/queue/")
 
+    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+        """Handle POST requests with tasks:write permission."""
+        _, perm_error = self.require_permission_or_error(handler, "tasks:write")
+        if perm_error:
+            return perm_error
+        # Delegate to async handle method
+        return None
+
+    def handle_get(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+        """Handle GET requests with tasks:read permission."""
+        _, perm_error = self.require_permission_or_error(handler, "tasks:read")
+        if perm_error:
+            return perm_error
+        # Delegate to async handle method
+        return None
+
     @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any | None = None

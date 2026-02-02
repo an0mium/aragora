@@ -42,6 +42,14 @@ class AgentHandlerMixin:
         """Get the control plane coordinator."""
         raise NotImplementedError
 
+    def _require_coordinator(self) -> tuple[Any | None, HandlerResult | None]:
+        """Return coordinator and None, or None and error response if not initialized."""
+        raise NotImplementedError
+
+    def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
+        """Unified error handler for coordinator operations."""
+        raise NotImplementedError
+
     def _get_stream(self) -> Any | None:
         """Get the control plane stream server."""
         raise NotImplementedError
@@ -77,9 +85,9 @@ class AgentHandlerMixin:
     @require_permission("controlplane:agents.read")
     def _handle_list_agents(self, query_params: dict[str, Any]) -> HandlerResult:
         """List registered agents."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         capability = query_params.get("capability")
         only_available = query_params.get("available", "true").lower() == "true"
@@ -98,15 +106,11 @@ class AgentHandlerMixin:
                     "total": len(agents),
                 }
             )
-        except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error listing agents: {type(e).__name__}: {e}")
-            return error_response(safe_error_message(e, "control plane"), 400)
         except (RuntimeError, TimeoutError) as e:
             logger.error(f"Runtime error listing agents: {type(e).__name__}: {e}")
             return error_response(safe_error_message(e, "control plane"), 503)
         except Exception as e:
-            logger.error(f"Error listing agents: {e}")
-            return error_response(safe_error_message(e, "control plane"), 500)
+            return self._handle_coordinator_error(e, "list_agents")
 
     @api_endpoint(
         method="GET",
@@ -117,9 +121,9 @@ class AgentHandlerMixin:
     @require_permission("controlplane:agents.read")
     def _handle_get_agent(self, agent_id: str) -> HandlerResult:
         """Get agent by ID."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         try:
             agent = _run_async(coordinator.get_agent(agent_id))
@@ -128,12 +132,8 @@ class AgentHandlerMixin:
                 return error_response(f"Agent not found: {agent_id}", 404)
 
             return json_response(agent.to_dict())
-        except (ValueError, KeyError, AttributeError) as e:
-            logger.warning(f"Data error getting agent {agent_id}: {type(e).__name__}: {e}")
-            return error_response(safe_error_message(e, "control plane"), 400)
         except Exception as e:
-            logger.error(f"Error getting agent {agent_id}: {e}")
-            return error_response(safe_error_message(e, "control plane"), 500)
+            return self._handle_coordinator_error(e, f"get_agent:{agent_id}")
 
     @api_endpoint(
         method="POST",

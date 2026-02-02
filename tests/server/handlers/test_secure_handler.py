@@ -848,20 +848,21 @@ class TestCORSPreflightWithCredentials:
         assert config.is_origin_allowed("null") is False
         assert config.is_origin_allowed("") is False
 
-    def test_cors_config_rejects_wildcard(self):
-        """Verify wildcard origin is rejected for security."""
+    def test_cors_config_rejects_wildcard_in_production(self):
+        """Verify wildcard origin is rejected in production for security."""
         import os
         from aragora.server.cors_config import CORSConfig
 
         # Temporarily set environment with wildcard
-        original = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "")
+        original_origins = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "")
         try:
             os.environ["ARAGORA_ALLOWED_ORIGINS"] = "*"
+            # Use _env_mode parameter to simulate production
             with pytest.raises(ValueError, match="Wildcard origin"):
-                CORSConfig()
+                CORSConfig(_env_mode="production")
         finally:
-            if original:
-                os.environ["ARAGORA_ALLOWED_ORIGINS"] = original
+            if original_origins:
+                os.environ["ARAGORA_ALLOWED_ORIGINS"] = original_origins
             else:
                 os.environ.pop("ARAGORA_ALLOWED_ORIGINS", None)
 

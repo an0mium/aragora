@@ -87,7 +87,7 @@ class OTelBridgeConfig:
     """
 
     enabled: bool = False
-    endpoint: str = "http://localhost:4317"
+    endpoint: str = ""  # Must be set via OTEL_EXPORTER_OTLP_ENDPOINT or ARAGORA_OTLP_ENDPOINT
     service_name: str = "aragora"
     service_version: str = "1.0.0"
     environment: str = "development"
@@ -114,9 +114,16 @@ class OTelBridgeConfig:
         enabled = bool(otel_endpoint) or (aragora_exporter != "none")
 
         # Get endpoint - standard OTEL takes precedence
-        endpoint = (
-            otel_endpoint or os.environ.get("ARAGORA_OTLP_ENDPOINT") or "http://localhost:4317"
-        )
+        endpoint = otel_endpoint or os.environ.get("ARAGORA_OTLP_ENDPOINT") or ""
+
+        # Warn if OTEL appears enabled but no endpoint is configured
+        if enabled and not endpoint:
+            logger.warning(
+                "OpenTelemetry export appears enabled (ARAGORA_OTLP_EXPORTER=%s) but no endpoint configured. "
+                "Set OTEL_EXPORTER_OTLP_ENDPOINT or ARAGORA_OTLP_ENDPOINT. Disabling OTEL export.",
+                aragora_exporter,
+            )
+            enabled = False
 
         # Service name
         service_name = (
@@ -268,6 +275,13 @@ def init_otel_bridge(config: OTelBridgeConfig | None = None) -> bool:
 
     if not config.enabled:
         logger.debug("OpenTelemetry bridge disabled (no OTEL endpoint configured)")
+        return False
+
+    if not config.endpoint:
+        logger.error(
+            "OpenTelemetry enabled but no endpoint configured. "
+            "Set OTEL_EXPORTER_OTLP_ENDPOINT or ARAGORA_OTLP_ENDPOINT environment variable."
+        )
         return False
 
     # Try unified OTel setup first (preferred path for consistent configuration)

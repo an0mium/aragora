@@ -170,10 +170,10 @@ async def get_email_integration_for_org(org_id: str | None = None) -> EmailInteg
                     )
 
                 _org_email_cache.set(org_id, integration)
-                logger.info(f"Email integration loaded for org {org_id}")
+                logger.info("Email integration loaded for org %s", org_id)
                 return integration
             except Exception as e:
-                logger.warning(f"Failed to create email integration for org {org_id}: {e}")
+                logger.warning("Failed to create email integration for org %s: %s", org_id, e)
 
     # Fall back to system-wide config from environment
     return _get_system_email_integration()
@@ -199,9 +199,9 @@ def _get_system_email_integration() -> EmailIntegration | None:
                 from_name=os.getenv("SMTP_FROM_NAME", "Aragora Debates"),
             )
             _system_email_integration = EmailIntegration(config)
-            logger.info(f"System email integration initialized with host: {smtp_host}")
+            logger.info("System email integration initialized with host: %s", smtp_host)
         except Exception as e:
-            logger.warning(f"Failed to initialize system email integration: {e}")
+            logger.warning("Failed to initialize system email integration: %s", e)
 
     return _system_email_integration
 
@@ -238,10 +238,10 @@ async def get_telegram_integration_for_org(
                 )
                 integration = TelegramIntegration(config)
                 _org_telegram_cache.set(org_id, integration)
-                logger.info(f"Telegram integration loaded for org {org_id}")
+                logger.info("Telegram integration loaded for org %s", org_id)
                 return integration
             except Exception as e:
-                logger.warning(f"Failed to create telegram integration for org {org_id}: {e}")
+                logger.warning("Failed to create telegram integration for org %s: %s", org_id, e)
 
     # Fall back to system-wide config from environment
     return _get_system_telegram_integration()
@@ -262,7 +262,7 @@ def _get_system_telegram_integration() -> TelegramIntegration | None:
             _system_telegram_integration = TelegramIntegration(config)
             logger.info("System telegram integration initialized")
         except Exception as e:
-            logger.warning(f"Failed to initialize system telegram integration: {e}")
+            logger.warning("Failed to initialize system telegram integration: %s", e)
 
     return _system_telegram_integration
 
@@ -271,7 +271,7 @@ def invalidate_org_integration_cache(org_id: str) -> None:
     """Invalidate cached integrations when config changes."""
     _org_email_cache.invalidate(org_id)
     _org_telegram_cache.invalidate(org_id)
-    logger.debug(f"Invalidated integration cache for org {org_id}")
+    logger.debug("Invalidated integration cache for org %s", org_id)
 
 
 # =============================================================================
@@ -293,7 +293,7 @@ def configure_email_integration(config: EmailConfig) -> EmailIntegration:
     """Configure system-wide email integration (backward compatibility)."""
     global _system_email_integration
     _system_email_integration = EmailIntegration(config)
-    logger.info(f"System email integration configured with host: {config.smtp_host}")
+    logger.info("System email integration configured with host: %s", config.smtp_host)
     return _system_email_integration
 
 
@@ -343,7 +343,7 @@ class NotificationsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _notifications_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for notifications endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for notifications endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # SECURITY: Use SecureHandler's auth method for consistent RBAC
@@ -361,13 +361,13 @@ class NotificationsHandler(SecureHandler):
         if path == "/api/v1/notifications/status":
             # SECURITY: Log access with org context for audit trail
             logger.info(
-                f"Notifications status accessed by user {user.user_id} in org {user.org_id}"
+                "Notifications status accessed by user %s in org %s", user.user_id, user.org_id
             )
             return self._get_status(user.org_id)
 
         if path == "/api/v1/notifications/email/recipients":
             # SECURITY: Log recipient list access with org context for audit trail
-            logger.info(f"Email recipients accessed by user {user.user_id} in org {user.org_id}")
+            logger.info("Email recipients accessed by user %s in org %s", user.user_id, user.org_id)
             return self._get_email_recipients(user.org_id)
 
         return None
@@ -383,7 +383,7 @@ class NotificationsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _notifications_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for notifications endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for notifications endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Require authentication for all POST endpoints
@@ -399,23 +399,23 @@ class NotificationsHandler(SecureHandler):
             return perm_err
 
         if path == "/api/v1/notifications/email/config":
-            logger.info(f"Email config modified by user {user.user_id} in org {user.org_id}")
+            logger.info("Email config modified by user %s in org %s", user.user_id, user.org_id)
             return self._configure_email(handler, user.org_id)
 
         if path == "/api/v1/notifications/telegram/config":
-            logger.info(f"Telegram config modified by user {user.user_id} in org {user.org_id}")
+            logger.info("Telegram config modified by user %s in org %s", user.user_id, user.org_id)
             return self._configure_telegram(handler, user.org_id)
 
         if path == "/api/v1/notifications/email/recipient":
-            logger.info(f"Email recipient added by user {user.user_id} in org {user.org_id}")
+            logger.info("Email recipient added by user %s in org %s", user.user_id, user.org_id)
             return self._add_email_recipient(handler, user.org_id)
 
         if path == "/api/v1/notifications/test":
-            logger.info(f"Test notification sent by user {user.user_id}")
+            logger.info("Test notification sent by user %s", user.user_id)
             return self._send_test_notification(handler)
 
         if path == "/api/v1/notifications/send":
-            logger.info(f"Notification sent by user {user.user_id}")
+            logger.info("Notification sent by user %s", user.user_id)
             return self._send_notification(handler)
 
         return None
@@ -439,7 +439,7 @@ class NotificationsHandler(SecureHandler):
             return perm_err
 
         if path == "/api/v1/notifications/email/recipient":
-            logger.info(f"Email recipient removed by user {user.user_id} in org {user.org_id}")
+            logger.info("Email recipient removed by user %s in org %s", user.user_id, user.org_id)
             return self._remove_email_recipient(handler, query_params, user.org_id)
 
         return None
@@ -475,7 +475,7 @@ class NotificationsHandler(SecureHandler):
                 finally:
                     loop.close()
         except Exception as e:
-            logger.warning(f"Failed to get integrations for org {org_id}: {e}")
+            logger.warning("Failed to get integrations for org %s: %s", org_id, e)
             email, telegram = None, None
 
         # Log org context for debugging tenant isolation issues

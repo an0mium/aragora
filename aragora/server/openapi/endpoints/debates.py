@@ -598,4 +598,520 @@ DEBATE_ENDPOINTS = {
             },
         },
     },
+    # ===========================================================================
+    # v1 API Endpoints (SDK Compatibility)
+    # ===========================================================================
+    "/api/v1/debates/{id}/consensus": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get consensus information",
+            "operationId": "getDebateConsensusV1",
+            "description": "Get consensus status and conclusion for a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Consensus data",
+                    {
+                        "reached": {"type": "boolean"},
+                        "conclusion": {"type": "string", "nullable": True},
+                        "confidence": {"type": "number"},
+                        "dissent": {"type": "array", "items": {"type": "string"}},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/explainability": {
+        "get": {
+            "tags": ["Explainability"],
+            "summary": "Get explainability data",
+            "operationId": "getDebateExplainabilityV1",
+            "description": "Get explainability data for a debate decision.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Explainability data",
+                    {
+                        "debate_id": {"type": "string"},
+                        "narrative": {"type": "string"},
+                        "factors": {"type": "array", "items": {"type": "object"}},
+                        "confidence": {"type": "number"},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/explainability/factors": {
+        "get": {
+            "tags": ["Explainability"],
+            "summary": "Get factor decomposition",
+            "operationId": "getDebateExplainabilityFactorsV1",
+            "description": "Get factor decomposition for a debate decision.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Factors",
+                    {
+                        "factors": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "weight": {"type": "number"},
+                                    "description": {"type": "string"},
+                                    "evidence": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                        },
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/explainability/narrative": {
+        "get": {
+            "tags": ["Explainability"],
+            "summary": "Get narrative explanation",
+            "operationId": "getDebateExplainabilityNarrativeV1",
+            "description": "Get natural language narrative explanation.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Narrative",
+                    {
+                        "text": {"type": "string"},
+                        "key_points": {"type": "array", "items": {"type": "string"}},
+                        "audience_level": {"type": "string"},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/explainability/provenance": {
+        "get": {
+            "tags": ["Explainability"],
+            "summary": "Get provenance chain",
+            "operationId": "getDebateExplainabilityProvenanceV1",
+            "description": "Get provenance chain for debate claims.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Provenance",
+                    {
+                        "claims": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {"type": "string"},
+                                    "sources": {"type": "array", "items": {"type": "string"}},
+                                    "confidence": {"type": "number"},
+                                    "agent": {"type": "string"},
+                                },
+                            },
+                        },
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/explainability/counterfactual": {
+        "get": {
+            "tags": ["Explainability"],
+            "summary": "Get counterfactual analysis",
+            "operationId": "getDebateExplainabilityCounterfactualV1",
+            "description": "Get counterfactual analysis for a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Counterfactual scenarios",
+                    {
+                        "scenarios": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "condition": {"type": "string"},
+                                    "outcome": {"type": "string"},
+                                    "probability": {"type": "number"},
+                                },
+                            },
+                        },
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+        "post": {
+            "tags": ["Explainability"],
+            "summary": "Create counterfactual scenario",
+            "operationId": "createDebateCounterfactualV1",
+            "description": "Create a counterfactual scenario for analysis.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+                "content": {
+                    "application/json": {"schema": {"type": "object", "additionalProperties": True}}
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Counterfactual result",
+                    {
+                        "predicted_outcome": {"type": "string"},
+                        "confidence": {"type": "number"},
+                        "impact_analysis": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/rhetorical": {
+        "get": {
+            "tags": ["Auditing"],
+            "summary": "Get rhetorical analysis",
+            "operationId": "getDebateRhetoricalV1",
+            "description": "Get rhetorical pattern observations for a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Rhetorical analysis",
+                    {
+                        "debate_id": {"type": "string"},
+                        "observations": {"type": "array", "items": {"type": "object"}},
+                        "summary": {"type": "object"},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/trickster": {
+        "get": {
+            "tags": ["Auditing"],
+            "summary": "Get trickster status",
+            "operationId": "getDebateTricksterV1",
+            "description": "Get hollow consensus detection status from Trickster.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Trickster status",
+                    {
+                        "debate_id": {"type": "string"},
+                        "hollow_consensus_detected": {"type": "boolean"},
+                        "confidence": {"type": "number"},
+                        "indicators": {"type": "array", "items": {"type": "object"}},
+                        "recommendation": {"type": "string", "nullable": True},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debate/{id}/meta-critique": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get meta-critique",
+            "operationId": "getDebateMetaCritiqueV1",
+            "description": "Get meta-level critique analyzing the debate's reasoning quality.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Meta-critique",
+                    {
+                        "debate_id": {"type": "string"},
+                        "quality_score": {"type": "number"},
+                        "critique": {"type": "string"},
+                        "strengths": {"type": "array", "items": {"type": "string"}},
+                        "weaknesses": {"type": "array", "items": {"type": "string"}},
+                        "recommendations": {"type": "array", "items": {"type": "string"}},
+                        "agent_performance": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/archive": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Archive debate",
+            "operationId": "archiveDebateV1",
+            "description": "Archive a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response("Archive result", {"success": {"type": "boolean"}}),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/clone": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Clone debate",
+            "operationId": "cloneDebateV1",
+            "description": "Clone a debate with fresh state.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "preserveAgents": {"type": "boolean"},
+                                "preserveContext": {"type": "boolean"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Clone result", {"debate_id": {"type": "string"}}),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/evidence": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Add evidence",
+            "operationId": "addDebateEvidenceV1",
+            "description": "Add evidence to a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "evidence": {"type": "string"},
+                                "source": {"type": "string"},
+                                "metadata": {"type": "object"},
+                            },
+                            "required": ["evidence"],
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Evidence added",
+                    {"evidence_id": {"type": "string"}, "success": {"type": "boolean"}},
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/messages": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Add message",
+            "operationId": "addDebateMessageV1",
+            "description": "Add a message to a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string"},
+                                "role": {"type": "string"},
+                            },
+                            "required": ["content"],
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Message", {"$ref": "#/components/schemas/Message"}),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/pause": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Pause debate",
+            "operationId": "pauseDebateV1",
+            "description": "Pause a running debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Pause result",
+                    {"success": {"type": "boolean"}, "status": {"type": "string"}},
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/resume": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Resume debate",
+            "operationId": "resumeDebateV1",
+            "description": "Resume a paused debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Resume result",
+                    {"success": {"type": "boolean"}, "status": {"type": "string"}},
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/start": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Start debate",
+            "operationId": "startDebateV1",
+            "description": "Start a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Start result",
+                    {"success": {"type": "boolean"}, "status": {"type": "string"}},
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/stop": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Stop debate",
+            "operationId": "stopDebateV1",
+            "description": "Stop a running debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Stop result",
+                    {"success": {"type": "boolean"}, "status": {"type": "string"}},
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/user-input": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Add user input",
+            "operationId": "addDebateUserInputV1",
+            "description": "Add user input to a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "input": {"type": "string"},
+                                "type": {
+                                    "type": "string",
+                                    "enum": ["suggestion", "vote", "question", "context"],
+                                },
+                            },
+                            "required": ["input"],
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "User input added",
+                    {"input_id": {"type": "string"}, "success": {"type": "boolean"}},
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/verify": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Verify claim",
+            "operationId": "verifyDebateClaimV1",
+            "description": "Verify a specific claim from the debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "claim_id": {"type": "string"},
+                                "evidence": {"type": "string"},
+                            },
+                            "required": ["claim_id"],
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Verification result",
+                    {
+                        "claim_id": {"type": "string"},
+                        "verified": {"type": "boolean"},
+                        "confidence": {"type": "number"},
+                        "supporting_evidence": {"type": "array", "items": {"type": "string"}},
+                        "counter_evidence": {"type": "array", "items": {"type": "string"}},
+                        "status": {"type": "string"},
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
 }

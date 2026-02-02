@@ -177,7 +177,8 @@ class ExternalAgentsHandler(BaseHandler):
                 roles=roles,
                 permissions=set(),
             )
-        except Exception:
+        except (ImportError, AttributeError, KeyError, TypeError) as e:
+            logger.debug(f"Failed to set auth context: {type(e).__name__}: {e}")
             self._auth_context = None
 
     @require_permission(AGENTS_READ_PERMISSION)

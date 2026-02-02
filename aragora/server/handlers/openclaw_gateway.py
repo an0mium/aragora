@@ -679,7 +679,7 @@ class OpenClawGatewayHandler(BaseHandler):
         except ValueError as e:
             return error_response(f"Invalid parameter: {e}", 400)
         except Exception as e:
-            logger.error(f"Error listing sessions: {e}")
+            logger.error("Error listing sessions: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:sessions.read")
@@ -705,7 +705,7 @@ class OpenClawGatewayHandler(BaseHandler):
 
             return json_response(session.to_dict())
         except Exception as e:
-            logger.error(f"Error getting session {session_id}: {e}")
+            logger.error("Error getting session %s: %s", session_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:actions.read")
@@ -733,7 +733,7 @@ class OpenClawGatewayHandler(BaseHandler):
 
             return json_response(action.to_dict())
         except Exception as e:
-            logger.error(f"Error getting action {action_id}: {e}")
+            logger.error("Error getting action %s: %s", action_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:credentials.read")
@@ -771,7 +771,7 @@ class OpenClawGatewayHandler(BaseHandler):
         except ValueError as e:
             return error_response(f"Invalid parameter: {e}", 400)
         except Exception as e:
-            logger.error(f"Error listing credentials: {e}")
+            logger.error("Error listing credentials: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     def _handle_health(self, handler: Any) -> HandlerResult:
@@ -802,7 +802,7 @@ class OpenClawGatewayHandler(BaseHandler):
                 }
             )
         except Exception as e:
-            logger.error(f"Error getting health: {e}")
+            logger.error("Error getting health: %s", e)
             return json_response(
                 {
                     "status": "error",
@@ -824,7 +824,7 @@ class OpenClawGatewayHandler(BaseHandler):
 
             return json_response(metrics)
         except Exception as e:
-            logger.error(f"Error getting metrics: {e}")
+            logger.error("Error getting metrics: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     @require_permission("gateway:audit.read")
@@ -858,7 +858,7 @@ class OpenClawGatewayHandler(BaseHandler):
                 }
             )
         except Exception as e:
-            logger.error(f"Error getting audit log: {e}")
+            logger.error("Error getting audit log: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
     # =========================================================================

@@ -335,6 +335,10 @@ class UnifiedHandler(  # type: ignore[misc]
             return
 
         # Static file serving (non-API routes)
+        if path in ("/favicon.ico", "/icon.png"):
+            if self._serve_fallback_asset(path.lstrip("/")):
+                return
+
         if path in ("/", "/index.html"):
             self._serve_file("index.html")
         elif path.endswith((".html", ".css", ".js", ".json", ".ico", ".svg", ".png")):
@@ -529,6 +533,30 @@ class UnifiedHandler(  # type: ignore[misc]
             self.wfile.write(content)
         except (BrokenPipeError, ConnectionResetError) as e:
             logger.debug(f"Client disconnected during file serve: {type(e).__name__}")
+
+    def _serve_fallback_asset(self, filename: str) -> bool:
+        """Serve a minimal static asset when static_dir is not configured."""
+        if self.static_dir:
+            return False
+
+        content_type = "image/x-icon" if filename.endswith(".ico") else "image/png"
+        try:
+            asset_dir = Path(__file__).resolve().parents[1] / "live" / "public"
+            asset_path = asset_dir / filename
+            if not asset_path.exists():
+                return False
+
+            content = asset_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(content)))
+            self._add_cors_headers()
+            self._add_security_headers()
+            self.end_headers()
+            self.wfile.write(content)
+            return True
+        except (OSError, IOError):
+            return False
 
     # Note: _send_json, _add_cors_headers, _add_security_headers, _add_rate_limit_headers,
     # and _add_trace_headers are inherited from ResponseHelpersMixin

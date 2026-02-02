@@ -161,6 +161,24 @@ class TestGetClientIP:
         ip = get_client_ip(handler)
         assert ip == "203.0.113.75"
 
+    def test_trusts_cloudflare_connecting_ip(self):
+        """Should trust CF-Connecting-IP when CF-RAY header is present."""
+        handler = MagicMock()
+        handler.client_address = ("192.168.1.100", 12345)
+        handler.headers = MagicMock()
+
+        def mock_get(header, default=None):
+            if header.lower() == "cf-ray":
+                return "abcd1234"
+            if header.lower() == "cf-connecting-ip":
+                return "198.51.100.77"
+            return None
+
+        handler.headers.get = mock_get
+
+        ip = get_client_ip(handler)
+        assert ip == "198.51.100.77"
+
     def test_returns_unknown_for_missing_client_address(self):
         """Should return 'unknown' when client_address is missing."""
         handler = MagicMock()

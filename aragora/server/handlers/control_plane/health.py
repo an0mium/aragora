@@ -49,6 +49,14 @@ class HealthHandlerMixin:
         """Get the control plane coordinator."""
         raise NotImplementedError
 
+    def _require_coordinator(self) -> tuple[Any | None, HandlerResult | None]:
+        """Return coordinator and None, or None and error response if not initialized."""
+        raise NotImplementedError
+
+    def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
+        """Unified error handler for coordinator operations."""
+        raise NotImplementedError
+
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
         raise NotImplementedError
@@ -69,9 +77,9 @@ class HealthHandlerMixin:
     @require_permission("controlplane:health.read")
     def _handle_system_health(self) -> HandlerResult:
         """Get system health status."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         try:
             health_status = coordinator.get_system_health()
@@ -84,8 +92,7 @@ class HealthHandlerMixin:
                 }
             )
         except Exception as e:
-            logger.error(f"Error getting system health: {e}")
-            return error_response(safe_error_message(e, "control plane"), 500)
+            return self._handle_coordinator_error(e, "system_health")
 
     @api_endpoint(
         method="GET",
@@ -257,17 +264,16 @@ class HealthHandlerMixin:
     @require_permission("controlplane:read")
     def _handle_stats(self) -> HandlerResult:
         """Get control plane statistics."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         try:
             stats = _run_async(coordinator.get_stats())
 
             return json_response(stats)
         except Exception as e:
-            logger.error(f"Error getting stats: {e}")
-            return error_response(safe_error_message(e, "control plane"), 500)
+            return self._handle_coordinator_error(e, "stats")
 
     @api_endpoint(
         method="GET",
@@ -278,9 +284,9 @@ class HealthHandlerMixin:
     @require_permission("controlplane:metrics.read")
     def _handle_get_metrics(self) -> HandlerResult:
         """Get control plane metrics for dashboard."""
-        coordinator = self._get_coordinator()
-        if not coordinator:
-            return error_response("Control plane not initialized", 503)
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
 
         try:
             # Get comprehensive stats
@@ -318,8 +324,7 @@ class HealthHandlerMixin:
                 }
             )
         except Exception as e:
-            logger.error(f"Error getting metrics: {e}")
-            return error_response(safe_error_message(e, "control plane"), 500)
+            return self._handle_coordinator_error(e, "metrics")
 
     # =========================================================================
     # Notification Handlers

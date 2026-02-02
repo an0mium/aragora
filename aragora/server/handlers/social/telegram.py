@@ -36,10 +36,10 @@ logger = logging.getLogger(__name__)
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
-        logger.debug(f"Task {task_name} was cancelled")
+        logger.debug("Task %s was cancelled", task_name)
     elif task.exception():
         exc = task.exception()
-        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+        logger.error("Task %s failed with exception: %s", task_name, exc, exc_info=exc)
 
 
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
@@ -148,7 +148,7 @@ class TelegramHandler(BaseHandler):
                 org_id=user_info.org_id,
             )
         except Exception as e:
-            logger.debug(f"Could not extract auth context: {e}")
+            logger.debug("Could not extract auth context: %s", e)
             return None
 
     def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
@@ -163,17 +163,17 @@ class TelegramHandler(BaseHandler):
         try:
             decision = check_permission(context, permission_key)
             if not decision.allowed:
-                logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
+                logger.warning("Permission denied: %s for user %s", permission_key, context.user_id)
                 return error_response(f"Permission denied: {decision.reason}", 403)
         except Exception as e:
-            logger.warning(f"RBAC check failed: {e}")
+            logger.warning("RBAC check failed: %s", e)
             return None
 
         return None
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route Telegram requests to appropriate methods."""
-        logger.debug(f"Telegram request: {path}")
+        logger.debug("Telegram request: %s", path)
 
         if path == "/api/v1/integrations/telegram/status":
             # RBAC: Require messaging:read permission
@@ -236,7 +236,7 @@ class TelegramHandler(BaseHandler):
             secret_header = handler.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
             return hmac.compare_digest(secret_header, TELEGRAM_WEBHOOK_SECRET)
         except Exception as e:
-            logger.warning(f"Error verifying Telegram secret: {e}")
+            logger.warning("Error verifying Telegram secret: %s", e)
             return False
 
     def _get_status(self) -> HandlerResult:
@@ -275,7 +275,7 @@ class TelegramHandler(BaseHandler):
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
         except Exception as e:
-            logger.error(f"Failed to set webhook: {e}")
+            logger.error("Failed to set webhook: %s", e)
             return error_response(f"Failed to set webhook: {str(e)[:100]}", 500)
 
     async def _set_webhook_async(self, webhook_url: str) -> None:
@@ -298,11 +298,11 @@ class TelegramHandler(BaseHandler):
                 )
                 result = response.json()
                 if result.get("ok"):
-                    logger.info(f"Telegram webhook set to: {webhook_url}")
+                    logger.info("Telegram webhook set to: %s", webhook_url)
                 else:
-                    logger.error(f"Failed to set webhook: {result}")
+                    logger.error("Failed to set webhook: %s", result)
         except Exception as e:
-            logger.error(f"Error setting Telegram webhook: {e}")
+            logger.error("Error setting Telegram webhook: %s", e)
 
     @auto_error_response("handle telegram webhook")
     @rate_limit(requests_per_minute=100, limiter_name="telegram_webhook")
@@ -324,7 +324,7 @@ class TelegramHandler(BaseHandler):
             body = handler.rfile.read(content_length).decode("utf-8")
             update = json.loads(body)
 
-            logger.debug(f"Telegram update received: {update.get('update_id')}")
+            logger.debug("Telegram update received: %s", update.get("update_id"))
 
             # Handle different update types
             if "message" in update:
@@ -349,7 +349,7 @@ class TelegramHandler(BaseHandler):
             record_error("telegram", "json_parse")
             return json_response({"ok": True})
         except Exception as e:
-            logger.error(f"Error handling Telegram webhook: {e}", exc_info=True)
+            logger.error("Error handling Telegram webhook: %s", e, exc_info=True)
             status = "error"
             record_error("telegram", "unknown")
             return json_response({"ok": True})
@@ -369,7 +369,7 @@ class TelegramHandler(BaseHandler):
         if not chat_id or not text:
             return json_response({"ok": True})
 
-        logger.info(f"Telegram message from {username} ({user_id}): {text[:50]}...")
+        logger.info("Telegram message from %s (%s): %s...", username, user_id, text[:50])
 
         # Parse bot commands
         if text.startswith("/"):
@@ -500,7 +500,7 @@ class TelegramHandler(BaseHandler):
             agents = store.get_all_ratings()
             return f"*Aragora Status*\n\nStatus: Online\nAgents: {len(agents)} registered"
         except Exception as e:
-            logger.warning(f"Failed to get status: {e}")
+            logger.warning("Failed to get status: %s", e)
             return "*Aragora Status*\n\nStatus: Online"
 
     def _command_agents(self) -> str:
@@ -526,7 +526,7 @@ class TelegramHandler(BaseHandler):
 
             return "\n".join(lines)
         except Exception as e:
-            logger.warning(f"Failed to list agents: {e}")
+            logger.warning("Failed to list agents: %s", e)
             return "Could not fetch agent list."
 
     def _command_debate(
@@ -609,7 +609,7 @@ class TelegramHandler(BaseHandler):
                     message_id=str(message_id) if message_id else None,
                     metadata={"username": username, "topic": topic},
                 )
-                logger.debug(f"Registered debate origin: {debate_id}")
+                logger.debug("Registered debate origin: %s", debate_id)
             except ImportError:
                 debate_id = None
                 logger.debug("Debate origin tracking not available")
@@ -647,8 +647,10 @@ class TelegramHandler(BaseHandler):
 
                 if resolution.matched and resolution.binding:
                     logger.debug(
-                        f"Binding resolved: {resolution.agent_binding} "
-                        f"type={resolution.binding_type} reason={resolution.match_reason}"
+                        "Binding resolved: %s type=%s reason=%s",
+                        resolution.agent_binding,
+                        resolution.binding_type,
+                        resolution.match_reason,
                     )
 
                     # Apply agent binding
@@ -670,7 +672,7 @@ class TelegramHandler(BaseHandler):
             except ImportError:
                 logger.debug("Binding router not available, using default agents")
             except Exception as e:
-                logger.debug(f"Binding resolution failed: {e}, using default agents")
+                logger.debug("Binding resolution failed: %s, using default agents", e)
 
             agents = get_agents_by_names(agent_names)
             protocol = DebateProtocol(
@@ -762,7 +764,7 @@ class TelegramHandler(BaseHandler):
             record_debate_completed("telegram", result.consensus_reached)
 
         except Exception as e:
-            logger.error(f"Telegram debate failed: {e}", exc_info=True)
+            logger.error("Telegram debate failed: %s", e, exc_info=True)
             record_debate_failed("telegram")
             await self._send_message_async(
                 chat_id,
@@ -918,7 +920,7 @@ class TelegramHandler(BaseHandler):
                 record_gauntlet_completed("telegram", passed)
 
         except Exception as e:
-            logger.error(f"Telegram gauntlet failed: {e}", exc_info=True)
+            logger.error("Telegram gauntlet failed: %s", e, exc_info=True)
             record_gauntlet_failed("telegram")
             await self._send_message_async(
                 chat_id,
@@ -935,7 +937,7 @@ class TelegramHandler(BaseHandler):
         message = callback.get("message", {})
         chat_id = message.get("chat", {}).get("id")
 
-        logger.info(f"Telegram callback from {username}: {data}")
+        logger.info("Telegram callback from %s: %s", username, data)
 
         # Parse callback data
         parts = data.split(":")
@@ -969,7 +971,7 @@ class TelegramHandler(BaseHandler):
         vote_option: str,
     ) -> HandlerResult:
         """Handle vote callback."""
-        logger.info(f"Vote received: {debate_id} -> {vote_option} from {username}")
+        logger.info("Vote received: %s -> %s from %s", debate_id, vote_option, username)
 
         # Emit webhook event for vote received
         emit_vote_received(
@@ -997,7 +999,7 @@ class TelegramHandler(BaseHandler):
                     source="telegram",
                 )
         except Exception as e:
-            logger.warning(f"Failed to record vote: {e}")
+            logger.warning("Failed to record vote: %s", e)
 
         emoji = "+" if vote_option == "agree" else "-"
         create_tracked_task(
@@ -1026,7 +1028,7 @@ class TelegramHandler(BaseHandler):
             if db:
                 debate_data = db.get(debate_id)
         except Exception as e:
-            logger.warning(f"Failed to fetch debate: {e}")
+            logger.warning("Failed to fetch debate: %s", e)
 
         if not debate_data:
             create_tracked_task(
@@ -1149,10 +1151,10 @@ class TelegramHandler(BaseHandler):
                 )
                 result = response.json()
                 if not result.get("ok"):
-                    logger.warning(f"Telegram API error: {result.get('description')}")
+                    logger.warning("Telegram API error: %s", result.get("description"))
                     status = "error"
         except Exception as e:
-            logger.error(f"Error sending Telegram message: {e}")
+            logger.error("Error sending Telegram message: %s", e)
             status = "error"
         finally:
             latency = time.time() - start_time
@@ -1192,10 +1194,10 @@ class TelegramHandler(BaseHandler):
                 )
                 result = response.json()
                 if not result.get("ok"):
-                    logger.warning(f"Telegram callback answer failed: {result.get('description')}")
+                    logger.warning("Telegram callback answer failed: %s", result.get("description"))
                     status = "error"
         except Exception as e:
-            logger.error(f"Error answering Telegram callback: {e}")
+            logger.error("Error answering Telegram callback: %s", e)
             status = "error"
         finally:
             latency = time.time() - start_time
@@ -1234,10 +1236,10 @@ class TelegramHandler(BaseHandler):
                 )
                 result = response.json()
                 if not result.get("ok"):
-                    logger.warning(f"Telegram inline answer failed: {result.get('description')}")
+                    logger.warning("Telegram inline answer failed: %s", result.get("description"))
                     status = "error"
         except Exception as e:
-            logger.error(f"Error answering Telegram inline query: {e}")
+            logger.error("Error answering Telegram inline query: %s", e)
             status = "error"
         finally:
             latency = time.time() - start_time
@@ -1277,7 +1279,7 @@ class TelegramHandler(BaseHandler):
                     result.duration_seconds,
                 )
         except Exception as e:
-            logger.warning(f"Failed to send voice summary: {e}")
+            logger.warning("Failed to send voice summary: %s", e)
 
     async def _send_voice_async(
         self,
@@ -1314,11 +1316,11 @@ class TelegramHandler(BaseHandler):
                 )
                 result = response.json()
                 if not result.get("ok"):
-                    logger.warning(f"Telegram sendVoice failed: {result.get('description')}")
+                    logger.warning("Telegram sendVoice failed: %s", result.get("description"))
                 else:
-                    logger.info(f"Voice message sent to chat {chat_id}")
+                    logger.info("Voice message sent to chat %s", chat_id)
         except Exception as e:
-            logger.error(f"Error sending Telegram voice: {e}")
+            logger.error("Error sending Telegram voice: %s", e)
 
 
 # Export handler factory

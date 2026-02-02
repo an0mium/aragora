@@ -140,6 +140,33 @@ async def run_startup_sequence(
         logger.info("ARAGORA_STRICT_STARTUP enabled: server will fail fast on dependency errors")
         graceful_degradation = False
 
+    # Run comprehensive configuration validation FIRST (fail fast on misconfigurations)
+    try:
+        from aragora.server.config_validator import ConfigValidator
+
+        config_result = ConfigValidator.validate_all()
+
+        # Log warnings
+        for warning in config_result.warnings:
+            logger.warning(f"Configuration warning: {warning}")
+
+        # Handle errors based on graceful_degradation setting
+        if config_result.errors:
+            for error in config_result.errors:
+                logger.error(f"Configuration error: {error}")
+
+            if not graceful_degradation:
+                raise RuntimeError(
+                    f"Configuration validation failed: {'; '.join(config_result.errors)}"
+                )
+            else:
+                logger.warning(
+                    "Configuration errors detected but graceful_degradation enabled. "
+                    "Server will start but may not function correctly."
+                )
+    except ImportError:
+        logger.debug("ConfigValidator not available - skipping configuration validation")
+
     from aragora.control_plane.leader import is_distributed_state_required
     from aragora.server.degraded_mode import (
         set_degraded,
