@@ -3222,6 +3222,14 @@ The most valuable proposals combine deep analysis with actionable implementation
             "kimi": self.kimi,
         }
 
+        # Wire Knowledge Mound for context gathering (#179)
+        try:
+            from aragora.nomic.km_context import get_nomic_knowledge_mound
+
+            self.knowledge_mound = get_nomic_knowledge_mound()
+        except Exception:
+            self.knowledge_mound = None
+
         # Gastown-style convoy executor for implementation phase
         self.implement_executor = GastownConvoyExecutor(
             repo_path=self.aragora_path,
@@ -3448,6 +3456,10 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         if not use_hybrid:
             self._log("  [implement] Hybrid mode disabled, using legacy implementation")
+        elif executor is not None:
+            self._log("  [implement] Convoy/bead executor active for multi-agent cross-checks")
+        else:
+            self._log("  [implement] WARNING: No convoy executor available, using legacy fallback")
 
         return ImplementPhase(
             aragora_path=self.aragora_path,
