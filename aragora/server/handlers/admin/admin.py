@@ -842,13 +842,19 @@ class AdminHandler(SecureHandler):
 
         This allows admins to view the system as a specific user for support.
         The token is short-lived (1 hour) and logged for audit.
+
+        Requires permission: admin:impersonate
         """
+        # Validate user_id path parameter
+        if not validate_path_segment(target_user_id, "target_user_id", SAFE_ID_PATTERN)[0]:
+            return error_response("Invalid target user ID format", 400)
+
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
 
-        # Check granular RBAC permission for impersonation
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.impersonate", target_user_id)
+        # Check granular RBAC permission for impersonation (CRITICAL: admin:impersonate)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_IMPERSONATE, target_user_id)
         if perm_err:
             return perm_err
 
@@ -920,13 +926,20 @@ class AdminHandler(SecureHandler):
     @handle_errors("deactivate user")
     @log_request("admin deactivate user")
     def _deactivate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
-        """Deactivate a user account."""
+        """Deactivate a user account.
+
+        Requires permission: admin:users:write
+        """
+        # Validate user_id path parameter
+        if not validate_path_segment(target_user_id, "target_user_id", SAFE_ID_PATTERN)[0]:
+            return error_response("Invalid target user ID format", 400)
+
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
 
-        # Check granular RBAC permission
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.deactivate", target_user_id)
+        # Check granular RBAC permission (CRITICAL: admin:users:write)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_USERS_WRITE, target_user_id)
         if perm_err:
             return perm_err
 
@@ -979,13 +992,20 @@ class AdminHandler(SecureHandler):
     @handle_errors("activate user")
     @log_request("admin activate user")
     def _activate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
-        """Activate a user account."""
+        """Activate a user account.
+
+        Requires permission: admin:users:write
+        """
+        # Validate user_id path parameter
+        if not validate_path_segment(target_user_id, "target_user_id", SAFE_ID_PATTERN)[0]:
+            return error_response("Invalid target user ID format", 400)
+
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
 
-        # Check granular RBAC permission
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.activate", target_user_id)
+        # Check granular RBAC permission (CRITICAL: admin:users:write)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_USERS_WRITE, target_user_id)
         if perm_err:
             return perm_err
 

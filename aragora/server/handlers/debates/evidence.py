@@ -207,6 +207,7 @@ class EvidenceOperationsMixin:
             "404": {"description": "Debate not found"},
         },
     )
+    @require_permission("debates.read")
     @require_storage
     @ttl_cache(
         ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True
@@ -277,6 +278,7 @@ class EvidenceOperationsMixin:
             "404": {"description": "Debate not found"},
         },
     )
+    @require_permission("debates.read")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_summary", skip_first=True)
     @handle_errors("get summary")
@@ -343,6 +345,7 @@ class EvidenceOperationsMixin:
             "500": {"description": "Database error"},
         },
     )
+    @require_permission("evidence.read")
     @require_storage
     def _get_citations(
         self: _DebatesHandlerProtocol, handler: Any, debate_id: str
@@ -445,6 +448,7 @@ class EvidenceOperationsMixin:
             "500": {"description": "Database error"},
         },
     )
+    @require_permission("evidence.read")
     @require_storage
     def _get_evidence(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Get comprehensive evidence trail for a debate.
