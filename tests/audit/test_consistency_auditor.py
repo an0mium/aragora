@@ -134,6 +134,7 @@ class TestConsistencyAuditor:
         # Note: This may or may not trigger depending on threshold
 
     @pytest.mark.asyncio
+    @pytest.mark.e2e  # Requires real Gemini API key
     async def test_full_audit_flow(self, auditor, mock_session, inconsistent_documents):
         """Test the full audit flow with inconsistent documents."""
         chunks = [
