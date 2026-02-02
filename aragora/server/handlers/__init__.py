@@ -664,7 +664,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ApprovalHandler": Stability.EXPERIMENTAL,  # Human-in-the-loop approval flows - Phase 5.1
     "AlertHandler": Stability.EXPERIMENTAL,  # Alert management and thresholds - Phase 5.3
     "TriggerHandler": Stability.EXPERIMENTAL,  # Scheduled debate triggers - Phase 5.3
-    "MonitoringHandler": Stability.EXPERIMENTAL,  # Trend and anomaly monitoring - Phase 5.3
+    "MonitoringHandler": Stability.STABLE,  # Trend and anomaly monitoring - circuit breaker, rate limiting, validation, 53+ tests
     "AutonomousLearningHandler": Stability.EXPERIMENTAL,  # Continuous learning - Phase 5.2
     "EmailHandler": Stability.STABLE,  # Email prioritization API - RBAC, validation, tested
     "EmailServicesHandler": Stability.STABLE,  # Email services (follow-up, snooze) - RBAC, auth

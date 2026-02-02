@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 from aragora.knowledge.mound import KnowledgeMound, get_knowledge_mound
 
@@ -228,7 +228,7 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
         else:
             # Fallback if stats is a dict (legacy compatibility);
             # stats may be MoundStats or plain dict depending on backend version
-            stats_dict: dict[str, Any] = stats  # type: ignore[assignment]
+            stats_dict: dict[str, Any] = cast(dict[str, Any], stats)
             return {
                 "total_nodes": stats_dict.get("total_nodes", 0),
                 "total_relationships": stats_dict.get("total_relationships", 0),
