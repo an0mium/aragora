@@ -627,6 +627,7 @@ class KMCheckpointStore:
         """Export staleness detector state."""
         if hasattr(self.mound, "_staleness_detector") and self.mound._staleness_detector:
             try:
+                # export_state() provided by StalenessDetector at runtime
                 return self.mound._staleness_detector.export_state()  # type: ignore[attr-defined]
             except (AttributeError, TypeError, ValueError) as e:
                 logger.debug(f"Staleness export skipped due to error: {e}")
@@ -681,6 +682,7 @@ class KMCheckpointStore:
         """Restore staleness detector state."""
         if hasattr(self.mound, "_staleness_detector") and self.mound._staleness_detector:
             try:
+                # import_state() provided by StalenessDetector at runtime
                 self.mound._staleness_detector.import_state(staleness_state)  # type: ignore[attr-defined]
             except Exception as e:
                 logger.warning(f"Failed to restore staleness state: {e}")

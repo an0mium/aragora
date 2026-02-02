@@ -54,7 +54,9 @@ if TYPE_CHECKING:
 try:
     from aragora.knowledge.mound.culture import OrganizationCultureManager
 except ImportError:
-    OrganizationCultureManager = None  # type: ignore[misc, no-redef]
+    # Fallback stub when culture module is not available.
+    # type: ignore needed because the name is conditionally defined above.
+    OrganizationCultureManager = None  # type: ignore[misc, assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -583,6 +585,8 @@ class KnowledgeMoundCore:
             # Extract the string value for the constructor
             rel_type_str = rel_type.value if hasattr(rel_type, "value") else rel_type
 
+            # KnowledgeRelationship expects LegacyRelationshipType (Literal string)
+            # but rel_type_str is a general string at this point. Safe at runtime.
             rel = KnowledgeRelationship(
                 from_node_id=from_id,
                 to_node_id=to_id,

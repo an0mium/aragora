@@ -167,9 +167,9 @@ class TestFormatsEndpoint:
 
         assert status == 200
         assert "endpoints" in body
-        assert body["endpoints"]["sft"] == "/api/training/export/sft"
-        assert body["endpoints"]["dpo"] == "/api/training/export/dpo"
-        assert body["endpoints"]["gauntlet"] == "/api/training/export/gauntlet"
+        assert body["endpoints"]["sft"] == "/api/v1/training/export/sft"
+        assert body["endpoints"]["dpo"] == "/api/v1/training/export/dpo"
+        assert body["endpoints"]["gauntlet"] == "/api/v1/training/export/gauntlet"
 
     def test_formats_sft_schema_complete(self, training_handler, mock_handler):
         """Test SFT format schema is complete."""
