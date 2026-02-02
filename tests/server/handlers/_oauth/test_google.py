@@ -106,15 +106,15 @@ class GoogleOAuthTestHandler(GoogleOAuthMixin):
     def _get_user_store(self):
         return self.user_store
 
-    def _find_user_by_oauth(self, user_store, user_info):
+    async def _find_user_by_oauth(self, user_store, user_info):
         return user_store.get_user_by_oauth(user_info.provider, user_info.provider_user_id)
 
-    def _link_oauth_to_user(self, user_store, user_id, user_info):
+    async def _link_oauth_to_user(self, user_store, user_id, user_info):
         return user_store.link_oauth_provider(
             user_id, user_info.provider, user_info.provider_user_id, user_info.email
         )
 
-    def _create_oauth_user(self, user_store, user_info):
+    async def _create_oauth_user(self, user_store, user_info):
         return user_store.create_user(
             email=user_info.email,
             password_hash="hash",
@@ -122,7 +122,7 @@ class GoogleOAuthTestHandler(GoogleOAuthMixin):
             name=user_info.name,
         )
 
-    def _handle_account_linking(self, user_store, linking_user_id, user_info, state_data):
+    async def _handle_account_linking(self, user_store, linking_user_id, user_info, state_data):
         return MagicMock(status_code=302, headers={"Location": f"?linked={user_info.provider}"})
 
     def _redirect_with_tokens(self, redirect_url, tokens):

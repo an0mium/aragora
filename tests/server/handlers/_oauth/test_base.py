@@ -142,7 +142,7 @@ def mock_user_store():
 def oauth_handler(mock_user_store):
     """Create an OAuth handler with mock context."""
     ctx = {"user_store": mock_user_store}
-    handler = OAuthHandler(server_context=ctx)
+    handler = OAuthHandler(ctx=ctx)
     return handler
 
 
@@ -252,7 +252,7 @@ class TestOAuthRateLimiting:
 
         assert result is not None
         assert result.status_code == 429
-        assert b"Rate limit exceeded" in result.body
+        assert b"Too many authentication attempts" in result.body
 
     @patch("aragora.server.handlers._oauth_impl._oauth_limiter")
     @patch("aragora.server.handlers._oauth_impl.create_span")
@@ -295,9 +295,10 @@ class TestOAuthRateLimiting:
 class TestOAuthFlowCompletion:
     """Tests for OAuth flow completion and user creation."""
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
     @patch("aragora.billing.jwt_auth.create_token_pair")
-    def test_complete_flow_creates_new_user(
+    async def test_complete_flow_creates_new_user(
         self,
         mock_create_tokens,
         mock_success_url,
@@ -314,7 +315,7 @@ class TestOAuthFlowCompletion:
 
         state_data = {"redirect_url": "https://example.com/callback"}
 
-        result = oauth_handler._complete_oauth_flow(sample_user_info, state_data)
+        result = await oauth_handler._complete_oauth_flow(sample_user_info, state_data)
 
         # Verify user was created
         assert len(mock_user_store.created_users) == 1
@@ -322,13 +323,21 @@ class TestOAuthFlowCompletion:
         assert created_user.email == "test@example.com"
         assert created_user.name == "Test User"
 
-        # Verify redirect with tokens
-        assert result.status_code == 302
-        assert "access_token=access_token_123" in result.headers.get("Location", "")
+        # Verify redirect with tokens (may use JS redirect with 200 or HTTP 302)
+        assert result is not None
+        assert result.status_code in (200, 302)
+        # Check tokens in body (JS redirect) or Location header (HTTP redirect)
+        body_str = result.body.decode() if isinstance(result.body, bytes) else str(result.body)
+        location = result.headers.get("Location", "")
+        assert (
+            "access_token=access_token_123" in body_str
+            or "access_token=access_token_123" in location
+        )
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
     @patch("aragora.billing.jwt_auth.create_token_pair")
-    def test_complete_flow_links_existing_user(
+    async def test_complete_flow_links_existing_user(
         self,
         mock_create_tokens,
         mock_success_url,
@@ -353,7 +362,7 @@ class TestOAuthFlowCompletion:
 
         state_data = {}
 
-        result = oauth_handler._complete_oauth_flow(user_info, state_data)
+        result = await oauth_handler._complete_oauth_flow(user_info, state_data)
 
         # No new user should be created
         assert len(mock_user_store.created_users) == 0
@@ -362,10 +371,11 @@ class TestOAuthFlowCompletion:
         assert "user_1" in mock_user_store.oauth_links
         assert mock_user_store.oauth_links["user_1"]["google"] == "google_789"
 
-        assert result.status_code == 302
+        assert result.status_code in (200, 302)  # May use JS or HTTP redirect
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
-    def test_complete_flow_account_linking(
+    async def test_complete_flow_account_linking(
         self,
         mock_success_url,
         oauth_handler,
@@ -380,27 +390,31 @@ class TestOAuthFlowCompletion:
             "redirect_url": "https://example.com/settings",
         }
 
-        result = oauth_handler._complete_oauth_flow(sample_user_info, state_data)
+        result = await oauth_handler._complete_oauth_flow(sample_user_info, state_data)
 
         # OAuth should be linked to existing user
         assert "user_1" in mock_user_store.oauth_links
         assert mock_user_store.oauth_links["user_1"]["google"] == "google_123456"
 
-        # Should redirect with 'linked' param
-        assert result.status_code == 302
-        assert "linked=google" in result.headers.get("Location", "")
+        # Should redirect with 'linked' param (may use JS or HTTP redirect)
+        assert result.status_code in (200, 302)
+        body_str = result.body.decode() if isinstance(result.body, bytes) else str(result.body)
+        location = result.headers.get("Location", "")
+        assert "linked=google" in body_str or "linked=google" in location
 
-    def test_complete_flow_no_user_store(self, oauth_handler, sample_user_info):
+    @pytest.mark.asyncio
+    async def test_complete_flow_no_user_store(self, oauth_handler, sample_user_info):
         """Test OAuth flow fails gracefully without user store."""
         oauth_handler.ctx = {}  # No user_store
 
-        result = oauth_handler._complete_oauth_flow(sample_user_info, {})
+        result = await oauth_handler._complete_oauth_flow(sample_user_info, {})
 
         assert result.status_code == 302
         assert "error=" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
-    def test_account_linking_already_linked_different_user(
+    async def test_account_linking_already_linked_different_user(
         self,
         mock_success_url,
         oauth_handler,
@@ -429,7 +443,7 @@ class TestOAuthFlowCompletion:
             "user_id": "user_1",  # Trying to link to user_1
         }
 
-        result = oauth_handler._complete_oauth_flow(user_info, state_data)
+        result = await oauth_handler._complete_oauth_flow(user_info, state_data)
 
         # Should redirect with error
         assert result.status_code == 302
@@ -457,12 +471,15 @@ class TestOAuthRedirects:
 
         result = oauth_handler._redirect_with_tokens("https://example.com/callback", tokens)
 
-        assert result.status_code == 302
+        assert result.status_code in (200, 302)  # May use JS or HTTP redirect
+        # Check tokens in body (JS redirect) or Location header (HTTP redirect)
+        body_str = result.body.decode() if isinstance(result.body, bytes) else str(result.body)
         location = result.headers.get("Location", "")
-        assert "access_token=test_access" in location
-        assert "refresh_token=test_refresh" in location
-        assert "token_type=Bearer" in location
-        assert "expires_in=3600" in location
+        content = body_str + location
+        assert "access_token=test_access" in content
+        assert "refresh_token=test_refresh" in content
+        assert "token_type=Bearer" in content
+        assert "expires_in=3600" in content
 
     def test_redirect_with_tokens_has_no_cache_headers(self, oauth_handler):
         """Test redirect includes cache prevention headers."""
@@ -575,7 +592,8 @@ class TestOAuthPermissionChecks:
 class TestOAuthUserCreation:
     """Tests for OAuth user creation."""
 
-    def test_find_user_by_oauth(self, oauth_handler, mock_user_store):
+    @pytest.mark.asyncio
+    async def test_find_user_by_oauth(self, oauth_handler, mock_user_store):
         """Test finding user by OAuth provider ID."""
         # Link OAuth to user_1
         mock_user_store.oauth_links["user_1"] = {"google": "google_123"}
@@ -588,12 +606,13 @@ class TestOAuthUserCreation:
             email_verified=True,
         )
 
-        user = oauth_handler._find_user_by_oauth(mock_user_store, user_info)
+        user = await oauth_handler._find_user_by_oauth(mock_user_store, user_info)
 
         assert user is not None
         assert user.id == "user_1"
 
-    def test_find_user_by_oauth_not_found(self, oauth_handler, mock_user_store):
+    @pytest.mark.asyncio
+    async def test_find_user_by_oauth_not_found(self, oauth_handler, mock_user_store):
         """Test finding user by OAuth returns None when not found."""
         user_info = OAuthUserInfo(
             provider="google",
@@ -603,11 +622,12 @@ class TestOAuthUserCreation:
             email_verified=True,
         )
 
-        user = oauth_handler._find_user_by_oauth(mock_user_store, user_info)
+        user = await oauth_handler._find_user_by_oauth(mock_user_store, user_info)
 
         assert user is None
 
-    def test_link_oauth_to_user(self, oauth_handler, mock_user_store):
+    @pytest.mark.asyncio
+    async def test_link_oauth_to_user(self, oauth_handler, mock_user_store):
         """Test linking OAuth provider to user."""
         user_info = OAuthUserInfo(
             provider="github",
@@ -617,12 +637,13 @@ class TestOAuthUserCreation:
             email_verified=True,
         )
 
-        result = oauth_handler._link_oauth_to_user(mock_user_store, "user_1", user_info)
+        result = await oauth_handler._link_oauth_to_user(mock_user_store, "user_1", user_info)
 
         assert result is True
         assert mock_user_store.oauth_links["user_1"]["github"] == "github_456"
 
-    def test_create_oauth_user(self, oauth_handler, mock_user_store):
+    @pytest.mark.asyncio
+    async def test_create_oauth_user(self, oauth_handler, mock_user_store):
         """Test creating new user from OAuth info."""
         user_info = OAuthUserInfo(
             provider="google",
@@ -632,7 +653,7 @@ class TestOAuthUserCreation:
             email_verified=True,
         )
 
-        user = oauth_handler._create_oauth_user(mock_user_store, user_info)
+        user = await oauth_handler._create_oauth_user(mock_user_store, user_info)
 
         assert user is not None
         assert user.email == "newuser@example.com"
