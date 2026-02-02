@@ -26,13 +26,17 @@ import pytest
 import importlib.util
 import sys
 
-_handler_path = (
-    Path(__file__).resolve().parents[3]
-    / "aragora"
-    / "server"
-    / "handlers"
-    / "computer_use_handler.py"
-)
+_handler_spec = importlib.util.find_spec("aragora.server.handlers.computer_use_handler")
+if _handler_spec and _handler_spec.origin:
+    _handler_path = Path(_handler_spec.origin)
+else:
+    _handler_path = (
+        Path(__file__).resolve().parents[3]
+        / "aragora"
+        / "server"
+        / "handlers"
+        / "computer_use_handler.py"
+    )
 _spec = importlib.util.spec_from_file_location("computer_use_handler", str(_handler_path))
 if _spec and _spec.loader:
     _module = importlib.util.module_from_spec(_spec)
