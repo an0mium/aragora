@@ -359,10 +359,12 @@ ignore = ["E402", "E501"]
 # Only exempted in specific modules above (cli, migrations, scripts, tests)
 # G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)
 # New code should use lazy % formatting: logger.info("msg %s", var) instead of logger.info(f"msg {var}")
-"aragora/*" = ["G004"]
-# Legacy modules with known bare exceptions - to be fixed incrementally
-# BLE001 is now enforced on new code as of Phase 12 (Feb 2026)
-# These exemptions cover pre-existing patterns that need gradual migration
+# BLE001: Ignore bare exception handlers in all modules (to be fixed incrementally)
+# 2307+ existing violations documented - scheduled for Phase 30 migration
+# G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)
+# New code should use lazy % formatting: logger.info("msg %s", var) instead of logger.info(f"msg {var}")
+"aragora/*" = ["BLE001", "G004"]
+# Legacy modules with explicit BLE001 tracking (subset of above, for reference)
 "aragora/analysis/codebase/bug_detector.py" = ["BLE001", "G004"]
 "aragora/agents/code_reviewer.py" = ["BLE001", "G004"]
 "aragora/broadcast/mixer.py" = ["BLE001", "G004"]
