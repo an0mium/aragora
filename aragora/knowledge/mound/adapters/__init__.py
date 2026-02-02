@@ -142,6 +142,12 @@ from .openclaw_adapter import (
     SyncResult as OpenClawSyncResult,
 )
 from .erc8004_adapter import ERC8004Adapter
+from .supermemory_adapter import (
+    SupermemoryAdapter,
+    ContextInjectionResult,
+    SyncOutcomeResult,
+    SupermemorySearchResult,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -260,4 +266,9 @@ __all__ = [
     "OpenClawSyncResult",
     # Blockchain adapter (ERC-8004)
     "ERC8004Adapter",
+    # Supermemory adapter (External memory persistence)
+    "SupermemoryAdapter",
+    "ContextInjectionResult",
+    "SyncOutcomeResult",
+    "SupermemorySearchResult",
 ]
