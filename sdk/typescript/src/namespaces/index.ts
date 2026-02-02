@@ -1475,3 +1475,17 @@ export {
   type CreateHybridDebateRequest,
   type ListHybridDebatesOptions,
 } from './hybrid-debates';
+
+// External Agents (OpenHands, AutoGPT, CrewAI Integration)
+export {
+  ExternalAgentsAPI,
+  type ExternalAdapter,
+  type AdapterListResponse,
+  type AdapterHealth,
+  type HealthResponse as ExternalAgentsHealthResponse,
+  type TaskSubmitOptions,
+  type TaskStatus as ExternalTaskStatus,
+  type TaskResult as ExternalTaskResult,
+  type TaskSubmitResult,
+  type TaskResultResponse,
+} from './external-agents';

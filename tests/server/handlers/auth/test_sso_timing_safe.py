@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.server.handlers.auth import sso_handlers
 from aragora.server.handlers.auth.sso_handlers import (
     handle_sso_callback,
     _get_sso_state_store,
