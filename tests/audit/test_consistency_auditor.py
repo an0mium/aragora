@@ -23,6 +23,20 @@ class TestConsistencyAuditor:
 
         return MockSession()
 
+    @pytest.fixture
+    def inconsistent_documents(self):
+        """Provide documents with intentional inconsistencies."""
+        return [
+            {
+                "id": "doc1",
+                "content": "Effective date: 01/15/2024. Price: $1,500 per month.",
+            },
+            {
+                "id": "doc2",
+                "content": "Effective date: 02/01/2024. Cost: $2,000 per month.",
+            },
+        ]
+
     def test_extract_dates(self, auditor):
         """Test extracting dates from text."""
         text = "Effective date: 01/15/2024. The contract expires on 12/31/2025."
