@@ -649,9 +649,70 @@ class AmazonConnector(EnterpriseConnector):
         Returns:
             List of matching products
         """
-        # Would call CatalogItems.searchCatalogItems()
         logger.info(f"Searching catalog: {keywords}")
+
+        if self.use_mock:
+            # Return mock products for testing
+            return get_mock_products(keywords, limit)
+
+        if self._sp_api_available:
+            from sp_api.api import CatalogItems
+
+            catalog_api = CatalogItems(
+                credentials=self._sp_credentials, marketplace=self._marketplace
+            )
+
+            try:
+                response = catalog_api.search_catalog_items(
+                    keywords=keywords,
+                    pageSize=min(limit, 20),  # SP-API max is 20
+                )
+
+                products = []
+                for item in response.payload.get("items", []):
+                    products.append(self._parse_sp_api_product(item))
+                    if len(products) >= limit:
+                        break
+
+                return products
+            except Exception as e:
+                logger.warning(f"Catalog search failed: {e}")
+                return []
+
         return []
+
+    def _parse_sp_api_product(self, data: dict[str, Any]) -> AmazonProduct:
+        """Parse SP-API catalog item response into AmazonProduct dataclass."""
+        attributes = data.get("attributes", {})
+        summaries = data.get("summaries", [{}])[0] if data.get("summaries") else {}
+        images = data.get("images", [{}])[0] if data.get("images") else {}
+
+        # Extract images
+        image_urls = []
+        for img in images.get("images", []):
+            if img.get("link"):
+                image_urls.append(img["link"])
+
+        return AmazonProduct(
+            asin=data.get("asin", ""),
+            title=summaries.get("itemName", attributes.get("item_name", {}).get("value", "")),
+            brand=summaries.get("brand", attributes.get("brand", {}).get("value")),
+            manufacturer=summaries.get("manufacturer", attributes.get("manufacturer", {}).get("value")),
+            product_type=summaries.get("productType"),
+            parent_asin=data.get("relationships", {}).get("parentAsin"),
+            item_dimensions=attributes.get("item_dimensions"),
+            package_dimensions=attributes.get("package_dimensions"),
+            images=image_urls,
+            bullet_points=[
+                bp.get("value", "")
+                for bp in attributes.get("bullet_point", [])
+                if isinstance(bp, dict)
+            ],
+            browse_nodes=[
+                str(bn.get("id", ""))
+                for bn in data.get("browseNodeInfo", {}).get("browseNodes", [])
+            ],
+        )
 
     # =========================================================================
     # Reports
@@ -877,19 +938,57 @@ class AmazonConnector(EnterpriseConnector):
         """
         Search for evidence in Amazon data.
 
-        Currently searches products via catalog API.
+        Searches products via catalog API and returns Evidence objects.
 
         Args:
             query: Search query
             limit: Maximum results
 
         Returns:
-            List of Evidence objects (empty for now as catalog search returns None)
+            List of Evidence objects from matching Amazon products
         """
-        # Use catalog search as the search implementation
-        # TODO: Convert catalog search results to Evidence format when implemented
-        _ = await self.search_catalog(query, limit=limit)  # noqa: F841
-        return []
+        from aragora.connectors.base import Evidence
+
+        products = await self.search_catalog(query, limit=limit)
+
+        evidence_list = []
+        for product in products:
+            # Build content from product details
+            content_parts = [f"# {product.title}"]
+            if product.brand:
+                content_parts.append(f"\nBrand: {product.brand}")
+            if product.manufacturer:
+                content_parts.append(f"\nManufacturer: {product.manufacturer}")
+            if product.product_type:
+                content_parts.append(f"\nProduct Type: {product.product_type}")
+            if product.bullet_points:
+                content_parts.append("\n\nFeatures:")
+                for bp in product.bullet_points[:5]:  # Limit to 5 bullet points
+                    content_parts.append(f"\n- {bp}")
+
+            evidence = Evidence(
+                id=f"amazon:product:{product.asin}",
+                source_type=self.source_type,
+                source_id=product.asin,
+                content="\n".join(content_parts),
+                title=product.title,
+                url=f"https://www.amazon.com/dp/{product.asin}",
+                confidence=0.9,  # Amazon catalog is authoritative
+                authority=0.85,  # Official product data
+                freshness=0.95,  # Catalog data is usually current
+                metadata={
+                    "asin": product.asin,
+                    "brand": product.brand,
+                    "manufacturer": product.manufacturer,
+                    "product_type": product.product_type,
+                    "parent_asin": product.parent_asin,
+                    "images": product.images,
+                    "browse_nodes": product.browse_nodes,
+                },
+            )
+            evidence_list.append(evidence)
+
+        return evidence_list
 
     async def fetch(self, evidence_id: str):
         """
@@ -991,6 +1090,123 @@ def get_mock_inventory() -> list[AmazonInventoryItem]:
     ]
 
 
+def get_mock_products(keywords: str, limit: int = 10) -> list[AmazonProduct]:
+    """Get mock Amazon products for testing catalog search.
+
+    Args:
+        keywords: Search keywords (used to customize results)
+        limit: Maximum number of products to return
+
+    Returns:
+        List of mock AmazonProduct objects
+    """
+    # Base mock products
+    mock_products = [
+        AmazonProduct(
+            asin="B00EXAMPLE1",
+            title="Wireless Bluetooth Headphones with Noise Cancellation",
+            brand="TechSound",
+            manufacturer="TechSound Electronics",
+            product_type="HEADPHONES",
+            parent_asin=None,
+            images=["https://images.amazon.com/images/I/example1.jpg"],
+            bullet_points=[
+                "Active Noise Cancellation for immersive sound",
+                "40-hour battery life on single charge",
+                "Comfortable over-ear design",
+                "Bluetooth 5.0 connectivity",
+                "Built-in microphone for calls",
+            ],
+            browse_nodes=["12097479011", "172541"],
+        ),
+        AmazonProduct(
+            asin="B00EXAMPLE2",
+            title="Premium Ergonomic Office Chair with Lumbar Support",
+            brand="ComfortSeat",
+            manufacturer="ComfortSeat Furniture Co.",
+            product_type="OFFICE_CHAIR",
+            parent_asin=None,
+            images=["https://images.amazon.com/images/I/example2.jpg"],
+            bullet_points=[
+                "Adjustable lumbar support for all-day comfort",
+                "Breathable mesh back",
+                "Height and armrest adjustable",
+                "360-degree swivel",
+                "Supports up to 300 lbs",
+            ],
+            browse_nodes=["1069132", "1063306"],
+        ),
+        AmazonProduct(
+            asin="B00EXAMPLE3",
+            title="Stainless Steel Water Bottle - 32oz Insulated",
+            brand="HydroMax",
+            manufacturer="HydroMax Beverages",
+            product_type="WATER_BOTTLE",
+            parent_asin="B00PARENT01",
+            images=["https://images.amazon.com/images/I/example3.jpg"],
+            bullet_points=[
+                "Double-wall vacuum insulation",
+                "Keeps drinks cold 24hrs or hot 12hrs",
+                "BPA-free and leak-proof",
+                "Wide mouth for easy cleaning",
+                "Fits standard cup holders",
+            ],
+            browse_nodes=["16225373011", "2619525011"],
+        ),
+        AmazonProduct(
+            asin="B00EXAMPLE4",
+            title="Smart LED Desk Lamp with USB Charging Port",
+            brand="BrightDesk",
+            manufacturer="BrightDesk Lighting",
+            product_type="DESK_LAMP",
+            parent_asin=None,
+            images=["https://images.amazon.com/images/I/example4.jpg"],
+            bullet_points=[
+                "5 color temperatures and 10 brightness levels",
+                "Built-in USB charging port",
+                "Touch control panel",
+                "Flexible gooseneck design",
+                "Eye-caring LED technology",
+            ],
+            browse_nodes=["1063282", "495224"],
+        ),
+        AmazonProduct(
+            asin="B00EXAMPLE5",
+            title="Mechanical Gaming Keyboard RGB Backlit",
+            brand="GameMaster",
+            manufacturer="GameMaster Peripherals",
+            product_type="KEYBOARD",
+            parent_asin=None,
+            images=["https://images.amazon.com/images/I/example5.jpg"],
+            bullet_points=[
+                "Cherry MX Blue switches for tactile feedback",
+                "Full RGB backlighting with customization software",
+                "Aluminum frame construction",
+                "Anti-ghosting with N-key rollover",
+                "Dedicated media controls",
+            ],
+            browse_nodes=["12879431", "402052011"],
+        ),
+    ]
+
+    # Filter by keywords if provided (simple keyword matching)
+    if keywords:
+        keywords_lower = keywords.lower()
+        filtered = [
+            p for p in mock_products
+            if keywords_lower in p.title.lower()
+            or (p.brand and keywords_lower in p.brand.lower())
+            or (p.product_type and keywords_lower in p.product_type.lower())
+        ]
+        # If no matches, return all mock products (simulate broad search)
+        if not filtered:
+            filtered = mock_products
+    else:
+        filtered = mock_products
+
+    return filtered[:limit]
+
+
 __all__ = [
     "AmazonConnector",
     "AmazonCredentials",
@@ -1005,4 +1221,5 @@ __all__ = [
     "InventoryCondition",
     "get_mock_orders",
     "get_mock_inventory",
+    "get_mock_products",
 ]

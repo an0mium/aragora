@@ -158,6 +158,7 @@ export function SharedInboxView({
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [showRulesPanel, setShowRulesPanel] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [emailDetailOpen, setEmailDetailOpen] = useState(false);
 
   const fetchInboxes = useCallback(async () => {
     setIsLoading(true);
@@ -585,7 +586,7 @@ export function SharedInboxView({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // TODO: Open email detail modal
+                            setEmailDetailOpen(true);
                           }}
                           className="px-4 py-2 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 rounded"
                         >
@@ -643,6 +644,109 @@ export function SharedInboxView({
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Email Detail Modal */}
+      {emailDetailOpen && selectedMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setEmailDetailOpen(false)}
+          />
+          <div className="relative w-full max-w-2xl mx-4 bg-bg border border-border rounded-lg shadow-xl max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="p-4 border-b border-acid-green/30 flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  {selectedMessage.priority && (
+                    <span className={`px-1.5 py-0.5 text-xs rounded ${PRIORITY_COLORS[selectedMessage.priority] || ''}`}>
+                      {selectedMessage.priority}
+                    </span>
+                  )}
+                  <span className={`px-1.5 py-0.5 text-xs rounded border ${STATUS_CONFIG[selectedMessage.status].color}`}>
+                    {STATUS_CONFIG[selectedMessage.status].icon} {STATUS_CONFIG[selectedMessage.status].label}
+                  </span>
+                </div>
+                <h2 className="text-lg font-mono text-text">{selectedMessage.subject}</h2>
+              </div>
+              <button
+                onClick={() => setEmailDetailOpen(false)}
+                className="ml-4 p-1 text-text-muted hover:text-text"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Email Metadata */}
+            <div className="p-4 border-b border-acid-green/20 text-sm">
+              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 font-mono">
+                <span className="text-text-muted">From:</span>
+                <span className="text-text">{selectedMessage.from_address}</span>
+                <span className="text-text-muted">To:</span>
+                <span className="text-text">{selectedMessage.to_addresses.join(', ')}</span>
+                <span className="text-text-muted">Date:</span>
+                <span className="text-text">{new Date(selectedMessage.received_at).toLocaleString()}</span>
+                {selectedMessage.assigned_to && (
+                  <>
+                    <span className="text-text-muted">Assigned:</span>
+                    <span className="text-acid-green">{getTeamMemberName(selectedMessage.assigned_to)}</span>
+                  </>
+                )}
+              </div>
+              {selectedMessage.tags.length > 0 && (
+                <div className="flex gap-1 mt-3">
+                  {selectedMessage.tags.map(tag => (
+                    <span
+                      key={tag}
+                      className="px-1.5 py-0.5 text-xs bg-acid-cyan/10 text-acid-cyan rounded"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Email Body */}
+            <div className="p-4 flex-1 overflow-y-auto">
+              <div className="text-sm text-text whitespace-pre-wrap font-mono">
+                {selectedMessage.snippet}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-acid-green/30 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setEmailDetailOpen(false);
+                  setAssignModalOpen(true);
+                }}
+                className="px-4 py-2 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded"
+              >
+                Assign
+              </button>
+              {selectedMessage.status !== 'resolved' && (
+                <button
+                  onClick={() => {
+                    handleStatusChange(selectedMessage.id, 'resolved');
+                    setEmailDetailOpen(false);
+                  }}
+                  className="px-4 py-2 text-xs font-mono bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded"
+                >
+                  Resolve
+                </button>
+              )}
+              <button
+                onClick={() => setEmailDetailOpen(false)}
+                className="px-4 py-2 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-white rounded"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
