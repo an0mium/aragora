@@ -554,3 +554,461 @@ class TestKnowledgeMoundSync:
         result = await adapter.load_from_mound(mock_mound, "workspace-1")
 
         assert len(result["errors"]) == 1
+
+
+# =============================================================================
+# Store Ranking Updates Tests
+# =============================================================================
+
+
+class TestStoreRankingUpdates:
+    """Tests for storing ranking updates."""
+
+    def test_store_ranking_update_with_positive_delta(self):
+        """Should store ranking update with positive ELO change."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        result = adapter.store_agent_expertise(
+            agent_name="rising-star",
+            domain="security",
+            elo=1600,
+            delta=100,  # Big win
+            debate_id="d-upset",
+        )
+
+        assert result is not None
+        expertise = adapter.get_agent_expertise("rising-star", "security")
+        assert expertise["elo"] == 1600
+        assert expertise["delta"] == 100
+
+    def test_store_ranking_update_with_negative_delta(self):
+        """Should store ranking update with negative ELO change."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        result = adapter.store_agent_expertise(
+            agent_name="falling",
+            domain="coding",
+            elo=1400,
+            delta=-100,  # Big loss
+            debate_id="d-loss",
+        )
+
+        assert result is not None
+        expertise = adapter.get_agent_expertise("falling", "coding")
+        assert expertise["elo"] == 1400
+        assert expertise["delta"] == -100
+
+    def test_ranking_update_tracks_previous_elo(self):
+        """Should track previous ELO value."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("tracker", "security", 1550, delta=50)
+        adapter.store_agent_expertise("tracker", "security", 1600, delta=50)
+
+        expertise = adapter.get_agent_expertise("tracker", "security")
+
+        assert expertise["elo"] == 1600
+        assert expertise["previous_elo"] == 1550
+
+    def test_multiple_ranking_updates_same_agent_domain(self):
+        """Should correctly track multiple updates for same agent/domain."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Simulate progression over multiple debates
+        for i in range(5):
+            adapter.store_agent_expertise(
+                agent_name="progressing",
+                domain="security",
+                elo=1500 + i * 25,
+                delta=25,
+                debate_id=f"d-{i}",
+            )
+
+        expertise = adapter.get_agent_expertise("progressing", "security")
+
+        assert expertise["elo"] == 1600  # Final ELO
+        assert expertise["debate_count"] == 5
+
+    def test_ranking_update_across_multiple_domains(self):
+        """Should track separate rankings for different domains."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("versatile", "security", 1700, delta=50)
+        adapter.store_agent_expertise("versatile", "coding", 1600, delta=50)
+        adapter.store_agent_expertise("versatile", "data", 1550, delta=50)
+
+        all_expertise = adapter.get_agent_expertise("versatile")
+
+        assert len(all_expertise) == 3
+        assert all_expertise["security"]["elo"] == 1700
+        assert all_expertise["coding"]["elo"] == 1600
+        assert all_expertise["data"]["elo"] == 1550
+
+
+# =============================================================================
+# Get Top-Ranked Agents Tests
+# =============================================================================
+
+
+class TestGetTopRankedAgents:
+    """Tests for retrieving top-ranked agents."""
+
+    def test_get_top_ranked_returns_correct_order(self):
+        """Should return agents sorted by ELO descending."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Add agents with different ELOs
+        adapter.store_agent_expertise("low", "security", 1400, delta=50)
+        adapter.store_agent_expertise("medium", "security", 1550, delta=50)
+        adapter.store_agent_expertise("high", "security", 1700, delta=50)
+
+        experts = adapter.get_domain_experts("security", limit=10)
+
+        assert len(experts) == 3
+        assert experts[0].agent_name == "high"
+        assert experts[1].agent_name == "medium"
+        assert experts[2].agent_name == "low"
+
+    def test_get_top_ranked_respects_limit(self):
+        """Should only return requested number of top agents."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Add many agents
+        for i in range(20):
+            adapter.store_agent_expertise(f"agent-{i}", "security", 1500 + i * 10, delta=30)
+
+        experts = adapter.get_domain_experts("security", limit=5)
+
+        assert len(experts) == 5
+        # Should be the top 5 by ELO
+        assert experts[0].elo == 1690
+        assert experts[4].elo == 1650
+
+    def test_get_top_ranked_empty_domain(self):
+        """Should return empty list for domain with no agents."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        experts = adapter.get_domain_experts("nonexistent", limit=10)
+
+        assert len(experts) == 0
+
+    def test_get_top_ranked_single_agent(self):
+        """Should correctly handle single agent in domain."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("solo", "niche", 1600, delta=50)
+
+        experts = adapter.get_domain_experts("niche")
+
+        assert len(experts) == 1
+        assert experts[0].agent_name == "solo"
+
+    def test_get_top_ranked_with_all_domains(self):
+        """Should correctly get top agents across all domains."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("alice", "security", 1800, delta=50)
+        adapter.store_agent_expertise("bob", "coding", 1750, delta=50)
+        adapter.store_agent_expertise("carol", "data", 1700, delta=50)
+
+        # Get all domains
+        domains = adapter.get_all_domains()
+
+        assert len(domains) == 3
+
+        # Each domain should have one expert
+        for domain in domains:
+            experts = adapter.get_domain_experts(domain)
+            assert len(experts) == 1
+
+
+# =============================================================================
+# Ranking Order Preservation Tests
+# =============================================================================
+
+
+class TestRankingOrderPreservation:
+    """Tests for ranking order preservation."""
+
+    def test_order_preserved_after_updates(self):
+        """Should maintain correct order after multiple updates."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Initial rankings
+        adapter.store_agent_expertise("a", "security", 1500, delta=50)
+        adapter.store_agent_expertise("b", "security", 1600, delta=50)
+        adapter.store_agent_expertise("c", "security", 1700, delta=50)
+
+        # Update - 'a' surpasses 'c'
+        adapter.store_agent_expertise("a", "security", 1750, delta=250)
+
+        experts = adapter.get_domain_experts("security")
+
+        # New order should be: a, c, b
+        assert experts[0].agent_name == "a"
+        assert experts[1].agent_name == "c"
+        assert experts[2].agent_name == "b"
+
+    def test_order_stable_for_equal_elo(self):
+        """Should maintain stable order for agents with equal ELO."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # All agents with same ELO
+        adapter.store_agent_expertise("alpha", "security", 1500, delta=50)
+        adapter.store_agent_expertise("beta", "security", 1500, delta=50)
+        adapter.store_agent_expertise("gamma", "security", 1500, delta=50)
+
+        experts1 = adapter.get_domain_experts("security")
+        experts2 = adapter.get_domain_experts("security")
+
+        # Order should be consistent between calls
+        assert [e.agent_name for e in experts1] == [e.agent_name for e in experts2]
+
+    def test_history_preserves_chronological_order(self):
+        """Should preserve chronological order in history."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Simulate agent history
+        for i in range(10):
+            adapter.store_agent_expertise("historian", "security", 1500 + i * 10, delta=30)
+
+        history = adapter.get_agent_history("historian")
+
+        # History should be newest first
+        for i in range(len(history) - 1):
+            assert history[i]["timestamp"] >= history[i + 1]["timestamp"]
+
+    def test_domain_order_independent(self):
+        """Rankings in one domain should not affect another."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Set up different rankings per domain
+        adapter.store_agent_expertise("alice", "security", 1800, delta=50)
+        adapter.store_agent_expertise("bob", "security", 1600, delta=50)
+
+        adapter.store_agent_expertise("alice", "coding", 1400, delta=50)
+        adapter.store_agent_expertise("bob", "coding", 1700, delta=50)
+
+        security_experts = adapter.get_domain_experts("security")
+        coding_experts = adapter.get_domain_experts("coding")
+
+        # Alice leads in security, Bob leads in coding
+        assert security_experts[0].agent_name == "alice"
+        assert coding_experts[0].agent_name == "bob"
+
+
+# =============================================================================
+# Edge Cases Tests
+# =============================================================================
+
+
+class TestRankingEdgeCases:
+    """Tests for edge cases in ranking operations."""
+
+    def test_empty_rankings_domain_query(self):
+        """Should handle query on empty domain gracefully."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        experts = adapter.get_domain_experts("empty-domain")
+
+        assert experts == []
+
+    def test_empty_rankings_agent_query(self):
+        """Should handle query for unknown agent."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        expertise = adapter.get_agent_expertise("unknown-agent")
+
+        assert expertise is None
+
+    def test_ties_in_ranking(self):
+        """Should handle multiple agents with exact same ELO."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Three agents with exact same ELO
+        adapter.store_agent_expertise("tied-1", "security", 1550, delta=50)
+        adapter.store_agent_expertise("tied-2", "security", 1550, delta=50)
+        adapter.store_agent_expertise("tied-3", "security", 1550, delta=50)
+
+        experts = adapter.get_domain_experts("security")
+
+        # All three should be returned
+        assert len(experts) == 3
+        # All should have same ELO
+        assert all(e.elo == 1550 for e in experts)
+
+    def test_very_large_number_of_agents(self):
+        """Should handle large number of agents efficiently."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Add 100 agents
+        for i in range(100):
+            adapter.store_agent_expertise(f"agent-{i:03d}", "security", 1400 + i, delta=30)
+
+        experts = adapter.get_domain_experts("security", limit=10)
+
+        assert len(experts) == 10
+        assert experts[0].elo == 1499  # Highest
+
+    def test_special_characters_in_agent_name(self):
+        """Should handle special characters in agent names."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("agent-with-dash", "security", 1600, delta=50)
+        adapter.store_agent_expertise("agent_with_underscore", "security", 1550, delta=50)
+        adapter.store_agent_expertise("agent.with.dots", "security", 1500, delta=50)
+
+        experts = adapter.get_domain_experts("security")
+
+        assert len(experts) == 3
+
+    def test_very_long_domain_name(self):
+        """Should handle very long domain names."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        long_domain = "a" * 200
+
+        adapter.store_agent_expertise("agent", long_domain, 1600, delta=50)
+
+        experts = adapter.get_domain_experts(long_domain)
+
+        assert len(experts) == 1
+
+    def test_unicode_in_names(self):
+        """Should handle unicode characters in agent and domain names."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("agent-français", "sécurité", 1600, delta=50)
+
+        experts = adapter.get_domain_experts("sécurité")
+
+        assert len(experts) == 1
+        assert experts[0].agent_name == "agent-français"
+
+    def test_zero_confidence_agents_included(self):
+        """Should include agents with zero confidence when threshold is 0."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Single debate gives confidence of 0.2 (1/5)
+        adapter.store_agent_expertise("newbie", "security", 1600, delta=50)
+
+        # With min_confidence=0, should be included
+        experts = adapter.get_domain_experts("security", min_confidence=0.0)
+
+        assert len(experts) == 1
+
+    def test_max_confidence_agents_only(self):
+        """Should filter to only max confidence agents."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Agent with low confidence (1 debate)
+        adapter.store_agent_expertise("low-conf", "security", 1800, delta=50)
+
+        # Agent with max confidence (5 debates)
+        for _ in range(5):
+            adapter.store_agent_expertise("high-conf", "security", 1600, delta=30)
+
+        experts = adapter.get_domain_experts("security", min_confidence=1.0)
+
+        assert len(experts) == 1
+        assert experts[0].agent_name == "high-conf"
+
+    def test_history_limit_zero(self):
+        """Should return empty list when history limit is 0."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("agent", "security", 1600, delta=50)
+
+        history = adapter.get_agent_history("agent", limit=0)
+
+        assert len(history) == 0
+
+    def test_domain_experts_limit_zero(self):
+        """Should return empty list when limit is 0."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        adapter.store_agent_expertise("agent", "security", 1600, delta=50)
+
+        experts = adapter.get_domain_experts("security", limit=0)
+
+        assert len(experts) == 0
+
+    def test_negative_elo_delta_below_threshold(self):
+        """Should not store when absolute delta is below threshold."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Delta of -10 is below MIN_ELO_CHANGE (25)
+        result = adapter.store_agent_expertise("agent", "security", 1490, delta=-10)
+
+        assert result is None
+
+    def test_cache_invalidation_on_new_agent(self):
+        """Should invalidate cache when new agent added to domain."""
+        from aragora.knowledge.mound.adapters import RankingAdapter
+
+        adapter = RankingAdapter()
+
+        # Populate and cache
+        adapter.store_agent_expertise("original", "security", 1600, delta=50)
+        adapter.get_domain_experts("security")  # Cache it
+
+        # Add new agent - should invalidate cache
+        adapter.store_agent_expertise("newcomer", "security", 1700, delta=50)
+
+        # Next query should include newcomer
+        experts = adapter.get_domain_experts("security")
+
+        assert len(experts) == 2
+        assert experts[0].agent_name == "newcomer"

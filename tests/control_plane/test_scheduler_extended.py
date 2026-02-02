@@ -55,7 +55,9 @@ class TestPolicyEnforcement:
         )
 
     @pytest.mark.asyncio
-    async def test_submit_hard_policy_violation_raises(self, scheduler_with_policy, mock_policy_manager):
+    async def test_submit_hard_policy_violation_raises(
+        self, scheduler_with_policy, mock_policy_manager
+    ):
         """Test that HARD policy violation on submit raises error."""
         with patch("aragora.control_plane.scheduler.HAS_POLICY", True):
             # Mock policy module imports
@@ -148,7 +150,7 @@ class TestPolicyEnforcement:
 
             mock_policy_manager.evaluate_task_dispatch.side_effect = [
                 submit_result,  # For submit
-                claim_result,   # For first claim
+                claim_result,  # For first claim
             ]
 
             with patch("aragora.control_plane.scheduler.EnforcementLevel", mock_enforcement):
@@ -229,9 +231,7 @@ class TestCostEnforcement:
         )
 
     @pytest.mark.asyncio
-    async def test_submit_cost_limit_exceeded_raises(
-        self, scheduler_with_cost, mock_cost_enforcer
-    ):
+    async def test_submit_cost_limit_exceeded_raises(self, scheduler_with_cost, mock_cost_enforcer):
         """Test that exceeding cost limit raises error."""
         with patch("aragora.control_plane.scheduler.HAS_COST_ENFORCEMENT", True):
             mock_result = MagicMock()
@@ -599,9 +599,7 @@ class TestStaleTasks:
             return []
 
         mock_redis.xpending_range.side_effect = xpending_side_effect
-        mock_redis.xclaim.return_value = [
-            ("msg-1", {"task_id": "stale-task"})
-        ]
+        mock_redis.xclaim.return_value = [("msg-1", {"task_id": "stale-task"})]
         mock_redis.get.return_value = __import__("json").dumps(task_data.to_dict())
 
         scheduler = TaskScheduler(redis_url="redis://localhost:6379")
@@ -965,3 +963,357 @@ class TestWorkspaceIdHandling:
             # Check policy was evaluated with task's workspace
             call_kwargs = mock_policy_manager.evaluate_task_dispatch.call_args[1]
             assert call_kwargs["workspace"] == "task-ws"
+
+
+class TestCostEnforcementIntegration:
+    """Tests for cost enforcement integration with priority adjustment and metadata."""
+
+    @pytest.fixture
+    def mock_cost_enforcer(self):
+        """Create a mock cost enforcer."""
+        enforcer = MagicMock()
+        return enforcer
+
+    @pytest.fixture
+    def scheduler_with_cost(self, mock_cost_enforcer):
+        """Create scheduler with cost enforcer."""
+        return TaskScheduler(
+            redis_url="memory://",
+            cost_enforcer=mock_cost_enforcer,
+        )
+
+    @pytest.mark.asyncio
+    async def test_priority_adjustment_with_throttle(self, scheduler_with_cost, mock_cost_enforcer):
+        """Test priority gets adjusted based on throttle level."""
+        with patch("aragora.control_plane.scheduler.HAS_COST_ENFORCEMENT", True):
+            # Simulate heavy throttling with significant priority adjustment
+            mock_result = MagicMock()
+            mock_result.allowed = True
+            mock_result.priority_adjustment = -3  # Severe throttle
+            mock_result.throttle_level = MagicMock(value="heavy")
+            mock_result.budget_percentage_used = 95.0
+
+            mock_cost_enforcer.check_budget_constraint.return_value = mock_result
+
+            # Submit with URGENT priority
+            task_id = await scheduler_with_cost.submit(
+                task_type="throttled-task",
+                payload={"data": "test"},
+                priority=TaskPriority.URGENT,
+                workspace_id="throttled-workspace",
+            )
+
+            task = await scheduler_with_cost.get(task_id)
+            # Priority should be significantly lowered from URGENT
+            assert task.priority.value < TaskPriority.URGENT.value
+            # Verify the adjustment went through
+            assert task.metadata["cost_constraint"]["original_priority"] == "URGENT"
+            assert task.metadata["cost_constraint"]["throttle_level"] == "heavy"
+
+    @pytest.mark.asyncio
+    async def test_cost_metadata_preserved(self, scheduler_with_cost, mock_cost_enforcer):
+        """Verify cost constraint info is stored in task metadata."""
+        with patch("aragora.control_plane.scheduler.HAS_COST_ENFORCEMENT", True):
+            mock_result = MagicMock()
+            mock_result.allowed = True
+            mock_result.priority_adjustment = -1
+            mock_result.throttle_level = MagicMock(value="light")
+            mock_result.budget_percentage_used = 72.5
+
+            mock_cost_enforcer.check_budget_constraint.return_value = mock_result
+
+            task_id = await scheduler_with_cost.submit(
+                task_type="tracked-task",
+                payload={},
+                priority=TaskPriority.NORMAL,
+                workspace_id="metered-ws",
+            )
+
+            task = await scheduler_with_cost.get(task_id)
+
+            # Verify cost constraint metadata is present and correct
+            assert "cost_constraint" in task.metadata
+            cost_info = task.metadata["cost_constraint"]
+            assert cost_info["throttle_level"] == "light"
+            assert cost_info["budget_percentage_used"] == 72.5
+            assert cost_info["original_priority"] == "NORMAL"
+
+            # Verify the metadata persists through task lifecycle
+            await scheduler_with_cost.claim(worker_id="worker-1", capabilities=[])
+            claimed_task = await scheduler_with_cost.get(task_id)
+            assert claimed_task.metadata["cost_constraint"]["budget_percentage_used"] == 72.5
+
+            await scheduler_with_cost.complete(task_id, result={"done": True})
+            completed_task = await scheduler_with_cost.get(task_id)
+            assert completed_task.metadata["cost_constraint"]["throttle_level"] == "light"
+
+
+class TestPolicyManagerIntegration:
+    """Tests for policy manager integration during task dispatch."""
+
+    @pytest.fixture
+    def mock_policy_manager(self):
+        """Create a mock policy manager."""
+        manager = MagicMock()
+        return manager
+
+    @pytest.fixture
+    def scheduler_with_policy(self, mock_policy_manager):
+        """Create scheduler with policy manager."""
+        return TaskScheduler(
+            redis_url="memory://",
+            policy_manager=mock_policy_manager,
+        )
+
+    @pytest.mark.asyncio
+    async def test_policy_evaluation_on_dispatch(self, scheduler_with_policy, mock_policy_manager):
+        """Test policy_manager.evaluate_task_dispatch is called during claim."""
+        with patch("aragora.control_plane.scheduler.HAS_POLICY", True):
+            mock_enforcement = MagicMock()
+            mock_enforcement.HARD = "hard"
+            mock_enforcement.WARN = "warn"
+
+            # Allow both submit and claim
+            mock_result = MagicMock()
+            mock_result.allowed = True
+
+            mock_policy_manager.evaluate_task_dispatch.return_value = mock_result
+
+            with patch("aragora.control_plane.scheduler.EnforcementLevel", mock_enforcement):
+                # Submit task
+                task_id = await scheduler_with_policy.submit(
+                    task_type="policy-checked",
+                    payload={"action": "dispatch"},
+                    workspace_id="policy-ws",
+                    required_capabilities=["analysis"],
+                )
+
+                # Verify evaluate_task_dispatch was called on submit
+                submit_call = mock_policy_manager.evaluate_task_dispatch.call_args_list[0]
+                assert submit_call[1]["task_type"] == "policy-checked"
+                assert submit_call[1]["agent_id"] == "__submission__"
+                assert submit_call[1]["workspace"] == "policy-ws"
+
+                # Now claim the task
+                await scheduler_with_policy.claim(
+                    worker_id="policy-worker",
+                    capabilities=["analysis"],
+                )
+
+                # Verify evaluate_task_dispatch was called on claim
+                assert mock_policy_manager.evaluate_task_dispatch.call_count == 2
+                claim_call = mock_policy_manager.evaluate_task_dispatch.call_args_list[1]
+                assert claim_call[1]["task_type"] == "policy-checked"
+                assert claim_call[1]["agent_id"] == "policy-worker"
+                assert claim_call[1]["task_id"] == task_id
+
+    @pytest.mark.asyncio
+    async def test_policy_rejection_tracking(self, scheduler_with_policy, mock_policy_manager):
+        """Test rejection metadata is recorded when policy rejects claim."""
+        with patch("aragora.control_plane.scheduler.HAS_POLICY", True):
+            mock_enforcement = MagicMock()
+            mock_enforcement.HARD = "hard"
+            mock_enforcement.WARN = "warn"
+
+            # Allow submit, reject first claim
+            submit_result = MagicMock()
+            submit_result.allowed = True
+
+            reject_result = MagicMock()
+            reject_result.allowed = False
+            reject_result.enforcement_level = mock_enforcement.HARD
+            reject_result.reason = "Worker not authorized for this task type"
+            reject_result.policy_id = "policy-auth-123"
+
+            mock_policy_manager.evaluate_task_dispatch.side_effect = [
+                submit_result,  # For submit
+                reject_result,  # For first claim attempt
+            ]
+
+            with patch("aragora.control_plane.scheduler.EnforcementLevel", mock_enforcement):
+                task_id = await scheduler_with_policy.submit(
+                    task_type="restricted-task",
+                    payload={},
+                    workspace_id="secure-ws",
+                )
+
+                # First claim should be rejected
+                task = await scheduler_with_policy.claim(
+                    worker_id="unauthorized-worker",
+                    capabilities=[],
+                )
+                assert task is None
+
+                # Check rejection metadata was recorded
+                stored_task = await scheduler_with_policy.get(task_id)
+                assert stored_task.metadata.get("policy_rejection_count", 0) >= 1
+                assert stored_task.metadata.get("last_policy_rejected_by") == "unauthorized-worker"
+                assert "not authorized" in stored_task.metadata.get(
+                    "last_policy_rejection_reason", ""
+                )
+
+
+class TestStaleTaskReclamation:
+    """Tests for stale task reclamation from dead workers."""
+
+    @pytest.fixture
+    def mock_redis(self):
+        """Create a mock Redis client."""
+        return create_mock_redis()
+
+    @pytest.mark.asyncio
+    async def test_claim_stale_tasks_basic(self, mock_redis):
+        """Test reclaiming tasks from dead workers."""
+        # Create a task that appears stale
+        stale_task = Task(
+            id="stale-task-123",
+            task_type="long-running",
+            payload={"work": "heavy"},
+            max_retries=5,
+        )
+        stale_task.status = TaskStatus.RUNNING
+        stale_task.assigned_agent = "dead-worker-1"
+
+        # Mock pending entries showing stale tasks
+        def xpending_side_effect(stream_key, *args, **kwargs):
+            if "normal" in stream_key:
+                return [
+                    {
+                        "message_id": "stale-msg-1",
+                        "consumer": "dead-worker-1",
+                        "time_since_delivered": 180000,  # 3 minutes - definitely stale
+                        "times_delivered": 1,
+                    }
+                ]
+            return []
+
+        mock_redis.xpending_range.side_effect = xpending_side_effect
+        mock_redis.xclaim.return_value = [("stale-msg-1", {"task_id": "stale-task-123"})]
+        mock_redis.get.return_value = __import__("json").dumps(stale_task.to_dict())
+
+        scheduler = TaskScheduler(redis_url="redis://localhost:6379")
+        scheduler._redis = mock_redis
+
+        reclaimed = await scheduler.claim_stale_tasks(idle_ms=60000)
+
+        # Should have reclaimed 1 task
+        assert reclaimed == 1
+        # Verify xclaim was called with correct parameters
+        mock_redis.xclaim.assert_called()
+        xclaim_call = mock_redis.xclaim.call_args
+        assert xclaim_call[0][2] == "recovery-worker"
+        assert xclaim_call[1]["min_idle_time"] == 60000
+
+    @pytest.mark.asyncio
+    async def test_claim_stale_handles_errors(self, mock_redis):
+        """Test graceful handling of malformed data during stale task recovery."""
+
+        # Mock malformed pending entry data
+        def xpending_side_effect(stream_key, *args, **kwargs):
+            if "normal" in stream_key:
+                # Return malformed entry missing expected keys
+                return [
+                    {
+                        "message_id": "malformed-msg",
+                        # Missing "time_since_delivered" - will cause KeyError
+                    }
+                ]
+            return []
+
+        mock_redis.xpending_range.side_effect = xpending_side_effect
+
+        scheduler = TaskScheduler(redis_url="redis://localhost:6379")
+        scheduler._redis = mock_redis
+
+        # Should not raise, just return 0 and log error
+        reclaimed = await scheduler.claim_stale_tasks(idle_ms=60000)
+        assert reclaimed == 0
+
+    @pytest.mark.asyncio
+    async def test_claim_stale_handles_invalid_task_data(self, mock_redis):
+        """Test handling of invalid task JSON during stale recovery."""
+
+        def xpending_side_effect(stream_key, *args, **kwargs):
+            if "high" in stream_key:
+                return [
+                    {
+                        "message_id": "bad-json-msg",
+                        "consumer": "crashed-worker",
+                        "time_since_delivered": 120000,
+                        "times_delivered": 2,
+                    }
+                ]
+            return []
+
+        mock_redis.xpending_range.side_effect = xpending_side_effect
+        mock_redis.xclaim.return_value = [("bad-json-msg", {"task_id": "bad-task"})]
+        # Return invalid JSON
+        mock_redis.get.return_value = "not valid json{"
+
+        scheduler = TaskScheduler(redis_url="redis://localhost:6379")
+        scheduler._redis = mock_redis
+
+        # Should handle gracefully
+        reclaimed = await scheduler.claim_stale_tasks(idle_ms=60000)
+        # Task couldn't be recovered due to bad data
+        assert reclaimed == 0
+
+    @pytest.mark.asyncio
+    async def test_claim_stale_multiple_priorities(self, mock_redis):
+        """Test stale task recovery across multiple priority queues."""
+        task1 = Task(id="stale-high", task_type="priority", payload={}, max_retries=3)
+        task1.status = TaskStatus.RUNNING
+        task1.priority = TaskPriority.HIGH
+
+        task2 = Task(id="stale-low", task_type="priority", payload={}, max_retries=3)
+        task2.status = TaskStatus.RUNNING
+        task2.priority = TaskPriority.LOW
+
+        def xpending_side_effect(stream_key, *args, **kwargs):
+            if "high" in stream_key:
+                return [
+                    {
+                        "message_id": "high-msg",
+                        "consumer": "dead-high-worker",
+                        "time_since_delivered": 90000,
+                        "times_delivered": 1,
+                    }
+                ]
+            elif "low" in stream_key:
+                return [
+                    {
+                        "message_id": "low-msg",
+                        "consumer": "dead-low-worker",
+                        "time_since_delivered": 100000,
+                        "times_delivered": 1,
+                    }
+                ]
+            return []
+
+        mock_redis.xpending_range.side_effect = xpending_side_effect
+
+        def xclaim_side_effect(stream_key, *args, **kwargs):
+            if "high" in stream_key:
+                return [("high-msg", {"task_id": "stale-high"})]
+            elif "low" in stream_key:
+                return [("low-msg", {"task_id": "stale-low"})]
+            return []
+
+        mock_redis.xclaim.side_effect = xclaim_side_effect
+
+        def get_side_effect(key):
+            if "stale-high" in key:
+                return __import__("json").dumps(task1.to_dict())
+            elif "stale-low" in key:
+                return __import__("json").dumps(task2.to_dict())
+            return None
+
+        mock_redis.get.side_effect = get_side_effect
+
+        scheduler = TaskScheduler(redis_url="redis://localhost:6379")
+        scheduler._redis = mock_redis
+
+        reclaimed = await scheduler.claim_stale_tasks(idle_ms=60000)
+
+        # Should have reclaimed tasks from both priority queues
+        assert reclaimed == 2

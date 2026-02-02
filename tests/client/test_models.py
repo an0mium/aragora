@@ -23,11 +23,21 @@ from aragora.client.models import (
     DocumentStatus,
     FindingSeverity,
     FindingWorkflowStatus,
+    GauntletPersonaCategory,
+    GauntletResultStatus,
+    GauntletRunStatus,
     GauntletVerdict,
     VerificationBackend,
     VerificationStatus,
     # Core models
+    AgentCalibration,
+    AgentConsistency,
+    AgentFlip,
     AgentMessage,
+    AgentMoment,
+    AgentNetwork,
+    AgentPerformance,
+    AgentPosition,
     AgentProfile,
     APIError,
     AuditFinding,
@@ -51,8 +61,14 @@ from aragora.client.models import (
     DocumentChunk,
     DocumentContext,
     DocumentUploadResponse,
+    DomainRating,
     Finding,
+    GauntletComparison,
+    GauntletHeatmapExtended,
+    GauntletPersona,
     GauntletReceipt,
+    GauntletResult,
+    GauntletRun,
     GauntletRunRequest,
     GauntletRunResponse,
     GraphDebate,
@@ -60,6 +76,7 @@ from aragora.client.models import (
     GraphDebateCreateRequest,
     GraphDebateCreateResponse,
     GraphDebateNode,
+    HeadToHeadStats,
     HealthCheck,
     LeaderboardEntry,
     MatrixConclusion,
@@ -72,6 +89,7 @@ from aragora.client.models import (
     MemoryRecommendation,
     MemorySnapshotResponse,
     MemoryTierStats,
+    OpponentBriefing,
     ProcessingStats,
     Replay,
     ReplayEvent,
@@ -862,3 +880,673 @@ class TestAuditModels:
         assert caps.supports_chunk_analysis is True
         assert caps.supports_cross_document is False
         assert caps.requires_llm is True
+
+
+# =============================================================================
+# Extended Agent Models
+# =============================================================================
+
+
+class TestAgentCalibration:
+    """Tests for AgentCalibration model."""
+
+    def test_basic_creation(self):
+        """Test basic AgentCalibration creation."""
+        cal = AgentCalibration(agent="claude", overall_score=0.85)
+        assert cal.agent == "claude"
+        assert cal.overall_score == 0.85
+        assert cal.domain_scores == {}
+        assert cal.confidence_accuracy == 0.0
+        assert cal.last_calibrated is None
+        assert cal.sample_size == 0
+
+    def test_with_all_fields(self):
+        """Test AgentCalibration with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        cal = AgentCalibration(
+            agent="gpt-4",
+            overall_score=0.92,
+            domain_scores={"security": 0.95, "compliance": 0.88},
+            confidence_accuracy=0.78,
+            last_calibrated=now,
+            sample_size=150,
+        )
+        assert cal.agent == "gpt-4"
+        assert cal.overall_score == 0.92
+        assert cal.domain_scores == {"security": 0.95, "compliance": 0.88}
+        assert cal.confidence_accuracy == 0.78
+        assert cal.last_calibrated == now
+        assert cal.sample_size == 150
+
+    def test_default_values(self):
+        """Test default values are correct."""
+        cal = AgentCalibration(agent="test", overall_score=0.5)
+        assert cal.domain_scores == {}
+        assert cal.confidence_accuracy == 0.0
+        assert cal.sample_size == 0
+
+    def test_score_bounds_valid(self):
+        """Test overall_score accepts valid bounds."""
+        cal_min = AgentCalibration(agent="test", overall_score=0.0)
+        assert cal_min.overall_score == 0.0
+        cal_max = AgentCalibration(agent="test", overall_score=1.0)
+        assert cal_max.overall_score == 1.0
+
+    def test_score_bounds_invalid(self):
+        """Test overall_score rejects invalid values."""
+        with pytest.raises(ValueError):
+            AgentCalibration(agent="test", overall_score=1.5)
+        with pytest.raises(ValueError):
+            AgentCalibration(agent="test", overall_score=-0.1)
+
+
+class TestAgentPerformance:
+    """Tests for AgentPerformance model."""
+
+    def test_basic_creation(self):
+        """Test basic AgentPerformance creation."""
+        perf = AgentPerformance(agent="claude", win_rate=0.65, loss_rate=0.25, draw_rate=0.10)
+        assert perf.agent == "claude"
+        assert perf.win_rate == 0.65
+        assert perf.loss_rate == 0.25
+        assert perf.draw_rate == 0.10
+        assert perf.elo_trend == []
+        assert perf.elo_change_30d == 0.0
+        assert perf.total_debates == 0
+
+    def test_with_all_fields(self):
+        """Test AgentPerformance with all optional fields populated."""
+        perf = AgentPerformance(
+            agent="gpt-4",
+            win_rate=0.70,
+            loss_rate=0.20,
+            draw_rate=0.10,
+            elo_trend=[1500.0, 1520.0, 1545.0, 1560.0],
+            elo_change_30d=60.0,
+            avg_confidence=0.85,
+            avg_round_duration_ms=1500,
+            total_debates=100,
+            recent_results=[{"debate_id": "d1", "result": "win"}],
+        )
+        assert perf.elo_trend == [1500.0, 1520.0, 1545.0, 1560.0]
+        assert perf.elo_change_30d == 60.0
+        assert perf.avg_confidence == 0.85
+        assert perf.avg_round_duration_ms == 1500
+        assert perf.total_debates == 100
+        assert len(perf.recent_results) == 1
+
+    def test_default_values(self):
+        """Test default values are correct."""
+        perf = AgentPerformance(agent="test", win_rate=0.5, loss_rate=0.3, draw_rate=0.2)
+        assert perf.elo_trend == []
+        assert perf.elo_change_30d == 0.0
+        assert perf.avg_confidence == 0.0
+        assert perf.avg_round_duration_ms == 0
+        assert perf.total_debates == 0
+        assert perf.recent_results == []
+
+    def test_rate_bounds_valid(self):
+        """Test rate fields accept valid bounds."""
+        perf = AgentPerformance(agent="test", win_rate=0.0, loss_rate=0.0, draw_rate=1.0)
+        assert perf.win_rate == 0.0
+        assert perf.loss_rate == 0.0
+        assert perf.draw_rate == 1.0
+
+    def test_rate_bounds_invalid(self):
+        """Test rate fields reject invalid values."""
+        with pytest.raises(ValueError):
+            AgentPerformance(agent="test", win_rate=1.5, loss_rate=0.0, draw_rate=0.0)
+        with pytest.raises(ValueError):
+            AgentPerformance(agent="test", win_rate=0.5, loss_rate=-0.1, draw_rate=0.0)
+
+
+class TestHeadToHeadStats:
+    """Tests for HeadToHeadStats model."""
+
+    def test_basic_creation(self):
+        """Test basic HeadToHeadStats creation."""
+        stats = HeadToHeadStats(agent="claude", opponent="gpt-4")
+        assert stats.agent == "claude"
+        assert stats.opponent == "gpt-4"
+        assert stats.total_matchups == 0
+        assert stats.wins == 0
+        assert stats.losses == 0
+        assert stats.draws == 0
+        assert stats.win_rate == 0.0
+
+    def test_with_all_fields(self):
+        """Test HeadToHeadStats with all optional fields populated."""
+        stats = HeadToHeadStats(
+            agent="claude",
+            opponent="gpt-4",
+            total_matchups=50,
+            wins=28,
+            losses=18,
+            draws=4,
+            win_rate=0.56,
+            avg_margin=0.12,
+            recent_matchups=[{"debate_id": "d1", "result": "win"}],
+            domain_breakdown={
+                "security": {"wins": 10, "losses": 5},
+                "compliance": {"wins": 8, "losses": 7},
+            },
+        )
+        assert stats.total_matchups == 50
+        assert stats.wins == 28
+        assert stats.losses == 18
+        assert stats.draws == 4
+        assert stats.win_rate == 0.56
+        assert stats.avg_margin == 0.12
+        assert len(stats.recent_matchups) == 1
+        assert "security" in stats.domain_breakdown
+        assert stats.domain_breakdown["security"]["wins"] == 10
+
+    def test_default_values(self):
+        """Test default values are correct."""
+        stats = HeadToHeadStats(agent="test", opponent="rival")
+        assert stats.total_matchups == 0
+        assert stats.win_rate == 0.0
+        assert stats.avg_margin == 0.0
+        assert stats.recent_matchups == []
+        assert stats.domain_breakdown == {}
+
+    def test_nested_domain_breakdown(self):
+        """Test nested domain_breakdown dict structure."""
+        stats = HeadToHeadStats(
+            agent="claude",
+            opponent="gpt-4",
+            domain_breakdown={
+                "coding": {"wins": 15, "losses": 10, "draws": 2},
+                "reasoning": {"wins": 12, "losses": 8, "draws": 5},
+            },
+        )
+        assert stats.domain_breakdown["coding"]["wins"] == 15
+        assert stats.domain_breakdown["reasoning"]["draws"] == 5
+
+
+class TestGauntletRun:
+    """Tests for GauntletRun model."""
+
+    def test_basic_creation(self):
+        """Test basic GauntletRun creation."""
+        run = GauntletRun(id="run-123")
+        assert run.id == "run-123"
+        assert run.name is None
+        assert run.status == GauntletRunStatus.PENDING
+        assert run.config == {}
+        assert run.progress == {}
+        assert run.results_summary is None
+
+    def test_with_all_fields(self):
+        """Test GauntletRun with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        run = GauntletRun(
+            id="run-456",
+            name="Security Audit Run",
+            status=GauntletRunStatus.COMPLETED,
+            created_at=now,
+            started_at=now,
+            completed_at=now,
+            config={"persona": "adversarial", "intensity": "high"},
+            progress={"completed": 50, "total": 50},
+            results_summary={"pass_rate": 0.92, "findings": 4},
+            metadata={"version": "1.0"},
+        )
+        assert run.name == "Security Audit Run"
+        assert run.status == GauntletRunStatus.COMPLETED
+        assert run.created_at == now
+        assert run.progress["completed"] == 50
+        assert run.results_summary["pass_rate"] == 0.92
+
+    def test_default_values(self):
+        """Test default values are correct."""
+        run = GauntletRun(id="test")
+        assert run.status == GauntletRunStatus.PENDING
+        assert run.config == {}
+        assert run.progress == {}
+        assert run.metadata == {}
+
+    def test_status_enum_values(self):
+        """Test all status enum values work."""
+        for status in GauntletRunStatus:
+            run = GauntletRun(id="test", status=status)
+            assert run.status == status
+
+
+class TestGauntletPersona:
+    """Tests for GauntletPersona model."""
+
+    def test_basic_creation(self):
+        """Test basic GauntletPersona creation."""
+        persona = GauntletPersona(id="persona-1", name="Adversarial Tester")
+        assert persona.id == "persona-1"
+        assert persona.name == "Adversarial Tester"
+        assert persona.description == ""
+        assert persona.category == GauntletPersonaCategory.CUSTOM
+        assert persona.severity == "medium"
+        assert persona.enabled is True
+
+    def test_with_all_fields(self):
+        """Test GauntletPersona with all optional fields populated."""
+        persona = GauntletPersona(
+            id="persona-2",
+            name="Security Auditor",
+            description="Tests for security vulnerabilities",
+            category=GauntletPersonaCategory.ADVERSARIAL,
+            severity="critical",
+            tags=["security", "injection", "xss"],
+            example_prompts=["Try SQL injection", "Test XSS vectors"],
+            enabled=True,
+        )
+        assert persona.description == "Tests for security vulnerabilities"
+        assert persona.category == GauntletPersonaCategory.ADVERSARIAL
+        assert persona.severity == "critical"
+        assert len(persona.tags) == 3
+        assert len(persona.example_prompts) == 2
+
+    def test_default_values(self):
+        """Test default values are correct."""
+        persona = GauntletPersona(id="test", name="Test")
+        assert persona.description == ""
+        assert persona.category == GauntletPersonaCategory.CUSTOM
+        assert persona.severity == "medium"
+        assert persona.tags == []
+        assert persona.example_prompts == []
+        assert persona.enabled is True
+
+    def test_category_enum_values(self):
+        """Test all category enum values work."""
+        for category in GauntletPersonaCategory:
+            persona = GauntletPersona(id="test", name="Test", category=category)
+            assert persona.category == category
+
+
+class TestGauntletResult:
+    """Tests for GauntletResult model."""
+
+    def test_basic_creation(self):
+        """Test basic GauntletResult creation."""
+        result = GauntletResult(id="result-1", gauntlet_id="gauntlet-123")
+        assert result.id == "result-1"
+        assert result.gauntlet_id == "gauntlet-123"
+        assert result.scenario == ""
+        assert result.status == GauntletResultStatus.PASS
+        assert result.verdict == ""
+        assert result.confidence == 0.0
+        assert result.risk_level == "low"
+
+    def test_with_all_fields(self):
+        """Test GauntletResult with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        result = GauntletResult(
+            id="result-2",
+            gauntlet_id="gauntlet-456",
+            scenario="SQL injection test",
+            persona="adversarial",
+            status=GauntletResultStatus.FAIL,
+            verdict="Vulnerability detected",
+            confidence=0.95,
+            risk_level="critical",
+            duration_ms=1500,
+            debate_id="debate-789",
+            findings=[{"type": "injection", "severity": "high"}],
+            timestamp=now,
+        )
+        assert result.scenario == "SQL injection test"
+        assert result.persona == "adversarial"
+        assert result.status == GauntletResultStatus.FAIL
+        assert result.verdict == "Vulnerability detected"
+        assert result.confidence == 0.95
+        assert result.risk_level == "critical"
+        assert result.duration_ms == 1500
+        assert result.debate_id == "debate-789"
+        assert len(result.findings) == 1
+        assert result.timestamp == now
+
+    def test_default_values(self):
+        """Test default values are correct."""
+        result = GauntletResult(id="test", gauntlet_id="test")
+        assert result.scenario == ""
+        assert result.persona is None
+        assert result.status == GauntletResultStatus.PASS
+        assert result.verdict == ""
+        assert result.confidence == 0.0
+        assert result.risk_level == "low"
+        assert result.duration_ms == 0
+        assert result.debate_id is None
+        assert result.findings == []
+        assert result.timestamp is None
+
+    def test_confidence_bounds_valid(self):
+        """Test confidence accepts valid values."""
+        result_min = GauntletResult(id="test", gauntlet_id="test", confidence=0.0)
+        assert result_min.confidence == 0.0
+        result_max = GauntletResult(id="test", gauntlet_id="test", confidence=0.99)
+        assert result_max.confidence == 0.99
+
+    def test_status_enum_values(self):
+        """Test all status enum values work."""
+        for status in GauntletResultStatus:
+            result = GauntletResult(id="test", gauntlet_id="test", status=status)
+            assert result.status == status
+
+
+# =============================================================================
+# Medium Priority Extended Agent Models
+# =============================================================================
+
+
+class TestOpponentBriefing:
+    """Tests for OpponentBriefing model."""
+
+    def test_basic_creation(self):
+        """Test basic OpponentBriefing creation."""
+        briefing = OpponentBriefing(agent="claude", opponent="gpt-4")
+        assert briefing.agent == "claude"
+        assert briefing.opponent == "gpt-4"
+        assert briefing.opponent_profile == {}
+        assert briefing.historical_summary == ""
+        assert briefing.recommended_strategy == ""
+        assert briefing.key_insights == []
+        assert briefing.confidence == 0.0
+
+    def test_with_all_fields(self):
+        """Test OpponentBriefing with all optional fields populated."""
+        briefing = OpponentBriefing(
+            agent="claude",
+            opponent="gpt-4",
+            opponent_profile={"elo": 1650, "style": "analytical"},
+            historical_summary="Claude has won 60% of debates against GPT-4",
+            recommended_strategy="Focus on logical reasoning",
+            key_insights=["Tends to concede on ethical issues", "Strong on technical details"],
+            confidence=0.85,
+        )
+        assert briefing.opponent_profile["elo"] == 1650
+        assert "60%" in briefing.historical_summary
+        assert len(briefing.key_insights) == 2
+        assert briefing.confidence == 0.85
+
+
+class TestAgentConsistency:
+    """Tests for AgentConsistency model."""
+
+    def test_basic_creation(self):
+        """Test basic AgentConsistency creation."""
+        consistency = AgentConsistency(agent="claude")
+        assert consistency.agent == "claude"
+        assert consistency.overall_consistency == 0.0
+        assert consistency.position_stability == 0.0
+        assert consistency.flip_rate == 0.0
+        assert consistency.consistency_by_domain == {}
+        assert consistency.volatility_index == 0.0
+        assert consistency.sample_size == 0
+
+    def test_with_all_fields(self):
+        """Test AgentConsistency with all optional fields populated."""
+        consistency = AgentConsistency(
+            agent="gpt-4",
+            overall_consistency=0.92,
+            position_stability=0.88,
+            flip_rate=0.05,
+            consistency_by_domain={"security": 0.95, "ethics": 0.80},
+            volatility_index=0.12,
+            sample_size=200,
+        )
+        assert consistency.overall_consistency == 0.92
+        assert consistency.flip_rate == 0.05
+        assert consistency.consistency_by_domain["security"] == 0.95
+        assert consistency.sample_size == 200
+
+
+class TestAgentFlip:
+    """Tests for AgentFlip model."""
+
+    def test_basic_creation(self):
+        """Test basic AgentFlip creation."""
+        flip = AgentFlip(flip_id="flip-1", agent="claude", debate_id="debate-123")
+        assert flip.flip_id == "flip-1"
+        assert flip.agent == "claude"
+        assert flip.debate_id == "debate-123"
+        assert flip.topic == ""
+        assert flip.original_position == ""
+        assert flip.new_position == ""
+        assert flip.flip_reason is None
+        assert flip.round_number == 0
+        assert flip.was_justified is False
+
+    def test_with_all_fields(self):
+        """Test AgentFlip with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        flip = AgentFlip(
+            flip_id="flip-2",
+            agent="gpt-4",
+            debate_id="debate-456",
+            topic="Climate change policy",
+            original_position="Against carbon tax",
+            new_position="For carbon tax",
+            flip_reason="Convinced by economic evidence",
+            round_number=3,
+            timestamp=now,
+            was_justified=True,
+        )
+        assert flip.topic == "Climate change policy"
+        assert flip.original_position == "Against carbon tax"
+        assert flip.new_position == "For carbon tax"
+        assert flip.flip_reason == "Convinced by economic evidence"
+        assert flip.round_number == 3
+        assert flip.timestamp == now
+        assert flip.was_justified is True
+
+
+class TestAgentNetwork:
+    """Tests for AgentNetwork model."""
+
+    def test_basic_creation(self):
+        """Test basic AgentNetwork creation."""
+        network = AgentNetwork(agent="claude")
+        assert network.agent == "claude"
+        assert network.allies == []
+        assert network.rivals == []
+        assert network.neutrals == []
+        assert network.cluster_id is None
+        assert network.network_position == "peripheral"
+
+    def test_with_all_fields(self):
+        """Test AgentNetwork with all optional fields populated."""
+        network = AgentNetwork(
+            agent="claude",
+            allies=[{"agent": "gemini", "affinity": 0.8}],
+            rivals=[{"agent": "grok", "rivalry": 0.6}],
+            neutrals=["gpt-4", "mistral"],
+            cluster_id="cluster-1",
+            network_position="central",
+        )
+        assert len(network.allies) == 1
+        assert len(network.rivals) == 1
+        assert len(network.neutrals) == 2
+        assert network.cluster_id == "cluster-1"
+        assert network.network_position == "central"
+
+
+class TestAgentMoment:
+    """Tests for AgentMoment model."""
+
+    def test_basic_creation(self):
+        """Test basic AgentMoment creation."""
+        moment = AgentMoment(
+            moment_id="moment-1", agent="claude", debate_id="debate-123", type="breakthrough"
+        )
+        assert moment.moment_id == "moment-1"
+        assert moment.agent == "claude"
+        assert moment.debate_id == "debate-123"
+        assert moment.type == "breakthrough"
+        assert moment.description == ""
+        assert moment.impact_score == 0.0
+        assert moment.timestamp is None
+        assert moment.context == {}
+
+    def test_with_all_fields(self):
+        """Test AgentMoment with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        moment = AgentMoment(
+            moment_id="moment-2",
+            agent="gpt-4",
+            debate_id="debate-456",
+            type="decisive_argument",
+            description="Presented compelling evidence that swayed consensus",
+            impact_score=0.95,
+            timestamp=now,
+            context={"round": 3, "topic": "AI safety"},
+        )
+        assert moment.type == "decisive_argument"
+        assert "compelling evidence" in moment.description
+        assert moment.impact_score == 0.95
+        assert moment.context["round"] == 3
+
+
+class TestAgentPosition:
+    """Tests for AgentPosition model."""
+
+    def test_basic_creation(self):
+        """Test basic AgentPosition creation."""
+        position = AgentPosition(position_id="pos-1", agent="claude", debate_id="debate-123")
+        assert position.position_id == "pos-1"
+        assert position.agent == "claude"
+        assert position.debate_id == "debate-123"
+        assert position.topic == ""
+        assert position.stance == ""
+        assert position.confidence == 0.0
+        assert position.supporting_evidence == []
+        assert position.round_number == 0
+        assert position.was_final is False
+
+    def test_with_all_fields(self):
+        """Test AgentPosition with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        position = AgentPosition(
+            position_id="pos-2",
+            agent="gpt-4",
+            debate_id="debate-456",
+            topic="Universal basic income",
+            stance="Supportive with conditions",
+            confidence=0.88,
+            supporting_evidence=["Economic studies", "Pilot program results"],
+            round_number=4,
+            timestamp=now,
+            was_final=True,
+        )
+        assert position.topic == "Universal basic income"
+        assert position.stance == "Supportive with conditions"
+        assert position.confidence == 0.88
+        assert len(position.supporting_evidence) == 2
+        assert position.was_final is True
+
+
+class TestDomainRating:
+    """Tests for DomainRating model."""
+
+    def test_basic_creation(self):
+        """Test basic DomainRating creation."""
+        rating = DomainRating(domain="security")
+        assert rating.domain == "security"
+        assert rating.elo == 1500
+        assert rating.matches == 0
+        assert rating.win_rate == 0.0
+        assert rating.avg_confidence == 0.0
+        assert rating.last_active is None
+        assert rating.trend == "stable"
+
+    def test_with_all_fields(self):
+        """Test DomainRating with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        rating = DomainRating(
+            domain="compliance",
+            elo=1720,
+            matches=45,
+            win_rate=0.73,
+            avg_confidence=0.85,
+            last_active=now,
+            trend="rising",
+        )
+        assert rating.elo == 1720
+        assert rating.matches == 45
+        assert rating.win_rate == 0.73
+        assert rating.avg_confidence == 0.85
+        assert rating.last_active == now
+        assert rating.trend == "rising"
+
+
+# =============================================================================
+# Medium Priority Extended Gauntlet Models
+# =============================================================================
+
+
+class TestGauntletHeatmapExtended:
+    """Tests for GauntletHeatmapExtended model."""
+
+    def test_basic_creation(self):
+        """Test basic GauntletHeatmapExtended creation."""
+        heatmap = GauntletHeatmapExtended(gauntlet_id="gauntlet-123")
+        assert heatmap.gauntlet_id == "gauntlet-123"
+        assert heatmap.dimensions == {}
+        assert heatmap.matrix == []
+        assert heatmap.overall_risk == 0.0
+        assert heatmap.hotspots == []
+        assert heatmap.generated_at is None
+
+    def test_with_all_fields(self):
+        """Test GauntletHeatmapExtended with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        heatmap = GauntletHeatmapExtended(
+            gauntlet_id="gauntlet-456",
+            dimensions={
+                "personas": ["adversarial", "edge_case"],
+                "scenarios": ["injection", "overflow"],
+            },
+            matrix=[[0.2, 0.8], [0.5, 0.3]],
+            overall_risk=0.45,
+            hotspots=[{"persona": "adversarial", "scenario": "injection", "risk": 0.8}],
+            generated_at=now,
+        )
+        assert len(heatmap.dimensions["personas"]) == 2
+        assert len(heatmap.matrix) == 2
+        assert heatmap.overall_risk == 0.45
+        assert len(heatmap.hotspots) == 1
+        assert heatmap.generated_at == now
+
+
+class TestGauntletComparison:
+    """Tests for GauntletComparison model."""
+
+    def test_basic_creation(self):
+        """Test basic GauntletComparison creation."""
+        comparison = GauntletComparison(gauntlet_a="gauntlet-1", gauntlet_b="gauntlet-2")
+        assert comparison.gauntlet_a == "gauntlet-1"
+        assert comparison.gauntlet_b == "gauntlet-2"
+        assert comparison.comparison == {}
+        assert comparison.scenario_diffs == []
+        assert comparison.recommendation == "investigate"
+        assert comparison.generated_at is None
+
+    def test_with_all_fields(self):
+        """Test GauntletComparison with all optional fields populated."""
+        now = datetime.now(timezone.utc)
+        comparison = GauntletComparison(
+            gauntlet_a="gauntlet-old",
+            gauntlet_b="gauntlet-new",
+            comparison={
+                "pass_rate_delta": 0.05,
+                "new_failures": 2,
+                "resolved_failures": 3,
+            },
+            scenario_diffs=[
+                {"scenario": "injection", "old_status": "fail", "new_status": "pass"},
+                {"scenario": "overflow", "old_status": "pass", "new_status": "fail"},
+            ],
+            recommendation="promote",
+            generated_at=now,
+        )
+        assert comparison.comparison["pass_rate_delta"] == 0.05
+        assert len(comparison.scenario_diffs) == 2
+        assert comparison.recommendation == "promote"
+        assert comparison.generated_at == now
