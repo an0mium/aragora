@@ -1091,13 +1091,16 @@ class TestGetTemplates:
         handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.features.routing_rules.RULE_TEMPLATES",
-            side_effect=ImportError("Module not found"),
+        # Mock the import to raise ImportError
+        with patch.dict(
+            "sys.modules",
+            {"aragora.core.routing_rules": None},
         ):
-            # This test checks the try/except in _get_templates
-            # We need to mock at a different level
-            pass
+            # Force reimport to trigger ImportError
+            result = await handler._get_templates(mock_request)
+            # When import fails, it should return an error response
+            assert result["status"] == "error"
+            assert "not available" in result["error"]
 
     @pytest.mark.asyncio
     async def test_get_templates_multiple(self):
