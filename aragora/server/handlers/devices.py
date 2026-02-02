@@ -1,6 +1,8 @@
 """
 Device Registration and Notification API Handlers.
 
+Stability: STABLE
+
 Provides REST APIs for device push notification management:
 - Device registration and unregistration
 - Push notification delivery
@@ -16,11 +18,20 @@ Endpoints:
 - GET /api/devices/health - Get device connector health
 - POST /api/devices/alexa/webhook - Alexa skill webhook
 - POST /api/devices/google/webhook - Google Actions webhook
+
+Features:
+- Circuit breaker pattern for resilient connector access
+- Rate limiting (30 requests/minute for notifications, 10/minute for registration)
+- RBAC permission checks (devices.read, devices.write, devices.notify)
+- Input validation and size limits
+- Comprehensive error handling with safe error messages
 """
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -32,9 +43,181 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Rate Limiters
+# =============================================================================
+
+# Rate limiter for notification endpoints (30 requests per minute)
+_notification_limiter = RateLimiter(requests_per_minute=30)
+
+# Rate limiter for registration endpoints (10 requests per minute - less frequent)
+_registration_limiter = RateLimiter(requests_per_minute=10)
+
+
+# =============================================================================
+# Circuit Breaker for Device Connectors
+# =============================================================================
+
+
+class DeviceCircuitBreaker:
+    """Circuit breaker for device connector access.
+
+    Prevents cascading failures when push notification services are unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Device circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Device circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Device circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Device circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Per-connector circuit breakers
+_device_circuit_breakers: dict[str, DeviceCircuitBreaker] = {}
+_circuit_breaker_lock = threading.Lock()
+
+
+def _get_circuit_breaker(connector: str) -> DeviceCircuitBreaker:
+    """Get or create a circuit breaker for a device connector."""
+    with _circuit_breaker_lock:
+        if connector not in _device_circuit_breakers:
+            _device_circuit_breakers[connector] = DeviceCircuitBreaker()
+        return _device_circuit_breakers[connector]
+
+
+def get_device_circuit_breaker_status() -> dict[str, Any]:
+    """Get status of all device circuit breakers.
+
+    Returns:
+        Dict mapping connector name to circuit breaker status
+    """
+    with _circuit_breaker_lock:
+        return {name: cb.get_status() for name, cb in _device_circuit_breakers.items()}
+
+
+def _clear_device_circuit_breakers() -> None:
+    """Clear all device circuit breakers (for testing)."""
+    with _circuit_breaker_lock:
+        _device_circuit_breakers.clear()
 
 
 class DeviceHandler(SecureHandler):
@@ -111,6 +294,9 @@ class DeviceHandler(SecureHandler):
         except ForbiddenError as e:
             return error_response(str(e), 403)
 
+        # Get client IP for rate limiting
+        client_ip = get_client_ip(handler)
+
         # Health endpoint (read permission)
         if normalized == "/api/devices/health" and method == "GET":
             try:
@@ -119,13 +305,17 @@ class DeviceHandler(SecureHandler):
                 return error_response("Permission denied: devices.read", 403)
             return await self._get_health()
 
-        # Register device
+        # Register device (rate limited)
         if normalized == "/api/devices/register" and method == "POST":
+            # Apply registration rate limit
+            if not _registration_limiter.is_allowed(client_ip):
+                logger.warning(f"Rate limit exceeded for device registration from {client_ip}")
+                return error_response("Rate limit exceeded. Try again later.", 429)
             try:
                 self.check_permission(auth_context, "devices.write")
             except ForbiddenError:
                 return error_response("Permission denied: devices.write", 403)
-            return await self._register_device(body or {}, auth_context)
+            return await self._register_device(body or {}, auth_context, handler)
 
         segments = normalized.strip("/").split("/")
         if len(segments) < 2 or segments[0] != "api" or segments[1] != "devices":
@@ -141,6 +331,10 @@ class DeviceHandler(SecureHandler):
                     return error_response("Permission denied: devices.read", 403)
                 return await self._list_user_devices(user_id, auth_context)
             if len(segments) == 5 and segments[4] == "notify" and method == "POST":
+                # Apply notification rate limit
+                if not _notification_limiter.is_allowed(client_ip):
+                    logger.warning(f"Rate limit exceeded for user notification from {client_ip}")
+                    return error_response("Rate limit exceeded. Try again later.", 429)
                 try:
                     self.check_permission(auth_context, "devices.notify")
                 except ForbiddenError:
@@ -168,6 +362,10 @@ class DeviceHandler(SecureHandler):
             return await self._unregister_device(device_id, auth_context)
 
         if len(segments) == 4 and segments[3] == "notify" and method == "POST":
+            # Apply notification rate limit
+            if not _notification_limiter.is_allowed(client_ip):
+                logger.warning(f"Rate limit exceeded for device notification from {client_ip}")
+                return error_response("Rate limit exceeded. Try again later.", 429)
             try:
                 self.check_permission(auth_context, "devices.notify")
             except ForbiddenError:
@@ -177,12 +375,15 @@ class DeviceHandler(SecureHandler):
         return None
 
     async def _get_health(self) -> HandlerResult:
-        """Get device connector health status."""
+        """Get device connector health status including circuit breaker state."""
         try:
             from aragora.connectors.devices.registry import get_registry
 
             registry = get_registry()
             health = await registry.get_health()
+
+            # Add circuit breaker status
+            health["circuit_breakers"] = get_device_circuit_breaker_status()
 
             return json_response(health)
 
@@ -191,6 +392,7 @@ class DeviceHandler(SecureHandler):
                 {
                     "status": "unavailable",
                     "error": "Device connectors not available",
+                    "circuit_breakers": get_device_circuit_breaker_status(),
                 }
             )
         except Exception as e:
@@ -201,8 +403,12 @@ class DeviceHandler(SecureHandler):
         self,
         body: dict[str, Any],
         auth_context: AuthorizationContext,
+        handler: Any = None,
     ) -> HandlerResult:
-        """Register a device for push notifications."""
+        """Register a device for push notifications.
+
+        Uses circuit breaker pattern to handle connector failures gracefully.
+        """
         # Validate required fields
         required = ["device_type", "push_token"]
         missing = [f for f in required if not body.get(f)]
@@ -211,6 +417,10 @@ class DeviceHandler(SecureHandler):
 
         device_type = body.get("device_type")
         push_token = body.get("push_token")
+
+        # Validate push token length (max 4KB for safety)
+        if len(push_token) > 4096:
+            return error_response("push_token exceeds maximum length (4096 bytes)", 400)
 
         # Get user_id from auth context or body
         user_id = body.get("user_id") or auth_context.user_id
@@ -261,13 +471,29 @@ class DeviceHandler(SecureHandler):
             if not platform:
                 return error_response(f"No connector for device type: {device_type}", 400)
 
+            # Check circuit breaker before proceeding
+            circuit_breaker = _get_circuit_breaker(platform)
+            if not circuit_breaker.can_proceed():
+                logger.warning(f"Circuit breaker open for connector: {platform}")
+                return error_response(
+                    f"Service temporarily unavailable for {platform}. Please retry later.",
+                    503,
+                )
+
             try:
                 connector = registry.get(platform, auto_initialize=True)
             except KeyError:
+                circuit_breaker.record_failure()
                 return error_response(f"Connector not available: {platform}", 503)
 
-            # Register device
-            device_token = await connector.register_device(registration)
+            # Register device with circuit breaker protection
+            try:
+                device_token = await connector.register_device(registration)
+                circuit_breaker.record_success()
+            except Exception as conn_error:
+                circuit_breaker.record_failure()
+                logger.error(f"Connector error during registration: {conn_error}")
+                raise
 
             if device_token:
                 return json_response(
@@ -285,7 +511,7 @@ class DeviceHandler(SecureHandler):
             return error_response("Device connectors not available", 503)
         except Exception as e:
             logger.error(f"Error registering device: {e}")
-            return error_response(f"Error registering device: {e}", 500)
+            return error_response("Error registering device. Please try again later.", 500)
 
     async def _unregister_device(
         self,
@@ -417,10 +643,21 @@ class DeviceHandler(SecureHandler):
         body: dict[str, Any],
         auth_context: AuthorizationContext,
     ) -> HandlerResult:
-        """Send notification to a specific device."""
+        """Send notification to a specific device.
+
+        Uses circuit breaker pattern to handle connector failures gracefully.
+        """
         # Validate required fields
         if not body.get("title") or not body.get("body"):
             return error_response("title and body are required", 400)
+
+        # Validate message size limits
+        title = body.get("title", "")
+        msg_body = body.get("body", "")
+        if len(title) > 256:
+            return error_response("title exceeds maximum length (256 characters)", 400)
+        if len(msg_body) > 4096:
+            return error_response("body exceeds maximum length (4096 characters)", 400)
 
         try:
             from aragora.connectors.devices import DeviceMessage, DeviceToken, DeviceType
@@ -442,8 +679,8 @@ class DeviceHandler(SecureHandler):
 
             # Build message
             message = DeviceMessage(
-                title=body["title"],
-                body=body["body"],
+                title=title,
+                body=msg_body,
                 data=body.get("data", {}),
                 image_url=body.get("image_url"),
                 action_url=body.get("action_url"),
@@ -465,9 +702,19 @@ class DeviceHandler(SecureHandler):
             if not platform:
                 return error_response(f"No connector for device type: {device.device_type}", 400)
 
+            # Check circuit breaker before proceeding
+            circuit_breaker = _get_circuit_breaker(platform)
+            if not circuit_breaker.can_proceed():
+                logger.warning(f"Circuit breaker open for connector: {platform}")
+                return error_response(
+                    f"Service temporarily unavailable for {platform}. Please retry later.",
+                    503,
+                )
+
             try:
                 connector = registry.get(platform)
             except KeyError:
+                circuit_breaker.record_failure()
                 return error_response(f"Connector not available: {platform}", 503)
 
             # Build DeviceToken from session
@@ -480,8 +727,17 @@ class DeviceHandler(SecureHandler):
                 app_version=device.app_version,
             )
 
-            # Send notification
-            result = await connector.send_notification(token, message)
+            # Send notification with circuit breaker protection
+            try:
+                result = await connector.send_notification(token, message)
+                circuit_breaker.record_success()
+            except Exception as conn_error:
+                circuit_breaker.record_failure()
+                logger.error(f"Connector error during notification: {conn_error}")
+                return error_response(
+                    "Failed to send notification. Please try again later.",
+                    503,
+                )
 
             # Update notification count
             if result.success:
@@ -507,7 +763,7 @@ class DeviceHandler(SecureHandler):
             return error_response(f"Required module not available: {e}", 503)
         except Exception as e:
             logger.error(f"Error sending notification: {e}")
-            return error_response(f"Error sending notification: {e}", 500)
+            return error_response("Error sending notification. Please try again later.", 500)
 
     async def _notify_user(
         self,
@@ -515,10 +771,21 @@ class DeviceHandler(SecureHandler):
         body: dict[str, Any],
         auth_context: AuthorizationContext,
     ) -> HandlerResult:
-        """Send notification to all devices for a user."""
+        """Send notification to all devices for a user.
+
+        Uses circuit breaker pattern to handle connector failures gracefully.
+        """
         # Validate required fields
         if not body.get("title") or not body.get("body"):
             return error_response("title and body are required", 400)
+
+        # Validate message size limits
+        title = body.get("title", "")
+        msg_body = body.get("body", "")
+        if len(title) > 256:
+            return error_response("title exceeds maximum length (256 characters)", 400)
+        if len(msg_body) > 4096:
+            return error_response("body exceeds maximum length (4096 characters)", 400)
 
         # Check ownership (unless admin/owner)
         if (
@@ -547,8 +814,8 @@ class DeviceHandler(SecureHandler):
 
             # Build message
             message = DeviceMessage(
-                title=body["title"],
-                body=body["body"],
+                title=title,
+                body=msg_body,
                 data=body.get("data", {}),
                 image_url=body.get("image_url"),
                 action_url=body.get("action_url"),
@@ -559,6 +826,7 @@ class DeviceHandler(SecureHandler):
             registry = get_registry()
             results = []
             tokens_to_remove = []
+            circuit_open_platforms = []
 
             # Send to each device
             for device in devices:
@@ -574,9 +842,32 @@ class DeviceHandler(SecureHandler):
                 if not platform:
                     continue
 
+                # Check circuit breaker before proceeding
+                circuit_breaker = _get_circuit_breaker(platform)
+                if not circuit_breaker.can_proceed():
+                    if platform not in circuit_open_platforms:
+                        circuit_open_platforms.append(platform)
+                        logger.warning(f"Circuit breaker open for connector: {platform}")
+                    results.append(
+                        {
+                            "device_id": device.device_id,
+                            "success": False,
+                            "error": f"Service temporarily unavailable for {platform}",
+                        }
+                    )
+                    continue
+
                 try:
                     connector = registry.get(platform)
                 except KeyError:
+                    circuit_breaker.record_failure()
+                    results.append(
+                        {
+                            "device_id": device.device_id,
+                            "success": False,
+                            "error": f"Connector not available: {platform}",
+                        }
+                    )
                     continue
 
                 token = DeviceToken(
@@ -588,7 +879,22 @@ class DeviceHandler(SecureHandler):
                     app_version=device.app_version,
                 )
 
-                result = await connector.send_notification(token, message)
+                # Send notification with circuit breaker protection
+                try:
+                    result = await connector.send_notification(token, message)
+                    circuit_breaker.record_success()
+                except Exception as conn_error:
+                    circuit_breaker.record_failure()
+                    logger.error(f"Connector error during notification: {conn_error}")
+                    results.append(
+                        {
+                            "device_id": device.device_id,
+                            "success": False,
+                            "error": "Connector error",
+                        }
+                    )
+                    continue
+
                 results.append(
                     {
                         "device_id": device.device_id,
@@ -746,3 +1052,11 @@ class DeviceHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Error handling Google webhook: {e}")
             return error_response(f"Error processing request: {e}", 500)
+
+
+__all__ = [
+    "DeviceHandler",
+    "DeviceCircuitBreaker",
+    "get_device_circuit_breaker_status",
+    "_clear_device_circuit_breakers",
+]

@@ -86,7 +86,7 @@ def main() -> int:
     print(f"OpenAPI spec: {len(openapi_eps)} endpoints")
 
     # Check Python SDK
-    py_dir = repo / "sdk/python/aragora/namespaces"
+    py_dir = repo / "sdk/python/aragora_sdk/namespaces"
     py_ns = sorted(p.stem for p in py_dir.glob("*.py") if not p.stem.startswith("_"))
     py_total = 0
     py_drift: list[tuple[str, str, str]] = []

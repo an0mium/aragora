@@ -759,3 +759,855 @@ class TestWinRateCalculations:
         )
         assert result.num_trials == 10
         assert result.fine_tuned_wins + result.baseline_wins + result.draws == 10
+
+
+# =============================================================================
+# TinkerEvaluator Tests - Evaluate on Benchmark
+# =============================================================================
+
+
+class TestTinkerEvaluatorBenchmark:
+    """Test benchmark evaluation."""
+
+    @pytest.mark.asyncio
+    async def test_evaluate_on_benchmark_basic(self, tmp_path):
+        """Test basic benchmark evaluation."""
+        mock_elo = MagicMock()
+        mock_rating = MagicMock()
+        mock_rating.elo = 1500.0
+        mock_elo.get_rating.return_value = mock_rating
+
+        evaluator = TinkerEvaluator(elo_system=mock_elo, results_dir=tmp_path)
+
+        # Mock agents
+        agent = MagicMock()
+        agent.name = "test-agent"
+        baseline1 = MagicMock()
+        baseline1.name = "baseline-1"
+        baseline2 = MagicMock()
+        baseline2.name = "baseline-2"
+
+        # Mock debate result
+        mock_result = MagicMock()
+        mock_result.votes = [MagicMock(choice="test-agent", confidence=0.8)]
+        mock_result.confidence = 0.8
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            results = await evaluator.evaluate_on_benchmark(
+                agent=agent,
+                benchmark_tasks=["task1", "task2"],
+                baseline_agents=[baseline1, baseline2],
+                trials_per_task=2,
+            )
+
+            assert results["agent"] == "test-agent"
+            assert results["benchmark_size"] == 2
+            assert len(results["comparisons"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_evaluate_on_benchmark_elo_gain(self, tmp_path):
+        """Test ELO gain calculation in benchmark."""
+        mock_elo = MagicMock()
+        # Simulate ELO change between calls
+        ratings = [MagicMock(elo=1500.0), MagicMock(elo=1520.0)]
+        mock_elo.get_rating.side_effect = ratings
+
+        evaluator = TinkerEvaluator(elo_system=mock_elo, results_dir=tmp_path)
+
+        agent = MagicMock()
+        agent.name = "agent"
+        baseline = MagicMock()
+        baseline.name = "baseline"
+
+        mock_result = MagicMock()
+        mock_result.votes = [MagicMock(choice="agent", confidence=0.9)]
+        mock_result.confidence = 0.9
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 2
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            results = await evaluator.evaluate_on_benchmark(
+                agent=agent,
+                benchmark_tasks=["task"],
+                baseline_agents=[baseline],
+                trials_per_task=1,
+            )
+
+            assert results["overall_elo_gain"] == 20.0
+
+    @pytest.mark.asyncio
+    async def test_evaluate_on_benchmark_zero_games(self, tmp_path):
+        """Test benchmark with no successful trials."""
+        mock_elo = MagicMock()
+        mock_rating = MagicMock()
+        mock_rating.elo = 1500.0
+        mock_elo.get_rating.return_value = mock_rating
+
+        evaluator = TinkerEvaluator(elo_system=mock_elo, results_dir=tmp_path)
+
+        agent = MagicMock()
+        agent.name = "agent"
+        baseline = MagicMock()
+        baseline.name = "baseline"
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.side_effect = Exception("All trials failed")
+
+            results = await evaluator.evaluate_on_benchmark(
+                agent=agent,
+                benchmark_tasks=["task"],
+                baseline_agents=[baseline],
+                trials_per_task=1,
+            )
+
+            # With all trials failing, num_trials should be 0
+            assert results["overall_win_rate"] == 0
+
+    @pytest.mark.asyncio
+    async def test_evaluate_on_benchmark_multiple_baselines(self, tmp_path):
+        """Test benchmark with multiple baseline agents."""
+        mock_elo = MagicMock()
+        mock_rating = MagicMock()
+        mock_rating.elo = 1500.0
+        mock_elo.get_rating.return_value = mock_rating
+
+        evaluator = TinkerEvaluator(elo_system=mock_elo, results_dir=tmp_path)
+
+        agent = MagicMock()
+        agent.name = "agent"
+        baselines = [MagicMock(name=f"baseline-{i}") for i in range(3)]
+        for i, b in enumerate(baselines):
+            b.name = f"baseline-{i}"
+
+        mock_result = MagicMock()
+        mock_result.votes = []
+        mock_result.confidence = 0.5
+        mock_result.consensus_reached = False
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            results = await evaluator.evaluate_on_benchmark(
+                agent=agent,
+                benchmark_tasks=["task"],
+                baseline_agents=baselines,
+                trials_per_task=1,
+            )
+
+            assert len(results["comparisons"]) == 3
+
+
+# =============================================================================
+# TinkerEvaluator Tests - Run Debate
+# =============================================================================
+
+
+class TestTinkerEvaluatorRunDebate:
+    """Test _run_debate method indirectly through mocked behavior."""
+
+    @pytest.mark.asyncio
+    async def test_run_debate_returns_debate_result(self, tmp_path):
+        """Test _run_debate is called and returns result in A/B test."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = [MagicMock(choice="ft", confidence=0.8)]
+        mock_result.confidence = 0.8
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=False,
+            )
+
+            mock_run.assert_called_once()
+            assert result.num_trials == 1
+
+    @pytest.mark.asyncio
+    async def test_run_debate_called_with_task_and_agents(self, tmp_path):
+        """Test _run_debate receives correct task and agents."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = []
+        mock_result.confidence = 0.5
+        mock_result.consensus_reached = False
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            await evaluator.a_b_test(
+                tasks=["my-task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                randomize_order=False,
+                save_results=False,
+            )
+
+            # Verify task was passed
+            call_args = mock_run.call_args[0]
+            assert call_args[0] == "my-task"
+            # Verify agents were passed
+            agents = call_args[1]
+            assert len(agents) == 2
+
+
+# =============================================================================
+# TinkerEvaluator Tests - A/B Test Edge Cases
+# =============================================================================
+
+
+class TestTinkerEvaluatorABTestEdgeCases:
+    """Test A/B test edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_ab_test_multiple_tasks(self, tmp_path):
+        """Test A/B test with multiple tasks."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = [MagicMock(choice="ft", confidence=0.8)]
+        mock_result.confidence = 0.8
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task1", "task2", "task3"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=2,
+                save_results=False,
+            )
+
+            # 3 tasks * 2 trials = 6 total
+            assert result.num_trials == 6
+            assert mock_run.call_count == 6
+
+    @pytest.mark.asyncio
+    async def test_ab_test_no_randomization(self, tmp_path):
+        """Test A/B test without randomization."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = []
+        mock_result.confidence = 0.5
+        mock_result.consensus_reached = False
+        mock_result.rounds_used = 3
+
+        agent_orders = []
+
+        async def capture_order(task, agents, **kwargs):
+            agent_orders.append([a.name for a in agents])
+            return mock_result
+
+        with patch.object(evaluator, "_run_debate", side_effect=capture_order):
+            await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=5,
+                randomize_order=False,
+                save_results=False,
+            )
+
+            # Without randomization, order should be consistent
+            assert all(order == ["ft", "bl"] for order in agent_orders)
+
+    @pytest.mark.asyncio
+    async def test_ab_test_saves_results(self, tmp_path):
+        """Test A/B test saves results to file."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = [MagicMock(choice="ft", confidence=0.9)]
+        mock_result.confidence = 0.9
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 2
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=True,
+            )
+
+            # Check files were created
+            json_file = tmp_path / f"{result.test_id}.json"
+            trials_file = tmp_path / f"{result.test_id}_trials.jsonl"
+            assert json_file.exists()
+            assert trials_file.exists()
+
+    @pytest.mark.asyncio
+    async def test_ab_test_draw_detection(self, tmp_path):
+        """Test A/B test correctly detects draws."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        # Mock equal scores for a draw
+        mock_result = MagicMock()
+        mock_result.votes = [
+            MagicMock(choice="ft", confidence=0.5),
+            MagicMock(choice="bl", confidence=0.5),
+        ]
+        mock_result.confidence = 0.5
+        mock_result.consensus_reached = False
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=False,
+            )
+
+            assert result.draws == 1
+            assert result.fine_tuned_wins == 0
+            assert result.baseline_wins == 0
+
+    @pytest.mark.asyncio
+    async def test_ab_test_baseline_wins(self, tmp_path):
+        """Test A/B test correctly detects baseline wins."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = [
+            MagicMock(choice="bl", confidence=0.9),
+            MagicMock(choice="bl", confidence=0.8),
+        ]
+        mock_result.confidence = 0.85
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 2
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=False,
+            )
+
+            assert result.baseline_wins == 1
+            assert result.fine_tuned_wins == 0
+
+    @pytest.mark.asyncio
+    async def test_ab_test_consensus_counting(self, tmp_path):
+        """Test A/B test correctly counts consensus."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        # Alternate between consensus and no consensus
+        results_sequence = [
+            MagicMock(votes=[], confidence=0.9, consensus_reached=True, rounds_used=2),
+            MagicMock(votes=[], confidence=0.5, consensus_reached=False, rounds_used=3),
+            MagicMock(votes=[], confidence=0.8, consensus_reached=True, rounds_used=2),
+            MagicMock(votes=[], confidence=0.6, consensus_reached=False, rounds_used=3),
+        ]
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.side_effect = results_sequence
+
+            result = await evaluator.a_b_test(
+                tasks=["task1", "task2"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=2,
+                save_results=False,
+            )
+
+            assert result.consensus_rate == 0.5  # 2 out of 4
+
+    @pytest.mark.asyncio
+    async def test_ab_test_none_confidence(self, tmp_path):
+        """Test A/B test handles None confidence."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = []
+        mock_result.confidence = None
+        mock_result.consensus_reached = False
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=False,
+            )
+
+            assert result.avg_confidence == 0.0
+
+
+# =============================================================================
+# Vote Scoring Tests
+# =============================================================================
+
+
+class TestVoteScoring:
+    """Test vote scoring logic in A/B tests."""
+
+    @pytest.mark.asyncio
+    async def test_vote_scoring_multiple_votes_ft(self, tmp_path):
+        """Test scoring with multiple votes for fine-tuned."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "fine-tuned"
+        bl_agent = MagicMock()
+        bl_agent.name = "baseline"
+
+        mock_result = MagicMock()
+        mock_result.votes = [
+            MagicMock(choice="fine-tuned", confidence=0.8),
+            MagicMock(choice="fine-tuned", confidence=0.7),
+            MagicMock(choice="baseline", confidence=0.3),
+        ]
+        mock_result.confidence = 0.75
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 2
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=False,
+            )
+
+            # ft score = 0.8 + 0.7 = 1.5
+            # bl score = 0.3
+            assert result.fine_tuned_wins == 1
+            assert result.avg_fine_tuned_score == 1.5
+            assert result.avg_baseline_score == 0.3
+
+    @pytest.mark.asyncio
+    async def test_vote_scoring_neutral_votes_ignored(self, tmp_path):
+        """Test that votes for other agents are ignored."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = [
+            MagicMock(choice="ft", confidence=0.5),
+            MagicMock(choice="other-agent", confidence=0.9),  # Should be ignored
+            MagicMock(choice="bl", confidence=0.4),
+        ]
+        mock_result.confidence = 0.6
+        mock_result.consensus_reached = False
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=False,
+            )
+
+            # ft wins because 0.5 > 0.4
+            assert result.fine_tuned_wins == 1
+
+    @pytest.mark.asyncio
+    async def test_vote_scoring_empty_votes(self, tmp_path):
+        """Test scoring with no votes (draw)."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        ft_agent = MagicMock()
+        ft_agent.name = "ft"
+        bl_agent = MagicMock()
+        bl_agent.name = "bl"
+
+        mock_result = MagicMock()
+        mock_result.votes = []
+        mock_result.confidence = 0.5
+        mock_result.consensus_reached = False
+        mock_result.rounds_used = 3
+
+        with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = mock_result
+
+            result = await evaluator.a_b_test(
+                tasks=["task"],
+                fine_tuned_agent=ft_agent,
+                baseline_agent=bl_agent,
+                num_trials=1,
+                save_results=False,
+            )
+
+            assert result.draws == 1
+            assert result.avg_fine_tuned_score == 0.0
+            assert result.avg_baseline_score == 0.0
+
+
+# =============================================================================
+# ABTestResult Edge Cases
+# =============================================================================
+
+
+class TestABTestResultEdgeCases:
+    """Test ABTestResult edge cases."""
+
+    def test_created_at_default(self):
+        """Test created_at has ISO format default."""
+        result = ABTestResult(
+            test_id="test",
+            fine_tuned_agent="ft",
+            baseline_agent="bl",
+            num_trials=10,
+            fine_tuned_wins=5,
+            baseline_wins=5,
+            draws=0,
+            fine_tuned_win_rate=0.5,
+            avg_fine_tuned_score=0.5,
+            avg_baseline_score=0.5,
+            avg_confidence=0.8,
+            consensus_rate=0.8,
+        )
+        # Verify it's a valid ISO format
+        datetime.fromisoformat(result.created_at)
+
+    def test_created_at_custom(self):
+        """Test custom created_at is preserved."""
+        result = ABTestResult(
+            test_id="test",
+            fine_tuned_agent="ft",
+            baseline_agent="bl",
+            num_trials=10,
+            fine_tuned_wins=5,
+            baseline_wins=5,
+            draws=0,
+            fine_tuned_win_rate=0.5,
+            avg_fine_tuned_score=0.5,
+            avg_baseline_score=0.5,
+            avg_confidence=0.8,
+            consensus_rate=0.8,
+            created_at="2024-01-01T12:00:00",
+        )
+        assert result.created_at == "2024-01-01T12:00:00"
+
+    def test_trials_default_empty(self):
+        """Test trials default to empty list."""
+        result = ABTestResult(
+            test_id="test",
+            fine_tuned_agent="ft",
+            baseline_agent="bl",
+            num_trials=0,
+            fine_tuned_wins=0,
+            baseline_wins=0,
+            draws=0,
+            fine_tuned_win_rate=0.0,
+            avg_fine_tuned_score=0.0,
+            avg_baseline_score=0.0,
+            avg_confidence=0.0,
+            consensus_rate=0.0,
+        )
+        assert result.trials == []
+
+    def test_wilson_score_with_zero_win_rate(self):
+        """Test Wilson score calculation with 0% win rate."""
+        result = ABTestResult(
+            test_id="test",
+            fine_tuned_agent="ft",
+            baseline_agent="bl",
+            num_trials=50,
+            fine_tuned_wins=0,
+            baseline_wins=50,
+            draws=0,
+            fine_tuned_win_rate=0.0,
+            avg_fine_tuned_score=0.0,
+            avg_baseline_score=1.0,
+            avg_confidence=0.9,
+            consensus_rate=0.9,
+        )
+        # With 0% win rate over 50 trials, should be significant (below 50%)
+        assert result.is_significant is True
+
+    def test_wilson_score_with_100_win_rate(self):
+        """Test Wilson score calculation with 100% win rate."""
+        result = ABTestResult(
+            test_id="test",
+            fine_tuned_agent="ft",
+            baseline_agent="bl",
+            num_trials=50,
+            fine_tuned_wins=50,
+            baseline_wins=0,
+            draws=0,
+            fine_tuned_win_rate=1.0,
+            avg_fine_tuned_score=1.0,
+            avg_baseline_score=0.0,
+            avg_confidence=0.95,
+            consensus_rate=1.0,
+        )
+        # With 100% win rate over 50 trials, should be significant (above 50%)
+        assert result.is_significant is True
+
+
+# =============================================================================
+# Result Listing Edge Cases
+# =============================================================================
+
+
+class TestResultListingEdgeCases:
+    """Test result listing edge cases."""
+
+    def test_list_results_includes_fields(self, tmp_path):
+        """Test list results includes all required fields."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        with open(tmp_path / "test-full.json", "w") as f:
+            json.dump({
+                "test_id": "test-full",
+                "fine_tuned_agent": "ft-agent",
+                "baseline_agent": "bl-agent",
+                "fine_tuned_win_rate": 0.75,
+                "is_significant": True,
+                "created_at": "2024-01-15T10:30:00",
+            }, f)
+
+        results = evaluator.list_results()
+        assert len(results) == 1
+        result = results[0]
+        assert result["test_id"] == "test-full"
+        assert result["fine_tuned_agent"] == "ft-agent"
+        assert result["baseline_agent"] == "bl-agent"
+        assert result["fine_tuned_win_rate"] == 0.75
+        assert result["is_significant"] is True
+        assert result["created_at"] == "2024-01-15T10:30:00"
+
+    def test_list_results_missing_optional_fields(self, tmp_path):
+        """Test list results handles missing optional fields."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        with open(tmp_path / "test-minimal.json", "w") as f:
+            json.dump({
+                "test_id": "test-minimal",
+                "fine_tuned_agent": "ft",
+                "baseline_agent": "bl",
+                "fine_tuned_win_rate": 0.5,
+            }, f)
+
+        results = evaluator.list_results()
+        assert len(results) == 1
+        result = results[0]
+        assert result["is_significant"] is False
+        assert result["created_at"] == ""
+
+    def test_list_results_ignores_non_test_files(self, tmp_path):
+        """Test list results ignores files not matching test-*.json."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        # Create various files
+        with open(tmp_path / "test-valid.json", "w") as f:
+            json.dump({"test_id": "test-valid", "fine_tuned_agent": "ft",
+                      "baseline_agent": "bl", "fine_tuned_win_rate": 0.5}, f)
+        with open(tmp_path / "other.json", "w") as f:
+            json.dump({"test_id": "other"}, f)
+        with open(tmp_path / "test-valid_trials.jsonl", "w") as f:
+            f.write('{"trial": 1}\n')
+
+        results = evaluator.list_results()
+        assert len(results) == 1
+        assert results[0]["test_id"] == "test-valid"
+
+
+# =============================================================================
+# Load Result Edge Cases
+# =============================================================================
+
+
+class TestLoadResultEdgeCases:
+    """Test load result edge cases."""
+
+    def test_load_result_without_trials_file(self, tmp_path):
+        """Test loading result when trials file doesn't exist."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        with open(tmp_path / "test-no-trials.json", "w") as f:
+            json.dump({
+                "test_id": "test-no-trials",
+                "fine_tuned_agent": "ft",
+                "baseline_agent": "bl",
+                "num_trials": 5,
+                "fine_tuned_wins": 3,
+                "baseline_wins": 2,
+                "draws": 0,
+                "fine_tuned_win_rate": 0.6,
+                "avg_fine_tuned_score": 0.6,
+                "avg_baseline_score": 0.4,
+                "avg_confidence": 0.8,
+                "consensus_rate": 0.8,
+            }, f)
+
+        loaded = evaluator.load_result("test-no-trials")
+        assert loaded is not None
+        assert loaded.trials == []
+
+    def test_load_result_missing_created_at(self, tmp_path):
+        """Test loading result without created_at field."""
+        evaluator = TinkerEvaluator(results_dir=tmp_path)
+
+        with open(tmp_path / "test-old.json", "w") as f:
+            json.dump({
+                "test_id": "test-old",
+                "fine_tuned_agent": "ft",
+                "baseline_agent": "bl",
+                "num_trials": 10,
+                "fine_tuned_wins": 5,
+                "baseline_wins": 5,
+                "draws": 0,
+                "fine_tuned_win_rate": 0.5,
+                "avg_fine_tuned_score": 0.5,
+                "avg_baseline_score": 0.5,
+                "avg_confidence": 0.7,
+                "consensus_rate": 0.7,
+            }, f)
+
+        loaded = evaluator.load_result("test-old")
+        assert loaded is not None
+        assert loaded.created_at == ""
+
+
+# =============================================================================
+# EvaluationMetrics Edge Cases
+# =============================================================================
+
+
+class TestEvaluationMetricsEdgeCases:
+    """Test EvaluationMetrics edge cases."""
+
+    def test_metrics_with_negative_values(self):
+        """Test metrics can handle edge values."""
+        metrics = EvaluationMetrics(
+            model_id="edge-model",
+            elo_rating=-100.0,  # Could happen with many losses
+            win_rate=0.0,
+            avg_score=0.0,
+            calibration_score=0.0,
+            consensus_contribution=0.0,
+        )
+        d = metrics.to_dict()
+        assert d["elo_rating"] == -100.0
+
+    def test_metrics_with_large_values(self):
+        """Test metrics with large values."""
+        metrics = EvaluationMetrics(
+            model_id="champion",
+            elo_rating=3000.0,
+            win_rate=0.99,
+            avg_score=0.98,
+            calibration_score=0.97,
+            consensus_contribution=0.95,
+            domain_scores={f"domain-{i}": 2500.0 + i * 100 for i in range(10)},
+            total_debates=10000,
+        )
+        d = metrics.to_dict()
+        assert d["total_debates"] == 10000
+        assert len(d["domain_scores"]) == 10
+
+
+# =============================================================================
+# TinkerEvaluator Path Handling
+# =============================================================================
+
+
+class TestTinkerEvaluatorPathHandling:
+    """Test path handling in TinkerEvaluator."""
+
+    def test_string_path_converted_to_path(self, tmp_path):
+        """Test string path is converted to Path object."""
+        str_path = str(tmp_path / "string_results")
+        evaluator = TinkerEvaluator(results_dir=str_path)
+        assert isinstance(evaluator.results_dir, Path)
+        assert evaluator.results_dir.exists()
+
+    def test_nested_results_dir_created(self, tmp_path):
+        """Test nested results directory is created."""
+        nested_path = tmp_path / "deep" / "nested" / "results"
+        evaluator = TinkerEvaluator(results_dir=nested_path)
+        assert nested_path.exists()

@@ -825,3 +825,1368 @@ class TestTrainingSchedulerWaitForJob:
 
         with pytest.raises(TimeoutError):
             await scheduler.wait_for_job(job.job_id, poll_interval=0.01, timeout=0.05)
+
+    @pytest.mark.asyncio
+    async def test_wait_for_failed_job(self, tmp_path):
+        """Test waiting for failed job returns immediately."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_sft(model="m")
+            job.status = JobStatus.FAILED
+            job.error = "Test error"
+
+        result = await scheduler.wait_for_job(job.job_id, poll_interval=0.01, timeout=1.0)
+        assert result.status == JobStatus.FAILED
+
+    @pytest.mark.asyncio
+    async def test_wait_for_cancelled_job(self, tmp_path):
+        """Test waiting for cancelled job returns immediately."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_sft(model="m")
+            job.status = JobStatus.CANCELLED
+
+        result = await scheduler.wait_for_job(job.job_id, poll_interval=0.01, timeout=1.0)
+        assert result.status == JobStatus.CANCELLED
+
+
+# =============================================================================
+# TrainingScheduler Client and Close Tests
+# =============================================================================
+
+
+class TestTrainingSchedulerClient:
+    """Test client property and close method."""
+
+    def test_client_lazy_loading(self, tmp_path):
+        """Test client is lazily loaded."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        assert scheduler._client is None
+
+        # Access the client property
+        client = scheduler.client
+
+        assert client is not None
+        assert scheduler._client is not None
+
+    @pytest.mark.asyncio
+    async def test_close_with_client(self, tmp_path):
+        """Test close when client exists."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        # Create a mock client
+        mock_client = AsyncMock()
+        scheduler._client = mock_client
+
+        await scheduler.close()
+
+        mock_client.close.assert_called_once()
+        assert scheduler._client is None
+
+    @pytest.mark.asyncio
+    async def test_close_without_client(self, tmp_path):
+        """Test close when no client exists."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        # Should not raise
+        await scheduler.close()
+
+        assert scheduler._client is None
+
+
+# =============================================================================
+# TrainingScheduler Run SFT Job Tests
+# =============================================================================
+
+
+class TestRunSFTJob:
+    """Test _run_sft_job execution."""
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_successful_completion(self, tmp_path):
+        """Test SFT job completes successfully."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-001",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={
+                "adapter_name": "test-adapter",
+                "min_confidence": 0.7,
+                "limit": 100,
+            },
+        )
+        scheduler._jobs[job.job_id] = job
+
+        # Mock exporter
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = [
+            {"instruction": "test", "response": "response"}
+        ]
+
+        # Mock client training result
+        mock_result = TrainingResult(
+            job_id="tinker-job-001",
+            state=TrainingState.COMPLETED,
+            model_id="model-output-001",
+            final_loss=0.1,
+            total_steps=100,
+            training_time_seconds=60.0,
+            checkpoint_path="/checkpoints/model",
+        )
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = mock_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_sft_job(job)
+
+        assert job.status == JobStatus.COMPLETED
+        assert job.model_id == "model-output-001"
+        assert job.tinker_job_id == "tinker-job-001"
+        assert job.completed_at is not None
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_running_state(self, tmp_path):
+        """Test SFT job in running state."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-002",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={
+                "adapter_name": "test-adapter",
+                "min_confidence": 0.7,
+                "limit": 100,
+            },
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = [{"instruction": "test", "response": "response"}]
+
+        mock_result = TrainingResult(
+            job_id="tinker-job-002",
+            state=TrainingState.RUNNING,
+            model_id=None,
+            final_loss=None,
+            total_steps=50,
+            training_time_seconds=30.0,
+            checkpoint_path=None,
+        )
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = mock_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_sft_job(job)
+
+        assert job.status == JobStatus.RUNNING
+        assert job.tinker_job_id == "tinker-job-002"
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_failed_state(self, tmp_path):
+        """Test SFT job fails from Tinker API."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-003",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={
+                "adapter_name": "test-adapter",
+                "min_confidence": 0.7,
+                "limit": 100,
+            },
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = [{"instruction": "test", "response": "response"}]
+
+        mock_result = TrainingResult(
+            job_id="tinker-job-003",
+            state=TrainingState.FAILED,
+            model_id=None,
+            final_loss=None,
+            total_steps=10,
+            training_time_seconds=5.0,
+            checkpoint_path=None,
+            error_message="Training failed: OOM",
+        )
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = mock_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_sft_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert job.error == "Training failed: OOM"
+        assert job.completed_at is not None
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_no_data(self, tmp_path):
+        """Test SFT job fails when no data exported."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-004",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={"min_confidence": 0.7, "limit": 100},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = []  # No data
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            await scheduler._run_sft_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "No training data exported" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_exception(self, tmp_path):
+        """Test SFT job handles exceptions."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-005",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={"min_confidence": 0.7, "limit": 100},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.side_effect = OSError("Disk full")
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            await scheduler._run_sft_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "Disk full" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_io_error(self, tmp_path):
+        """Test SFT job handles IOError."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-006",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={"min_confidence": 0.7, "limit": 100},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.side_effect = IOError("Cannot write")
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            await scheduler._run_sft_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "Cannot write" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_runtime_error(self, tmp_path):
+        """Test SFT job handles RuntimeError."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-007",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={"min_confidence": 0.7, "limit": 100},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.side_effect = RuntimeError("Runtime issue")
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            await scheduler._run_sft_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "Runtime issue" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_sft_job_creates_data_file(self, tmp_path):
+        """Test SFT job creates data file."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-sft-008",
+            job_type=JobType.SFT,
+            model="llama-3",
+            config={"min_confidence": 0.7, "limit": 100},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = [
+            {"instruction": "test1", "response": "response1"},
+            {"instruction": "test2", "response": "response2"},
+        ]
+
+        mock_result = TrainingResult(
+            job_id="tinker-job",
+            state=TrainingState.COMPLETED,
+            model_id="model-001",
+            final_loss=0.1,
+            total_steps=100,
+            training_time_seconds=60.0,
+            checkpoint_path=None,
+        )
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = mock_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_sft_job(job)
+
+        # Check data file was created
+        data_file = tmp_path / "data" / f"{job.job_id}_sft.jsonl"
+        assert data_file.exists()
+
+        # Check content
+        with open(data_file) as f:
+            lines = f.readlines()
+        assert len(lines) == 2
+
+
+# =============================================================================
+# TrainingScheduler Run DPO Job Tests
+# =============================================================================
+
+
+class TestRunDPOJob:
+    """Test _run_dpo_job execution."""
+
+    @pytest.mark.asyncio
+    async def test_run_dpo_job_successful_completion(self, tmp_path):
+        """Test DPO job completes successfully."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-dpo-001",
+            job_type=JobType.DPO,
+            model="llama-3",
+            config={
+                "adapter_name": "test-adapter",
+                "min_elo_difference": 50.0,
+                "limit": 100,
+                "beta": 0.1,
+            },
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = [
+            {"prompt": "test", "chosen": "good", "rejected": "bad"}
+        ]
+
+        mock_result = TrainingResult(
+            job_id="tinker-dpo-001",
+            state=TrainingState.COMPLETED,
+            model_id="dpo-model-001",
+            final_loss=0.05,
+            total_steps=50,
+            training_time_seconds=30.0,
+            checkpoint_path="/checkpoints/dpo",
+        )
+        mock_client = AsyncMock()
+        mock_client.train_dpo.return_value = mock_result
+
+        with patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_dpo_job(job)
+
+        assert job.status == JobStatus.COMPLETED
+        assert job.model_id == "dpo-model-001"
+        assert job.tinker_job_id == "tinker-dpo-001"
+
+    @pytest.mark.asyncio
+    async def test_run_dpo_job_failed_state(self, tmp_path):
+        """Test DPO job fails from Tinker API."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-dpo-002",
+            job_type=JobType.DPO,
+            model="llama-3",
+            config={"min_elo_difference": 50.0, "limit": 100, "beta": 0.1},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = [{"prompt": "test", "chosen": "good", "rejected": "bad"}]
+
+        mock_result = TrainingResult(
+            job_id="tinker-dpo-002",
+            state=TrainingState.FAILED,
+            model_id=None,
+            final_loss=None,
+            total_steps=5,
+            training_time_seconds=2.0,
+            checkpoint_path=None,
+            error_message="DPO training failed",
+        )
+        mock_client = AsyncMock()
+        mock_client.train_dpo.return_value = mock_result
+
+        with patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_dpo_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert job.error == "DPO training failed"
+
+    @pytest.mark.asyncio
+    async def test_run_dpo_job_no_data(self, tmp_path):
+        """Test DPO job fails when no data exported."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-dpo-003",
+            job_type=JobType.DPO,
+            model="llama-3",
+            config={"min_elo_difference": 50.0, "limit": 100, "beta": 0.1},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = []
+
+        with patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_exporter):
+            await scheduler._run_dpo_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "No preference data exported" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_dpo_job_exception(self, tmp_path):
+        """Test DPO job handles exceptions."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-dpo-004",
+            job_type=JobType.DPO,
+            model="llama-3",
+            config={"min_elo_difference": 50.0, "limit": 100, "beta": 0.1},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.side_effect = ValueError("Invalid data format")
+
+        with patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_exporter):
+            await scheduler._run_dpo_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "Invalid data format" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_dpo_job_creates_data_file(self, tmp_path):
+        """Test DPO job creates data file."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-dpo-005",
+            job_type=JobType.DPO,
+            model="llama-3",
+            config={"min_elo_difference": 50.0, "limit": 100, "beta": 0.1},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = [
+            {"prompt": "p1", "chosen": "c1", "rejected": "r1"},
+            {"prompt": "p2", "chosen": "c2", "rejected": "r2"},
+        ]
+
+        mock_result = TrainingResult(
+            job_id="tinker-dpo",
+            state=TrainingState.COMPLETED,
+            model_id="model-001",
+            final_loss=0.05,
+            total_steps=50,
+            training_time_seconds=30.0,
+            checkpoint_path=None,
+        )
+        mock_client = AsyncMock()
+        mock_client.train_dpo.return_value = mock_result
+
+        with patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_dpo_job(job)
+
+        data_file = tmp_path / "data" / f"{job.job_id}_dpo.jsonl"
+        assert data_file.exists()
+
+
+# =============================================================================
+# TrainingScheduler Run Combined Job Tests
+# =============================================================================
+
+
+class TestRunCombinedJob:
+    """Test _run_combined_job execution."""
+
+    @pytest.mark.asyncio
+    async def test_run_combined_job_successful(self, tmp_path):
+        """Test combined job completes successfully."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-combined-001",
+            job_type=JobType.COMBINED,
+            model="llama-3",
+            config={
+                "adapter_name": "combined-adapter",
+                "sft_limit": 100,
+                "dpo_limit": 50,
+            },
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_sft_exporter = MagicMock()
+        mock_sft_exporter.export.return_value = [{"instruction": "test", "response": "response"}]
+
+        mock_dpo_exporter = MagicMock()
+        mock_dpo_exporter.export.return_value = [{"prompt": "p", "chosen": "c", "rejected": "r"}]
+
+        sft_result = TrainingResult(
+            job_id="sft-job",
+            state=TrainingState.COMPLETED,
+            model_id="sft-model-001",
+            final_loss=0.1,
+            total_steps=100,
+            training_time_seconds=60.0,
+            checkpoint_path=None,
+        )
+
+        dpo_result = TrainingResult(
+            job_id="dpo-job",
+            state=TrainingState.COMPLETED,
+            model_id="dpo-model-001",
+            final_loss=0.05,
+            total_steps=50,
+            training_time_seconds=30.0,
+            checkpoint_path=None,
+        )
+
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = sft_result
+        mock_client.train_dpo.return_value = dpo_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter), \
+             patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_combined_job(job)
+
+        assert job.status == JobStatus.COMPLETED
+        assert job.model_id == "dpo-model-001"
+        mock_client.train_dpo.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_combined_job_sft_only(self, tmp_path):
+        """Test combined job falls back to SFT when no DPO data."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-combined-002",
+            job_type=JobType.COMBINED,
+            model="llama-3",
+            config={"adapter_name": "combined-adapter"},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_sft_exporter = MagicMock()
+        mock_sft_exporter.export.return_value = [{"instruction": "test", "response": "response"}]
+
+        mock_dpo_exporter = MagicMock()
+        mock_dpo_exporter.export.return_value = []  # No DPO data
+
+        sft_result = TrainingResult(
+            job_id="sft-job",
+            state=TrainingState.COMPLETED,
+            model_id="sft-model-only",
+            final_loss=0.1,
+            total_steps=100,
+            training_time_seconds=60.0,
+            checkpoint_path=None,
+        )
+
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = sft_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter), \
+             patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_combined_job(job)
+
+        assert job.status == JobStatus.COMPLETED
+        assert job.model_id == "sft-model-only"
+        mock_client.train_dpo.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_combined_job_sft_fails(self, tmp_path):
+        """Test combined job fails when SFT phase fails."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-combined-003",
+            job_type=JobType.COMBINED,
+            model="llama-3",
+            config={"adapter_name": "combined-adapter"},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_sft_exporter = MagicMock()
+        mock_sft_exporter.export.return_value = [{"instruction": "test", "response": "response"}]
+
+        sft_result = TrainingResult(
+            job_id="sft-job",
+            state=TrainingState.FAILED,
+            model_id=None,
+            final_loss=None,
+            total_steps=10,
+            training_time_seconds=5.0,
+            checkpoint_path=None,
+            error_message="SFT phase failed",
+        )
+
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = sft_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_combined_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "SFT phase failed" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_combined_job_dpo_fails(self, tmp_path):
+        """Test combined job fails when DPO phase fails."""
+        from aragora.training.tinker_client import TrainingResult, TrainingState
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-combined-004",
+            job_type=JobType.COMBINED,
+            model="llama-3",
+            config={"adapter_name": "combined-adapter"},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_sft_exporter = MagicMock()
+        mock_sft_exporter.export.return_value = [{"instruction": "test", "response": "response"}]
+
+        mock_dpo_exporter = MagicMock()
+        mock_dpo_exporter.export.return_value = [{"prompt": "p", "chosen": "c", "rejected": "r"}]
+
+        sft_result = TrainingResult(
+            job_id="sft-job",
+            state=TrainingState.COMPLETED,
+            model_id="sft-model",
+            final_loss=0.1,
+            total_steps=100,
+            training_time_seconds=60.0,
+            checkpoint_path=None,
+        )
+
+        dpo_result = TrainingResult(
+            job_id="dpo-job",
+            state=TrainingState.FAILED,
+            model_id=None,
+            final_loss=None,
+            total_steps=5,
+            training_time_seconds=2.0,
+            checkpoint_path=None,
+            error_message="DPO failed",
+        )
+
+        mock_client = AsyncMock()
+        mock_client.train_sft.return_value = sft_result
+        mock_client.train_dpo.return_value = dpo_result
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter), \
+             patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter):
+            scheduler._client = mock_client
+            await scheduler._run_combined_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert job.error == "DPO failed"
+
+    @pytest.mark.asyncio
+    async def test_run_combined_job_no_sft_data(self, tmp_path):
+        """Test combined job fails when no SFT data."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-combined-005",
+            job_type=JobType.COMBINED,
+            model="llama-3",
+            config={"adapter_name": "combined-adapter"},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_sft_exporter = MagicMock()
+        mock_sft_exporter.export.return_value = []
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter):
+            await scheduler._run_combined_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "No SFT training data exported" in job.error
+
+    @pytest.mark.asyncio
+    async def test_run_combined_job_exception(self, tmp_path):
+        """Test combined job handles exceptions."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        job = TrainingJob(
+            job_id="test-combined-006",
+            job_type=JobType.COMBINED,
+            model="llama-3",
+            config={"adapter_name": "combined-adapter"},
+        )
+        scheduler._jobs[job.job_id] = job
+
+        mock_sft_exporter = MagicMock()
+        mock_sft_exporter.export.side_effect = RuntimeError("Unexpected error")
+
+        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter):
+            await scheduler._run_combined_job(job)
+
+        assert job.status == JobStatus.FAILED
+        assert "Unexpected error" in job.error
+
+
+# =============================================================================
+# TrainingScheduler TinkerModel Handling Tests
+# =============================================================================
+
+
+class TestTinkerModelHandling:
+    """Test handling of TinkerModel enum."""
+
+    @pytest.mark.asyncio
+    async def test_schedule_sft_with_tinker_model_enum(self, tmp_path):
+        """Test SFT with TinkerModel enum."""
+        from aragora.training.tinker_client import TinkerModel
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_sft(model=TinkerModel.LLAMA_3_3_70B)
+
+        assert job.model == "llama-3.3-70b"
+
+    @pytest.mark.asyncio
+    async def test_schedule_dpo_with_tinker_model_enum(self, tmp_path):
+        """Test DPO with TinkerModel enum."""
+        from aragora.training.tinker_client import TinkerModel
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_dpo(model=TinkerModel.QWEN_2_5_72B)
+
+        assert job.model == "qwen-2.5-72b"
+
+    @pytest.mark.asyncio
+    async def test_schedule_combined_with_tinker_model_enum(self, tmp_path):
+        """Test combined with TinkerModel enum."""
+        from aragora.training.tinker_client import TinkerModel
+
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_combined_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_combined(model=TinkerModel.DEEPSEEK_V3)
+
+        assert job.model == "deepseek-v3"
+
+
+# =============================================================================
+# TrainingScheduler Auto Adapter Name Tests
+# =============================================================================
+
+
+class TestAutoAdapterName:
+    """Test automatic adapter name generation."""
+
+    @pytest.mark.asyncio
+    async def test_sft_auto_adapter_name(self, tmp_path):
+        """Test SFT generates adapter name from job ID."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_sft(model="llama-3")
+
+        assert job.config["adapter_name"].startswith("aragora-sft-")
+        assert job.job_id in job.config["adapter_name"]
+
+    @pytest.mark.asyncio
+    async def test_dpo_auto_adapter_name(self, tmp_path):
+        """Test DPO generates adapter name from job ID."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_dpo(model="llama-3")
+
+        assert job.config["adapter_name"].startswith("aragora-dpo-")
+        assert job.job_id in job.config["adapter_name"]
+
+    @pytest.mark.asyncio
+    async def test_combined_auto_adapter_name(self, tmp_path):
+        """Test combined generates adapter name from job ID."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_combined_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_combined(model="llama-3")
+
+        assert job.config["adapter_name"].startswith("aragora-combined-")
+        assert job.job_id in job.config["adapter_name"]
+
+
+# =============================================================================
+# TrainingScheduler State Persistence Full Cycle Tests
+# =============================================================================
+
+
+class TestStatePersistenceFullCycle:
+    """Test full save and load cycle."""
+
+    @pytest.mark.asyncio
+    async def test_save_and_load_preserves_all_fields(self, tmp_path):
+        """Test full save and load cycle preserves all job fields."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler1 = TrainingScheduler(config=config)
+
+        with patch.object(scheduler1, "_run_sft_job", new_callable=AsyncMock):
+            job = await scheduler1.schedule_sft(model="llama-3")
+            job.status = JobStatus.COMPLETED
+            job.tinker_job_id = "tinker-123"
+            job.model_id = "model-456"
+            job.started_at = "2024-01-01T10:00:00"
+            job.completed_at = "2024-01-01T11:00:00"
+
+        # Save state
+        state_file = tmp_path / "scheduler_state.json"
+        scheduler1.save_state(state_file)
+
+        # Create new scheduler and load
+        scheduler2 = TrainingScheduler(config=config)
+        scheduler2.load_state(state_file)
+
+        # Verify loaded job
+        loaded_job = scheduler2.get_job(job.job_id)
+        assert loaded_job is not None
+        assert loaded_job.status == JobStatus.COMPLETED
+        assert loaded_job.tinker_job_id == "tinker-123"
+        assert loaded_job.model_id == "model-456"
+        assert loaded_job.started_at == "2024-01-01T10:00:00"
+        assert loaded_job.completed_at == "2024-01-01T11:00:00"
+
+    @pytest.mark.asyncio
+    async def test_save_preserves_job_counter(self, tmp_path):
+        """Test save preserves job counter."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler1 = TrainingScheduler(config=config)
+
+        with patch.object(scheduler1, "_run_sft_job", new_callable=AsyncMock):
+            await scheduler1.schedule_sft(model="m1")
+            await scheduler1.schedule_sft(model="m2")
+            await scheduler1.schedule_sft(model="m3")
+
+        state_file = tmp_path / "state.json"
+        scheduler1.save_state(state_file)
+
+        scheduler2 = TrainingScheduler(config=config)
+        scheduler2.load_state(state_file)
+
+        assert scheduler2._job_counter == 3
+
+
+# =============================================================================
+# TrainingScheduler DPO Min ELO Difference Tests
+# =============================================================================
+
+
+class TestDPOMinEloDifference:
+    """Test DPO min ELO difference configuration."""
+
+    @pytest.mark.asyncio
+    async def test_dpo_uses_config_min_elo_difference(self, tmp_path):
+        """Test DPO uses config min ELO difference."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+            dpo_min_elo_difference=75.0,
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_dpo(model="llama-3")
+
+        assert job.config["min_elo_difference"] == 75.0
+
+    @pytest.mark.asyncio
+    async def test_dpo_custom_min_elo_overrides_config(self, tmp_path):
+        """Test DPO custom min ELO overrides config."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+            dpo_min_elo_difference=75.0,
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_dpo(model="llama-3", min_elo_difference=100.0)
+
+        assert job.config["min_elo_difference"] == 100.0
+
+
+# =============================================================================
+# TrainingScheduler Job Sorting Tests
+# =============================================================================
+
+
+class TestJobSorting:
+    """Test job listing sort order."""
+
+    @pytest.mark.asyncio
+    async def test_list_jobs_sorted_by_creation_time(self, tmp_path):
+        """Test jobs are sorted by creation time, newest first."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock):
+            job1 = await scheduler.schedule_sft(model="m1")
+            await asyncio.sleep(0.01)
+            job2 = await scheduler.schedule_sft(model="m2")
+            await asyncio.sleep(0.01)
+            job3 = await scheduler.schedule_sft(model="m3")
+
+        jobs = scheduler.list_jobs()
+
+        # Newest first
+        assert jobs[0].job_id == job3.job_id
+        assert jobs[1].job_id == job2.job_id
+        assert jobs[2].job_id == job1.job_id
+
+
+# =============================================================================
+# TrainingScheduler Combined Filtering Tests
+# =============================================================================
+
+
+class TestCombinedFiltering:
+    """Test combined filtering by status and type."""
+
+    @pytest.mark.asyncio
+    async def test_list_jobs_filter_by_status_and_type(self, tmp_path):
+        """Test filtering by both status and type."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock), \
+             patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+            sft_completed = await scheduler.schedule_sft(model="m1")
+            sft_completed.status = JobStatus.COMPLETED
+
+            sft_pending = await scheduler.schedule_sft(model="m2")
+            # Keep pending
+
+            dpo_completed = await scheduler.schedule_dpo(model="m3")
+            dpo_completed.status = JobStatus.COMPLETED
+
+        # Filter SFT completed
+        sft_completed_jobs = scheduler.list_jobs(status=JobStatus.COMPLETED, job_type=JobType.SFT)
+        assert len(sft_completed_jobs) == 1
+        assert sft_completed_jobs[0].job_id == sft_completed.job_id
+
+        # Filter DPO completed
+        dpo_completed_jobs = scheduler.list_jobs(status=JobStatus.COMPLETED, job_type=JobType.DPO)
+        assert len(dpo_completed_jobs) == 1
+        assert dpo_completed_jobs[0].job_id == dpo_completed.job_id
+
+
+# =============================================================================
+# TrainingScheduler Cancel Sets Completed At Tests
+# =============================================================================
+
+
+class TestCancelSetsCompletedAt:
+    """Test cancellation sets completed_at timestamp."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_sets_completed_at(self, tmp_path):
+        """Test cancel sets completed_at timestamp."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_sft(model="m")
+
+        assert job.completed_at is None
+
+        scheduler.cancel_job(job.job_id)
+
+        assert job.completed_at is not None
+
+
+# =============================================================================
+# TrainingScheduler Extra Config Kwargs Tests
+# =============================================================================
+
+
+class TestExtraConfigKwargs:
+    """Test passing extra configuration kwargs."""
+
+    @pytest.mark.asyncio
+    async def test_sft_passes_extra_kwargs(self, tmp_path):
+        """Test SFT passes extra kwargs to config."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_sft(
+                model="llama-3",
+                custom_param="custom_value",
+                lora_rank=32,
+            )
+
+        assert job.config["custom_param"] == "custom_value"
+        assert job.config["lora_rank"] == 32
+
+    @pytest.mark.asyncio
+    async def test_dpo_passes_extra_kwargs(self, tmp_path):
+        """Test DPO passes extra kwargs to config."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_dpo(
+                model="llama-3",
+                custom_dpo_param="dpo_value",
+            )
+
+        assert job.config["custom_dpo_param"] == "dpo_value"
+
+    @pytest.mark.asyncio
+    async def test_combined_passes_extra_kwargs(self, tmp_path):
+        """Test combined passes extra kwargs to config."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        with patch.object(scheduler, "_run_combined_job", new_callable=AsyncMock):
+            job = await scheduler.schedule_combined(
+                model="llama-3",
+                custom_combined="value",
+            )
+
+        assert job.config["custom_combined"] == "value"
+
+
+# =============================================================================
+# TrainingScheduler Default Model Tests
+# =============================================================================
+
+
+class TestDefaultModel:
+    """Test default model configuration."""
+
+    def test_scheduler_config_default_model(self):
+        """Test SchedulerConfig has default model."""
+        from aragora.training.tinker_client import TinkerModel
+
+        config = SchedulerConfig()
+        assert config.default_model == TinkerModel.LLAMA_3_3_70B.value
+
+
+# =============================================================================
+# TrainingScheduler Load State with Error Field Tests
+# =============================================================================
+
+
+class TestLoadStateWithError:
+    """Test loading state with error field."""
+
+    def test_load_state_with_error(self, tmp_path):
+        """Test loading state that includes error field."""
+        config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        scheduler = TrainingScheduler(config=config)
+
+        state = {
+            "jobs": [
+                {
+                    "job_id": "job-failed",
+                    "job_type": "sft",
+                    "model": "llama-3",
+                    "status": "failed",
+                    "config": {},
+                    "error": "Training failed due to OOM",
+                    "started_at": "2024-01-01T10:00:00",
+                    "completed_at": "2024-01-01T10:05:00",
+                }
+            ],
+            "job_counter": 1,
+        }
+
+        state_file = tmp_path / "state.json"
+        with open(state_file, "w") as f:
+            json.dump(state, f)
+
+        scheduler.load_state(state_file)
+
+        job = scheduler.get_job("job-failed")
+        assert job is not None
+        assert job.status == JobStatus.FAILED
+        assert job.error == "Training failed due to OOM"
+
+
+# =============================================================================
+# TrainingJob to_dict Result Field Tests
+# =============================================================================
+
+
+class TestTrainingJobResultField:
+    """Test TrainingJob result field handling."""
+
+    def test_to_dict_excludes_result(self):
+        """Test to_dict does not include result field (it's not serializable)."""
+        job = TrainingJob(
+            job_id="job-001",
+            job_type=JobType.SFT,
+            model="llama-3",
+        )
+
+        d = job.to_dict()
+
+        # result is not included in to_dict
+        assert "result" not in d
+
+
+# =============================================================================
+# TrainingScheduler Tinker Config Tests
+# =============================================================================
+
+
+class TestTinkerConfig:
+    """Test Tinker config handling."""
+
+    def test_scheduler_uses_provided_tinker_config(self, tmp_path):
+        """Test scheduler uses provided Tinker config."""
+        from aragora.training.tinker_client import TinkerConfig
+
+        scheduler_config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+        tinker_config = TinkerConfig(
+            api_key="test-api-key",
+            base_url="https://custom.api.com/v1",
+        )
+
+        scheduler = TrainingScheduler(
+            config=scheduler_config,
+            tinker_config=tinker_config,
+        )
+
+        assert scheduler.tinker_config == tinker_config
+        assert scheduler.tinker_config.api_key == "test-api-key"
+        assert scheduler.tinker_config.base_url == "https://custom.api.com/v1"
+
+    def test_scheduler_creates_default_tinker_config(self, tmp_path):
+        """Test scheduler creates default Tinker config if not provided."""
+        from aragora.training.tinker_client import TinkerConfig
+
+        scheduler_config = SchedulerConfig(
+            data_dir=tmp_path / "data",
+            checkpoint_dir=tmp_path / "ckpt",
+        )
+
+        scheduler = TrainingScheduler(config=scheduler_config)
+
+        assert scheduler.tinker_config is not None
+        assert isinstance(scheduler.tinker_config, TinkerConfig)

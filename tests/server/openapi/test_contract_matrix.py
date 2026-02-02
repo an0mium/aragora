@@ -88,7 +88,7 @@ TS_SKIP = {"__tests__", "index", "types", "utils", "base"}
 
 
 def _discover_py_namespaces() -> list[str]:
-    ns_dir = _repo_root() / "sdk/python/aragora/namespaces"
+    ns_dir = _repo_root() / "sdk/python/aragora_sdk/namespaces"
     if not ns_dir.is_dir():
         return []
     return sorted(

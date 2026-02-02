@@ -1,12 +1,22 @@
 """
 Transcription endpoint handlers for speech-to-text and media processing.
 
+Stability: STABLE
+
 Endpoints:
 - POST /api/transcription/audio - Transcribe audio file
 - POST /api/transcription/video - Extract and transcribe audio from video
 - POST /api/transcription/youtube - Transcribe YouTube video
 - GET  /api/transcription/status/:id - Get transcription job status
 - GET  /api/transcription/config - Get supported formats and limits
+
+Features:
+- Circuit breaker pattern for resilient transcription service access
+- Rate limiting (10 requests/minute for audio/video, 5/minute for YouTube)
+- RBAC permission checks (transcription:read, transcription:create)
+- Magic byte validation for file security
+- Comprehensive input validation and error handling
+- Job persistence with durable store support
 """
 
 from __future__ import annotations
@@ -14,6 +24,8 @@ from __future__ import annotations
 import logging
 import re
 import tempfile
+import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -29,6 +41,159 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+# ===========================================================================
+# Circuit Breaker for Transcription Services
+# ===========================================================================
+
+
+class TranscriptionCircuitBreaker:
+    """Circuit breaker for transcription backend access.
+
+    Prevents cascading failures when transcription services are unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 60.0,
+        half_open_max_calls: int = 2,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Transcription circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Transcription circuit breaker closed after recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Transcription circuit breaker reopened after failure")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Transcription circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker for transcription services
+_transcription_circuit_breaker = TranscriptionCircuitBreaker()
+
+
+def get_transcription_circuit_breaker_status() -> dict[str, Any]:
+    """Get the current status of the transcription circuit breaker.
+
+    Returns:
+        Dictionary with circuit breaker state and metrics.
+    """
+    return _transcription_circuit_breaker.get_status()
+
+
+def reset_transcription_circuit_breaker() -> None:
+    """Reset the transcription circuit breaker to closed state.
+
+    Useful for testing or manual recovery.
+    """
+    _transcription_circuit_breaker.reset()
 
 
 # ===========================================================================
@@ -436,6 +601,13 @@ class TranscriptionHandler(BaseHandler):
 
     async def _handle_audio_transcription(self, handler: Any) -> HandlerResult:
         """Handle audio file transcription."""
+        # Check circuit breaker first
+        if not _transcription_circuit_breaker.can_proceed():
+            return error_response(
+                "Transcription service temporarily unavailable. Please try again later.",
+                503,
+            )
+
         available, error = _check_transcription_available()
         if not available:
             return error_response(error, 503)
@@ -494,12 +666,25 @@ class TranscriptionHandler(BaseHandler):
                     },
                 )
 
-                # Run transcription asynchronously
+                # Run transcription asynchronously with circuit breaker protection
                 from aragora.transcription import transcribe_audio
 
                 language = params.get("language")
                 backend = params.get("backend")
-                result = await transcribe_audio(temp_path, language=language, backend=backend)
+
+                try:
+                    result = await transcribe_audio(temp_path, language=language, backend=backend)
+                    _transcription_circuit_breaker.record_success()
+                except Exception as transcribe_error:
+                    _transcription_circuit_breaker.record_failure()
+                    _save_job(
+                        job_id,
+                        {
+                            "status": "failed",
+                            "error": safe_error_message(transcribe_error, "transcription"),
+                        },
+                    )
+                    raise
 
                 _save_job(
                     job_id,
@@ -547,6 +732,13 @@ class TranscriptionHandler(BaseHandler):
 
     async def _handle_video_transcription(self, handler: Any) -> HandlerResult:
         """Handle video file transcription (extract audio and transcribe)."""
+        # Check circuit breaker first
+        if not _transcription_circuit_breaker.can_proceed():
+            return error_response(
+                "Transcription service temporarily unavailable. Please try again later.",
+                503,
+            )
+
         available, error = _check_transcription_available()
         if not available:
             return error_response(error, 503)
@@ -603,7 +795,20 @@ class TranscriptionHandler(BaseHandler):
 
                 language = params.get("language")
                 backend = params.get("backend")
-                result = await transcribe_video(temp_path, language=language, backend=backend)
+
+                try:
+                    result = await transcribe_video(temp_path, language=language, backend=backend)
+                    _transcription_circuit_breaker.record_success()
+                except Exception as transcribe_error:
+                    _transcription_circuit_breaker.record_failure()
+                    _save_job(
+                        job_id,
+                        {
+                            "status": "failed",
+                            "error": safe_error_message(transcribe_error, "transcription"),
+                        },
+                    )
+                    raise
 
                 _save_job(
                     job_id,
@@ -646,6 +851,13 @@ class TranscriptionHandler(BaseHandler):
 
     async def _handle_youtube_transcription(self, handler: Any) -> HandlerResult:
         """Handle YouTube video transcription."""
+        # Check circuit breaker first
+        if not _transcription_circuit_breaker.can_proceed():
+            return error_response(
+                "Transcription service temporarily unavailable. Please try again later.",
+                503,
+            )
+
         available, error = _check_transcription_available()
         if not available:
             return error_response(error, 503)
@@ -688,6 +900,7 @@ class TranscriptionHandler(BaseHandler):
                     backend=backend,
                     use_cache=use_cache,
                 )
+                _transcription_circuit_breaker.record_success()
 
                 _save_job(
                     job_id,
@@ -715,7 +928,7 @@ class TranscriptionHandler(BaseHandler):
                 )
 
             except ValueError as e:
-                # Video too long or other validation error
+                # Video too long or other validation error (not a service failure)
                 _save_job(
                     job_id,
                     {
@@ -724,6 +937,17 @@ class TranscriptionHandler(BaseHandler):
                     },
                 )
                 return error_response(str(e), 400)
+            except Exception as transcribe_error:
+                # Service failure - record for circuit breaker
+                _transcription_circuit_breaker.record_failure()
+                _save_job(
+                    job_id,
+                    {
+                        "status": "failed",
+                        "error": safe_error_message(transcribe_error, "transcription"),
+                    },
+                )
+                raise
 
         except (KeyError, TypeError) as e:
             logger.warning(f"Invalid YouTube transcription request data: {e}")

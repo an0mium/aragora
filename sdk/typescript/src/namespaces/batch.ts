@@ -162,7 +162,7 @@ export class BatchAPI {
    * Submit a batch of debates for processing.
    */
   async submit(request: BatchSubmitRequest): Promise<BatchSubmitResponse> {
-    return this.client.request('POST', '/api/v2/batch', {
+    return this.client.request('POST', '/api/v1/batch', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -171,14 +171,14 @@ export class BatchAPI {
    * Get status of a batch request.
    */
   async getStatus(batchId: string): Promise<BatchStatusResponse> {
-    return this.client.request('GET', `/api/v2/batch/${batchId}`);
+    return this.client.request('GET', `/api/v1/batch/${batchId}`);
   }
 
   /**
    * List batch requests.
    */
   async list(options?: ListBatchesOptions): Promise<{ batches: BatchSummary[]; count: number }> {
-    return this.client.request('GET', '/api/v2/batch', {
+    return this.client.request('GET', '/api/v1/batch', {
       params: options as Record<string, unknown>,
     });
   }
@@ -187,6 +187,6 @@ export class BatchAPI {
    * Get overall queue status.
    */
   async getQueueStatus(): Promise<QueueStatus> {
-    return this.client.request('GET', '/api/v2/batch/queue/status');
+    return this.client.request('GET', '/api/v1/batch/queue/status');
   }
 }

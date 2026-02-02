@@ -907,3 +907,583 @@ class TestErrorHandling:
                     )
 
                     assert result.status_code == 500
+
+
+# -----------------------------------------------------------------------------
+# Circuit Breaker Tests
+# -----------------------------------------------------------------------------
+
+
+class TestCircuitBreaker:
+    """Tests for circuit breaker functionality."""
+
+    def test_circuit_breaker_init(self):
+        """Circuit breaker initializes with correct defaults."""
+        from aragora.server.handlers.devices import DeviceCircuitBreaker
+
+        cb = DeviceCircuitBreaker()
+        assert cb.state == "closed"
+        assert cb.failure_threshold == 5
+        assert cb.cooldown_seconds == 30.0
+
+    def test_circuit_breaker_opens_after_threshold(self):
+        """Circuit breaker opens after failure threshold is reached."""
+        from aragora.server.handlers.devices import DeviceCircuitBreaker
+
+        cb = DeviceCircuitBreaker(failure_threshold=3)
+
+        # Record failures
+        for _ in range(3):
+            cb.record_failure()
+
+        assert cb.state == "open"
+        assert cb.can_proceed() is False
+
+    def test_circuit_breaker_closes_on_success(self):
+        """Circuit breaker closes after successful recovery."""
+        from aragora.server.handlers.devices import DeviceCircuitBreaker
+
+        cb = DeviceCircuitBreaker(failure_threshold=3, cooldown_seconds=0.01)
+
+        # Open the circuit
+        for _ in range(3):
+            cb.record_failure()
+        assert cb.state == "open"
+
+        # Wait for cooldown
+        import time
+        time.sleep(0.02)
+
+        # Should transition to half-open
+        assert cb.can_proceed() is True
+        assert cb.state == "half_open"
+
+        # Record successes
+        for _ in range(3):
+            cb.record_success()
+
+        assert cb.state == "closed"
+
+    def test_circuit_breaker_reopens_on_failure_in_half_open(self):
+        """Circuit breaker reopens on failure in half-open state."""
+        from aragora.server.handlers.devices import DeviceCircuitBreaker
+
+        cb = DeviceCircuitBreaker(failure_threshold=3, cooldown_seconds=0.01)
+
+        # Open the circuit
+        for _ in range(3):
+            cb.record_failure()
+
+        # Wait for cooldown
+        import time
+        time.sleep(0.02)
+
+        # Transition to half-open
+        assert cb.can_proceed() is True
+        assert cb.state == "half_open"
+
+        # Fail in half-open
+        cb.record_failure()
+        assert cb.state == "open"
+
+    def test_circuit_breaker_get_status(self):
+        """Circuit breaker returns correct status."""
+        from aragora.server.handlers.devices import DeviceCircuitBreaker
+
+        cb = DeviceCircuitBreaker(failure_threshold=5, cooldown_seconds=30.0)
+        status = cb.get_status()
+
+        assert status["state"] == "closed"
+        assert status["failure_count"] == 0
+        assert status["failure_threshold"] == 5
+        assert status["cooldown_seconds"] == 30.0
+
+    def test_circuit_breaker_reset(self):
+        """Circuit breaker can be reset."""
+        from aragora.server.handlers.devices import DeviceCircuitBreaker
+
+        cb = DeviceCircuitBreaker(failure_threshold=3)
+
+        # Open the circuit
+        for _ in range(3):
+            cb.record_failure()
+        assert cb.state == "open"
+
+        # Reset
+        cb.reset()
+        assert cb.state == "closed"
+        assert cb.can_proceed() is True
+
+    def test_get_circuit_breaker_status(self):
+        """get_device_circuit_breaker_status returns all circuit breakers."""
+        from aragora.server.handlers.devices import (
+            _get_circuit_breaker,
+            get_device_circuit_breaker_status,
+            _clear_device_circuit_breakers,
+        )
+
+        # Clear existing circuit breakers
+        _clear_device_circuit_breakers()
+
+        # Create some circuit breakers
+        _get_circuit_breaker("fcm")
+        _get_circuit_breaker("apns")
+
+        status = get_device_circuit_breaker_status()
+        assert "fcm" in status
+        assert "apns" in status
+        assert status["fcm"]["state"] == "closed"
+
+        # Cleanup
+        _clear_device_circuit_breakers()
+
+    @pytest.mark.asyncio
+    async def test_register_device_circuit_breaker_open(
+        self, device_handler, mock_handler, auth_context
+    ):
+        """Registration fails when circuit breaker is open."""
+        from aragora.server.handlers.devices import _get_circuit_breaker, _clear_device_circuit_breakers
+
+        # Clear and open the FCM circuit breaker
+        _clear_device_circuit_breakers()
+        cb = _get_circuit_breaker("fcm")
+        for _ in range(5):
+            cb.record_failure()
+
+        mock_handler.command = "POST"
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        body = {
+            "device_type": "android",
+            "push_token": "test-token-123",
+        }
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch.object(
+                    device_handler, "read_json_body_validated", return_value=(body, None)
+                ):
+                    with patch(
+                        "aragora.server.handlers.devices._registration_limiter"
+                    ) as mock_limiter:
+                        mock_limiter.is_allowed.return_value = True
+                        with patch("aragora.connectors.devices.DeviceType") as mock_dt:
+                            from enum import Enum
+
+                            class MockDeviceType(Enum):
+                                ANDROID = "android"
+
+                            mock_dt.side_effect = lambda x: MockDeviceType.ANDROID
+                            mock_dt.ANDROID = MockDeviceType.ANDROID
+
+                            result = await device_handler.handle_post(
+                                "/api/devices/register",
+                                {},
+                                mock_handler,
+                            )
+
+                            # Should return 503 due to circuit breaker
+                            assert result.status_code == 503
+                            data = json.loads(result.body)
+                            assert "temporarily unavailable" in data["error"]
+
+        # Cleanup
+        _clear_device_circuit_breakers()
+
+
+# -----------------------------------------------------------------------------
+# Rate Limiting Tests
+# -----------------------------------------------------------------------------
+
+
+class TestRateLimiting:
+    """Tests for rate limiting functionality."""
+
+    @pytest.mark.asyncio
+    async def test_registration_rate_limit_exceeded(
+        self, device_handler, mock_handler, auth_context
+    ):
+        """Registration returns 429 when rate limit exceeded."""
+        mock_handler.command = "POST"
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        body = {
+            "device_type": "android",
+            "push_token": "test-token-123",
+        }
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch.object(
+                    device_handler, "read_json_body_validated", return_value=(body, None)
+                ):
+                    with patch(
+                        "aragora.server.handlers.devices._registration_limiter"
+                    ) as mock_limiter:
+                        mock_limiter.is_allowed.return_value = False
+
+                        result = await device_handler.handle_post(
+                            "/api/devices/register",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 429
+                        data = json.loads(result.body)
+                        assert "Rate limit exceeded" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_notification_rate_limit_exceeded(
+        self, device_handler, mock_handler, auth_context
+    ):
+        """Notification returns 429 when rate limit exceeded."""
+        mock_handler.command = "POST"
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        body = {"title": "Test", "body": "Message"}
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch.object(
+                    device_handler, "read_json_body_validated", return_value=(body, None)
+                ):
+                    with patch(
+                        "aragora.server.handlers.devices._notification_limiter"
+                    ) as mock_limiter:
+                        mock_limiter.is_allowed.return_value = False
+
+                        result = await device_handler.handle_post(
+                            "/api/devices/device-123/notify",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 429
+                        data = json.loads(result.body)
+                        assert "Rate limit exceeded" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_user_notification_rate_limit_exceeded(
+        self, device_handler, mock_handler, auth_context
+    ):
+        """User notification returns 429 when rate limit exceeded."""
+        mock_handler.command = "POST"
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        body = {"title": "Test", "body": "Message"}
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch.object(
+                    device_handler, "read_json_body_validated", return_value=(body, None)
+                ):
+                    with patch(
+                        "aragora.server.handlers.devices._notification_limiter"
+                    ) as mock_limiter:
+                        mock_limiter.is_allowed.return_value = False
+
+                        result = await device_handler.handle_post(
+                            "/api/devices/user/user-123/notify",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 429
+                        data = json.loads(result.body)
+                        assert "Rate limit exceeded" in data["error"]
+
+
+# -----------------------------------------------------------------------------
+# Input Validation Tests
+# -----------------------------------------------------------------------------
+
+
+class TestInputValidation:
+    """Tests for input validation."""
+
+    @pytest.mark.asyncio
+    async def test_register_push_token_too_long(
+        self, device_handler, mock_handler, auth_context
+    ):
+        """Registration fails when push token exceeds max length."""
+        mock_handler.command = "POST"
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        # Create a token that's too long (> 4KB)
+        long_token = "x" * 5000
+        body = {
+            "device_type": "android",
+            "push_token": long_token,
+        }
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch.object(
+                    device_handler, "read_json_body_validated", return_value=(body, None)
+                ):
+                    with patch(
+                        "aragora.server.handlers.devices._registration_limiter"
+                    ) as mock_limiter:
+                        mock_limiter.is_allowed.return_value = True
+
+                        result = await device_handler.handle_post(
+                            "/api/devices/register",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 400
+                        data = json.loads(result.body)
+                        assert "push_token exceeds maximum length" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_notify_title_too_long(
+        self, device_handler, mock_handler, auth_context, mock_device_session
+    ):
+        """Notification fails when title exceeds max length."""
+        mock_handler.command = "POST"
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        # Create a title that's too long (> 256 chars)
+        long_title = "x" * 300
+        body = {"title": long_title, "body": "Message"}
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch.object(
+                    device_handler, "read_json_body_validated", return_value=(body, None)
+                ):
+                    with patch(
+                        "aragora.server.handlers.devices._notification_limiter"
+                    ) as mock_limiter:
+                        mock_limiter.is_allowed.return_value = True
+                        with patch("aragora.server.session_store.get_session_store") as mock_store:
+                            mock_store.return_value.get_device_session.return_value = (
+                                mock_device_session
+                            )
+
+                            result = await device_handler.handle_post(
+                                "/api/devices/device-123/notify",
+                                {},
+                                mock_handler,
+                            )
+
+                            assert result.status_code == 400
+                            data = json.loads(result.body)
+                            assert "title exceeds maximum length" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_notify_body_too_long(
+        self, device_handler, mock_handler, auth_context, mock_device_session
+    ):
+        """Notification fails when body exceeds max length."""
+        mock_handler.command = "POST"
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        # Create a body that's too long (> 4KB)
+        long_body = "x" * 5000
+        body = {"title": "Test", "body": long_body}
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch.object(
+                    device_handler, "read_json_body_validated", return_value=(body, None)
+                ):
+                    with patch(
+                        "aragora.server.handlers.devices._notification_limiter"
+                    ) as mock_limiter:
+                        mock_limiter.is_allowed.return_value = True
+                        with patch("aragora.server.session_store.get_session_store") as mock_store:
+                            mock_store.return_value.get_device_session.return_value = (
+                                mock_device_session
+                            )
+
+                            result = await device_handler.handle_post(
+                                "/api/devices/device-123/notify",
+                                {},
+                                mock_handler,
+                            )
+
+                            assert result.status_code == 400
+                            data = json.loads(result.body)
+                            assert "body exceeds maximum length" in data["error"]
+
+
+# -----------------------------------------------------------------------------
+# Health Endpoint with Circuit Breaker Status Tests
+# -----------------------------------------------------------------------------
+
+
+class TestHealthWithCircuitBreaker:
+    """Tests for health endpoint including circuit breaker status."""
+
+    @pytest.mark.asyncio
+    async def test_health_includes_circuit_breaker_status(
+        self, device_handler, mock_handler, auth_context
+    ):
+        """Health endpoint includes circuit breaker status."""
+        from aragora.server.handlers.devices import _get_circuit_breaker, _clear_device_circuit_breakers
+
+        # Clear and create a circuit breaker
+        _clear_device_circuit_breakers()
+        _get_circuit_breaker("fcm")
+
+        mock_handler.command = "GET"
+
+        mock_health = {
+            "status": "healthy",
+            "connectors": {"fcm": {"status": "connected"}},
+        }
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch("aragora.connectors.devices.registry.get_registry") as mock_registry:
+                    mock_registry.return_value.get_health = AsyncMock(return_value=mock_health)
+
+                    result = await device_handler.handle(
+                        "/api/devices/health",
+                        {},
+                        mock_handler,
+                    )
+
+                    assert result.status_code == 200
+                    data = json.loads(result.body)
+                    assert "circuit_breakers" in data
+                    assert "fcm" in data["circuit_breakers"]
+
+        # Cleanup
+        _clear_device_circuit_breakers()
+
+    @pytest.mark.asyncio
+    async def test_health_unavailable_includes_circuit_breaker_status(
+        self, device_handler, mock_handler, auth_context
+    ):
+        """Health endpoint returns circuit breaker status even when connectors unavailable."""
+        from aragora.server.handlers.devices import _get_circuit_breaker, _clear_device_circuit_breakers
+
+        # Clear and create a circuit breaker
+        _clear_device_circuit_breakers()
+        cb = _get_circuit_breaker("fcm")
+        for _ in range(5):
+            cb.record_failure()
+
+        mock_handler.command = "GET"
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch(
+                    "aragora.connectors.devices.registry.get_registry",
+                    side_effect=ImportError("Module not found"),
+                ):
+                    result = await device_handler.handle(
+                        "/api/devices/health",
+                        {},
+                        mock_handler,
+                    )
+
+                    assert result.status_code == 200
+                    data = json.loads(result.body)
+                    assert data["status"] == "unavailable"
+                    assert "circuit_breakers" in data
+                    assert data["circuit_breakers"]["fcm"]["state"] == "open"
+
+        # Cleanup
+        _clear_device_circuit_breakers()
+
+
+# -----------------------------------------------------------------------------
+# Versioned Path Tests
+# -----------------------------------------------------------------------------
+
+
+class TestVersionedPaths:
+    """Tests for API versioning support."""
+
+    def test_can_handle_versioned_paths(self, device_handler):
+        """Handler can handle versioned API paths."""
+        assert device_handler.can_handle("/api/v1/devices/register") is True
+        assert device_handler.can_handle("/api/v2/devices/health") is True
+        assert device_handler.can_handle("/api/v1/devices/device-123") is True
+
+    def test_can_handle_unversioned_paths(self, device_handler):
+        """Handler can handle unversioned API paths."""
+        assert device_handler.can_handle("/api/devices/register") is True
+        assert device_handler.can_handle("/api/devices/health") is True
+
+
+# -----------------------------------------------------------------------------
+# Admin Override Tests
+# -----------------------------------------------------------------------------
+
+
+class TestAdminOverrides:
+    """Tests for admin permission overrides."""
+
+    @pytest.mark.asyncio
+    async def test_admin_can_view_other_user_devices(
+        self, device_handler, mock_handler, auth_context, mock_device_session
+    ):
+        """Admin can view other user's devices."""
+        mock_handler.command = "GET"
+        mock_device_session.user_id = "other-user"
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch("aragora.server.session_store.get_session_store") as mock_store:
+                    mock_store.return_value.get_device_session.return_value = mock_device_session
+
+                    result = await device_handler.handle(
+                        "/api/devices/device-123",
+                        {},
+                        mock_handler,
+                    )
+
+                    # Admin should be able to view (auth_context has admin role)
+                    assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_admin_can_delete_other_user_device(
+        self, device_handler, mock_handler, auth_context, mock_device_session
+    ):
+        """Admin can delete other user's device."""
+        mock_handler.command = "DELETE"
+        mock_device_session.user_id = "other-user"
+
+        with patch.object(
+            device_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(device_handler, "check_permission"):
+                with patch("aragora.server.session_store.get_session_store") as mock_store:
+                    mock_store.return_value.get_device_session.return_value = mock_device_session
+                    mock_store.return_value.delete_device_session.return_value = True
+
+                    result = await device_handler.handle_delete(
+                        "/api/devices/device-123",
+                        {},
+                        mock_handler,
+                    )
+
+                    # Admin should be able to delete
+                    assert result.status_code == 200
+                    data = json.loads(result.body)
+                    assert data["success"] is True

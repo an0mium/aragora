@@ -209,13 +209,13 @@ class ContextGatherer:
                     )
             except ImportError as e:
                 # Expected: RLM module not installed
-                logger.debug(f"[rlm] RLM module not available: {e}")
+                logger.debug("[rlm] RLM module not available: %s", e)
             except (RuntimeError, ValueError) as e:
                 # Expected: RLM initialization issues
-                logger.warning(f"[rlm] Failed to initialize RLM: {e}")
+                logger.warning("[rlm] Failed to initialize RLM: %s", e)
             except Exception as e:
                 # Unexpected error
-                logger.warning(f"[rlm] Unexpected error getting RLM from factory: {e}")
+                logger.warning("[rlm] Unexpected error getting RLM from factory: %s", e)
 
             # Fallback: get compressor from factory (compression-only)
             if not self._rlm_compressor and get_compressor is not None:
@@ -226,7 +226,7 @@ class ContextGatherer:
                     )
                 except ImportError as e:
                     # Expected: compressor module not available
-                    logger.debug(f"[rlm] Compressor module not available: {e}")
+                    logger.debug("[rlm] Compressor module not available: %s", e)
                 except (RuntimeError, ValueError) as e:
                     # Expected: compressor initialization issues
                     logger.warning(f"[rlm] Failed to initialize compressor: {e}")

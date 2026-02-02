@@ -561,18 +561,18 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
     "RoutingRulesHandler": Stability.STABLE,  # Routing rules management - RBAC, rate limiting, audit logging
-    "CompositeHandler": Stability.EXPERIMENTAL,  # Composite API endpoints - new
+    "CompositeHandler": Stability.STABLE,  # Composite API endpoints - circuit breaker, RBAC, rate limiting
     "MLHandler": Stability.STABLE,  # ML capabilities API - circuit breaker, RBAC, rate limiting, 80+ tests
     "RLMContextHandler": Stability.STABLE,  # RLM context compression and query API - 86 tests
-    "RLMHandler": Stability.EXPERIMENTAL,  # RLM operations API
+    "RLMHandler": Stability.STABLE,  # RLM operations API - circuit breaker, RBAC, rate limiting, 90+ tests
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
     "BudgetHandler": Stability.EXPERIMENTAL,  # Budget management API
     "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
     "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
-    "DeviceHandler": Stability.EXPERIMENTAL,  # Device registration and notifications
-    "TranscriptionHandler": Stability.EXPERIMENTAL,  # Speech-to-text transcription - new
+    "DeviceHandler": Stability.STABLE,  # Device registration and notifications - RBAC, rate limiting, circuit breaker
+    "TranscriptionHandler": Stability.STABLE,  # Speech-to-text transcription - circuit breaker, RBAC, rate limiting
     "TrainingHandler": Stability.EXPERIMENTAL,  # RLM training data collection - new
     "VerificationHandler": Stability.STABLE,  # Z3 formal verification
     "PulseHandler": Stability.STABLE,  # Trending topics API

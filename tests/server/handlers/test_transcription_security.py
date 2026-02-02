@@ -95,6 +95,20 @@ def mock_server_context():
     }
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiters():
+    """Reset rate limiters before each test to avoid rate limit issues."""
+    from aragora.server.handlers.transcription import (
+        _audio_limiter,
+        _youtube_limiter,
+        reset_transcription_circuit_breaker,
+    )
+    _audio_limiter._buckets.clear()
+    _youtube_limiter._buckets.clear()
+    reset_transcription_circuit_breaker()
+    yield
+
+
 @pytest.fixture
 def handler(mock_server_context):
     """Create a TranscriptionHandler instance."""

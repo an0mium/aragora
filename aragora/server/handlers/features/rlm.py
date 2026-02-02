@@ -1,6 +1,8 @@
 """
 RLM (Recursive Language Model) endpoint handlers.
 
+Stability: STABLE
+
 Endpoints:
 - POST /api/debates/{id}/query-rlm - Query a debate using RLM with refinement
 - POST /api/debates/{id}/compress - Compress debate context using RLM
@@ -13,11 +15,19 @@ Security:
     - debates.read: Query and compress debate context
     - knowledge.read: Query knowledge mound
     - analytics.read: Access RLM metrics
+
+Features:
+    - Circuit breaker pattern for resilient RLM operations
+    - Rate limiting (30 requests/minute for queries, 60/minute for status)
+    - RBAC permission checks
+    - Input validation with size limits
+    - Comprehensive error handling with safe error messages
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Any
 
@@ -34,8 +44,164 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Circuit Breaker for RLM Operations
+# =============================================================================
+
+
+class RLMCircuitBreaker:
+    """Circuit breaker for RLM operations.
+
+    Prevents cascading failures when RLM components are unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("RLM circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("RLM circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("RLM circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"RLM circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breakers for RLM operations
+_rlm_circuit_breakers: dict[str, RLMCircuitBreaker] = {}
+_circuit_breaker_lock = threading.Lock()
+
+
+def _get_rlm_circuit_breaker(operation: str) -> RLMCircuitBreaker:
+    """Get or create a circuit breaker for an RLM operation."""
+    with _circuit_breaker_lock:
+        if operation not in _rlm_circuit_breakers:
+            _rlm_circuit_breakers[operation] = RLMCircuitBreaker()
+        return _rlm_circuit_breakers[operation]
+
+
+def get_rlm_circuit_breaker_status() -> dict[str, Any]:
+    """Get status of all RLM circuit breakers."""
+    with _circuit_breaker_lock:
+        return {
+            name: breaker.get_status() for name, breaker in _rlm_circuit_breakers.items()
+        }
+
+
+def _clear_rlm_circuit_breakers() -> None:
+    """Clear all circuit breakers (for testing)."""
+    with _circuit_breaker_lock:
+        _rlm_circuit_breakers.clear()
 
 
 class RLMHandler(BaseHandler):
@@ -145,11 +311,14 @@ class RLMHandler(BaseHandler):
             return self._query_knowledge_rlm(handler)
         return None
 
+    @rate_limit(requests_per_minute=30, limiter_name="rlm_query")
     @require_user_auth
     @handle_errors("RLM debate query")
     def _query_debate_rlm(self, path: str, handler, user=None) -> HandlerResult:
         """
         Query a debate using RLM with iterative refinement.
+
+        Rate limited to 30 requests per minute.
 
         Request body:
         {
@@ -179,6 +348,10 @@ class RLMHandler(BaseHandler):
         if not debate_id:
             return error_response("Invalid debate ID", 400)
 
+        # Validate debate_id format
+        if len(debate_id) > 100 or not debate_id.replace("-", "").replace("_", "").isalnum():
+            return error_response("Invalid debate ID format", 400)
+
         body = handler.get_json_body()
         if not body:
             return error_response("Request body required", 400)
@@ -187,9 +360,36 @@ class RLMHandler(BaseHandler):
         if not query:
             return error_response("Query is required", 400)
 
+        # Validate query length
+        if len(query) > 10000:
+            return error_response("Query too long (max 10000 characters)", 400)
+
         strategy = body.get("strategy", "auto")
+        valid_strategies = ["auto", "peek", "grep", "partition_map", "summarize", "hierarchical"]
+        if strategy not in valid_strategies:
+            return error_response(
+                f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}", 400
+            )
+
         max_iterations = body.get("max_iterations", 3)
+        if not isinstance(max_iterations, int) or max_iterations < 1 or max_iterations > 10:
+            max_iterations = 3
+
         start_level = body.get("start_level", "SUMMARY")
+        valid_levels = ["ABSTRACT", "SUMMARY", "DETAILED", "RAW"]
+        if start_level.upper() not in valid_levels:
+            return error_response(
+                f"Invalid start_level. Must be one of: {', '.join(valid_levels)}", 400
+            )
+
+        # Check circuit breaker
+        circuit_breaker = _get_rlm_circuit_breaker("query")
+        if not circuit_breaker.can_proceed():
+            logger.warning("RLM query circuit breaker is open")
+            return error_response(
+                "RLM service temporarily unavailable. Please try again later.",
+                503,
+            )
 
         try:
             result = _run_async(
@@ -201,6 +401,8 @@ class RLMHandler(BaseHandler):
                     start_level=start_level,
                 )
             )
+
+            circuit_breaker.record_success()
 
             return json_response(
                 {
@@ -216,6 +418,7 @@ class RLMHandler(BaseHandler):
             )
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+            circuit_breaker.record_failure()
             logger.error(f"RLM query failed: {e}")
             return error_response(safe_error_message(e, "RLM query"), 500)
 
@@ -278,11 +481,14 @@ class RLMHandler(BaseHandler):
             logger.warning(f"Failed to get debate {debate_id}: {e}")
             return None
 
+    @rate_limit(requests_per_minute=20, limiter_name="rlm_compress")
     @require_user_auth
     @handle_errors("RLM compression")
     def _compress_debate(self, path: str, handler, user=None) -> HandlerResult:
         """
         Compress a debate into hierarchical context.
+
+        Rate limited to 20 requests per minute (compute-intensive).
 
         Request body:
         {
@@ -312,9 +518,35 @@ class RLMHandler(BaseHandler):
         if not debate_id:
             return error_response("Invalid debate ID", 400)
 
+        # Validate debate_id format
+        if len(debate_id) > 100 or not debate_id.replace("-", "").replace("_", "").isalnum():
+            return error_response("Invalid debate ID format", 400)
+
         body = handler.get_json_body() or {}
         target_levels = body.get("target_levels", ["ABSTRACT", "SUMMARY", "DETAILED"])
+
+        # Validate target_levels
+        valid_levels = ["ABSTRACT", "SUMMARY", "DETAILED", "RAW"]
+        if not isinstance(target_levels, list):
+            return error_response("target_levels must be a list", 400)
+        for level in target_levels:
+            if level.upper() not in valid_levels:
+                return error_response(
+                    f"Invalid level: {level}. Must be one of: {', '.join(valid_levels)}", 400
+                )
+
         compression_ratio = body.get("compression_ratio", 0.3)
+        if not isinstance(compression_ratio, (int, float)) or compression_ratio <= 0 or compression_ratio > 1:
+            compression_ratio = 0.3
+
+        # Check circuit breaker
+        circuit_breaker = _get_rlm_circuit_breaker("compress")
+        if not circuit_breaker.can_proceed():
+            logger.warning("RLM compression circuit breaker is open")
+            return error_response(
+                "RLM service temporarily unavailable. Please try again later.",
+                503,
+            )
 
         try:
             result = _run_async(
@@ -324,9 +556,11 @@ class RLMHandler(BaseHandler):
                     compression_ratio=compression_ratio,
                 )
             )
+            circuit_breaker.record_success()
             return json_response(result)
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+            circuit_breaker.record_failure()
             logger.error(f"RLM compression failed: {e}")
             return error_response(safe_error_message(e, "Compression"), 500)
 
@@ -370,11 +604,14 @@ class RLMHandler(BaseHandler):
             "levels_created": len(context.levels),
         }
 
+    @rate_limit(requests_per_minute=60, limiter_name="rlm_context")
     @require_user_auth
     @handle_errors("get context level")
     def _get_context_level(self, path: str, handler, user=None) -> HandlerResult:
         """
         Get debate content at a specific abstraction level.
+
+        Rate limited to 60 requests per minute.
 
         Response:
         {
@@ -394,8 +631,20 @@ class RLMHandler(BaseHandler):
 
         if not debate_id:
             return error_response("Invalid debate ID", 400)
+
+        # Validate debate_id format
+        if len(debate_id) > 100 or not debate_id.replace("-", "").replace("_", "").isalnum():
+            return error_response("Invalid debate ID format", 400)
+
         if not level_name:
             return error_response("Invalid abstraction level", 400)
+
+        # Validate level_name
+        valid_levels = ["ABSTRACT", "SUMMARY", "DETAILED", "RAW"]
+        if level_name.upper() not in valid_levels:
+            return error_response(
+                f"Invalid level. Must be one of: {', '.join(valid_levels)}", 400
+            )
 
         try:
             result = _run_async(self._get_level_content(debate_id, level_name))
@@ -445,11 +694,14 @@ class RLMHandler(BaseHandler):
             "nodes": nodes,
         }
 
+    @rate_limit(requests_per_minute=120, limiter_name="rlm_status")
     @require_user_auth
     @handle_errors("refinement status")
     def _get_refinement_status(self, path: str, handler, user=None) -> HandlerResult:
         """
         Get status of an ongoing refinement process.
+
+        Rate limited to 120 requests per minute.
 
         Response:
         {
@@ -468,6 +720,10 @@ class RLMHandler(BaseHandler):
         if not debate_id:
             return error_response("Invalid debate ID", 400)
 
+        # Validate debate_id format
+        if len(debate_id) > 100 or not debate_id.replace("-", "").replace("_", "").isalnum():
+            return error_response("Invalid debate ID format", 400)
+
         # Note: In production, track active queries in a store
         return json_response(
             {
@@ -478,11 +734,14 @@ class RLMHandler(BaseHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=30, limiter_name="rlm_knowledge")
     @require_user_auth
     @handle_errors("RLM knowledge query")
     def _query_knowledge_rlm(self, handler, user=None) -> HandlerResult:
         """
         Query knowledge mound using RLM.
+
+        Rate limited to 30 requests per minute.
 
         Request body:
         {
@@ -516,8 +775,33 @@ class RLMHandler(BaseHandler):
         if not query:
             return error_response("query is required", 400)
 
+        # Validate workspace_id format
+        if len(workspace_id) > 100 or not workspace_id.replace("-", "").replace("_", "").isalnum():
+            return error_response("Invalid workspace_id format", 400)
+
+        # Validate query length
+        if len(query) > 10000:
+            return error_response("Query too long (max 10000 characters)", 400)
+
         max_nodes = body.get("max_nodes", 100)
+        if not isinstance(max_nodes, int) or max_nodes < 1 or max_nodes > 1000:
+            max_nodes = 100
+
         strategy = body.get("strategy", "auto")
+        valid_strategies = ["auto", "peek", "grep", "partition_map", "summarize", "hierarchical"]
+        if strategy not in valid_strategies:
+            return error_response(
+                f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}", 400
+            )
+
+        # Check circuit breaker
+        circuit_breaker = _get_rlm_circuit_breaker("knowledge")
+        if not circuit_breaker.can_proceed():
+            logger.warning("RLM knowledge query circuit breaker is open")
+            return error_response(
+                "RLM service temporarily unavailable. Please try again later.",
+                503,
+            )
 
         try:
             result = _run_async(
@@ -528,8 +812,10 @@ class RLMHandler(BaseHandler):
                     strategy=strategy,
                 )
             )
+            circuit_breaker.record_success()
             return json_response(result)
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+            circuit_breaker.record_failure()
             logger.error(f"Knowledge RLM query failed: {e}")
             return error_response(safe_error_message(e, "Query"), 500)
 
@@ -577,16 +863,20 @@ class RLMHandler(BaseHandler):
             "iteration": result.iteration,
         }
 
+    @rate_limit(requests_per_minute=120, limiter_name="rlm_status_endpoint")
     def _get_rlm_status(self) -> HandlerResult:
         """
         Get RLM system status.
+
+        Rate limited to 120 requests per minute.
 
         Response:
         {
             "available": true,
             "provider": "built-in",
             "version": "1.0.0",
-            "features": ["compression", "queries", "refinement", "streaming"]
+            "features": ["compression", "queries", "refinement", "streaming"],
+            "circuit_breakers": {...}
         }
         """
         try:
@@ -618,12 +908,16 @@ class RLMHandler(BaseHandler):
             except ImportError:
                 pass
 
+            # Include circuit breaker status
+            circuit_breaker_status = get_rlm_circuit_breaker_status()
+
             return json_response(
                 {
                     "available": True,
                     "provider": provider,
                     "version": version,
                     "features": features,
+                    "circuit_breakers": circuit_breaker_status,
                 }
             )
 
@@ -639,9 +933,12 @@ class RLMHandler(BaseHandler):
                 }
             )
 
+    @rate_limit(requests_per_minute=60, limiter_name="rlm_metrics")
     def _get_rlm_metrics(self) -> HandlerResult:
         """
         Get RLM metrics for monitoring dashboard.
+
+        Rate limited to 60 requests per minute.
 
         Response:
         {

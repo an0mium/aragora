@@ -1,31 +1,221 @@
 """
 Composite API handlers that aggregate data from multiple subsystems.
 
+Stability: STABLE
+
 These handlers provide convenient single-request access to related data
 that would otherwise require multiple API calls.
+
+Endpoints:
+- GET /api/v1/debates/{id}/full-context - Memory + Knowledge + Belief context
+- GET /api/v1/agents/{id}/reliability - Circuit breaker + Airlock metrics
+- GET /api/v1/debates/{id}/compression-analysis - RLM compression metrics
+
+Features:
+- Circuit breaker pattern for resilient subsystem access
+- Rate limiting (60 requests/minute)
+- RBAC permission checks (composite:read)
+- Input validation with safe ID patterns
+- Error isolation (subsystem failures don't crash the whole response)
 """
 
 from __future__ import annotations
 
+__all__ = [
+    "CompositeHandler",
+    "CompositeCircuitBreaker",
+    "get_circuit_breaker_status",
+    "_clear_cached_components",
+]
+
 import json
 import logging
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation import SAFE_ID_PATTERN, validate_path_segment
 from .base import BaseHandler, HandlerResult
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for composite endpoints (60 requests per minute)
+_composite_limiter = RateLimiter(requests_per_minute=60)
+
+
+# =============================================================================
+# Circuit Breaker for Subsystem Access
+# =============================================================================
+
+
+class CompositeCircuitBreaker:
+    """Circuit breaker for subsystem access in composite handlers.
+
+    Prevents cascading failures when subsystems (memory, knowledge, belief)
+    are unavailable. Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 3,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 2,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Composite circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Composite circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Composite circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Composite circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Per-subsystem circuit breakers
+_circuit_breakers: dict[str, CompositeCircuitBreaker] = {}
+_circuit_breaker_lock = threading.Lock()
+
+
+def _get_circuit_breaker(subsystem: str) -> CompositeCircuitBreaker:
+    """Get or create a circuit breaker for a subsystem."""
+    with _circuit_breaker_lock:
+        if subsystem not in _circuit_breakers:
+            _circuit_breakers[subsystem] = CompositeCircuitBreaker()
+        return _circuit_breakers[subsystem]
+
+
+def get_circuit_breaker_status() -> dict[str, Any]:
+    """Get status of all subsystem circuit breakers."""
+    with _circuit_breaker_lock:
+        return {name: cb.get_status() for name, cb in _circuit_breakers.items()}
+
+
+def _clear_cached_components() -> None:
+    """Clear cached components and circuit breakers (useful for testing)."""
+    with _circuit_breaker_lock:
+        _circuit_breakers.clear()
 
 
 class CompositeHandler(BaseHandler):
     """
     Handler for composite API endpoints that aggregate multiple data sources.
 
+    Stability: STABLE
+
     Endpoints:
-    - GET /api/debates/{id}/full-context - Memory + Knowledge + Belief context
-    - GET /api/agents/{id}/reliability - Circuit breaker + Airlock metrics
-    - GET /api/debates/{id}/compression-analysis - RLM compression metrics
+    - GET /api/v1/debates/{id}/full-context - Memory + Knowledge + Belief context
+    - GET /api/v1/agents/{id}/reliability - Circuit breaker + Airlock metrics
+    - GET /api/v1/debates/{id}/compression-analysis - RLM compression metrics
+
+    All endpoints require the 'composite:read' permission and are rate-limited
+    to 60 requests per minute.
     """
 
     ROUTES = [
@@ -36,36 +226,61 @@ class CompositeHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        # Match /api/debates/{id}/full-context
+        # Match /api/v1/debates/{id}/full-context
         if path.startswith("/api/v1/debates/") and path.endswith("/full-context"):
             return True
-        # Match /api/agents/{id}/reliability
+        # Match /api/v1/agents/{id}/reliability
         if path.startswith("/api/v1/agents/") and path.endswith("/reliability"):
             return True
-        # Match /api/debates/{id}/compression-analysis
+        # Match /api/v1/debates/{id}/compression-analysis
         if path.startswith("/api/v1/debates/") and path.endswith("/compression-analysis"):
             return True
         return False
 
     @require_permission("composite:read")
-    def handle(self, path: str, query_params: dict[str, str], handler: Any) -> HandlerResult | None:
-        """Route to appropriate handler method."""
+    def handle(
+        self, path: str, query_params: dict[str, str], handler: Any
+    ) -> HandlerResult | None:
+        """Route to appropriate handler method with rate limiting and validation."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _composite_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for composite endpoint: {client_ip}")
+            return self._error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path.endswith("/full-context"):
             debate_id = self._extract_id(path, "/api/v1/debates/", "/full-context")
+            # Validate debate ID
+            is_valid, error_msg = validate_path_segment(debate_id, "debate_id", SAFE_ID_PATTERN)
+            if not is_valid:
+                return self._error_response(error_msg, 400)
             return self._handle_full_context(debate_id, query_params)
+
         elif path.endswith("/reliability"):
             agent_id = self._extract_id(path, "/api/v1/agents/", "/reliability")
+            # Validate agent ID
+            is_valid, error_msg = validate_path_segment(agent_id, "agent_id", SAFE_ID_PATTERN)
+            if not is_valid:
+                return self._error_response(error_msg, 400)
             return self._handle_reliability(agent_id, query_params)
+
         elif path.endswith("/compression-analysis"):
             debate_id = self._extract_id(path, "/api/v1/debates/", "/compression-analysis")
+            # Validate debate ID
+            is_valid, error_msg = validate_path_segment(debate_id, "debate_id", SAFE_ID_PATTERN)
+            if not is_valid:
+                return self._error_response(error_msg, 400)
             return self._handle_compression_analysis(debate_id, query_params)
+
         return None
 
     def _extract_id(self, path: str, prefix: str, suffix: str) -> str:
         """Extract ID from path pattern."""
         return path[len(prefix) : -len(suffix)]
 
-    def _handle_full_context(self, debate_id: str, query_params: dict[str, str]) -> HandlerResult:
+    def _handle_full_context(
+        self, debate_id: str, query_params: dict[str, str]
+    ) -> HandlerResult:
         """
         Get full context for a debate including memory, knowledge, and belief data.
 
@@ -83,35 +298,26 @@ class CompositeHandler(BaseHandler):
                 "belief": {},
             }
 
-            # Fetch memory context
-            try:
-                context["memory"] = self._get_memory_context(debate_id)
-            except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Data error fetching memory for {debate_id}: {e}")
-                context["memory"] = {"error": str(e), "available": False}
-            except Exception as e:
-                logger.exception(f"Unexpected error fetching memory for {debate_id}: {e}")
-                context["memory"] = {"error": "Internal error", "available": False}
+            # Fetch memory context with circuit breaker protection
+            context["memory"] = self._fetch_with_circuit_breaker(
+                "memory",
+                lambda: self._get_memory_context(debate_id),
+                {"available": False, "error": "Memory subsystem unavailable"},
+            )
 
-            # Fetch knowledge context
-            try:
-                context["knowledge"] = self._get_knowledge_context(debate_id)
-            except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Data error fetching knowledge for {debate_id}: {e}")
-                context["knowledge"] = {"error": str(e), "available": False}
-            except Exception as e:
-                logger.exception(f"Unexpected error fetching knowledge for {debate_id}: {e}")
-                context["knowledge"] = {"error": "Internal error", "available": False}
+            # Fetch knowledge context with circuit breaker protection
+            context["knowledge"] = self._fetch_with_circuit_breaker(
+                "knowledge",
+                lambda: self._get_knowledge_context(debate_id),
+                {"available": False, "error": "Knowledge subsystem unavailable"},
+            )
 
-            # Fetch belief context
-            try:
-                context["belief"] = self._get_belief_context(debate_id)
-            except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Data error fetching belief for {debate_id}: {e}")
-                context["belief"] = {"error": str(e), "available": False}
-            except Exception as e:
-                logger.exception(f"Unexpected error fetching belief for {debate_id}: {e}")
-                context["belief"] = {"error": "Internal error", "available": False}
+            # Fetch belief context with circuit breaker protection
+            context["belief"] = self._fetch_with_circuit_breaker(
+                "belief",
+                lambda: self._get_belief_context(debate_id),
+                {"available": False, "error": "Belief subsystem unavailable"},
+            )
 
             return HandlerResult(
                 status_code=200,
@@ -126,7 +332,9 @@ class CompositeHandler(BaseHandler):
             logger.exception(f"Unexpected error in full-context handler: {e}")
             return self._error_response("Internal server error", 500)
 
-    def _handle_reliability(self, agent_id: str, query_params: dict[str, str]) -> HandlerResult:
+    def _handle_reliability(
+        self, agent_id: str, query_params: dict[str, str]
+    ) -> HandlerResult:
         """
         Get reliability metrics for an agent.
 
@@ -146,35 +354,26 @@ class CompositeHandler(BaseHandler):
                 "overall_score": 0.0,
             }
 
-            # Fetch circuit breaker state
-            try:
-                metrics["circuit_breaker"] = self._get_circuit_breaker_state(agent_id)
-            except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Data error fetching circuit breaker for {agent_id}: {e}")
-                metrics["circuit_breaker"] = {"error": str(e), "available": False}
-            except Exception as e:
-                logger.exception(f"Unexpected error fetching circuit breaker for {agent_id}: {e}")
-                metrics["circuit_breaker"] = {"error": "Internal error", "available": False}
+            # Fetch circuit breaker state with circuit breaker protection
+            metrics["circuit_breaker"] = self._fetch_with_circuit_breaker(
+                "resilience",
+                lambda: self._get_circuit_breaker_state(agent_id),
+                {"available": False, "error": "Resilience subsystem unavailable"},
+            )
 
-            # Fetch airlock metrics
-            try:
-                metrics["airlock"] = self._get_airlock_metrics(agent_id)
-            except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Data error fetching airlock for {agent_id}: {e}")
-                metrics["airlock"] = {"error": str(e), "available": False}
-            except Exception as e:
-                logger.exception(f"Unexpected error fetching airlock for {agent_id}: {e}")
-                metrics["airlock"] = {"error": "Internal error", "available": False}
+            # Fetch airlock metrics with circuit breaker protection
+            metrics["airlock"] = self._fetch_with_circuit_breaker(
+                "airlock",
+                lambda: self._get_airlock_metrics(agent_id),
+                {"available": False, "error": "Airlock subsystem unavailable"},
+            )
 
-            # Calculate availability
-            try:
-                metrics["availability"] = self._calculate_availability(agent_id)
-            except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Data error calculating availability for {agent_id}: {e}")
-                metrics["availability"] = {"error": str(e), "available": False}
-            except Exception as e:
-                logger.exception(f"Unexpected error calculating availability for {agent_id}: {e}")
-                metrics["availability"] = {"error": "Internal error", "available": False}
+            # Calculate availability with circuit breaker protection
+            metrics["availability"] = self._fetch_with_circuit_breaker(
+                "availability",
+                lambda: self._calculate_availability(agent_id),
+                {"available": False, "error": "Availability calculation failed"},
+            )
 
             # Calculate overall reliability score
             metrics["overall_score"] = self._calculate_reliability_score(metrics)
@@ -223,17 +422,17 @@ class CompositeHandler(BaseHandler):
                 "recommendations": [],
             }
 
-            # Try to get RLM metrics
-            try:
-                rlm_data = self._get_rlm_metrics(debate_id)
-                if rlm_data:
-                    analysis["compression"].update(rlm_data.get("compression", {}))
-                    analysis["quality"].update(rlm_data.get("quality", {}))
-                    analysis["compression"]["enabled"] = True
-            except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Data error fetching RLM metrics for {debate_id}: {e}")
-            except Exception as e:
-                logger.exception(f"Unexpected error fetching RLM metrics for {debate_id}: {e}")
+            # Try to get RLM metrics with circuit breaker protection
+            rlm_data = self._fetch_with_circuit_breaker(
+                "rlm",
+                lambda: self._get_rlm_metrics(debate_id),
+                None,
+            )
+
+            if rlm_data:
+                analysis["compression"].update(rlm_data.get("compression", {}))
+                analysis["quality"].update(rlm_data.get("quality", {}))
+                analysis["compression"]["enabled"] = True
 
             # Generate recommendations
             analysis["recommendations"] = self._generate_compression_recommendations(analysis)
@@ -250,6 +449,55 @@ class CompositeHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Unexpected error in compression-analysis handler: {e}")
             return self._error_response("Internal server error", 500)
+
+    # ==========================================================================
+    # Circuit Breaker Protected Data Fetching
+    # ==========================================================================
+
+    def _fetch_with_circuit_breaker(
+        self,
+        subsystem: str,
+        fetch_func: Any,
+        fallback_value: Any,
+    ) -> Any:
+        """Fetch data with circuit breaker protection.
+
+        Args:
+            subsystem: Name of the subsystem (for circuit breaker tracking)
+            fetch_func: Function to call to fetch data
+            fallback_value: Value to return if circuit is open or fetch fails
+
+        Returns:
+            Fetched data or fallback value
+        """
+        circuit_breaker = _get_circuit_breaker(subsystem)
+
+        if not circuit_breaker.can_proceed():
+            logger.debug(f"Circuit breaker open for {subsystem}, returning fallback")
+            return fallback_value
+
+        try:
+            result = fetch_func()
+            circuit_breaker.record_success()
+            return result
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning(f"Data error fetching {subsystem}: {e}")
+            circuit_breaker.record_failure()
+            if fallback_value is not None:
+                fallback = fallback_value.copy() if isinstance(fallback_value, dict) else fallback_value
+                if isinstance(fallback, dict):
+                    fallback["error"] = str(e)
+                return fallback
+            return fallback_value
+        except Exception as e:
+            logger.exception(f"Unexpected error fetching {subsystem}: {e}")
+            circuit_breaker.record_failure()
+            if fallback_value is not None:
+                fallback = fallback_value.copy() if isinstance(fallback_value, dict) else fallback_value
+                if isinstance(fallback, dict):
+                    fallback["error"] = "Internal error"
+                return fallback
+            return fallback_value
 
     # ==========================================================================
     # Data fetching helpers
@@ -403,7 +651,13 @@ class CompositeHandler(BaseHandler):
 
     def _get_rlm_metrics(self, debate_id: str) -> Optional[dict[str, Any]]:
         """Get RLM compression metrics for a debate."""
-        # This would integrate with the RLM handler
+        # Check for RLM handler in context
+        rlm_handler = self.ctx.get("rlm_handler")
+        if rlm_handler and hasattr(rlm_handler, "get_compression_stats"):
+            try:
+                return rlm_handler.get_compression_stats(debate_id)
+            except Exception as e:
+                logger.debug(f"Error getting RLM metrics: {e}")
         return None
 
     def _generate_compression_recommendations(self, analysis: dict[str, Any]) -> list[str]:

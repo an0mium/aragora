@@ -192,7 +192,7 @@ class TestTranscriptionHandler:
 
     def test_handler_creation(self):
         """Test creating handler instance."""
-        handler = TranscriptionHandler(server_context={})
+        handler = TranscriptionHandler(ctx={})
         assert handler is not None
 
     def test_handler_routes(self):
@@ -204,7 +204,7 @@ class TestTranscriptionHandler:
 
     def test_can_handle_method(self):
         """Test can_handle method for valid routes."""
-        handler = TranscriptionHandler(server_context={})
+        handler = TranscriptionHandler(ctx={})
 
         assert handler.can_handle("/api/v1/transcription/formats") is True
         assert handler.can_handle("/api/v1/transcription/upload") is True

@@ -280,7 +280,7 @@ export class AccountingAPI {
    * Get QuickBooks connection status and dashboard data.
    */
   async getStatus(): Promise<AccountingStatus> {
-    return this.client.request('GET', '/api/v2/accounting/status');
+    return this.client.request('GET', '/api/v1/accounting/status');
   }
 
   /**
@@ -289,14 +289,14 @@ export class AccountingAPI {
    * @returns URL to redirect user for OAuth.
    */
   async connect(): Promise<{ auth_url: string }> {
-    return this.client.request('POST', '/api/v2/accounting/connect');
+    return this.client.request('POST', '/api/v1/accounting/connect');
   }
 
   /**
    * Disconnect QuickBooks integration.
    */
   async disconnect(): Promise<{ success: boolean; message?: string }> {
-    return this.client.request('POST', '/api/v2/accounting/disconnect');
+    return this.client.request('POST', '/api/v1/accounting/disconnect');
   }
 
   // ===========================================================================
@@ -311,7 +311,7 @@ export class AccountingAPI {
    * @param params.offset - Pagination offset.
    */
   async listCustomers(params?: ListCustomersParams): Promise<CustomerList> {
-    return this.client.request('GET', '/api/v2/accounting/customers', {
+    return this.client.request('GET', '/api/v1/accounting/customers', {
       params: params as Record<string, unknown>,
     });
   }
@@ -328,7 +328,7 @@ export class AccountingAPI {
    * @param params.end_date - Filter to date (ISO format).
    */
   async listTransactions(params?: ListTransactionsParams): Promise<TransactionList> {
-    return this.client.request('GET', '/api/v2/accounting/transactions', {
+    return this.client.request('GET', '/api/v1/accounting/transactions', {
       params: params as Record<string, unknown>,
     });
   }
@@ -358,7 +358,7 @@ export class AccountingAPI {
    * ```
    */
   async generateReport(request: ReportRequest): Promise<ReportResponse> {
-    return this.client.request('POST', '/api/v2/accounting/reports', {
+    return this.client.request('POST', '/api/v1/accounting/reports', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -375,28 +375,28 @@ export class AccountingAPI {
      * Get Gusto connection status.
      */
     getStatus: async (): Promise<{ connected: boolean; company_name?: string }> => {
-      return this.client.request('GET', '/api/v2/gusto/status');
+      return this.client.request('GET', '/api/v1/gusto/status');
     },
 
     /**
      * Initiate Gusto OAuth connection.
      */
     connect: async (): Promise<{ auth_url: string }> => {
-      return this.client.request('POST', '/api/v2/gusto/connect');
+      return this.client.request('POST', '/api/v1/gusto/connect');
     },
 
     /**
      * Disconnect Gusto integration.
      */
     disconnect: async (): Promise<{ success: boolean; message?: string }> => {
-      return this.client.request('POST', '/api/v2/gusto/disconnect');
+      return this.client.request('POST', '/api/v1/gusto/disconnect');
     },
 
     /**
      * List employees.
      */
     listEmployees: async (params?: PaginationParams): Promise<EmployeeList> => {
-      return this.client.request('GET', '/api/v2/gusto/employees', {
+      return this.client.request('GET', '/api/v1/gusto/employees', {
         params: params as Record<string, unknown>,
       });
     },
@@ -405,7 +405,7 @@ export class AccountingAPI {
      * List payroll runs.
      */
     listPayrolls: async (params?: PaginationParams): Promise<PayrollList> => {
-      return this.client.request('GET', '/api/v2/gusto/payrolls', {
+      return this.client.request('GET', '/api/v1/gusto/payrolls', {
         params: params as Record<string, unknown>,
       });
     },
@@ -416,7 +416,7 @@ export class AccountingAPI {
      * @param payrollId - Payroll run ID.
      */
     getPayroll: async (payrollId: string): Promise<PayrollDetails> => {
-      return this.client.request('GET', `/api/v2/gusto/payrolls/${payrollId}`);
+      return this.client.request('GET', `/api/v1/gusto/payrolls/${payrollId}`);
     },
 
     /**
@@ -428,7 +428,7 @@ export class AccountingAPI {
      * @param payrollId - Payroll run ID.
      */
     generateJournalEntry: async (payrollId: string): Promise<JournalEntry> => {
-      return this.client.request('POST', `/api/v2/gusto/payrolls/${payrollId}/journal-entry`);
+      return this.client.request('POST', `/api/v1/gusto/payrolls/${payrollId}/journal-entry`);
     },
   };
 }

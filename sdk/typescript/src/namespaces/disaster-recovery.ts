@@ -153,7 +153,7 @@ export class DisasterRecoveryAPI {
    * Get current DR readiness status.
    */
   async getStatus(): Promise<DRStatus> {
-    return this.client.request<DRStatus>('GET', '/api/v2/dr/status');
+    return this.client.request<DRStatus>('GET', '/api/v1/dr/status');
   }
 
   /**
@@ -163,7 +163,7 @@ export class DisasterRecoveryAPI {
    * @returns Drill results including recovery time and data loss metrics
    */
   async runDrill(request: DRDrillRequest): Promise<DRDrillResult> {
-    return this.client.request<DRDrillResult>('POST', '/api/v2/dr/drill', {
+    return this.client.request<DRDrillResult>('POST', '/api/v1/dr/drill', {
       json: request,
     });
   }
@@ -172,7 +172,7 @@ export class DisasterRecoveryAPI {
    * Get current RPO/RTO objectives and compliance status.
    */
   async getObjectives(): Promise<DRObjectives> {
-    return this.client.request<DRObjectives>('GET', '/api/v2/dr/objectives');
+    return this.client.request<DRObjectives>('GET', '/api/v1/dr/objectives');
   }
 
   /**
@@ -182,7 +182,7 @@ export class DisasterRecoveryAPI {
    * @returns Validation results with detailed check status
    */
   async validate(request?: DRValidateRequest): Promise<DRValidationResult> {
-    return this.client.request<DRValidationResult>('POST', '/api/v2/dr/validate', {
+    return this.client.request<DRValidationResult>('POST', '/api/v1/dr/validate', {
       json: request || {},
     });
   }
