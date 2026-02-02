@@ -185,14 +185,14 @@ class AuthHandler(SecureHandler):
 
         if path == "/api/auth/me":
             if method == "GET":
-                return await self._handle_get_me(handler)
+                return self._handle_get_me(handler)
             elif method == "PUT":
-                return await self._handle_update_me(handler)
+                return self._handle_update_me(handler)
             elif method == "POST":
-                return await self._handle_update_me(handler)
+                return self._handle_update_me(handler)
 
         if path == "/api/auth/profile" and method == "POST":
-            return await self._handle_update_me(handler)
+            return self._handle_update_me(handler)
 
         if path == "/api/auth/password" and method == "POST":
             return self._handle_change_password(handler)
@@ -553,7 +553,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=30, limiter_name="auth_get_me")
     @handle_errors("get user info")
-    async def _handle_get_me(self, handler: Any) -> HandlerResult:
+    def _handle_get_me(self, handler: Any) -> HandlerResult:
         """Get current user information."""
         # RBAC check: authentication.read permission required
         if error := self._check_permission(handler, "authentication.read"):
@@ -574,7 +574,9 @@ class AuthHandler(SecureHandler):
 
         # Get full user data (use async method if available)
         if hasattr(user_store, "get_user_by_id_async"):
-            user = await user_store.get_user_by_id_async(auth_ctx.user_id)
+            from aragora.server.http_utils import run_async
+
+            user = run_async(user_store.get_user_by_id_async(auth_ctx.user_id))
         else:
             user = user_store.get_user_by_id(auth_ctx.user_id)
         logger.debug(f"Auth /me: user lookup {'found' if user else 'not found'}")
@@ -585,7 +587,9 @@ class AuthHandler(SecureHandler):
         org_data = None
         if user.org_id:
             if hasattr(user_store, "get_organization_by_id_async"):
-                org = await user_store.get_organization_by_id_async(user.org_id)
+                from aragora.server.http_utils import run_async
+
+                org = run_async(user_store.get_organization_by_id_async(user.org_id))
             else:
                 org = user_store.get_organization_by_id(user.org_id)
             if org:
@@ -601,7 +605,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=5, limiter_name="auth_update_me")
     @handle_errors("update user info")
-    async def _handle_update_me(self, handler: Any) -> HandlerResult:
+    def _handle_update_me(self, handler: Any) -> HandlerResult:
         """Update current user information."""
         # RBAC check: authentication.read permission required (user updating own info)
         if error := self._check_permission(handler, "authentication.read"):
@@ -622,7 +626,9 @@ class AuthHandler(SecureHandler):
 
         # Get user (use async method if available)
         if hasattr(user_store, "get_user_by_id_async"):
-            user = await user_store.get_user_by_id_async(auth_ctx.user_id)
+            from aragora.server.http_utils import run_async
+
+            user = run_async(user_store.get_user_by_id_async(auth_ctx.user_id))
         else:
             user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user:
@@ -636,8 +642,10 @@ class AuthHandler(SecureHandler):
         # Save updates
         if updates:
             if hasattr(user_store, "update_user_async"):
-                await user_store.update_user_async(user.id, **updates)
-                user = await user_store.get_user_by_id_async(user.id)
+                from aragora.server.http_utils import run_async
+
+                run_async(user_store.update_user_async(user.id, **updates))
+                user = run_async(user_store.get_user_by_id_async(user.id))
             else:
                 user_store.update_user(user.id, **updates)
                 user = user_store.get_user_by_id(user.id)
