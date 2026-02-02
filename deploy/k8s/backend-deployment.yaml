@@ -76,6 +76,10 @@ spec:
               mountPath: /app/data
             - name: knowledge
               mountPath: /app/knowledge
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -83,6 +87,10 @@ spec:
         - name: knowledge
           persistentVolumeClaim:
             claimName: aragora-knowledge-pvc
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

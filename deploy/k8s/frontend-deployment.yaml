@@ -58,6 +58,16 @@ spec:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 20
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
