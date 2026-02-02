@@ -110,7 +110,7 @@ interface WebhooksClientInterface {
   post<T>(path: string, body?: unknown): Promise<T>;
   put<T>(path: string, body?: unknown): Promise<T>;
   delete<T>(path: string): Promise<T>;
-  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }): Promise<T>;
+  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown>; json?: unknown }): Promise<T>;
 }
 
 /**
