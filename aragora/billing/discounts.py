@@ -256,10 +256,6 @@ class DiscountManager:
         VolumeTier(min_spend_cents=500000_00, discount_percent=20.0),  # $500k+ = 20%
     ]
 
-    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
-        "discount_manager_conn", default=None
-    )
-
     def __init__(self, db_path: str | None = None):
         """
         Initialize discount manager.
@@ -271,6 +267,9 @@ class DiscountManager:
             db_path = "discounts.db"
 
         self.db_path = resolve_db_path(db_path)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            "discount_manager_conn", default=None
+        )
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._connections: list[sqlite3.Connection] = []
         self._init_db()
