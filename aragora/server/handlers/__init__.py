@@ -528,7 +528,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ExplainabilityHandler": Stability.STABLE,
     "SCIMHandler": Stability.STABLE,
     "A2AHandler": Stability.EXPERIMENTAL,
-    "ApprovalHandler": Stability.EXPERIMENTAL,
+    "ApprovalHandler": Stability.STABLE,
     "AlertHandler": Stability.EXPERIMENTAL,
     "TriggerHandler": Stability.EXPERIMENTAL,
     "MonitoringHandler": Stability.STABLE,

@@ -1,6 +1,8 @@
 """
 Advertising Platform API Handlers.
 
+Stability: STABLE (graduated 2026-02)
+
 Unified API for managing advertising campaigns across platforms:
 - Google Ads (Search, Display, Shopping, YouTube)
 - Meta Ads (Facebook, Instagram)
@@ -32,13 +34,27 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
-
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.params import get_clamped_int_param
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
+
+# Circuit breaker for advertising platform operations
+_advertising_circuit_breaker = CircuitBreaker(
+    name="advertising_handler",
+    failure_threshold=5,
+    cooldown_seconds=60,
+    half_open_max_calls=3,
+)
+
+
+def get_advertising_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for advertising service."""
+    return _advertising_circuit_breaker
 
 
 # Platform credentials storage (in production, use encrypted store)
@@ -183,6 +199,7 @@ class AdvertisingHandler(SecureHandler):
         except ForbiddenError as e:
             return error_response(str(e), 403)
 
+    @rate_limit(requests_per_minute=60)
     async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler."""
         method = request.method
@@ -808,11 +825,21 @@ class AdvertisingHandler(SecureHandler):
         return requirements.get(platform, [])
 
     async def _get_connector(self, platform: str) -> Any | None:
-        """Get or create a connector for a platform."""
+        """Get or create a connector for a platform.
+
+        Uses circuit breaker to prevent cascading failures when platform APIs
+        are unavailable.
+        """
         if platform in _platform_connectors:
             return _platform_connectors[platform]
 
         if platform not in _platform_credentials:
+            return None
+
+        # Check circuit breaker state before attempting connection
+        cb = get_advertising_circuit_breaker()
+        if not cb.can_execute():
+            logger.warning(f"Circuit breaker open for advertising service, skipping {platform}")
             return None
 
         creds = _platform_credentials[platform]["credentials"]
@@ -855,10 +882,12 @@ class AdvertisingHandler(SecureHandler):
                 return None
 
             _platform_connectors[platform] = connector
+            cb.record_success()
             return connector
 
         except Exception as e:
             logger.error(f"Failed to create {platform} connector: {e}")
+            cb.record_failure()
             return None
 
     def _normalize_google_campaign(self, campaign: Any) -> dict[str, Any]:

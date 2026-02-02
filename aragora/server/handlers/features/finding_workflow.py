@@ -1,6 +1,9 @@
 """
 Finding Workflow API Handler.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Enterprise workflow endpoints for managing audit findings.
 
 Endpoints:
@@ -37,8 +40,23 @@ from aragora.rbac import (
     PermissionDeniedError,
 )
 from aragora.billing.auth import extract_user_from_request
+from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.resilience import CircuitBreaker, CircuitBreakerConfig
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+_finding_workflow_circuit_breaker = CircuitBreaker.from_config(
+    CircuitBreakerConfig(
+        failure_threshold=5,
+        timeout_seconds=60.0,
+        success_threshold=2,
+    ),
+    name="finding_workflow",
+)
 
 
 class FindingWorkflowHandler(BaseHandler):

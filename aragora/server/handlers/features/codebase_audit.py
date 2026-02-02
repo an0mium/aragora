@@ -1,6 +1,9 @@
 """
 Codebase Audit API Handler.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Provides unified REST APIs for codebase security and quality analysis:
 - SAST vulnerability scanning
 - Bug detection
@@ -40,8 +43,23 @@ from ..base import (
     success_response,
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
+from ..utils.rate_limit import rate_limit
+from aragora.resilience import CircuitBreaker, CircuitBreakerConfig
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+_codebase_audit_circuit_breaker = CircuitBreaker.from_config(
+    CircuitBreakerConfig(
+        failure_threshold=5,
+        cooldown_seconds=60.0,
+        success_threshold=2,
+    ),
+    name="codebase_audit",
+)
 
 # =============================================================================
 # RBAC Permissions
@@ -742,6 +760,7 @@ class CodebaseAuditHandler(SecureHandler):
     # Comprehensive Scan
     # =========================================================================
 
+    @rate_limit(requests_per_minute=10, limiter_name="codebase_audit_scan")
     async def _handle_comprehensive_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Start a comprehensive codebase scan.
 
@@ -751,7 +770,19 @@ class CodebaseAuditHandler(SecureHandler):
             "scan_types": ["sast", "bugs", "secrets", "dependencies", "metrics"],
             "languages": ["python", "javascript"]  // Optional
         }
+
+        Protected by:
+        - Rate limit: 10 requests per minute
+        - Circuit breaker: Opens after 5 consecutive failures
         """
+        # Check circuit breaker
+        if not _codebase_audit_circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker is open for codebase audit scans")
+            return error_response(
+                "Service temporarily unavailable. Please try again later.",
+                503,
+            )
+
         try:
             body = await self._get_json_body(request)
 
@@ -828,6 +859,9 @@ class CodebaseAuditHandler(SecureHandler):
             for finding in all_findings:
                 findings_store[finding.id] = finding
 
+            # Record success in circuit breaker
+            _codebase_audit_circuit_breaker.record_success()
+
             return success_response(
                 {
                     "scan": scan_result.to_dict(),
@@ -842,6 +876,8 @@ class CodebaseAuditHandler(SecureHandler):
             )
 
         except Exception as e:
+            # Record failure in circuit breaker
+            _codebase_audit_circuit_breaker.record_failure()
             logger.exception(f"Comprehensive scan error: {e}")
             return error_response(f"Scan failed: {str(e)}", 500)
 
@@ -867,6 +903,7 @@ class CodebaseAuditHandler(SecureHandler):
             request, tenant_id, ScanType.DEPENDENCIES, run_dependency_scan
         )
 
+    @rate_limit(requests_per_minute=20, limiter_name="codebase_audit_single_scan")
     async def _run_single_scan(
         self,
         request: Any,
@@ -874,7 +911,20 @@ class CodebaseAuditHandler(SecureHandler):
         scan_type: ScanType,
         scan_func: Any,
     ) -> HandlerResult:
-        """Run a single type of scan."""
+        """Run a single type of scan.
+
+        Protected by:
+        - Rate limit: 20 requests per minute
+        - Circuit breaker: Opens after 5 consecutive failures
+        """
+        # Check circuit breaker
+        if not _codebase_audit_circuit_breaker.can_proceed():
+            logger.warning(f"Circuit breaker is open for {scan_type.value} scan")
+            return error_response(
+                "Service temporarily unavailable. Please try again later.",
+                503,
+            )
+
         try:
             body = await self._get_json_body(request)
             target_path = body.get("target_path", ".")
@@ -913,6 +963,9 @@ class CodebaseAuditHandler(SecureHandler):
             for finding in findings:
                 findings_store[finding.id] = finding
 
+            # Record success in circuit breaker
+            _codebase_audit_circuit_breaker.record_success()
+
             return success_response(
                 {
                     "scan": scan_result.to_dict(),
@@ -921,9 +974,12 @@ class CodebaseAuditHandler(SecureHandler):
             )
 
         except Exception as e:
+            # Record failure in circuit breaker
+            _codebase_audit_circuit_breaker.record_failure()
             logger.exception(f"{scan_type.value} scan error: {e}")
             return error_response(f"Scan failed: {str(e)}", 500)
 
+    @rate_limit(requests_per_minute=30, limiter_name="codebase_audit_metrics")
     async def _handle_metrics_analysis(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run code metrics analysis."""
         try:

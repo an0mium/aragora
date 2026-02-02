@@ -1,6 +1,9 @@
 """
 Gateway Credentials Handler - HTTP endpoints for credential management.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Provides API endpoints for securely storing, listing, rotating, and deleting
 gateway credentials. CRITICAL: credential values/secrets are NEVER returned
 in any response - only metadata is exposed.
@@ -17,10 +20,12 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.resilience import CircuitBreaker
 from aragora.rbac.decorators import require_permission
 
 from aragora.server.handlers.base import (
@@ -34,6 +39,42 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for gateway credentials operations
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_gateway_credentials_circuit_breaker = CircuitBreaker(
+    name="gateway_credentials_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_gateway_credentials_circuit_breaker_lock = threading.Lock()
+
+
+def get_gateway_credentials_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for gateway credentials operations."""
+    return _gateway_credentials_circuit_breaker
+
+
+def get_gateway_credentials_circuit_breaker_status() -> dict:
+    """Get current status of the gateway credentials circuit breaker."""
+    return _gateway_credentials_circuit_breaker.to_dict()
+
+
+def reset_gateway_credentials_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _gateway_credentials_circuit_breaker_lock:
+        _gateway_credentials_circuit_breaker._single_failures = 0
+        _gateway_credentials_circuit_breaker._single_open_at = 0.0
+        _gateway_credentials_circuit_breaker._single_successes = 0
+        _gateway_credentials_circuit_breaker._single_half_open_calls = 0
+
 
 # Validation constants
 SERVICE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9-]{0,127}$")
@@ -325,6 +366,7 @@ class GatewayCredentialsHandler(BaseHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_credentials_get")
     @handle_errors("get gateway credential")
     def _handle_get_credential(self, credential_id: str, handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/credentials/{id}."""

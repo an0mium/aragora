@@ -43,7 +43,7 @@ from aragora.observability.metrics import track_handler
 from .soc2 import SOC2Mixin
 from .gdpr import GDPRMixin
 from .legal_hold import LegalHoldMixin
-from .audit_verify import AuditVerifyMixin
+from .audit_verify import AuditVerifyMixin, parse_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +172,9 @@ class ComplianceHandler(
         except Exception as e:
             logger.exception(f"Error handling compliance request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
+
+    # Backward compatible timestamp parser (used in tests)
+    _parse_timestamp = staticmethod(parse_timestamp)
 
 
 def create_compliance_handler(server_context: dict[str, Any]) -> ComplianceHandler:

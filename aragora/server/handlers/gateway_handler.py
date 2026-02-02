@@ -1,6 +1,9 @@
 """
 Gateway Handler - HTTP endpoints for device gateway management.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Provides API endpoints for:
 - Device registration and management
 - Channel listing and configuration
@@ -23,8 +26,10 @@ from __future__ import annotations
 
 import inspect
 import logging
+import threading
 from typing import Any, cast, Callable, Coroutine
 
+from aragora.resilience import CircuitBreaker
 from aragora.rbac.decorators import require_permission
 
 from aragora.server.handlers.base import (
@@ -65,6 +70,41 @@ except ImportError:
     GATEWAY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for gateway operations
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_gateway_circuit_breaker = CircuitBreaker(
+    name="gateway_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_gateway_circuit_breaker_lock = threading.Lock()
+
+
+def get_gateway_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for gateway operations."""
+    return _gateway_circuit_breaker
+
+
+def get_gateway_circuit_breaker_status() -> dict:
+    """Get current status of the gateway circuit breaker."""
+    return _gateway_circuit_breaker.to_dict()
+
+
+def reset_gateway_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _gateway_circuit_breaker_lock:
+        _gateway_circuit_breaker._single_failures = 0
+        _gateway_circuit_breaker._single_open_at = 0.0
+        _gateway_circuit_breaker._single_successes = 0
+        _gateway_circuit_breaker._single_half_open_calls = 0
 
 
 class GatewayHandler(BaseHandler):
@@ -247,6 +287,7 @@ class GatewayHandler(BaseHandler):
     # Device Handlers
     # =========================================================================
 
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_list_devices")
     @handle_errors("list devices")
     def _handle_list_devices(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/devices."""
@@ -289,6 +330,7 @@ class GatewayHandler(BaseHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_get_device")
     @handle_errors("get device")
     def _handle_get_device(self, device_id: str, handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/devices/{id}."""
@@ -383,6 +425,7 @@ class GatewayHandler(BaseHandler):
 
         return json_response({"message": "Device unregistered successfully"})
 
+    @rate_limit(requests_per_minute=120, limiter_name="gateway_heartbeat")
     @handle_errors("device heartbeat")
     def _handle_heartbeat(self, device_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/v1/gateway/devices/{id}/heartbeat."""
@@ -404,6 +447,7 @@ class GatewayHandler(BaseHandler):
     # Channel Handlers
     # =========================================================================
 
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_list_channels")
     @handle_errors("list channels")
     def _handle_list_channels(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/channels."""
@@ -430,6 +474,7 @@ class GatewayHandler(BaseHandler):
     # Routing Handlers
     # =========================================================================
 
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_routing_stats")
     @handle_errors("routing stats")
     def _handle_routing_stats(self, handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/routing/stats."""
@@ -452,6 +497,7 @@ class GatewayHandler(BaseHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_list_rules")
     @handle_errors("list rules")
     def _handle_list_rules(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/routing/rules."""
@@ -531,4 +577,9 @@ class GatewayHandler(BaseHandler):
         )
 
 
-__all__ = ["GatewayHandler"]
+__all__ = [
+    "GatewayHandler",
+    "get_gateway_circuit_breaker",
+    "get_gateway_circuit_breaker_status",
+    "reset_gateway_circuit_breaker",
+]

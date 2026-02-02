@@ -93,7 +93,12 @@ class AuditVerifyMixin:
 
         # Verify receipts
         if receipt_ids:
-            store = get_receipt_store()
+            try:
+                from aragora.storage.receipt_store import get_receipt_store as _store_get
+
+                store = _store_get()
+            except Exception:
+                store = get_receipt_store()
             results, summary = store.verify_batch(receipt_ids)
 
             for result in results:
@@ -238,7 +243,17 @@ class AuditVerifyMixin:
     async def _verify_date_range(self, date_range: dict[str, str]) -> dict[str, Any]:
         """Verify audit events in date range by checking integrity."""
         try:
-            store = get_audit_store()
+            try:
+                from aragora.server.handlers import compliance_handler as compat
+
+                store = compat.get_audit_store()
+            except Exception:
+                try:
+                    from aragora.storage.audit_store import get_audit_store as _audit_get
+
+                    store = _audit_get()
+                except Exception:
+                    store = get_audit_store()
             from_str = date_range.get("from")
             to_str = date_range.get("to")
 
@@ -300,7 +315,12 @@ class AuditVerifyMixin:
     ) -> list[dict[str, Any]]:
         """Fetch audit events from audit store."""
         try:
-            store = get_audit_store()
+            try:
+                from aragora.server.handlers import compliance_handler as compat
+
+                store = compat.get_audit_store()
+            except Exception:
+                store = get_audit_store()
             # Convert datetimes to the format expected by the store
             events = store.get_log(
                 action=event_type,

@@ -1,4 +1,7 @@
-"""Alert management HTTP handlers."""
+"""Alert management HTTP handlers.
+
+Stability: STABLE
+"""
 
 from __future__ import annotations
 
@@ -7,6 +10,7 @@ import logging
 from aiohttp import web
 
 from aragora.autonomous import AlertAnalyzer
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.utils.auth import (
     get_auth_context,
     UnauthorizedError,
@@ -16,6 +20,28 @@ from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for alert service
+_alert_circuit_breaker = CircuitBreaker(
+    name="alert_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_alert_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for alert service."""
+    return _alert_circuit_breaker
+
+
+def get_alert_circuit_breaker_status() -> dict:
+    """Get current status of the alert circuit breaker."""
+    return _alert_circuit_breaker.to_dict()
+
 
 # Global alert analyzer instance
 _alert_analyzer: AlertAnalyzer | None = None
@@ -36,7 +62,16 @@ def set_alert_analyzer(analyzer: AlertAnalyzer) -> None:
 
 
 class AlertHandler:
-    """HTTP handlers for alert operations."""
+    """HTTP handlers for alert operations.
+
+    Rate limiting is applied via middleware registration in register_routes().
+    Circuit breaker protection is available via get_alert_circuit_breaker().
+
+    Rate limits:
+    - GET endpoints: 60 requests/minute
+    - POST endpoints: 30 requests/minute
+    - Admin endpoints: 10 requests/minute
+    """
 
     def __init__(self, ctx: dict | None = None):
         """Initialize AlertHandler with optional context."""

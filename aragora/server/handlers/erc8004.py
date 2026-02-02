@@ -22,10 +22,11 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    rate_limit,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
-from aragora.resilience import with_timeout
+from aragora.resilience import with_timeout, get_circuit_breaker, CircuitOpenError
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,22 @@ logger = logging.getLogger(__name__)
 _provider = None
 _connector = None
 _adapter = None
+
+# Circuit breaker for blockchain operations
+_blockchain_circuit_breaker = None
+
+
+def _get_circuit_breaker():
+    """Get or create circuit breaker for blockchain operations."""
+    global _blockchain_circuit_breaker
+    if _blockchain_circuit_breaker is None:
+        _blockchain_circuit_breaker = get_circuit_breaker(
+            "erc8004_blockchain",
+            failure_threshold=5,
+            cooldown_seconds=30,
+            half_open_max_calls=2,
+        )
+    return _blockchain_circuit_breaker
 
 
 def _get_provider():
@@ -83,13 +100,19 @@ def _get_adapter():
     responses={
         "200": {"description": "Configuration returned"},
         "500": {"description": "Configuration error"},
+        "503": {"description": "Circuit breaker open"},
     },
 )
 @require_permission("blockchain:read")
+@rate_limit(requests_per_minute=60)
 @with_timeout(10.0)
 async def handle_blockchain_config() -> HandlerResult:
     """Get blockchain configuration and connectivity status."""
     try:
+        cb = _get_circuit_breaker()
+        if not cb.can_execute():
+            return error_response("Blockchain service temporarily unavailable", status=503)
+
         provider = _get_provider()
         config = provider.get_config()
 
@@ -124,13 +147,19 @@ async def handle_blockchain_config() -> HandlerResult:
         "200": {"description": "Agent identity returned"},
         "404": {"description": "Agent not found"},
         "500": {"description": "Fetch error"},
+        "503": {"description": "Circuit breaker open"},
     },
 )
 @require_permission("blockchain:read")
+@rate_limit(requests_per_minute=120)
 @with_timeout(15.0)
 async def handle_get_agent(token_id: int) -> HandlerResult:
     """Get agent identity by token ID."""
     try:
+        cb = _get_circuit_breaker()
+        if not cb.can_execute():
+            return error_response("Blockchain service temporarily unavailable", status=503)
+
         from aragora.blockchain.contracts.identity import IdentityRegistryContract
 
         provider = _get_provider()
@@ -168,9 +197,11 @@ async def handle_get_agent(token_id: int) -> HandlerResult:
         "200": {"description": "Reputation summary returned"},
         "404": {"description": "Agent or reputation not found"},
         "500": {"description": "Fetch error"},
+        "503": {"description": "Circuit breaker open"},
     },
 )
 @require_permission("blockchain:read")
+@rate_limit(requests_per_minute=120)
 @with_timeout(15.0)
 async def handle_get_reputation(
     token_id: int,
@@ -179,6 +210,10 @@ async def handle_get_reputation(
 ) -> HandlerResult:
     """Get reputation summary for an agent."""
     try:
+        cb = _get_circuit_breaker()
+        if not cb.can_execute():
+            return error_response("Blockchain service temporarily unavailable", status=503)
+
         from aragora.blockchain.contracts.reputation import ReputationRegistryContract
 
         provider = _get_provider()
@@ -213,9 +248,11 @@ async def handle_get_reputation(
         "200": {"description": "Validation summary returned"},
         "404": {"description": "Agent or validations not found"},
         "500": {"description": "Fetch error"},
+        "503": {"description": "Circuit breaker open"},
     },
 )
 @require_permission("blockchain:read")
+@rate_limit(requests_per_minute=120)
 @with_timeout(15.0)
 async def handle_get_validations(
     token_id: int,
@@ -223,6 +260,10 @@ async def handle_get_validations(
 ) -> HandlerResult:
     """Get validation summary for an agent."""
     try:
+        cb = _get_circuit_breaker()
+        if not cb.can_execute():
+            return error_response("Blockchain service temporarily unavailable", status=503)
+
         from aragora.blockchain.contracts.validation import ValidationRegistryContract
 
         provider = _get_provider()
@@ -253,9 +294,11 @@ async def handle_get_validations(
     responses={
         "200": {"description": "Sync completed"},
         "500": {"description": "Sync error"},
+        "503": {"description": "Circuit breaker open"},
     },
 )
 @require_permission("blockchain:write")
+@rate_limit(requests_per_minute=10)
 @with_timeout(60.0)
 async def handle_blockchain_sync(
     sync_identities: bool = True,
@@ -265,6 +308,10 @@ async def handle_blockchain_sync(
 ) -> HandlerResult:
     """Trigger manual blockchain sync to Knowledge Mound."""
     try:
+        cb = _get_circuit_breaker()
+        if not cb.can_execute():
+            return error_response("Blockchain service temporarily unavailable", status=503)
+
         adapter = _get_adapter()
         result = await adapter.sync_to_km(
             agent_ids=agent_ids,
@@ -300,6 +347,7 @@ async def handle_blockchain_sync(
     },
 )
 @require_permission("blockchain:read")
+@rate_limit(requests_per_minute=60)
 async def handle_blockchain_health() -> HandlerResult:
     """Get blockchain connector health status."""
     try:

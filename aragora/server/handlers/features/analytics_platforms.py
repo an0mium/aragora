@@ -1,6 +1,8 @@
 """
 Analytics Platform API Handlers.
 
+Stability: STABLE (graduated 2026-02)
+
 Unified API for analytics and BI platforms:
 - Metabase (BI dashboards, SQL queries)
 - Google Analytics 4 (web/app analytics)
@@ -31,12 +33,27 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_dict, error_response
 from aragora.server.handlers.utils import parse_json_body
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+# Circuit breaker for analytics platform operations
+_analytics_circuit_breaker = CircuitBreaker(
+    name="analytics_platforms_handler",
+    failure_threshold=5,
+    cooldown_seconds=60,
+    half_open_max_calls=3,
+)
+
+
+def get_analytics_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for analytics platforms service."""
+    return _analytics_circuit_breaker
 
 
 # Platform credentials storage
@@ -155,6 +172,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/analytics/")
 
+    @rate_limit(requests_per_minute=60)
     async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler."""
         method = request.method
@@ -879,11 +897,21 @@ class AnalyticsPlatformsHandler(SecureHandler):
         return requirements.get(platform, [])
 
     async def _get_connector(self, platform: str) -> Any | None:
-        """Get or create a connector for a platform."""
+        """Get or create a connector for a platform.
+
+        Uses circuit breaker to prevent cascading failures when platform APIs
+        are unavailable.
+        """
         if platform in _platform_connectors:
             return _platform_connectors[platform]
 
         if platform not in _platform_credentials:
+            return None
+
+        # Check circuit breaker state before attempting connection
+        cb = get_analytics_circuit_breaker()
+        if not cb.can_execute():
+            logger.warning(f"Circuit breaker open for analytics service, skipping {platform}")
             return None
 
         creds = _platform_credentials[platform]["credentials"]
@@ -918,10 +946,12 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 return None
 
             _platform_connectors[platform] = connector
+            cb.record_success()
             return connector
 
         except Exception as e:
             logger.error(f"Failed to create {platform} connector: {e}")
+            cb.record_failure()
             return None
 
     def _normalize_metabase_dashboard(self, dashboard: Any) -> dict[str, Any]:

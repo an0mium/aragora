@@ -1,6 +1,8 @@
 """
 HTTP API Handlers for Dependency Analysis.
 
+Stability: STABLE (graduated 2026-02)
+
 Provides REST APIs for codebase dependency analysis:
 - Dependency tree resolution
 - Vulnerability (CVE) scanning
@@ -24,14 +26,30 @@ from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# Circuit breaker for dependency analysis operations
+_dependency_circuit_breaker = CircuitBreaker(
+    name="dependency_analysis_handler",
+    failure_threshold=5,
+    cooldown_seconds=60,
+    half_open_max_calls=3,
+)
+
+
+def get_dependency_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for dependency analysis service."""
+    return _dependency_circuit_breaker
+
 
 # Thread-safe service instance
 _dependency_analyzer: Any | None = None
@@ -43,16 +61,30 @@ _analysis_cache_lock = threading.Lock()
 
 
 def get_dependency_analyzer():
-    """Get or create dependency analyzer (thread-safe)."""
+    """Get or create dependency analyzer (thread-safe).
+
+    Uses circuit breaker to prevent cascading failures.
+    """
     global _dependency_analyzer
     if _dependency_analyzer is not None:
         return _dependency_analyzer
 
+    # Check circuit breaker before creating analyzer
+    cb = get_dependency_circuit_breaker()
+    if not cb.can_execute():
+        logger.warning("Circuit breaker open for dependency analysis service")
+        raise RuntimeError("Dependency analysis service temporarily unavailable")
+
     with _dependency_analyzer_lock:
         if _dependency_analyzer is None:
-            from aragora.audit.dependency_analyzer import DependencyAnalyzer
+            try:
+                from aragora.audit.dependency_analyzer import DependencyAnalyzer
 
-            _dependency_analyzer = DependencyAnalyzer()
+                _dependency_analyzer = DependencyAnalyzer()
+                cb.record_success()
+            except Exception as e:
+                cb.record_failure()
+                raise
         return _dependency_analyzer
 
 
@@ -423,6 +455,7 @@ class DependencyAnalysisHandler(BaseHandler):
         """Route dependency analysis endpoint requests."""
         return None
 
+    @rate_limit(requests_per_minute=30)
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any | None = None
     ) -> HandlerResult | None:

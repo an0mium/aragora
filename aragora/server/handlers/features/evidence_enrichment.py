@@ -1,6 +1,8 @@
 """
 Evidence Enrichment endpoint handlers.
 
+Stability: STABLE
+
 Endpoints:
 - POST /api/findings/{finding_id}/evidence - Enrich a finding with evidence
 - POST /api/findings/batch-evidence - Batch evidence enrichment
@@ -15,6 +17,7 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.audit import get_document_auditor
 from aragora.audit.evidence_adapter import EvidenceConfig, FindingEvidenceCollector
+from aragora.resilience import CircuitBreaker
 from aragora.server.http_utils import run_async as _run_async
 
 from ..base import (
@@ -26,6 +29,7 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from ..utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 if TYPE_CHECKING:
@@ -33,6 +37,27 @@ if TYPE_CHECKING:
     from aragora.storage.documents import DocumentStore
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for evidence enrichment service
+_evidence_circuit_breaker = CircuitBreaker(
+    name="evidence_enrichment_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_evidence_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for evidence enrichment service."""
+    return _evidence_circuit_breaker
+
+
+def get_evidence_circuit_breaker_status() -> dict:
+    """Get current status of the evidence enrichment circuit breaker."""
+    return _evidence_circuit_breaker.to_dict()
 
 
 def _require_user_auth(func):
@@ -76,6 +101,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         return False
 
     @require_permission("evidence:read")
+    @rate_limit(requests_per_minute=60, limiter_name="evidence_enrichment")
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
@@ -87,6 +113,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         return None
 
     @require_permission("evidence:write")
+    @rate_limit(requests_per_minute=30, limiter_name="evidence_enrichment_write")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/findings/batch-evidence":
