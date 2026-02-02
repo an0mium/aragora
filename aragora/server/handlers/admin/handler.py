@@ -16,6 +16,7 @@ import logging
 import time
 from typing import Any, Callable
 
+from aragora.audit.unified import audit_admin  # noqa: F401
 from aragora.billing.jwt_auth import extract_user_from_request
 from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
