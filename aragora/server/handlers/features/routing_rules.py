@@ -5,6 +5,12 @@ Provides CRUD operations and rule evaluation for the decision routing rules engi
 Allows users to create, manage, and test rules that control how deliberation
 decisions are routed to various channels based on conditions.
 
+Stability: STABLE
+- Full RBAC enforcement on all endpoints
+- Rate limiting configured per operation type
+- Comprehensive input validation
+- Audit logging for all write operations
+
 Usage:
     GET    /api/v1/routing-rules              - List all rules
     POST   /api/v1/routing-rules              - Create a new rule
@@ -27,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -39,6 +46,16 @@ from aragora.server.handlers.secure import (
 from aragora.server.handlers.utils import parse_json_body
 
 logger = logging.getLogger(__name__)
+
+# Validation constants
+MAX_RULE_NAME_LENGTH = 200
+MAX_DESCRIPTION_LENGTH = 2000
+MAX_CONDITIONS = 50
+MAX_ACTIONS = 20
+MAX_TAGS = 20
+MAX_TAG_LENGTH = 50
+SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+VALID_MATCH_MODES = {"all", "any"}
 
 # In-memory rule storage (for development/demo)
 # In production, rules would be stored in a database
@@ -60,6 +77,71 @@ def _get_routing_engine():
             logger.error(f"Failed to load rule {rule_id}: {e}")
 
     return engine
+
+
+def _validate_rule_id(rule_id: str) -> tuple[bool, str | None]:
+    """Validate a rule ID for safe use.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not rule_id:
+        return False, "Rule ID is required"
+    if not SAFE_ID_PATTERN.match(rule_id):
+        return False, "Invalid rule ID format"
+    return True, None
+
+
+def _validate_rule_data(data: dict[str, Any]) -> tuple[bool, str | None]:
+    """Validate rule creation/update data.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Validate name
+    name = data.get("name", "")
+    if name and len(name) > MAX_RULE_NAME_LENGTH:
+        return False, f"Rule name exceeds maximum length of {MAX_RULE_NAME_LENGTH}"
+
+    # Validate description
+    description = data.get("description", "")
+    if description and len(description) > MAX_DESCRIPTION_LENGTH:
+        return False, f"Description exceeds maximum length of {MAX_DESCRIPTION_LENGTH}"
+
+    # Validate conditions count
+    conditions = data.get("conditions", [])
+    if len(conditions) > MAX_CONDITIONS:
+        return False, f"Too many conditions (max: {MAX_CONDITIONS})"
+
+    # Validate actions count
+    actions = data.get("actions", [])
+    if len(actions) > MAX_ACTIONS:
+        return False, f"Too many actions (max: {MAX_ACTIONS})"
+
+    # Validate tags
+    tags = data.get("tags", [])
+    if len(tags) > MAX_TAGS:
+        return False, f"Too many tags (max: {MAX_TAGS})"
+    for tag in tags:
+        if not isinstance(tag, str):
+            return False, "Tags must be strings"
+        if len(tag) > MAX_TAG_LENGTH:
+            return False, f"Tag exceeds maximum length of {MAX_TAG_LENGTH}"
+
+    # Validate match_mode
+    match_mode = data.get("match_mode")
+    if match_mode and match_mode not in VALID_MATCH_MODES:
+        return False, f"Invalid match_mode: must be one of {VALID_MATCH_MODES}"
+
+    # Validate priority
+    priority = data.get("priority")
+    if priority is not None:
+        if not isinstance(priority, int):
+            return False, "Priority must be an integer"
+        if priority < -1000 or priority > 1000:
+            return False, "Priority must be between -1000 and 1000"
+
+    return True, None
 
 
 class RoutingRulesHandler(SecureHandler):
