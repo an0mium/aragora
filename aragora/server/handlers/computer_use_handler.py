@@ -61,6 +61,11 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+# Expose RBAC symbols for patching in tests
+AuthorizationContext = _AuthorizationContext
+check_permission = _check_permission
+extract_user_from_request = _extract_user_from_request
+
 # Computer Use imports - runtime fallback
 _ComputerUseOrchestrator: Any = None
 _ComputerUseConfig: Any = None
@@ -84,6 +89,13 @@ try:
     COMPUTER_USE_AVAILABLE = True
 except ImportError:
     COMPUTER_USE_AVAILABLE = False
+
+# Expose computer-use symbols for patching in tests
+ComputerUseOrchestrator = _ComputerUseOrchestrator
+ComputerUseConfig = _ComputerUseConfig
+create_default_computer_policy = _create_default_computer_policy
+TaskStatus = _TaskStatus
+ApprovalStatus = _ApprovalStatus
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +135,9 @@ class ComputerUseHandler(BaseHandler):
         if state and state.computer_orchestrator:
             return state.computer_orchestrator
         if self._orchestrator is None:
-            policy = _create_default_computer_policy()
-            config = _ComputerUseConfig(max_steps=20, total_timeout_seconds=300)
-            self._orchestrator = _ComputerUseOrchestrator(policy=policy, config=config)
+            policy = create_default_computer_policy()
+            config = ComputerUseConfig(max_steps=20, total_timeout_seconds=300)
+            self._orchestrator = ComputerUseOrchestrator(policy=policy, config=config)
         return self._orchestrator
 
     def _get_approval_workflow(self) -> Any | None:
@@ -141,11 +153,11 @@ class ComputerUseHandler(BaseHandler):
 
     def _get_auth_context(self, handler: Any) -> AuthorizationContext | None:
         """Build AuthorizationContext from request."""
-        if not RBAC_AVAILABLE or _AuthorizationContext is None:
+        if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
 
         user_store = self._get_user_store()
-        auth_ctx = _extract_user_from_request(handler, user_store)
+        auth_ctx = extract_user_from_request(handler, user_store)
 
         if not auth_ctx.is_authenticated:
             return None
@@ -153,7 +165,7 @@ class ComputerUseHandler(BaseHandler):
         user = user_store.get_user_by_id(auth_ctx.user_id) if user_store else None
         roles = set([user.role]) if user and user.role else set()
 
-        return _AuthorizationContext(
+        return AuthorizationContext(
             user_id=auth_ctx.user_id,
             roles=roles,
             org_id=auth_ctx.org_id,
@@ -168,7 +180,7 @@ class ComputerUseHandler(BaseHandler):
         if not rbac_ctx:
             return error_response("Not authenticated", 401)
 
-        decision = _check_permission(rbac_ctx, permission_key)
+        decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
             user_id = getattr(rbac_ctx, "user_id", "unknown")
             logger.warning(f"RBAC denied: user={user_id} permission={permission_key}")
@@ -365,7 +377,7 @@ class ComputerUseHandler(BaseHandler):
                 result: Any = run_async(
                     orchestrator.run_task(goal=goal, max_steps=max_steps, metadata=metadata)
                 )
-                is_success = result.status == _TaskStatus.COMPLETED
+                is_success = result.status == TaskStatus.COMPLETED
                 task["status"] = "completed" if is_success else "failed"
                 task["result"] = {
                     "success": is_success,
@@ -511,7 +523,7 @@ class ComputerUseHandler(BaseHandler):
         policy_id = f"policy-{uuid.uuid4().hex[:8]}"
 
         # Create policy (simplified for now)
-        policy = _create_default_computer_policy()
+        policy = create_default_computer_policy()
 
         self._policies[policy_id] = policy
 
@@ -545,7 +557,7 @@ class ComputerUseHandler(BaseHandler):
         status = None
         if status_filter:
             try:
-                status = _ApprovalStatus(status_filter)
+                status = ApprovalStatus(status_filter)
             except ValueError:
                 return error_response(f"Invalid status: {status_filter}", 400)
 

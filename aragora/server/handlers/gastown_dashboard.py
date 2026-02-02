@@ -387,10 +387,10 @@ class GasTownDashboardHandler(SecureHandler):
                 bead_store = await stores.bead_store()
                 convoy_manager = await stores.convoy_manager()
 
-                filter_status: Any = None
+                filter_status: Any | None = None  # type: ignore[no-redef]
                 if status_filter:
                     try:
-                        filter_status = ConvoyStatus(status_filter)
+                        filter_status = ConvoyStatus(status_filter)  # type: ignore[assignment]
                     except ValueError:
                         return error_response(f"Invalid status: {status_filter}", 400)
 

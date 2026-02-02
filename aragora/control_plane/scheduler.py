@@ -56,8 +56,8 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    PolicyViolationError: Any = None
-    EnforcementLevel: Any = None
+    PolicyViolationError: Any = None  # type: ignore[no-redef]
+    EnforcementLevel: Any = None  # type: ignore[no-redef]
 
 # Cost enforcement imports (optional - graceful fallback if not available)
 try:
@@ -68,7 +68,7 @@ try:
     HAS_COST_ENFORCEMENT = True
 except ImportError:
     HAS_COST_ENFORCEMENT = False
-    CostLimitExceededError: Any = None
+    CostLimitExceededError: Any = None  # type: ignore[no-redef]
 
 # Resilience patterns
 from aragora.resilience import get_v2_circuit_breaker as get_circuit_breaker

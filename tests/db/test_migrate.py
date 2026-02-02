@@ -697,13 +697,13 @@ class TestMigrateSqliteToPostgres:
 
         # Track which tables are being processed via INSERT statements
         table_fail_set = {"beta"}
-        original_executemany = mock_pg_cursor.executemany
 
         def conditional_fail(sql, rows):
             for tname in table_fail_set:
                 if f"INSERT INTO {tname}" in sql:
                     raise Exception(f"Failed to migrate {tname}")
-            return original_executemany(sql, rows)
+            # Success case: do nothing (mock default behavior)
+            return None
 
         mock_pg_cursor.executemany.side_effect = conditional_fail
         mock_psycopg2.connect.return_value = mock_pg_conn

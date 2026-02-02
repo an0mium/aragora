@@ -259,7 +259,7 @@ def _hash_patterns(patterns: list[dict]) -> str:
             for p in patterns[:5]
         ]
     )
-    return hashlib.md5(serialized.encode()).hexdigest()
+    return hashlib.md5(serialized.encode(), usedforsecurity=False).hexdigest()
 
 
 def clear_all_prompt_caches() -> None:
