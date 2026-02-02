@@ -7,9 +7,12 @@ all provider-specific mixins to handle OAuth authentication endpoints.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 import secrets
 from datetime import datetime, timezone
+from typing import Any
 from urllib.parse import urlencode
 
 from aragora.rbac import AuthorizationContext, check_permission
@@ -32,6 +35,16 @@ from .account import AccountManagementMixin
 logger = logging.getLogger(__name__)
 
 
+def _maybe_await(value: Any) -> Any:
+    """Resolve awaitables in sync OAuth handlers."""
+    if inspect.isawaitable(value):
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(value)
+    return value
+
+
 class OAuthHandler(
     GoogleOAuthMixin,
     GitHubOAuthMixin,
@@ -50,6 +63,16 @@ class OAuthHandler(
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+
+    def _maybe_await(self, value: Any) -> Any:
+        """Resolve awaitables for sync call sites."""
+        return _maybe_await(value)
+
+    async def _maybe_await_async(self, value: Any) -> Any:
+        """Resolve awaitables for async call sites."""
+        if inspect.isawaitable(value):
+            return await value
+        return value
 
     RESOURCE_TYPE = "oauth"
 
@@ -171,31 +194,31 @@ class OAuthHandler(
                 return self._handle_google_auth_start(handler, query_params)
 
             if normalized == "/api/auth/oauth/google/callback" and method == "GET":
-                return self._handle_google_callback(handler, query_params)
+                return self._maybe_await(self._handle_google_callback(handler, query_params))
 
             if normalized == "/api/auth/oauth/github" and method == "GET":
                 return self._handle_github_auth_start(handler, query_params)
 
             if normalized == "/api/auth/oauth/github/callback" and method == "GET":
-                return self._handle_github_callback(handler, query_params)
+                return self._maybe_await(self._handle_github_callback(handler, query_params))
 
             if normalized == "/api/auth/oauth/microsoft" and method == "GET":
                 return self._handle_microsoft_auth_start(handler, query_params)
 
             if normalized == "/api/auth/oauth/microsoft/callback" and method == "GET":
-                return self._handle_microsoft_callback(handler, query_params)
+                return self._maybe_await(self._handle_microsoft_callback(handler, query_params))
 
             if normalized == "/api/auth/oauth/apple" and method == "GET":
                 return self._handle_apple_auth_start(handler, query_params)
 
             if normalized == "/api/auth/oauth/apple/callback" and method in ("GET", "POST"):
-                return self._handle_apple_callback(handler, query_params)
+                return self._maybe_await(self._handle_apple_callback(handler, query_params))
 
             if normalized == "/api/auth/oauth/oidc" and method == "GET":
-                return self._handle_oidc_auth_start(handler, query_params)
+                return self._maybe_await(self._handle_oidc_auth_start(handler, query_params))
 
             if normalized == "/api/auth/oauth/oidc/callback" and method == "GET":
-                return self._handle_oidc_callback(handler, query_params)
+                return self._maybe_await(self._handle_oidc_callback(handler, query_params))
 
             if (
                 normalized in ("/api/auth/oauth/url", "/api/auth/oauth/authorize")
@@ -277,20 +300,22 @@ class OAuthHandler(
         # Check if this is account linking
         linking_user_id = state_data.get("user_id")
         if linking_user_id:
-            return await self._handle_account_linking(
-                user_store, linking_user_id, user_info, state_data
+            return await self._maybe_await_async(
+                self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
             )
 
         # Check if user exists by OAuth provider ID
-        user = await self._find_user_by_oauth(user_store, user_info)
+        user = await self._maybe_await_async(self._find_user_by_oauth(user_store, user_info))
 
         if not user:
             # Check if email already registered
             user = user_store.get_user_by_email(user_info.email)
             if user:
-                await self._link_oauth_to_user(user_store, user.id, user_info)
+                await self._maybe_await_async(
+                    self._link_oauth_to_user(user_store, user.id, user_info)
+                )
             else:
-                user = await self._create_oauth_user(user_store, user_info)
+                user = await self._maybe_await_async(self._create_oauth_user(user_store, user_info))
 
         if not user:
             return self._redirect_with_error("Failed to create user account")
@@ -314,20 +339,19 @@ class OAuthHandler(
         return self._redirect_with_tokens(redirect_url, tokens)
 
     async def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
-        """Find user by OAuth provider ID (async version)."""
+        """Find user by OAuth provider ID."""
         # Look for user with matching OAuth link
         # This requires the user store to support OAuth lookups
         if hasattr(user_store, "get_user_by_oauth_async"):
             return await user_store.get_user_by_oauth_async(
                 user_info.provider, user_info.provider_user_id
             )
-        elif hasattr(user_store, "get_user_by_oauth"):
-            # Fallback to sync method for non-async stores
+        if hasattr(user_store, "get_user_by_oauth"):
             return user_store.get_user_by_oauth(user_info.provider, user_info.provider_user_id)
         return None
 
     async def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
-        """Link OAuth provider to existing user (async version)."""
+        """Link OAuth provider to existing user."""
         if hasattr(user_store, "link_oauth_provider_async"):
             return await user_store.link_oauth_provider_async(
                 user_id=user_id,
@@ -335,7 +359,7 @@ class OAuthHandler(
                 provider_user_id=user_info.provider_user_id,
                 email=user_info.email,
             )
-        elif hasattr(user_store, "link_oauth_provider"):
+        if hasattr(user_store, "link_oauth_provider"):
             return user_store.link_oauth_provider(
                 user_id=user_id,
                 provider=user_info.provider,
@@ -347,7 +371,7 @@ class OAuthHandler(
         return False
 
     async def _create_oauth_user(self, user_store, user_info: OAuthUserInfo):
-        """Create a new user from OAuth info (async version)."""
+        """Create a new user from OAuth info."""
         from aragora.billing.models import hash_password
 
         # Generate random password (user will use OAuth to login)
@@ -389,7 +413,7 @@ class OAuthHandler(
         user_info: OAuthUserInfo,
         state_data: dict,
     ) -> HandlerResult:
-        """Handle linking OAuth account to existing user (async version)."""
+        """Handle linking OAuth account to existing user."""
         # Verify user exists
         if hasattr(user_store, "get_user_by_id_async"):
             user = await user_store.get_user_by_id_async(user_id)
@@ -399,14 +423,18 @@ class OAuthHandler(
             return self._redirect_with_error("User not found")
 
         # Check if OAuth is already linked to another account
-        existing_user = await self._find_user_by_oauth(user_store, user_info)
+        existing_user = await self._maybe_await_async(
+            self._find_user_by_oauth(user_store, user_info)
+        )
         if existing_user and existing_user.id != user_id:
             return self._redirect_with_error(
                 f"This {user_info.provider.title()} account is already linked to another user"
             )
 
         # Link OAuth
-        success = await self._link_oauth_to_user(user_store, user_id, user_info)
+        success = await self._maybe_await_async(
+            self._link_oauth_to_user(user_store, user_id, user_info)
+        )
         if not success:
             logger.warning(f"OAuth linking fallback for user {user_id}")
 

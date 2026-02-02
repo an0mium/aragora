@@ -6,11 +6,14 @@ Provides Google OAuth 2.0 authentication methods for the OAuthHandler.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import httpx
 
@@ -18,7 +21,7 @@ from aragora.audit.unified import audit_action, audit_security
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
-from .utils import _impl
+from .utils import _impl, _maybe_await
 
 if TYPE_CHECKING:
     pass
@@ -135,7 +138,9 @@ class GoogleOAuthMixin:
         # Exchange code for tokens
         try:
             logger.info("OAuth callback: exchanging code for tokens...")
-            token_data = await self._exchange_code_for_tokens(code)
+            token_data = self._exchange_code_for_tokens(code)
+            if inspect.isawaitable(token_data):
+                token_data = await token_data
             logger.info("OAuth callback: token exchange successful")
         except Exception as e:
             logger.error(f"Token exchange failed: {e}", exc_info=True)
@@ -148,7 +153,9 @@ class GoogleOAuthMixin:
         # Get user info from Google
         try:
             logger.info("OAuth callback: fetching user info from Google...")
-            user_info = await self._get_google_user_info(access_token)
+            user_info = self._get_google_user_info(access_token)
+            if inspect.isawaitable(user_info):
+                user_info = await user_info
             logger.info(f"OAuth callback: got user info for {user_info.email}")
         except Exception as e:
             logger.error(f"Failed to get user info: {e}", exc_info=True)
@@ -163,14 +170,14 @@ class GoogleOAuthMixin:
         # Check if this is account linking
         linking_user_id = state_data.get("user_id")
         if linking_user_id:
-            return await self._handle_account_linking(
-                user_store, linking_user_id, user_info, state_data
+            return await _maybe_await(
+                self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
             )
 
         # Check if user exists by OAuth provider ID
         try:
             logger.info("OAuth callback: looking up user by OAuth ID...")
-            user = await self._find_user_by_oauth(user_store, user_info)
+            user = await _maybe_await(self._find_user_by_oauth(user_store, user_info))
             logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
         except Exception as e:
             logger.error(f"OAuth callback: _find_user_by_oauth failed: {e}", exc_info=True)
@@ -180,10 +187,7 @@ class GoogleOAuthMixin:
             # Check if email already registered (without OAuth)
             try:
                 logger.info(f"OAuth callback: looking up user by email {user_info.email}...")
-                if hasattr(user_store, "get_user_by_email_async"):
-                    user = await user_store.get_user_by_email_async(user_info.email)
-                else:
-                    user = user_store.get_user_by_email(user_info.email)
+                user = user_store.get_user_by_email(user_info.email)
                 logger.info(
                     f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
                 )
@@ -194,12 +198,12 @@ class GoogleOAuthMixin:
             if user:
                 # Link OAuth to existing account
                 logger.info(f"OAuth callback: linking OAuth to existing user {user.id}")
-                await self._link_oauth_to_user(user_store, user.id, user_info)
+                await _maybe_await(self._link_oauth_to_user(user_store, user.id, user_info))
             else:
                 # Create new user with OAuth
                 try:
                     logger.info(f"OAuth callback: creating new OAuth user for {user_info.email}...")
-                    user = await self._create_oauth_user(user_store, user_info)
+                    user = await _maybe_await(self._create_oauth_user(user_store, user_info))
                     logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
                 except Exception as e:
                     logger.error(f"OAuth callback: _create_oauth_user failed: {e}", exc_info=True)
@@ -211,12 +215,7 @@ class GoogleOAuthMixin:
         # Update last login
         try:
             logger.info(f"OAuth callback: updating last login for user {user.id}...")
-            if hasattr(user_store, "update_user_async"):
-                await user_store.update_user_async(
-                    user.id, last_login_at=datetime.now(timezone.utc)
-                )
-            else:
-                user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
+            user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
         except Exception as e:
             logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
             # Non-fatal, continue
@@ -263,7 +262,7 @@ class GoogleOAuthMixin:
         logger.info(f"OAuth callback: redirecting to {redirect_url}")
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    async def _exchange_code_for_tokens(self, code: str) -> dict:
+    def _exchange_code_for_tokens(self, code: str) -> dict:
         """Exchange authorization code for access tokens."""
         impl = _impl()
         data = {
@@ -274,38 +273,84 @@ class GoogleOAuthMixin:
             "grant_type": "authorization_code",
         }
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            encoded = urlencode(data).encode("utf-8")
+            req = Request(
                 impl.GOOGLE_TOKEN_URL,
-                data=data,
+                data=encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
+            with urlopen(req) as response:
+                body = response.read()
             try:
-                return response.json()
+                return json.loads(body.decode("utf-8")) if body else {}
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON from Google token endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
-    async def _get_google_user_info(self, access_token: str) -> OAuthUserInfo:
+        async def _exchange_async() -> dict:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    impl.GOOGLE_TOKEN_URL,
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                try:
+                    return response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON from Google token endpoint: {e}")
+                    raise ValueError(f"Invalid JSON response from Google: {e}") from e
+
+        return _exchange_async()
+
+    def _get_google_user_info(self, access_token: str) -> OAuthUserInfo:
         """Get user info from Google API."""
         impl = _impl()
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            req = Request(
                 impl.GOOGLE_USERINFO_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
             )
+            with urlopen(req) as response:
+                body = response.read()
             try:
-                data = response.json()
+                data = json.loads(body.decode("utf-8")) if body else {}
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON from Google userinfo endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
-        return OAuthUserInfo(
-            provider="google",
-            provider_user_id=data["id"],
-            email=data["email"],
-            name=data.get("name", data["email"].split("@")[0]),
-            picture=data.get("picture"),
-            email_verified=data.get("verified_email", False),
-        )
+            return OAuthUserInfo(
+                provider="google",
+                provider_user_id=data["id"],
+                email=data["email"],
+                name=data.get("name", data["email"].split("@")[0]),
+                picture=data.get("picture"),
+                email_verified=data.get("verified_email", False),
+            )
+
+        async def _userinfo_async() -> OAuthUserInfo:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    impl.GOOGLE_USERINFO_URL,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON from Google userinfo endpoint: {e}")
+                    raise ValueError(f"Invalid JSON response from Google: {e}") from e
+
+            return OAuthUserInfo(
+                provider="google",
+                provider_user_id=data["id"],
+                email=data["email"],
+                name=data.get("name", data["email"].split("@")[0]),
+                picture=data.get("picture"),
+                email_verified=data.get("verified_email", False),
+            )
+
+        return _userinfo_async()

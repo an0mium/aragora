@@ -16,6 +16,7 @@ import logging
 import sys
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Protocol
+import inspect
 
 from aragora.server.middleware.rate_limit.oauth_limiter import (
     get_oauth_limiter,
@@ -26,6 +27,13 @@ if TYPE_CHECKING:
     from aragora.server.handlers.oauth.models import OAuthUserInfo
 
 logger = logging.getLogger(__name__)
+
+
+async def _maybe_await(value: Any) -> Any:
+    """Await coroutines when mixins are used without full OAuthHandler."""
+    if inspect.isawaitable(value):
+        return await value
+    return value
 
 
 class OAuthHandlerProtocol(Protocol):

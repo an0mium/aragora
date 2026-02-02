@@ -6,16 +6,20 @@ Provides Microsoft OAuth (Azure AD) authentication methods for the OAuthHandler.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
+import json
 import logging
 from typing import Any
 from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import httpx
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
-from .utils import _impl
+from .utils import _impl, _maybe_await
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +106,9 @@ class MicrosoftOAuthMixin:
             return self._redirect_with_error("Missing authorization code")
 
         try:
-            token_data = await self._exchange_microsoft_code(code)
+            token_data = self._exchange_microsoft_code(code)
+            if inspect.isawaitable(token_data):
+                token_data = await token_data
         except Exception as e:
             logger.error(f"Microsoft token exchange failed: {e}")
             return self._redirect_with_error("Failed to exchange authorization code")
@@ -112,14 +118,16 @@ class MicrosoftOAuthMixin:
             return self._redirect_with_error("No access token received")
 
         try:
-            user_info = await self._get_microsoft_user_info(access_token)
+            user_info = self._get_microsoft_user_info(access_token)
+            if inspect.isawaitable(user_info):
+                user_info = await user_info
         except Exception as e:
             logger.error(f"Failed to get Microsoft user info: {e}")
             return self._redirect_with_error("Failed to get user info")
 
-        return self._complete_oauth_flow(user_info, state_data)
+        return await _maybe_await(self._complete_oauth_flow(user_info, state_data))
 
-    async def _exchange_microsoft_code(self, code: str) -> dict:
+    def _exchange_microsoft_code(self, code: str) -> dict:
         """Exchange Microsoft authorization code for access token."""
         impl = _impl()
         tenant = impl._get_microsoft_tenant()
@@ -132,35 +140,76 @@ class MicrosoftOAuthMixin:
             "redirect_uri": impl._get_microsoft_redirect_uri(),
             "grant_type": "authorization_code",
         }
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            encoded = urlencode(data).encode("utf-8")
+            req = Request(
                 token_url,
-                data=data,
+                data=encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            return response.json()
+            with urlopen(req) as response:
+                body = response.read()
+            return json.loads(body.decode("utf-8")) if body else {}
 
-    async def _get_microsoft_user_info(self, access_token: str) -> OAuthUserInfo:
+        async def _exchange_async() -> dict:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    token_url,
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                return response.json()
+
+        return _exchange_async()
+
+    def _get_microsoft_user_info(self, access_token: str) -> OAuthUserInfo:
         """Get user info from Microsoft Graph API."""
         impl = _impl()
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            req = Request(
                 impl.MICROSOFT_USERINFO_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
             )
-            user_data = response.json()
+            with urlopen(req) as response:
+                body = response.read()
+            user_data = json.loads(body.decode("utf-8")) if body else {}
 
-        email = user_data.get("mail") or user_data.get("userPrincipalName", "")
-        if not email or "@" not in email:
-            raise ValueError("Could not retrieve email from Microsoft")
+            email = user_data.get("mail") or user_data.get("userPrincipalName", "")
+            if not email or "@" not in email:
+                raise ValueError("Could not retrieve email from Microsoft")
 
-        return OAuthUserInfo(
-            provider="microsoft",
-            provider_user_id=user_data["id"],
-            email=email,
-            name=user_data.get("displayName", email.split("@")[0]),
-            picture=None,  # Microsoft Graph requires separate call for photo
-            email_verified=True,  # Microsoft validates emails
-        )
+            return OAuthUserInfo(
+                provider="microsoft",
+                provider_user_id=user_data["id"],
+                email=email,
+                name=user_data.get("displayName", email.split("@")[0]),
+                picture=None,  # Microsoft Graph requires separate call for photo
+                email_verified=True,  # Microsoft validates emails
+            )
+
+        async def _userinfo_async() -> OAuthUserInfo:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    impl.MICROSOFT_USERINFO_URL,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                user_data = response.json()
+
+            email = user_data.get("mail") or user_data.get("userPrincipalName", "")
+            if not email or "@" not in email:
+                raise ValueError("Could not retrieve email from Microsoft")
+
+            return OAuthUserInfo(
+                provider="microsoft",
+                provider_user_id=user_data["id"],
+                email=email,
+                name=user_data.get("displayName", email.split("@")[0]),
+                picture=None,  # Microsoft Graph requires separate call for photo
+                email_verified=True,  # Microsoft validates emails
+            )
+
+        return _userinfo_async()

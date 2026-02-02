@@ -6,18 +6,21 @@ Provides GitHub OAuth authentication methods for the OAuthHandler.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import httpx
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
-from .utils import _impl
+from .utils import _impl, _maybe_await
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +116,9 @@ class GitHubOAuthMixin:
 
         # Exchange code for tokens
         try:
-            token_data = await self._exchange_github_code(code)
+            token_data = self._exchange_github_code(code)
+            if inspect.isawaitable(token_data):
+                token_data = await token_data
         except Exception as e:
             logger.error(f"GitHub token exchange failed: {e}")
             return self._redirect_with_error("Failed to exchange authorization code")
@@ -128,7 +133,9 @@ class GitHubOAuthMixin:
 
         # Get user info from GitHub
         try:
-            user_info = await self._get_github_user_info(access_token)
+            user_info = self._get_github_user_info(access_token)
+            if inspect.isawaitable(user_info):
+                user_info = await user_info
         except Exception as e:
             logger.error(f"Failed to get GitHub user info: {e}")
             return self._redirect_with_error("Failed to get user info from GitHub")
@@ -141,20 +148,22 @@ class GitHubOAuthMixin:
         # Check if this is account linking
         linking_user_id = state_data.get("user_id")
         if linking_user_id:
-            return self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
+            return await _maybe_await(
+                self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
+            )
 
         # Check if user exists by OAuth provider ID
-        user = self._find_user_by_oauth(user_store, user_info)
+        user = await _maybe_await(self._find_user_by_oauth(user_store, user_info))
 
         if not user:
             # Check if email already registered (without OAuth)
             user = user_store.get_user_by_email(user_info.email)
             if user:
                 # Link OAuth to existing account
-                self._link_oauth_to_user(user_store, user.id, user_info)
+                await _maybe_await(self._link_oauth_to_user(user_store, user.id, user_info))
             else:
                 # Create new user with OAuth
-                user = self._create_oauth_user(user_store, user_info)
+                user = await _maybe_await(self._create_oauth_user(user_store, user_info))
 
         if not user:
             return self._redirect_with_error("Failed to create user account")
@@ -178,7 +187,7 @@ class GitHubOAuthMixin:
         redirect_url = state_data.get("redirect_url", impl._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    async def _exchange_github_code(self, code: str) -> dict:
+    def _exchange_github_code(self, code: str) -> dict:
         """Exchange GitHub authorization code for access token."""
         impl = _impl()
         data = {
@@ -188,87 +197,178 @@ class GitHubOAuthMixin:
             "redirect_uri": impl._get_github_redirect_uri(),
         }
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            encoded = urlencode(data).encode("utf-8")
+            req = Request(
                 impl.GITHUB_TOKEN_URL,
-                data=data,
+                data=encoded,
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Accept": "application/json",
                 },
             )
+            with urlopen(req) as response:
+                body = response.read()
             try:
-                return response.json()
+                return json.loads(body.decode("utf-8")) if body else {}
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON from GitHub token endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
 
-    async def _get_github_user_info(self, access_token: str) -> OAuthUserInfo:
+        async def _exchange_async() -> dict:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    impl.GITHUB_TOKEN_URL,
+                    data=data,
+                    headers={
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "application/json",
+                    },
+                )
+                try:
+                    return response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON from GitHub token endpoint: {e}")
+                    raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
+
+        return _exchange_async()
+
+    def _get_github_user_info(self, access_token: str) -> OAuthUserInfo:
         """Get user info from GitHub API."""
         impl = _impl()
-
-        # Get basic user info
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            # Get basic user info
+            req = Request(
                 impl.GITHUB_USERINFO_URL,
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Accept": "application/json",
                 },
             )
+            with urlopen(req) as response:
+                body = response.read()
             try:
-                user_data = response.json()
+                user_data = json.loads(body.decode("utf-8")) if body else {}
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON from GitHub user endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
 
-        # Get user's emails (need to find primary verified email)
-        email = user_data.get("email")
-        email_verified = False
+            # Get user's emails (need to find primary verified email)
+            email = user_data.get("email")
+            email_verified = False
 
-        if not email:
-            # Email not public, fetch from emails endpoint
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(
+            if not email:
+                # Email not public, fetch from emails endpoint
+                req = Request(
                     impl.GITHUB_EMAILS_URL,
                     headers={
                         "Authorization": f"Bearer {access_token}",
                         "Accept": "application/json",
                     },
                 )
+                with urlopen(req) as response:
+                    body = response.read()
                 try:
-                    emails = response.json()
+                    emails = json.loads(body.decode("utf-8")) if body else []
                 except json.JSONDecodeError as e:
                     logger.error(f"Invalid JSON from GitHub emails endpoint: {e}")
                     raise ValueError(f"Invalid JSON from GitHub emails: {e}") from e
 
-            # Find primary verified email
-            for email_entry in emails:
-                if email_entry.get("primary") and email_entry.get("verified"):
-                    email = email_entry.get("email")
-                    email_verified = True
-                    break
-
-            # Fallback to any verified email
-            if not email:
+                # Find primary verified email
                 for email_entry in emails:
-                    if email_entry.get("verified"):
+                    if email_entry.get("primary") and email_entry.get("verified"):
                         email = email_entry.get("email")
                         email_verified = True
                         break
 
-            # Last resort: any email
-            if not email and emails:
-                email = emails[0].get("email")
+                # Fallback to any verified email
+                if not email:
+                    for email_entry in emails:
+                        if email_entry.get("verified"):
+                            email = email_entry.get("email")
+                            email_verified = True
+                            break
 
-        if not email:
-            raise ValueError("Could not retrieve email from GitHub")
+                # Last resort: any email
+                if not email and emails:
+                    email = emails[0].get("email")
 
-        return OAuthUserInfo(
-            provider="github",
-            provider_user_id=str(user_data["id"]),
-            email=email,
-            name=user_data.get("name") or user_data.get("login", email.split("@")[0]),
-            picture=user_data.get("avatar_url"),
-            email_verified=email_verified,
-        )
+            if not email:
+                raise ValueError("Could not retrieve email from GitHub")
+
+            return OAuthUserInfo(
+                provider="github",
+                provider_user_id=str(user_data["id"]),
+                email=email,
+                name=user_data.get("name") or user_data.get("login", email.split("@")[0]),
+                picture=user_data.get("avatar_url"),
+                email_verified=email_verified,
+            )
+
+        async def _userinfo_async() -> OAuthUserInfo:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    impl.GITHUB_USERINFO_URL,
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Accept": "application/json",
+                    },
+                )
+                try:
+                    user_data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON from GitHub user endpoint: {e}")
+                    raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
+
+            # Get user's emails (need to find primary verified email)
+            email = user_data.get("email")
+            email_verified = False
+
+            if not email:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(
+                        impl.GITHUB_EMAILS_URL,
+                        headers={
+                            "Authorization": f"Bearer {access_token}",
+                            "Accept": "application/json",
+                        },
+                    )
+                    try:
+                        emails = response.json()
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Invalid JSON from GitHub emails endpoint: {e}")
+                        raise ValueError(f"Invalid JSON from GitHub emails: {e}") from e
+
+                for email_entry in emails:
+                    if email_entry.get("primary") and email_entry.get("verified"):
+                        email = email_entry.get("email")
+                        email_verified = True
+                        break
+
+                if not email:
+                    for email_entry in emails:
+                        if email_entry.get("verified"):
+                            email = email_entry.get("email")
+                            email_verified = True
+                            break
+
+                if not email and emails:
+                    email = emails[0].get("email")
+
+            if not email:
+                raise ValueError("Could not retrieve email from GitHub")
+
+            return OAuthUserInfo(
+                provider="github",
+                provider_user_id=str(user_data["id"]),
+                email=email,
+                name=user_data.get("name") or user_data.get("login", email.split("@")[0]),
+                picture=user_data.get("avatar_url"),
+                email_verified=email_verified,
+            )
+
+        return _userinfo_async()
