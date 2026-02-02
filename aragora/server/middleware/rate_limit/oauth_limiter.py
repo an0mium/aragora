@@ -46,12 +46,11 @@ import math
 import os
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from .distributed import get_distributed_limiter
-from .limiter import RateLimiter, RateLimitResult
+from .limiter import RateLimitResult
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult
@@ -62,8 +61,93 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 # =============================================================================
+# Simple RateLimiter (to avoid using the complex limiter.RateLimiter)
+# =============================================================================
+
+
+class SimpleRateLimiter:
+    """Thread-safe token bucket rate limiter with simple API.
+
+    This is a local implementation to avoid complexity from limiter.RateLimiter
+    which requires different parameters and has different behavior.
+    """
+
+    def __init__(
+        self,
+        requests_per_minute: int = 60,
+        cleanup_interval: int = 300,
+    ):
+        """Initialize rate limiter."""
+        self.rpm = requests_per_minute
+        self.cleanup_interval = cleanup_interval
+        self._buckets: dict[str, list[float]] = {}
+        self._lock = threading.Lock()
+        self._last_cleanup = time.time()
+
+    def is_allowed(self, key: str) -> bool:
+        """Check if a request is allowed for the given key."""
+        now = time.time()
+
+        with self._lock:
+            # Periodic cleanup of old buckets
+            if now - self._last_cleanup > self.cleanup_interval:
+                self._cleanup_expired(now)
+
+            if key not in self._buckets:
+                self._buckets[key] = []
+
+            bucket = self._buckets[key]
+
+            # Remove timestamps older than 60 seconds
+            cutoff = now - 60
+            bucket[:] = [t for t in bucket if t > cutoff]
+
+            # Check if under limit
+            if len(bucket) >= self.rpm:
+                return False
+
+            # Record this request
+            bucket.append(now)
+            return True
+
+    def _cleanup_expired(self, now: float) -> None:
+        """Remove empty or fully-expired buckets."""
+        cutoff = now - 60
+        expired_keys = [
+            key
+            for key, timestamps in self._buckets.items()
+            if not timestamps or all(t <= cutoff for t in timestamps)
+        ]
+        for key in expired_keys:
+            del self._buckets[key]
+        self._last_cleanup = now
+
+    def get_remaining(self, key: str) -> int:
+        """Get remaining requests allowed for a key."""
+        now = time.time()
+        cutoff = now - 60
+
+        with self._lock:
+            bucket = self._buckets.get(key, [])
+            current = sum(1 for t in bucket if t > cutoff)
+            return max(0, self.rpm - current)
+
+    def reset(self, key: str) -> None:
+        """Reset rate limit for a specific key."""
+        with self._lock:
+            if key in self._buckets:
+                del self._buckets[key]
+
+    def clear(self) -> None:
+        """Clear all rate limit buckets (for testing)."""
+        with self._lock:
+            self._buckets.clear()
+
+
+# =============================================================================
 # Configuration
 # =============================================================================
+
 
 @dataclass(frozen=True)
 class OAuthRateLimitConfig:
@@ -79,6 +163,7 @@ class OAuthRateLimitConfig:
         backoff_multiplier: Multiplier for exponential backoff (default: 2.0)
         enable_audit_logging: Whether to log security audit events (default: True)
     """
+
     token_limit: int = 5
     callback_limit: int = 10
     auth_start_limit: int = 15
@@ -112,9 +197,11 @@ DEFAULT_CONFIG = _get_default_config()
 # Backoff Tracker
 # =============================================================================
 
+
 @dataclass
 class BackoffState:
     """Tracks backoff state for a single client IP."""
+
     violation_count: int = 0
     last_violation_time: float = 0.0
     backoff_until: float = 0.0
@@ -234,10 +321,7 @@ class OAuthBackoffTracker:
         """Remove expired backoff states."""
         # Remove states that haven't had violations in 2x decay period
         cutoff = now - (self.decay_period * 2)
-        expired = [
-            ip for ip, state in self._states.items()
-            if state.last_violation_time < cutoff
-        ]
+        expired = [ip for ip, state in self._states.items() if state.last_violation_time < cutoff]
         for ip in expired:
             del self._states[ip]
 
@@ -252,8 +336,7 @@ class OAuthBackoffTracker:
             return {
                 "tracked_ips": len(self._states),
                 "active_backoffs": sum(
-                    1 for state in self._states.values()
-                    if time.time() < state.backoff_until
+                    1 for state in self._states.values() if time.time() < state.backoff_until
                 ),
             }
 
@@ -292,6 +375,7 @@ def reset_backoff_tracker() -> None:
 # OAuth Rate Limiter
 # =============================================================================
 
+
 class OAuthRateLimiter:
     """Specialized rate limiter for OAuth endpoints.
 
@@ -317,7 +401,7 @@ class OAuthRateLimiter:
         self.use_distributed = use_distributed
 
         # Create per-endpoint-type limiters
-        self._limiters: dict[str, RateLimiter] = {}
+        self._limiters: dict[str, SimpleRateLimiter] = {}
         self._init_limiters()
 
         # Get backoff tracker
@@ -330,21 +414,21 @@ class OAuthRateLimiter:
     def _init_limiters(self) -> None:
         """Initialize rate limiters for each endpoint type."""
         # Token endpoints - strictest limits
-        self._limiters["token"] = RateLimiter(
+        self._limiters["token"] = SimpleRateLimiter(
             requests_per_minute=self._rpm_from_window(
                 self.config.token_limit, self.config.window_seconds
             ),
         )
 
         # Callback handlers - slightly higher limits
-        self._limiters["callback"] = RateLimiter(
+        self._limiters["callback"] = SimpleRateLimiter(
             requests_per_minute=self._rpm_from_window(
                 self.config.callback_limit, self.config.window_seconds
             ),
         )
 
         # Auth start (redirect) - moderate limits
-        self._limiters["auth_start"] = RateLimiter(
+        self._limiters["auth_start"] = SimpleRateLimiter(
             requests_per_minute=self._rpm_from_window(
                 self.config.auth_start_limit, self.config.window_seconds
             ),
@@ -523,10 +607,12 @@ def reset_oauth_limiter() -> None:
 # Decorator
 # =============================================================================
 
+
 def _get_client_ip(handler: Any) -> str:
     """Extract client IP from request handler."""
     try:
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         return get_client_ip(handler)
     except ImportError:
         pass
@@ -553,9 +639,7 @@ def _extract_handler(*args, **kwargs) -> Any:
     return handler
 
 
-def _error_response(
-    message: str, status: int, retry_after: int | None = None
-) -> "HandlerResult":
+def _error_response(message: str, status: int, retry_after: int | None = None) -> "HandlerResult":
     """Create an error response with optional Retry-After header."""
     from aragora.server.handlers.base import error_response
 
@@ -602,6 +686,7 @@ def oauth_rate_limit(
         effective_provider = provider or func.__name__
 
         if asyncio.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 handler = _extract_handler(*args, **kwargs)
@@ -626,6 +711,7 @@ def oauth_rate_limit(
 
             return async_wrapper  # type: ignore[return-value]
         else:
+
             @wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 handler = _extract_handler(*args, **kwargs)
