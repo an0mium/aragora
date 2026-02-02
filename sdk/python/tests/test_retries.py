@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from aragora.client import AragoraAsyncClient, AragoraClient
-from aragora.exceptions import AragoraError
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.exceptions import AragoraError
 
 
 class TestSyncRetries:
@@ -155,7 +155,7 @@ class TestSyncRetries:
 
     def test_no_retry_on_http_error(self) -> None:
         """HTTP errors (4xx, 5xx) are not retried by default."""
-        from aragora.exceptions import ValidationError
+        from aragora_sdk.exceptions import ValidationError
 
         with patch("httpx.Client.request") as mock_request:
             mock_response = MagicMock(spec=httpx.Response)

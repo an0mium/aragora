@@ -150,7 +150,9 @@ class MemoryAPI:
         params: dict[str, Any] = {}
         if tier:
             params["tier"] = tier
-        return self._client.request("DELETE", f"/api/v1/memory/{quote(key, safe='')}", params=params)
+        return self._client.request(
+            "DELETE", f"/api/v1/memory/{quote(key, safe='')}", params=params
+        )
 
     # ===========================================================================
     # Search and Query Operations
@@ -375,7 +377,9 @@ class MemoryAPI:
         body: dict[str, Any] = {}
         if reason:
             body["reason"] = reason
-        return self._client.request("POST", f"/api/v1/memory/{quote(key, safe='')}/promote", json=body)
+        return self._client.request(
+            "POST", f"/api/v1/memory/{quote(key, safe='')}/promote", json=body
+        )
 
     def demote(
         self,
@@ -396,7 +400,9 @@ class MemoryAPI:
         body: dict[str, Any] = {}
         if reason:
             body["reason"] = reason
-        return self._client.request("POST", f"/api/v1/memory/{quote(key, safe='')}/demote", json=body)
+        return self._client.request(
+            "POST", f"/api/v1/memory/{quote(key, safe='')}/demote", json=body
+        )
 
     # ===========================================================================
     # Continuum Operations
@@ -465,7 +471,9 @@ class MemoryAPI:
 
         Alias for retrieve_continuum() for TypeScript SDK compatibility.
         """
-        return self.retrieve_continuum(query, tiers=tiers, limit=limit, min_importance=min_importance)
+        return self.retrieve_continuum(
+            query, tiers=tiers, limit=limit, min_importance=min_importance
+        )
 
     def continuum_stats(self) -> dict[str, Any]:
         """
@@ -816,7 +824,9 @@ class MemoryAPI:
             Dict with restore status
         """
         body: dict[str, Any] = {"overwrite": overwrite}
-        return self._client.request("POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json=body)
+        return self._client.request(
+            "POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json=body
+        )
 
     def delete_snapshot(
         self,
@@ -1009,7 +1019,9 @@ class AsyncMemoryAPI:
         params: dict[str, Any] = {}
         if tier:
             params["tier"] = tier
-        return await self._client.request("GET", f"/api/v1/memory/{quote(key, safe='')}", params=params)
+        return await self._client.request(
+            "GET", f"/api/v1/memory/{quote(key, safe='')}", params=params
+        )
 
     async def update(
         self,
@@ -1065,7 +1077,9 @@ class AsyncMemoryAPI:
         params: dict[str, Any] = {}
         if tier:
             params["tier"] = tier
-        return await self._client.request("DELETE", f"/api/v1/memory/{quote(key, safe='')}", params=params)
+        return await self._client.request(
+            "DELETE", f"/api/v1/memory/{quote(key, safe='')}", params=params
+        )
 
     # ===========================================================================
     # Search and Query Operations
@@ -1269,7 +1283,9 @@ class AsyncMemoryAPI:
             Dict with move status
         """
         body: dict[str, Any] = {"from_tier": from_tier, "to_tier": to_tier}
-        return await self._client.request("POST", f"/api/v1/memory/{quote(key, safe='')}/move", json=body)
+        return await self._client.request(
+            "POST", f"/api/v1/memory/{quote(key, safe='')}/move", json=body
+        )
 
     async def promote(
         self,
@@ -1290,7 +1306,9 @@ class AsyncMemoryAPI:
         body: dict[str, Any] = {}
         if reason:
             body["reason"] = reason
-        return await self._client.request("POST", f"/api/v1/memory/{quote(key, safe='')}/promote", json=body)
+        return await self._client.request(
+            "POST", f"/api/v1/memory/{quote(key, safe='')}/promote", json=body
+        )
 
     async def demote(
         self,
@@ -1311,7 +1329,9 @@ class AsyncMemoryAPI:
         body: dict[str, Any] = {}
         if reason:
             body["reason"] = reason
-        return await self._client.request("POST", f"/api/v1/memory/{quote(key, safe='')}/demote", json=body)
+        return await self._client.request(
+            "POST", f"/api/v1/memory/{quote(key, safe='')}/demote", json=body
+        )
 
     # ===========================================================================
     # Continuum Operations
@@ -1380,7 +1400,9 @@ class AsyncMemoryAPI:
 
         Alias for retrieve_continuum() for TypeScript SDK compatibility.
         """
-        return await self.retrieve_continuum(query, tiers=tiers, limit=limit, min_importance=min_importance)
+        return await self.retrieve_continuum(
+            query, tiers=tiers, limit=limit, min_importance=min_importance
+        )
 
     async def continuum_stats(self) -> dict[str, Any]:
         """
@@ -1731,7 +1753,9 @@ class AsyncMemoryAPI:
             Dict with restore status
         """
         body: dict[str, Any] = {"overwrite": overwrite}
-        return await self._client.request("POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json=body)
+        return await self._client.request(
+            "POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json=body
+        )
 
     async def delete_snapshot(
         self,

@@ -18,14 +18,14 @@ class TestExternalAgentsAPI:
 
     def test_init(self, mock_client: MagicMock) -> None:
         """Test API initialization."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         api = ExternalAgentsAPI(mock_client)
         assert api._client is mock_client
 
     def test_list_adapters(self, mock_client: MagicMock) -> None:
         """Test list_adapters calls correct endpoint."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         mock_client.request.return_value = {"adapters": [], "total": 0}
 
@@ -37,7 +37,7 @@ class TestExternalAgentsAPI:
 
     def test_get_adapter_health(self, mock_client: MagicMock) -> None:
         """Test get_adapter_health calls correct endpoint."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         mock_client.request.return_value = {"health": [], "total": 0}
 
@@ -51,7 +51,7 @@ class TestExternalAgentsAPI:
 
     def test_get_adapter_health_with_name(self, mock_client: MagicMock) -> None:
         """Test get_adapter_health with adapter name filter."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         mock_client.request.return_value = {"health": [], "total": 0}
 
@@ -64,7 +64,7 @@ class TestExternalAgentsAPI:
 
     def test_submit_task(self, mock_client: MagicMock) -> None:
         """Test submit_task calls correct endpoint."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         mock_client.request.return_value = {
             "task_id": "task-123",
@@ -84,7 +84,7 @@ class TestExternalAgentsAPI:
 
     def test_submit_task_with_options(self, mock_client: MagicMock) -> None:
         """Test submit_task with all options."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         mock_client.request.return_value = {"task_id": "task-123"}
 
@@ -113,7 +113,7 @@ class TestExternalAgentsAPI:
 
     def test_get_task(self, mock_client: MagicMock) -> None:
         """Test get_task calls correct endpoint."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         mock_client.request.return_value = {
             "task_id": "task-123",
@@ -128,7 +128,7 @@ class TestExternalAgentsAPI:
 
     def test_cancel_task(self, mock_client: MagicMock) -> None:
         """Test cancel_task calls correct endpoint."""
-        from aragora.namespaces.external_agents import ExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import ExternalAgentsAPI
 
         mock_client.request.return_value = {"task_id": "task-123", "cancelled": True}
 
@@ -157,7 +157,7 @@ class TestAsyncExternalAgentsAPI:
     @pytest.mark.asyncio
     async def test_list_adapters(self, mock_async_client: MagicMock) -> None:
         """Test list_adapters calls correct endpoint."""
-        from aragora.namespaces.external_agents import AsyncExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import AsyncExternalAgentsAPI
 
         mock_async_client.request.return_value = {"adapters": [], "total": 0}
 
@@ -170,7 +170,7 @@ class TestAsyncExternalAgentsAPI:
     @pytest.mark.asyncio
     async def test_submit_task(self, mock_async_client: MagicMock) -> None:
         """Test submit_task calls correct endpoint."""
-        from aragora.namespaces.external_agents import AsyncExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import AsyncExternalAgentsAPI
 
         mock_async_client.request.return_value = {"task_id": "task-123"}
 
@@ -183,7 +183,7 @@ class TestAsyncExternalAgentsAPI:
     @pytest.mark.asyncio
     async def test_get_task(self, mock_async_client: MagicMock) -> None:
         """Test get_task calls correct endpoint."""
-        from aragora.namespaces.external_agents import AsyncExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import AsyncExternalAgentsAPI
 
         mock_async_client.request.return_value = {"task_id": "task-123", "status": "running"}
 
@@ -198,7 +198,7 @@ class TestAsyncExternalAgentsAPI:
     @pytest.mark.asyncio
     async def test_cancel_task(self, mock_async_client: MagicMock) -> None:
         """Test cancel_task calls correct endpoint."""
-        from aragora.namespaces.external_agents import AsyncExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import AsyncExternalAgentsAPI
 
         mock_async_client.request.return_value = {"cancelled": True}
 
@@ -213,7 +213,7 @@ class TestAsyncExternalAgentsAPI:
     @pytest.mark.asyncio
     async def test_get_adapter_health(self, mock_async_client: MagicMock) -> None:
         """Test get_adapter_health calls correct endpoint."""
-        from aragora.namespaces.external_agents import AsyncExternalAgentsAPI
+        from aragora_sdk.namespaces.external_agents import AsyncExternalAgentsAPI
 
         mock_async_client.request.return_value = {"health": []}
 

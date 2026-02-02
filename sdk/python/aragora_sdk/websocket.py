@@ -311,9 +311,7 @@ class AragoraWebSocket:
             try:
                 # Only pass fields that exist in the dataclass
                 field_names = {f.name for f in dataclass_fields(cls)}
-                event.typed_data = cls(
-                    **{k: v for k, v in event.data.items() if k in field_names}
-                )
+                event.typed_data = cls(**{k: v for k, v in event.data.items() if k in field_names})
             except (TypeError, KeyError):
                 pass  # Fall back to untyped data dict
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from aragora.client import AragoraAsyncClient, AragoraClient
-from aragora.namespaces.belief import AsyncBeliefAPI, BeliefAPI
-from aragora.namespaces.genesis import AsyncGenesisAPI, GenesisAPI
-from aragora.namespaces.relationships import AsyncRelationshipsAPI, RelationshipsAPI
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.namespaces.belief import AsyncBeliefAPI, BeliefAPI
+from aragora_sdk.namespaces.genesis import AsyncGenesisAPI, GenesisAPI
+from aragora_sdk.namespaces.relationships import AsyncRelationshipsAPI, RelationshipsAPI
 
 
 def test_sync_client_includes_new_namespaces() -> None:

@@ -6,10 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-from aragora.client import AragoraAsyncClient, AragoraClient
-from aragora.namespaces.agents import AgentsAPI, AsyncAgentsAPI
-from aragora.namespaces.control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
-from aragora.namespaces.debates import AsyncDebatesAPI, DebatesAPI
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.namespaces.agents import AgentsAPI, AsyncAgentsAPI
+from aragora_sdk.namespaces.control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
+from aragora_sdk.namespaces.debates import AsyncDebatesAPI, DebatesAPI
 
 
 class TestAragoraClientInitialization:

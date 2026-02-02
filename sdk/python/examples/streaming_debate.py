@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import os
 
-from aragora import AragoraAsyncClient
+from aragora_sdk import AragoraAsyncClient
 
 
 async def main() -> None:

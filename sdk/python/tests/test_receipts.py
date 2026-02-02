@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aragora.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
 
 class TestReceiptsList:
@@ -402,21 +402,21 @@ class TestReceiptsHelpers:
 
     def test_has_dissent_true(self) -> None:
         """Check receipt with dissenting views."""
-        from aragora.namespaces.receipts import ReceiptsAPI
+        from aragora_sdk.namespaces.receipts import ReceiptsAPI
 
         receipt = {"dissenting_agents": ["agent_1", "agent_2"]}
         assert ReceiptsAPI.has_dissent(receipt) is True
 
     def test_has_dissent_false(self) -> None:
         """Check receipt without dissenting views."""
-        from aragora.namespaces.receipts import ReceiptsAPI
+        from aragora_sdk.namespaces.receipts import ReceiptsAPI
 
         receipt = {"dissenting_agents": []}
         assert ReceiptsAPI.has_dissent(receipt) is False
 
     def test_get_consensus_status(self) -> None:
         """Get consensus status from receipt."""
-        from aragora.namespaces.receipts import ReceiptsAPI
+        from aragora_sdk.namespaces.receipts import ReceiptsAPI
 
         receipt = {
             "consensus_reached": True,

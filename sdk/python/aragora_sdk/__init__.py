@@ -5,7 +5,7 @@ Official Python client for the Aragora multi-agent debate platform.
 
 Usage::
 
-    from aragora import AragoraClient, Debate, DebateCreateRequest
+    from aragora_sdk import AragoraClient, Debate, DebateCreateRequest
 
     client = AragoraClient(api_key="your-key")
     debate = client.debates.create(DebateCreateRequest(task="Evaluate options"))

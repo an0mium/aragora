@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 import time
 
-from aragora import AragoraClient
+from aragora_sdk import AragoraClient
 
 
 def main() -> None:

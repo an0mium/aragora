@@ -11,7 +11,7 @@ Tests cover:
 
 import pytest
 
-from aragora.events import (
+from aragora_sdk.events import (
     EVENT_CLASS_MAP,
     AgentMessageEvent,
     AudienceSuggestionEvent,

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from aragora.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
 
 class TestGetInbox:

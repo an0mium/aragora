@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.websocket import (
+from aragora_sdk.websocket import (
     EVENT_TYPES,
     AragoraWebSocket,
     WebSocketEvent,
@@ -505,7 +505,7 @@ class TestStreamDebateHelper:
 
     def test_stream_debate_function_exists(self) -> None:
         """stream_debate function is importable and callable."""
-        from aragora.websocket import stream_debate
+        from aragora_sdk.websocket import stream_debate
 
         assert callable(stream_debate)
 

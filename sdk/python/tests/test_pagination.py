@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aragora.pagination import AsyncPaginator, SyncPaginator
+from aragora_sdk.pagination import AsyncPaginator, SyncPaginator
 
 
 class TestSyncPaginatorInitialization:

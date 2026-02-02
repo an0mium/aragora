@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aragora.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
 
 class TestControlPlaneAgentManagement:

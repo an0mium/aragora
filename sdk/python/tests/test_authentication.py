@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from aragora.client import AragoraAsyncClient, AragoraClient
-from aragora.exceptions import AuthenticationError, AuthorizationError
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.exceptions import AuthenticationError, AuthorizationError
 
 
 class TestAPIKeyAuthentication:

@@ -132,7 +132,6 @@ class BatchAPI:
         return self._client.request("GET", "/api/v1/debates/batch", params=params)
 
 
-
 class AsyncBatchAPI:
     """Asynchronous Batch API."""
 

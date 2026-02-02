@@ -72,7 +72,7 @@ class KnowledgeAPI:
         status: str | None = None,
         include_superseded: bool = False,
         page_size: int = 50,
-    ) -> "SyncPaginator":
+    ) -> SyncPaginator:
         """
         Iterate through all facts with automatic pagination.
 
@@ -512,7 +512,7 @@ class AsyncKnowledgeAPI:
         status: str | None = None,
         include_superseded: bool = False,
         page_size: int = 50,
-    ) -> "AsyncPaginator":
+    ) -> AsyncPaginator:
         """
         Iterate through all facts with automatic pagination.
 

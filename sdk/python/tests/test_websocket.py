@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.websocket import (
+from aragora_sdk.websocket import (
     _STATE_CONNECTED,
     _STATE_DISCONNECTED,
     EVENT_TYPES,

@@ -185,7 +185,6 @@ class RoutingAPI:
         return self._client.request("POST", "/api/v1/routing-rules", json=data)
 
 
-
 class AsyncRoutingAPI:
     """Asynchronous Routing API."""
 

@@ -1,27 +1,17 @@
 # Aragora Python SDK
 
-> **Deprecation Notice**: This package (`aragora`) is deprecated.
-> Please migrate to [`aragora-client`](https://pypi.org/project/aragora-client/)
-> which is the canonical Python SDK with full API coverage.
->
-> ```bash
-> pip install aragora-client
-> ```
->
-> See the [migration guide](../../docs/SDK_CONSOLIDATION.md) for details.
-
 Official Python client for the Aragora multi-agent debate platform.
 
 ## Installation
 
 ```bash
-pip install aragora
+pip install aragora-sdk
 ```
 
 ## Quick Start
 
 ```python
-from aragora import AragoraClient
+from aragora_sdk import AragoraClient
 
 # Create a client
 client = AragoraClient(
@@ -45,7 +35,7 @@ for msg in messages['messages']:
 ## Async Usage
 
 ```python
-from aragora import AragoraAsyncClient
+from aragora_sdk import AragoraAsyncClient
 
 async def main():
     async with AragoraAsyncClient(
@@ -68,7 +58,7 @@ asyncio.run(main())
 ## Configuration
 
 ```python
-from aragora import AragoraClient
+from aragora_sdk import AragoraClient
 
 client = AragoraClient(
     # Required: API base URL
@@ -93,7 +83,7 @@ client = AragoraClient(
 Stream debate events as they happen using WebSockets:
 
 ```python
-from aragora import AragoraAsyncClient
+from aragora_sdk import AragoraAsyncClient
 
 async def stream_debate():
     async with AragoraAsyncClient(
@@ -364,7 +354,7 @@ The Python SDK provides 90+ namespace APIs for granular control over all platfor
 The SDK exports 196 types for type-safe development:
 
 ```python
-from aragora import (
+from aragora_sdk import (
     # Core types
     DebateResult, DebateConfig, DebateMessage,
     AgentProfile, AgentStats,
@@ -390,7 +380,7 @@ from aragora.generated_types import (
 ## Error Handling
 
 ```python
-from aragora import (
+from aragora_sdk import (
     AragoraClient,
     AragoraError,
     RateLimitError,
