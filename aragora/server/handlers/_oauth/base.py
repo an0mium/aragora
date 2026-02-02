@@ -121,12 +121,48 @@ class OAuthHandler(
         _asa = impl.add_span_attributes  # noqa: F841
 
         with _cs(f"oauth.{provider}", {"oauth.provider": provider, "oauth.path": path}) as span:
-            # Rate limit check
+            # Get client IP for rate limiting
             client_ip = get_client_ip(handler)
-            if not impl._oauth_limiter.is_allowed(client_ip):
-                logger.warning(f"Rate limit exceeded for OAuth endpoint: {client_ip}")
-                _asa(span, {"oauth.rate_limited": True})
-                return error_response("Rate limit exceeded. Please try again later.", 429)
+
+            # Determine endpoint type for rate limiting:
+            # - "token": Token exchange endpoints (POST /callback API, link/unlink)
+            # - "callback": OAuth callback handlers (GET /callback from providers)
+            # - "auth_start": Auth redirect endpoints (GET /google, /github, etc.)
+            is_callback = "/callback" in path
+            is_token_endpoint = (
+                path.endswith("/link")
+                or path.endswith("/unlink")
+                or (is_callback and method == "POST")
+            )
+
+            if is_token_endpoint:
+                endpoint_type = "token"
+            elif is_callback:
+                endpoint_type = "callback"
+            else:
+                endpoint_type = "auth_start"
+
+            # Rate limit check using new OAuth limiter with exponential backoff
+            oauth_limiter = get_oauth_limiter()
+            rate_limit_result = oauth_limiter.check(client_ip, endpoint_type, provider)
+
+            if not rate_limit_result.allowed:
+                logger.warning(
+                    f"OAuth rate limit exceeded: ip={client_ip}, endpoint={endpoint_type}, "
+                    f"provider={provider}, backoff={rate_limit_result.retry_after}s"
+                )
+                _asa(span, {"oauth.rate_limited": True, "oauth.backoff": rate_limit_result.retry_after})
+
+                # Include Retry-After header for exponential backoff
+                headers = {}
+                if rate_limit_result.retry_after > 0:
+                    headers["Retry-After"] = str(int(rate_limit_result.retry_after))
+
+                return error_response(
+                    "Too many authentication attempts. Please try again later.",
+                    429,
+                    headers=headers,
+                )
 
             if hasattr(handler, "command"):
                 method = handler.command

@@ -163,11 +163,11 @@ class TestVerifyConsensusTool:
 
         with (
             patch(
-                "aragora.mcp.tools_module.verification.get_debates_db",
+                "aragora.server.storage.get_debates_db",
                 return_value=mock_db,
             ),
             patch(
-                "aragora.mcp.tools_module.verification.FormalVerificationManager",
+                "aragora.verification.formal.FormalVerificationManager",
                 return_value=mock_manager,
             ),
         ):
@@ -183,10 +183,10 @@ class TestVerifyConsensusTool:
         """Test verify when storage not available."""
         with (
             patch(
-                "aragora.mcp.tools_module.verification.FormalVerificationManager",
+                "aragora.verification.formal.FormalVerificationManager",
             ),
             patch(
-                "aragora.mcp.tools_module.verification.get_debates_db",
+                "aragora.server.storage.get_debates_db",
                 return_value=None,
             ),
         ):
@@ -203,10 +203,10 @@ class TestVerifyConsensusTool:
 
         with (
             patch(
-                "aragora.mcp.tools_module.verification.FormalVerificationManager",
+                "aragora.verification.formal.FormalVerificationManager",
             ),
             patch(
-                "aragora.mcp.tools_module.verification.get_debates_db",
+                "aragora.server.storage.get_debates_db",
                 return_value=mock_db,
             ),
         ):
@@ -228,10 +228,10 @@ class TestVerifyConsensusTool:
 
         with (
             patch(
-                "aragora.mcp.tools_module.verification.FormalVerificationManager",
+                "aragora.verification.formal.FormalVerificationManager",
             ),
             patch(
-                "aragora.mcp.tools_module.verification.get_debates_db",
+                "aragora.server.storage.get_debates_db",
                 return_value=mock_db,
             ),
         ):
@@ -244,7 +244,7 @@ class TestVerifyConsensusTool:
     async def test_verify_import_error(self):
         """Test graceful handling when verification module not available."""
         with patch(
-            "aragora.mcp.tools_module.verification.FormalVerificationManager",
+            "aragora.verification.formal.FormalVerificationManager",
             side_effect=ImportError("Not installed"),
         ):
             result = await verify_consensus_tool(debate_id="debate-123")
@@ -265,11 +265,11 @@ class TestVerifyConsensusTool:
 
         with (
             patch(
-                "aragora.mcp.tools_module.verification.get_debates_db",
+                "aragora.server.storage.get_debates_db",
                 return_value=mock_db,
             ),
             patch(
-                "aragora.mcp.tools_module.verification.FormalVerificationManager",
+                "aragora.verification.formal.FormalVerificationManager",
                 return_value=mock_manager,
             ),
         ):
@@ -296,7 +296,7 @@ class TestGenerateProofTool:
         mock_backend.translate.return_value = "theorem test : 1 + 1 = 2 := rfl"
 
         with patch(
-            "aragora.mcp.tools_module.verification.LeanBackend",
+            "aragora.verification.formal.LeanBackend",
             return_value=mock_backend,
         ):
             result = await generate_proof_tool(
@@ -316,7 +316,7 @@ class TestGenerateProofTool:
         mock_backend.translate.return_value = "(assert (= (+ 1 1) 2))"
 
         with patch(
-            "aragora.mcp.tools_module.verification.Z3Backend",
+            "aragora.verification.formal.Z3Backend",
             return_value=mock_backend,
         ):
             result = await generate_proof_tool(
@@ -335,7 +335,7 @@ class TestGenerateProofTool:
         mock_backend.translate.return_value = "theorem"
 
         with patch(
-            "aragora.mcp.tools_module.verification.LeanBackend",
+            "aragora.verification.formal.LeanBackend",
             return_value=mock_backend,
         ):
             await generate_proof_tool(
@@ -354,7 +354,7 @@ class TestGenerateProofTool:
         mock_backend.translate.return_value = None
 
         with patch(
-            "aragora.mcp.tools_module.verification.LeanBackend",
+            "aragora.verification.formal.LeanBackend",
             return_value=mock_backend,
         ):
             result = await generate_proof_tool(claim="Complex claim")
@@ -367,7 +367,7 @@ class TestGenerateProofTool:
     async def test_generate_import_error(self):
         """Test graceful handling when verification module not available."""
         with patch(
-            "aragora.mcp.tools_module.verification.LeanBackend",
+            "aragora.verification.formal.LeanBackend",
             side_effect=ImportError("Not installed"),
         ):
             result = await generate_proof_tool(claim="Test claim")
@@ -382,7 +382,7 @@ class TestGenerateProofTool:
         mock_backend.translate.side_effect = RuntimeError("Backend error")
 
         with patch(
-            "aragora.mcp.tools_module.verification.LeanBackend",
+            "aragora.verification.formal.LeanBackend",
             return_value=mock_backend,
         ):
             result = await generate_proof_tool(claim="Test claim")
