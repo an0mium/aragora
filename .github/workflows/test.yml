@@ -316,11 +316,12 @@ jobs:
                       break
 
           if failures:
-              print('\\n⚠️ Critical module coverage below threshold:')
+              print('\\n❌ Critical module coverage below threshold:')
               for f in failures:
                   print(f'  • {f}')
-              # Warning only for now - will become error in future
-              print('\\nThis is a warning - will become blocking in future releases.')
+              # Phase 4 hardening: Coverage enforcement now blocking (Feb 2026)
+              import sys
+              sys.exit(1)
           "
 
       - name: Upload coverage artifacts
