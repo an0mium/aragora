@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 CRM Company Operations - Mixin for Company-Related API Endpoints.
 

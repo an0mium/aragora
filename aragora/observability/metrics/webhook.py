@@ -285,6 +285,25 @@ class WebhookDeliveryTimer:
 
 
 # =============================================================================
+# Context Manager Wrappers
+# =============================================================================
+
+
+def track_webhook_delivery(event_type: str):
+    """
+    Context manager to track webhook delivery.
+
+    Wraps WebhookDeliveryTimer for use as a context manager.
+
+    Usage:
+        with track_webhook_delivery("debate_end") as timer:
+            success = deliver_webhook(...)
+            timer.set_success(success)
+    """
+    return WebhookDeliveryTimer(event_type)
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -296,4 +315,5 @@ __all__ = [
     "increment_queue",
     "decrement_queue",
     "WebhookDeliveryTimer",
+    "track_webhook_delivery",
 ]

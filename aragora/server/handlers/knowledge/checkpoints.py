@@ -190,7 +190,7 @@ class KMCheckpointHandler(BaseHandler):
             decision = check_permission(rbac_context, permission_key, resource_id)
 
             if not decision.allowed:
-                record_rbac_check(permission_key, allowed=False, handler="KMCheckpointHandler")
+                record_rbac_check(permission_key, granted=False)
                 logger.warning(
                     "RBAC denied: user=%s permission=%s reason=%s",
                     user_id,
@@ -202,10 +202,10 @@ class KMCheckpointHandler(BaseHandler):
                     status=403,
                 )
 
-            record_rbac_check(permission_key, allowed=True, handler="KMCheckpointHandler")
+            record_rbac_check(permission_key, granted=True)
             return None
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             logger.error("RBAC check failed: %s", e)
             # Fail open for backwards compatibility but log the error
             return None

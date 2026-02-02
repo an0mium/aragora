@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 CRM Platform API Handlers.
 

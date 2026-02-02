@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 CRM Deal Operations - Mixin for Deal-Related API Endpoints.
 

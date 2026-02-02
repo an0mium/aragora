@@ -20,22 +20,37 @@ interface NavItem {
 // Quick action items - always visible at top
 const quickActions: NavItem[] = [
   { label: 'New Debate', href: '/arena', icon: '+' },
-  { label: 'Stress Test', href: '/gauntlet', icon: '%' },
+  { label: 'Inbox', href: '/inbox', icon: '!' },
+  { label: 'Workflows', href: '/workflows', icon: '>' },
 ];
 
-// Primary navigation items
-const primaryNav: NavItem[] = [
-  { label: 'Home', href: '/', icon: '≡' },
-  { label: 'About', href: '/about', icon: 'i' },
-  { label: 'Vetted Decisionmaking', href: '/deliberations', icon: '◎' },
+// Core navigation items - always visible
+const coreNav: NavItem[] = [
+  { label: 'Dashboard', href: '/', icon: '≡' },
   { label: 'Debates', href: '/debates', icon: '⌘' },
   { label: 'Knowledge', href: '/knowledge', icon: '?' },
   { label: 'Agents', href: '/agents', icon: '&' },
-  { label: 'Analytics', href: '/analytics', icon: '~', minMode: 'standard' },
-  { label: 'Settings', href: '/settings', icon: '*', requiresAuth: true },
+  { label: 'Analytics', href: '/analytics', icon: '~' },
 ];
 
-// Browse section items - collapsed by default
+// Enterprise section - highlighted for business users
+const enterpriseItems: NavItem[] = [
+  { label: 'Gauntlet', href: '/gauntlet', icon: '⚡' },
+  { label: 'Compliance', href: '/audit', icon: '✓' },
+  { label: 'Control Plane', href: '/control-plane', icon: '◎' },
+  { label: 'Receipts', href: '/receipts', icon: '$' },
+  { label: 'Explainability', href: '/explainability', icon: '💡' },
+];
+
+// Tools section
+const toolsItems: NavItem[] = [
+  { label: 'Documents', href: '/documents', icon: ']' },
+  { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'standard' },
+  { label: 'Templates', href: '/templates', icon: '[', minMode: 'standard' },
+  { label: 'Integrations', href: '/integrations', icon: '∫', minMode: 'standard' },
+];
+
+// Browse section items
 const browseItems: NavItem[] = [
   { label: 'Gallery', href: '/gallery', icon: '✦' },
   { label: 'Leaderboard', href: '/leaderboard', icon: '^' },
@@ -43,19 +58,18 @@ const browseItems: NavItem[] = [
   { label: 'Reviews', href: '/reviews', icon: '<' },
 ];
 
-// Tools section - progressive disclosure
-const toolsItems: NavItem[] = [
-  { label: 'Documents', href: '/documents', icon: ']' },
-  { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'advanced' },
-  { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'advanced' },
-  { label: 'Templates', href: '/templates', icon: '[', minMode: 'advanced' },
-];
-
 // Advanced section - expert users
 const advancedItems: NavItem[] = [
   { label: 'Genesis', href: '/genesis', icon: '@', minMode: 'expert' },
   { label: 'Memory', href: '/memory', icon: '=', minMode: 'advanced' },
   { label: 'Introspection', href: '/introspection', icon: '⊙', minMode: 'expert' },
+];
+
+// Settings section
+const settingsItems: NavItem[] = [
+  { label: 'Settings', href: '/settings', icon: '*', requiresAuth: true },
+  { label: 'Admin', href: '/admin', icon: '⚙', adminOnly: true },
+  { label: 'About', href: '/about', icon: 'i' },
 ];
 
 export function LeftSidebar() {
@@ -119,12 +133,40 @@ export function LeftSidebar() {
 
     return (
       <div className="mb-4">
-        {!leftSidebarCollapsed && (
+        {!leftSidebarCollapsed && title && (
           <div className="px-3 mb-2 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {title}
           </div>
         )}
         <nav className="space-y-1">
+          {filtered.map(renderNavItem)}
+        </nav>
+      </div>
+    );
+  };
+
+  // Special rendering for Enterprise section with highlight
+  const renderEnterpriseSection = () => {
+    const filtered = filterItems(enterpriseItems);
+    if (filtered.length === 0) return null;
+
+    return (
+      <div className="mb-4">
+        {!leftSidebarCollapsed && (
+          <div className="px-3 mb-2 flex items-center gap-2">
+            <span className="text-xs font-medium text-[var(--acid-green)] uppercase tracking-wider">
+              Enterprise
+            </span>
+            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-[var(--acid-green)]/10 text-[var(--acid-green)] rounded">
+              PRO
+            </span>
+          </div>
+        )}
+        <nav className="space-y-1 relative">
+          <div
+            className="absolute -left-1 top-0 bottom-0 w-0.5 bg-[var(--acid-green)]/30 rounded-full"
+            aria-hidden="true"
+          />
           {filtered.map(renderNavItem)}
         </nav>
       </div>
@@ -152,10 +194,12 @@ export function LeftSidebar() {
 
       {/* Scrollable Navigation */}
       <div className="flex-1 overflow-y-auto p-3">
-        {renderSection('Navigation', primaryNav)}
+        {renderSection('Core', coreNav)}
+        {renderEnterpriseSection()}
+        {renderSection('Tools', toolsItems)}
         {renderSection('Browse', browseItems)}
-        {renderSection('Tools', toolsItems, 'standard')}
         {renderSection('Advanced', advancedItems, 'advanced')}
+        {renderSection('', settingsItems)}
       </div>
 
       {/* Bottom: Login/User + Mode Selector + Collapse Toggle */}

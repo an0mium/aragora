@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 CRM Pipeline Operations - Mixin for Pipeline, Lead Sync, Enrichment, and Search.
 

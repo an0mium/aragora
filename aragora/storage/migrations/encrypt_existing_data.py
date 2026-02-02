@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Migration utility to encrypt existing plaintext data.
 

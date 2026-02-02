@@ -279,14 +279,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                     context.user_id,
                     decision.reason,
                 )
-                record_rbac_check(permission_key, allowed=False, handler="WorkflowHandler")
+                record_rbac_check(permission_key, granted=False)
                 return error_response(f"Permission denied: {decision.reason}", 403)
-            record_rbac_check(permission_key, allowed=True)
+            record_rbac_check(permission_key, granted=True)
         except PermissionDeniedError as e:
             logger.warning(
                 "Permission denied: %s for user %s: %s", permission_key, context.user_id, e
             )
-            record_rbac_check(permission_key, allowed=False, handler="WorkflowHandler")
+            record_rbac_check(permission_key, granted=False)
             return error_response(f"Permission denied: {str(e)}", 403)
         return None
 

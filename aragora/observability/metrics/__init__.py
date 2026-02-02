@@ -490,6 +490,7 @@ from aragora.observability.metrics.webhook import (  # noqa: F401
     set_queue_size as set_webhook_queue_size,
     set_active_endpoints as set_webhook_active_endpoints,
     WebhookDeliveryTimer,
+    track_webhook_delivery,
 )
 
 # =============================================================================
@@ -869,6 +870,7 @@ __all__ = [
     "set_webhook_active_endpoints",
     "set_webhook_circuit_breaker_state",
     "WebhookDeliveryTimer",
+    "track_webhook_delivery",
     # SLO
     "init_slo_metrics",
     "record_slo_check",

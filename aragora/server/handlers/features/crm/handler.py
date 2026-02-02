@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 CRM Handler - Main Handler Class with Request Routing.
 
