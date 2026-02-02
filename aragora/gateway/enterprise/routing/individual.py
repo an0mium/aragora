@@ -452,7 +452,7 @@ class IndividualTenantHandler:
             return random.choice(endpoints)
 
         r = random.uniform(0, total_weight)
-        cumulative = 0
+        cumulative = 0.0
         for i, endpoint in enumerate(endpoints):
             cumulative += weights[i]
             if r <= cumulative:

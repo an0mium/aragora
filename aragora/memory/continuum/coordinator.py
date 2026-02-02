@@ -8,6 +8,8 @@ The ContinuumMemory class implements Google's Nested Learning paradigm
 where memory is treated as a spectrum with modules updating at different
 frequency rates, enabling continual learning without catastrophic forgetting.
 """
+# mypy: disable-error-code="misc"
+# Mixin composition uses self-type hints that mypy doesn't understand
 
 from __future__ import annotations
 

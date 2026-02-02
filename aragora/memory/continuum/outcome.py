@@ -4,6 +4,8 @@ Outcome and surprise scoring mixin for ContinuumMemory.
 Provides update_outcome, learning rate calculation, and related
 surprise-based learning operations.
 """
+# mypy: disable-error-code="misc"
+# Mixin classes use self: "ContinuumMemory" type hints which mypy doesn't understand
 
 from __future__ import annotations
 

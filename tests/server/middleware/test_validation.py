@@ -4,7 +4,7 @@ Tests for aragora.server.middleware.validation - Request validation middleware.
 Tests cover:
 - RouteValidation dataclass and matching
 - ValidationConfig settings
-- ValidationResult properties
+- MiddlewareValidationResult properties
 - ValidationMiddleware.validate_request() for various scenarios
 - Query parameter validation
 - Body size validation
@@ -110,27 +110,27 @@ class TestValidationConfig:
 
 
 # ===========================================================================
-# Test ValidationResult
+# Test MiddlewareValidationResult
 # ===========================================================================
 
 
-class TestValidationResult:
-    """Tests for ValidationResult dataclass."""
+class TestMiddlewareValidationResult:
+    """Tests for MiddlewareValidationResult dataclass."""
 
     def test_valid_result(self):
         """Valid result should have no errors."""
-        from aragora.server.middleware.validation import ValidationResult
+        from aragora.server.middleware.validation import MiddlewareValidationResult
 
-        result = ValidationResult(valid=True)
+        result = MiddlewareValidationResult(valid=True)
         assert result.valid is True
         assert result.errors == []
         assert result.error_message == ""
 
     def test_invalid_result_with_errors(self):
         """Invalid result should contain error messages."""
-        from aragora.server.middleware.validation import ValidationResult
+        from aragora.server.middleware.validation import MiddlewareValidationResult
 
-        result = ValidationResult(
+        result = MiddlewareValidationResult(
             valid=False,
             errors=["Missing required parameter", "Body too large"],
         )
@@ -141,13 +141,20 @@ class TestValidationResult:
 
     def test_error_message_joins_errors(self):
         """Error message should join multiple errors with semicolons."""
-        from aragora.server.middleware.validation import ValidationResult
+        from aragora.server.middleware.validation import MiddlewareValidationResult
 
-        result = ValidationResult(
+        result = MiddlewareValidationResult(
             valid=False,
             errors=["Error 1", "Error 2", "Error 3"],
         )
         assert result.error_message == "Error 1; Error 2; Error 3"
+
+    def test_backward_compat_alias(self):
+        """ValidationResult alias should work for backward compatibility."""
+        from aragora.server.middleware.validation import ValidationResult
+
+        result = ValidationResult(valid=True)
+        assert result.valid is True
 
 
 # ===========================================================================

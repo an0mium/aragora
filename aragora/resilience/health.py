@@ -24,14 +24,41 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
+class HealthStatus(str, Enum):
+    """Unified health status for system components.
+
+    This is the canonical HealthStatus enum for the Aragora codebase.
+    All modules should import this enum from here rather than defining
+    their own.
+
+    Values:
+        HEALTHY: All systems operational
+        DEGRADED: Some issues but functional
+        UNHEALTHY: Significant issues, limited functionality
+        CRITICAL: Major failures, immediate attention needed
+        UNKNOWN: Status cannot be determined
+    """
+
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
+    CRITICAL = "critical"
+    UNKNOWN = "unknown"
+
+
 @dataclass
-class HealthStatus:
-    """Health status for a component.
+class ComponentHealthStatus:
+    """Detailed health status for a component.
+
+    This dataclass provides detailed health information for a specific
+    component, including latency metrics and error history. For simple
+    health state representation, use the HealthStatus enum.
 
     Attributes:
         healthy: Whether the component is healthy
@@ -61,7 +88,7 @@ class HealthStatus:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HealthStatus":
+    def from_dict(cls, data: dict[str, Any]) -> "ComponentHealthStatus":
         """Create from dictionary."""
         return cls(
             healthy=data["healthy"],
@@ -83,13 +110,13 @@ class HealthReport:
 
     Attributes:
         overall_healthy: Whether all components are healthy
-        components: Dictionary of component name to HealthStatus
+        components: Dictionary of component name to ComponentHealthStatus
         checked_at: When the report was generated
         summary: Human-readable summary
     """
 
     overall_healthy: bool
-    components: dict[str, HealthStatus]
+    components: dict[str, ComponentHealthStatus]
     checked_at: datetime
     summary: str = ""
 
@@ -179,14 +206,14 @@ class HealthChecker:
                     f"[{self.name}] Health degraded after {self._consecutive_failures} failures: {error}"
                 )
 
-    def get_status(self) -> HealthStatus:
+    def get_status(self) -> ComponentHealthStatus:
         """Get current health status."""
         with self._lock:
             avg_latency = None
             if self._latencies:
                 avg_latency = sum(self._latencies) / len(self._latencies)
 
-            return HealthStatus(
+            return ComponentHealthStatus(
                 healthy=self._healthy,
                 last_check=self._last_check,
                 consecutive_failures=self._consecutive_failures,
@@ -318,7 +345,7 @@ class HealthRegistry:
             summary=summary,
         )
 
-    def get_all_statuses(self) -> dict[str, HealthStatus]:
+    def get_all_statuses(self) -> dict[str, ComponentHealthStatus]:
         """Get status for all registered components."""
         with self._lock:
             return {name: checker.get_status() for name, checker in self._checkers.items()}
@@ -346,6 +373,7 @@ def get_global_health_registry() -> HealthRegistry:
 
 __all__ = [
     "HealthStatus",
+    "ComponentHealthStatus",
     "HealthChecker",
     "HealthReport",
     "HealthRegistry",

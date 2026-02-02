@@ -83,24 +83,33 @@ def _check_module(module_name: str) -> bool:
 
 
 @dataclass
-class ValidationResult:
-    """Result of feature validation."""
+class FeatureValidationResult:
+    """Result of feature dependency validation.
+
+    Note: This is distinct from aragora.core.types.ValidationResult which uses
+    `is_valid` instead of `valid`. This class is specific to Arena feature
+    dependency validation.
+    """
 
     valid: bool
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
 
-def validate_feature_dependencies(config: "ArenaConfig") -> ValidationResult:
+# Backward compatibility alias - deprecated, use FeatureValidationResult
+ValidationResult = FeatureValidationResult
+
+
+def validate_feature_dependencies(config: "ArenaConfig") -> FeatureValidationResult:
     """Validate that enabled features have their dependencies met.
 
     Args:
         config: ArenaConfig to validate
 
     Returns:
-        ValidationResult with any warnings or errors
+        FeatureValidationResult with any warnings or errors
     """
-    result = ValidationResult(valid=True)
+    result = FeatureValidationResult(valid=True)
 
     # Check belief guidance
     if getattr(config, "enable_belief_guidance", False):

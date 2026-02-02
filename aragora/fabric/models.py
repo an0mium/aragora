@@ -11,6 +11,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
+from aragora.resilience.health import HealthStatus
+
 
 class Priority(Enum):
     """Task priority levels."""
@@ -31,15 +33,6 @@ class TaskStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
-
-
-class HealthStatus(Enum):
-    """Agent health status."""
-
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
-    UNKNOWN = "unknown"
 
 
 class PolicyEffect(Enum):

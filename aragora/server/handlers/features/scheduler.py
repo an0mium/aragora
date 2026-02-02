@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 _scheduler_circuit_breaker = CircuitBreaker.from_config(
-    CircuitBreakerConfig(
+    CircuitBreakerConfig(  # type: ignore[arg-type]  # v2 config compat
         failure_threshold=5,
         cooldown_seconds=60.0,
         success_threshold=2,

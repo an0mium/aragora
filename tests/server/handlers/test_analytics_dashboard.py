@@ -671,7 +671,7 @@ class TestGetProviderBreakdownMethod:
 class TestFlipSummaryMethod:
     """Tests for _get_flip_summary method."""
 
-    def test_flip_summary_happy_path(self, handler):
+    def test_flip_summary_happy_path(self, handler, authed_handler, patch_auth):
         """Flip summary returns detector data."""
         mock_detector = MagicMock()
         mock_detector.get_flip_summary.return_value = {
@@ -683,19 +683,19 @@ class TestFlipSummaryMethod:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_summary({})
+            result = handler._get_flip_summary({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["total_flips"] == 150
 
-    def test_flip_summary_handles_error(self, handler):
+    def test_flip_summary_handles_error(self, handler, authed_handler, patch_auth):
         """Flip summary returns 500 on internal error."""
         with patch(
             "aragora.insights.flip_detector.FlipDetector",
             side_effect=RuntimeError("DB unavailable"),
         ):
-            result = handler._get_flip_summary({})
+            result = handler._get_flip_summary({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 500
 
@@ -703,7 +703,7 @@ class TestFlipSummaryMethod:
 class TestRecentFlipsMethod:
     """Tests for _get_recent_flips method."""
 
-    def test_recent_flips_with_defaults(self, handler):
+    def test_recent_flips_with_defaults(self, handler, authed_handler, patch_auth):
         """Recent flips uses default limit and no filters."""
         mock_flip = MagicMock()
         mock_flip.agent_name = "claude"
@@ -720,13 +720,13 @@ class TestRecentFlipsMethod:
                 "aragora.insights.flip_detector.format_flip_for_ui",
                 return_value={"agent": "claude", "type": "contradiction"},
             ):
-                result = handler._get_recent_flips({})
+                result = handler._get_recent_flips({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["count"] == 1
 
-    def test_recent_flips_with_agent_filter(self, handler):
+    def test_recent_flips_with_agent_filter(self, handler, authed_handler, patch_auth):
         """Recent flips filters by agent name."""
         mock_flip_1 = MagicMock()
         mock_flip_1.agent_name = "claude"
@@ -746,13 +746,13 @@ class TestRecentFlipsMethod:
                 "aragora.insights.flip_detector.format_flip_for_ui",
                 return_value={"agent": "claude", "type": "contradiction"},
             ):
-                result = handler._get_recent_flips({"agent": "claude"})
+                result = handler._get_recent_flips({"agent": "claude"}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["count"] == 1
 
-    def test_recent_flips_invalid_limit_uses_default(self, handler):
+    def test_recent_flips_invalid_limit_uses_default(self, handler, authed_handler, patch_auth):
         """Recent flips falls back to default limit for invalid value."""
         mock_detector = MagicMock()
         mock_detector.get_recent_flips.return_value = []
@@ -761,13 +761,13 @@ class TestRecentFlipsMethod:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_recent_flips({"limit": "not_a_number"})
+            result = handler._get_recent_flips({"limit": "not_a_number"}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         # Default limit is 20, so fetch 20*2 = 40
         mock_detector.get_recent_flips.assert_called_once_with(limit=40)
 
-    def test_recent_flips_limit_capped_at_100(self, handler):
+    def test_recent_flips_limit_capped_at_100(self, handler, authed_handler, patch_auth):
         """Recent flips caps limit at 100."""
         mock_detector = MagicMock()
         mock_detector.get_recent_flips.return_value = []
@@ -776,7 +776,7 @@ class TestRecentFlipsMethod:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_recent_flips({"limit": "500"})
+            result = handler._get_recent_flips({"limit": "500"}, handler=authed_handler)
         assert result is not None
         # min(500, 100) = 100, fetch 100*2 = 200
         mock_detector.get_recent_flips.assert_called_once_with(limit=200)
@@ -785,7 +785,7 @@ class TestRecentFlipsMethod:
 class TestAgentConsistencyMethod:
     """Tests for _get_agent_consistency method."""
 
-    def test_consistency_with_specific_agents(self, handler):
+    def test_consistency_with_specific_agents(self, handler, authed_handler, patch_auth):
         """Consistency returns data for specified agents."""
         mock_score = MagicMock()
         mock_detector = MagicMock()
@@ -799,13 +799,15 @@ class TestAgentConsistencyMethod:
                 "aragora.insights.flip_detector.format_consistency_for_ui",
                 return_value={"agent": "claude", "consistency": "92%"},
             ):
-                result = handler._get_agent_consistency({"agents": "claude,gpt-4"})
+                result = handler._get_agent_consistency(
+                    {"agents": "claude,gpt-4"}, handler=authed_handler
+                )
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["count"] == 1
 
-    def test_consistency_empty_agents_returns_all(self, handler):
+    def test_consistency_empty_agents_returns_all(self, handler, authed_handler, patch_auth):
         """Consistency with empty agents param fetches all."""
         mock_detector = MagicMock()
         mock_detector.get_flip_summary.return_value = {"by_agent": {}}
@@ -814,7 +816,7 @@ class TestAgentConsistencyMethod:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_agent_consistency({"agents": ""})
+            result = handler._get_agent_consistency({"agents": ""}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -825,7 +827,7 @@ class TestAgentConsistencyMethod:
 class TestFlipTrendsMethod:
     """Tests for _get_flip_trends method."""
 
-    def test_flip_trends_happy_path(self, handler):
+    def test_flip_trends_happy_path(self, handler, authed_handler, patch_auth):
         """Flip trends returns trend data with summary."""
         mock_row_1 = ("2024-01-15", "contradiction", 3)
         mock_row_2 = ("2024-01-15", "refinement", 2)
@@ -847,7 +849,9 @@ class TestFlipTrendsMethod:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({"days": "7", "granularity": "day"})
+            result = handler._get_flip_trends(
+                {"days": "7", "granularity": "day"}, handler=authed_handler
+            )
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -856,7 +860,9 @@ class TestFlipTrendsMethod:
         assert body["summary"]["total_flips"] == 9
         assert len(body["data_points"]) == 2
 
-    def test_flip_trends_invalid_granularity_defaults_to_day(self, handler):
+    def test_flip_trends_invalid_granularity_defaults_to_day(
+        self, handler, authed_handler, patch_auth
+    ):
         """Flip trends defaults to day for invalid granularity."""
         mock_conn = MagicMock()
         mock_conn.__enter__ = MagicMock(return_value=mock_conn)
@@ -870,13 +876,13 @@ class TestFlipTrendsMethod:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({"granularity": "minute"})
+            result = handler._get_flip_trends({"granularity": "minute"}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["granularity"] == "day"
 
-    def test_flip_trends_empty_data_insufficient_trend(self, handler):
+    def test_flip_trends_empty_data_insufficient_trend(self, handler, authed_handler, patch_auth):
         """Flip trends returns insufficient_data when no data points."""
         mock_conn = MagicMock()
         mock_conn.__enter__ = MagicMock(return_value=mock_conn)
@@ -890,7 +896,7 @@ class TestFlipTrendsMethod:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({})
+            result = handler._get_flip_trends({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1400,27 +1406,27 @@ class TestRateLimiting:
 class TestErrorHandling:
     """Tests for comprehensive error handling."""
 
-    def test_flip_detector_import_error_handled(self, handler):
+    def test_flip_detector_import_error_handled(self, handler, authed_handler, patch_auth):
         """Flip detector handles ImportError gracefully."""
         with patch(
             "aragora.insights.flip_detector.FlipDetector",
             side_effect=ImportError("Module not found"),
         ):
-            result = handler._get_flip_summary({})
+            result = handler._get_flip_summary({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 500
 
-    def test_flip_detector_lookup_error_handled(self, handler):
+    def test_flip_detector_lookup_error_handled(self, handler, authed_handler, patch_auth):
         """Flip detector handles LookupError gracefully."""
         with patch(
             "aragora.insights.flip_detector.FlipDetector",
             side_effect=LookupError("Key not found"),
         ):
-            result = handler._get_flip_summary({})
+            result = handler._get_flip_summary({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 500
 
-    def test_flip_trends_db_error_handled(self, handler):
+    def test_flip_trends_db_error_handled(self, handler, authed_handler, patch_auth):
         """Flip trends handles database errors gracefully."""
         mock_detector = MagicMock()
         mock_detector.db.connection.side_effect = RuntimeError("Database error")
@@ -1429,11 +1435,11 @@ class TestErrorHandling:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({})
+            result = handler._get_flip_trends({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 500
 
-    def test_recent_flips_error_handled(self, handler):
+    def test_recent_flips_error_handled(self, handler, authed_handler, patch_auth):
         """Recent flips handles errors gracefully."""
         mock_detector = MagicMock()
         mock_detector.get_recent_flips.side_effect = RuntimeError("Database error")
@@ -1442,11 +1448,11 @@ class TestErrorHandling:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_recent_flips({})
+            result = handler._get_recent_flips({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 500
 
-    def test_consistency_error_handled(self, handler):
+    def test_consistency_error_handled(self, handler, authed_handler, patch_auth):
         """Agent consistency handles errors gracefully."""
         mock_detector = MagicMock()
         mock_detector.get_flip_summary.return_value = {"by_agent": {"claude": 5}}
@@ -1456,7 +1462,7 @@ class TestErrorHandling:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_agent_consistency({"agents": "claude"})
+            result = handler._get_agent_consistency({"agents": "claude"}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 500
 
@@ -1497,7 +1503,7 @@ class TestMetricCalculations:
         body = json.loads(result.body)
         assert body["consensus_rate"] == "0%"
 
-    def test_flip_trend_detection_increasing(self, handler):
+    def test_flip_trend_detection_increasing(self, handler, authed_handler, patch_auth):
         """Flip trend correctly detects increasing pattern."""
         # First half: low counts, second half: high counts
         mock_rows = [
@@ -1519,14 +1525,14 @@ class TestMetricCalculations:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({})
+            result = handler._get_flip_trends({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         # 1+1 = 2 first half, 10+10 = 20 second half -> increasing
         assert body["summary"]["trend"] == "increasing"
 
-    def test_flip_trend_detection_decreasing(self, handler):
+    def test_flip_trend_detection_decreasing(self, handler, authed_handler, patch_auth):
         """Flip trend correctly detects decreasing pattern."""
         # First half: high counts, second half: low counts
         mock_rows = [
@@ -1548,14 +1554,14 @@ class TestMetricCalculations:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({})
+            result = handler._get_flip_trends({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         # 10+10 = 20 first half, 1+1 = 2 second half -> decreasing
         assert body["summary"]["trend"] == "decreasing"
 
-    def test_flip_trend_detection_stable(self, handler):
+    def test_flip_trend_detection_stable(self, handler, authed_handler, patch_auth):
         """Flip trend correctly detects stable pattern."""
         # Both halves have similar counts
         mock_rows = [
@@ -1577,14 +1583,14 @@ class TestMetricCalculations:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({})
+            result = handler._get_flip_trends({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         # Both halves equal -> stable
         assert body["summary"]["trend"] == "stable"
 
-    def test_flip_trend_single_data_point(self, handler):
+    def test_flip_trend_single_data_point(self, handler, authed_handler, patch_auth):
         """Flip trend handles single data point gracefully."""
         mock_rows = [("2024-01-01", "contradiction", 5)]
 
@@ -1600,7 +1606,7 @@ class TestMetricCalculations:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({})
+            result = handler._get_flip_trends({}, handler=authed_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1789,7 +1795,7 @@ class TestDaysParameterClamping:
         body = json.loads(result.body)
         assert body["period"]["days"] == 30  # Default
 
-    def test_flip_trends_days_clamped(self, handler):
+    def test_flip_trends_days_clamped(self, handler, authed_handler, patch_auth):
         """Flip trends clamps days parameter."""
         mock_conn = MagicMock()
         mock_conn.__enter__ = MagicMock(return_value=mock_conn)
@@ -1803,7 +1809,7 @@ class TestDaysParameterClamping:
             "aragora.insights.flip_detector.FlipDetector",
             return_value=mock_detector,
         ):
-            result = handler._get_flip_trends({"days": "500"})  # Over max
+            result = handler._get_flip_trends({"days": "500"}, handler=authed_handler)  # Over max
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1818,7 +1824,7 @@ class TestDaysParameterClamping:
 class TestFiltering:
     """Tests for filtering functionality in endpoints."""
 
-    def test_recent_flips_type_filter(self, handler):
+    def test_recent_flips_type_filter(self, handler, authed_handler, patch_auth):
         """Recent flips correctly filters by flip_type."""
         mock_flip_1 = MagicMock()
         mock_flip_1.agent_name = "claude"
@@ -1841,14 +1847,16 @@ class TestFiltering:
                 "aragora.insights.flip_detector.format_flip_for_ui",
                 return_value={"type": "contradiction"},
             ):
-                result = handler._get_recent_flips({"flip_type": "contradiction"})
+                result = handler._get_recent_flips(
+                    {"flip_type": "contradiction"}, handler=authed_handler
+                )
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         # Should only return contradictions (flip_1 and flip_3)
         assert body["count"] == 2
 
-    def test_recent_flips_combined_filters(self, handler):
+    def test_recent_flips_combined_filters(self, handler, authed_handler, patch_auth):
         """Recent flips correctly applies both agent and type filters."""
         mock_flip_1 = MagicMock()
         mock_flip_1.agent_name = "claude"
@@ -1872,7 +1880,7 @@ class TestFiltering:
                 return_value={"agent": "claude", "type": "contradiction"},
             ):
                 result = handler._get_recent_flips(
-                    {"agent": "claude", "flip_type": "contradiction"}
+                    {"agent": "claude", "flip_type": "contradiction"}, handler=authed_handler
                 )
         assert result is not None
         assert result.status_code == 200

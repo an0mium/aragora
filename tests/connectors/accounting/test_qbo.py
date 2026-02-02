@@ -665,11 +665,15 @@ class TestQuickBooksConnectorOAuth:
         mock_session = AsyncMock()
         mock_session.post.return_value = mock_response
 
-        mock_pool = MagicMock()
-        mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_pool.get_session.return_value.__aexit__ = AsyncMock()
+        # Create proper async context manager
+        mock_cm = AsyncMock()
+        mock_cm.__aenter__.return_value = mock_session
+        mock_cm.__aexit__.return_value = None
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        mock_pool = MagicMock()
+        mock_pool.get_session.return_value = mock_cm
+
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             creds = await connector.exchange_code(
                 authorization_code="auth-code-123",
                 realm_id="realm-456",
@@ -698,7 +702,7 @@ class TestQuickBooksConnectorOAuth:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_cm
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with pytest.raises(ConnectorAuthError, match="Token exchange failed"):
                 await connector.exchange_code(
                     authorization_code="invalid-code",
@@ -733,7 +737,7 @@ class TestQuickBooksConnectorOAuth:
         mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_pool.get_session.return_value.__aexit__ = AsyncMock()
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             creds = await connector.refresh_tokens()
 
             assert creds.access_token == "new-access-token"
@@ -772,7 +776,7 @@ class TestQuickBooksConnectorOAuth:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_cm
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with pytest.raises(ConnectorAuthError, match="Token refresh failed"):
                 await connector.refresh_tokens()
 
@@ -1452,7 +1456,7 @@ class TestQuickBooksConnectorErrors:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_cm
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with pytest.raises(ConnectorAPIError, match="Invalid request"):
                 await connector._request("GET", "customer/1")
 
@@ -1502,7 +1506,7 @@ class TestQuickBooksConnectorRetry:
         mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_pool.get_session.return_value.__aexit__ = AsyncMock()
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with patch("asyncio.sleep", new=AsyncMock()):
                 result = await connector._request("GET", "customer/1")
                 assert result["Customer"]["Id"] == "1"
@@ -1524,7 +1528,7 @@ class TestQuickBooksConnectorRetry:
         mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_pool.get_session.return_value.__aexit__ = AsyncMock()
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with patch("asyncio.sleep", new=AsyncMock()):
                 result = await connector._request("GET", "test")
                 assert result["data"] == "success"
@@ -1548,7 +1552,7 @@ class TestQuickBooksConnectorRetry:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_cm
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with patch("asyncio.sleep", new=AsyncMock()):
                 with pytest.raises(ConnectorNetworkError, match="connection failed after"):
                     await connector._request("GET", "test", max_retries=3)
@@ -1572,7 +1576,7 @@ class TestQuickBooksConnectorRetry:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_cm
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with patch("asyncio.sleep", new=AsyncMock()):
                 with pytest.raises(ConnectorTimeoutError, match="timed out after"):
                     await connector._request("GET", "test", max_retries=3)
@@ -1862,13 +1866,16 @@ class TestQuickBooksConnectorEdgeCases:
         mock_session = AsyncMock()
         mock_session.request.return_value = mock_response
 
+        mock_cm = AsyncMock()
+        mock_cm.__aenter__.return_value = mock_session
+        mock_cm.__aexit__.return_value = None
+
         mock_pool = MagicMock()
-        mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_pool.get_session.return_value.__aexit__ = AsyncMock()
+        mock_pool.get_session.return_value = mock_cm
 
         with patch.object(connector, "refresh_tokens", side_effect=mock_refresh):
             with patch(
-                "aragora.server.http_client_pool.get_http_pool",
+                "aragora.connectors.accounting.qbo.get_http_pool",
                 return_value=mock_pool,
             ):
                 result = await connector._request("GET", "customer/1")
@@ -1943,7 +1950,7 @@ class TestQuickBooksConnectorEdgeCases:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_cm
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with pytest.raises(ConnectorAPIError, match="Unknown error"):
                 await connector._request("GET", "customer/1")
 
@@ -2629,7 +2636,7 @@ class TestRetryResilienceExtended:
         mock_pool = MagicMock()
         mock_pool.get_session.return_value = mock_cm
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with patch("asyncio.sleep", new=AsyncMock()):
                 with pytest.raises(ConnectorAPIError, match="Service unavailable"):
                     await connector._request("GET", "test", max_retries=2)
@@ -2655,7 +2662,7 @@ class TestRetryResilienceExtended:
         mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_pool.get_session.return_value.__aexit__ = AsyncMock()
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.connectors.accounting.qbo.get_http_pool", return_value=mock_pool):
             with patch("asyncio.sleep", new=AsyncMock()):
                 result = await connector._request("GET", "test", max_retries=3)
                 assert result["data"] == "success"

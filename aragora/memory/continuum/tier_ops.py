@@ -3,6 +3,8 @@ Tier operations mixin for ContinuumMemory.
 
 Provides promote, demote, consolidate, and tier management operations.
 """
+# mypy: disable-error-code="misc"
+# Mixin classes use self: "ContinuumMemory" type hints which mypy doesn't understand
 
 from __future__ import annotations
 

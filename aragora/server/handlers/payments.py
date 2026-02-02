@@ -56,6 +56,42 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# RBAC Permission Constants for Payments
+# =============================================================================
+# These constants define the granular permissions required for payment operations.
+# Financial operations require strict permission checks to prevent unauthorized access.
+
+# Payment transaction permissions
+PERM_PAYMENTS_READ = "payments:read"
+PERM_PAYMENTS_CHARGE = "payments:charge"
+PERM_PAYMENTS_AUTHORIZE = "payments:authorize"
+PERM_PAYMENTS_CAPTURE = "payments:capture"
+PERM_PAYMENTS_REFUND = "payments:refund"
+PERM_PAYMENTS_VOID = "payments:void"
+PERM_PAYMENTS_ADMIN = "payments:admin"
+
+# Customer profile permissions
+PERM_CUSTOMER_READ = "payments:customer:read"
+PERM_CUSTOMER_CREATE = "payments:customer:create"
+PERM_CUSTOMER_UPDATE = "payments:customer:update"
+PERM_CUSTOMER_DELETE = "payments:customer:delete"
+
+# Subscription permissions
+PERM_SUBSCRIPTION_READ = "payments:subscription:read"
+PERM_SUBSCRIPTION_CREATE = "payments:subscription:create"
+PERM_SUBSCRIPTION_UPDATE = "payments:subscription:update"
+PERM_SUBSCRIPTION_CANCEL = "payments:subscription:cancel"
+
+# Webhook permissions (for audit logging - primary auth is signature verification)
+PERM_WEBHOOK_STRIPE = "payments:webhook:stripe"
+PERM_WEBHOOK_AUTHNET = "payments:webhook:authnet"
+
+# Billing permissions (legacy compatibility)
+PERM_BILLING_DELETE = "billing:delete"
+PERM_BILLING_CANCEL = "billing:cancel"
+
 # =============================================================================
 # Resilience Configuration
 # =============================================================================
@@ -355,7 +391,7 @@ async def _resilient_authnet_call(operation: str, func, *args, **kwargs):
 # =============================================================================
 
 
-@require_permission("payments:charge")
+@require_permission(PERM_PAYMENTS_CHARGE)
 @track_handler("payments/charge")
 async def handle_charge(request: web.Request) -> web.Response:
     """
@@ -590,7 +626,7 @@ async def _charge_authnet(
         )
 
 
-@require_permission("payments:authorize")
+@require_permission(PERM_PAYMENTS_AUTHORIZE)
 @track_handler("payments/authorize")
 async def handle_authorize(request: web.Request) -> web.Response:
     """
@@ -673,7 +709,8 @@ async def handle_authorize(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
-@require_permission("payments:capture")
+@require_permission(PERM_PAYMENTS_CAPTURE)
+@track_handler("payments/capture")
 async def handle_capture(request: web.Request) -> web.Response:
     """
     POST /api/payments/capture
@@ -746,7 +783,7 @@ async def handle_capture(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
-@require_permission("payments:refund")
+@require_permission(PERM_PAYMENTS_REFUND)
 @track_handler("payments/refund")
 async def handle_refund(request: web.Request) -> web.Response:
     """
@@ -862,7 +899,8 @@ async def handle_refund(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
-@require_permission("payments:void")
+@require_permission(PERM_PAYMENTS_VOID)
+@track_handler("payments/void")
 async def handle_void(request: web.Request) -> web.Response:
     """
     POST /api/payments/void
@@ -927,7 +965,7 @@ async def handle_void(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
-@require_permission("payments:read")
+@require_permission(PERM_PAYMENTS_READ)
 async def handle_get_transaction(request: web.Request) -> web.Response:
     """
     GET /api/payments/transaction/{transaction_id}
@@ -996,7 +1034,8 @@ async def handle_get_transaction(request: web.Request) -> web.Response:
 # =============================================================================
 
 
-@require_permission("payments:customer:create")
+@require_permission(PERM_CUSTOMER_CREATE)
+@track_handler("payments/customer/create")
 async def handle_create_customer(request: web.Request) -> web.Response:
     """
     POST /api/payments/customer
@@ -1073,7 +1112,8 @@ async def handle_create_customer(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
-@require_permission("payments:customer:read")
+@require_permission(PERM_CUSTOMER_READ)
+@track_handler("payments/customer/read")
 async def handle_get_customer(request: web.Request) -> web.Response:
     """
     GET /api/payments/customer/{customer_id}
@@ -1146,7 +1186,8 @@ async def handle_get_customer(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
-@require_permission("billing:delete")
+@require_permission(PERM_CUSTOMER_DELETE)
+@track_handler("payments/customer/delete")
 async def handle_delete_customer(request: web.Request) -> web.Response:
     """
     DELETE /api/payments/customer/{customer_id}
@@ -1196,12 +1237,268 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
+@require_permission(PERM_CUSTOMER_UPDATE)
+@track_handler("payments/customer/update")
+async def handle_update_customer(request: web.Request) -> web.Response:
+    """
+    PUT /api/payments/customer/{customer_id}
+
+    Update customer profile.
+
+    Request body:
+    {
+        "provider": "stripe" | "authorize_net",
+        "email": "new-email@example.com",  // Optional
+        "name": "New Name",  // Optional
+        "metadata": {}  // Optional, Stripe only
+    }
+    """
+    # Rate limit check for write operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
+    try:
+        customer_id = request.match_info.get("customer_id")
+        if not customer_id:
+            return web_error_response("Missing customer_id", 400)
+
+        body, err = await parse_json_body(request, context="handle_update_customer")
+        if err:
+            return err
+        provider = _get_provider_from_request(request, body)
+
+        email = body.get("email")
+        name = body.get("name")
+        metadata = body.get("metadata")
+
+        if provider == PaymentProvider.AUTHORIZE_NET:
+            connector = await get_authnet_connector(request)
+            if not connector:
+                return web.json_response(
+                    {"error": "Authorize.net connector not available"}, status=503
+                )
+
+            async with connector:
+                success = await connector.update_customer_profile(
+                    customer_profile_id=customer_id,
+                    email=email,
+                    description=name,
+                )
+
+            return web.json_response({"success": success})
+        else:
+            connector = await get_stripe_connector(request)
+            if not connector:
+                return web_error_response("Stripe connector not available", 503)
+
+            update_params: dict[str, Any] = {}
+            if email:
+                update_params["email"] = email
+            if name:
+                update_params["name"] = name
+            if metadata:
+                update_params["metadata"] = metadata
+
+            if not update_params:
+                return web_error_response("No update parameters provided", 400)
+
+            customer = await connector.update_customer(
+                customer_id=customer_id,
+                **update_params,
+            )
+
+            return web.json_response(
+                {
+                    "success": True,
+                    "customer": {
+                        "id": customer.id,
+                        "email": customer.email,
+                        "name": customer.name,
+                    },
+                }
+            )
+
+    except Exception as e:
+        logger.exception(f"Error updating customer: {e}")
+        return web_error_response(str(e), 500)
+
+
 # =============================================================================
 # Subscription Handlers
 # =============================================================================
 
 
-@require_permission("payments:subscription:create")
+@require_permission(PERM_SUBSCRIPTION_READ)
+@track_handler("payments/subscription/read")
+async def handle_get_subscription(request: web.Request) -> web.Response:
+    """
+    GET /api/payments/subscription/{subscription_id}
+
+    Get subscription details.
+    """
+    # Rate limit check for read operations
+    rate_limit_response = _check_rate_limit(request, _payment_read_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
+    try:
+        subscription_id = request.match_info.get("subscription_id")
+        provider_str = request.query.get("provider", "stripe")
+
+        if not subscription_id:
+            return web_error_response("Missing subscription_id", 400)
+
+        provider = (
+            PaymentProvider.AUTHORIZE_NET
+            if provider_str in ("authorize_net", "authnet")
+            else PaymentProvider.STRIPE
+        )
+
+        if provider == PaymentProvider.AUTHORIZE_NET:
+            connector = await get_authnet_connector(request)
+            if not connector:
+                return web.json_response(
+                    {"error": "Authorize.net connector not available"}, status=503
+                )
+
+            async with connector:
+                subscription = await connector.get_subscription(subscription_id)
+
+            if not subscription:
+                return web_error_response("Subscription not found", 404)
+
+            return web.json_response(
+                {
+                    "subscription": {
+                        "id": subscription.subscription_id,
+                        "name": subscription.name,
+                        "status": subscription.status.value if subscription.status else "unknown",
+                        "amount": str(subscription.amount) if subscription.amount else None,
+                    }
+                }
+            )
+        else:
+            connector = await get_stripe_connector(request)
+            if not connector:
+                return web_error_response("Stripe connector not available", 503)
+
+            subscription = await connector.retrieve_subscription(subscription_id)
+
+            return web.json_response(
+                {
+                    "subscription": {
+                        "id": subscription.id,
+                        "status": subscription.status,
+                        "current_period_start": subscription.current_period_start,
+                        "current_period_end": subscription.current_period_end,
+                        "customer": subscription.customer,
+                        "items": [
+                            {"price_id": item.price.id, "quantity": item.quantity}
+                            for item in subscription.items.data
+                        ] if hasattr(subscription, "items") and subscription.items else [],
+                    }
+                }
+            )
+
+    except Exception as e:
+        logger.exception(f"Error getting subscription: {e}")
+        return web_error_response(str(e), 500)
+
+
+@require_permission(PERM_SUBSCRIPTION_UPDATE)
+@track_handler("payments/subscription/update")
+async def handle_update_subscription(request: web.Request) -> web.Response:
+    """
+    PUT /api/payments/subscription/{subscription_id}
+
+    Update subscription.
+
+    Request body:
+    {
+        "provider": "stripe" | "authorize_net",
+        "name": "Updated Plan Name",  // Optional
+        "amount": 149.99,  // Optional
+        "price_id": "price_...",  // Stripe only, for plan changes
+        "metadata": {}  // Stripe only
+    }
+    """
+    # Rate limit check for write operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
+    try:
+        subscription_id = request.match_info.get("subscription_id")
+        if not subscription_id:
+            return web_error_response("Missing subscription_id", 400)
+
+        body, err = await parse_json_body(request, context="handle_update_subscription")
+        if err:
+            return err
+        provider = _get_provider_from_request(request, body)
+
+        if provider == PaymentProvider.AUTHORIZE_NET:
+            connector = await get_authnet_connector(request)
+            if not connector:
+                return web.json_response(
+                    {"error": "Authorize.net connector not available"}, status=503
+                )
+
+            name = body.get("name")
+            amount = body.get("amount")
+
+            async with connector:
+                success = await connector.update_subscription(
+                    subscription_id=subscription_id,
+                    name=name,
+                    amount=Decimal(str(amount)) if amount else None,
+                )
+
+            return web.json_response({"success": success})
+        else:
+            connector = await get_stripe_connector(request)
+            if not connector:
+                return web_error_response("Stripe connector not available", 503)
+
+            update_params: dict[str, Any] = {}
+            if body.get("metadata"):
+                update_params["metadata"] = body["metadata"]
+
+            # Handle price/plan changes
+            price_id = body.get("price_id")
+            if price_id:
+                # Get current subscription to find item ID
+                current_sub = await connector.retrieve_subscription(subscription_id)
+                if hasattr(current_sub, "items") and current_sub.items.data:
+                    item_id = current_sub.items.data[0].id
+                    update_params["items"] = [{"id": item_id, "price": price_id}]
+
+            if not update_params:
+                return web_error_response("No update parameters provided", 400)
+
+            subscription = await connector.update_subscription(
+                subscription_id=subscription_id,
+                **update_params,
+            )
+
+            return web.json_response(
+                {
+                    "success": True,
+                    "subscription": {
+                        "id": subscription.id,
+                        "status": subscription.status,
+                    },
+                }
+            )
+
+    except Exception as e:
+        logger.exception(f"Error updating subscription: {e}")
+        return web_error_response(str(e), 500)
+
+
+@require_permission(PERM_SUBSCRIPTION_CREATE)
+@track_handler("payments/subscription/create")
 async def handle_create_subscription(request: web.Request) -> web.Response:
     """
     POST /api/payments/subscription
@@ -1300,7 +1597,8 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
-@require_permission("billing:cancel")
+@require_permission(PERM_SUBSCRIPTION_CANCEL)
+@track_handler("payments/subscription/cancel")
 async def handle_cancel_subscription(request: web.Request) -> web.Response:
     """
     DELETE /api/payments/subscription/{subscription_id}
@@ -1496,6 +1794,7 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
 def register_payment_routes(app: web.Application) -> None:
     """Register payment routes with the application."""
     # v1 canonical routes
+    # Core payment operations
     app.router.add_post("/api/v1/payments/charge", handle_charge)
     app.router.add_post("/api/v1/payments/authorize", handle_authorize)
     app.router.add_post("/api/v1/payments/capture", handle_capture)
@@ -1503,15 +1802,21 @@ def register_payment_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/payments/void", handle_void)
     app.router.add_get("/api/v1/payments/transaction/{transaction_id}", handle_get_transaction)
 
+    # Customer management
     app.router.add_post("/api/v1/payments/customer", handle_create_customer)
     app.router.add_get("/api/v1/payments/customer/{customer_id}", handle_get_customer)
+    app.router.add_put("/api/v1/payments/customer/{customer_id}", handle_update_customer)
     app.router.add_delete("/api/v1/payments/customer/{customer_id}", handle_delete_customer)
 
+    # Subscription management
     app.router.add_post("/api/v1/payments/subscription", handle_create_subscription)
+    app.router.add_get("/api/v1/payments/subscription/{subscription_id}", handle_get_subscription)
+    app.router.add_put("/api/v1/payments/subscription/{subscription_id}", handle_update_subscription)
     app.router.add_delete(
         "/api/v1/payments/subscription/{subscription_id}", handle_cancel_subscription
     )
 
+    # Webhooks
     app.router.add_post("/api/v1/payments/webhook/stripe", handle_stripe_webhook)
     app.router.add_post("/api/v1/payments/webhook/authnet", handle_authnet_webhook)
 
@@ -1527,10 +1832,13 @@ def register_payment_routes(app: web.Application) -> None:
     # Customer management
     app.router.add_post("/api/payments/customer", handle_create_customer)
     app.router.add_get("/api/payments/customer/{customer_id}", handle_get_customer)
+    app.router.add_put("/api/payments/customer/{customer_id}", handle_update_customer)
     app.router.add_delete("/api/payments/customer/{customer_id}", handle_delete_customer)
 
     # Subscription management
     app.router.add_post("/api/payments/subscription", handle_create_subscription)
+    app.router.add_get("/api/payments/subscription/{subscription_id}", handle_get_subscription)
+    app.router.add_put("/api/payments/subscription/{subscription_id}", handle_update_subscription)
     app.router.add_delete(
         "/api/payments/subscription/{subscription_id}", handle_cancel_subscription
     )
@@ -1541,22 +1849,49 @@ def register_payment_routes(app: web.Application) -> None:
 
 
 __all__ = [
+    # Route registration
     "register_payment_routes",
+    # Payment transaction handlers
     "handle_charge",
     "handle_authorize",
     "handle_capture",
     "handle_refund",
     "handle_void",
     "handle_get_transaction",
+    # Customer handlers
     "handle_create_customer",
     "handle_get_customer",
+    "handle_update_customer",
     "handle_delete_customer",
+    # Subscription handlers
     "handle_create_subscription",
+    "handle_get_subscription",
+    "handle_update_subscription",
     "handle_cancel_subscription",
+    # Webhook handlers
     "handle_stripe_webhook",
     "handle_authnet_webhook",
+    # Data models
     "PaymentProvider",
     "PaymentStatus",
     "PaymentRequest",
     "PaymentResult",
+    # RBAC permission constants
+    "PERM_PAYMENTS_READ",
+    "PERM_PAYMENTS_CHARGE",
+    "PERM_PAYMENTS_AUTHORIZE",
+    "PERM_PAYMENTS_CAPTURE",
+    "PERM_PAYMENTS_REFUND",
+    "PERM_PAYMENTS_VOID",
+    "PERM_PAYMENTS_ADMIN",
+    "PERM_CUSTOMER_READ",
+    "PERM_CUSTOMER_CREATE",
+    "PERM_CUSTOMER_UPDATE",
+    "PERM_CUSTOMER_DELETE",
+    "PERM_SUBSCRIPTION_READ",
+    "PERM_SUBSCRIPTION_CREATE",
+    "PERM_SUBSCRIPTION_UPDATE",
+    "PERM_SUBSCRIPTION_CANCEL",
+    "PERM_WEBHOOK_STRIPE",
+    "PERM_WEBHOOK_AUTHNET",
 ]

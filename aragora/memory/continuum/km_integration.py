@@ -4,6 +4,8 @@ Knowledge Mound integration mixin for ContinuumMemory.
 Provides bidirectional integration with Knowledge Mound including
 similarity queries, pre-warming, and reference invalidation.
 """
+# mypy: disable-error-code="misc"
+# Mixin classes use self: "ContinuumMemory" type hints which mypy doesn't understand
 
 from __future__ import annotations
 

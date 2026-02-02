@@ -514,6 +514,14 @@ def mock_check_permission_denied(*args, **kwargs):
 class TestWorkspaceRBAC:
     """Tests for RBAC permission checks in WorkspaceHandler."""
 
+    @pytest.fixture(autouse=True)
+    def clear_permission_cache(self):
+        """Clear permission cache before each test to ensure isolation."""
+        from aragora.server.handlers.workspace_module import _permission_cache
+        _permission_cache.clear()
+        yield
+        _permission_cache.clear()
+
     @pytest.fixture
     def handler(self, mock_server_context):
         return WorkspaceHandler(mock_server_context)
@@ -523,17 +531,17 @@ class TestWorkspaceRBAC:
         assert hasattr(handler, "_check_rbac_permission")
         assert hasattr(handler, "_get_auth_context")
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", False)
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", False)
     def test_permission_check_without_rbac(self, handler):
         """Permission check should pass when RBAC not available."""
         mock_http = MagicMock()
         auth_ctx = MockAuthContext()
 
-        result = handler._check_rbac_permission(mock_http, "workspaces.create", auth_ctx)
+        result = handler._check_rbac_permission(mock_http, "workspace:write", auth_ctx)
         assert result is None  # None means allowed
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_allowed)
     def test_permission_check_allowed(self, handler):
         """Permission check should pass when RBAC allows."""
         mock_http = MagicMock()
@@ -542,11 +550,11 @@ class TestWorkspaceRBAC:
         mock_user_store.get_user_by_id.return_value = MockUser()
         handler.ctx["user_store"] = mock_user_store
 
-        result = handler._check_rbac_permission(mock_http, "workspaces.create", auth_ctx)
+        result = handler._check_rbac_permission(mock_http, "workspace:write", auth_ctx)
         assert result is None  # None means allowed
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
     def test_permission_check_denied(self, handler):
         """Permission check should return error when RBAC denies."""
         mock_http = MagicMock()
@@ -555,13 +563,13 @@ class TestWorkspaceRBAC:
         mock_user_store.get_user_by_id.return_value = MockUser(role="viewer")
         handler.ctx["user_store"] = mock_user_store
 
-        result = handler._check_rbac_permission(mock_http, "workspaces.create", auth_ctx)
+        result = handler._check_rbac_permission(mock_http, "workspace:write", auth_ctx)
         assert result is not None
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_create_workspace_rbac_denied(self, mock_extract, handler):
         """Create workspace should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -573,9 +581,9 @@ class TestWorkspaceRBAC:
         result = handler._handle_create_workspace(mock_http)
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_delete_workspace_rbac_denied(self, mock_extract, handler):
         """Delete workspace should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -587,9 +595,9 @@ class TestWorkspaceRBAC:
         result = handler._handle_delete_workspace(mock_http, "ws-123")
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_add_member_rbac_denied(self, mock_extract, handler):
         """Add member should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -601,9 +609,9 @@ class TestWorkspaceRBAC:
         result = handler._handle_add_member(mock_http, "ws-123")
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_remove_member_rbac_denied(self, mock_extract, handler):
         """Remove member should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -615,9 +623,9 @@ class TestWorkspaceRBAC:
         result = handler._handle_remove_member(mock_http, "ws-123", "user-456")
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_create_policy_rbac_denied(self, mock_extract, handler):
         """Create retention policy should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -629,9 +637,9 @@ class TestWorkspaceRBAC:
         result = handler._handle_create_policy(mock_http)
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_update_policy_rbac_denied(self, mock_extract, handler):
         """Update retention policy should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -643,9 +651,9 @@ class TestWorkspaceRBAC:
         result = handler._handle_update_policy(mock_http, "pol-123")
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_delete_policy_rbac_denied(self, mock_extract, handler):
         """Delete retention policy should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -657,9 +665,9 @@ class TestWorkspaceRBAC:
         result = handler._handle_delete_policy(mock_http, "pol-123")
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
-    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_execute_policy_rbac_denied(self, mock_extract, handler):
         """Execute retention policy should deny when RBAC denies."""
         mock_extract.return_value = MockAuthContext()
@@ -736,7 +744,7 @@ class TestWorkspaceHandlerContextMethods:
         assert first is second
         assert first is not None
 
-    @patch("aragora.server.handlers.workspace.PrivacyAuditLog")
+    @patch("aragora.server.handlers.workspace_module.PrivacyAuditLog")
     def test_get_audit_log_returns_same_instance(self, mock_audit_log_class, handler):
         """_get_audit_log returns same instance on repeated calls."""
         mock_audit_instance = MagicMock()

@@ -3,6 +3,8 @@ Retrieval operations mixin for ContinuumMemory.
 
 Provides retrieve, hybrid_search, and related search operations.
 """
+# mypy: disable-error-code="misc"
+# Mixin classes use self: "ContinuumMemory" type hints which mypy doesn't understand
 
 from __future__ import annotations
 

@@ -37,6 +37,45 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from aragora.rbac.decorators import require_permission
 
+# RBAC Permission constants
+PERM_ANALYTICS_READ = "analytics:dashboard:read"
+PERM_ANALYTICS_WRITE = "analytics:dashboard:write"
+PERM_ANALYTICS_EXPORT = "analytics:export"
+PERM_ANALYTICS_ADMIN = "analytics:admin"
+PERM_ANALYTICS_COST = "analytics:cost:read"
+PERM_ANALYTICS_COMPLIANCE = "analytics:compliance:read"
+PERM_ANALYTICS_TOKENS = "analytics:tokens:read"
+PERM_ANALYTICS_FLIPS = "analytics:flips:read"
+PERM_ANALYTICS_DELIBERATIONS = "analytics:deliberations:read"
+
+# RBAC imports (optional - graceful degradation if not available)
+try:
+    from aragora.rbac import (
+        AuthorizationContext,
+        check_permission,
+        PermissionDeniedError,
+    )
+    from aragora.billing.auth import extract_user_from_request
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    AuthorizationContext = None
+    check_permission = None
+    PermissionDeniedError = Exception
+    extract_user_from_request = None
+
+# Metrics imports (optional)
+try:
+    from aragora.observability.metrics import record_rbac_check
+
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_rbac_check(*args, **kwargs):
+        pass
+
 from .analytics.cache import (
     cached_analytics,
     cached_analytics_org,
@@ -132,6 +171,70 @@ class AnalyticsDashboardHandler(BaseHandler):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
+    def _get_auth_context(self, handler: Any) -> Any | None:
+        """Extract authorization context from the request.
+
+        Returns:
+            AuthorizationContext if RBAC is available and user is authenticated,
+            None otherwise.
+        """
+        if not RBAC_AVAILABLE or extract_user_from_request is None:
+            return None
+
+        try:
+            # Try to get user info from request
+            user_info = extract_user_from_request(handler)
+            if not user_info:
+                return None
+
+            return AuthorizationContext(
+                user_id=user_info.user_id or "anonymous",
+                roles={user_info.role} if user_info.role else set(),
+                org_id=user_info.org_id,
+            )
+        except Exception as e:
+            logger.debug(f"Could not extract auth context: {e}")
+            return None
+
+    def _check_permission(
+        self, handler: Any, permission_key: str, resource_id: str | None = None
+    ) -> HandlerResult | None:
+        """
+        Check if current user has permission. Returns error response if denied.
+
+        Args:
+            handler: The HTTP handler
+            permission_key: Permission like "analytics:dashboard:read"
+            resource_id: Optional resource ID for resource-specific permissions
+
+        Returns:
+            None if allowed, error HandlerResult if denied
+        """
+        if not RBAC_AVAILABLE:
+            logger.debug(f"RBAC not available, allowing {permission_key}")
+            return None
+
+        context = self._get_auth_context(handler)
+        if context is None:
+            # No auth context means RBAC not configured for this request
+            return None
+
+        try:
+            decision = check_permission(context, permission_key, resource_id)
+            if not decision.allowed:
+                logger.warning(
+                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                )
+                record_rbac_check(permission_key, granted=False)
+                return error_response(f"Permission denied: {decision.reason}", 403)
+            record_rbac_check(permission_key, granted=True)
+        except PermissionDeniedError as e:
+            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            record_rbac_check(permission_key, granted=False)
+            return error_response(f"Permission denied: {str(e)}", 403)
+
+        return None
+
     ROUTES = [
         "/api/analytics/summary",
         "/api/analytics/trends/findings",
@@ -159,10 +262,15 @@ class AnalyticsDashboardHandler(BaseHandler):
         normalized = strip_version_prefix(path)
         return normalized in self.ROUTES
 
-    @require_permission("analytics:read")
+    @require_permission(PERM_ANALYTICS_READ)
     @rate_limit(requests_per_minute=60)
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
-        """Route GET requests to appropriate methods."""
+        """Route GET requests to appropriate methods.
+
+        RBAC permissions are checked at two levels:
+        1. Base permission (analytics:dashboard:read) checked by @require_permission decorator
+        2. Granular permissions checked within routing for sensitive endpoints
+        """
         normalized = strip_version_prefix(path)
         if normalized in ANALYTICS_STUB_RESPONSES:
             user_ctx = self.get_current_user(handler) if handler else None
@@ -170,6 +278,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             if user_ctx is None or not workspace_id:
                 return json_response(ANALYTICS_STUB_RESPONSES[normalized])
 
+        # Basic dashboard analytics - require analytics:dashboard:read (already checked by decorator)
         if normalized == "/api/analytics/summary":
             return self._get_summary(query_params, handler)
         elif normalized == "/api/analytics/trends/findings":
@@ -178,34 +287,69 @@ class AnalyticsDashboardHandler(BaseHandler):
             return self._get_remediation_metrics(query_params, handler)
         elif normalized == "/api/analytics/agents":
             return self._get_agent_metrics(query_params, handler)
-        elif normalized == "/api/analytics/cost":
-            return self._get_cost_metrics(query_params, handler)
-        elif normalized == "/api/analytics/compliance":
-            return self._get_compliance_scorecard(query_params, handler)
         elif normalized == "/api/analytics/heatmap":
             return self._get_risk_heatmap(query_params, handler)
+
+        # Cost analytics - require analytics:cost:read
+        elif normalized == "/api/analytics/cost":
+            if error := self._check_permission(handler, PERM_ANALYTICS_COST):
+                return error
+            return self._get_cost_metrics(query_params, handler)
+
+        # Compliance analytics - require analytics:compliance:read
+        elif normalized == "/api/analytics/compliance":
+            if error := self._check_permission(handler, PERM_ANALYTICS_COMPLIANCE):
+                return error
+            return self._get_compliance_scorecard(query_params, handler)
+
+        # Token usage analytics - require analytics:tokens:read
         elif normalized == "/api/analytics/tokens":
+            if error := self._check_permission(handler, PERM_ANALYTICS_TOKENS):
+                return error
             return self._get_token_usage(query_params, handler)
         elif normalized == "/api/analytics/tokens/trends":
+            if error := self._check_permission(handler, PERM_ANALYTICS_TOKENS):
+                return error
             return self._get_token_trends(query_params, handler)
         elif normalized == "/api/analytics/tokens/providers":
+            if error := self._check_permission(handler, PERM_ANALYTICS_TOKENS):
+                return error
             return self._get_provider_breakdown(query_params, handler)
+
+        # Flip analytics - require analytics:flips:read
         elif normalized == "/api/analytics/flips/summary":
+            if error := self._check_permission(handler, PERM_ANALYTICS_FLIPS):
+                return error
             return self._get_flip_summary(query_params, handler)
         elif normalized == "/api/analytics/flips/recent":
+            if error := self._check_permission(handler, PERM_ANALYTICS_FLIPS):
+                return error
             return self._get_recent_flips(query_params, handler)
         elif normalized == "/api/analytics/flips/consistency":
+            if error := self._check_permission(handler, PERM_ANALYTICS_FLIPS):
+                return error
             return self._get_agent_consistency(query_params, handler)
         elif normalized == "/api/analytics/flips/trends":
+            if error := self._check_permission(handler, PERM_ANALYTICS_FLIPS):
+                return error
             return self._get_flip_trends(query_params, handler)
-        # Deliberation analytics
+
+        # Deliberation analytics - require analytics:deliberations:read
         elif normalized == "/api/analytics/deliberations":
+            if error := self._check_permission(handler, PERM_ANALYTICS_DELIBERATIONS):
+                return error
             return self._get_deliberation_summary(query_params, handler)
         elif normalized == "/api/analytics/deliberations/channels":
+            if error := self._check_permission(handler, PERM_ANALYTICS_DELIBERATIONS):
+                return error
             return self._get_deliberation_by_channel(query_params, handler)
         elif normalized == "/api/analytics/deliberations/consensus":
+            if error := self._check_permission(handler, PERM_ANALYTICS_DELIBERATIONS):
+                return error
             return self._get_consensus_rates(query_params, handler)
         elif normalized == "/api/analytics/deliberations/performance":
+            if error := self._check_permission(handler, PERM_ANALYTICS_DELIBERATIONS):
+                return error
             return self._get_deliberation_performance(query_params, handler)
 
         return None
@@ -935,8 +1079,11 @@ class AnalyticsDashboardHandler(BaseHandler):
                 safe_error_message(e, "provider breakdown"), 500, code="INTERNAL_ERROR"
             )
 
+    @require_user_auth
     @handle_errors("get flip summary")
-    def _get_flip_summary(self, query_params: dict) -> HandlerResult:
+    def _get_flip_summary(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get flip detection summary for dashboard.
 
@@ -960,8 +1107,11 @@ class AnalyticsDashboardHandler(BaseHandler):
             logger.exception(f"Error getting flip summary: {e}")
             return error_response(safe_error_message(e, "flip summary"), 500, code="INTERNAL_ERROR")
 
+    @require_user_auth
     @handle_errors("get recent flips")
-    def _get_recent_flips(self, query_params: dict) -> HandlerResult:
+    def _get_recent_flips(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get recent flip events.
 
@@ -1014,8 +1164,11 @@ class AnalyticsDashboardHandler(BaseHandler):
             logger.exception(f"Error getting recent flips: {e}")
             return error_response(safe_error_message(e, "recent flips"), 500, code="INTERNAL_ERROR")
 
+    @require_user_auth
     @handle_errors("get agent consistency")
-    def _get_agent_consistency(self, query_params: dict) -> HandlerResult:
+    def _get_agent_consistency(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get agent consistency scores.
 
@@ -1076,8 +1229,11 @@ class AnalyticsDashboardHandler(BaseHandler):
                 safe_error_message(e, "agent consistency"), 500, code="INTERNAL_ERROR"
             )
 
+    @require_user_auth
     @handle_errors("get flip trends")
-    def _get_flip_trends(self, query_params: dict) -> HandlerResult:
+    def _get_flip_trends(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get flip trends over time.
 

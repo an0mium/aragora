@@ -53,16 +53,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Sequence
 
+from aragora.resilience.health import HealthStatus
+
 logger = logging.getLogger(__name__)
-
-
-class HealthStatus(Enum):
-    """Framework health status."""
-
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
-    UNKNOWN = "unknown"
 
 
 class FrameworkStatus(Enum):

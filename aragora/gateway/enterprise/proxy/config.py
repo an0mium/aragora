@@ -12,14 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
-class HealthStatus(str, Enum):
-    """Health status for external frameworks."""
-
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
-    UNKNOWN = "unknown"
+from aragora.resilience.health import HealthStatus
 
 
 class RetryStrategy(str, Enum):

@@ -274,8 +274,13 @@ class ValidationConfig:
 
 
 @dataclass
-class ValidationResult:
-    """Result of request validation."""
+class MiddlewareValidationResult:
+    """Result of request validation in the middleware layer.
+
+    Note: This is distinct from aragora.core.types.ValidationResult which uses
+    `is_valid` instead of `valid`. This class is specific to HTTP request
+    validation middleware.
+    """
 
     valid: bool
     errors: list[str] = field(default_factory=list)
@@ -284,6 +289,10 @@ class ValidationResult:
     @property
     def error_message(self) -> str:
         return "; ".join(self.errors) if self.errors else ""
+
+
+# Backward compatibility alias - deprecated, use MiddlewareValidationResult
+ValidationResult = MiddlewareValidationResult
 
 
 class ValidationMiddleware:
@@ -314,7 +323,7 @@ class ValidationMiddleware:
         query_params: Optional[dict[str, Any]] = None,
         body: bytes | None = None,
         body_parsed: dict | None = None,
-    ) -> ValidationResult:
+    ) -> MiddlewareValidationResult:
         """Validate an incoming request.
 
         Args:
@@ -325,14 +334,14 @@ class ValidationMiddleware:
             body_parsed: Parsed JSON body (for schema validation)
 
         Returns:
-            ValidationResult with validation status and any errors
+            MiddlewareValidationResult with validation status and any errors
         """
         if not self.config.enabled:
-            return ValidationResult(valid=True)
+            return MiddlewareValidationResult(valid=True)
 
         with self._metrics_lock:
             self._validation_count += 1
-        result = ValidationResult(valid=True)
+        result = MiddlewareValidationResult(valid=True)
         query_params = query_params or {}
 
         # Find matching validation rule

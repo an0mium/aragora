@@ -72,28 +72,15 @@ from .rankers import (
     KnowledgeItemCategorizer,
 )
 
-# Backward compatibility: re-export DebateContext from the context.py module
-# This package (context/) shadows context.py, so we load it explicitly
-import importlib.util
-import sys
-from pathlib import Path as _Path
-
-_context_py_path = _Path(__file__).parent.parent / "context.py"
-_spec = importlib.util.spec_from_file_location(
-    "aragora.debate._context_impl", str(_context_py_path)
-)
-if _spec and _spec.loader:
-    _context_impl = importlib.util.module_from_spec(_spec)
-    sys.modules["aragora.debate._context_impl"] = _context_impl
-    _spec.loader.exec_module(_context_impl)
-    # Re-export DebateContext and other classes
-    DebateContext = _context_impl.DebateContext
+# Re-export DebateContext from debate_state.py for backward compatibility
+from aragora.debate.debate_state import DebateContext, AgentWorkspace
 
 __all__ = [
     # Main class
     "ContextGatherer",
-    # Backward compatibility
+    # Backward compatibility - from debate_state.py
     "DebateContext",
+    "AgentWorkspace",
     # Cache
     "ContextCache",
     "MAX_EVIDENCE_CACHE_SIZE",

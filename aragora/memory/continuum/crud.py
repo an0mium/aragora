@@ -3,6 +3,8 @@ CRUD operations mixin for ContinuumMemory.
 
 Provides add, get, update, delete operations for memory entries.
 """
+# mypy: disable-error-code="misc"
+# Mixin classes use self: "ContinuumMemory" type hints which mypy doesn't understand
 
 from __future__ import annotations
 

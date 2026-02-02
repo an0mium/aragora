@@ -31,16 +31,9 @@ from enum import Enum
 from threading import Lock
 from typing import Any, Generator, Optional
 
+from aragora.resilience.health import HealthStatus
+
 logger = logging.getLogger(__name__)
-
-
-class HealthStatus(str, Enum):
-    """Health status levels."""
-
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
-    UNKNOWN = "unknown"
 
 
 class OperationType(str, Enum):

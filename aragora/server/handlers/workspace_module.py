@@ -100,6 +100,35 @@ except ImportError:
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.openapi_decorator import api_endpoint
 
+# =============================================================================
+# RBAC Permission Constants for Workspace Module
+# =============================================================================
+# These constants define all permission keys used in this module.
+# Permissions follow the pattern: resource:action
+#
+# Workspace permissions:
+PERM_WORKSPACE_READ = "workspace:read"
+PERM_WORKSPACE_WRITE = "workspace:write"
+PERM_WORKSPACE_DELETE = "workspace:delete"
+PERM_WORKSPACE_ADMIN = "workspace:admin"
+PERM_WORKSPACE_SHARE = "workspace:share"
+PERM_WORKSPACE_EXPORT = "workspace:export"
+
+# Retention policy permissions:
+PERM_RETENTION_READ = "retention:read"
+PERM_RETENTION_WRITE = "retention:write"
+PERM_RETENTION_DELETE = "retention:delete"
+PERM_RETENTION_EXECUTE = "retention:execute"
+
+# Classification permissions:
+PERM_CLASSIFY_READ = "classify:read"
+PERM_CLASSIFY_WRITE = "classify:write"
+
+# Audit permissions:
+PERM_AUDIT_READ = "audit:read"
+PERM_AUDIT_REPORT = "audit:report"
+PERM_AUDIT_VERIFY = "audit:verify"
+
 from .base import (
     HandlerResult,
     ServerContext,
@@ -660,7 +689,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "workspaces.create", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_WRITE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -736,6 +765,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         # SECURITY: Only list workspaces from user's own organization
         org_id = auth_ctx.org_id
 
@@ -779,6 +813,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         manager = self._get_isolation_manager()
         try:
             workspace = self._run_async(
@@ -811,7 +850,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "workspaces.delete", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_DELETE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -860,7 +899,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "workspaces.members.add", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_SHARE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -921,7 +960,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "workspaces.members.remove", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_SHARE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -976,6 +1015,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         profiles = []
         for profile in RBACProfile:
             config = get_profile_config(profile)
@@ -1024,6 +1068,11 @@ class WorkspaceHandler(SecureHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         # Get workspace to find its profile
         manager = self._get_isolation_manager()
@@ -1103,9 +1152,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(
-            handler, "workspaces.members.change_role", auth_ctx
-        )
+        rbac_error = self._check_rbac_permission(handler, PERM_WORKSPACE_ADMIN, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1222,6 +1269,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_RETENTION_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         workspace_id = query_params.get("workspace_id")
 
         # Check cache first
@@ -1274,7 +1326,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "retention.policies.create", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_RETENTION_WRITE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1354,6 +1406,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_RETENTION_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         # Check cache first
         cache_key = f"retention:{policy_id}"
         cached_result = _retention_policy_cache.get(cache_key)
@@ -1409,7 +1466,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "retention.policies.update", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_RETENTION_WRITE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1475,7 +1532,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "retention.policies.delete", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_RETENTION_DELETE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1519,7 +1576,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "retention.policies.execute", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_RETENTION_EXECUTE, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1565,6 +1622,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_RETENTION_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         workspace_id = query_params.get("workspace_id")
         days = int(query_params.get("days", "14"))
 
@@ -1593,6 +1655,11 @@ class WorkspaceHandler(SecureHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_CLASSIFY_WRITE, auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         body = self.read_json_body(handler)
         if body is None:
@@ -1647,6 +1714,11 @@ class WorkspaceHandler(SecureHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, PERM_CLASSIFY_READ, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         try:
             sensitivity_level = SensitivityLevel(level)
         except ValueError:
@@ -1679,7 +1751,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "audit.query", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_AUDIT_READ, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1758,7 +1830,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "audit.report", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_AUDIT_REPORT, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1812,7 +1884,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "audit.verify_integrity", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_AUDIT_VERIFY, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1854,7 +1926,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "audit.actor_history", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_AUDIT_READ, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1903,7 +1975,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "audit.resource_history", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_AUDIT_READ, auth_ctx)
         if rbac_error:
             return rbac_error
 
@@ -1954,7 +2026,7 @@ class WorkspaceHandler(SecureHandler):
             return error_response("Not authenticated", 401)
 
         # RBAC permission check
-        rbac_error = self._check_rbac_permission(handler, "audit.denied_access", auth_ctx)
+        rbac_error = self._check_rbac_permission(handler, PERM_AUDIT_READ, auth_ctx)
         if rbac_error:
             return rbac_error
 
