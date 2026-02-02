@@ -329,10 +329,22 @@ class BreakpointManager:
         """Create a breakpoint with current debate snapshot."""
         self._breakpoint_counter += 1
 
+        def _truncate_message_content(message: Any, limit: int) -> str:
+            content = getattr(message, "content", "")
+            if content is None:
+                return ""
+            if not isinstance(content, str):
+                content = str(content)
+            return content[:limit]
+
         # Build snapshot
         latest = messages[-5:] if len(messages) >= 5 else messages
         latest_dicts = [
-            {"agent": m.agent, "content": m.content[:200], "round": m.round}
+            {
+                "agent": m.agent,
+                "content": _truncate_message_content(m, 200),
+                "round": getattr(m, "round", 0),
+            }
             for m in latest
             if hasattr(m, "agent")
         ]
@@ -341,7 +353,7 @@ class BreakpointManager:
         positions = {}
         for m in reversed(messages):
             if hasattr(m, "agent") and m.agent not in positions:
-                positions[m.agent] = m.content[:150] if hasattr(m, "content") else ""
+                positions[m.agent] = _truncate_message_content(m, 150)
 
         snapshot = DebateSnapshot(
             debate_id=debate_id,
