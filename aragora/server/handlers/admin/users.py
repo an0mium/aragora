@@ -19,7 +19,6 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.auth.lockout import get_lockout_tracker
-from aragora.billing.jwt_auth import create_access_token
 from aragora.audit.unified import audit_admin
 
 from ..base import (
@@ -273,7 +272,9 @@ class UserManagementMixin:
 
         # Create short-lived impersonation token (1 hour)
         # Note: impersonation metadata is logged below since JWT doesn't support custom claims
-        impersonation_token = create_access_token(
+        from aragora.server.handlers.admin import handler as admin_handler
+
+        impersonation_token = admin_handler.create_access_token(
             user_id=target_user_id,
             email=target_user.email,
             org_id=target_user.org_id,
