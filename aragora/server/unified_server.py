@@ -1086,6 +1086,15 @@ async def run_unified_server(
             logger.error(f"[server] CRITICAL: Cannot initialize DebateStorage at {db_path}: {e}")
             raise RuntimeError(f"Cannot initialize debate storage: {e}") from e
 
+    # Enable persistent RBAC audit logging (SOC 2 compliance)
+    try:
+        from aragora.rbac.audit import enable_persistent_auditing
+
+        enable_persistent_auditing()
+        logger.info("[server] Persistent RBAC audit logging enabled")
+    except (ImportError, OSError, RuntimeError) as e:
+        logger.warning(f"[server] Persistent audit logging not available: {e}")
+
     # Ensure demo data is loaded for search functionality
     try:
         from aragora.fixtures import ensure_demo_data

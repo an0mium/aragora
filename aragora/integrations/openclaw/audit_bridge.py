@@ -343,9 +343,9 @@ class OpenClawAuditBridge:
         if event_type:
             filters["content.event_type"] = event_type
         if start_time:
-            filters["content.timestamp__gte"] = start_time
+            filters["content.timestamp__gte"] = start_time  # type: ignore[assignment]
         if end_time:
-            filters["content.timestamp__lte"] = end_time
+            filters["content.timestamp__lte"] = end_time  # type: ignore[assignment]
 
         try:
             results = await self._km.query(filters, limit=limit)

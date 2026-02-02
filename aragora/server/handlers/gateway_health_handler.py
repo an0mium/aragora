@@ -270,7 +270,7 @@ class GatewayHealthHandler(BaseHandler):
         if inspect.isawaitable(result):
             from aragora.server.http_utils import run_async
 
-            return run_async(result)
+            return run_async(result)  # type: ignore[arg-type]
 
         return bool(result)
 

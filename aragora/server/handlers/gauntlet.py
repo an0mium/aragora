@@ -457,6 +457,19 @@ class GauntletHandler(BaseHandler):
         # Determine HTTP method from handler
         method: str = getattr(handler, "command", "GET") if handler else "GET"
 
+        # Handle backwards-compatible calling convention where query_params may be a string (method)
+        # This happens when called as handle(path, "GET", handler) instead of handle(path, {}, handler)
+        if isinstance(query_params, str):
+            # query_params is actually a method string, extract real query_params from handler.path
+            query_params = {}
+            if handler and hasattr(handler, "path") and "?" in handler.path:
+                from urllib.parse import parse_qs
+
+                query_str = handler.path.split("?", 1)[1]
+                parsed = parse_qs(query_str)
+                # Flatten single-value lists for convenience
+                query_params = {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
+
         # Normalize path for routing (remove version prefix)
         path = self._normalize_path(path)
 

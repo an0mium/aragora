@@ -773,7 +773,7 @@ async def _expand_archive(
             mode = "r:gz" if ext in (".gz", ".tgz") else "r"
             # tarfile.open accepts fileobj parameter for stream reading
             bio: io.IOBase = io.BytesIO(content)
-            with tarfile.open(fileobj=bio, mode=mode) as tf:
+            with tarfile.open(fileobj=bio, mode=mode) as tf:  # type: ignore[call-overload]
                 for member in tf.getmembers():
                     files.append(
                         {

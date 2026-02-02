@@ -9,9 +9,10 @@ Uses PyJWK to fetch signing keys from platform endpoints and validate tokens.
 
 Security model:
 - Fail-closed: if PyJWT is unavailable, all tokens are rejected
-- JWKS keys are cached with a configurable TTL (default 1 hour)
+- JWKS keys are cached with a configurable TTL (default 15 minutes, via ARAGORA_JWT_CACHE_TTL)
 - OpenID metadata is fetched to discover JWKS URIs dynamically
 - Issuer and audience claims are always validated
+- Cache is automatically invalidated on signature/key errors (enables key rotation recovery)
 """
 
 from __future__ import annotations

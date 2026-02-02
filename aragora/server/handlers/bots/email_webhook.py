@@ -515,7 +515,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
             parsed = parse_qs(body.decode("utf-8"))
             for key, values in parsed.items():
-                form_data[key] = values[0] if len(values) == 1 else values
+                form_data[key] = values[0] if len(values) == 1 else values  # type: ignore[assignment]
 
         return form_data  # type: ignore[return-value]
 

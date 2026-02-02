@@ -302,7 +302,7 @@ def _validate_token_value(
 try:
     from binascii import Error as binascii_Error
 except ImportError:
-    binascii_Error = ValueError  # type: ignore[misc]
+    binascii_Error = ValueError  # type: ignore[assignment,misc]
 
 
 # =============================================================================

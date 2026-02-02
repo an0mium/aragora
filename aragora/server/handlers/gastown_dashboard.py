@@ -389,7 +389,7 @@ class GasTownDashboardHandler(SecureHandler):
                 filter_status = None
                 if status_filter:
                     try:
-                        filter_status = ConvoyStatus(status_filter)
+                        filter_status = ConvoyStatus(status_filter)  # type: ignore[assignment]
                     except ValueError:
                         return error_response(f"Invalid status: {status_filter}", 400)
 
