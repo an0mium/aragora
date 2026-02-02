@@ -53,6 +53,15 @@ def _get_jwt_secret_previous() -> str:
     return _jwt_secret_previous_cache
 
 
+def __getattr__(name: str) -> str:
+    """Provide lazy module attributes for JWT secrets."""
+    if name == "JWT_SECRET":
+        return _get_jwt_secret()
+    if name == "JWT_SECRET_PREVIOUS":
+        return _get_jwt_secret_previous()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 # Unix timestamp when secret was rotated (for limiting previous secret validity)
 JWT_SECRET_ROTATED_AT = os.environ.get("ARAGORA_JWT_SECRET_ROTATED_AT", "")
 # How long previous secret remains valid after rotation (default: 24 hours)
