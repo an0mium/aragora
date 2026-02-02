@@ -493,13 +493,13 @@ class ExternalAgentGateway:
 
     async def health_check(self) -> dict[str, Any]:
         """Check health of all registered adapters."""
-        results = {}
+        results: dict[str, dict[str, bool | str | None]] = {}
         for name, adapter in self._adapters.items():
             try:
                 healthy = await adapter.health_check()
                 results[name] = {"healthy": healthy, "error": None}
             except Exception as e:
-                results[name] = {"healthy": False, "error": str(e)}  # type: ignore[dict-item]
+                results[name] = {"healthy": False, "error": str(e)}
         return {
             "gateway_healthy": all(r["healthy"] for r in results.values()),
             "adapters": results,

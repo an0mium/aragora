@@ -69,6 +69,8 @@ try:
 except ImportError:
     LANGCHAIN_AVAILABLE = False
     _ChainBase = _StubChain
+    # Stubs replace LangChain types when the optional dependency is not installed.
+    # The type mismatch is unavoidable since stubs are not subclasses of LangChain types.
     AsyncCallbackManagerForChainRun = _StubAsyncCallbackManager  # type: ignore[misc, assignment]
     CallbackManagerForChainRun = _StubCallbackManager  # type: ignore[misc, assignment]
 

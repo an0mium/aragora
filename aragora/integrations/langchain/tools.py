@@ -75,7 +75,9 @@ try:
 except ImportError:
     LANGCHAIN_AVAILABLE = False
 
-    # Use stubs when LangChain is not installed
+    # Stubs replace LangChain/pydantic types when the optional dependency is not
+    # installed. The type mismatches are unavoidable since stubs are not subclasses
+    # of the real library types.
     BaseTool = _BaseToolStub  # type: ignore[misc,assignment]
     BaseModel = _BaseModelStub  # type: ignore[misc,assignment]
     Field = _FieldStub

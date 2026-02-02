@@ -151,15 +151,23 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
         """Translate AgentCapability to OpenClaw capability strings."""
         return [CAPABILITY_MAPPING.get(cap, cap.value) for cap in capabilities]
 
-    async def execute(  # type: ignore[override]
+    async def execute(
         self,
         task: ExternalAgentTask,
+        credentials: dict[str, str] | None = None,
+        sandbox_config: dict[str, Any] | None = None,
     ) -> ExternalAgentResult:
         """
         Execute a task via OpenClaw.
 
+        Credentials and sandbox_config are accepted for interface
+        compatibility with BaseExternalAgentAdapter but are not used
+        directly -- OpenClaw manages its own credentials and sandboxing.
+
         Args:
             task: The task to execute
+            credentials: Unused; OpenClaw manages its own credentials
+            sandbox_config: Unused; OpenClaw manages its own sandboxing
 
         Returns:
             ExternalAgentResult with execution details

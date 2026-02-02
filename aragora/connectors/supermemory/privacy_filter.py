@@ -170,9 +170,9 @@ class PrivacyFilter:
             elif isinstance(value, str):
                 result[key] = self.filter(value)
             elif isinstance(value, dict):
-                result[key] = self.filter_metadata(value)
+                result[key] = self.filter_metadata(value)  # type: ignore[assignment]
             elif isinstance(value, list):
-                result[key] = [self.filter(v) if isinstance(v, str) else v for v in value]
+                result[key] = [self.filter(v) if isinstance(v, str) else v for v in value]  # type: ignore[assignment]
             else:
                 result[key] = value
 

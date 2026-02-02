@@ -210,7 +210,7 @@ class TaskRouter:
             scores[agent] = self._score_agent(agent, task, strategy)
 
         # Select best agent
-        selected = max(scores, key=scores.get)  # type: ignore[arg-type]
+        selected = max(scores, key=lambda a: scores[a])
         alternatives = sorted(
             [a for a in capable if a != selected],
             key=lambda a: scores[a],

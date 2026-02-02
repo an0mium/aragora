@@ -35,7 +35,7 @@ from .watch import GmailWatchMixin
 logger = logging.getLogger(__name__)
 
 
-class GmailConnector(  # type: ignore[misc]  # Mixin Protocol bases unsupported by mypy
+class GmailConnector(  # type: ignore[misc]  # mypy does not support mixin Protocol bases in MRO
     GmailClientMixin,
     GmailMessagesMixin,
     GmailLabelsMixin,

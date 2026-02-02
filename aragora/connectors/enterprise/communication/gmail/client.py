@@ -99,6 +99,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def check_circuit_breaker(self) -> bool:
         """Return circuit breaker status with safe fallback."""
         try:
+            # safe-super: mixin super() resolution depends on final MRO
             method = super().check_circuit_breaker  # type: ignore[misc, safe-super]
             result = method()
             if result is Ellipsis or result is None or self._is_protocol_method(method):
@@ -110,6 +111,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Return circuit breaker status with safe fallback."""
         try:
+            # safe-super: mixin super() resolution depends on final MRO
             method = super().get_circuit_breaker_status  # type: ignore[misc, safe-super]
             status = method()
             if status is Ellipsis or status is None or self._is_protocol_method(method):
@@ -121,6 +123,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def record_success(self) -> None:
         """Record circuit breaker success with safe fallback."""
         try:
+            # safe-super: mixin super() resolution depends on final MRO
             method = super().record_success  # type: ignore[misc, safe-super]
             method()
             if self._is_protocol_method(method):
@@ -131,6 +134,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def record_failure(self) -> None:
         """Record circuit breaker failure with safe fallback."""
         try:
+            # safe-super: mixin super() resolution depends on final MRO
             method = super().record_failure  # type: ignore[misc, safe-super]
             method()
             if self._is_protocol_method(method):

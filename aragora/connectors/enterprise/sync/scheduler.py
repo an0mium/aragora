@@ -268,7 +268,7 @@ class SyncJob:
     def _parse_cron_next(self, cron_expr: str) -> datetime | None:
         """Parse cron expression and get next run time."""
         try:
-            from croniter import croniter  # type: ignore[import-untyped] - croniter package lacks type stubs
+            from croniter import croniter  # type: ignore[import-untyped]  # croniter package lacks type stubs
 
             cron = croniter(cron_expr, datetime.now(timezone.utc))
             return cron.get_next(datetime)

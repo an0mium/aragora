@@ -40,9 +40,9 @@ try:
     HAS_JWT = True
 except ImportError:
     # PyJWT is optional; set fallbacks for when library is not installed
-    jwt = None  # type: ignore[assignment] - None sentinel when pyjwt unavailable
-    PyJWKClient = None  # type: ignore[assignment,misc] - None sentinel when pyjwt unavailable
-    PyJWTError = Exception  # type: ignore[assignment,misc] - use base Exception as fallback
+    jwt = None  # type: ignore[assignment]  # None sentinel when pyjwt unavailable
+    PyJWKClient = None  # type: ignore[assignment,misc]  # None sentinel when pyjwt unavailable
+    PyJWTError = Exception  # type: ignore[assignment,misc]  # use base Exception as fallback
     HAS_JWT = False
     logger.warning(
         "PyJWT library not installed - JWT verification unavailable. "

@@ -335,7 +335,7 @@ class OpenClawAuditBridge:
             return []
 
         # Build query
-        filters = {"type": "audit_record"}
+        filters: dict[str, str | float] = {"type": "audit_record"}
         if user_id:
             filters["content.user_id"] = user_id
         if session_id:
@@ -343,9 +343,9 @@ class OpenClawAuditBridge:
         if event_type:
             filters["content.event_type"] = event_type
         if start_time:
-            filters["content.timestamp__gte"] = start_time  # type: ignore[assignment]
+            filters["content.timestamp__gte"] = start_time
         if end_time:
-            filters["content.timestamp__lte"] = end_time  # type: ignore[assignment]
+            filters["content.timestamp__lte"] = end_time
 
         try:
             results = await self._km.query(filters, limit=limit)

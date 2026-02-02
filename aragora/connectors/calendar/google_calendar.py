@@ -695,7 +695,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         # No-op: HTTP sessions are managed by the HTTPClientPool
         pass
 
-    async def sync(  # type: ignore[override] - returns dict with events instead of SyncResult for calendar data
+    async def sync(  # type: ignore[override]  # returns dict with events instead of SyncResult for calendar data
         self,
         full_sync: bool = False,
         batch_size: int = 100,

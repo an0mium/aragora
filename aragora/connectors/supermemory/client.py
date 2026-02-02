@@ -93,7 +93,7 @@ def with_retry(max_retries: int = 3, delay: float = 1.0):
             last_error = None
             for attempt in range(max_retries):
                 try:
-                    return await func(*args, **kwargs)
+                    return await func(*args, **kwargs)  # type: ignore[misc]
                 except SupermemoryRateLimitError as e:
                     wait_time = e.retry_after or (delay * (2**attempt))
                     logger.warning(
@@ -107,13 +107,13 @@ def with_retry(max_retries: int = 3, delay: float = 1.0):
                         f"Connection error, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries}): {e}"
                     )
                     await asyncio.sleep(wait_time)
-                    last_error = e
+                    last_error = e  # type: ignore[assignment]
                 except Exception:
                     # Non-recoverable errors don't retry
                     raise
             raise last_error or SupermemoryError("Max retries exceeded")
 
-        return wrapper
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 

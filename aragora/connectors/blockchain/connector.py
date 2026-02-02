@@ -162,7 +162,7 @@ class ERC8004Connector(BaseConnector):
             logger.debug(f"Health check failed: {e}")
             return False
 
-    async def search(  # type: ignore[override] - returns BlockchainSearchResult instead of base Evidence type
+    async def search(  # type: ignore[override]  # returns BlockchainSearchResult instead of base Evidence type
         self,
         query: str,
         max_results: int = 10,
@@ -400,7 +400,7 @@ class ERC8004Connector(BaseConnector):
 
             source_type = SourceType.EXTERNAL_API  # Use EXTERNAL_API until BLOCKCHAIN is added
         except ImportError:
-            source_type = "blockchain"  # type: ignore[assignment] - fallback string when SourceType enum unavailable
+            source_type = "blockchain"  # type: ignore[assignment]  # fallback string when SourceType enum unavailable
 
         return Evidence(
             id=blockchain_evidence.id,

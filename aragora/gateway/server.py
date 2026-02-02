@@ -858,7 +858,7 @@ class LocalGateway:
 
         for sig in (signal.SIGTERM, signal.SIGINT):
             try:
-                loop.add_signal_handler(sig, lambda s=sig: handle_signal(s))
+                loop.add_signal_handler(sig, lambda s=sig: handle_signal(s))  # type: ignore[misc]
             except NotImplementedError:
                 # Windows doesn't support add_signal_handler
                 pass
