@@ -29,7 +29,7 @@ See handler_registry/ for the implementation:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 # Re-export everything from the new package structure
 from aragora.server.handler_registry import (
@@ -44,6 +44,9 @@ from aragora.server.handler_registry import (
     validate_handler_instance,
     validate_handlers_on_init,
 )
+
+if TYPE_CHECKING:
+    from aragora.server.unified_server import UnifiedHandler  # noqa: F401
 
 __all__ = [
     "HandlerRegistryMixin",

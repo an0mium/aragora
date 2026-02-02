@@ -59,22 +59,11 @@ export interface ApiError {
   support_url?: string;
 }
 
-export class AragoraError extends Error {
-  constructor(
-    message: string,
-    public code?: ErrorCode,
-    public status?: number,
-    public traceId?: string,
-    public details?: Record<string, unknown>
-  ) {
-    super(message);
-    this.name = 'AragoraError';
-  }
-
-  static fromResponse(status: number, body: ApiError): AragoraError {
-    return new AragoraError(body.error, body.code, status, body.trace_id, body as unknown as Record<string, unknown>);
-  }
-}
+/**
+ * @deprecated Use the error classes from './errors' instead.
+ * This class is kept for backward compatibility.
+ */
+export { AragoraError } from './errors';
 
 // =============================================================================
 // Common Types

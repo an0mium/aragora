@@ -79,6 +79,7 @@ export interface UpdateWebhookRequest {
   secret?: string;
   active?: boolean;
   metadata?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**

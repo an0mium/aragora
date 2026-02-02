@@ -144,7 +144,7 @@ import type {
   WorkflowTemplateRunResult,
   WorkflowVersion,
 } from './types';
-import { AragoraError } from './types';
+import { AragoraError, TimeoutError, ConnectionError } from './errors';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
 import {
   DebatesAPI,
@@ -1079,11 +1079,16 @@ export class AragoraClient {
         lastError = error as Error;
 
         // Don't retry on client errors (4xx) or abort
-        if (error instanceof AragoraError && error.status && error.status < 500) {
+        if (error instanceof AragoraError && error.statusCode && error.statusCode < 500) {
           throw error;
         }
         if ((error as Error).name === 'AbortError') {
-          throw new AragoraError('Request timeout', 'SERVICE_UNAVAILABLE');
+          throw new TimeoutError('Request timeout', 'SERVICE_UNAVAILABLE');
+        }
+
+        // Check for network/connection errors
+        if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('network'))) {
+          throw new ConnectionError('Connection failed', 'SERVICE_UNAVAILABLE');
         }
 
         // Retry on server errors and network failures
@@ -1093,7 +1098,12 @@ export class AragoraClient {
       }
     }
 
-    throw lastError ?? new AragoraError('Request failed', 'INTERNAL_ERROR');
+    // Check if lastError is a connection-type error
+    if (lastError && lastError.message && (lastError.message.includes('ECONNREFUSED') || lastError.message.includes('ENOTFOUND'))) {
+      throw new ConnectionError(lastError.message, 'SERVICE_UNAVAILABLE');
+    }
+
+    throw lastError ?? new AragoraError('Request failed', undefined, 'INTERNAL_ERROR');
   }
 
   private sleep(ms: number): Promise<void> {
@@ -6577,7 +6587,7 @@ export class AragoraClient {
       }
     );
     if (!response.ok) {
-      throw new AragoraError(`Failed to export PDF: ${response.statusText}`, 'INTERNAL_ERROR');
+      throw new AragoraError(`Failed to export PDF: ${response.statusText}`, response.status, 'INTERNAL_ERROR');
     }
     return response.blob();
   }
@@ -6598,7 +6608,7 @@ export class AragoraClient {
       }
     );
     if (!response.ok) {
-      throw new AragoraError(`Failed to export CSV: ${response.statusText}`, 'INTERNAL_ERROR');
+      throw new AragoraError(`Failed to export CSV: ${response.statusText}`, response.status, 'INTERNAL_ERROR');
     }
     return response.blob();
   }
@@ -6628,7 +6638,7 @@ export class AragoraClient {
       await this.sleep(pollInterval);
     }
 
-    throw new AragoraError(
+    throw new TimeoutError(
       `Debate ${debateId} did not complete within ${timeout}ms`,
       'AGENT_TIMEOUT'
     );

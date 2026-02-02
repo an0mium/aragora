@@ -277,13 +277,32 @@ export type {
   AuditTrailList,
 } from './types';
 
-export { AragoraError } from './types';
+// Re-export error classes
+export {
+  AragoraError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  RateLimitError,
+  ValidationError,
+  ServerError,
+  TimeoutError,
+  ConnectionError,
+  isAragoraError,
+  isRateLimitError,
+  isValidationError,
+  isRetryableError,
+} from './errors';
 
 // Re-export client
 export { AragoraClient, createClient } from './client';
 
 // Re-export sync client
 export { AragoraClientSync, createSyncClient } from './sync';
+
+// Re-export pagination helpers
+export type { PaginatorOptions, FetchPage } from './pagination';
+export { AsyncPaginator, paginate, paginateWith } from './pagination';
 
 // Re-export WebSocket
 export type { WebSocketState, WebSocketOptions, StreamOptions } from './websocket';

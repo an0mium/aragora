@@ -1,9 +1,16 @@
 /**
  * Agent Selection Namespace API
  *
- * Provides a namespaced interface for agent team selection operations.
- * This wraps the flat client methods for scoring, team composition, and plugin management.
+ * Provides methods for agent team selection operations:
+ * - Plugin discovery and configuration
+ * - Agent scoring for specific tasks
+ * - Team selection with role assignment
+ * - Selection history tracking
  */
+
+// =============================================================================
+// Plugin Types
+// =============================================================================
 
 /**
  * Selection plugin information.
@@ -15,7 +22,7 @@ export interface SelectionPlugin {
   version: string;
   enabled: boolean;
   config_schema: Record<string, unknown>;
-  default_config: Record<string, unknown>;
+  default_config?: Record<string, unknown>;
 }
 
 /**
@@ -56,19 +63,36 @@ export interface DefaultPluginConfig {
 }
 
 /**
- * Agent score request.
+ * List plugins response.
+ */
+export interface ListPluginsResponse {
+  plugins: SelectionPlugin[];
+}
+
+// =============================================================================
+// Agent Scoring Types
+// =============================================================================
+
+/**
+ * Agent score request (matches Python SDK).
  */
 export interface ScoreAgentsRequest {
-  task: string;
+  /** List of agent identifiers to score */
+  agents: string[];
+  /** Task context or description for scoring */
   context?: string;
-  candidates?: string[];
+  /** Scoring dimensions (e.g., ["accuracy", "speed", "cost"]) */
+  dimensions?: string[];
+  /** Specific scorer plugin to use */
   scorer?: string;
+  /** Custom weights for each dimension */
   weights?: Record<string, number>;
+  /** Return only top K agents */
   top_k?: number;
 }
 
 /**
- * Agent score.
+ * Agent score result.
  */
 export interface AgentScore {
   agent_id: string;
@@ -89,18 +113,57 @@ export interface ScoreAgentsResponse {
 }
 
 /**
- * Team selection request.
+ * Best agent request.
+ */
+export interface GetBestAgentRequest {
+  /** List of candidate agent identifiers */
+  pool: string[];
+  /** Type of task (e.g., "code_review", "analysis", "creative") */
+  task_type: string;
+  /** Additional context for selection */
+  context?: string;
+}
+
+/**
+ * Best agent response.
+ */
+export interface GetBestAgentResponse {
+  agent_id: string;
+  agent_name: string;
+  score: number;
+  reasoning: string;
+  task_type: string;
+}
+
+// =============================================================================
+// Team Selection Types
+// =============================================================================
+
+/**
+ * Team selection request (matches Python SDK).
  */
 export interface SelectTeamRequest {
-  task: string;
-  context?: string;
+  /** List of candidate agent identifiers */
+  pool: string[];
+  /** Dict describing task needs (domain, complexity, etc.) */
+  task_requirements?: Record<string, unknown>;
+  /** Exact team size */
   team_size?: number;
+  /** Additional selection constraints */
+  constraints?: Record<string, unknown>;
+  /** Minimum team size */
   min_team_size?: number;
+  /** Maximum team size */
   max_team_size?: number;
+  /** Roles that must be filled */
   required_roles?: string[];
+  /** Agents to exclude from selection */
   excluded_agents?: string[];
+  /** Weight for team diversity (0.0-1.0) */
   diversity_weight?: number;
+  /** Specific team selector plugin to use */
   selector?: string;
+  /** Specific role assigner plugin to use */
   role_assigner?: string;
 }
 
@@ -130,10 +193,73 @@ export interface SelectTeamResponse {
   alternatives?: TeamMember[][];
 }
 
+// =============================================================================
+// Role Assignment Types
+// =============================================================================
+
+/**
+ * Role assignment request.
+ */
+export interface AssignRolesRequest {
+  /** List of agent identifiers to assign roles to */
+  members: string[];
+  /** List of roles to assign */
+  roles: string[];
+  /** Context for role assignment decisions */
+  task_context?: string;
+  /** Specific role assigner plugin to use */
+  assigner?: string;
+}
+
+/**
+ * Role assignment entry.
+ */
+export interface RoleAssignment {
+  agent_id: string;
+  agent_name: string;
+  role: string;
+  confidence: number;
+  reasoning: string;
+}
+
+/**
+ * Role assignment response.
+ */
+export interface AssignRolesResponse {
+  assignments: RoleAssignment[];
+  assigner_used: string;
+  assignment_time_ms: number;
+}
+
+// =============================================================================
+// History Types
+// =============================================================================
+
+/**
+ * Selection history entry.
+ */
+export interface SelectionHistoryEntry {
+  id: string;
+  timestamp: string;
+  selection_type: 'score' | 'team' | 'role';
+  request: Record<string, unknown>;
+  result: Record<string, unknown>;
+  duration_ms: number;
+}
+
+/**
+ * Selection history response.
+ */
+export interface SelectionHistoryResponse {
+  history: SelectionHistoryEntry[];
+  total: number;
+  has_more: boolean;
+}
+
 /**
  * Interface for the internal client methods used by AgentSelectionAPI.
  */
-interface AgentSelectionClientInterface {
+export interface AgentSelectionClientInterface {
   request<T = unknown>(
     method: string,
     path: string,
