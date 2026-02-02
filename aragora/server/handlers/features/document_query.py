@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
 
 from ..base import (
     BaseHandler,
@@ -133,8 +134,6 @@ class DocumentQueryHandler(BaseHandler):
         config_dict: dict,
     ) -> dict[str, Any]:
         """Run the document query asynchronously."""
-        from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
-
         # Build config from request
         config = QueryConfig(
             max_chunks=config_dict.get("max_chunks", 10),
@@ -204,8 +203,6 @@ class DocumentQueryHandler(BaseHandler):
         config_dict: dict,
     ) -> dict[str, Any]:
         """Run document summarization asynchronously."""
-        from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
-
         config = QueryConfig(
             **{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__}
         )
@@ -269,8 +266,6 @@ class DocumentQueryHandler(BaseHandler):
         config_dict: dict,
     ) -> dict[str, Any]:
         """Run document comparison asynchronously."""
-        from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
-
         config = QueryConfig(
             **{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__}
         )

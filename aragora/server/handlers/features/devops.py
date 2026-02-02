@@ -886,8 +886,11 @@ class DevOpsHandler(SecureHandler):
         """Parse JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
-                body, _err = await parse_json_body(request, context="devops._get_json_body")
-                return body if body is not None else {}
+                try:
+                    return await request.json()
+                except Exception:
+                    body, _err = await parse_json_body(request, context="devops._get_json_body")
+                    return body if body is not None else {}
             return request.json
         return {}
 
