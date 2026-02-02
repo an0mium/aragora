@@ -172,6 +172,35 @@ def _ensure_init() -> None:
 # =============================================================================
 
 
+def _observe_metric(metric: Any, value: float, labels: dict[str, str] | None = None) -> None:
+    """Observe a metric safely, handling label mismatches."""
+    if labels:
+        labelnames = getattr(metric, "_labelnames", None)
+        # If metric has no labels or labels don't match, try to observe without labels
+        if not labelnames or set(labelnames) != set(labels.keys()):
+            try:
+                # Try with metric's actual labels if they exist
+                if labelnames:
+                    fallback = {name: labels.get(name, "unknown") for name in labelnames}
+                    metric.labels(**fallback).observe(value)
+                else:
+                    metric.observe(value)
+            except Exception:
+                logger.debug("Metric observe failed for %s", getattr(metric, "_name", "unknown"))
+            return
+        try:
+            metric.labels(**labels).observe(value)
+            return
+        except (ValueError, TypeError) as e:
+            # Fallback for mismatched label sets in registry
+            logger.debug("Metric label mismatch for %s: %s", getattr(metric, "_name", "unknown"), e)
+            return
+    try:
+        metric.observe(value)
+    except TypeError:
+        pass  # NoOp metric or other issue
+
+
 def record_debate_completion(
     duration_seconds: float,
     rounds: int,
@@ -185,8 +214,8 @@ def record_debate_completion(
         outcome: Debate outcome (consensus, majority, timeout, etc.)
     """
     _ensure_init()
-    DEBATE_DURATION.labels(outcome=outcome).observe(duration_seconds)
-    DEBATE_ROUNDS.labels(outcome=outcome).observe(rounds)
+    _observe_metric(DEBATE_DURATION, duration_seconds, {"outcome": outcome})
+    _observe_metric(DEBATE_ROUNDS, rounds, {"outcome": outcome})
 
 
 def record_phase_duration(phase: str, duration_seconds: float) -> None:
@@ -197,7 +226,7 @@ def record_phase_duration(phase: str, duration_seconds: float) -> None:
         duration_seconds: Phase duration
     """
     _ensure_init()
-    DEBATE_PHASE_DURATION.labels(phase=phase).observe(duration_seconds)
+    _observe_metric(DEBATE_PHASE_DURATION, duration_seconds, {"phase": phase})
 
 
 def record_agent_participation(agent: str, role: str) -> None:

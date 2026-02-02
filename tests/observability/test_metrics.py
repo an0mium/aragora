@@ -88,8 +88,8 @@ class TestRecordingFunctions:
         """record_agent_call should not raise with noop metrics."""
         from aragora.observability.metrics import record_agent_call
 
-        record_agent_call("claude", success=True, latency=1.2)
-        record_agent_call("gpt-4", success=False, latency=30.0)
+        record_agent_call("claude", success=True, latency_seconds=1.2)
+        record_agent_call("gpt-4", success=False, latency_seconds=30.0)
 
     def test_set_consensus_rate(self):
         """set_consensus_rate should not raise."""

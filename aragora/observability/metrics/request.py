@@ -44,20 +44,33 @@ def init_request_metrics() -> None:
         return
 
     try:
-        from prometheus_client import Counter, Histogram
+        from prometheus_client import REGISTRY, Counter, Histogram
 
-        REQUEST_COUNT = Counter(
-            "aragora_http_requests_total",
-            "Total HTTP requests",
-            ["method", "endpoint", "status"],
-        )
+        # Check if metrics already exist (handles test re-runs)
+        try:
+            REQUEST_COUNT = Counter(
+                "aragora_http_requests_total",
+                "Total HTTP requests",
+                ["method", "endpoint", "status"],
+            )
+        except ValueError:
+            # Metric already registered, get existing one
+            REQUEST_COUNT = REGISTRY._names_to_collectors.get(
+                "aragora_http_requests_total", NoOpMetric()
+            )
 
-        REQUEST_LATENCY = Histogram(
-            "aragora_http_request_latency_seconds",
-            "HTTP request latency",
-            ["endpoint"],
-            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-        )
+        try:
+            REQUEST_LATENCY = Histogram(
+                "aragora_http_request_latency_seconds",
+                "HTTP request latency",
+                ["endpoint"],
+                buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+            )
+        except ValueError:
+            # Metric already registered, get existing one
+            REQUEST_LATENCY = REGISTRY._names_to_collectors.get(
+                "aragora_http_request_latency_seconds", NoOpMetric()
+            )
 
         _initialized = True
         logger.debug("Request metrics initialized")
