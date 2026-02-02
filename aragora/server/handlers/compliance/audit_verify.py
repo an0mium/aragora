@@ -22,9 +22,19 @@ from aragora.server.handlers.base import (
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
 from aragora.storage.audit_store import get_audit_store
-from aragora.storage.receipt_store import get_receipt_store
+from aragora.storage.receipt_store import get_receipt_store as _base_get_receipt_store
 
 logger = logging.getLogger(__name__)
+
+
+def get_receipt_store():  # type: ignore[override]
+    """Indirection for tests that patch compliance_handler.get_receipt_store."""
+    try:
+        from aragora.server.handlers import compliance_handler as compat
+
+        return compat.get_receipt_store()
+    except Exception:
+        return _base_get_receipt_store()
 
 
 def parse_timestamp(value: str | None) -> datetime | None:
