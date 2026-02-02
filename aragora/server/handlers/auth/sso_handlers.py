@@ -203,6 +203,14 @@ async def handle_sso_login(
             metadata={"provider_type": provider_type},
         )
 
+        # Store session in-memory for quick lookup (kept alongside state store)
+        _cleanup_expired_sessions()
+        _auth_sessions[state] = {
+            "created_at": time.time(),
+            "redirect_url": redirect_url,
+            "provider_type": provider_type,
+        }
+
         # Get authorization URL
         auth_url = await provider.get_authorization_url(state=state)
 
@@ -264,13 +272,17 @@ async def handle_sso_callback(
         # - RedisOAuthStateStore uses Redis key lookup (not timing-vulnerable)
         state_store = _get_sso_state_store()
         oauth_state = state_store.validate_and_consume(state)
-
         if not oauth_state:
-            return error_response("Invalid or expired state", status=401)
-
-        # Extract session data from state
-        provider_type = (oauth_state.metadata or {}).get("provider_type", "oidc")
-        redirect_url = oauth_state.redirect_url or "/"
+            _cleanup_expired_sessions()
+            session = _auth_sessions.pop(state, None)
+            if not session:
+                return error_response("Invalid or expired state", status=401)
+            provider_type = session.get("provider_type", "oidc")
+            redirect_url = session.get("redirect_url", "/")
+        else:
+            # Extract session data from state
+            provider_type = (oauth_state.metadata or {}).get("provider_type", "oidc")
+            redirect_url = oauth_state.redirect_url or "/"
 
         provider = _get_sso_provider(provider_type)
         if not provider:

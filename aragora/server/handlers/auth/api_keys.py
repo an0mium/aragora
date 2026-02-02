@@ -13,8 +13,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from aragora.billing.jwt_auth import extract_user_from_request
-
 from ..base import HandlerResult, error_response, json_response, handle_errors
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit
@@ -32,6 +30,13 @@ except ImportError:
     audit_admin = None
 
 logger = logging.getLogger(__name__)
+
+
+def extract_user_from_request(handler, user_store):
+    """Proxy extract_user_from_request for patching in tests without circular imports."""
+    from . import handler as auth_handler_module
+
+    return auth_handler_module.extract_user_from_request(handler, user_store)
 
 
 @api_endpoint(
