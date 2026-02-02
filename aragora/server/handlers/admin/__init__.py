@@ -18,30 +18,11 @@ Note: The original admin.py has been decomposed into handler.py and the
 mixin modules. AdminHandler is now re-exported from handler.py.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 from aragora.billing.jwt_auth import extract_user_from_request
-
-# Import from decomposed modules
-from .handler import (
-    ADMIN_ROLES,
-    AdminHandler,
-    admin_secure_endpoint,
-    PERM_ADMIN_USERS_WRITE,
-    PERM_ADMIN_IMPERSONATE,
-    PERM_ADMIN_NOMIC_WRITE,
-    PERM_ADMIN_SYSTEM_WRITE,
-)
-from .metrics_dashboard import MetricsDashboardMixin
-from .users import UserManagementMixin
-from .nomic_admin import NomicAdminMixin
-
-# Import other handlers
-from .dashboard import DashboardHandler
-from .health import HealthHandler
-from .security import SecurityHandler
-from .system import SystemHandler
-
-# Import from new location for backward compatibility
-from ..billing import BillingHandler
 
 __all__ = [
     # Main handler and roles
@@ -66,3 +47,70 @@ __all__ = [
     # Utilities
     "extract_user_from_request",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name == "ADMIN_ROLES":
+        from .handler import ADMIN_ROLES
+
+        return ADMIN_ROLES
+    if name == "AdminHandler":
+        from .handler import AdminHandler
+
+        return AdminHandler
+    if name == "admin_secure_endpoint":
+        from .handler import admin_secure_endpoint
+
+        return admin_secure_endpoint
+    if name == "PERM_ADMIN_USERS_WRITE":
+        from .handler import PERM_ADMIN_USERS_WRITE
+
+        return PERM_ADMIN_USERS_WRITE
+    if name == "PERM_ADMIN_IMPERSONATE":
+        from .handler import PERM_ADMIN_IMPERSONATE
+
+        return PERM_ADMIN_IMPERSONATE
+    if name == "PERM_ADMIN_NOMIC_WRITE":
+        from .handler import PERM_ADMIN_NOMIC_WRITE
+
+        return PERM_ADMIN_NOMIC_WRITE
+    if name == "PERM_ADMIN_SYSTEM_WRITE":
+        from .handler import PERM_ADMIN_SYSTEM_WRITE
+
+        return PERM_ADMIN_SYSTEM_WRITE
+    if name == "MetricsDashboardMixin":
+        from .metrics_dashboard import MetricsDashboardMixin
+
+        return MetricsDashboardMixin
+    if name == "UserManagementMixin":
+        from .users import UserManagementMixin
+
+        return UserManagementMixin
+    if name == "NomicAdminMixin":
+        from .nomic_admin import NomicAdminMixin
+
+        return NomicAdminMixin
+    if name == "DashboardHandler":
+        from .dashboard import DashboardHandler
+
+        return DashboardHandler
+    if name == "HealthHandler":
+        from .health import HealthHandler
+
+        return HealthHandler
+    if name == "SecurityHandler":
+        from .security import SecurityHandler
+
+        return SecurityHandler
+    if name == "SystemHandler":
+        from .system import SystemHandler
+
+        return SystemHandler
+    if name == "BillingHandler":
+        from ..billing import BillingHandler
+
+        return BillingHandler
+    if name == "extract_user_from_request":
+        return extract_user_from_request
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1424,11 +1424,22 @@ export {
 // Security (Admin Security Management)
 export {
   SecurityAPI,
+  type SecurityLevel,
+  type KeyStatus,
+  type CheckStatus,
+  type ThreatStatus,
   type SecurityStatus as SecurityAdminStatus,
   type SecurityHealthCheck,
   type SecurityKey as SecurityAdminKey,
   type RotateKeyRequest,
   type RotateKeyResult,
+  type CreateKeyRequest,
+  type RevokeKeyRequest,
+  type SecurityScan,
+  type SecurityFinding,
+  type AuditLogEntry as SecurityAuditLogEntry,
+  type ComplianceStatus as SecurityComplianceStatus,
+  type SecurityThreat,
 } from './security';
 
 // Reviews (Decision Reviews)

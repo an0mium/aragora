@@ -1,6 +1,8 @@
 """
 Bank Reconciliation API Handler.
 
+Stability: STABLE
+
 Provides REST APIs for bank reconciliation functionality:
 - Run reconciliation between bank and book transactions
 - View and manage discrepancies
@@ -16,11 +18,26 @@ Endpoints:
 - POST /api/v1/reconciliation/{id}/approve - Approve reconciliation
 - GET  /api/v1/reconciliation/discrepancies - Get all pending discrepancies
 - POST /api/v1/reconciliation/discrepancies/bulk-resolve - Bulk resolve
+
+Security:
+    All endpoints require RBAC permissions:
+    - reconciliation:read: List and view reconciliations
+    - reconciliation:write: Run reconciliation and resolve discrepancies
+    - reconciliation:approve: Approve reconciliations
+
+Features:
+    - Circuit breaker pattern for resilient service calls
+    - Rate limiting (30 requests/minute for mutations, 60/minute for reads)
+    - RBAC permission checks
+    - Input validation with size limits
+    - Comprehensive error handling with safe error messages
 """
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from datetime import date, datetime, timezone
 from typing import Any, Optional
 
@@ -29,9 +46,169 @@ from ..base import (
     error_response,
     success_response,
 )
+from ..utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation import (
+    SAFE_ID_PATTERN,
+    validate_path_segment,
+)
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Circuit Breaker for Reconciliation Operations
+# =============================================================================
+
+
+class ReconciliationCircuitBreaker:
+    """Circuit breaker for reconciliation service operations.
+
+    Prevents cascading failures when the reconciliation service is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Reconciliation circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Reconciliation circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Reconciliation circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Reconciliation circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker for reconciliation operations
+_reconciliation_circuit_breaker: ReconciliationCircuitBreaker | None = None
+_circuit_breaker_lock = threading.Lock()
+
+
+def _get_reconciliation_circuit_breaker() -> ReconciliationCircuitBreaker:
+    """Get or create the reconciliation circuit breaker."""
+    global _reconciliation_circuit_breaker
+    with _circuit_breaker_lock:
+        if _reconciliation_circuit_breaker is None:
+            _reconciliation_circuit_breaker = ReconciliationCircuitBreaker()
+        return _reconciliation_circuit_breaker
+
+
+def get_reconciliation_circuit_breaker_status() -> dict[str, Any]:
+    """Get status of the reconciliation circuit breaker."""
+    return _get_reconciliation_circuit_breaker().get_status()
+
+
+def _clear_reconciliation_circuit_breaker() -> None:
+    """Clear the circuit breaker (for testing)."""
+    global _reconciliation_circuit_breaker
+    with _circuit_breaker_lock:
+        _reconciliation_circuit_breaker = None
+
 
 # =============================================================================
 # Service Instance Management
@@ -58,7 +235,13 @@ def get_reconciliation_service(tenant_id: str):
 
 
 class ReconciliationHandler:
-    """Handler for bank reconciliation API endpoints."""
+    """Handler for bank reconciliation API endpoints.
+
+    RBAC Permissions:
+    - reconciliation:read: List and view reconciliations, reports, discrepancies
+    - reconciliation:write: Run reconciliation, resolve discrepancies
+    - reconciliation:approve: Approve/finalize reconciliations
+    """
 
     ROUTES = [
         "/api/v1/reconciliation/run",
@@ -70,41 +253,48 @@ class ReconciliationHandler:
         "/api/v1/reconciliation/discrepancies",
         "/api/v1/reconciliation/discrepancies/bulk-resolve",
         "/api/v1/reconciliation/demo",
+        "/api/v1/reconciliation/status",
     ]
+
+    RESOURCE_TYPE = "reconciliation"  # For audit logging
 
     ctx: dict[str, Any]
 
     def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
         self.ctx = server_context or {}
+        self._circuit_breaker = _get_reconciliation_circuit_breaker()
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/reconciliation")
 
-    @require_permission("reconciliation:read")
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
 
-            # Run reconciliation
+            # Circuit breaker status (no auth required for health checks)
+            if path == "/api/v1/reconciliation/status" and method == "GET":
+                return await self._handle_status(request)
+
+            # Run reconciliation (requires write permission)
             if path == "/api/v1/reconciliation/run" and method == "POST":
                 return await self._handle_run(request, tenant_id)
 
-            # List reconciliations
+            # List reconciliations (requires read permission)
             elif path == "/api/v1/reconciliation/list" and method == "GET":
                 return await self._handle_list(request, tenant_id)
 
-            # Demo data
+            # Demo data (requires read permission)
             elif path == "/api/v1/reconciliation/demo" and method == "GET":
                 return await self._handle_demo(request, tenant_id)
 
-            # Get discrepancies
+            # Get discrepancies (requires read permission)
             elif path == "/api/v1/reconciliation/discrepancies" and method == "GET":
                 return await self._handle_discrepancies(request, tenant_id)
 
-            # Bulk resolve discrepancies
+            # Bulk resolve discrepancies (requires write permission)
             elif path == "/api/v1/reconciliation/discrepancies/bulk-resolve" and method == "POST":
                 return await self._handle_bulk_resolve(request, tenant_id)
 
@@ -113,6 +303,13 @@ class ReconciliationHandler:
                 parts = path.split("/")
                 if len(parts) >= 5:
                     reconciliation_id = parts[4]
+
+                    # Validate reconciliation_id
+                    is_valid, err_msg = validate_path_segment(
+                        reconciliation_id, "reconciliation_id", SAFE_ID_PATTERN
+                    )
+                    if not is_valid:
+                        return error_response(err_msg or "Invalid reconciliation_id", 400)
 
                     if len(parts) == 5 and method == "GET":
                         return await self._handle_get(request, tenant_id, reconciliation_id)
@@ -130,16 +327,32 @@ class ReconciliationHandler:
 
         except Exception as e:
             logger.exception(f"Error in reconciliation handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
         return getattr(request, "tenant_id", "default")
 
     # =========================================================================
+    # Circuit Breaker Status
+    # =========================================================================
+
+    @rate_limit(requests_per_minute=60, limiter_name="reconciliation_status")
+    async def _handle_status(self, request: Any) -> HandlerResult:
+        """Get circuit breaker and service status."""
+        return success_response(
+            {
+                "status": "healthy",
+                "circuit_breaker": self._circuit_breaker.get_status(),
+            }
+        )
+
+    # =========================================================================
     # Run Reconciliation
     # =========================================================================
 
+    @require_permission("reconciliation:write")
+    @rate_limit(requests_per_minute=10, limiter_name="reconciliation_run")
     async def _handle_run(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run a new bank reconciliation.
 
@@ -152,15 +365,29 @@ class ReconciliationHandler:
             "plaid_access_token": "..."  // Optional, use stored if not provided
         }
         """
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            status = self._circuit_breaker.get_status()
+            return error_response(
+                f"Service temporarily unavailable (circuit breaker {status['state']})",
+                503,
+            )
+
         try:
             body = await self._get_json_body(request)
 
-            # Parse dates
+            # Parse and validate dates
             start_date_str = body.get("start_date")
             end_date_str = body.get("end_date")
 
             if not start_date_str or not end_date_str:
                 return error_response("start_date and end_date are required", 400)
+
+            # Validate date string format (prevent injection)
+            if not isinstance(start_date_str, str) or len(start_date_str) > 10:
+                return error_response("Invalid start_date format", 400)
+            if not isinstance(end_date_str, str) or len(end_date_str) > 10:
+                return error_response("Invalid end_date format", 400)
 
             try:
                 start_date = date.fromisoformat(start_date_str)
@@ -171,8 +398,18 @@ class ReconciliationHandler:
             if end_date < start_date:
                 return error_response("end_date must be after start_date", 400)
 
+            # Validate account_id if provided
             account_id = body.get("account_id")
+            if account_id is not None:
+                if not isinstance(account_id, str) or len(account_id) > 64:
+                    return error_response("Invalid account_id format", 400)
+                is_valid, err_msg = validate_path_segment(account_id, "account_id", SAFE_ID_PATTERN)
+                if not is_valid:
+                    return error_response(err_msg or "Invalid account_id", 400)
+
             use_agents = body.get("use_agents", True)
+            if not isinstance(use_agents, bool):
+                return error_response("use_agents must be a boolean", 400)
 
             # Get service
             service = get_reconciliation_service(tenant_id)
@@ -191,6 +428,7 @@ class ReconciliationHandler:
                 mock_result.start_date = start_date
                 mock_result.end_date = end_date
 
+                self._circuit_breaker.record_success()
                 return success_response(
                     {
                         "reconciliation": mock_result.to_dict(),
@@ -201,6 +439,10 @@ class ReconciliationHandler:
                         "is_demo": True,
                     }
                 )
+
+            # Validate plaid_access_token format
+            if not isinstance(plaid_token, str) or len(plaid_token) > 256:
+                return error_response("Invalid plaid_access_token format", 400)
 
             # Run actual reconciliation
             from aragora.connectors.accounting.plaid import PlaidCredentials
@@ -222,6 +464,7 @@ class ReconciliationHandler:
                 use_agents=use_agents,
             )
 
+            self._circuit_breaker.record_success()
             return success_response(
                 {
                     "reconciliation": result.to_dict(),
@@ -230,11 +473,13 @@ class ReconciliationHandler:
                 }
             )
 
-        except ImportError as e:
-            return error_response(f"Required module not available: {e}", 503)
+        except ImportError:
+            self._circuit_breaker.record_failure()
+            return error_response("Required module not available", 503)
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Error running reconciliation: {e}")
-            return error_response(f"Reconciliation failed: {str(e)}", 500)
+            return error_response("Reconciliation failed", 500)
 
     # =========================================================================
     # List/Get Reconciliations

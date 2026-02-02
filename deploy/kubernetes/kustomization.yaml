@@ -12,6 +12,7 @@ resources:
   - configmap.yaml
   - secrets.yaml
   - pvc.yaml
+  - network-policy.yaml  # Zero-trust network segmentation
   - deployment.yaml
   - service.yaml
   - hpa.yaml
@@ -19,7 +20,9 @@ resources:
   - ingress.yaml
   - fluentbit-config.yaml
   - backup-cronjob.yaml
-  # external-secret.yaml - uncomment when using External Secrets Operator
+  # External Secrets Operator - configure secret-store.yaml for your provider first
+  # See deploy/kubernetes/README.md for setup instructions
+  # - secret-store.yaml
   # - external-secret.yaml
 
 labels:

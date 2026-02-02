@@ -36,6 +36,7 @@ Usage:
 
 from __future__ import annotations
 
+import functools
 import logging
 import math
 import statistics
@@ -44,7 +45,74 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
+try:
+    import numpy as np
+
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
+
+
+# LRU cache for Krippendorff's alpha calculations
+# Keyed by tuple of discretized bucket values for efficient reuse
+@functools.lru_cache(maxsize=1024)
+def _cached_krippendorff_alpha(buckets: tuple[int, ...]) -> float:
+    """Compute Krippendorff's alpha with caching.
+
+    This is cached based on the discretized bucket values, so identical
+    prediction sets will reuse the computed result.
+
+    Args:
+        buckets: Tuple of discretized confidence values (0-10 range).
+
+    Returns:
+        Krippendorff's alpha (-1.0 to 1.0, higher is better agreement).
+    """
+    n = len(buckets)
+    if n < 2:
+        return 1.0  # Perfect agreement with one rater
+
+    if HAS_NUMPY:
+        # Vectorized NumPy implementation - O(n) instead of O(n^2)
+        arr = np.array(buckets, dtype=np.float64)
+
+        # Observed disagreement using vectorized pairwise differences
+        # For pairwise squared differences, we use the identity:
+        # sum_{i<j} (x_i - x_j)^2 = n * sum(x^2) - (sum(x))^2 / 2
+        # This avoids the O(n^2) nested loop
+        n_pairs = n * (n - 1) // 2
+        sum_sq = np.sum(arr**2)
+        sum_val = np.sum(arr)
+        # sum_{i<j} (a_i - a_j)^2 = n * sum(a^2) - sum(a)^2 - sum((a_i - a_i)^2) / 2
+        # Actually: sum_{i,j} (a_i - a_j)^2 = 2n * sum(a^2) - 2 * sum(a)^2
+        # For i < j only: sum_{i<j} (a_i - a_j)^2 = n * sum(a^2) - sum(a)^2
+        pairwise_sum_sq = n * sum_sq - sum_val**2
+        observed_disagreement = pairwise_sum_sq / n_pairs if n_pairs > 0 else 0.0
+
+        # Expected disagreement (variance)
+        mean_bucket = np.mean(arr)
+        expected_disagreement = np.mean((arr - mean_bucket) ** 2)
+    else:
+        # Fallback pure Python implementation with O(n) optimization
+        # Using the identity: sum_{i<j}(x_i - x_j)^2 = n*sum(x^2) - sum(x)^2
+        n_pairs = n * (n - 1) // 2
+        sum_sq = sum(b * b for b in buckets)
+        sum_val = sum(buckets)
+        pairwise_sum_sq = n * sum_sq - sum_val * sum_val
+        observed_disagreement = pairwise_sum_sq / n_pairs if n_pairs > 0 else 0.0
+
+        # Expected disagreement (variance)
+        mean_bucket = sum_val / n
+        expected_disagreement = sum((b - mean_bucket) ** 2 for b in buckets) / n
+
+    if expected_disagreement == 0:
+        return 1.0  # Perfect agreement
+
+    alpha = 1.0 - (observed_disagreement / expected_disagreement)
+    return max(-1.0, min(1.0, alpha))
 
 
 class CalibrationFusionStrategy(Enum):
@@ -529,6 +597,8 @@ class CalibrationFusionEngine:
         """Compute Krippendorff's alpha for inter-rater agreement.
 
         This is a simplified implementation for ordinal data (confidences).
+        Uses vectorized NumPy operations for O(n) performance instead of O(n^2),
+        and caches results for identical prediction sets.
 
         Args:
             predictions: All predictions.
@@ -540,26 +610,11 @@ class CalibrationFusionEngine:
             return 1.0  # Perfect agreement with one rater
 
         # Discretize confidences into buckets for ordinal comparison
-        buckets = [int(p.confidence * 10) for p in predictions]
+        # Convert to tuple for caching (hashable)
+        buckets = tuple(int(p.confidence * 10) for p in predictions)
 
-        # Compute observed disagreement
-        n = len(buckets)
-        observed_disagreement = 0.0
-        for i in range(n):
-            for j in range(i + 1, n):
-                observed_disagreement += (buckets[i] - buckets[j]) ** 2
-
-        observed_disagreement /= n * (n - 1) / 2
-
-        # Compute expected disagreement
-        mean_bucket = sum(buckets) / n
-        expected_disagreement = sum((b - mean_bucket) ** 2 for b in buckets) / n
-
-        if expected_disagreement == 0:
-            return 1.0  # Perfect agreement
-
-        alpha = 1.0 - (observed_disagreement / expected_disagreement)
-        return max(-1.0, min(1.0, alpha))
+        # Use cached implementation for performance
+        return _cached_krippendorff_alpha(buckets)
 
     def detect_outliers(
         self,

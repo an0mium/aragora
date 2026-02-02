@@ -25,497 +25,374 @@ Usage:
 
 from __future__ import annotations
 
+import importlib
+from typing import TYPE_CHECKING, Any
+
 from aragora.config.stability import Stability
 
-from .admin import AdminHandler, SecurityHandler
-from .agents import AgentConfigHandler
-from .agents import AgentsHandler
-from ._analytics_impl import AnalyticsHandler
-from .analytics_dashboard import AnalyticsDashboardHandler
-from .endpoint_analytics import EndpointAnalyticsHandler
-from ._analytics_metrics_impl import AnalyticsMetricsHandler
-from .auditing import AuditingHandler
-from .auth import AuthHandler
+# Lazy loading infrastructure - load early, contains only string mappings
+from ._lazy_imports import ALL_HANDLER_NAMES, HANDLER_MODULES
+
+# IMPORTANT: Import order matters to avoid circular imports.
+# The admin.cache module must be loaded before base.py because:
+# 1. base.py imports from admin.cache
+# 2. admin/__init__.py imports from handler.py, which imports from base.py
+# By pre-loading admin.cache, we break the circular dependency.
+from .admin import cache as _admin_cache  # noqa: F401
+
+# Expose utils submodule for tests
+from . import utils as utils  # noqa: PLC0414
+
+# Base utilities - always loaded (small and frequently needed)
 from .base import BaseHandler, HandlerResult, error_response, json_response
-from . import utils as utils  # Expose utils submodule for tests (redundant alias for ruff)
 
 # Handler mixins (extracted to separate module)
 from .mixins import (
-    PaginatedHandlerMixin,
-    CachedHandlerMixin,
     AuthenticatedHandlerMixin,
+    CachedHandlerMixin,
+    PaginatedHandlerMixin,
 )
 
 # API decorators (extracted to separate module)
 from .api_decorators import (
     api_endpoint,
     rate_limit,
-    validate_body,
     require_quota,
+    validate_body,
 )
 
 # Typed handler base classes (extracted to separate module)
 from .typed_handlers import (
-    TypedHandler,
-    AuthenticatedHandler as TypedAuthenticatedHandler,
-    PermissionHandler,
     AdminHandler as TypedAdminHandler,
     AsyncTypedHandler,
-    ResourceHandler,
+    AuthenticatedHandler as TypedAuthenticatedHandler,
     MaybeAsyncHandlerResult,
+    PermissionHandler,
+    ResourceHandler,
+    TypedHandler,
 )
 
 # Handler interfaces for type checking and contract definition
 from .interface import (
-    HandlerInterface,
     AuthenticatedHandlerInterface,
-    PaginatedHandlerInterface,
     CachedHandlerInterface,
-    StorageAccessInterface,
-    MinimalServerContext,
-    RouteConfig,
+    HandlerInterface,
     HandlerRegistration,
-    is_handler,
+    MinimalServerContext,
+    PaginatedHandlerInterface,
+    RouteConfig,
+    StorageAccessInterface,
     is_authenticated_handler,
+    is_handler,
 )
 
 # Shared types for handlers (protocols, type aliases, common parameters)
 from .types import (
-    # Handler protocol
-    HandlerProtocol,
-    # Request context
-    RequestContext,
-    # Response type aliases
-    ResponseType,
-    # Handler function type aliases
-    HandlerFunction,
     AsyncHandlerFunction,
-    MaybeAsyncHandlerFunction,
-    # Middleware function type aliases
-    MiddlewareFunction,
     AsyncMiddlewareFunction,
+    FilterParams,
+    HandlerFunction,
+    HandlerProtocol,
+    MaybeAsyncHandlerFunction,
     MaybeAsyncMiddlewareFunction,
     MiddlewareFactory,
-    # Common parameter types
+    MiddlewareFunction,
     PaginationParams,
-    FilterParams,
-    SortParams,
     QueryParams,
+    RequestContext,
+    ResponseType,
+    SortParams,
 )
 
 # Standalone utilities that don't require full server infrastructure
 from .utilities import (
-    get_host_header,
-    get_agent_name,
     agent_to_dict,
-    normalize_agent_names,
-    extract_path_segment,
     build_api_url,
-    is_json_content_type,
+    extract_path_segment,
+    get_agent_name,
+    get_content_length,
+    get_host_header,
     get_media_type,
     get_request_id,
-    get_content_length,
+    is_json_content_type,
+    normalize_agent_names,
 )
-from .belief import BeliefHandler
-from .skills import SkillsHandler  # Skills system API
-from .bindings import BindingsHandler  # Message binding routing API
-from .admin import BillingHandler  # Moved to admin/
-from .budgets import BudgetHandler
-from .usage_metering import UsageMeteringHandler  # Token-level usage metering
-from .sme_usage_dashboard import SMEUsageDashboardHandler  # SME usage dashboard
-from .breakpoints import BreakpointsHandler
-from .features import AudioHandler  # Moved to features/
-from .devices import DeviceHandler
-from .transcription import TranscriptionHandler
-from .features import BroadcastHandler  # Moved to features/
-from .agents import CalibrationHandler  # Moved to agents/
-from .canvas import CanvasHandler
-from .checkpoints import CheckpointHandler
-from .composite import CompositeHandler
-from .consensus import ConsensusHandler
-from .control_plane import ControlPlaneHandler
-from .orchestration import OrchestrationHandler
-from .decisions import DecisionExplainHandler
-from .decision import DecisionHandler
-from .deliberations import DeliberationsHandler
-from .critique import CritiqueHandler
-from .cross_pollination import (
-    CrossPollinationStatsHandler,
-    CrossPollinationSubscribersHandler,
-    CrossPollinationBridgeHandler,
-    CrossPollinationMetricsHandler,
-    CrossPollinationResetHandler,
-    CrossPollinationKMHandler,
-    CrossPollinationKMSyncHandler,
-    CrossPollinationKMStalenessHandler,
-    CrossPollinationKMCultureHandler,
-)
-from .admin import DashboardHandler  # Moved to admin/
-from .debates import DebatesHandler
-from .docs import DocsHandler
-from .features import AuditSessionsHandler  # Audit sessions API
-from .features import CloudStorageHandler  # Cloud storage integration API
-from .features import CodebaseAuditHandler  # Codebase audit API
-from .features import ConnectorsHandler  # Unified connectors registry API
-from .features import CrossPlatformAnalyticsHandler  # Cross-platform analytics API
-from .features import DevOpsHandler  # DevOps integrations API
-from .features import DocumentHandler  # Moved to features/
-from .features import DocumentBatchHandler  # Batch document upload
-from .features import DocumentQueryHandler  # NL document querying
-from .features import EmailWebhooksHandler  # Email webhook endpoints
-from .features import EvidenceHandler  # Moved to features/
-from .features import EvidenceEnrichmentHandler  # Evidence enrichment for findings
-from .features import FindingWorkflowHandler  # Finding workflow management
-from .features import FolderUploadHandler  # Folder upload support
-from .features import GmailIngestHandler  # Gmail inbox ingestion API
-from .features import GmailQueryHandler  # Gmail querying API
-from .features import IntegrationsHandler  # Integration config API
-from .external_integrations import ExternalIntegrationsHandler  # Zapier/Make/n8n integrations
-from .integration_management import (
-    IntegrationsHandler as IntegrationManagementHandler,
-)  # v2 integration management API
-from .oauth_wizard import OAuthWizardHandler  # OAuth wizard endpoints
-from .features import LegalHandler  # Legal integrations API
-from .features import MarketplaceHandler  # Template marketplace API
-from .features import ReconciliationHandler  # Financial reconciliation API
-from .features import RoutingRulesHandler  # Routing rules API
-from .features import RLMHandler  # RLM operations API
-from .features import SchedulerHandler  # Audit scheduling
-from .features import SmartUploadHandler  # Smart upload and classification API
-from .features import UnifiedInboxHandler  # Unified inbox API
-from .evaluation import EvaluationHandler
-from .evolution import EvolutionABTestingHandler  # Moved to evolution/
-from .evolution import EvolutionHandler  # Moved to evolution/
-from .features import FeaturesHandler  # Moved to features/
-from .verification import FormalVerificationHandler  # Moved to verification/
-from .gallery import GalleryHandler
-from .gauntlet import GauntletHandler
-from .gauntlet_v1 import (
-    GauntletSchemaHandler,
-    GauntletAllSchemasHandler,
-    GauntletTemplatesListHandler,
-    GauntletTemplateHandler,
-    GauntletReceiptExportHandler,
-    GauntletHeatmapExportHandler,
-    GauntletValidateReceiptHandler,
-    GAUNTLET_V1_HANDLERS,
-)
-from .genesis import GenesisHandler
-from .debates import GraphDebatesHandler  # Moved to debates/
-from .admin import HealthHandler  # Moved to admin/
-from .public import StatusPageHandler  # Public status page
-from .memory import InsightsHandler  # Moved to memory/
-from .introspection import IntrospectionHandler
-from .knowledge_base import KnowledgeHandler, KnowledgeMoundHandler
-from .knowledge_chat import KnowledgeChatHandler
-from .knowledge.checkpoints import KMCheckpointHandler
-from .laboratory import LaboratoryHandler
-from .agents import LeaderboardViewHandler  # Moved to agents/
-from .memory import LearningHandler  # Moved to memory/
-from .debates import MatrixDebatesHandler  # Moved to debates/
-from .memory import MemoryHandler  # memory/ subdirectory
-from .memory import MemoryAnalyticsHandler  # Moved to memory/
-from .memory import CoordinatorHandler  # Memory coordinator API
-from .metrics import MetricsHandler
-from .slo import SLOHandler
-from .moments import MomentsHandler
-from .nomic import NomicHandler
-from .oauth import OAuthHandler
-from .onboarding import (
-    handle_get_flow,
-    handle_init_flow,
-    handle_update_step,
-    handle_get_templates,
-    handle_first_debate,
-    handle_quick_start,
-    handle_analytics,
-    get_onboarding_handlers,
-    OnboardingHandler,
-)
-from .backup_handler import BackupHandler
-from .features.gmail_labels import GmailLabelsHandler
-from .features.gmail_threads import GmailThreadsHandler
-from .organizations import OrganizationsHandler
-from .persona import PersonaHandler
-from .policy import PolicyHandler
-from .privacy import PrivacyHandler
-from .queue import QueueHandler
-from .repository import RepositoryHandler
-from .uncertainty import UncertaintyHandler
-from .verticals import VerticalsHandler
-from .workspace import WorkspaceHandler
-from .features import PluginsHandler  # Moved to features/
-from .agents import ProbesHandler  # Moved to agents/
-from .features import PulseHandler  # Moved to features/
-from .features import AdvertisingHandler  # Unified advertising platforms API
-from .features import AnalyticsPlatformsHandler  # Unified analytics platforms API
-from .features import CRMHandler  # Unified CRM platforms API
-from .features import SupportHandler  # Unified support platforms API
-from .features import EcommerceHandler  # Unified ecommerce platforms API
-from .social import RelationshipHandler  # Moved to social/
-from .replays import ReplaysHandler
-from .reviews import ReviewsHandler
-from .routing import RoutingHandler
-from .ml import MLHandler
-from .rlm import RLMContextHandler
-from .selection import SelectionHandler
-from .social import SlackHandler  # Moved to social/
-from .social.teams import TeamsIntegrationHandler
-from .social import SocialMediaHandler
-from .admin import SystemHandler  # Moved to admin/
-from .tournaments import TournamentHandler
-from .training import TrainingHandler
-from .verification import VerificationHandler
-from .webhooks import WebhookHandler
-from .workflows import WorkflowHandler
-from .workflow_templates import (
-    WorkflowTemplatesHandler,
-    WorkflowCategoriesHandler,
-    WorkflowPatternsHandler,
-    WorkflowPatternTemplatesHandler,
-    TemplateRecommendationsHandler,
-)
-from .template_marketplace import TemplateMarketplaceHandler
-from .email import EmailHandler  # Email prioritization API
-from .email_services import EmailServicesHandler  # Email services (follow-up, snooze, categories)
-from .dependency_analysis import DependencyAnalysisHandler  # Dependency analysis API
-from .computer_use_handler import ComputerUseHandler  # Computer use tasks API
-from .gateway_handler import GatewayHandler  # IoT gateway API
-from .openclaw_gateway import OpenClawGatewayHandler  # OpenClaw enterprise gateway API
-from .external_agents import ExternalAgentsHandler  # External agent gateway API
 
-# Accounting handlers
-from .expenses import ExpenseHandler  # Expense tracking API
-from .invoices import InvoiceHandler  # Invoice processing API
-from .ar_automation import ARAutomationHandler  # AR automation API
-from .ap_automation import APAutomationHandler  # AP automation API
+# Type checking imports - these are not executed at runtime
+if TYPE_CHECKING:
+    from .a2a import A2AHandler
+    from .admin import (
+        AdminHandler,
+        BillingHandler,
+        DashboardHandler,
+        HealthHandler,
+        SecurityHandler,
+        SystemHandler,
+    )
+    from .agents import (
+        AgentConfigHandler,
+        AgentsHandler,
+        CalibrationHandler,
+        LeaderboardViewHandler,
+        ProbesHandler,
+    )
+    from ._analytics_impl import AnalyticsHandler
+    from .analytics_dashboard import AnalyticsDashboardHandler
+    from ._analytics_metrics_impl import AnalyticsMetricsHandler
+    from .ap_automation import APAutomationHandler
+    from .ar_automation import ARAutomationHandler
+    from .auditing import AuditingHandler
+    from .auth import AuthHandler
+    from .autonomous import (
+        AlertHandler,
+        ApprovalHandler,
+        LearningHandler as AutonomousLearningHandler,
+        MonitoringHandler,
+        TriggerHandler,
+    )
+    from .backup_handler import BackupHandler
+    from .belief import BeliefHandler
+    from .bindings import BindingsHandler
+    from .bots import (
+        DiscordHandler,
+        GoogleChatHandler,
+        TeamsHandler,
+        TelegramHandler,
+        WhatsAppHandler,
+        ZoomHandler,
+    )
+    from .breakpoints import BreakpointsHandler
+    from .budgets import BudgetHandler
+    from .canvas import CanvasHandler
+    from .checkpoints import CheckpointHandler
+    from .code_review import CodeReviewHandler
+    from .codebase import IntelligenceHandler
+    from .composite import CompositeHandler
+    from .computer_use_handler import ComputerUseHandler
+    from .consensus import ConsensusHandler
+    from .control_plane import ControlPlaneHandler
+    from .critique import CritiqueHandler
+    from .cross_pollination import (
+        CrossPollinationBridgeHandler,
+        CrossPollinationKMCultureHandler,
+        CrossPollinationKMHandler,
+        CrossPollinationKMStalenessHandler,
+        CrossPollinationKMSyncHandler,
+        CrossPollinationMetricsHandler,
+        CrossPollinationResetHandler,
+        CrossPollinationStatsHandler,
+        CrossPollinationSubscribersHandler,
+    )
+    from .debates import DebatesHandler, GraphDebatesHandler, MatrixDebatesHandler
+    from .decision import DecisionHandler
+    from .decisions import DecisionExplainHandler
+    from .deliberations import DeliberationsHandler
+    from .dependency_analysis import DependencyAnalysisHandler
+    from .devices import DeviceHandler
+    from .docs import DocsHandler
+    from .email import EmailHandler
+    from .email_services import EmailServicesHandler
+    from .endpoint_analytics import EndpointAnalyticsHandler
+    from .erc8004 import ERC8004Handler
+    from .evaluation import EvaluationHandler
+    from .evolution import EvolutionABTestingHandler, EvolutionHandler
+    from .expenses import ExpenseHandler
+    from .explainability import ExplainabilityHandler
+    from .external_agents import ExternalAgentsHandler
+    from .external_integrations import ExternalIntegrationsHandler
+    from .features import (
+        AdvertisingHandler,
+        AnalyticsPlatformsHandler,
+        AuditSessionsHandler,
+        AudioHandler,
+        BroadcastHandler,
+        CloudStorageHandler,
+        CodebaseAuditHandler,
+        ConnectorsHandler,
+        CRMHandler,
+        CrossPlatformAnalyticsHandler,
+        DevOpsHandler,
+        DocumentBatchHandler,
+        DocumentHandler,
+        DocumentQueryHandler,
+        EcommerceHandler,
+        EmailWebhooksHandler,
+        EvidenceEnrichmentHandler,
+        EvidenceHandler,
+        FeaturesHandler,
+        FindingWorkflowHandler,
+        FolderUploadHandler,
+        GmailIngestHandler,
+        GmailQueryHandler,
+        IntegrationsHandler,
+        LegalHandler,
+        MarketplaceHandler,
+        PluginsHandler,
+        PulseHandler,
+        ReconciliationHandler,
+        RLMHandler,
+        RoutingRulesHandler,
+        SchedulerHandler,
+        SmartUploadHandler,
+        SupportHandler,
+        UnifiedInboxHandler,
+    )
+    from .features.gmail_labels import GmailLabelsHandler
+    from .features.gmail_threads import GmailThreadsHandler
+    from .gallery import GalleryHandler
+    from .gateway_agents_handler import GatewayAgentsHandler
+    from .gateway_credentials_handler import GatewayCredentialsHandler
+    from .gateway_handler import GatewayHandler
+    from .gateway_health_handler import GatewayHealthHandler
+    from .gauntlet import GauntletHandler
+    from .gauntlet_v1 import (
+        GAUNTLET_V1_HANDLERS,
+        GauntletAllSchemasHandler,
+        GauntletHeatmapExportHandler,
+        GauntletReceiptExportHandler,
+        GauntletSchemaHandler,
+        GauntletTemplateHandler,
+        GauntletTemplatesListHandler,
+        GauntletValidateReceiptHandler,
+    )
+    from .genesis import GenesisHandler
+    from .hybrid_debate_handler import HybridDebateHandler
+    from .integration_management import (
+        IntegrationsHandler as IntegrationManagementHandler,
+    )
+    from .introspection import IntrospectionHandler
+    from .invoices import InvoiceHandler
+    from .knowledge.checkpoints import KMCheckpointHandler
+    from .knowledge_base import KnowledgeHandler, KnowledgeMoundHandler
+    from .knowledge_chat import KnowledgeChatHandler
+    from .laboratory import LaboratoryHandler
+    from .memory import (
+        CoordinatorHandler,
+        InsightsHandler,
+        LearningHandler,
+        MemoryAnalyticsHandler,
+        MemoryHandler,
+    )
+    from .metrics import MetricsHandler
+    from .ml import MLHandler
+    from .moments import MomentsHandler
+    from .nomic import NomicHandler
+    from .oauth import OAuthHandler
+    from .oauth_wizard import OAuthWizardHandler
+    from .onboarding import (
+        OnboardingHandler,
+        get_onboarding_handlers,
+        handle_analytics,
+        handle_first_debate,
+        handle_get_flow,
+        handle_get_templates,
+        handle_init_flow,
+        handle_quick_start,
+        handle_update_step,
+    )
+    from .openclaw_gateway import OpenClawGatewayHandler
+    from .orchestration import OrchestrationHandler
+    from .organizations import OrganizationsHandler
+    from .persona import PersonaHandler
+    from .policy import PolicyHandler
+    from .privacy import PrivacyHandler
+    from .public import StatusPageHandler
+    from .queue import QueueHandler
+    from .replays import ReplaysHandler
+    from .repository import RepositoryHandler
+    from .reviews import ReviewsHandler
+    from .rlm import RLMContextHandler
+    from .routing import RoutingHandler
+    from .scim_handler import SCIMHandler
+    from .selection import SelectionHandler
+    from .skills import SkillsHandler
+    from .slo import SLOHandler
+    from .sme_usage_dashboard import SMEUsageDashboardHandler
+    from .social import (
+        CollaborationHandlers,
+        RelationshipHandler,
+        SlackHandler,
+        SocialMediaHandler,
+        get_collaboration_handlers,
+    )
+    from .social.teams import TeamsIntegrationHandler
+    from .template_marketplace import TemplateMarketplaceHandler
+    from .tournaments import TournamentHandler
+    from .training import TrainingHandler
+    from .transcription import TranscriptionHandler
+    from .uncertainty import UncertaintyHandler
+    from .usage_metering import UsageMeteringHandler
+    from .verification import FormalVerificationHandler, VerificationHandler
+    from .verticals import VerticalsHandler
+    from .webhooks import WebhookHandler
+    from .workflow_templates import (
+        TemplateRecommendationsHandler,
+        WorkflowCategoriesHandler,
+        WorkflowPatternTemplatesHandler,
+        WorkflowPatternsHandler,
+        WorkflowTemplatesHandler,
+    )
+    from .workflows import WorkflowHandler
+    from .workspace import WorkspaceHandler
 
-# Code review handler
-from .code_review import CodeReviewHandler  # Multi-agent code review API
-from .codebase import IntelligenceHandler  # Code intelligence (AST, call graphs, dead code)
-from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
-from .bots import (
-    DiscordHandler,
-    GoogleChatHandler,
-    TeamsHandler,
-    TelegramHandler,
-    WhatsAppHandler,
-    ZoomHandler,
-)  # Bot platform handlers
-from .explainability import ExplainabilityHandler  # Decision explainability API
-from .a2a import A2AHandler  # A2A protocol handler
-from .scim_handler import SCIMHandler  # SCIM 2.0 provisioning handler
-from .autonomous import (  # Autonomous operations handlers (Phase 5)
-    ApprovalHandler,
-    AlertHandler,
-    TriggerHandler,
-    MonitoringHandler,
-    LearningHandler as AutonomousLearningHandler,  # Renamed to avoid conflict with memory/LearningHandler
-)
-from .gateway_health_handler import GatewayHealthHandler  # Gateway health endpoints
-from .gateway_agents_handler import GatewayAgentsHandler  # Gateway agent registration
-from .gateway_credentials_handler import GatewayCredentialsHandler  # Gateway credential management
-from .hybrid_debate_handler import HybridDebateHandler  # Hybrid debate (external + internal agents)
-from .erc8004 import ERC8004Handler  # ERC-8004 blockchain identity API
 
-# List of all handler classes for automatic dispatch registration
-# Order matters: more specific handlers should come first
-ALL_HANDLERS = [
-    GraphDebatesHandler,  # More specific path: /api/debates/graph
-    MatrixDebatesHandler,  # More specific path: /api/debates/matrix
-    CompositeHandler,  # More specific: /api/debates/*/full-context, /api/agents/*/reliability
-    DebatesHandler,
-    AgentConfigHandler,  # More specific: /api/agents/configs/*
-    AgentsHandler,
-    HealthHandler,  # More specific: /healthz, /readyz, /api/health/*
-    StatusPageHandler,  # Public status page: /status, /api/status/*
-    NomicHandler,  # More specific: /api/nomic/*
-    DocsHandler,  # More specific: /api/openapi*, /api/docs*, /api/redoc*
-    SystemHandler,
-    PulseHandler,
-    AnalyticsHandler,
-    AnalyticsDashboardHandler,  # Enterprise analytics dashboard
-    AnalyticsMetricsHandler,  # Debate metrics and agent performance analytics
-    EndpointAnalyticsHandler,  # API endpoint performance analytics
-    CrossPlatformAnalyticsHandler,  # Cross-platform analytics aggregation
-    MetricsHandler,
-    SLOHandler,  # SLO tracking and monitoring
-    CrossPollinationStatsHandler,  # Cross-subsystem event observability
-    CrossPollinationSubscribersHandler,
-    CrossPollinationBridgeHandler,
-    CrossPollinationMetricsHandler,
-    CrossPollinationResetHandler,
-    CrossPollinationKMHandler,
-    CrossPollinationKMSyncHandler,  # Manual KM adapter sync
-    CrossPollinationKMStalenessHandler,  # Manual staleness check
-    CrossPollinationKMCultureHandler,  # Culture patterns query
-    ConsensusHandler,
-    BeliefHandler,
-    SkillsHandler,  # Skills system API
-    BindingsHandler,  # Message binding routing API
-    DecisionExplainHandler,  # Decision explainability API
-    DecisionHandler,  # Unified decision routing API
-    ControlPlaneHandler,  # Enterprise control plane API
-    DeliberationsHandler,  # Multi-deliberation dashboard API
-    CritiqueHandler,
-    GenesisHandler,
-    ReplaysHandler,
-    TournamentHandler,
-    MemoryHandler,
-    CoordinatorHandler,
-    LeaderboardViewHandler,
-    RelationshipHandler,
-    MomentsHandler,
-    DocumentQueryHandler,  # NL document querying (more specific paths)
-    DocumentHandler,
-    DocumentBatchHandler,  # Batch document upload
-    FolderUploadHandler,  # Folder upload support
-    SmartUploadHandler,  # Smart upload with file classification
-    CloudStorageHandler,  # Cloud storage integration API
-    FindingWorkflowHandler,  # Finding workflow management
-    EvidenceEnrichmentHandler,  # Evidence enrichment for findings
-    SchedulerHandler,  # Audit scheduling
-    AuditSessionsHandler,  # Audit session tracking API
-    VerificationHandler,
-    AuditingHandler,
-    DashboardHandler,
-    PersonaHandler,
-    IntrospectionHandler,
-    CalibrationHandler,
-    CheckpointHandler,
-    RoutingHandler,
-    RoutingRulesHandler,  # Routing rules management API
-    MLHandler,  # ML capabilities API (routing, scoring, consensus)
-    RLMContextHandler,  # RLM context compression and query API
-    RLMHandler,  # RLM operations API
-    SelectionHandler,  # Selection plugin API
-    EvaluationHandler,  # LLM-as-Judge evaluation endpoints
-    EvolutionABTestingHandler,  # More specific: /api/evolution/ab-tests
-    EvolutionHandler,
-    PluginsHandler,
-    AudioHandler,
-    DeviceHandler,
-    TranscriptionHandler,  # Speech-to-text transcription API
-    SocialMediaHandler,
-    BroadcastHandler,
-    LaboratoryHandler,
-    ProbesHandler,
-    InsightsHandler,
-    KnowledgeHandler,
-    KnowledgeMoundHandler,  # Extended Knowledge Mound API - STABLE
-    KnowledgeChatHandler,  # Knowledge-Chat integration - EXPERIMENTAL
-    KMCheckpointHandler,  # KM checkpoint backup/restore API
-    GalleryHandler,
-    BreakpointsHandler,
-    LearningHandler,
-    AuthHandler,
-    BillingHandler,
-    BudgetHandler,
-    UsageMeteringHandler,  # Token-level usage metering for ENTERPRISE_PLUS
-    SMEUsageDashboardHandler,  # SME usage dashboard with ROI metrics
-    OrganizationsHandler,
-    OAuthHandler,
-    FeaturesHandler,
-    ConnectorsHandler,  # Unified connectors registry
-    TeamsIntegrationHandler,  # Microsoft Teams integration endpoints
-    IntegrationsHandler,  # Integration config API
-    ExternalIntegrationsHandler,  # Zapier/Make/n8n integrations
-    IntegrationManagementHandler,  # v2 integration management
-    OAuthWizardHandler,  # OAuth wizard endpoints
-    GmailIngestHandler,  # Gmail OAuth + sync ingestion API
-    GmailQueryHandler,  # Gmail search/query API
-    UnifiedInboxHandler,  # Unified inbox API
-    EmailWebhooksHandler,  # Unified inbox email webhooks
-    MemoryAnalyticsHandler,
-    # Gauntlet v1 API (versioned endpoints - more specific paths)
-    GauntletSchemaHandler,
-    GauntletAllSchemasHandler,
-    GauntletTemplatesListHandler,
-    GauntletTemplateHandler,
-    GauntletReceiptExportHandler,
-    GauntletHeatmapExportHandler,
-    GauntletValidateReceiptHandler,
-    GauntletHandler,  # Legacy endpoints
-    ReviewsHandler,
-    FormalVerificationHandler,
-    SlackHandler,
-    EvidenceHandler,
-    WebhookHandler,
-    CodebaseAuditHandler,  # Codebase audit API
-    AdminHandler,
-    SecurityHandler,  # Security administration API
-    PolicyHandler,  # Policy and compliance management API
-    PrivacyHandler,
-    QueueHandler,  # Job queue management API
-    RepositoryHandler,  # Repository indexing API - STABLE
-    UncertaintyHandler,  # Uncertainty estimation API - STABLE
-    VerticalsHandler,  # Vertical specialist API
-    WorkspaceHandler,  # Enterprise workspace/privacy management
-    WorkflowHandler,  # Enterprise workflow engine API
-    WorkflowTemplatesHandler,  # Workflow template marketplace API
-    WorkflowCategoriesHandler,  # Workflow template categories
-    WorkflowPatternsHandler,  # Workflow patterns listing
-    WorkflowPatternTemplatesHandler,  # Pattern-based workflow templates
-    TemplateRecommendationsHandler,  # Template recommendations for onboarding
-    TemplateMarketplaceHandler,  # Community template marketplace
-    MarketplaceHandler,  # Marketplace API
-    TrainingHandler,  # RLM training data collection API
-    EmailHandler,  # Email prioritization API
-    EmailServicesHandler,  # Email services (follow-up, snooze, categories)
-    DependencyAnalysisHandler,  # Codebase dependency analysis API
-    IntelligenceHandler,  # Code intelligence (AST, call graphs, dead code)
-    # Bot platform handlers
-    DiscordHandler,  # Discord Interactions API
-    GoogleChatHandler,  # Google Chat Cards API
-    TeamsHandler,  # Microsoft Teams Bot Framework
-    TelegramHandler,  # Telegram Bot API webhooks
-    WhatsAppHandler,  # WhatsApp Cloud API
-    ZoomHandler,  # Zoom webhooks and chat
-    # Explainability
-    ExplainabilityHandler,  # Decision explainability API
-    # Enterprise provisioning
-    SCIMHandler,  # SCIM 2.0 user/group provisioning (RFC 7643/7644)
-    # Protocols
-    A2AHandler,  # A2A protocol handler
-    # Autonomous operations handlers (Phase 5)
-    ApprovalHandler,  # Human-in-the-loop approval flows
-    AlertHandler,  # Alert management and thresholds
-    TriggerHandler,  # Scheduled debate triggers
-    MonitoringHandler,  # Trend and anomaly monitoring
-    AutonomousLearningHandler,  # Continuous learning (ELO, patterns, calibration)
-    # Accounting handlers (Phase 4 - SME Vertical)
-    ExpenseHandler,  # Expense tracking and receipt processing
-    InvoiceHandler,  # Invoice processing and PO matching
-    ARAutomationHandler,  # Accounts receivable automation
-    APAutomationHandler,  # Accounts payable automation
-    ReconciliationHandler,  # Accounting reconciliation API
-    # Code review handler (Phase 5 - SME Vertical)
-    CodeReviewHandler,  # Multi-agent code review
-    LegalHandler,  # Legal integrations API
-    DevOpsHandler,  # DevOps integrations API
-    # Connector platform handlers (unified APIs)
-    AdvertisingHandler,  # Google Ads, Meta, LinkedIn, Microsoft, Twitter, TikTok
-    AnalyticsPlatformsHandler,  # Metabase, GA4, Mixpanel, Segment
-    CRMHandler,  # HubSpot, Salesforce
-    SupportHandler,  # Zendesk, Freshdesk, Intercom, HelpScout
-    EcommerceHandler,  # Shopify, ShipStation, Walmart
-    # Computer use and IoT gateway
-    ComputerUseHandler,  # Computer use tasks, actions, and policies
-    GatewayHandler,  # IoT gateway devices, channels, routing, messages
-    OpenClawGatewayHandler,  # OpenClaw enterprise gateway sessions, actions, policy
-    ExternalAgentsHandler,  # External agent framework gateway (OpenHands, AutoGPT, CrewAI)
-    # Secure Gateway handlers (Batch 5)
-    GatewayHealthHandler,  # Gateway health: /api/v1/gateway/health, /api/v1/gateway/agents/{name}/health
-    GatewayAgentsHandler,  # Agent registration: /api/v1/gateway/agents
-    GatewayCredentialsHandler,  # Credential management: /api/v1/gateway/credentials
-    HybridDebateHandler,  # Hybrid debates: /api/v1/debates/hybrid
-    ERC8004Handler,  # ERC-8004: /api/v1/blockchain/*
-    # Additional handlers for API documentation coverage
-    OnboardingHandler,  # Onboarding flow endpoints
-    BackupHandler,  # Backup management endpoints
-    GmailLabelsHandler,  # Gmail labels and filters API
-    GmailThreadsHandler,  # Gmail threads API
-]
+# Cache for lazily loaded handlers
+_handler_cache: dict[str, Any] = {}
+
+# Cached ALL_HANDLERS list
+_all_handlers_cache: list[type] | None = None
+
+
+def _get_all_handlers() -> list[type]:
+    """Lazily load and return all handler classes."""
+    global _all_handlers_cache
+    if _all_handlers_cache is not None:
+        return _all_handlers_cache
+
+    handlers = []
+    for name in ALL_HANDLER_NAMES:
+        try:
+            handler = _lazy_import(name)
+            if handler is not None:
+                handlers.append(handler)
+        except (ImportError, AttributeError):
+            # Skip handlers that fail to import
+            pass
+    _all_handlers_cache = handlers
+    return handlers
+
+
+def _lazy_import(name: str) -> Any:
+    """Lazily import a handler by name."""
+    if name in _handler_cache:
+        return _handler_cache[name]
+
+    if name not in HANDLER_MODULES:
+        return None
+
+    module_path = HANDLER_MODULES[name]
+    module = importlib.import_module(module_path)
+    attr = getattr(module, name)
+    _handler_cache[name] = attr
+    return attr
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy loading via module __getattr__."""
+    # Handle ALL_HANDLERS specially
+    if name == "ALL_HANDLERS":
+        return _get_all_handlers()
+
+    # Handle GAUNTLET_V1_HANDLERS specially
+    if name == "GAUNTLET_V1_HANDLERS":
+        return _lazy_import("GAUNTLET_V1_HANDLERS")
+
+    # Check if this is a lazily-loaded handler
+    if name in HANDLER_MODULES:
+        return _lazy_import(name)
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # Handler stability classifications
 # - STABLE: Production-ready, extensively tested, API stable
@@ -525,60 +402,57 @@ ALL_HANDLERS = [
 HANDLER_STABILITY: dict[str, Stability] = {
     # Core - Stable
     "DebatesHandler": Stability.STABLE,
-    "AgentConfigHandler": Stability.STABLE,  # YAML agent config endpoints
+    "AgentConfigHandler": Stability.STABLE,
     "AgentsHandler": Stability.STABLE,
     "SystemHandler": Stability.STABLE,
-    "HealthHandler": Stability.STABLE,  # Extracted from SystemHandler
-    "StatusPageHandler": Stability.STABLE,  # Public status page
-    "NomicHandler": Stability.STABLE,  # Extracted from SystemHandler
-    "DocsHandler": Stability.STABLE,  # Extracted from SystemHandler
+    "HealthHandler": Stability.STABLE,
+    "StatusPageHandler": Stability.STABLE,
+    "NomicHandler": Stability.STABLE,
+    "DocsHandler": Stability.STABLE,
     "AnalyticsHandler": Stability.STABLE,
-    "AnalyticsDashboardHandler": Stability.STABLE,  # Enterprise analytics dashboard - 40+ tests, RBAC, caching
-    "AnalyticsMetricsHandler": Stability.STABLE,  # Debate metrics and agent performance analytics - RBAC, validation
-    "EndpointAnalyticsHandler": Stability.STABLE,  # API endpoint performance analytics - RBAC, rate limiting
-    "CrossPlatformAnalyticsHandler": Stability.STABLE,  # Cross-platform analytics aggregation - RBAC, full validation
+    "AnalyticsDashboardHandler": Stability.STABLE,
+    "AnalyticsMetricsHandler": Stability.STABLE,
+    "EndpointAnalyticsHandler": Stability.STABLE,
+    "CrossPlatformAnalyticsHandler": Stability.STABLE,
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
-    "SLOHandler": Stability.STABLE,  # SLO tracking and monitoring - RBAC, rate limiting, tested
+    "SLOHandler": Stability.STABLE,
     "MemoryHandler": Stability.STABLE,
     "CoordinatorHandler": Stability.STABLE,
     "LeaderboardViewHandler": Stability.STABLE,
     "ReplaysHandler": Stability.STABLE,
     "FeaturesHandler": Stability.STABLE,
-    "ConnectorsHandler": Stability.STABLE,  # Unified connectors registry - 36 tests
-    "IntegrationsHandler": Stability.STABLE,  # Integration config API - RBAC, rate limiting, 50+ tests
-    "ExternalIntegrationsHandler": Stability.STABLE,  # Zapier/Make/n8n integrations - RBAC, validation, audit logging
-    "IntegrationManagementHandler": Stability.STABLE,  # v2 integration management - RBAC, tenant isolation, health checks
-    "OAuthWizardHandler": Stability.STABLE,  # OAuth wizard endpoints - RBAC, full validation, connection testing
-    "TeamsIntegrationHandler": Stability.STABLE,  # Teams bot integration endpoints - OAuth, RBAC
+    "ConnectorsHandler": Stability.STABLE,
+    "IntegrationsHandler": Stability.STABLE,
+    "ExternalIntegrationsHandler": Stability.STABLE,
+    "IntegrationManagementHandler": Stability.STABLE,
+    "OAuthWizardHandler": Stability.STABLE,
+    "TeamsIntegrationHandler": Stability.STABLE,
     "AuthHandler": Stability.STABLE,
-    # Extended - Stable
     "TournamentHandler": Stability.STABLE,
-    "DecisionHandler": Stability.STABLE,  # Unified decision routing API - 13 tests
-    "ControlPlaneHandler": Stability.STABLE,  # Enterprise control plane - 122 tests
+    "DecisionHandler": Stability.STABLE,
+    "ControlPlaneHandler": Stability.STABLE,
     "CritiqueHandler": Stability.STABLE,
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
-    "RoutingRulesHandler": Stability.STABLE,  # Routing rules management - RBAC, rate limiting, audit logging
-    "CompositeHandler": Stability.STABLE,  # Composite API endpoints - circuit breaker, RBAC, rate limiting
-    "MLHandler": Stability.STABLE,  # ML capabilities API - circuit breaker, RBAC, rate limiting, 80+ tests
-    "RLMContextHandler": Stability.STABLE,  # RLM context compression and query API - 86 tests
-    "RLMHandler": Stability.STABLE,  # RLM operations API - circuit breaker, RBAC, rate limiting, 90+ tests
-    "SelectionHandler": Stability.STABLE,  # Selection plugin API
-    # Promoted to Stable (Jan 2026) - tested in production
-    "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
-    "BudgetHandler": Stability.EXPERIMENTAL,  # Budget management API
-    "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
-    "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
-    "DeviceHandler": Stability.STABLE,  # Device registration and notifications - RBAC, rate limiting, circuit breaker
-    "TranscriptionHandler": Stability.STABLE,  # Speech-to-text transcription - circuit breaker, RBAC, rate limiting
-    "TrainingHandler": Stability.STABLE,  # Training data export - circuit breaker, rate limiting, RBAC, 90+ tests
-    "VerificationHandler": Stability.STABLE,  # Z3 formal verification
-    "PulseHandler": Stability.STABLE,  # Trending topics API
-    "GalleryHandler": Stability.STABLE,  # Consensus gallery
-    "GauntletHandler": Stability.STABLE,  # Adversarial validation - 6+ test files
-    # Gauntlet v1 API (versioned, documented endpoints)
+    "RoutingRulesHandler": Stability.STABLE,
+    "CompositeHandler": Stability.STABLE,
+    "MLHandler": Stability.STABLE,
+    "RLMContextHandler": Stability.STABLE,
+    "RLMHandler": Stability.STABLE,
+    "SelectionHandler": Stability.STABLE,
+    "BillingHandler": Stability.STABLE,
+    "BudgetHandler": Stability.EXPERIMENTAL,
+    "OAuthHandler": Stability.STABLE,
+    "AudioHandler": Stability.STABLE,
+    "DeviceHandler": Stability.STABLE,
+    "TranscriptionHandler": Stability.STABLE,
+    "TrainingHandler": Stability.STABLE,
+    "VerificationHandler": Stability.STABLE,
+    "PulseHandler": Stability.STABLE,
+    "GalleryHandler": Stability.STABLE,
+    "GauntletHandler": Stability.STABLE,
     "GauntletSchemaHandler": Stability.STABLE,
     "GauntletAllSchemasHandler": Stability.STABLE,
     "GauntletTemplatesListHandler": Stability.STABLE,
@@ -586,121 +460,107 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GauntletReceiptExportHandler": Stability.STABLE,
     "GauntletHeatmapExportHandler": Stability.STABLE,
     "GauntletValidateReceiptHandler": Stability.STABLE,
-    "BeliefHandler": Stability.STABLE,  # Belief networks - 4 test files
-    "SkillsHandler": Stability.STABLE,  # Skills system API - tested
-    "BindingsHandler": Stability.STABLE,  # Message binding routing API - tested
-    "CalibrationHandler": Stability.STABLE,  # Agent calibration - 4 test files
-    "PersonaHandler": Stability.STABLE,  # Agent personas - 2 test files
-    # Promoted to Stable (Jan 2026) - comprehensive test coverage
-    "GraphDebatesHandler": Stability.STABLE,  # 7 test files, 95+ tests
-    "MatrixDebatesHandler": Stability.STABLE,  # Handler tests + integration
-    "EvaluationHandler": Stability.STABLE,  # LLM-as-Judge evaluation - 11 tests
-    "EvolutionHandler": Stability.STABLE,  # 7 test files, 66+ tests
-    "EvolutionABTestingHandler": Stability.STABLE,  # AB testing with evolution
-    "LaboratoryHandler": Stability.STABLE,  # 3 test files, 70+ tests
-    "IntrospectionHandler": Stability.STABLE,  # 2 test files, 53+ tests
-    "LearningHandler": Stability.STABLE,  # 2 test files, 66+ tests
-    "MemoryAnalyticsHandler": Stability.STABLE,  # Handler tests, 23+ tests
-    "ProbesHandler": Stability.STABLE,  # 16 tests, capability probing
-    "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
-    "KnowledgeHandler": Stability.STABLE,  # Knowledge base API - RBAC, modular structure, 5+ test files
-    "KnowledgeMoundHandler": Stability.STABLE,  # Knowledge Mound API - Graduated from Phase A1
-    "KnowledgeChatHandler": Stability.STABLE,  # Knowledge-Chat integration - RBAC, rate limiting, timeouts
-    "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
-    "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
-    # Promoted to Stable (Jan 2026) - from Preview
-    "OrganizationsHandler": Stability.STABLE,  # 49 tests, team management
-    "SocialMediaHandler": Stability.STABLE,  # 31 tests, OAuth flows
-    "MomentsHandler": Stability.STABLE,  # 33 tests, moment detection
-    "AuditingHandler": Stability.STABLE,  # 55 tests, audit trails
-    "PluginsHandler": Stability.STABLE,  # 23 tests, plugin system
-    "BroadcastHandler": Stability.STABLE,  # 65 tests, podcast generation
-    "GenesisHandler": Stability.STABLE,  # 26 tests, evolution visibility
-    "DocumentHandler": Stability.STABLE,  # 36 tests, document management
-    "DocumentBatchHandler": Stability.STABLE,  # Batch document upload/processing
-    "DocumentQueryHandler": Stability.STABLE,  # NL document querying - RBAC, auth, error handling, tested
-    "FolderUploadHandler": Stability.STABLE,  # Folder upload support - RBAC, path validation, auth
-    "SmartUploadHandler": Stability.STABLE,  # Smart upload classification - RBAC, content validation, security
-    "CloudStorageHandler": Stability.EXPERIMENTAL,  # Cloud storage integration - new
-    "FindingWorkflowHandler": Stability.EXPERIMENTAL,  # Finding workflow - new
-    "EvidenceEnrichmentHandler": Stability.EXPERIMENTAL,  # Evidence enrichment - new
-    "SchedulerHandler": Stability.EXPERIMENTAL,  # Audit scheduling - new
-    "AuditSessionsHandler": Stability.EXPERIMENTAL,  # Audit session tracking - new
-    "BreakpointsHandler": Stability.STABLE,  # 34 tests, debate breakpoints
-    "SlackHandler": Stability.STABLE,  # Slack integration - circuit breaker, rate limiting, signature verification, comprehensive tests
-    "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
-    "WebhookHandler": Stability.STABLE,  # Webhook registration and delivery
-    "AdminHandler": Stability.STABLE,  # Admin panel backend API
-    "SecurityHandler": Stability.STABLE,  # Security administration API
-    "PolicyHandler": Stability.STABLE,  # Policy and compliance management - 44 tests
-    "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
-    "WorkspaceHandler": Stability.STABLE,  # Enterprise workspace/privacy management - 162 tests, circuit breaker, RBAC
-    "WorkflowHandler": Stability.STABLE,  # Enterprise workflow engine API - 48 tests
-    "WorkflowTemplatesHandler": Stability.STABLE,  # Workflow template marketplace API - new
-    "WorkflowCategoriesHandler": Stability.STABLE,  # Workflow template categories - new
-    "WorkflowPatternsHandler": Stability.STABLE,  # Workflow patterns listing - new
-    "WorkflowPatternTemplatesHandler": Stability.STABLE,  # Pattern-based workflow templates - new
-    "TemplateRecommendationsHandler": Stability.STABLE,  # Template recommendations for onboarding - new
-    "TemplateMarketplaceHandler": Stability.STABLE,  # Community template marketplace - graduated, circuit breaker + validation
-    "MarketplaceHandler": Stability.STABLE,  # Marketplace API - Graduated, circuit breaker + rate limiting + validation
-    "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
-    "RepositoryHandler": Stability.STABLE,  # Repository indexing API - Graduated from Phase A3
-    "UncertaintyHandler": Stability.STABLE,  # Uncertainty estimation API - Graduated from Phase A1
-    "VerticalsHandler": Stability.STABLE,  # Vertical specialist API - Graduated from Phase A1, circuit breaker + validation
-    # Bot platform handlers - Graduated Jan 2026
-    "DiscordHandler": Stability.STABLE,  # Discord Interactions API - 14 tests
-    "GoogleChatHandler": Stability.STABLE,  # Google Chat Cards API - follows Discord pattern
-    "TeamsHandler": Stability.STABLE,  # Microsoft Teams Bot Framework - follows Discord pattern
-    "TelegramHandler": Stability.STABLE,  # Telegram Bot API webhooks - 47 tests
-    "WhatsAppHandler": Stability.STABLE,  # WhatsApp Cloud API - 48 tests
-    "ZoomHandler": Stability.STABLE,  # Zoom webhooks and chat - 19 tests
-    # Explainability
-    "ExplainabilityHandler": Stability.STABLE,  # Decision explainability API - 44 tests
-    # Enterprise provisioning
-    "SCIMHandler": Stability.STABLE,  # SCIM 2.0 provisioning - RFC 7643/7644, 47 tests
-    # Protocols
-    "A2AHandler": Stability.EXPERIMENTAL,  # A2A protocol handler - new
-    # Autonomous operations handlers (Phase 5)
-    "ApprovalHandler": Stability.EXPERIMENTAL,  # Human-in-the-loop approval flows - Phase 5.1
-    "AlertHandler": Stability.EXPERIMENTAL,  # Alert management and thresholds - Phase 5.3
-    "TriggerHandler": Stability.EXPERIMENTAL,  # Scheduled debate triggers - Phase 5.3
-    "MonitoringHandler": Stability.STABLE,  # Trend and anomaly monitoring - circuit breaker, rate limiting, validation, 53+ tests
-    "AutonomousLearningHandler": Stability.EXPERIMENTAL,  # Continuous learning - Phase 5.2
-    "EmailHandler": Stability.STABLE,  # Email prioritization API - RBAC, validation, tested
-    "EmailServicesHandler": Stability.STABLE,  # Email services (follow-up, snooze) - RBAC, auth
-    "GmailIngestHandler": Stability.STABLE,  # Gmail OAuth + sync ingestion - RBAC, rate limiting, JWT binding
-    "GmailQueryHandler": Stability.STABLE,  # Gmail search/query API - RBAC, auth, tested
-    "UnifiedInboxHandler": Stability.STABLE,  # Unified inbox API - RBAC, pagination, tested
-    "EmailWebhooksHandler": Stability.STABLE,  # Unified inbox email webhooks - RBAC, validation
-    "DependencyAnalysisHandler": Stability.EXPERIMENTAL,  # Dependency analysis API - new
-    "CodebaseAuditHandler": Stability.EXPERIMENTAL,  # Codebase audit API - new
-    # Accounting handlers (Phase 4 - SME Vertical)
-    "ExpenseHandler": Stability.EXPERIMENTAL,  # Expense tracking and receipt processing - new
-    "InvoiceHandler": Stability.EXPERIMENTAL,  # Invoice processing and PO matching - new
-    "ARAutomationHandler": Stability.EXPERIMENTAL,  # Accounts receivable automation - new
-    "APAutomationHandler": Stability.EXPERIMENTAL,  # Accounts payable automation - new
-    "ReconciliationHandler": Stability.EXPERIMENTAL,  # Accounting reconciliation - new
-    # Code review handler (Phase 5 - SME Vertical)
-    "CodeReviewHandler": Stability.EXPERIMENTAL,  # Multi-agent code review - new
-    "LegalHandler": Stability.STABLE,  # Legal integrations API - RBAC, 104 tests
-    "DevOpsHandler": Stability.STABLE,  # DevOps integrations API - circuit breaker, rate limiting, input validation
-    # Connector platform handlers (unified APIs)
-    "AdvertisingHandler": Stability.EXPERIMENTAL,  # Unified advertising platforms API - new
-    "AnalyticsPlatformsHandler": Stability.EXPERIMENTAL,  # Unified analytics platforms API - new
-    "CRMHandler": Stability.STABLE,  # Unified CRM platforms API - circuit breaker, RBAC, rate limiting, 128 tests
-    "SupportHandler": Stability.EXPERIMENTAL,  # Unified support platforms API - new
-    "EcommerceHandler": Stability.STABLE,  # Unified ecommerce platforms API - circuit breaker, RBAC, rate limiting, 67 tests
-    # External agent gateway
-    "ExternalAgentsHandler": Stability.EXPERIMENTAL,  # External agent framework gateway
-    # OpenClaw enterprise gateway
-    "OpenClawGatewayHandler": Stability.EXPERIMENTAL,  # OpenClaw enterprise gateway
-    # Secure Gateway handlers (Batch 5)
-    "GatewayHealthHandler": Stability.EXPERIMENTAL,  # Gateway health endpoints
-    "GatewayAgentsHandler": Stability.EXPERIMENTAL,  # Gateway agent registration
-    "GatewayCredentialsHandler": Stability.EXPERIMENTAL,  # Gateway credential management
-    "HybridDebateHandler": Stability.EXPERIMENTAL,  # Hybrid debate (external + internal agents)
-    # Blockchain handlers (ERC-8004)
-    "ERC8004Handler": Stability.EXPERIMENTAL,  # ERC-8004 blockchain identity API
+    "BeliefHandler": Stability.STABLE,
+    "SkillsHandler": Stability.STABLE,
+    "BindingsHandler": Stability.STABLE,
+    "CalibrationHandler": Stability.STABLE,
+    "PersonaHandler": Stability.STABLE,
+    "GraphDebatesHandler": Stability.STABLE,
+    "MatrixDebatesHandler": Stability.STABLE,
+    "EvaluationHandler": Stability.STABLE,
+    "EvolutionHandler": Stability.STABLE,
+    "EvolutionABTestingHandler": Stability.STABLE,
+    "LaboratoryHandler": Stability.STABLE,
+    "IntrospectionHandler": Stability.STABLE,
+    "LearningHandler": Stability.STABLE,
+    "MemoryAnalyticsHandler": Stability.STABLE,
+    "ProbesHandler": Stability.STABLE,
+    "InsightsHandler": Stability.STABLE,
+    "KnowledgeHandler": Stability.STABLE,
+    "KnowledgeMoundHandler": Stability.STABLE,
+    "KnowledgeChatHandler": Stability.STABLE,
+    "ReviewsHandler": Stability.STABLE,
+    "FormalVerificationHandler": Stability.STABLE,
+    "OrganizationsHandler": Stability.STABLE,
+    "SocialMediaHandler": Stability.STABLE,
+    "MomentsHandler": Stability.STABLE,
+    "AuditingHandler": Stability.STABLE,
+    "PluginsHandler": Stability.STABLE,
+    "BroadcastHandler": Stability.STABLE,
+    "GenesisHandler": Stability.STABLE,
+    "DocumentHandler": Stability.STABLE,
+    "DocumentBatchHandler": Stability.STABLE,
+    "DocumentQueryHandler": Stability.STABLE,
+    "FolderUploadHandler": Stability.STABLE,
+    "SmartUploadHandler": Stability.STABLE,
+    "CloudStorageHandler": Stability.EXPERIMENTAL,
+    "FindingWorkflowHandler": Stability.EXPERIMENTAL,
+    "EvidenceEnrichmentHandler": Stability.EXPERIMENTAL,
+    "SchedulerHandler": Stability.EXPERIMENTAL,
+    "AuditSessionsHandler": Stability.EXPERIMENTAL,
+    "BreakpointsHandler": Stability.STABLE,
+    "SlackHandler": Stability.STABLE,
+    "EvidenceHandler": Stability.STABLE,
+    "WebhookHandler": Stability.STABLE,
+    "AdminHandler": Stability.STABLE,
+    "SecurityHandler": Stability.STABLE,
+    "PolicyHandler": Stability.STABLE,
+    "PrivacyHandler": Stability.STABLE,
+    "WorkspaceHandler": Stability.STABLE,
+    "WorkflowHandler": Stability.STABLE,
+    "WorkflowTemplatesHandler": Stability.STABLE,
+    "WorkflowCategoriesHandler": Stability.STABLE,
+    "WorkflowPatternsHandler": Stability.STABLE,
+    "WorkflowPatternTemplatesHandler": Stability.STABLE,
+    "TemplateRecommendationsHandler": Stability.STABLE,
+    "TemplateMarketplaceHandler": Stability.STABLE,
+    "MarketplaceHandler": Stability.STABLE,
+    "QueueHandler": Stability.EXPERIMENTAL,
+    "RepositoryHandler": Stability.STABLE,
+    "UncertaintyHandler": Stability.STABLE,
+    "VerticalsHandler": Stability.STABLE,
+    "DiscordHandler": Stability.STABLE,
+    "GoogleChatHandler": Stability.STABLE,
+    "TeamsHandler": Stability.STABLE,
+    "TelegramHandler": Stability.STABLE,
+    "WhatsAppHandler": Stability.STABLE,
+    "ZoomHandler": Stability.STABLE,
+    "ExplainabilityHandler": Stability.STABLE,
+    "SCIMHandler": Stability.STABLE,
+    "A2AHandler": Stability.EXPERIMENTAL,
+    "ApprovalHandler": Stability.EXPERIMENTAL,
+    "AlertHandler": Stability.EXPERIMENTAL,
+    "TriggerHandler": Stability.EXPERIMENTAL,
+    "MonitoringHandler": Stability.STABLE,
+    "AutonomousLearningHandler": Stability.EXPERIMENTAL,
+    "EmailHandler": Stability.STABLE,
+    "EmailServicesHandler": Stability.STABLE,
+    "GmailIngestHandler": Stability.STABLE,
+    "GmailQueryHandler": Stability.STABLE,
+    "UnifiedInboxHandler": Stability.STABLE,
+    "EmailWebhooksHandler": Stability.STABLE,
+    "DependencyAnalysisHandler": Stability.EXPERIMENTAL,
+    "CodebaseAuditHandler": Stability.EXPERIMENTAL,
+    "ExpenseHandler": Stability.EXPERIMENTAL,
+    "InvoiceHandler": Stability.EXPERIMENTAL,
+    "ARAutomationHandler": Stability.EXPERIMENTAL,
+    "APAutomationHandler": Stability.EXPERIMENTAL,
+    "ReconciliationHandler": Stability.EXPERIMENTAL,
+    "CodeReviewHandler": Stability.EXPERIMENTAL,
+    "LegalHandler": Stability.STABLE,
+    "DevOpsHandler": Stability.STABLE,
+    "AdvertisingHandler": Stability.EXPERIMENTAL,
+    "AnalyticsPlatformsHandler": Stability.EXPERIMENTAL,
+    "CRMHandler": Stability.STABLE,
+    "SupportHandler": Stability.EXPERIMENTAL,
+    "EcommerceHandler": Stability.STABLE,
+    "ExternalAgentsHandler": Stability.EXPERIMENTAL,
+    "OpenClawGatewayHandler": Stability.EXPERIMENTAL,
+    "GatewayHealthHandler": Stability.EXPERIMENTAL,
+    "GatewayAgentsHandler": Stability.EXPERIMENTAL,
+    "GatewayCredentialsHandler": Stability.EXPERIMENTAL,
+    "HybridDebateHandler": Stability.EXPERIMENTAL,
+    "ERC8004Handler": Stability.EXPERIMENTAL,
 }
 
 
@@ -723,10 +583,13 @@ def get_all_handler_stability() -> dict[str, str]:
 
 # Populate the registry for modules that need to avoid circular imports
 # (e.g., features.py needs to enumerate handlers)
-from aragora.server.handlers import _registry
+# This is deferred to avoid importing all handlers
+def _populate_registry() -> None:
+    """Populate the handler registry with lazily loaded handlers."""
+    from aragora.server.handlers import _registry
 
-_registry.ALL_HANDLERS[:] = ALL_HANDLERS
-_registry.HANDLER_STABILITY.update(HANDLER_STABILITY)
+    _registry.ALL_HANDLERS[:] = _get_all_handlers()
+    _registry.HANDLER_STABILITY.update(HANDLER_STABILITY)
 
 
 __all__ = [
@@ -791,7 +654,7 @@ __all__ = [
     "get_content_length",
     # Handler registry
     "ALL_HANDLERS",
-    # Individual handlers
+    # Individual handlers (lazily loaded)
     "DebatesHandler",
     "AgentConfigHandler",
     "AgentsHandler",
@@ -854,8 +717,6 @@ __all__ = [
     "AudioHandler",
     "DeviceHandler",
     "TranscriptionHandler",
-    "DeviceHandler",
-    "EndpointAnalyticsHandler",
     "SocialMediaHandler",
     "BroadcastHandler",
     "LaboratoryHandler",
@@ -982,6 +843,30 @@ __all__ = [
     "HybridDebateHandler",
     # Blockchain handlers (ERC-8004)
     "ERC8004Handler",
+    # Cross-pollination handlers
+    "CrossPollinationStatsHandler",
+    "CrossPollinationSubscribersHandler",
+    "CrossPollinationBridgeHandler",
+    "CrossPollinationMetricsHandler",
+    "CrossPollinationResetHandler",
+    "CrossPollinationKMHandler",
+    "CrossPollinationKMSyncHandler",
+    "CrossPollinationKMStalenessHandler",
+    "CrossPollinationKMCultureHandler",
+    # Onboarding
+    "OnboardingHandler",
+    "BackupHandler",
+    "GmailLabelsHandler",
+    "GmailThreadsHandler",
+    # Additional handlers (TYPE_CHECKING exports)
+    "CheckpointHandler",
+    "ComputerUseHandler",
+    "DeliberationsHandler",
+    "EvaluationHandler",
+    "ExternalAgentsHandler",
+    "GatewayHandler",
+    "KMCheckpointHandler",
+    "SelectionHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

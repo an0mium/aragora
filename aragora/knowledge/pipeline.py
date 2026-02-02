@@ -73,21 +73,24 @@ from aragora.knowledge.query_engine import DatasetQueryEngine, QueryOptions, Sim
 from aragora.knowledge.types import Fact, QueryResult, ValidationStatus
 
 # Optional Knowledge Mound imports
+# Pre-declare to avoid no-redef errors
+KnowledgeMound: Any = None
+MoundConfig: Any = None
+IngestionRequest: Any = None
+KnowledgeSource: Any = None
+MOUND_AVAILABLE: bool = False
+
 try:
     from aragora.knowledge.mound import (
-        KnowledgeMound,
-        MoundConfig,
-        IngestionRequest,
-        KnowledgeSource,
+        KnowledgeMound,  # type: ignore[no-redef]
+        MoundConfig,  # type: ignore[no-redef]
+        IngestionRequest,  # type: ignore[no-redef]
+        KnowledgeSource,  # type: ignore[no-redef]
     )
 
     MOUND_AVAILABLE = True
 except ImportError:
-    MOUND_AVAILABLE = False
-    KnowledgeMound: Any = None
-    MoundConfig: Any = None
-    IngestionRequest: Any = None
-    KnowledgeSource: Any = None
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +272,7 @@ class KnowledgePipeline:
         # Initialize Knowledge Mound if configured
         if self.config.use_knowledge_mound and MOUND_AVAILABLE and self._knowledge_mound is None:
             try:
-                mound_config = self.config.mound_config or (MoundConfig() if MoundConfig else None)
+                mound_config = self.config.mound_config or (MoundConfig() if MoundConfig else None)  # type: ignore[abstract]
                 if KnowledgeMound is not None and mound_config is not None:
                     # KnowledgeMound facade is instantiable (pre-declared as Any)
                     self._knowledge_mound = KnowledgeMound(

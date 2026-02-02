@@ -1,8 +1,12 @@
 /**
  * Audit Namespace API
  *
- * Provides a namespaced interface for audit logging operations.
- * This wraps the flat client methods for a more intuitive API.
+ * Provides a namespaced interface for audit logging operations:
+ * - List and filter audit events
+ * - Export audit data for compliance
+ * - Generate compliance reports
+ * - Manage audit sessions
+ * - Verify audit trail integrity
  */
 
 import type {
@@ -15,12 +19,34 @@ import type {
 } from '../types';
 
 /**
+ * Export format for audit data.
+ */
+export type ExportFormat = 'json' | 'csv' | 'pdf';
+
+/**
+ * Report format for audit session reports.
+ */
+export type ReportFormat = 'json' | 'pdf' | 'markdown';
+
+/**
+ * Compliance framework type.
+ */
+export type ComplianceFramework = 'soc2' | 'gdpr' | 'hipaa';
+
+/**
+ * Report period type.
+ */
+export type ReportPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly';
+
+/**
  * Options for listing audit events.
  */
 export interface AuditEventFilterOptions {
-  /** Filter by event type */
+  /** Filter by event type (e.g., "debate.created") */
   event_type?: string;
-  /** Filter by user ID */
+  /** Filter by actor (user/agent) ID */
+  actor_id?: string;
+  /** Filter by user ID (alias for actor_id) */
   user_id?: string;
   /** Filter by resource type */
   resource_type?: string;
@@ -30,6 +56,10 @@ export interface AuditEventFilterOptions {
   start_date?: string;
   /** End date (ISO string) */
   end_date?: string;
+  /** Start date (ISO string) - alias for from_date */
+  from_date?: string;
+  /** End date (ISO string) - alias for to_date */
+  to_date?: string;
 }
 
 /**
@@ -37,13 +67,88 @@ export interface AuditEventFilterOptions {
  */
 export interface AuditExportOptions {
   /** Export format */
-  format: 'json' | 'csv' | 'pdf';
+  format: ExportFormat;
   /** Start date for export range */
   start_date?: string;
   /** End date for export range */
   end_date?: string;
+  /** Start date (ISO string) - alias for from_date */
+  from_date?: string;
+  /** End date (ISO string) - alias for to_date */
+  to_date?: string;
   /** Event types to include */
   event_types?: string[];
+}
+
+/**
+ * Compliance report response.
+ */
+export interface ComplianceReport {
+  period: string;
+  framework?: string;
+  generated_at: string;
+  metrics: Record<string, number>;
+  findings: Array<{
+    severity: string;
+    description: string;
+    recommendation: string;
+  }>;
+  compliance_score: number;
+}
+
+/**
+ * Actor activity summary.
+ */
+export interface ActorActivity {
+  actor_id: string;
+  total_events: number;
+  events_by_type: Record<string, number>;
+  first_seen: string;
+  last_seen: string;
+  resources_accessed: string[];
+}
+
+/**
+ * Resource audit history.
+ */
+export interface ResourceHistory {
+  resource_type: string;
+  resource_id: string;
+  events: AuditEvent[];
+  total: number;
+}
+
+/**
+ * Audit entry (OpenAPI-aligned).
+ */
+export interface AuditEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  actor_id: string;
+  resource_type?: string;
+  resource_id?: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Audit verification result.
+ */
+export interface AuditVerification {
+  verified: boolean;
+  entries_checked: number;
+  tampered_entries: number;
+  last_verified?: string;
+  hash_algorithm?: string;
+}
+
+/**
+ * Session events response.
+ */
+export interface SessionEvents {
+  session_id: string;
+  events: AuditEvent[];
+  total: number;
 }
 
 /**
@@ -66,7 +171,13 @@ interface AuditClientInterface {
   resumeAuditSession(sessionId: string): Promise<{ resumed: boolean }>;
   cancelAuditSession(sessionId: string): Promise<{ cancelled: boolean }>;
   getAuditSessionFindings(sessionId: string, params?: PaginationParams): Promise<{ findings: AuditFinding[] }>;
-  generateAuditReport(sessionId: string, format?: 'json' | 'pdf' | 'markdown'): Promise<{ report_url: string }>;
+  generateAuditReport(sessionId: string, format?: ReportFormat): Promise<{ report_url: string }>;
+  // Generic request method for direct API calls
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; body?: unknown }
+  ): Promise<T>;
 }
 
 /**
@@ -77,6 +188,7 @@ interface AuditClientInterface {
  * - Audit session management
  * - Exporting audit logs
  * - Integrity verification
+ * - Compliance reporting
  *
  * @example
  * ```typescript
@@ -88,130 +200,681 @@ interface AuditClientInterface {
  *   limit: 100,
  * });
  *
+ * // Get a specific audit event
+ * const event = await client.audit.getEvent('event-123');
+ *
  * // Get audit statistics
- * const stats = await client.audit.stats({ period: '7d' });
+ * const stats = await client.audit.getStats({ from_date: '2024-01-01' });
+ *
+ * // Verify audit trail integrity
+ * const verification = await client.audit.verify();
  *
  * // Create an audit session
- * const session = await client.audit.createSession({
- *   name: 'Q4 Security Review',
+ * const session = await client.audit.createSession('Q4 Security Review', {
  *   scope: ['auth', 'rbac'],
  * });
+ *
+ * // Start the session
+ * await client.audit.startSession(session.id);
+ *
+ * // Pause, resume, or cancel as needed
+ * await client.audit.pauseSession(session.id);
+ * await client.audit.resumeSession(session.id);
+ *
+ * // Get compliance report
+ * const report = await client.audit.getComplianceReport('monthly', 'soc2');
  *
  * // Export audit logs
  * const { url } = await client.audit.export({
  *   format: 'csv',
- *   start_date: '2024-01-01',
- *   end_date: '2024-03-31',
+ *   from_date: '2024-01-01',
+ *   to_date: '2024-03-31',
  * });
  * ```
  */
 export class AuditAPI {
   constructor(private client: AuditClientInterface) {}
 
+  // ===========================================================================
+  // Event Operations
+  // ===========================================================================
+
   /**
    * List audit events with optional filtering.
+   *
+   * @param options - Filter and pagination options
+   * @returns List of audit events with total count
+   *
+   * @example
+   * ```typescript
+   * const { events, total } = await client.audit.listEvents({
+   *   event_type: 'debate.created',
+   *   actor_id: 'user-123',
+   *   from_date: '2024-01-01',
+   *   to_date: '2024-03-31',
+   *   limit: 50,
+   *   offset: 0,
+   * });
+   * ```
    */
   async listEvents(
-    params?: AuditEventFilterOptions & PaginationParams
+    options?: AuditEventFilterOptions & PaginationParams
   ): Promise<{ events: AuditEvent[]; total: number }> {
-    return this.client.listAuditEvents(params);
+    const params: Record<string, unknown> = {
+      limit: options?.limit ?? 50,
+      offset: options?.offset ?? 0,
+    };
+
+    // Support both naming conventions
+    if (options?.event_type) params.event_type = options.event_type;
+    if (options?.actor_id || options?.user_id) {
+      params.actor_id = options.actor_id || options.user_id;
+    }
+    if (options?.resource_type) params.resource_type = options.resource_type;
+    if (options?.resource_id) params.resource_id = options.resource_id;
+    if (options?.from_date || options?.start_date) {
+      params.from_date = options.from_date || options.start_date;
+    }
+    if (options?.to_date || options?.end_date) {
+      params.to_date = options.to_date || options.end_date;
+    }
+
+    return this.client.request<{ events: AuditEvent[]; total: number }>(
+      'GET',
+      '/api/v1/audit/events',
+      { params }
+    );
   }
 
   /**
+   * Get a specific audit event by ID.
+   *
+   * @param eventId - The audit event ID
+   * @returns The audit event details
+   *
+   * @example
+   * ```typescript
+   * const event = await client.audit.getEvent('event-123');
+   * console.log(`${event.timestamp}: ${event.action} by ${event.actor_id}`);
+   * ```
+   */
+  async getEvent(eventId: string): Promise<AuditEvent> {
+    return this.client.request<AuditEvent>(
+      'GET',
+      `/api/v1/audit/events/${encodeURIComponent(eventId)}`
+    );
+  }
+
+  // ===========================================================================
+  // Statistics & Reports
+  // ===========================================================================
+
+  /**
    * Get audit statistics.
+   *
+   * @param options - Optional date range for statistics
+   * @returns Audit statistics including event counts by type, top actors, etc.
+   *
+   * @example
+   * ```typescript
+   * const stats = await client.audit.getStats({
+   *   from_date: '2024-01-01',
+   *   to_date: '2024-03-31',
+   * });
+   * console.log(`Total events: ${stats.total_events}`);
+   * ```
+   */
+  async getStats(options?: {
+    from_date?: string;
+    to_date?: string;
+  }): Promise<AuditStats> {
+    const params: Record<string, unknown> = {};
+    if (options?.from_date) params.from_date = options.from_date;
+    if (options?.to_date) params.to_date = options.to_date;
+
+    return this.client.request<AuditStats>(
+      'GET',
+      '/api/v1/audit/stats',
+      { params }
+    );
+  }
+
+  /**
+   * Get audit statistics (alias for getStats).
+   * @deprecated Use getStats() instead
    */
   async stats(params?: { period?: string }): Promise<AuditStats> {
     return this.client.getAuditStats(params);
   }
 
   /**
-   * Export audit logs.
+   * Get the global audit report.
+   *
+   * @returns The audit report
+   *
+   * @example
+   * ```typescript
+   * const report = await client.audit.getReport();
+   * console.log(`Report generated at: ${report.generated_at}`);
+   * ```
    */
-  async export(request: AuditExportOptions): Promise<{ url: string; expires_at: string }> {
-    return this.client.exportAuditLogs(request);
+  async getReport(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/audit/report'
+    );
   }
 
   /**
-   * Verify integrity of audit logs.
+   * Generate a compliance report.
+   *
+   * @param period - Report period (daily, weekly, monthly, quarterly)
+   * @param framework - Optional compliance framework (soc2, gdpr, hipaa)
+   * @returns Compliance report with metrics and findings
+   *
+   * @example
+   * ```typescript
+   * const report = await client.audit.getComplianceReport('monthly', 'soc2');
+   * console.log(`Compliance score: ${report.compliance_score}%`);
+   * for (const finding of report.findings) {
+   *   console.log(`${finding.severity}: ${finding.description}`);
+   * }
+   * ```
+   */
+  async getComplianceReport(
+    period: ReportPeriod = 'monthly',
+    framework?: ComplianceFramework
+  ): Promise<ComplianceReport> {
+    const params: Record<string, unknown> = { period };
+    if (framework) params.framework = framework;
+
+    return this.client.request<ComplianceReport>(
+      'GET',
+      '/api/v1/audit/compliance/report',
+      { params }
+    );
+  }
+
+  // ===========================================================================
+  // Actor & Resource History
+  // ===========================================================================
+
+  /**
+   * Get activity summary for an actor.
+   *
+   * @param actorId - The actor (user/agent) ID
+   * @param options - Optional date range
+   * @returns Activity summary with event counts
+   *
+   * @example
+   * ```typescript
+   * const activity = await client.audit.getActorActivity('user-123', {
+   *   from_date: '2024-01-01',
+   *   to_date: '2024-03-31',
+   * });
+   * console.log(`Total events: ${activity.total_events}`);
+   * console.log(`Resources accessed: ${activity.resources_accessed.join(', ')}`);
+   * ```
+   */
+  async getActorActivity(
+    actorId: string,
+    options?: { from_date?: string; to_date?: string }
+  ): Promise<ActorActivity> {
+    const params: Record<string, unknown> = { actor_id: actorId };
+    if (options?.from_date) params.from_date = options.from_date;
+    if (options?.to_date) params.to_date = options.to_date;
+
+    return this.client.request<ActorActivity>(
+      'GET',
+      '/api/v1/audit/actors/activity',
+      { params }
+    );
+  }
+
+  /**
+   * Get audit history for a specific resource.
+   *
+   * @param resourceType - Resource type (debate, agent, etc.)
+   * @param resourceId - Resource ID
+   * @returns Resource audit history
+   *
+   * @example
+   * ```typescript
+   * const history = await client.audit.getResourceHistory('debate', 'debate-123');
+   * console.log(`${history.total} events for this debate`);
+   * for (const event of history.events) {
+   *   console.log(`${event.timestamp}: ${event.action}`);
+   * }
+   * ```
+   */
+  async getResourceHistory(
+    resourceType: string,
+    resourceId: string
+  ): Promise<ResourceHistory> {
+    return this.client.request<ResourceHistory>(
+      'GET',
+      `/api/v1/audit/resources/${encodeURIComponent(resourceType)}/${encodeURIComponent(resourceId)}/history`
+    );
+  }
+
+  // ===========================================================================
+  // Export & Verification
+  // ===========================================================================
+
+  /**
+   * Export audit events.
+   *
+   * @param options - Export options including format and date range
+   * @returns Export result with download URL
+   *
+   * @example
+   * ```typescript
+   * const { url, expires_at } = await client.audit.export({
+   *   format: 'csv',
+   *   from_date: '2024-01-01',
+   *   to_date: '2024-03-31',
+   *   event_types: ['debate.created', 'debate.completed'],
+   * });
+   * console.log(`Download from: ${url}`);
+   * ```
+   */
+  async export(options: AuditExportOptions): Promise<{ url: string; expires_at: string }> {
+    const body: Record<string, unknown> = { format: options.format };
+
+    // Support both naming conventions
+    if (options.from_date || options.start_date) {
+      body.from_date = options.from_date || options.start_date;
+    }
+    if (options.to_date || options.end_date) {
+      body.to_date = options.to_date || options.end_date;
+    }
+    if (options.event_types) {
+      body.event_types = options.event_types;
+    }
+
+    return this.client.request<{ url: string; expires_at: string }>(
+      'POST',
+      '/api/v1/audit/export',
+      { body }
+    );
+  }
+
+  /**
+   * Verify audit trail integrity.
+   *
+   * @returns Verification result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.verify();
+   * if (result.verified) {
+   *   console.log(`Verified ${result.entries_checked} entries`);
+   * } else {
+   *   console.log(`Found ${result.tampered_entries} tampered entries!`);
+   * }
+   * ```
+   */
+  async verify(): Promise<AuditVerification> {
+    return this.client.request<AuditVerification>(
+      'GET',
+      '/api/v1/audit/verify'
+    );
+  }
+
+  /**
+   * Verify integrity of audit logs with optional date range.
+   *
+   * @param params - Optional date range for verification
+   * @returns Verification result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.verifyIntegrity({
+   *   start_date: '2024-01-01',
+   *   end_date: '2024-03-31',
+   * });
+   * ```
    */
   async verifyIntegrity(
     params?: { start_date?: string; end_date?: string }
-  ): Promise<{
-    verified: boolean;
-    entries_checked: number;
-    tampered_entries: number;
-  }> {
+  ): Promise<AuditVerification> {
     return this.client.verifyAuditIntegrity(params);
   }
 
-  /**
-   * List audit sessions.
-   */
-  async listSessions(
-    params?: { status?: string } & PaginationParams
-  ): Promise<{ sessions: AuditSession[]; total: number }> {
-    return this.client.listAuditSessions(params);
-  }
+  // ===========================================================================
+  // Entries (OpenAPI-aligned)
+  // ===========================================================================
 
   /**
-   * Get an audit session by ID.
+   * List audit entries (OpenAPI-aligned endpoint).
+   *
+   * @param options - Pagination options
+   * @returns List of audit entries
+   *
+   * @example
+   * ```typescript
+   * const { entries, total } = await client.audit.listEntries({ limit: 50 });
+   * for (const entry of entries) {
+   *   console.log(`${entry.timestamp}: ${entry.action}`);
+   * }
+   * ```
    */
-  async getSession(sessionId: string): Promise<AuditSession> {
-    return this.client.getAuditSession(sessionId);
+  async listEntries(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ entries: AuditEntry[]; total: number }> {
+    const params: Record<string, unknown> = {
+      limit: options?.limit ?? 50,
+      offset: options?.offset ?? 0,
+    };
+
+    return this.client.request<{ entries: AuditEntry[]; total: number }>(
+      'GET',
+      '/api/v1/audit/entries',
+      { params }
+    );
+  }
+
+  // ===========================================================================
+  // Session Management
+  // ===========================================================================
+
+  /**
+   * List audit sessions.
+   *
+   * @param options - Filter and pagination options
+   * @returns List of audit sessions
+   *
+   * @example
+   * ```typescript
+   * const { sessions, total } = await client.audit.listSessions({
+   *   status: 'active',
+   *   limit: 10,
+   * });
+   * ```
+   */
+  async listSessions(
+    options?: { status?: string } & PaginationParams
+  ): Promise<{ sessions: AuditSession[]; total: number }> {
+    const params: Record<string, unknown> = {
+      limit: options?.limit ?? 50,
+      offset: options?.offset ?? 0,
+    };
+    if (options?.status) params.status = options.status;
+
+    return this.client.request<{ sessions: AuditSession[]; total: number }>(
+      'GET',
+      '/api/v1/audit/sessions',
+      { params }
+    );
   }
 
   /**
    * Create a new audit session.
+   *
+   * @param name - Session name
+   * @param config - Optional session configuration
+   * @returns The created audit session
+   *
+   * @example
+   * ```typescript
+   * const session = await client.audit.createSession('Q4 Security Review', {
+   *   description: 'Quarterly security audit',
+   *   target_type: 'system',
+   *   scope: ['auth', 'rbac', 'debates'],
+   * });
+   * console.log(`Created session: ${session.id}`);
+   * ```
    */
-  async createSession(request: CreateAuditSessionRequest): Promise<AuditSession> {
-    return this.client.createAuditSession(request);
+  async createSession(
+    name: string,
+    config?: Partial<Omit<CreateAuditSessionRequest, 'name'>>
+  ): Promise<AuditSession> {
+    const body: Record<string, unknown> = { name };
+    if (config) {
+      Object.assign(body, config);
+    }
+
+    return this.client.request<AuditSession>(
+      'POST',
+      '/api/v1/audit/sessions',
+      { body }
+    );
   }
 
   /**
-   * Start an audit session.
+   * Get an audit session by ID.
+   *
+   * @param sessionId - The session ID
+   * @returns The audit session
+   *
+   * @example
+   * ```typescript
+   * const session = await client.audit.getSession('session-123');
+   * console.log(`Session status: ${session.status}`);
+   * ```
    */
-  async startSession(sessionId: string): Promise<{ started: boolean }> {
-    return this.client.startAuditSession(sessionId);
+  async getSession(sessionId: string): Promise<AuditSession> {
+    return this.client.request<AuditSession>(
+      'GET',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}`
+    );
   }
 
   /**
-   * Pause an audit session.
+   * Delete an audit session.
+   *
+   * @param sessionId - The session ID to delete
+   * @returns Deletion result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.deleteSession('session-123');
+   * if (result.success) {
+   *   console.log('Session deleted');
+   * }
+   * ```
    */
-  async pauseSession(sessionId: string): Promise<{ paused: boolean }> {
-    return this.client.pauseAuditSession(sessionId);
+  async deleteSession(sessionId: string): Promise<{ success: boolean; message?: string }> {
+    return this.client.request<{ success: boolean; message?: string }>(
+      'DELETE',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}`
+    );
   }
 
   /**
-   * Resume a paused audit session.
+   * Get events for an audit session.
+   *
+   * @param sessionId - The session ID
+   * @returns Session events
+   *
+   * @example
+   * ```typescript
+   * const { events, total } = await client.audit.getSessionEvents('session-123');
+   * console.log(`Found ${total} events in this session`);
+   * ```
    */
-  async resumeSession(sessionId: string): Promise<{ resumed: boolean }> {
-    return this.client.resumeAuditSession(sessionId);
-  }
-
-  /**
-   * Cancel an audit session.
-   */
-  async cancelSession(sessionId: string): Promise<{ cancelled: boolean }> {
-    return this.client.cancelAuditSession(sessionId);
+  async getSessionEvents(sessionId: string): Promise<SessionEvents> {
+    return this.client.request<SessionEvents>(
+      'GET',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/events`
+    );
   }
 
   /**
    * Get findings from an audit session.
+   *
+   * @param sessionId - The session ID
+   * @param options - Pagination options
+   * @returns Session findings
+   *
+   * @example
+   * ```typescript
+   * const { findings } = await client.audit.getSessionFindings('session-123');
+   * for (const finding of findings) {
+   *   console.log(`${finding.severity}: ${finding.title}`);
+   * }
+   * ```
    */
   async getSessionFindings(
     sessionId: string,
-    params?: PaginationParams
+    options?: PaginationParams
   ): Promise<{ findings: AuditFinding[] }> {
-    return this.client.getAuditSessionFindings(sessionId, params);
+    return this.client.request<{ findings: AuditFinding[] }>(
+      'GET',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/findings`,
+      { params: options as Record<string, unknown> }
+    );
+  }
+
+  /**
+   * Get report for an audit session.
+   *
+   * @param sessionId - The session ID
+   * @returns Session report
+   *
+   * @example
+   * ```typescript
+   * const report = await client.audit.getSessionReport('session-123');
+   * console.log(`Report: ${report.summary}`);
+   * ```
+   */
+  async getSessionReport(sessionId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/report`
+    );
   }
 
   /**
    * Generate a report for an audit session.
+   *
+   * @param sessionId - The session ID
+   * @param format - Report format (json, pdf, markdown)
+   * @returns Report URL
+   *
+   * @example
+   * ```typescript
+   * const { report_url } = await client.audit.generateReport('session-123', 'pdf');
+   * console.log(`Download report: ${report_url}`);
+   * ```
    */
   async generateReport(
     sessionId: string,
-    format?: 'json' | 'pdf' | 'markdown'
+    format: ReportFormat = 'json'
   ): Promise<{ report_url: string }> {
     return this.client.generateAuditReport(sessionId, format);
+  }
+
+  // ===========================================================================
+  // Session Lifecycle
+  // ===========================================================================
+
+  /**
+   * Start an audit session.
+   *
+   * @param sessionId - The session ID to start
+   * @returns Start result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.startSession('session-123');
+   * if (result.started) {
+   *   console.log('Session started');
+   * }
+   * ```
+   */
+  async startSession(sessionId: string): Promise<{ started: boolean }> {
+    return this.client.request<{ started: boolean }>(
+      'POST',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/start`
+    );
+  }
+
+  /**
+   * Pause an audit session.
+   *
+   * @param sessionId - The session ID to pause
+   * @returns Pause result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.pauseSession('session-123');
+   * if (result.paused) {
+   *   console.log('Session paused');
+   * }
+   * ```
+   */
+  async pauseSession(sessionId: string): Promise<{ paused: boolean }> {
+    return this.client.request<{ paused: boolean }>(
+      'POST',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/pause`
+    );
+  }
+
+  /**
+   * Resume a paused audit session.
+   *
+   * @param sessionId - The session ID to resume
+   * @returns Resume result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.resumeSession('session-123');
+   * if (result.resumed) {
+   *   console.log('Session resumed');
+   * }
+   * ```
+   */
+  async resumeSession(sessionId: string): Promise<{ resumed: boolean }> {
+    return this.client.request<{ resumed: boolean }>(
+      'POST',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/resume`
+    );
+  }
+
+  /**
+   * Cancel an audit session.
+   *
+   * @param sessionId - The session ID to cancel
+   * @returns Cancel result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.cancelSession('session-123');
+   * if (result.cancelled) {
+   *   console.log('Session cancelled');
+   * }
+   * ```
+   */
+  async cancelSession(sessionId: string): Promise<{ cancelled: boolean }> {
+    return this.client.request<{ cancelled: boolean }>(
+      'POST',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/cancel`
+    );
+  }
+
+  /**
+   * Intervene in an audit session.
+   *
+   * @param sessionId - The session ID
+   * @param action - The intervention action to perform
+   * @returns Intervention result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.interveneSession('session-123', 'escalate');
+   * console.log(`Intervention result: ${result.success}`);
+   * ```
+   */
+  async interveneSession(
+    sessionId: string,
+    action: string
+  ): Promise<{ success: boolean; message?: string }> {
+    return this.client.request<{ success: boolean; message?: string }>(
+      'POST',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/intervene`,
+      { body: { action } }
+    );
   }
 }

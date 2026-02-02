@@ -166,10 +166,8 @@ async def test_three_debate_memory_accumulation(memory_simulator, simulator_adap
     result1 = DebateResult(
         task="Design a rate limiter",
         debate_id="debate-001",
-        conclusion="Token bucket algorithm is optimal for rate limiting with burst support",
-        consensus_type="majority",
+        final_answer="Token bucket algorithm is optimal for rate limiting with burst support",
         confidence=0.9,
-        key_claims=["token bucket", "burst handling", "efficient"],
     )
     sync1 = await simulator_adapter.sync_debate_outcome(result1)
     assert sync1.success is True
@@ -185,10 +183,8 @@ async def test_three_debate_memory_accumulation(memory_simulator, simulator_adap
     result2 = DebateResult(
         task="API gateway design",
         debate_id="debate-002",
-        conclusion="Use Kong with token bucket rate limiting at edge",
-        consensus_type="unanimous",
+        final_answer="Use Kong with token bucket rate limiting at edge",
         confidence=0.95,
-        key_claims=["Kong gateway", "edge rate limiting", "token bucket"],
     )
     sync2 = await simulator_adapter.sync_debate_outcome(result2)
     assert sync2.success is True
@@ -214,19 +210,19 @@ async def test_topic_relevance_filtering(memory_simulator, simulator_adapter):
         DebateResult(
             task="Rate limiting",
             debate_id="mem-rate",
-            conclusion="Token bucket for rate limiting",
+            final_answer="Token bucket for rate limiting",
             confidence=0.9,
         ),
         DebateResult(
             task="Database optimization",
             debate_id="mem-db",
-            conclusion="Use PostgreSQL with proper indexing",
+            final_answer="Use PostgreSQL with proper indexing",
             confidence=0.9,
         ),
         DebateResult(
             task="Authentication",
             debate_id="mem-auth",
-            conclusion="OAuth 2.0 with JWT tokens for auth",
+            final_answer="OAuth 2.0 with JWT tokens for auth",
             confidence=0.9,
         ),
     ]
@@ -282,7 +278,7 @@ async def test_deduplication_across_debates(memory_simulator, simulator_adapter)
     result = DebateResult(
         task="Test dedup",
         debate_id="debate-dedup-001",
-        conclusion="Unique conclusion",
+        final_answer="Unique conclusion",
         confidence=0.9,
     )
 
@@ -324,7 +320,7 @@ async def test_confidence_threshold_filtering(memory_simulator):
     low_conf = DebateResult(
         task="Uncertain conclusion",
         debate_id="debate-low",
-        conclusion="Maybe this works?",
+        final_answer="Maybe this works?",
         confidence=0.5,  # Below threshold
     )
     result_low = await high_threshold_adapter.sync_debate_outcome(low_conf)
@@ -336,7 +332,7 @@ async def test_confidence_threshold_filtering(memory_simulator):
     high_conf = DebateResult(
         task="Certain conclusion",
         debate_id="debate-high",
-        conclusion="Definitely use this approach",
+        final_answer="Definitely use this approach",
         confidence=0.9,  # Above threshold
     )
     result_high = await high_threshold_adapter.sync_debate_outcome(high_conf)
@@ -377,19 +373,19 @@ async def test_knowledge_manager_full_loop():
         DebateResult(
             task="Caching strategy",
             debate_id="loop-001",
-            conclusion="Use Redis for distributed caching with TTL",
+            final_answer="Use Redis for distributed caching with TTL",
             confidence=0.88,
         ),
         DebateResult(
             task="Session management",
             debate_id="loop-002",
-            conclusion="Store sessions in Redis with automatic expiration",
+            final_answer="Store sessions in Redis with automatic expiration",
             confidence=0.92,
         ),
         DebateResult(
             task="Rate limiting",
             debate_id="loop-003",
-            conclusion="Implement sliding window rate limiting with Redis counters",
+            final_answer="Implement sliding window rate limiting with Redis counters",
             confidence=0.85,
         ),
     ]
@@ -515,7 +511,7 @@ async def test_memory_loop_with_intermittent_failures():
         result = DebateResult(
             task=f"Task {i}",
             debate_id=f"debate-{i}",
-            conclusion=f"Conclusion {i}",
+            final_answer=f"Conclusion {i}",
             confidence=0.9,
         )
         sync_result = await adapter.sync_debate_outcome(result)
@@ -579,7 +575,7 @@ async def test_large_memory_accumulation():
         result = DebateResult(
             task=f"Rate limiting pattern {i}",
             debate_id=f"debate-bulk-{i:03d}",
-            conclusion=f"Rate limiting approach number {i} uses token bucket",
+            final_answer=f"Rate limiting approach number {i} uses token bucket",
             confidence=0.9,
         )
         await adapter.sync_debate_outcome(result)

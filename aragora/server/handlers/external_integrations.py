@@ -215,14 +215,12 @@ class ExternalIntegrationsHandler(SecureHandler):
                 logger.warning(
                     f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
                 )
-                record_rbac_check(
-                    permission_key, allowed=False, handler="ExternalIntegrationsHandler"
-                )
+                record_rbac_check(permission_key, granted=False)
                 return error_response(f"Permission denied: {decision.reason}", 403)
-            record_rbac_check(permission_key, allowed=True)
+            record_rbac_check(permission_key, granted=True)
         except PermissionDeniedError as e:
             logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
-            record_rbac_check(permission_key, allowed=False, handler="ExternalIntegrationsHandler")
+            record_rbac_check(permission_key, granted=False)
             return error_response(f"Permission denied: {str(e)}", 403)
 
         return None

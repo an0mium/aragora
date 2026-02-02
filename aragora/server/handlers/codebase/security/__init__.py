@@ -26,6 +26,9 @@ Endpoints:
 
 from __future__ import annotations
 
+from aragora.analysis.codebase import CVEClient
+from aragora.services import ServiceRegistry
+
 # Main handler class
 from .handler import SecurityHandler
 
@@ -96,6 +99,7 @@ from .storage import (
     get_scanner,
     get_secrets_scan_lock,
     get_secrets_scanner,
+    safe_repo_id,
 )
 
 # Backward compatibility aliases (for existing tests)
@@ -105,10 +109,16 @@ _get_cve_client = get_cve_client
 _get_secrets_scanner = get_secrets_scanner
 _get_sast_scanner = get_sast_scanner
 _get_or_create_repo_scans = get_or_create_repo_scans
+_emit_scan_events = emit_scan_events
 
 __all__ = [
     # Main handler
     "SecurityHandler",
+    # Service registry + client (backwards compatibility for tests)
+    "ServiceRegistry",
+    "CVEClient",
+    # Event emitters (backwards compatibility for tests)
+    "_emit_scan_events",
     # Storage dicts (backwards compatibility for tests)
     "_scan_results",
     "_running_scans",
@@ -161,6 +171,8 @@ __all__ = [
     "get_or_create_sbom_results",
     "get_sbom_lock",
     "get_running_sbom_generations",
+    # Path traversal protection
+    "safe_repo_id",
     # Backward compatibility aliases
     "_get_scanner",
     "_get_cve_client",

@@ -4,6 +4,7 @@ In-memory storage and service registry integration for security scans.
 This module provides:
 - Thread-safe storage for scan results
 - Service registry helpers for scanners and clients
+- Path traversal validation for repo IDs
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from aragora.analysis.codebase import (
     SecretsScanner,
 )
 from aragora.services import ServiceRegistry
+from aragora.server.validation import validate_no_path_traversal, SAFE_ID_PATTERN
 
 if TYPE_CHECKING:
     from aragora.analysis.codebase import (
@@ -31,6 +33,59 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Path Traversal Protection
+# =============================================================================
+
+
+def safe_repo_id(repo_id: str) -> tuple[bool, str | None]:
+    """
+    Validate a repository ID to prevent path traversal attacks.
+
+    Ensures the repo_id:
+    - Does not contain '..' (path traversal)
+    - Does not contain '/' or '\\' (directory separator)
+    - Matches safe alphanumeric pattern (letters, numbers, hyphens, underscores)
+
+    Args:
+        repo_id: The repository identifier to validate
+
+    Returns:
+        Tuple of (is_valid, error_message).
+        If valid, returns (True, None).
+        If invalid, returns (False, error_message).
+
+    Examples:
+        >>> safe_repo_id("my-repo-123")
+        (True, None)
+        >>> safe_repo_id("../etc/passwd")
+        (False, "Invalid repo ID: path traversal not allowed")
+        >>> safe_repo_id("repo/subdir")
+        (False, "Invalid repo ID: must not contain path separators")
+    """
+    if not repo_id:
+        return False, "Invalid repo ID: cannot be empty"
+
+    # Check for path traversal sequences
+    is_valid, err = validate_no_path_traversal(repo_id)
+    if not is_valid:
+        return False, "Invalid repo ID: path traversal not allowed"
+
+    # Check for directory separators
+    if "/" in repo_id or "\\" in repo_id:
+        return False, "Invalid repo ID: must not contain path separators"
+
+    # Validate against safe pattern (alphanumeric, hyphens, underscores)
+    if not SAFE_ID_PATTERN.match(repo_id):
+        return (
+            False,
+            "Invalid repo ID: must contain only alphanumeric characters, hyphens, and underscores (1-64 chars)",
+        )
+
+    return True, None
+
 
 # =============================================================================
 # In-Memory Storage (replace with database in production)

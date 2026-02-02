@@ -57,7 +57,7 @@ class SSOAPI:
             - idp_url: Identity provider URL
             - entity_id: Service provider entity ID
         """
-        return self._client.request("GET", "/api/v1/sso/status")
+        return self._client.request("GET", "/api/v2/sso/status")
 
     # ===========================================================================
     # Authentication Flow
@@ -89,7 +89,7 @@ class SSOAPI:
             "provider": provider,
             "redirect_uri": redirect_uri,
         }
-        return self._client.request("POST", "/api/v1/sso/login", json=data)
+        return self._client.request("POST", "/api/v2/sso/login", json=data)
 
     def callback(
         self,
@@ -123,7 +123,7 @@ class SSOAPI:
             "code": code,
             "state": state,
         }
-        return self._client.request("POST", "/api/v1/sso/callback", json=data)
+        return self._client.request("POST", "/api/v2/sso/callback", json=data)
 
     def logout(
         self,
@@ -147,7 +147,7 @@ class SSOAPI:
         data: dict[str, Any] = {
             "provider": provider,
         }
-        return self._client.request("POST", "/api/v1/sso/logout", json=data)
+        return self._client.request("POST", "/api/v2/sso/logout", json=data)
 
     # ===========================================================================
     # Provider Metadata
@@ -175,7 +175,7 @@ class SSOAPI:
             - certificate: SP signing certificate
             - metadata_xml: Raw SAML metadata XML
         """
-        return self._client.request("GET", f"/api/v1/sso/{provider}/metadata")
+        return self._client.request("GET", f"/api/v2/sso/{provider}/metadata")
 
 
 class AsyncSSOAPI:
@@ -210,7 +210,7 @@ class AsyncSSOAPI:
         Returns:
             Dict with SSO status including enabled, configured, provider_type, etc.
         """
-        return await self._client.request("GET", "/api/v1/sso/status")
+        return await self._client.request("GET", "/api/v2/sso/status")
 
     # ===========================================================================
     # Authentication Flow
@@ -235,7 +235,7 @@ class AsyncSSOAPI:
             "provider": provider,
             "redirect_uri": redirect_uri,
         }
-        return await self._client.request("POST", "/api/v1/sso/login", json=data)
+        return await self._client.request("POST", "/api/v2/sso/login", json=data)
 
     async def callback(
         self,
@@ -259,7 +259,7 @@ class AsyncSSOAPI:
             "code": code,
             "state": state,
         }
-        return await self._client.request("POST", "/api/v1/sso/callback", json=data)
+        return await self._client.request("POST", "/api/v2/sso/callback", json=data)
 
     async def logout(
         self,
@@ -277,7 +277,7 @@ class AsyncSSOAPI:
         data: dict[str, Any] = {
             "provider": provider,
         }
-        return await self._client.request("POST", "/api/v1/sso/logout", json=data)
+        return await self._client.request("POST", "/api/v2/sso/logout", json=data)
 
     # ===========================================================================
     # Provider Metadata
@@ -296,4 +296,4 @@ class AsyncSSOAPI:
         Returns:
             Dict with entity_id, acs_url, slo_url, certificate, and metadata_xml
         """
-        return await self._client.request("GET", f"/api/v1/sso/{provider}/metadata")
+        return await self._client.request("GET", f"/api/v2/sso/{provider}/metadata")

@@ -94,7 +94,9 @@ except ImportError:
 
 # Import metrics (optional - graceful degradation if not available)
 # Define fallback functions with proper signatures first
-def _noop_record_encryption_operation(operation: str, store: str, latency_seconds: float) -> None:
+def _noop_record_encryption_operation(
+    operation: str, success: bool, latency_seconds: float
+) -> None:
     """No-op fallback when metrics module is unavailable."""
     pass
 
@@ -115,7 +117,7 @@ try:
         record_encryption_error as _real_record_encryption_error,
     )
 
-    record_encryption_operation = _real_record_encryption_operation
+    record_encryption_operation = _real_record_encryption_operation  # type: ignore[assignment]
     record_encryption_error = _real_record_encryption_error
     METRICS_AVAILABLE = True
 except (ImportError, AttributeError):
@@ -183,7 +185,7 @@ def _encrypt_config(
             config, sensitive_keys, connector_id if connector_id else None
         )
         latency = time.perf_counter() - start
-        record_encryption_operation("encrypt", "sync_store", latency)
+        record_encryption_operation("encrypt", True, latency)
         return result
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         record_encryption_error("encrypt", type(e).__name__)
@@ -227,7 +229,7 @@ def _decrypt_config(
             config, sensitive_keys, connector_id if connector_id else None
         )
         latency = time.perf_counter() - start
-        record_encryption_operation("decrypt", "sync_store", latency)
+        record_encryption_operation("decrypt", True, latency)
         return result
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.warning(f"Config decryption failed for {connector_id}: {e}")

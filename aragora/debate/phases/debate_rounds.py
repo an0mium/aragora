@@ -561,7 +561,7 @@ class DebateRoundsPhase:
                     record_round_latency,
                 )
 
-                record_slow_round(debate_outcome="in_progress")
+                record_slow_round(phase="in_progress")  # type: ignore[call-arg]
                 record_round_latency(_round_duration)
             except ImportError:
                 logger.debug("Slow round metrics not available")

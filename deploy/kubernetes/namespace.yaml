@@ -1,6 +1,7 @@
 ---
 # Aragora Namespace
 # Creates an isolated namespace for all aragora resources
+# Enforces Pod Security Standards (PSS) for container security
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -8,3 +9,23 @@ metadata:
   labels:
     app.kubernetes.io/name: aragora
     app.kubernetes.io/component: namespace
+    # Pod Security Standards (PSS) - Kubernetes 1.25+
+    # https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    #
+    # Levels: privileged < baseline < restricted
+    #
+    # 'restricted' enforces:
+    #   - Containers must run as non-root
+    #   - Containers must not allow privilege escalation
+    #   - Containers must drop all capabilities
+    #   - Containers cannot run privileged
+    #   - HostPath volumes are forbidden
+    #   - Host namespaces (PID, IPC, Network) are forbidden
+    #   - seccompProfile must be RuntimeDefault or Localhost
+    #
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest

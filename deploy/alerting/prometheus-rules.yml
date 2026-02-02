@@ -145,6 +145,96 @@ groups:
           description: "More than 10% of requests are being rate limited."
           runbook_url: "https://docs.aragora.ai/runbook#rate-limiting"
 
+      # Rate limiter circuit breaker open - Redis failure
+      - alert: RateLimiterCircuitBreakerOpen
+        expr: aragora_ratelimit_circuit_breaker_state{state="open"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Rate limiter circuit breaker is OPEN"
+          description: "Redis rate limiter has failed and circuit breaker is open. System is in degraded mode using in-memory fallback."
+          runbook_url: "https://docs.aragora.ai/runbook#rate-limit-circuit-breaker"
+
+      # Rate limiter in fallback mode (using in-memory instead of Redis)
+      - alert: RateLimiterInFallbackMode
+        expr: aragora_ratelimit_fallback_active > 0
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: "Rate limiter is using in-memory fallback"
+          description: "Rate limiter has fallen back to in-memory mode. Rate limits are not synchronized across pods. Security risk: attackers can bypass limits by targeting different pods."
+          runbook_url: "https://docs.aragora.ai/runbook#rate-limit-fallback"
+
+      # Rate limiter Redis connection failures
+      - alert: RateLimiterRedisFailures
+        expr: rate(aragora_ratelimit_redis_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Rate limiter Redis connection errors"
+          description: "Rate limiter is experiencing Redis connection failures ({{ $value | printf \"%.2f\" }}/s). May lead to circuit breaker trip."
+          runbook_url: "https://docs.aragora.ai/runbook#rate-limit-redis"
+
+      # Rate limit bypass attempts (potential attack)
+      - alert: RateLimitBypassAttempts
+        expr: sum(rate(aragora_ratelimit_bypass_attempts_total[5m])) > 10
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Rate limit bypass attempts detected"
+          description: "Potential attack: {{ $value | printf \"%.0f\" }} rate limit bypass attempts per second detected."
+          runbook_url: "https://docs.aragora.ai/runbook#rate-limit-bypass"
+
+      # Rate limiting degraded performance
+      - alert: RateLimiterHighLatency
+        expr: histogram_quantile(0.99, rate(aragora_ratelimit_check_duration_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiter latency is high"
+          description: "Rate limit checks are taking > 100ms at p99. This may impact API response times."
+          runbook_url: "https://docs.aragora.ai/runbook#rate-limit-latency"
+
+  - name: aragora-circuit-breakers
+    rules:
+      # Any circuit breaker open
+      - alert: CircuitBreakerOpen
+        expr: aragora_circuit_breaker_state{state="open"} > 0
+        for: 1m
+        labels:
+          severity: high
+        annotations:
+          summary: "Circuit breaker is OPEN for {{ $labels.service }}"
+          description: "Circuit breaker for {{ $labels.service }} is open. Service calls are failing over to fallback behavior."
+          runbook_url: "https://docs.aragora.ai/runbook#circuit-breaker"
+
+      # Circuit breaker in half-open (recovery testing)
+      - alert: CircuitBreakerHalfOpen
+        expr: aragora_circuit_breaker_state{state="half_open"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker is HALF-OPEN for {{ $labels.service }}"
+          description: "Circuit breaker for {{ $labels.service }} is in half-open recovery state for > 5 minutes."
+          runbook_url: "https://docs.aragora.ai/runbook#circuit-breaker-recovery"
+
+      # High failure rate (approaching circuit breaker trip)
+      - alert: ServiceFailureRateHigh
+        expr: rate(aragora_circuit_breaker_failures_total[5m]) / rate(aragora_circuit_breaker_calls_total[5m]) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High failure rate for {{ $labels.service }}"
+          description: "Service {{ $labels.service }} has > 30% failure rate. Circuit breaker may trip soon."
+          runbook_url: "https://docs.aragora.ai/runbook#service-failures"
+
   - name: aragora-websocket
     rules:
       # WebSocket connection issues

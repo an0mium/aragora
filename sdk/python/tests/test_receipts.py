@@ -331,7 +331,7 @@ class TestReceiptsGauntlet:
 
             mock_request.assert_called_once_with(
                 "GET",
-                "/api/v1/gauntlet/results",
+                "/api/v2/gauntlet/results",
                 params={"limit": 10, "offset": 0, "verdict": "PASS"},
             )
             client.close()
@@ -344,7 +344,7 @@ class TestReceiptsGauntlet:
             client = AragoraClient(base_url="https://api.aragora.ai")
             client.receipts.get_gauntlet("gnt_123")
 
-            mock_request.assert_called_once_with("GET", "/api/v1/gauntlet/gnt_123/receipt")
+            mock_request.assert_called_once_with("GET", "/api/v2/gauntlet/gnt_123/receipt")
             client.close()
 
     def test_verify_gauntlet(self) -> None:
@@ -355,7 +355,7 @@ class TestReceiptsGauntlet:
             client = AragoraClient(base_url="https://api.aragora.ai")
             client.receipts.verify_gauntlet("gnt_123")
 
-            mock_request.assert_called_once_with("POST", "/api/v1/gauntlet/gnt_123/receipt/verify")
+            mock_request.assert_called_once_with("POST", "/api/v2/gauntlet/gnt_123/receipt/verify")
             client.close()
 
     def test_export_gauntlet_markdown(self) -> None:
@@ -368,7 +368,7 @@ class TestReceiptsGauntlet:
 
             mock_request.assert_called_once_with(
                 "GET",
-                "/api/v1/gauntlet/gnt_123/receipt",
+                "/api/v2/gauntlet/gnt_123/receipt",
                 params={"format": "md"},
             )
             client.close()

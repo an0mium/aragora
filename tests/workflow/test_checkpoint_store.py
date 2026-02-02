@@ -1843,3 +1843,1233 @@ class TestConstants:
     def test_default_operation_timeout(self):
         """DEFAULT_OPERATION_TIMEOUT is defined and positive."""
         assert DEFAULT_OPERATION_TIMEOUT > 0
+
+
+# =============================================================================
+# TTL Expiration Tests
+# =============================================================================
+
+
+class TestTTLExpiration:
+    """Tests for TTL-based checkpoint expiration."""
+
+    @pytest.fixture
+    def mock_redis(self):
+        """Create a mock Redis client for TTL tests."""
+        redis = MagicMock()
+        redis.setex = MagicMock()
+        redis.get = MagicMock(return_value=None)
+        redis.zadd = MagicMock()
+        redis.zrevrange = MagicMock(return_value=[])
+        redis.delete = MagicMock(return_value=1)
+        redis.zrem = MagicMock()
+        redis.expire = MagicMock()
+        redis.ttl = MagicMock(return_value=3600)
+        redis.connection_pool = MagicMock()
+        redis.connection_pool.connection_kwargs = {}
+        return redis
+
+    @pytest.mark.asyncio
+    async def test_redis_ttl_hours_conversion(self, mock_redis):
+        """Verify TTL hours are correctly converted to seconds."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            # 24 hours = 86400 seconds
+            store = RedisCheckpointStore(ttl_hours=24)
+            assert store._ttl_seconds == 86400
+
+            # 0.5 hours = 1800 seconds
+            store2 = RedisCheckpointStore(ttl_hours=0.5)
+            assert store2._ttl_seconds == 1800
+
+            # 168 hours (1 week) = 604800 seconds
+            store3 = RedisCheckpointStore(ttl_hours=168)
+            assert store3._ttl_seconds == 604800
+
+    @pytest.mark.asyncio
+    async def test_redis_setex_uses_ttl(self, mock_redis, sample_checkpoint):
+        """Verify setex is called with correct TTL."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore(ttl_hours=12)  # 12 * 3600 = 43200 seconds
+            store._redis = mock_redis
+
+            await store.save(sample_checkpoint)
+
+            # Check setex was called with correct TTL
+            setex_call = mock_redis.setex.call_args_list[0]
+            ttl_arg = setex_call[0][1]
+            assert ttl_arg == 43200
+
+    @pytest.mark.asyncio
+    async def test_redis_expire_on_workflow_index(self, mock_redis, sample_checkpoint):
+        """Verify expire is called on workflow index with TTL."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore(ttl_hours=6)  # 6 * 3600 = 21600 seconds
+            store._redis = mock_redis
+
+            await store.save(sample_checkpoint)
+
+            # Check expire was called with correct TTL
+            mock_redis.expire.assert_called()
+            expire_call = mock_redis.expire.call_args
+            ttl_arg = expire_call[0][1]
+            assert ttl_arg == 21600
+
+    @pytest.mark.asyncio
+    async def test_redis_minimum_ttl(self, mock_redis):
+        """Test TTL with very small values."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            # Very small TTL (0.01 hours = 36 seconds)
+            store = RedisCheckpointStore(ttl_hours=0.01)
+            assert store._ttl_seconds == 36
+
+    @pytest.mark.asyncio
+    async def test_postgres_cleanup_old_checkpoints_keeps_recent(self):
+        """Verify cleanup keeps the most recent checkpoints."""
+        pool = MagicMock()
+        conn = AsyncMock()
+        conn.execute = AsyncMock(return_value="DELETE 15")
+        conn.fetchrow = AsyncMock(return_value=None)
+
+        pool.acquire = MagicMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            store._initialized = True
+
+            deleted = await store.cleanup_old_checkpoints("wf-test", keep_count=5)
+
+            assert deleted == 15
+            # Verify SQL includes LIMIT for keep_count
+            execute_call = conn.execute.call_args
+            assert "LIMIT $2" in execute_call[0][0]
+
+
+# =============================================================================
+# Concurrent Write Scenario Tests
+# =============================================================================
+
+
+class TestConcurrentWrites:
+    """Tests for concurrent write scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_saves_to_same_workflow(self, temp_checkpoint_dir):
+        """Multiple concurrent saves to the same workflow produce unique IDs."""
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        async def save_checkpoint(index: int):
+            await asyncio.sleep(0.001 * index)  # Slight stagger
+            checkpoint = WorkflowCheckpoint(
+                id=f"cp-same-wf-{index}",
+                workflow_id="wf-shared",  # Same workflow
+                definition_id="def-001",
+                current_step=f"step_{index}",
+                completed_steps=[],
+                step_outputs={},
+                context_state={"index": index},
+                created_at=datetime.now(),
+                checksum="",
+            )
+            return await store.save(checkpoint)
+
+        # Save 10 checkpoints concurrently
+        checkpoint_ids = await asyncio.gather(*[save_checkpoint(i) for i in range(10)])
+
+        # With same workflow but unique timestamps, IDs should still be unique
+        # due to timestamp precision
+        assert len(checkpoint_ids) == 10
+
+        # All should be loadable
+        for cp_id in checkpoint_ids:
+            loaded = await store.load(cp_id)
+            assert loaded is not None
+
+    @pytest.mark.asyncio
+    async def test_concurrent_read_write(self, temp_checkpoint_dir, sample_checkpoint):
+        """Concurrent reads while writing don't cause errors."""
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        # Save initial checkpoint
+        checkpoint_id = await store.save(sample_checkpoint)
+
+        async def read_checkpoint():
+            for _ in range(5):
+                loaded = await store.load(checkpoint_id)
+                assert loaded is not None
+                await asyncio.sleep(0.01)
+
+        async def write_checkpoint():
+            for i in range(5):
+                cp = WorkflowCheckpoint(
+                    id=f"cp-concurrent-write-{i}",
+                    workflow_id="wf-concurrent-write",
+                    definition_id="def-001",
+                    current_step=f"step_{i}",
+                    completed_steps=[],
+                    step_outputs={},
+                    context_state={},
+                    created_at=datetime.now(),
+                    checksum="",
+                )
+                await store.save(cp)
+                await asyncio.sleep(0.01)
+
+        # Run reads and writes concurrently
+        await asyncio.gather(read_checkpoint(), write_checkpoint())
+
+    @pytest.mark.asyncio
+    async def test_concurrent_delete_and_load(self, temp_checkpoint_dir, sample_checkpoint):
+        """Loading during delete returns None gracefully."""
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        checkpoint_id = await store.save(sample_checkpoint)
+
+        async def delete_after_delay():
+            await asyncio.sleep(0.05)
+            return await store.delete(checkpoint_id)
+
+        async def load_multiple_times():
+            results = []
+            for _ in range(10):
+                result = await store.load(checkpoint_id)
+                results.append(result)
+                await asyncio.sleep(0.01)
+            return results
+
+        delete_result, load_results = await asyncio.gather(
+            delete_after_delay(), load_multiple_times()
+        )
+
+        assert delete_result is True
+        # Some loads may succeed (before delete), some may return None (after)
+        # At least the first few should succeed
+        assert any(r is not None for r in load_results[:3])
+
+    @pytest.mark.asyncio
+    async def test_concurrent_cache_operations(self):
+        """Concurrent cache operations don't corrupt state."""
+        cache = LRUCheckpointCache(max_size=10)
+
+        async def put_items(start_idx: int):
+            for i in range(start_idx, start_idx + 5):
+                cp = WorkflowCheckpoint(
+                    id=f"cp-{i}",
+                    workflow_id="wf",
+                    definition_id="def",
+                    current_step="step",
+                    completed_steps=[],
+                    step_outputs={},
+                    context_state={"i": i},
+                    created_at=datetime.now(),
+                    checksum="",
+                )
+                cache.put(f"key-{i}", cp)
+                await asyncio.sleep(0.001)
+
+        async def get_items(start_idx: int):
+            results = []
+            for i in range(start_idx, start_idx + 5):
+                result = cache.get(f"key-{i}")
+                results.append(result)
+                await asyncio.sleep(0.001)
+            return results
+
+        # Concurrent puts and gets
+        await asyncio.gather(
+            put_items(0),
+            put_items(5),
+            get_items(0),
+            get_items(5),
+        )
+
+        # Cache should be in consistent state
+        assert cache.size <= 10  # Respects max_size
+
+    @pytest.mark.asyncio
+    async def test_cached_store_concurrent_loads(self, temp_checkpoint_dir, sample_checkpoint):
+        """Concurrent loads through caching store work correctly."""
+        backend = FileCheckpointStore(temp_checkpoint_dir)
+        cached = CachingCheckpointStore(backend)
+
+        checkpoint_id = await cached.save(sample_checkpoint)
+
+        async def load_checkpoint():
+            return await cached.load(checkpoint_id)
+
+        # 20 concurrent loads
+        results = await asyncio.gather(*[load_checkpoint() for _ in range(20)])
+
+        # All should return same checkpoint
+        assert all(r is not None for r in results)
+        assert all(r.workflow_id == sample_checkpoint.workflow_id for r in results)
+
+        # Cache should have high hit rate after first load
+        stats = cached.cache_stats
+        assert stats["hits"] >= 19  # At least 19 of 20 should be cache hits
+
+
+# =============================================================================
+# Error Handling and Fallback Tests
+# =============================================================================
+
+
+class TestErrorHandling:
+    """Tests for error handling and fallback behavior."""
+
+    @pytest.mark.asyncio
+    async def test_redis_connection_error_on_save(self, sample_checkpoint):
+        """Redis connection error raises appropriate exception."""
+        mock_redis = MagicMock()
+        mock_redis.setex = MagicMock(side_effect=ConnectionError("Connection refused"))
+        mock_redis.connection_pool = MagicMock()
+        mock_redis.connection_pool.connection_kwargs = {}
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore()
+            store._redis = mock_redis
+
+            with pytest.raises(ConnectionError):
+                await store.save(sample_checkpoint)
+
+    @pytest.mark.asyncio
+    async def test_redis_get_returns_none_on_error(self):
+        """Redis load returns None on non-timeout errors."""
+        mock_redis = MagicMock()
+        mock_redis.get = MagicMock(side_effect=ValueError("Invalid data"))
+        mock_redis.connection_pool = MagicMock()
+        mock_redis.connection_pool.connection_kwargs = {}
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore()
+            store._redis = mock_redis
+
+            result = await store.load("some-id")
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_redis_timeout_raises_connection_timeout_error(self, sample_checkpoint):
+        """Redis timeout error is wrapped in ConnectionTimeoutError."""
+
+        class RedisTimeoutError(Exception):
+            pass
+
+        mock_redis = MagicMock()
+        mock_redis.setex = MagicMock(side_effect=RedisTimeoutError("Timeout"))
+        mock_redis.connection_pool = MagicMock()
+        mock_redis.connection_pool.connection_kwargs = {}
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore()
+            store._redis = mock_redis
+
+            with pytest.raises(ConnectionTimeoutError):
+                await store.save(sample_checkpoint)
+
+    @pytest.mark.asyncio
+    async def test_postgres_timeout_returns_none_on_load(self):
+        """PostgreSQL timeout on load returns None."""
+        pool = MagicMock()
+        conn = AsyncMock()
+
+        async def slow_query(*args):
+            raise asyncio.TimeoutError()
+
+        conn.fetchrow = slow_query
+        pool.acquire = MagicMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            store._initialized = True
+
+            result = await store.load("cp-123")
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_km_store_save_error_propagates(self, sample_checkpoint):
+        """KnowledgeMound save error is propagated."""
+        mock_mound = MagicMock()
+        mock_mound._workspace_id = "test"
+        mock_mound.add_node = AsyncMock(side_effect=RuntimeError("KM error"))
+
+        from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
+
+        store = KnowledgeMoundCheckpointStore(mock_mound)
+
+        # Mock the dynamic import
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aragora.knowledge.mound":
+                mock_module = MagicMock()
+                mock_module.KnowledgeNode = MagicMock
+                mock_module.MemoryTier = MagicMock()
+                mock_module.MemoryTier.MEDIUM = "medium"
+                mock_module.ProvenanceChain = MagicMock
+                return mock_module
+            return original_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=mock_import):
+            with pytest.raises(RuntimeError, match="KM error"):
+                await store.save(sample_checkpoint)
+
+    @pytest.mark.asyncio
+    async def test_km_store_load_error_returns_none(self):
+        """KnowledgeMound load error returns None."""
+        mock_mound = MagicMock()
+        mock_mound._workspace_id = "test"
+        mock_mound.get_node = AsyncMock(side_effect=RuntimeError("KM error"))
+
+        from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
+
+        store = KnowledgeMoundCheckpointStore(mock_mound)
+
+        result = await store.load("node-123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_km_store_list_error_returns_empty(self):
+        """KnowledgeMound list error returns empty list."""
+        mock_mound = MagicMock()
+        mock_mound._workspace_id = "test"
+        mock_mound.query_by_provenance = AsyncMock(side_effect=RuntimeError("KM error"))
+
+        from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
+
+        store = KnowledgeMoundCheckpointStore(mock_mound)
+
+        result = await store.list_checkpoints("wf-123")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_km_store_delete_error_returns_false(self):
+        """KnowledgeMound delete error returns False."""
+        mock_mound = MagicMock()
+        mock_mound._workspace_id = "test"
+        mock_mound.delete_node = AsyncMock(side_effect=RuntimeError("KM error"))
+
+        from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
+
+        store = KnowledgeMoundCheckpointStore(mock_mound)
+
+        result = await store.delete("node-123")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_file_store_corrupted_json(self, temp_checkpoint_dir):
+        """FileCheckpointStore handles corrupted JSON gracefully."""
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        # Write corrupted JSON file
+        corrupted_file = Path(temp_checkpoint_dir) / "corrupted_wf_12345.json"
+        corrupted_file.write_text("{ invalid json }")
+
+        # Should raise an error when loading
+        with pytest.raises(json.JSONDecodeError):
+            await store.load("corrupted_wf_12345")
+
+    def test_redis_store_requires_redis_available(self):
+        """RedisCheckpointStore raises error when Redis not available."""
+        with patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            with pytest.raises(RuntimeError, match="Redis checkpoint store requires"):
+                RedisCheckpointStore()
+
+    def test_postgres_store_requires_asyncpg_available(self):
+        """PostgresCheckpointStore raises error when asyncpg not available."""
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            with pytest.raises(RuntimeError, match="PostgreSQL checkpoint store requires"):
+                PostgresCheckpointStore(MagicMock())
+
+
+# =============================================================================
+# Redis Backend Specific Tests
+# =============================================================================
+
+
+class TestRedisBackendSpecific:
+    """Detailed tests for Redis backend behavior."""
+
+    @pytest.fixture
+    def mock_redis(self):
+        """Create a mock Redis client."""
+        redis = MagicMock()
+        redis.setex = MagicMock()
+        redis.get = MagicMock(return_value=None)
+        redis.zadd = MagicMock()
+        redis.zrevrange = MagicMock(return_value=[])
+        redis.delete = MagicMock(return_value=1)
+        redis.zrem = MagicMock()
+        redis.expire = MagicMock()
+        redis.connection_pool = MagicMock()
+        redis.connection_pool.connection_kwargs = {}
+        return redis
+
+    @pytest.mark.asyncio
+    async def test_compression_stores_metadata(self, mock_redis):
+        """Compression metadata is stored separately."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore(compress_threshold=100)
+            store._redis = mock_redis
+
+            large_checkpoint = WorkflowCheckpoint(
+                id="cp-large",
+                workflow_id="wf-large",
+                definition_id="def-001",
+                current_step="step_1",
+                completed_steps=[],
+                step_outputs={"data": "x" * 500},
+                context_state={},
+                created_at=datetime.now(),
+                checksum="",
+            )
+
+            await store.save(large_checkpoint)
+
+            # Two setex calls: data + metadata
+            assert mock_redis.setex.call_count == 2
+
+            # Second call should be metadata with ":meta" suffix
+            meta_call = mock_redis.setex.call_args_list[1]
+            meta_key = meta_call[0][0]
+            assert ":meta" in meta_key
+
+    @pytest.mark.asyncio
+    async def test_decompression_on_load(self, mock_redis):
+        """Compressed data is decompressed on load."""
+        original_data = {
+            "workflow_id": "wf-test",
+            "definition_id": "def-001",
+            "current_step": "step_1",
+            "completed_steps": [],
+            "step_outputs": {"data": "x" * 500},
+            "context_state": {},
+            "created_at": "2024-01-15T12:00:00",
+            "checksum": "",
+        }
+        compressed = zlib.compress(json.dumps(original_data).encode())
+
+        mock_redis.get = MagicMock(
+            side_effect=[
+                compressed,  # Data
+                json.dumps({"compressed": True}).encode(),  # Metadata
+            ]
+        )
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore()
+            store._redis = mock_redis
+
+            checkpoint = await store.load("cp-123")
+
+            assert checkpoint is not None
+            assert checkpoint.workflow_id == "wf-test"
+
+    @pytest.mark.asyncio
+    async def test_workflow_index_sorted_set(self, mock_redis, sample_checkpoint):
+        """Workflow index uses sorted set with timestamp scores."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore()
+            store._redis = mock_redis
+
+            await store.save(sample_checkpoint)
+
+            # zadd should be called with checkpoint_id and timestamp score
+            mock_redis.zadd.assert_called_once()
+            zadd_call = mock_redis.zadd.call_args
+            index_key = zadd_call[0][0]
+            members = zadd_call[0][1]
+
+            assert "aragora:workflow:index:" in index_key
+            assert len(members) == 1
+            # Score should be a timestamp (float)
+            score = list(members.values())[0]
+            assert isinstance(score, float)
+
+    @pytest.mark.asyncio
+    async def test_delete_removes_from_index(self, mock_redis):
+        """Delete removes checkpoint from workflow index."""
+        mock_redis.delete = MagicMock(return_value=2)
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore()
+            store._redis = mock_redis
+
+            await store.delete("wf-test_1234567890")
+
+            mock_redis.zrem.assert_called_once()
+            zrem_call = mock_redis.zrem.call_args
+            assert "wf-test_1234567890" in zrem_call[0]
+
+    @pytest.mark.asyncio
+    async def test_load_latest_uses_zrevrange(self, mock_redis):
+        """load_latest uses ZREVRANGE to get highest score."""
+        checkpoint_data = {
+            "workflow_id": "wf-test",
+            "definition_id": "def-001",
+            "current_step": "step_3",
+            "completed_steps": [],
+            "step_outputs": {},
+            "context_state": {},
+            "created_at": "2024-01-15T14:00:00",
+            "checksum": "",
+        }
+
+        mock_redis.zrevrange = MagicMock(return_value=[b"wf-test_999"])
+        mock_redis.get = MagicMock(
+            side_effect=[
+                json.dumps(checkpoint_data).encode(),
+                json.dumps({"compressed": False}).encode(),
+            ]
+        )
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore()
+            store._redis = mock_redis
+
+            checkpoint = await store.load_latest("wf-test")
+
+            # zrevrange with 0, 0 gets only the highest score
+            mock_redis.zrevrange.assert_called()
+            call_args = mock_redis.zrevrange.call_args[0]
+            assert call_args[1] == 0
+            assert call_args[2] == 0
+
+            assert checkpoint is not None
+
+    @pytest.mark.asyncio
+    async def test_socket_timeout_configuration(self, mock_redis):
+        """Socket timeouts are configured on the connection pool."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store._get_redis_client",
+                return_value=lambda: mock_redis,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
+            store = RedisCheckpointStore(
+                socket_timeout=15.0,
+                socket_connect_timeout=5.0,
+            )
+
+            # Access redis to trigger lazy initialization
+            redis = store._get_redis()
+
+            # Check connection_kwargs were updated
+            kwargs = mock_redis.connection_pool.connection_kwargs
+            assert kwargs.get("socket_timeout") == 15.0
+            assert kwargs.get("socket_connect_timeout") == 5.0
+
+
+# =============================================================================
+# PostgreSQL Backend Specific Tests
+# =============================================================================
+
+
+class TestPostgresBackendSpecific:
+    """Detailed tests for PostgreSQL backend behavior."""
+
+    @pytest.fixture
+    def mock_pool(self):
+        """Create a mock connection pool."""
+        pool = MagicMock()
+        conn = AsyncMock()
+        conn.execute = AsyncMock(return_value="INSERT 0 1")
+        conn.fetch = AsyncMock(return_value=[])
+        conn.fetchrow = AsyncMock(return_value=None)
+
+        pool.acquire = MagicMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        return pool, conn
+
+    @pytest.mark.asyncio
+    async def test_schema_version_tracking(self, mock_pool):
+        """Schema version is tracked in _schema_versions table."""
+        pool, conn = mock_pool
+        conn.fetchrow.return_value = None  # No existing schema
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            await store.initialize()
+
+            # Check that schema version insert was called
+            execute_calls = [str(call) for call in conn.execute.call_args_list]
+            assert any("_schema_versions" in call for call in execute_calls)
+
+    @pytest.mark.asyncio
+    async def test_upsert_on_conflict(self, mock_pool, sample_checkpoint):
+        """Save uses upsert with ON CONFLICT."""
+        pool, conn = mock_pool
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            store._initialized = True
+
+            await store.save(sample_checkpoint)
+
+            # Check SQL includes ON CONFLICT
+            execute_call = conn.execute.call_args
+            sql = execute_call[0][0]
+            assert "ON CONFLICT" in sql
+            assert "DO UPDATE" in sql
+
+    @pytest.mark.asyncio
+    async def test_delete_parses_result(self, mock_pool):
+        """Delete correctly parses PostgreSQL result string."""
+        pool, conn = mock_pool
+
+        # Test successful delete
+        conn.execute.return_value = "DELETE 1"
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            store._initialized = True
+
+            result = await store.delete("cp-123")
+            assert result is True
+
+        # Test no rows deleted
+        conn.execute.return_value = "DELETE 0"
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            store._initialized = True
+
+            result = await store.delete("nonexistent")
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_checksum_validation_on_load(self, mock_pool):
+        """Checksum is validated on load (with warning, not failure)."""
+        pool, conn = mock_pool
+
+        # Return checkpoint with mismatched checksum
+        row = {
+            "id": "cp-123",
+            "workflow_id": "wf-test",
+            "definition_id": "def-001",
+            "current_step": "step_1",
+            "completed_steps": [],
+            "step_outputs": "{}",
+            "context_state": "{}",
+            "created_at": datetime.now(),
+            "checksum": "wrong_checksum",  # Doesn't match computed
+        }
+        conn.fetchrow.return_value = row
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            store._initialized = True
+
+            # Should still return checkpoint (just logs warning)
+            checkpoint = await store.load("cp-123")
+            assert checkpoint is not None
+            assert checkpoint.workflow_id == "wf-test"
+
+    @pytest.mark.asyncio
+    async def test_list_checkpoints_ordered_by_created_at(self, mock_pool):
+        """List checkpoints returns newest first."""
+        pool, conn = mock_pool
+
+        rows = [
+            {"id": "cp-3"},
+            {"id": "cp-2"},
+            {"id": "cp-1"},
+        ]
+        conn.fetch.return_value = rows
+
+        with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
+            from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
+            store = PostgresCheckpointStore(pool)
+            store._initialized = True
+
+            result = await store.list_checkpoints("wf-test")
+
+            assert result == ["cp-3", "cp-2", "cp-1"]
+
+            # Verify ORDER BY DESC in SQL
+            fetch_call = conn.fetch.call_args
+            sql = fetch_call[0][0]
+            assert "ORDER BY created_at DESC" in sql
+
+
+# =============================================================================
+# LRU Cache Boundary Tests
+# =============================================================================
+
+
+class TestLRUCacheBoundaries:
+    """Boundary condition tests for LRU cache."""
+
+    def test_cache_exactly_at_limit(self):
+        """Cache at exactly max_size doesn't evict."""
+        cache = LRUCheckpointCache(max_size=3)
+
+        for i in range(3):
+            cp = WorkflowCheckpoint(
+                id=f"cp-{i}",
+                workflow_id="wf",
+                definition_id="def",
+                current_step="step",
+                completed_steps=[],
+                step_outputs={},
+                context_state={},
+                created_at=datetime.now(),
+                checksum="",
+            )
+            cache.put(f"key-{i}", cp)
+
+        # All three should still be accessible
+        assert cache.size == 3
+        assert cache.get("key-0") is not None
+        assert cache.get("key-1") is not None
+        assert cache.get("key-2") is not None
+
+    def test_cache_hit_rate_calculation(self):
+        """Hit rate is correctly calculated."""
+        cache = LRUCheckpointCache(max_size=10)
+
+        cp = WorkflowCheckpoint(
+            id="cp-1",
+            workflow_id="wf",
+            definition_id="def",
+            current_step="step",
+            completed_steps=[],
+            step_outputs={},
+            context_state={},
+            created_at=datetime.now(),
+            checksum="",
+        )
+        cache.put("key", cp)
+
+        # 4 hits
+        for _ in range(4):
+            cache.get("key")
+
+        # 1 miss
+        cache.get("nonexistent")
+
+        stats = cache.stats
+        assert stats["hits"] == 4
+        assert stats["misses"] == 1
+        assert stats["hit_rate"] == 0.8
+
+    def test_eviction_order_with_updates(self):
+        """Updating an item resets its LRU position."""
+        cache = LRUCheckpointCache(max_size=3)
+
+        # Add items 0, 1, 2
+        for i in range(3):
+            cp = WorkflowCheckpoint(
+                id=f"cp-{i}",
+                workflow_id="wf",
+                definition_id="def",
+                current_step=f"step-{i}",
+                completed_steps=[],
+                step_outputs={},
+                context_state={},
+                created_at=datetime.now(),
+                checksum="",
+            )
+            cache.put(f"key-{i}", cp)
+
+        # Update item 0 (moves to end)
+        updated_cp = WorkflowCheckpoint(
+            id="cp-0-updated",
+            workflow_id="wf",
+            definition_id="def",
+            current_step="step-updated",
+            completed_steps=[],
+            step_outputs={},
+            context_state={},
+            created_at=datetime.now(),
+            checksum="",
+        )
+        cache.put("key-0", updated_cp)
+
+        # Add new item - should evict key-1 (now oldest)
+        new_cp = WorkflowCheckpoint(
+            id="cp-new",
+            workflow_id="wf",
+            definition_id="def",
+            current_step="step-new",
+            completed_steps=[],
+            step_outputs={},
+            context_state={},
+            created_at=datetime.now(),
+            checksum="",
+        )
+        cache.put("key-new", new_cp)
+
+        assert cache.get("key-0") is not None  # Updated, not evicted
+        assert cache.get("key-1") is None  # Evicted
+        assert cache.get("key-2") is not None  # Still there
+        assert cache.get("key-new") is not None  # New item
+
+
+# =============================================================================
+# Factory Function Edge Cases
+# =============================================================================
+
+
+class TestFactoryEdgeCases:
+    """Edge cases for factory functions."""
+
+    def test_env_var_caching_variations(self, temp_checkpoint_dir):
+        """Various environment variable values enable caching."""
+        test_cases = ["true", "True", "TRUE", "1", "yes", "YES", "on", "ON"]
+
+        for value in test_cases:
+            with (
+                patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False),
+                patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False),
+                patch("aragora.workflow.checkpoint_store._default_mound", None),
+                patch.dict(os.environ, {"ARAGORA_CHECKPOINT_CACHE": value}),
+            ):
+                from aragora.workflow.checkpoint_store import (
+                    CachingCheckpointStore,
+                    get_checkpoint_store,
+                )
+
+                store = get_checkpoint_store(fallback_dir=temp_checkpoint_dir)
+                assert isinstance(store, CachingCheckpointStore), f"Failed for value: {value}"
+
+    def test_default_mound_priority(self, temp_checkpoint_dir):
+        """Default mound takes priority when no explicit mound provided."""
+        mock_mound = MagicMock()
+        mock_mound._workspace_id = "default-test"
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch("aragora.workflow.checkpoint_store._default_mound", mock_mound),
+        ):
+            from aragora.workflow.checkpoint_store import (
+                KnowledgeMoundCheckpointStore,
+                get_checkpoint_store,
+            )
+
+            store = get_checkpoint_store(use_default_mound=True)
+            assert isinstance(store, KnowledgeMoundCheckpointStore)
+
+    def test_explicit_mound_overrides_default(self, temp_checkpoint_dir):
+        """Explicit mound overrides default mound."""
+        default_mound = MagicMock()
+        default_mound._workspace_id = "default"
+
+        explicit_mound = MagicMock()
+        explicit_mound._workspace_id = "explicit"
+
+        with patch("aragora.workflow.checkpoint_store._default_mound", default_mound):
+            from aragora.workflow.checkpoint_store import (
+                KnowledgeMoundCheckpointStore,
+                get_checkpoint_store,
+            )
+
+            store = get_checkpoint_store(mound=explicit_mound)
+            assert isinstance(store, KnowledgeMoundCheckpointStore)
+            assert store.workspace_id == "explicit"
+
+    @pytest.mark.asyncio
+    async def test_async_factory_postgres_preference(self, temp_checkpoint_dir):
+        """Async factory with Postgres preference."""
+        mock_pool = MagicMock()
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow = AsyncMock(return_value={"version": 1})
+        mock_conn.execute = AsyncMock()
+
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        async def mock_get_pool():
+            return mock_pool
+
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True),
+            patch("aragora.workflow.checkpoint_store._default_mound", None),
+            patch(
+                "aragora.storage.postgres_store.get_postgres_pool",
+                side_effect=mock_get_pool,
+            ),
+        ):
+            from aragora.workflow.checkpoint_store import (
+                PostgresCheckpointStore,
+                get_checkpoint_store_async,
+            )
+
+            store = await get_checkpoint_store_async(
+                fallback_dir=temp_checkpoint_dir,
+                prefer_postgres=True,
+            )
+
+            assert isinstance(store, PostgresCheckpointStore)
+
+
+# =============================================================================
+# Serialization Edge Cases
+# =============================================================================
+
+
+class TestSerializationEdgeCases:
+    """Tests for serialization edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_datetime_with_timezone(self, temp_checkpoint_dir):
+        """Handle datetime with timezone info."""
+        from datetime import timezone
+
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        tz_aware_dt = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        checkpoint = WorkflowCheckpoint(
+            id="cp-tz",
+            workflow_id="wf-tz",
+            definition_id="def-001",
+            current_step="step_1",
+            completed_steps=[],
+            step_outputs={},
+            context_state={},
+            created_at=tz_aware_dt,
+            checksum="",
+        )
+
+        checkpoint_id = await store.save(checkpoint)
+        loaded = await store.load(checkpoint_id)
+
+        assert loaded is not None
+        assert loaded.created_at.year == 2024
+        assert loaded.created_at.month == 6
+
+    @pytest.mark.asyncio
+    async def test_binary_data_in_context(self, temp_checkpoint_dir):
+        """Handle base64-encoded binary data in context."""
+        import base64
+
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        binary_data = b"\x00\x01\x02\x03\xff\xfe"
+        encoded = base64.b64encode(binary_data).decode("ascii")
+
+        checkpoint = WorkflowCheckpoint(
+            id="cp-binary",
+            workflow_id="wf-binary",
+            definition_id="def-001",
+            current_step="step_1",
+            completed_steps=[],
+            step_outputs={},
+            context_state={"binary": encoded},
+            created_at=datetime.now(),
+            checksum="",
+        )
+
+        checkpoint_id = await store.save(checkpoint)
+        loaded = await store.load(checkpoint_id)
+
+        assert loaded is not None
+        decoded = base64.b64decode(loaded.context_state["binary"])
+        assert decoded == binary_data
+
+    @pytest.mark.asyncio
+    async def test_float_precision(self, temp_checkpoint_dir):
+        """Handle float precision in outputs."""
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        checkpoint = WorkflowCheckpoint(
+            id="cp-float",
+            workflow_id="wf-float",
+            definition_id="def-001",
+            current_step="step_1",
+            completed_steps=[],
+            step_outputs={
+                "step_1": {
+                    "pi": 3.14159265358979323846,
+                    "small": 1e-15,
+                    "large": 1e308,
+                }
+            },
+            context_state={},
+            created_at=datetime.now(),
+            checksum="",
+        )
+
+        checkpoint_id = await store.save(checkpoint)
+        loaded = await store.load(checkpoint_id)
+
+        assert loaded is not None
+        assert abs(loaded.step_outputs["step_1"]["pi"] - 3.14159265358979323846) < 1e-10
+
+    @pytest.mark.asyncio
+    async def test_empty_collections(self, temp_checkpoint_dir):
+        """Handle empty collections correctly."""
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        checkpoint = WorkflowCheckpoint(
+            id="cp-empty",
+            workflow_id="wf-empty",
+            definition_id="def-001",
+            current_step="",
+            completed_steps=[],
+            step_outputs={},
+            context_state={},
+            created_at=datetime.now(),
+            checksum="",
+        )
+
+        checkpoint_id = await store.save(checkpoint)
+        loaded = await store.load(checkpoint_id)
+
+        assert loaded is not None
+        assert loaded.completed_steps == []
+        assert loaded.step_outputs == {}
+        assert loaded.context_state == {}
+
+    @pytest.mark.asyncio
+    async def test_list_in_step_outputs(self, temp_checkpoint_dir):
+        """Handle lists in step outputs."""
+        store = FileCheckpointStore(temp_checkpoint_dir)
+
+        checkpoint = WorkflowCheckpoint(
+            id="cp-list",
+            workflow_id="wf-list",
+            definition_id="def-001",
+            current_step="step_1",
+            completed_steps=[],
+            step_outputs={
+                "step_1": {
+                    "items": [1, 2, 3, "four", {"nested": True}],
+                    "matrix": [[1, 2], [3, 4]],
+                }
+            },
+            context_state={},
+            created_at=datetime.now(),
+            checksum="",
+        )
+
+        checkpoint_id = await store.save(checkpoint)
+        loaded = await store.load(checkpoint_id)
+
+        assert loaded is not None
+        assert loaded.step_outputs["step_1"]["items"] == [1, 2, 3, "four", {"nested": True}]
+        assert loaded.step_outputs["step_1"]["matrix"] == [[1, 2], [3, 4]]

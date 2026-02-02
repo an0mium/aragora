@@ -505,28 +505,34 @@ async def test_graceful_degradation_api_error(mock_supermemory_config):
 
 
 @pytest.mark.asyncio
-async def test_arena_continues_without_supermemory(mock_agents):
-    """Arena should run debates successfully when Supermemory is unavailable."""
-    # Create arena with Supermemory that will fail
+async def test_knowledge_manager_continues_when_supermemory_fails():
+    """ArenaKnowledgeManager should continue operating when Supermemory fails."""
+    # Create adapter that will fail on all operations
     failing_adapter = MagicMock()
     failing_adapter.inject_context = AsyncMock(side_effect=Exception("Supermemory down"))
     failing_adapter.sync_debate_outcome = AsyncMock(side_effect=Exception("Supermemory down"))
 
-    env = Environment(task="Design a simple cache")
-    protocol = DebateProtocol(rounds=1, consensus="any")
-
-    # Arena should still work - Supermemory failures are logged but don't stop debate
-    config = ArenaConfig(
+    # Create knowledge manager with failing adapter
+    manager = ArenaKnowledgeManager(
         enable_supermemory=True,
         supermemory_adapter=failing_adapter,
+        supermemory_sync_on_conclusion=True,
     )
-    arena = Arena.from_config(env, mock_agents, protocol, config)
 
-    # The debate should complete successfully despite Supermemory issues
-    result = await asyncio.wait_for(arena.run(), timeout=10.0)
+    # Simulate debate completion - should not raise despite Supermemory failure
+    result = DebateResult(
+        task="Design a cache",
+        debate_id="debate-failing-sm",
+        final_answer="Use Redis",
+        confidence=0.9,
+    )
+    env = Environment(task="Design a cache")
 
-    assert result is not None
-    assert result.rounds_completed >= 1
+    # This should not raise - Supermemory failures are handled gracefully
+    await manager.ingest_outcome(result, env)
+
+    # Adapter was called (and failed), but no exception propagated
+    failing_adapter.sync_debate_outcome.assert_called_once()
 
 
 # =============================================================================

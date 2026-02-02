@@ -1,6 +1,8 @@
 """
 Budget Management API Handler.
 
+Stability: STABLE
+
 All endpoints require authentication. Write operations require 'budget.write' permission.
 
 Endpoints:
@@ -19,11 +21,19 @@ Endpoints:
 - GET  /api/v1/budgets/summary      - Get org budget summary
 - GET  /api/v1/budgets/trends       - Get org-wide spending trends
 - POST /api/v1/budgets/check        - Pre-flight cost check
+
+Features:
+- Circuit breaker pattern for budget manager access resilience
+- Rate limiting (60 requests/minute)
+- RBAC permission checks (budget.read, budget.write, budget.delete)
+- Comprehensive input validation with safe type coercion
 """
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from typing import Any
 
 from aragora.rbac.decorators import require_permission
@@ -40,6 +50,155 @@ from aragora.server.validation.query_params import safe_query_int, safe_query_fl
 
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# Circuit Breaker for Budget Manager Access
+# =============================================================================
+
+
+class BudgetCircuitBreaker:
+    """Circuit breaker for budget manager access.
+
+    Prevents cascading failures when the budget manager is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 2,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Budget circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Budget circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Budget circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Budget circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker instance for the budget manager
+_circuit_breaker = BudgetCircuitBreaker()
+_circuit_breaker_lock = threading.Lock()
+
+
+def get_budget_circuit_breaker() -> BudgetCircuitBreaker:
+    """Get the global circuit breaker for budget manager."""
+    return _circuit_breaker
+
+
+def reset_budget_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _circuit_breaker_lock:
+        _circuit_breaker.reset()
+
+
 # RBAC permission keys
 BUDGET_READ_PERMISSION = "budget.read"
 BUDGET_WRITE_PERMISSION = "budget.write"
@@ -47,11 +206,27 @@ BUDGET_DELETE_PERMISSION = "budget.delete"
 
 
 class BudgetHandler(BaseHandler):
-    """Handler for budget management endpoints."""
+    """Handler for budget management endpoints.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for budget manager access resilience
+    - Rate limiting (60 requests/minute)
+    - RBAC permission checks (budget.read, budget.write, budget.delete)
+    - Comprehensive input validation with safe type coercion
+    """
+
+    # Input validation constants
+    MAX_NAME_LENGTH = 200
+    MAX_DESCRIPTION_LENGTH = 2000
+    MAX_AMOUNT_USD = 1_000_000_000  # 1 billion USD max
+    MIN_AMOUNT_USD = 0.01
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+        self._circuit_breaker = get_budget_circuit_breaker()
 
     ROUTES = [
         "/api/v1/budgets",
@@ -128,6 +303,11 @@ class BudgetHandler(BaseHandler):
         except ImportError:
             # RBAC module not available, allow access (backwards compatibility)
             logger.debug("RBAC module not available, skipping permission check")
+
+        # Check circuit breaker before proceeding
+        if not self._circuit_breaker.can_proceed():
+            logger.warning("Budget circuit breaker is open, rejecting request")
+            return error_response("Service temporarily unavailable. Please try again later.", 503)
 
         # Extract org_id from auth context
         org_id = self._get_org_id(handler)
@@ -245,10 +425,25 @@ class BudgetHandler(BaseHandler):
         return None
 
     def _get_budget_manager(self):
-        """Get budget manager instance."""
-        from aragora.billing.budget_manager import get_budget_manager
+        """Get budget manager instance with circuit breaker tracking."""
+        try:
+            from aragora.billing.budget_manager import get_budget_manager
 
-        return get_budget_manager()
+            manager = get_budget_manager()
+            self._circuit_breaker.record_success()
+            return manager
+        except ImportError:
+            self._circuit_breaker.record_failure()
+            logger.warning("Budget manager module not available")
+            raise
+        except Exception as e:
+            self._circuit_breaker.record_failure()
+            logger.error(f"Error loading budget manager: {e}")
+            raise
+
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
+        """Get the current status of the circuit breaker."""
+        return self._circuit_breaker.get_status()
 
     # =========================================================================
     # Endpoint Implementations
@@ -291,38 +486,73 @@ class BudgetHandler(BaseHandler):
             if not body:
                 return error_response("Invalid request body", 400)
 
+            # Validate name
             name = body.get("name")
             if not name:
                 return error_response("Missing required field: name", 400)
+            if not isinstance(name, str):
+                return error_response("name must be a string", 400)
+            name = name.strip()
+            if not name:
+                return error_response("name cannot be empty", 400)
+            if len(name) > self.MAX_NAME_LENGTH:
+                return error_response(f"name exceeds maximum length of {self.MAX_NAME_LENGTH}", 400)
 
+            # Validate amount_usd
             amount_usd = body.get("amount_usd")
-            if amount_usd is None or amount_usd <= 0:
-                return error_response("Invalid amount_usd: must be positive", 400)
-
-            period_str = body.get("period", "monthly")
-            try:
-                period = BudgetPeriod(period_str)
-            except ValueError:
-                return error_response(f"Invalid period: {period_str}", 400)
-
-            manager = self._get_budget_manager()
+            if amount_usd is None:
+                return error_response("Missing required field: amount_usd", 400)
             try:
                 amount_usd_float = float(amount_usd)
             except (ValueError, TypeError):
-                return error_response("Invalid amount_usd value", 400)
+                return error_response("Invalid amount_usd value: must be a number", 400)
+            if amount_usd_float < self.MIN_AMOUNT_USD:
+                return error_response(f"amount_usd must be at least {self.MIN_AMOUNT_USD}", 400)
+            if amount_usd_float > self.MAX_AMOUNT_USD:
+                return error_response(f"amount_usd exceeds maximum of {self.MAX_AMOUNT_USD}", 400)
+
+            # Validate period
+            period_str = body.get("period", "monthly")
+            if not isinstance(period_str, str):
+                return error_response("period must be a string", 400)
+            try:
+                period = BudgetPeriod(period_str)
+            except ValueError:
+                return error_response(
+                    f"Invalid period: {period_str}. Must be one of: daily, weekly, monthly, quarterly, yearly",
+                    400,
+                )
+
+            # Validate description (optional)
+            description = body.get("description", "")
+            if not isinstance(description, str):
+                return error_response("description must be a string", 400)
+            if len(description) > self.MAX_DESCRIPTION_LENGTH:
+                return error_response(
+                    f"description exceeds maximum length of {self.MAX_DESCRIPTION_LENGTH}", 400
+                )
+
+            # Validate auto_suspend (optional)
+            auto_suspend = body.get("auto_suspend", True)
+            if not isinstance(auto_suspend, bool):
+                return error_response("auto_suspend must be a boolean", 400)
+
+            manager = self._get_budget_manager()
             budget = manager.create_budget(
                 org_id=org_id,
                 name=name,
                 amount_usd=amount_usd_float,
                 period=period,
-                description=body.get("description", ""),
-                auto_suspend=body.get("auto_suspend", True),
+                description=description,
+                auto_suspend=auto_suspend,
                 created_by=user_id,
             )
 
+            self._circuit_breaker.record_success()
             return json_response(budget.to_dict(), status=201)
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.error(f"Failed to create budget: {e}")
             return error_response(f"Failed to create budget: {str(e)[:100]}", 500)
 
@@ -362,29 +592,81 @@ class BudgetHandler(BaseHandler):
             if not body:
                 return error_response("Invalid request body", 400)
 
+            # Validate name if provided
+            name = body.get("name")
+            if name is not None:
+                if not isinstance(name, str):
+                    return error_response("name must be a string", 400)
+                name = name.strip()
+                if not name:
+                    return error_response("name cannot be empty", 400)
+                if len(name) > self.MAX_NAME_LENGTH:
+                    return error_response(
+                        f"name exceeds maximum length of {self.MAX_NAME_LENGTH}", 400
+                    )
+
+            # Validate description if provided
+            description = body.get("description")
+            if description is not None:
+                if not isinstance(description, str):
+                    return error_response("description must be a string", 400)
+                if len(description) > self.MAX_DESCRIPTION_LENGTH:
+                    return error_response(
+                        f"description exceeds maximum length of {self.MAX_DESCRIPTION_LENGTH}", 400
+                    )
+
+            # Validate amount_usd if provided
+            amount_usd = body.get("amount_usd")
+            amount_usd_float = None
+            if amount_usd is not None:
+                try:
+                    amount_usd_float = float(amount_usd)
+                except (ValueError, TypeError):
+                    return error_response("Invalid amount_usd value: must be a number", 400)
+                if amount_usd_float < self.MIN_AMOUNT_USD:
+                    return error_response(f"amount_usd must be at least {self.MIN_AMOUNT_USD}", 400)
+                if amount_usd_float > self.MAX_AMOUNT_USD:
+                    return error_response(
+                        f"amount_usd exceeds maximum of {self.MAX_AMOUNT_USD}", 400
+                    )
+
+            # Validate auto_suspend if provided
+            auto_suspend = body.get("auto_suspend")
+            if auto_suspend is not None and not isinstance(auto_suspend, bool):
+                return error_response("auto_suspend must be a boolean", 400)
+
             # Parse status if provided
             status = None
             if "status" in body:
+                status_str = body["status"]
+                if not isinstance(status_str, str):
+                    return error_response("status must be a string", 400)
                 try:
-                    status = BudgetStatus(body["status"])
+                    status = BudgetStatus(status_str)
                 except ValueError:
-                    return error_response(f"Invalid status: {body['status']}", 400)
+                    return error_response(
+                        f"Invalid status: {status_str}. Must be one of: active, suspended, closed",
+                        400,
+                    )
 
             updated = manager.update_budget(
                 budget_id=budget_id,
-                name=body.get("name"),
-                description=body.get("description"),
-                amount_usd=body.get("amount_usd"),
-                auto_suspend=body.get("auto_suspend"),
+                name=name,
+                description=description,
+                amount_usd=amount_usd_float,
+                auto_suspend=auto_suspend,
                 status=status,
             )
 
             if not updated:
+                self._circuit_breaker.record_failure()
                 return error_response("Failed to update budget", 500)
 
+            self._circuit_breaker.record_success()
             return json_response(updated.to_dict())
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.error(f"Failed to update budget: {e}")
             return error_response(f"Failed to update budget: {str(e)[:100]}", 500)
 

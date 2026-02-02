@@ -778,7 +778,7 @@ class FeaturesHandler(BaseHandler):
             "deprecated": [],
         }
 
-        for handler_class in ALL_HANDLERS:
+        for handler_class in ALL_HANDLERS:  # type: ignore[attr-defined]
             handler_name = handler_class.__name__
             stability = stability_map.get(handler_name, "experimental")
             by_stability[stability].append(handler_name)
@@ -889,7 +889,7 @@ class FeaturesHandler(BaseHandler):
         by_category: dict[str, list[dict]] = {}
         by_stability: dict[str, list[dict]] = {}
 
-        for handler_class in ALL_HANDLERS:
+        for handler_class in ALL_HANDLERS:  # type: ignore[attr-defined]
             handler_name = handler_class.__name__
             stability = stability_map.get(handler_name, "experimental")
             category = handler_categories.get(handler_name, "other")

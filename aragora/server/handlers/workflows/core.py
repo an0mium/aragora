@@ -45,7 +45,7 @@ except ImportError:
     def record_rbac_check(*args: Any, **kwargs: Any) -> None:
         pass
 
-    def track_handler(*args: Any, **kwargs: Any) -> Any:
+    def track_handler(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
         def decorator(fn: Any) -> Any:
             return fn
 

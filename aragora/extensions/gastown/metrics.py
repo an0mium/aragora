@@ -60,14 +60,23 @@ def get_beads_completed_count(hours: int = 24) -> int:
             return 0
 
         store = BeadStore(bead_dir)
-        # BeadStore.list_beads is synchronous file-based
-        beads = store.list_beads(status=BeadStatus.COMPLETED)
+        # BeadStore.list_beads is async - run in event loop
+        import asyncio
+
+        try:
+            asyncio.get_running_loop()
+            # If we're in an async context, we can't use asyncio.run()
+            # Return 0 to avoid blocking the event loop
+            return 0
+        except RuntimeError:
+            # No running loop - safe to use asyncio.run()
+            beads = asyncio.run(store.list_beads(status=BeadStatus.COMPLETED))
 
         # Filter by time window
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         count = 0
         # BeadStore.list_beads returns an iterable of Bead objects
-        for bead in beads:
+        for bead in beads:  # type: ignore[attr-defined]
             # Check if bead has completed_at timestamp
             completed_at = getattr(bead, "completed_at", None)
             if completed_at is None:

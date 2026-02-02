@@ -1,6 +1,8 @@
 """
 HTTP API Handlers for Expense Tracking.
 
+Stability: STABLE
+
 Provides REST APIs for expense management:
 - Receipt upload and processing
 - Expense CRUD operations
@@ -34,6 +36,7 @@ import threading
 from datetime import datetime
 from typing import Any, Awaitable
 
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -41,9 +44,40 @@ from aragora.server.handlers.base import (
     json_response,
     require_permission,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for expense tracker service
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_expense_circuit_breaker = CircuitBreaker(
+    name="expense_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_expense_circuit_breaker_lock = threading.Lock()
+
+
+def get_expense_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for expense operations."""
+    return _expense_circuit_breaker
+
+
+def reset_expense_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _expense_circuit_breaker_lock:
+        _expense_circuit_breaker._single_failures = 0
+        _expense_circuit_breaker._single_open_at = 0.0
+        _expense_circuit_breaker._single_successes = 0
+        _expense_circuit_breaker._single_half_open_calls = 0
+
 
 # Type alias for handler methods that can return async or sync results
 MaybeAsyncHandlerResult = HandlerResult | None | Awaitable[HandlerResult | None]
@@ -72,6 +106,7 @@ def get_expense_tracker():
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=30)
 @require_permission("expenses:write")
 async def handle_upload_receipt(
     data: dict[str, Any],
@@ -88,6 +123,15 @@ async def handle_upload_receipt(
         payment_method: str (optional, default credit_card)
     }
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting upload request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -95,13 +139,34 @@ async def handle_upload_receipt(
         if not receipt_b64:
             return error_response("receipt_data is required", status=400)
 
+        # Validate receipt_data type
+        if not isinstance(receipt_b64, str):
+            return error_response("receipt_data must be a string", status=400)
+
         # Decode base64 image
         try:
             image_data = base64.b64decode(receipt_b64)
         except (ValueError, binascii.Error):
             return error_response("Invalid base64 receipt_data", status=400)
 
+        # Validate content_type if provided
+        content_type = data.get("content_type")
+        if content_type and content_type not in (
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "application/pdf",
+        ):
+            return error_response(
+                "content_type must be image/png, image/jpeg, or application/pdf",
+                status=400,
+            )
+
         employee_id = data.get("employee_id")
+        # Validate employee_id type if provided
+        if employee_id is not None and not isinstance(employee_id, str):
+            return error_response("employee_id must be a string", status=400)
+
         payment_method_str = data.get("payment_method", "credit_card")
 
         # Parse payment method
@@ -119,6 +184,7 @@ async def handle_upload_receipt(
             payment_method=payment_method,
         )
 
+        cb.record_success()
         return json_response(
             {
                 "expense": expense.to_dict(),
@@ -127,6 +193,7 @@ async def handle_upload_receipt(
         )
 
     except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
+        cb.record_failure()
         logger.exception("Error processing receipt")
         return error_response(f"Failed to process receipt: {e}", status=500)
 
@@ -136,6 +203,7 @@ async def handle_upload_receipt(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("expenses:write")
 async def handle_create_expense(
     data: dict[str, Any],
@@ -157,6 +225,15 @@ async def handle_create_expense(
         tags: list[str] (optional)
     }
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting create request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -165,6 +242,12 @@ async def handle_create_expense(
 
         if not vendor_name:
             return error_response("vendor_name is required", status=400)
+        # Validate vendor_name type and length
+        if not isinstance(vendor_name, str):
+            return error_response("vendor_name must be a string", status=400)
+        if len(vendor_name) > 500:
+            return error_response("vendor_name must be 500 characters or less", status=400)
+
         if amount is None:
             return error_response("amount is required", status=400)
 
@@ -173,10 +256,18 @@ async def handle_create_expense(
         except (TypeError, ValueError):
             return error_response("amount must be a number", status=400)
 
+        # Validate amount range
+        if amount < 0:
+            return error_response("amount must be non-negative", status=400)
+        if amount > 1_000_000_000:  # 1 billion cap for sanity
+            return error_response("amount exceeds maximum allowed value", status=400)
+
         # Parse date
         date = None
         date_str = data.get("date")
         if date_str:
+            if not isinstance(date_str, str):
+                return error_response("date must be a string", status=400)
             try:
                 date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             except ValueError:
@@ -204,18 +295,37 @@ async def handle_create_expense(
                     f"Invalid payment_method '{payment_method_str}', defaulting to CREDIT_CARD"
                 )
 
+        # Validate description length if provided
+        description = data.get("description", "")
+        if description and len(description) > 5000:
+            return error_response("description must be 5000 characters or less", status=400)
+
+        # Validate tags if provided
+        tags = data.get("tags")
+        if tags is not None:
+            if not isinstance(tags, list):
+                return error_response("tags must be a list", status=400)
+            if len(tags) > 50:
+                return error_response("tags must contain 50 items or less", status=400)
+            for tag in tags:
+                if not isinstance(tag, str) or len(tag) > 100:
+                    return error_response(
+                        "each tag must be a string of 100 characters or less", status=400
+                    )
+
         expense = await tracker.create_expense(
             vendor_name=vendor_name,
             amount=amount,
             date=date,
             category=category,
             payment_method=payment_method,
-            description=data.get("description", ""),
+            description=description,
             employee_id=data.get("employee_id"),
             is_reimbursable=data.get("is_reimbursable", False),
-            tags=data.get("tags"),
+            tags=tags,
         )
 
+        cb.record_success()
         return json_response(
             {
                 "expense": expense.to_dict(),
@@ -224,10 +334,12 @@ async def handle_create_expense(
         )
 
     except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
+        cb.record_failure()
         logger.exception("Error creating expense")
         return error_response(f"Failed to create expense: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=120)
 @require_permission("expenses:read")
 async def handle_list_expenses(
     query_params: dict[str, Any],
@@ -247,6 +359,15 @@ async def handle_list_expenses(
         limit: int (default 100)
         offset: int (default 0)
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting list request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -299,6 +420,7 @@ async def handle_list_expenses(
             offset=offset,
         )
 
+        cb.record_success()
         return json_response(
             {
                 "expenses": [e.to_dict() for e in expenses],
@@ -309,10 +431,12 @@ async def handle_list_expenses(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error listing expenses")
         return error_response(f"Failed to list expenses: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=120)
 @require_permission("expenses:read")
 async def handle_get_expense(
     expense_id: str,
@@ -323,6 +447,21 @@ async def handle_get_expense(
 
     GET /api/v1/accounting/expenses/{id}
     """
+    # Validate expense_id format
+    if not expense_id or not isinstance(expense_id, str):
+        return error_response("expense_id is required", status=400)
+    if len(expense_id) > 100:
+        return error_response("expense_id is too long", status=400)
+
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting get request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -330,13 +469,16 @@ async def handle_get_expense(
         if not expense:
             return error_response("Expense not found", status=404)
 
+        cb.record_success()
         return json_response({"expense": expense.to_dict()})
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
+        cb.record_failure()
         logger.exception("Error getting expense")
         return error_response(f"Failed to get expense: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("expenses:write")
 async def handle_update_expense(
     expense_id: str,
@@ -357,8 +499,61 @@ async def handle_update_expense(
         tags: list[str] (optional)
     }
     """
+    # Validate expense_id format
+    if not expense_id or not isinstance(expense_id, str):
+        return error_response("expense_id is required", status=400)
+    if len(expense_id) > 100:
+        return error_response("expense_id is too long", status=400)
+
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting update request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
+
+        # Validate vendor_name if provided
+        vendor_name = data.get("vendor_name")
+        if vendor_name is not None:
+            if not isinstance(vendor_name, str):
+                return error_response("vendor_name must be a string", status=400)
+            if len(vendor_name) > 500:
+                return error_response("vendor_name must be 500 characters or less", status=400)
+
+        # Validate amount if provided
+        amount = data.get("amount")
+        if amount is not None:
+            try:
+                amount = float(amount)
+            except (TypeError, ValueError):
+                return error_response("amount must be a number", status=400)
+            if amount < 0:
+                return error_response("amount must be non-negative", status=400)
+            if amount > 1_000_000_000:
+                return error_response("amount exceeds maximum allowed value", status=400)
+
+        # Validate description if provided
+        description = data.get("description")
+        if description is not None and len(str(description)) > 5000:
+            return error_response("description must be 5000 characters or less", status=400)
+
+        # Validate tags if provided
+        tags = data.get("tags")
+        if tags is not None:
+            if not isinstance(tags, list):
+                return error_response("tags must be a list", status=400)
+            if len(tags) > 50:
+                return error_response("tags must contain 50 items or less", status=400)
+            for tag in tags:
+                if not isinstance(tag, str) or len(tag) > 100:
+                    return error_response(
+                        "each tag must be a string of 100 characters or less", status=400
+                    )
 
         # Parse category
         from aragora.services.expense_tracker import ExpenseCategory, ExpenseStatus
@@ -381,18 +576,19 @@ async def handle_update_expense(
 
         expense = await tracker.update_expense(
             expense_id=expense_id,
-            vendor_name=data.get("vendor_name"),
-            amount=data.get("amount"),
+            vendor_name=vendor_name,
+            amount=amount,
             category=category,
-            description=data.get("description"),
+            description=description,
             status=status,
             is_reimbursable=data.get("is_reimbursable"),
-            tags=data.get("tags"),
+            tags=tags,
         )
 
         if not expense:
             return error_response("Expense not found", status=404)
 
+        cb.record_success()
         return json_response(
             {
                 "expense": expense.to_dict(),
@@ -401,10 +597,12 @@ async def handle_update_expense(
         )
 
     except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
+        cb.record_failure()
         logger.exception("Error updating expense")
         return error_response(f"Failed to update expense: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=30)
 @require_permission("admin:audit")
 async def handle_delete_expense(
     expense_id: str,
@@ -415,6 +613,21 @@ async def handle_delete_expense(
 
     DELETE /api/v1/accounting/expenses/{id}
     """
+    # Validate expense_id format
+    if not expense_id or not isinstance(expense_id, str):
+        return error_response("expense_id is required", status=400)
+    if len(expense_id) > 100:
+        return error_response("expense_id is too long", status=400)
+
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting delete request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -422,9 +635,11 @@ async def handle_delete_expense(
         if not deleted:
             return error_response("Expense not found", status=404)
 
+        cb.record_success()
         return json_response({"message": "Expense deleted successfully"})
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
+        cb.record_failure()
         logger.exception("Error deleting expense")
         return error_response(f"Failed to delete expense: {e}", status=500)
 
@@ -434,6 +649,7 @@ async def handle_delete_expense(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("expenses:approve")
 async def handle_approve_expense(
     expense_id: str,
@@ -444,6 +660,21 @@ async def handle_approve_expense(
 
     POST /api/v1/accounting/expenses/{id}/approve
     """
+    # Validate expense_id format
+    if not expense_id or not isinstance(expense_id, str):
+        return error_response("expense_id is required", status=400)
+    if len(expense_id) > 100:
+        return error_response("expense_id is too long", status=400)
+
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting approve request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -451,6 +682,7 @@ async def handle_approve_expense(
         if not expense:
             return error_response("Expense not found", status=404)
 
+        cb.record_success()
         return json_response(
             {
                 "expense": expense.to_dict(),
@@ -459,10 +691,12 @@ async def handle_approve_expense(
         )
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
+        cb.record_failure()
         logger.exception("Error approving expense")
         return error_response(f"Failed to approve expense: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("expenses:approve")
 async def handle_reject_expense(
     expense_id: str,
@@ -477,14 +711,34 @@ async def handle_reject_expense(
         reason: str (optional)
     }
     """
+    # Validate expense_id format
+    if not expense_id or not isinstance(expense_id, str):
+        return error_response("expense_id is required", status=400)
+    if len(expense_id) > 100:
+        return error_response("expense_id is too long", status=400)
+
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting reject request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
         reason = data.get("reason", "")
+        # Validate reason length
+        if reason and len(reason) > 1000:
+            return error_response("reason must be 1000 characters or less", status=400)
+
         expense = await tracker.reject_expense(expense_id, reason)
         if not expense:
             return error_response("Expense not found", status=404)
 
+        cb.record_success()
         return json_response(
             {
                 "expense": expense.to_dict(),
@@ -493,6 +747,7 @@ async def handle_reject_expense(
         )
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
+        cb.record_failure()
         logger.exception("Error rejecting expense")
         return error_response(f"Failed to reject expense: {e}", status=500)
 

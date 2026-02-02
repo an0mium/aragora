@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useNomicStream } from '@/hooks/useNomicStream';
 import { MetricsCards } from '@/components/MetricsCards';
 import { PhaseProgress } from '@/components/PhaseProgress';
+import { EnterpriseMetricsCards } from '@/components/EnterpriseMetricsCards';
 import { AgentPanel } from '@/components/AgentPanel';
 import { AgentTabs } from '@/components/AgentTabs';
 import { RoundProgress } from '@/components/RoundProgress';
@@ -561,6 +562,21 @@ export default function Home() {
                 <HistoryPanel />
               </PanelErrorBoundary>
             </CollapsibleSection>
+
+            {/* Section: Enterprise Metrics - visible by default for standard+ users */}
+            {isFeatureVisible('standard') && (
+            <CollapsibleSection
+              id="enterprise-metrics"
+              title="ENTERPRISE"
+              defaultOpen={true}
+              priority="core"
+              description="Decision audit trail, compliance, workflows, and team performance"
+            >
+              <PanelErrorBoundary panelName="Enterprise Metrics">
+                <EnterpriseMetricsCards apiBase={apiBase} />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+            )}
 
             {/* Section 2: Browse & Discover */}
             <CollapsibleSection

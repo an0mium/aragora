@@ -1,12 +1,20 @@
 """
 HTTP API Handlers for Accounts Receivable Automation.
 
+Stability: STABLE
+
 Provides REST APIs for AR workflows:
 - Invoice generation and management
 - Payment reminder scheduling
 - AR aging reports
 - Collection action suggestions
 - Customer management
+
+Features:
+- Circuit breaker pattern for AR service resilience
+- Rate limiting (20-60 requests/minute depending on endpoint)
+- RBAC permission checks (ar:read, finance:write)
+- Comprehensive input validation
 
 Endpoints:
 - POST /api/v1/accounting/ar/invoices - Create invoice
@@ -29,6 +37,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from aragora.resilience import CircuitBreaker, CircuitOpenError
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -39,6 +48,28 @@ from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for AR automation service
+_ar_circuit_breaker = CircuitBreaker(
+    name="ar_automation_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_ar_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for AR automation service."""
+    return _ar_circuit_breaker
+
+
+def get_ar_circuit_breaker_status() -> dict:
+    """Get current status of the AR automation circuit breaker."""
+    return _ar_circuit_breaker.to_dict()
+
 
 # Thread-safe service instance
 _ar_automation: Any | None = None
@@ -84,6 +115,14 @@ async def handle_create_invoice(
         tax_rate: float (optional, default 0)
     }
     """
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
@@ -103,15 +142,16 @@ async def handle_create_invoice(
             if "description" not in item or "amount" not in item:
                 return error_response("Each line item must have description and amount", status=400)
 
-        invoice = await ar.generate_invoice(
-            customer_id=customer_id,
-            customer_name=customer_name,
-            customer_email=data.get("customer_email"),
-            line_items=line_items,
-            payment_terms=data.get("payment_terms", "Net 30"),
-            memo=data.get("memo", ""),
-            tax_rate=data.get("tax_rate", 0),
-        )
+        async with _ar_circuit_breaker.protected_call():
+            invoice = await ar.generate_invoice(
+                customer_id=customer_id,
+                customer_name=customer_name,
+                customer_email=data.get("customer_email"),
+                line_items=line_items,
+                payment_terms=data.get("payment_terms", "Net 30"),
+                memo=data.get("memo", ""),
+                tax_rate=data.get("tax_rate", 0),
+            )
 
         return success_response(
             {
@@ -120,6 +160,8 @@ async def handle_create_invoice(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception("Error creating invoice")
         return error_response(f"Failed to create invoice: {e}", status=500)
@@ -144,6 +186,14 @@ async def handle_list_invoices(
         offset: int (optional, default 0)
     }
     """
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
@@ -161,12 +211,13 @@ async def handle_list_invoices(
         limit = int(data.get("limit", 100))
         offset = int(data.get("offset", 0))
 
-        invoices = await ar.list_invoices(
-            customer_id=customer_id,
-            status=status,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        async with _ar_circuit_breaker.protected_call():
+            invoices = await ar.list_invoices(
+                customer_id=customer_id,
+                status=status,
+                start_date=start_date,
+                end_date=end_date,
+            )
 
         # Apply pagination
         paginated = invoices[offset : offset + limit]
@@ -180,6 +231,8 @@ async def handle_list_invoices(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
@@ -197,15 +250,31 @@ async def handle_get_invoice(
 
     GET /api/v1/accounting/ar/invoices/{invoice_id}
     """
+    # Validate invoice_id
+    if not invoice_id or not invoice_id.strip():
+        return error_response("invoice_id is required", status=400)
+
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        invoice = await ar.get_invoice(invoice_id)
+        async with _ar_circuit_breaker.protected_call():
+            invoice = await ar.get_invoice(invoice_id)
+
         if not invoice:
             return error_response(f"Invoice {invoice_id} not found", status=404)
 
         return success_response({"invoice": invoice.to_dict()})
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response(f"Failed to get invoice: {e}", status=500)
@@ -223,14 +292,27 @@ async def handle_send_invoice(
 
     POST /api/v1/accounting/ar/invoices/{invoice_id}/send
     """
+    # Validate invoice_id
+    if not invoice_id or not invoice_id.strip():
+        return error_response("invoice_id is required", status=400)
+
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        invoice = await ar.get_invoice(invoice_id)
-        if not invoice:
-            return error_response(f"Invoice {invoice_id} not found", status=404)
+        async with _ar_circuit_breaker.protected_call():
+            invoice = await ar.get_invoice(invoice_id)
+            if not invoice:
+                return error_response(f"Invoice {invoice_id} not found", status=404)
 
-        success = await ar.send_invoice(invoice_id)
+            success = await ar.send_invoice(invoice_id)
 
         if success:
             return success_response(
@@ -242,6 +324,8 @@ async def handle_send_invoice(
         else:
             return error_response("Failed to send invoice", status=500)
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception(f"Error sending invoice {invoice_id}")
         return error_response(f"Failed to send invoice: {e}", status=500)
@@ -262,21 +346,39 @@ async def handle_send_reminder(
         escalation_level: int (optional, 1-4)
     }
     """
+    # Validate invoice_id
+    if not invoice_id or not invoice_id.strip():
+        return error_response("invoice_id is required", status=400)
+
+    # Validate escalation_level before service call
+    try:
+        escalation_level = int(data.get("escalation_level", 1))
+    except (ValueError, TypeError):
+        return error_response("escalation_level must be an integer", status=400)
+
+    if escalation_level < 1 or escalation_level > 4:
+        return error_response("escalation_level must be 1-4", status=400)
+
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        invoice = await ar.get_invoice(invoice_id)
-        if not invoice:
-            return error_response(f"Invoice {invoice_id} not found", status=404)
+        async with _ar_circuit_breaker.protected_call():
+            invoice = await ar.get_invoice(invoice_id)
+            if not invoice:
+                return error_response(f"Invoice {invoice_id} not found", status=404)
 
-        escalation_level = int(data.get("escalation_level", 1))
-        if escalation_level < 1 or escalation_level > 4:
-            return error_response("escalation_level must be 1-4", status=400)
-
-        success = await ar.send_payment_reminder(
-            invoice_id=invoice_id,
-            escalation_level=escalation_level,
-        )
+            success = await ar.send_payment_reminder(
+                invoice_id=invoice_id,
+                escalation_level=escalation_level,
+            )
 
         if success:
             return success_response(
@@ -288,6 +390,8 @@ async def handle_send_reminder(
         else:
             return error_response("Failed to send reminder", status=500)
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception(f"Error sending reminder for invoice {invoice_id}")
         return error_response(f"Failed to send reminder: {e}", status=500)
@@ -311,28 +415,53 @@ async def handle_record_payment(
         reference: str (optional)
     }
     """
+    # Validate invoice_id
+    if not invoice_id or not invoice_id.strip():
+        return error_response("invoice_id is required", status=400)
+
+    # Validate amount before service call
+    amount = data.get("amount")
+    if amount is None:
+        return error_response("amount is required", status=400)
+
+    try:
+        amount_decimal = Decimal(str(amount))
+        if amount_decimal <= 0:
+            return error_response("amount must be positive", status=400)
+    except (ValueError, TypeError, ArithmeticError):
+        return error_response("amount must be a valid number", status=400)
+
+    # Validate payment_date if provided
+    payment_date = None
+    if data.get("payment_date"):
+        try:
+            payment_date = datetime.fromisoformat(data["payment_date"])
+        except ValueError:
+            return error_response("payment_date must be in ISO format", status=400)
+
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        invoice = await ar.get_invoice(invoice_id)
-        if not invoice:
-            return error_response(f"Invoice {invoice_id} not found", status=404)
+        async with _ar_circuit_breaker.protected_call():
+            invoice = await ar.get_invoice(invoice_id)
+            if not invoice:
+                return error_response(f"Invoice {invoice_id} not found", status=404)
 
-        amount = data.get("amount")
-        if amount is None:
-            return error_response("amount is required", status=400)
-
-        payment_date = None
-        if data.get("payment_date"):
-            payment_date = datetime.fromisoformat(data["payment_date"])
-
-        updated_invoice = await ar.record_payment(
-            invoice_id=invoice_id,
-            amount=Decimal(str(amount)),
-            payment_date=payment_date,
-            payment_method=data.get("payment_method"),
-            reference=data.get("reference"),
-        )
+            updated_invoice = await ar.record_payment(
+                invoice_id=invoice_id,
+                amount=amount_decimal,
+                payment_date=payment_date,
+                payment_method=data.get("payment_method"),
+                reference=data.get("reference"),
+            )
 
         return success_response(
             {
@@ -341,6 +470,8 @@ async def handle_record_payment(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response(f"Failed to record payment: {e}", status=500)
@@ -362,10 +493,19 @@ async def handle_get_aging_report(
 
     GET /api/v1/accounting/ar/aging
     """
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        report = await ar.track_aging()
+        async with _ar_circuit_breaker.protected_call():
+            report = await ar.track_aging()
 
         return success_response(
             {
@@ -374,6 +514,8 @@ async def handle_get_aging_report(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception("Error generating aging report")
         return error_response(f"Failed to generate aging report: {e}", status=500)
@@ -390,10 +532,19 @@ async def handle_get_collections(
 
     GET /api/v1/accounting/ar/collections
     """
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        suggestions = await ar.suggest_collections()
+        async with _ar_circuit_breaker.protected_call():
+            suggestions = await ar.suggest_collections()
 
         return success_response(
             {
@@ -402,6 +553,8 @@ async def handle_get_collections(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception("Error getting collection suggestions")
         return error_response(f"Failed to get suggestions: {e}", status=500)
@@ -431,23 +584,38 @@ async def handle_add_customer(
         payment_terms: str (optional, default "Net 30")
     }
     """
+    # Validate required fields before service call
+    customer_id = data.get("customer_id")
+    name = data.get("name")
+
+    if not customer_id:
+        return error_response("customer_id is required", status=400)
+    if not isinstance(customer_id, str) or not customer_id.strip():
+        return error_response("customer_id must be a non-empty string", status=400)
+
+    if not name:
+        return error_response("name is required", status=400)
+    if not isinstance(name, str) or not name.strip():
+        return error_response("name must be a non-empty string", status=400)
+
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        customer_id = data.get("customer_id")
-        name = data.get("name")
-
-        if not customer_id:
-            return error_response("customer_id is required", status=400)
-        if not name:
-            return error_response("name is required", status=400)
-
-        await ar.add_customer(
-            customer_id=customer_id,
-            name=name,
-            email=data.get("email"),
-            payment_terms=data.get("payment_terms", "Net 30"),
-        )
+        async with _ar_circuit_breaker.protected_call():
+            await ar.add_customer(
+                customer_id=customer_id.strip(),
+                name=name.strip(),
+                email=data.get("email"),
+                payment_terms=data.get("payment_terms", "Net 30"),
+            )
 
         return success_response(
             {
@@ -456,6 +624,8 @@ async def handle_add_customer(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception("Error adding customer")
         return error_response(f"Failed to add customer: {e}", status=500)
@@ -473,10 +643,23 @@ async def handle_get_customer_balance(
 
     GET /api/v1/accounting/ar/customers/{customer_id}/balance
     """
+    # Validate customer_id
+    if not customer_id or not customer_id.strip():
+        return error_response("customer_id is required", status=400)
+
+    # Check circuit breaker before processing
+    if not _ar_circuit_breaker.can_proceed():
+        remaining = _ar_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AR service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ar = get_ar_automation()
 
-        balance = await ar.get_customer_balance(customer_id)
+        async with _ar_circuit_breaker.protected_call():
+            balance = await ar.get_customer_balance(customer_id)
 
         return success_response(
             {
@@ -485,6 +668,8 @@ async def handle_get_customer_balance(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AR service temporarily unavailable: {e}", status=503)
     except Exception as e:
         logger.exception(f"Error getting balance for customer {customer_id}")
         return error_response(f"Failed to get balance: {e}", status=500)

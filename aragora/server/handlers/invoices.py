@@ -26,6 +26,8 @@ Endpoints:
 - GET /api/v1/accounting/invoices/stats - Get statistics
 - POST /api/v1/accounting/purchase-orders - Add purchase order
 - GET /api/v1/accounting/payments/scheduled - Get scheduled payments
+
+Stability: STABLE
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ import base64
 import binascii
 import logging
 import threading
+import time
 from datetime import datetime
 from typing import Any, Optional
 
@@ -48,6 +51,179 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Circuit Breaker for Invoice Processor
+# =============================================================================
+
+
+class InvoiceCircuitBreaker:
+    """Circuit breaker for invoice processor operations.
+
+    Prevents cascading failures when the invoice processor service is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 30.0,
+        half_open_max_calls: int = 2,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            recovery_timeout: Time in seconds to wait before allowing test calls
+            half_open_max_calls: Number of test calls allowed in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if recovery timeout has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.recovery_timeout
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Invoice circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Invoice circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Invoice circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Invoice circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "recovery_timeout": self.recovery_timeout,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker instance
+_circuit_breaker = InvoiceCircuitBreaker(
+    failure_threshold=5,
+    recovery_timeout=30.0,
+)
+_circuit_breaker_lock = threading.Lock()
+
+
+def get_invoice_circuit_breaker() -> InvoiceCircuitBreaker:
+    """Get the global circuit breaker for invoice operations."""
+    return _circuit_breaker
+
+
+def reset_invoice_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _circuit_breaker_lock:
+        _circuit_breaker.reset()
+
+
+def _check_circuit_breaker() -> HandlerResult | None:
+    """Check if the circuit breaker allows the request to proceed.
+
+    Returns:
+        Error response if circuit is open, None if request can proceed
+    """
+    cb = get_invoice_circuit_breaker()
+    if not cb.can_proceed():
+        logger.warning("Invoice circuit breaker is open, rejecting request")
+        return error_response(
+            "Invoice service temporarily unavailable (circuit breaker open)",
+            status=503,
+        )
+    return None
+
+
+# =============================================================================
+# Thread-safe Service Instance
+# =============================================================================
+
 
 # Thread-safe service instance
 _invoice_processor: Any | None = None
@@ -89,6 +265,12 @@ async def handle_upload_invoice(
         vendor_hint: str (optional)
     }
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -113,6 +295,7 @@ async def handle_upload_invoice(
         # Auto-detect anomalies
         anomalies = await processor.detect_anomalies(invoice)
 
+        cb.record_success()
         return success_response(
             {
                 "invoice": invoice.to_dict(),
@@ -122,6 +305,7 @@ async def handle_upload_invoice(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error processing invoice")
         return error_response(f"Failed to process invoice: {e}", status=500)
 
@@ -151,6 +335,12 @@ async def handle_create_invoice(
         po_number: str (optional)
     }
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -192,6 +382,7 @@ async def handle_create_invoice(
             po_number=data.get("po_number"),
         )
 
+        cb.record_success()
         return success_response(
             {
                 "invoice": invoice.to_dict(),
@@ -200,6 +391,7 @@ async def handle_create_invoice(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error creating invoice")
         return error_response(f"Failed to create invoice: {e}", status=500)
 
@@ -222,6 +414,12 @@ async def handle_list_invoices(
         limit: int (default 100)
         offset: int (default 0)
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -265,6 +463,7 @@ async def handle_list_invoices(
             offset=offset,
         )
 
+        cb.record_success()
         return success_response(
             {
                 "invoices": [i.to_dict() for i in invoices],
@@ -275,6 +474,7 @@ async def handle_list_invoices(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
@@ -290,6 +490,12 @@ async def handle_get_invoice(
 
     GET /api/v1/accounting/invoices/{id}
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -297,9 +503,11 @@ async def handle_get_invoice(
         if not invoice:
             return error_response("Invoice not found", status=404)
 
+        cb.record_success()
         return success_response({"invoice": invoice.to_dict()})
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error getting invoice")
         return error_response(f"Failed to get invoice: {e}", status=500)
 
@@ -324,6 +532,12 @@ async def handle_approve_invoice(
         approver_id: str (optional, defaults to user_id)
     }
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -333,6 +547,7 @@ async def handle_approve_invoice(
         if not invoice:
             return error_response("Invoice not found", status=404)
 
+        cb.record_success()
         return success_response(
             {
                 "invoice": invoice.to_dict(),
@@ -341,6 +556,7 @@ async def handle_approve_invoice(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error approving invoice")
         return error_response(f"Failed to approve invoice: {e}", status=500)
 
@@ -360,6 +576,12 @@ async def handle_reject_invoice(
         reason: str (optional)
     }
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -369,6 +591,7 @@ async def handle_reject_invoice(
         if not invoice:
             return error_response("Invoice not found", status=404)
 
+        cb.record_success()
         return success_response(
             {
                 "invoice": invoice.to_dict(),
@@ -377,6 +600,7 @@ async def handle_reject_invoice(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error rejecting invoice")
         return error_response(f"Failed to reject invoice: {e}", status=500)
 
@@ -391,11 +615,18 @@ async def handle_get_pending_approvals(
 
     GET /api/v1/accounting/invoices/pending
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
         invoices = await processor.get_pending_approvals()
 
+        cb.record_success()
         return success_response(
             {
                 "invoices": [i.to_dict() for i in invoices],
@@ -404,6 +635,7 @@ async def handle_get_pending_approvals(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error getting pending approvals")
         return error_response(f"Failed to get pending approvals: {e}", status=500)
 
@@ -424,6 +656,12 @@ async def handle_match_to_po(
 
     POST /api/v1/accounting/invoices/{id}/match
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -433,6 +671,7 @@ async def handle_match_to_po(
 
         match = await processor.match_to_po(invoice)
 
+        cb.record_success()
         return success_response(
             {
                 "match": match.to_dict(),
@@ -441,6 +680,7 @@ async def handle_match_to_po(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error matching invoice to PO")
         return error_response(f"Failed to match invoice: {e}", status=500)
 
@@ -461,6 +701,12 @@ async def handle_get_anomalies(
 
     GET /api/v1/accounting/invoices/{id}/anomalies
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -470,6 +716,7 @@ async def handle_get_anomalies(
 
         anomalies = await processor.detect_anomalies(invoice)
 
+        cb.record_success()
         return success_response(
             {
                 "anomalies": [a.to_dict() for a in anomalies],
@@ -478,6 +725,7 @@ async def handle_get_anomalies(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error detecting anomalies")
         return error_response(f"Failed to detect anomalies: {e}", status=500)
 
@@ -503,6 +751,12 @@ async def handle_schedule_payment(
         payment_method: str (optional, default 'ach')
     }
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -526,6 +780,7 @@ async def handle_schedule_payment(
             payment_method=payment_method,
         )
 
+        cb.record_success()
         return success_response(
             {
                 "schedule": schedule.to_dict(),
@@ -537,6 +792,7 @@ async def handle_schedule_payment(
     except ValueError as e:
         return error_response(str(e), status=400)
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error scheduling payment")
         return error_response(f"Failed to schedule payment: {e}", status=500)
 
@@ -555,6 +811,12 @@ async def handle_get_scheduled_payments(
         start_date: str (ISO format)
         end_date: str (ISO format)
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -581,6 +843,7 @@ async def handle_get_scheduled_payments(
 
         total_amount = sum(p.amount for p in payments)
 
+        cb.record_success()
         return success_response(
             {
                 "payments": [p.to_dict() for p in payments],
@@ -590,6 +853,7 @@ async def handle_get_scheduled_payments(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error getting scheduled payments")
         return error_response(f"Failed to get scheduled payments: {e}", status=500)
 
@@ -618,6 +882,12 @@ async def handle_create_purchase_order(
         line_items: list (optional)
     }
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
@@ -658,6 +928,7 @@ async def handle_create_purchase_order(
             line_items=data.get("line_items"),
         )
 
+        cb.record_success()
         return success_response(
             {
                 "purchaseOrder": po.to_dict(),
@@ -666,6 +937,7 @@ async def handle_create_purchase_order(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error creating purchase order")
         return error_response(f"Failed to create purchase order: {e}", status=500)
 
@@ -685,14 +957,22 @@ async def handle_get_invoice_stats(
 
     GET /api/v1/accounting/invoices/stats
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
         stats = processor.get_stats()
 
+        cb.record_success()
         return success_response({"stats": stats})
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error getting invoice stats")
         return error_response(f"Failed to get invoice stats: {e}", status=500)
 
@@ -707,11 +987,18 @@ async def handle_get_overdue_invoices(
 
     GET /api/v1/accounting/invoices/overdue
     """
+    # Check circuit breaker
+    if err := _check_circuit_breaker():
+        return err
+
+    cb = get_invoice_circuit_breaker()
+
     try:
         processor = get_invoice_processor()
 
         invoices = await processor.get_overdue_invoices()
 
+        cb.record_success()
         return success_response(
             {
                 "invoices": [i.to_dict() for i in invoices],
@@ -721,8 +1008,36 @@ async def handle_get_overdue_invoices(
         )
 
     except Exception as e:
+        cb.record_failure()
         logger.exception("Error getting overdue invoices")
         return error_response(f"Failed to get overdue invoices: {e}", status=500)
+
+
+# =============================================================================
+# Status Endpoint
+# =============================================================================
+
+
+@rate_limit(requests_per_minute=60)  # Read operation
+@require_permission("finance:read")
+async def handle_get_invoice_handler_status(
+    user_id: str = "default",
+) -> HandlerResult:
+    """
+    Get invoice handler status including circuit breaker state.
+
+    GET /api/v1/accounting/invoices/status
+    """
+    cb = get_invoice_circuit_breaker()
+    cb_status = cb.get_status()
+
+    return success_response(
+        {
+            "status": "healthy" if cb_status["state"] == "closed" else "degraded",
+            "circuit_breaker": cb_status,
+            "stability": "STABLE",
+        }
+    )
 
 
 # =============================================================================
@@ -731,7 +1046,10 @@ async def handle_get_overdue_invoices(
 
 
 class InvoiceHandler(BaseHandler):
-    """Handler for invoice-related routes."""
+    """Handler for invoice-related routes.
+
+    Stability: STABLE
+    """
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
@@ -743,6 +1061,7 @@ class InvoiceHandler(BaseHandler):
         "/api/v1/accounting/invoices/pending": ["GET"],
         "/api/v1/accounting/invoices/overdue": ["GET"],
         "/api/v1/accounting/invoices/stats": ["GET"],
+        "/api/v1/accounting/invoices/status": ["GET"],
         "/api/v1/accounting/purchase-orders": ["POST"],
         "/api/v1/accounting/payments/scheduled": ["GET"],
     }
@@ -809,6 +1128,9 @@ class InvoiceHandler(BaseHandler):
         if path == "/api/v1/accounting/invoices/stats":
             return await handle_get_invoice_stats()
 
+        if path == "/api/v1/accounting/invoices/status":
+            return await handle_get_invoice_handler_status()
+
         if path == "/api/v1/accounting/payments/scheduled":
             return await handle_get_scheduled_payments(query_params)
 
@@ -817,7 +1139,7 @@ class InvoiceHandler(BaseHandler):
         if invoice_id:
             if "/anomalies" in path:
                 return await handle_get_anomalies(invoice_id)
-            else:
+            elif "/status" not in path:  # Avoid matching /status as invoice_id
                 return await handle_get_invoice(invoice_id)
 
         return error_response("Route not found", status=404)
