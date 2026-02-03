@@ -2,10 +2,9 @@
 
 import asyncio
 import logging
-import os
-
 import aiohttp
 
+from aragora.config.secrets import get_secret
 from aragora.core.embeddings.backends import EmbeddingBackend
 from aragora.core.embeddings.types import (
     EmbeddingConfig,
@@ -38,7 +37,7 @@ class OpenAIBackend(EmbeddingBackend):
             use_circuit_breaker: Whether to use circuit breaker
         """
         super().__init__(config, use_circuit_breaker)
-        self._api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
+        self._api_key = config.api_key or get_secret("OPENAI_API_KEY")
         self._model = config.model or self.DEFAULT_MODEL
         self._timeout = aiohttp.ClientTimeout(total=config.timeout)
 

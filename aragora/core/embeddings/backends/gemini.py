@@ -2,10 +2,9 @@
 
 import asyncio
 import logging
-import os
-
 import aiohttp
 
+from aragora.config.secrets import get_secret
 from aragora.core.embeddings.backends import EmbeddingBackend
 from aragora.core.embeddings.types import (
     EmbeddingConfig,
@@ -39,7 +38,7 @@ class GeminiBackend(EmbeddingBackend):
         """
         super().__init__(config, use_circuit_breaker)
         self._api_key = (
-            config.api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+            config.api_key or get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
         )
         self._model = config.model or self.DEFAULT_MODEL
         self._timeout = aiohttp.ClientTimeout(total=config.timeout)

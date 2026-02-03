@@ -640,6 +640,41 @@ def get_secret(
     return get_secret_manager().get(name, default, strict=strict)
 
 
+def hydrate_env_from_secrets(
+    names: list[str] | None = None,
+    overwrite: bool = False,
+) -> dict[str, str]:
+    """
+    Load secrets into environment variables.
+
+    This allows legacy code that reads os.getenv/os.environ to prefer
+    Secrets Manager values (when available), with .env as fallback.
+
+    Args:
+        names: Optional list of secret names to hydrate. Defaults to MANAGED_SECRETS.
+        overwrite: If True, overwrite existing env vars (default False).
+
+    Returns:
+        Dict of secrets hydrated into environment.
+    """
+    hydrated: dict[str, str] = {}
+    try:
+        manager = get_secret_manager()
+        target_names = names or list(MANAGED_SECRETS)
+        for name in target_names:
+            if not overwrite and os.environ.get(name):
+                continue
+            value = manager.get(name)
+            if value:
+                os.environ[name] = value
+                hydrated[name] = value
+    except Exception:
+        # Best-effort: don't block startup on secrets hydration.
+        return hydrated
+
+    return hydrated
+
+
 def get_required_secret(name: str) -> str:
     """
     Get a required secret value.

@@ -76,7 +76,22 @@ Inspired by:
 from __future__ import annotations
 
 import importlib
+import os
 from typing import Any
+
+# Prefer secrets manager values for env-backed config, with .env as fallback.
+try:
+    if os.environ.get("ARAGORA_SKIP_SECRETS_HYDRATION", "").lower() not in (
+        "1",
+        "true",
+        "yes",
+    ):
+        from aragora.config.secrets import hydrate_env_from_secrets
+
+        hydrate_env_from_secrets(overwrite=True)
+except Exception:
+    # Best-effort: avoid blocking imports if secrets hydration fails.
+    pass
 
 _EXPORT_MAP = {
     "Agent": ("aragora.core", "Agent"),

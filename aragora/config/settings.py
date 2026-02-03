@@ -1227,6 +1227,13 @@ def get_settings() -> Settings:
     Returns:
         Settings instance with all configuration loaded from environment.
     """
+    try:
+        from aragora.config.secrets import hydrate_env_from_secrets
+
+        # Ensure Secrets Manager values populate env before settings load.
+        hydrate_env_from_secrets(overwrite=True)
+    except Exception:
+        pass
     return Settings()
 
 

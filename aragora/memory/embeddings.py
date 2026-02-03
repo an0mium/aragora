@@ -332,9 +332,9 @@ class SemanticRetriever:
         Falls back gracefully to hash-based embeddings if no API keys
         are available and Ollama is not running.
         """
-        if os.environ.get("OPENAI_API_KEY"):
+        if get_api_key("OPENAI_API_KEY", required=False):
             return OpenAIEmbedding()
-        elif os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        elif get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY", required=False):
             return GeminiEmbedding()
         else:
             # Try Ollama, but fall back to hash-based if not available
