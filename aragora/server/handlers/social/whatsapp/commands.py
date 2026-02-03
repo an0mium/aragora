@@ -7,6 +7,9 @@ Handles:
 - agents - List available agents
 - debate <topic> - Start a multi-agent debate
 - gauntlet <statement> - Run adversarial validation
+- search <query> - Search past debates
+- recent - Show recent debates
+- receipt <id> - View decision receipt
 """
 
 from __future__ import annotations
@@ -53,10 +56,15 @@ def command_help() -> str:
         "*status* - Get system status\n"
         "*agents* - List available agents\n"
         "*debate <topic>* - Start a multi-agent debate\n"
-        "*gauntlet <statement>* - Run adversarial stress-test\n\n"
+        "*gauntlet <statement>* - Run adversarial stress-test\n"
+        "*search <query>* - Search past debates\n"
+        "*recent* - Show recent debates\n"
+        "*receipt <id>* - View decision receipt\n\n"
         "*Examples:*\n"
         "debate Should AI be regulated?\n"
-        "gauntlet We should migrate to microservices"
+        "gauntlet We should migrate to microservices\n"
+        "search machine learning\n"
+        "receipt abc123"
     )
 
 
@@ -500,3 +508,225 @@ async def run_gauntlet_async(
             from_number,
             f"Gauntlet failed: {str(e)[:100]}",
         )
+
+
+def command_search(query: str) -> str:
+    """Search past debates.
+
+    Args:
+        query: Search query string.
+
+    Returns:
+        Formatted search results.
+    """
+    if not query or len(query.strip()) < 3:
+        return (
+            "Please provide a search query (at least 3 characters).\n\n"
+            "Example: search machine learning"
+        )
+
+    query = query.strip()
+
+    try:
+        from aragora.storage import get_storage
+
+        db = get_storage()
+        if db and hasattr(db, "search"):
+            search_results, total = db.search(query, limit=5)
+            results = list(search_results)
+        else:
+            # Fallback: manual search through recent debates
+            if db and hasattr(db, "get_recent_debates"):
+                recent = db.get_recent_debates(limit=50)
+                query_lower = query.lower()
+                results = [
+                    d
+                    for d in recent
+                    if query_lower in d.get("topic", "").lower()
+                    or query_lower in d.get("conclusion", "").lower()
+                ][:5]
+                total = len(results)
+            else:
+                return "Search service is not available."
+
+        if not results:
+            return f"No debates found matching: {query}"
+
+        lines = [f"*Search Results for:* _{query}_\n"]
+        for i, debate in enumerate(results[:5], 1):
+            topic = debate.get("topic", "Unknown topic")[:50]
+            debate_id = debate.get("id", "N/A")
+            consensus = "Yes" if debate.get("consensus_reached") else "No"
+            lines.append(f"{i}. *{topic}*{'...' if len(debate.get('topic', '')) > 50 else ''}")
+            lines.append(f"   ID: {debate_id} | Consensus: {consensus}")
+
+        if total > 5:
+            lines.append(f"\n_Showing 5 of {total} results_")
+
+        return "\n".join(lines)
+
+    except ImportError:
+        logger.warning("Storage not available for search")
+        return "Search service temporarily unavailable."
+    except Exception as e:
+        logger.exception(f"Unexpected search error: {e}")
+        return f"Search failed: {str(e)[:100]}"
+
+
+def command_recent() -> str:
+    """Show recent debates.
+
+    Returns:
+        Formatted list of recent debates.
+    """
+    try:
+        from aragora.storage import get_storage
+
+        db = get_storage()
+        if not db or not hasattr(db, "get_recent_debates"):
+            return "Recent debates service is not available."
+
+        debates = db.get_recent_debates(limit=5)
+
+        if not debates:
+            return "No recent debates found.\n\nStart one with: debate <topic>"
+
+        lines = ["*Recent Debates*\n"]
+        for i, debate in enumerate(debates[:5], 1):
+            topic = debate.get("topic", "Unknown topic")[:40]
+            debate_id = debate.get("id", "N/A")
+            consensus = "Yes" if debate.get("consensus_reached") else "No"
+            confidence = debate.get("confidence", 0)
+
+            lines.append(f"{i}. *{topic}*{'...' if len(debate.get('topic', '')) > 40 else ''}")
+            lines.append(f"   ID: {debate_id}")
+            lines.append(f"   Consensus: {consensus} | Confidence: {confidence:.0%}")
+
+        lines.append("\n_Use receipt <id> to view decision receipt_")
+
+        return "\n".join(lines)
+
+    except ImportError:
+        logger.warning("Storage not available for recent debates")
+        return "Recent debates service temporarily unavailable."
+    except Exception as e:
+        logger.exception(f"Unexpected recent debates error: {e}")
+        return f"Failed to get recent debates: {str(e)[:100]}"
+
+
+def command_receipt(debate_id: str) -> str:
+    """View decision receipt for a debate.
+
+    Args:
+        debate_id: The debate ID to get receipt for.
+
+    Returns:
+        Formatted decision receipt.
+    """
+    if not debate_id or not debate_id.strip():
+        return (
+            "Please provide a debate ID.\n\n"
+            "Example: receipt abc123\n\n"
+            "Use recent to see recent debate IDs."
+        )
+
+    debate_id = debate_id.strip()
+
+    try:
+        # Try to get receipt from receipt store
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+
+            receipt_store = get_receipt_store()
+            receipt_data = receipt_store.get(debate_id)
+
+            if receipt_data:
+                return _format_receipt(receipt_data)
+        except ImportError:
+            pass
+
+        # Fallback: generate receipt from debate result
+        from aragora.storage import get_storage
+
+        db = get_storage()
+        if not db:
+            return "Receipt service is not available."
+
+        debate = db.get_debate(debate_id)
+        if not debate:
+            return f"No debate found with ID: {debate_id}"
+
+        # Generate receipt from debate data
+        try:
+            from aragora.gauntlet.receipt import DecisionReceipt
+
+            receipt = DecisionReceipt.from_dict(debate)
+            return _format_receipt(receipt.to_dict())
+        except ImportError:
+            # Manual formatting if receipt module unavailable
+            return _format_debate_as_receipt(debate)
+
+    except Exception as e:
+        logger.exception(f"Unexpected receipt error: {e}")
+        return f"Failed to get receipt: {str(e)[:100]}"
+
+
+def _format_receipt(receipt_data: dict) -> str:
+    """Format a receipt for WhatsApp display."""
+    receipt_id = receipt_data.get("receipt_id", receipt_data.get("id", "N/A"))
+    topic = receipt_data.get("topic", receipt_data.get("question", "Unknown"))[:80]
+    decision = receipt_data.get("decision", receipt_data.get("conclusion", "N/A"))[:250]
+    confidence = receipt_data.get("confidence", 0)
+    timestamp = receipt_data.get("timestamp", receipt_data.get("created_at", "N/A"))
+    agents = receipt_data.get("agents", receipt_data.get("participants", []))
+
+    lines = [
+        "*Decision Receipt*\n",
+        f"*Receipt ID:* {receipt_id}",
+        f"*Topic:* {topic}{'...' if len(receipt_data.get('topic', '')) > 80 else ''}",
+        f"*Decision:* {decision}{'...' if len(receipt_data.get('decision', '')) > 250 else ''}",
+    ]
+
+    if isinstance(confidence, (int, float)):
+        lines.append(f"*Confidence:* {confidence:.0%}")
+    else:
+        lines.append(f"*Confidence:* {confidence}")
+
+    lines.append(f"*Timestamp:* {timestamp}")
+
+    if agents:
+        agent_names = [a.get("name", a) if isinstance(a, dict) else str(a) for a in agents[:5]]
+        lines.append(f"*Agents:* {', '.join(agent_names)}")
+
+    # Add verification hash if available
+    if receipt_data.get("hash"):
+        lines.append(f"\n_Verification:_ {receipt_data['hash'][:16]}...")
+
+    return "\n".join(lines)
+
+
+def _format_debate_as_receipt(debate: dict) -> str:
+    """Format a debate as a receipt when receipt module unavailable."""
+    debate_id = debate.get("id", "N/A")
+    topic = debate.get("topic", "Unknown")[:80]
+    conclusion = debate.get("conclusion", debate.get("final_answer", "N/A"))[:250]
+    consensus = "Yes" if debate.get("consensus_reached") else "No"
+    confidence = debate.get("confidence", 0)
+
+    lines = [
+        "*Debate Summary*\n",
+        f"*Debate ID:* {debate_id}",
+        f"*Topic:* {topic}",
+        f"*Conclusion:* {conclusion}",
+        f"*Consensus Reached:* {consensus}",
+    ]
+
+    if isinstance(confidence, (int, float)):
+        lines.append(f"*Confidence:* {confidence:.0%}")
+    else:
+        lines.append(f"*Confidence:* {confidence}")
+
+    if debate.get("rounds_used"):
+        lines.append(f"*Rounds:* {debate['rounds_used']}")
+
+    return "\n".join(lines)

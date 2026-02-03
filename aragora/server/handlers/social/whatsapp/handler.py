@@ -40,6 +40,9 @@ from .commands import (
     command_debate,
     command_gauntlet,
     command_help,
+    command_receipt,
+    command_recent,
+    command_search,
     command_status,
 )
 from . import config as _config
@@ -443,6 +446,24 @@ class WhatsAppHandler(BaseHandler):
             )
             command_gauntlet(self, from_number, profile_name, statement)
             return
+        elif lower_text.startswith("search "):
+            record_command("whatsapp", "search")
+            query = text[7:].strip()
+            emit_command_received(
+                "whatsapp", from_number, from_number, profile_name, "search", query
+            )
+            response = command_search(query)
+        elif lower_text == "recent":
+            record_command("whatsapp", "recent")
+            emit_command_received("whatsapp", from_number, from_number, profile_name, "recent")
+            response = command_recent()
+        elif lower_text.startswith("receipt "):
+            record_command("whatsapp", "receipt")
+            debate_id = text[8:].strip()
+            emit_command_received(
+                "whatsapp", from_number, from_number, profile_name, "receipt", debate_id
+            )
+            response = command_receipt(debate_id)
         elif len(text) > 10:
             # Treat longer messages as potential topics
             response = (

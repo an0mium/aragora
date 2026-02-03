@@ -1,7 +1,7 @@
 """
 Telegram bot command handling.
 
-Handles /start, /help, /status, /agents, /debate, /gauntlet commands
+Handles /start, /help, /status, /agents, /debate, /gauntlet, /search, /recent, /receipt commands
 and their associated async execution flows.
 """
 
@@ -135,6 +135,33 @@ class TelegramCommandsMixin:
                     chat_id, _common.PERM_TELEGRAM_GAUNTLET_RUN, "run gauntlet stress-tests"
                 )
             return self._command_gauntlet(chat_id, user_id, username, args)
+        elif command == "/search":
+            record_command("telegram", "search")
+            if not self._check_telegram_user_permission(
+                user_id, username, chat_id, _common.PERM_TELEGRAM_READ
+            ):
+                return self._deny_telegram_permission(
+                    chat_id, _common.PERM_TELEGRAM_READ, "search debates"
+                )
+            response = self._command_search(args)
+        elif command == "/recent":
+            record_command("telegram", "recent")
+            if not self._check_telegram_user_permission(
+                user_id, username, chat_id, _common.PERM_TELEGRAM_READ
+            ):
+                return self._deny_telegram_permission(
+                    chat_id, _common.PERM_TELEGRAM_READ, "view recent debates"
+                )
+            response = self._command_recent()
+        elif command == "/receipt":
+            record_command("telegram", "receipt")
+            if not self._check_telegram_user_permission(
+                user_id, username, chat_id, _common.PERM_TELEGRAM_READ
+            ):
+                return self._deny_telegram_permission(
+                    chat_id, _common.PERM_TELEGRAM_READ, "view receipts"
+                )
+            response = self._command_receipt(args)
         else:
             record_command("telegram", "unknown")
             response = f"Unknown command: {command}\nSend /help for available commands."
@@ -154,6 +181,9 @@ class TelegramCommandsMixin:
             "Commands:\n"
             "/debate <topic> - Start a debate\n"
             "/gauntlet <statement> - Stress-test a statement\n"
+            "/search <query> - Search past debates\n"
+            "/recent - Show recent debates\n"
+            "/receipt <id> - View decision receipt\n"
             "/status - System status\n"
             "/agents - List agents\n"
             "/help - Show this help"
@@ -166,12 +196,17 @@ class TelegramCommandsMixin:
             "/start - Welcome message\n"
             "/debate <topic> - Start a multi-agent debate on a topic\n"
             "/gauntlet <statement> - Run adversarial stress-test\n"
+            "/search <query> - Search past debates\n"
+            "/recent - Show recent debates\n"
+            "/receipt <id> - View decision receipt\n"
             "/status - Get system status\n"
             "/agents - List available agents\n"
             "/help - Show this help\n\n"
             "*Examples:*\n"
             "/debate Should AI be regulated?\n"
-            "/gauntlet We should migrate to microservices"
+            "/gauntlet We should migrate to microservices\n"
+            "/search machine learning\n"
+            "/receipt abc123"
         )
 
     def _command_status(self) -> str:
@@ -607,3 +642,197 @@ class TelegramCommandsMixin:
                 chat_id,
                 f"Gauntlet failed: {str(e)[:100]}",
             )
+
+    def _command_search(self, query: str) -> str:
+        """Handle /search command - search past debates."""
+        if not query or len(query.strip()) < 3:
+            return (
+                "Please provide a search query (at least 3 characters).\n\n"
+                "Example: /search machine learning"
+            )
+
+        query = query.strip()
+
+        try:
+            from aragora.storage import get_storage
+
+            db = get_storage()
+            if db and hasattr(db, "search"):
+                search_results, total = db.search(query, limit=5)
+                results = list(search_results)
+            else:
+                # Fallback: manual search through recent debates
+                if db and hasattr(db, "get_recent_debates"):
+                    recent = db.get_recent_debates(limit=50)
+                    query_lower = query.lower()
+                    results = [
+                        d
+                        for d in recent
+                        if query_lower in d.get("topic", "").lower()
+                        or query_lower in d.get("conclusion", "").lower()
+                    ][:5]
+                    total = len(results)
+                else:
+                    return "Search service is not available."
+
+            if not results:
+                return f"No debates found matching: {query}"
+
+            lines = [f"*Search Results for:* _{query}_\n"]
+            for i, debate in enumerate(results[:5], 1):
+                topic = debate.get("topic", "Unknown topic")[:60]
+                debate_id = debate.get("id", "N/A")
+                consensus = "Yes" if debate.get("consensus_reached") else "No"
+                lines.append(f"{i}. *{topic}*{'...' if len(debate.get('topic', '')) > 60 else ''}")
+                lines.append(f"   ID: `{debate_id}` | Consensus: {consensus}")
+
+            if total > 5:
+                lines.append(f"\n_Showing 5 of {total} results_")
+
+            return "\n".join(lines)
+
+        except ImportError:
+            logger.warning("Storage not available for search")
+            return "Search service temporarily unavailable."
+        except Exception as e:
+            logger.exception(f"Unexpected search error: {e}")
+            return f"Search failed: {str(e)[:100]}"
+
+    def _command_recent(self) -> str:
+        """Handle /recent command - show recent debates."""
+        try:
+            from aragora.storage import get_storage
+
+            db = get_storage()
+            if not db or not hasattr(db, "get_recent_debates"):
+                return "Recent debates service is not available."
+
+            debates = db.get_recent_debates(limit=5)
+
+            if not debates:
+                return "No recent debates found.\n\nStart one with /debate <topic>"
+
+            lines = ["*Recent Debates*\n"]
+            for i, debate in enumerate(debates[:5], 1):
+                topic = debate.get("topic", "Unknown topic")[:50]
+                debate_id = debate.get("id", "N/A")
+                consensus = "Yes" if debate.get("consensus_reached") else "No"
+                confidence = debate.get("confidence", 0)
+
+                lines.append(f"{i}. *{topic}*{'...' if len(debate.get('topic', '')) > 50 else ''}")
+                lines.append(f"   ID: `{debate_id}`")
+                lines.append(f"   Consensus: {consensus} | Confidence: {confidence:.0%}")
+
+            lines.append("\n_Use /receipt <id> to view decision receipt_")
+
+            return "\n".join(lines)
+
+        except ImportError:
+            logger.warning("Storage not available for recent debates")
+            return "Recent debates service temporarily unavailable."
+        except Exception as e:
+            logger.exception(f"Unexpected recent debates error: {e}")
+            return f"Failed to get recent debates: {str(e)[:100]}"
+
+    def _command_receipt(self, args: str) -> str:
+        """Handle /receipt command - view decision receipt."""
+        if not args or not args.strip():
+            return (
+                "Please provide a debate ID.\n\n"
+                "Example: /receipt abc123\n\n"
+                "Use /recent to see recent debate IDs."
+            )
+
+        debate_id = args.strip()
+
+        try:
+            # Try to get receipt from receipt store
+            try:
+                from aragora.storage.receipt_store import get_receipt_store
+
+                receipt_store = get_receipt_store()
+                receipt_data = receipt_store.get(debate_id)
+
+                if receipt_data:
+                    return self._format_receipt(receipt_data)
+            except ImportError:
+                pass
+
+            # Fallback: generate receipt from debate result
+            from aragora.storage import get_storage
+
+            db = get_storage()
+            if not db:
+                return "Receipt service is not available."
+
+            debate = db.get_debate(debate_id)
+            if not debate:
+                return f"No debate found with ID: {debate_id}"
+
+            # Generate receipt from debate data
+            try:
+                from aragora.gauntlet.receipt import DecisionReceipt
+
+                receipt = DecisionReceipt.from_dict(debate)
+                return self._format_receipt(receipt.to_dict())
+            except ImportError:
+                # Manual formatting if receipt module unavailable
+                return self._format_debate_as_receipt(debate)
+
+        except Exception as e:
+            logger.exception(f"Unexpected receipt error: {e}")
+            return f"Failed to get receipt: {str(e)[:100]}"
+
+    def _format_receipt(self, receipt_data: dict) -> str:
+        """Format a receipt for Telegram display."""
+        receipt_id = receipt_data.get("receipt_id", receipt_data.get("id", "N/A"))
+        topic = receipt_data.get("topic", receipt_data.get("question", "Unknown"))[:100]
+        decision = receipt_data.get("decision", receipt_data.get("conclusion", "N/A"))[:300]
+        confidence = receipt_data.get("confidence", 0)
+        timestamp = receipt_data.get("timestamp", receipt_data.get("created_at", "N/A"))
+        agents = receipt_data.get("agents", receipt_data.get("participants", []))
+
+        lines = [
+            "*Decision Receipt*\n",
+            f"*Receipt ID:* `{receipt_id}`",
+            f"*Topic:* {topic}{'...' if len(receipt_data.get('topic', '')) > 100 else ''}",
+            f"*Decision:* {decision}{'...' if len(receipt_data.get('decision', '')) > 300 else ''}",
+            f"*Confidence:* {confidence:.0%}"
+            if isinstance(confidence, (int, float))
+            else f"*Confidence:* {confidence}",
+            f"*Timestamp:* {timestamp}",
+        ]
+
+        if agents:
+            agent_names = [a.get("name", a) if isinstance(a, dict) else str(a) for a in agents[:5]]
+            lines.append(f"*Agents:* {', '.join(agent_names)}")
+
+        # Add verification hash if available
+        if receipt_data.get("hash"):
+            lines.append(f"\n_Verification Hash:_ `{receipt_data['hash'][:16]}...`")
+
+        return "\n".join(lines)
+
+    def _format_debate_as_receipt(self, debate: dict) -> str:
+        """Format a debate as a receipt when receipt module unavailable."""
+        debate_id = debate.get("id", "N/A")
+        topic = debate.get("topic", "Unknown")[:100]
+        conclusion = debate.get("conclusion", debate.get("final_answer", "N/A"))[:300]
+        consensus = "Yes" if debate.get("consensus_reached") else "No"
+        confidence = debate.get("confidence", 0)
+
+        lines = [
+            "*Debate Summary*\n",
+            f"*Debate ID:* `{debate_id}`",
+            f"*Topic:* {topic}",
+            f"*Conclusion:* {conclusion}",
+            f"*Consensus Reached:* {consensus}",
+            f"*Confidence:* {confidence:.0%}"
+            if isinstance(confidence, (int, float))
+            else f"*Confidence:* {confidence}",
+        ]
+
+        if debate.get("rounds_used"):
+            lines.append(f"*Rounds:* {debate['rounds_used']}")
+
+        return "\n".join(lines)
