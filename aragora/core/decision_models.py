@@ -613,6 +613,9 @@ class DecisionResult:
     gauntlet_result: Any | None = None  # GauntletResult
     decision_integrity: dict[str, Any] | None = None  # Receipt + plan package
 
+    # Extensible metadata
+    metadata: dict[str, Any] | None = None
+
     # Status
     success: bool = True
     error: str | None = None

@@ -252,7 +252,9 @@ class TestToKnowledgeItem:
         item = adapter.check_to_knowledge_item(sample_check)
 
         assert item.id == "cc_scan-001"
-        assert item.confidence == 0.72
+        from aragora.knowledge.unified.types import ConfidenceLevel
+
+        assert item.confidence == ConfidenceLevel.HIGH  # 0.72 maps to HIGH
         assert "non-compliant" in item.content
         assert item.metadata["record_type"] == "check"
         assert item.metadata["critical_count"] == 1
@@ -263,7 +265,11 @@ class TestToKnowledgeItem:
         item = adapter.violation_to_knowledge_item(sample_violation)
 
         assert item.id == "cv_vio-001"
-        assert item.confidence == 0.1  # Critical severity
+        from aragora.knowledge.unified.types import ConfidenceLevel
+
+        assert (
+            item.confidence == ConfidenceLevel.UNVERIFIED
+        )  # Critical severity = very low confidence
         assert "critical" in item.content.lower()
         assert item.metadata["record_type"] == "violation"
         assert item.metadata["framework_id"] == "soc2"

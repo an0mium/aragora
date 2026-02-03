@@ -196,7 +196,9 @@ class TestToKnowledgeItem:
 
         assert item.id == "wf_wf-001"
         assert item.source_id == "wf-001"
-        assert item.confidence == 1.0  # Success = high confidence
+        from aragora.knowledge.unified.types import ConfidenceLevel
+
+        assert item.confidence == ConfidenceLevel.VERIFIED  # Success = verified confidence
         assert "succeeded" in item.content
         assert item.metadata["definition_id"] == "contract_review_v2"
         assert item.metadata["category"] == "legal"
@@ -213,7 +215,9 @@ class TestToKnowledgeItem:
         )
         item = adapter.to_knowledge_item(outcome)
 
-        assert item.confidence == 0.3  # Failure = low confidence
+        from aragora.knowledge.unified.types import ConfidenceLevel
+
+        assert item.confidence == ConfidenceLevel.LOW  # Failure = low confidence
         assert "failed" in item.content
         assert "Timeout" in item.content
 

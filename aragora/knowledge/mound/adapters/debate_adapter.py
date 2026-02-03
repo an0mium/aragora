@@ -230,6 +230,7 @@ class DebateAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowledg
     def to_knowledge_item(self, outcome: DebateOutcome) -> "KnowledgeItem":
         """Convert a DebateOutcome to a KnowledgeItem for KM storage."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
+        from aragora.knowledge.unified.types import ConfidenceLevel
 
         content = f"Debate: {outcome.task}\n\nAnswer: {outcome.final_answer}"
         if outcome.dissenting_views:
@@ -240,7 +241,7 @@ class DebateAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowledg
             content=content,
             source=KnowledgeSource.DEBATE,
             source_id=outcome.debate_id,
-            confidence=outcome.confidence,
+            confidence=ConfidenceLevel.from_float(outcome.confidence),
             created_at=outcome.created_at,
             updated_at=outcome.created_at,
             metadata={

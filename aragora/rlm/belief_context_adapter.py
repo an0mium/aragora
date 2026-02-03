@@ -165,7 +165,7 @@ class BeliefContextAdapter:
         if not node:
             # Try to find by statement content
             for n in self._network.nodes.values():
-                if claim_id in n.claim_id or claim_id.lower() in n.claim.lower():
+                if claim_id in n.claim_id or claim_id.lower() in n.claim_statement.lower():
                     node = n
                     break
 
@@ -183,7 +183,7 @@ class BeliefContextAdapter:
         posterior = node.posterior
         result = BeliefContextResult(
             claim_id=node.claim_id,
-            statement=node.claim,
+            statement=node.claim_statement,
             confidence=posterior.confidence,
             p_true=posterior.p_true,
             p_false=posterior.p_false,
@@ -237,7 +237,7 @@ class BeliefContextAdapter:
         # Then check current network for topic-related high-centrality claims
         topic_lower = topic.lower()
         for node in self._network.nodes.values():
-            if topic_lower in node.claim.lower():
+            if topic_lower in node.claim_statement.lower():
                 centrality = getattr(node, "centrality", 0.0)
                 entropy = node.posterior.entropy if hasattr(node.posterior, "entropy") else 0.5
 
@@ -248,7 +248,7 @@ class BeliefContextAdapter:
                     results.append(
                         CruxResult(
                             claim_id=node.claim_id,
-                            statement=node.claim,
+                            statement=node.claim_statement,
                             crux_score=crux_score,
                             sensitivity=centrality,
                             uncertainty=entropy,
@@ -331,7 +331,7 @@ class BeliefContextAdapter:
                 results.append(
                     {
                         "claim_id": node.claim_id,
-                        "statement": node.claim,
+                        "statement": node.claim_statement,
                         "entropy": entropy,
                         "p_true": node.posterior.p_true,
                         "p_false": node.posterior.p_false,
@@ -358,7 +358,7 @@ class BeliefContextAdapter:
             return [{"error": "No belief network available"}]
 
         # Get centrality scores
-        centralities = self._network.compute_centrality()
+        centralities = self._network._compute_centralities()
 
         results = []
         for node_id, centrality in sorted(centralities.items(), key=lambda x: x[1], reverse=True)[
@@ -369,11 +369,15 @@ class BeliefContextAdapter:
                 results.append(
                     {
                         "claim_id": node.claim_id,
-                        "statement": node.claim,
+                        "statement": node.claim_statement,
                         "centrality": centrality,
                         "confidence": node.posterior.confidence,
                         "dependents": len(
-                            [f for f in self._network.factors.values() if node_id in f.node_ids]
+                            [
+                                f
+                                for f in self._network.factors.values()
+                                if node_id in (f.source_node_id, f.target_node_id)
+                            ]
                         ),
                     }
                 )
@@ -412,11 +416,14 @@ class BeliefContextAdapter:
         topic_lower = topic.lower()
         results = []
         for node in self._network.nodes.values():
-            if topic_lower in node.claim.lower() and node.posterior.confidence >= min_confidence:
+            if (
+                topic_lower in node.claim_statement.lower()
+                and node.posterior.confidence >= min_confidence
+            ):
                 results.append(
                     {
                         "claim_id": node.claim_id,
-                        "statement": node.claim,
+                        "statement": node.claim_statement,
                         "confidence": node.posterior.confidence,
                         "p_true": node.posterior.p_true,
                     }

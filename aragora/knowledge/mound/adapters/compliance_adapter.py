@@ -314,6 +314,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
     def check_to_knowledge_item(self, check: CheckOutcome) -> "KnowledgeItem":
         """Convert a CheckOutcome to a KnowledgeItem."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
+        from aragora.knowledge.unified.types import ConfidenceLevel
 
         status = "compliant" if check.compliant else "non-compliant"
         content = (
@@ -328,7 +329,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
             content=content,
             source=KnowledgeSource.COMPLIANCE,
             source_id=check.check_id,
-            confidence=check.score,
+            confidence=ConfidenceLevel.from_float(check.score),
             created_at=check.created_at,
             updated_at=check.created_at,
             metadata={
@@ -345,6 +346,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
     def violation_to_knowledge_item(self, violation: ViolationOutcome) -> "KnowledgeItem":
         """Convert a ViolationOutcome to a KnowledgeItem."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
+        from aragora.knowledge.unified.types import ConfidenceLevel
 
         content = (
             f"Violation [{violation.severity}] {violation.rule_name}: {violation.description[:300]}"
@@ -366,7 +368,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
             content=content,
             source=KnowledgeSource.COMPLIANCE,
             source_id=violation.violation_id,
-            confidence=confidence,
+            confidence=ConfidenceLevel.from_float(confidence),
             created_at=violation.detected_at,
             updated_at=violation.resolved_at or violation.detected_at,
             metadata={

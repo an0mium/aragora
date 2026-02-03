@@ -200,7 +200,9 @@ class TestToKnowledgeItem:
 
         assert item.id == "db_debate-001"
         assert item.source_id == "debate-001"
-        assert item.confidence == 0.85
+        from aragora.knowledge.unified.types import ConfidenceLevel
+
+        assert item.confidence == ConfidenceLevel.HIGH  # 0.85 maps to HIGH
         assert "rate limiter" in item.content.lower()
         assert item.metadata["consensus_reached"] is True
         assert item.metadata["rounds_used"] == 3

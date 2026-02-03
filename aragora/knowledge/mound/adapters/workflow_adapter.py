@@ -243,6 +243,7 @@ class WorkflowAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowle
     def to_knowledge_item(self, outcome: WorkflowOutcome) -> "KnowledgeItem":
         """Convert a WorkflowOutcome to a KnowledgeItem."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
+        from aragora.knowledge.unified.types import ConfidenceLevel
 
         status = "succeeded" if outcome.success else "failed"
         content = (
@@ -259,7 +260,7 @@ class WorkflowAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowle
             content=content,
             source=KnowledgeSource.WORKFLOW,
             source_id=outcome.workflow_id,
-            confidence=1.0 if outcome.success else 0.3,
+            confidence=ConfidenceLevel.VERIFIED if outcome.success else ConfidenceLevel.LOW,
             created_at=outcome.created_at,
             updated_at=outcome.created_at,
             metadata={

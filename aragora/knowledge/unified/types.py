@@ -69,6 +69,19 @@ class ConfidenceLevel(str, Enum):
     LOW = "low"  # Weak evidence or contested
     UNVERIFIED = "unverified"  # Not yet verified
 
+    @classmethod
+    def from_float(cls, value: float) -> "ConfidenceLevel":
+        """Convert a float confidence score (0-1) to a ConfidenceLevel."""
+        if value >= 0.9:
+            return cls.VERIFIED
+        elif value >= 0.7:
+            return cls.HIGH
+        elif value >= 0.4:
+            return cls.MEDIUM
+        elif value >= 0.2:
+            return cls.LOW
+        return cls.UNVERIFIED
+
 
 @dataclass
 class KnowledgeItem:
