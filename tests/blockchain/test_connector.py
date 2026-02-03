@@ -105,15 +105,15 @@ class TestERC8004Connector:
     async def test_fetch_reputation(self, connector, mock_provider, sample_reputation_feedbacks):
         """Test fetching agent reputation."""
         mock_reputation = MagicMock()
-        mock_reputation.get_all_feedback.return_value = [
-            MagicMock(
-                reporter=fb["reporter"],
-                value=fb["value"],
-                tag=fb["tag"],
-                revoked=fb.get("revoked", False),
-            )
-            for fb in sample_reputation_feedbacks
-        ]
+        mock_reputation.get_summary.return_value = MagicMock(
+            agent_id=42,
+            count=len(sample_reputation_feedbacks),
+            normalized_value=0.75,
+            tag1=None,
+            tag2=None,
+            summary_value=75,
+            summary_value_decimals=2,
+        )
         connector._reputation_contract = mock_reputation
 
         doc = await connector.fetch("reputation:1:42")
