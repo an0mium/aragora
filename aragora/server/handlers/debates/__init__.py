@@ -24,6 +24,7 @@ from .crud import CrudOperationsMixin
 from .evidence import EvidenceOperationsMixin
 from .export import ExportOperationsMixin
 from .fork import ForkOperationsMixin
+from .implementation import ImplementationOperationsMixin
 from .graph_debates import GraphDebatesHandler, _graph_limiter
 from .handler import DebateHandler, DebatesHandler
 from .matrix_debates import MatrixDebatesHandler
@@ -65,6 +66,7 @@ __all__ = [
     "EvidenceOperationsMixin",
     "ExportOperationsMixin",
     "ForkOperationsMixin",
+    "ImplementationOperationsMixin",
     "RoutingMixin",
     "SearchOperationsMixin",
     # Response formatting

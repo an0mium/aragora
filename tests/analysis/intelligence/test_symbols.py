@@ -143,7 +143,7 @@ class TestFindSymbolUsages:
 
 class TestGetSymbolAtLocation:
     def _make_analysis(self) -> FileAnalysis:
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analysis.functions.append(
             FunctionInfo(
                 name="my_func",
@@ -197,12 +197,12 @@ class TestGetSymbolAtLocation:
 
 class TestExtractSymbolsFromAnalysis:
     def test_empty_analysis(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         table = extract_symbols_from_analysis(analysis)
         assert table.symbols == {}
 
     def test_functions_extracted(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analysis.functions.append(
             FunctionInfo(
                 name="helper",
@@ -215,7 +215,7 @@ class TestExtractSymbolsFromAnalysis:
         assert table.symbols["helper"][0].is_definition is True
 
     def test_classes_and_methods_extracted(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         cls = ClassInfo(
             name="Foo",
             kind=SymbolKind.CLASS,
@@ -234,7 +234,7 @@ class TestExtractSymbolsFromAnalysis:
         assert "Foo.bar" in table.symbols
 
     def test_imports_extracted(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analysis.imports.append(
             ImportInfo(
                 module="os",
@@ -248,7 +248,7 @@ class TestExtractSymbolsFromAnalysis:
         assert "getcwd" in table.symbols
 
     def test_exports_extracted(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analysis.exports = ["public_func"]
         table = extract_symbols_from_analysis(analysis)
         assert "public_func" in table.symbols

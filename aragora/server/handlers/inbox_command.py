@@ -432,7 +432,7 @@ class InboxCommandHandler:
             )
         except (web.HTTPUnauthorized, web.HTTPForbidden):
             raise
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Failed to fetch inbox: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
@@ -537,7 +537,7 @@ class InboxCommandHandler:
             )
         except (web.HTTPUnauthorized, web.HTTPForbidden):
             raise
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Failed to execute action: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
@@ -638,7 +638,7 @@ class InboxCommandHandler:
             )
         except (web.HTTPUnauthorized, web.HTTPForbidden):
             raise
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Failed to execute bulk action: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
@@ -677,7 +677,7 @@ class InboxCommandHandler:
             return web.json_response({"success": True, "profile": profile})
         except (web.HTTPUnauthorized, web.HTTPForbidden):
             raise
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get sender profile: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
@@ -699,7 +699,7 @@ class InboxCommandHandler:
             return web.json_response({"success": True, "digest": digest})
         except (web.HTTPUnauthorized, web.HTTPForbidden):
             raise
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get daily digest: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
@@ -786,7 +786,7 @@ class InboxCommandHandler:
             )
         except (web.HTTPUnauthorized, web.HTTPForbidden):
             raise
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Failed to reprioritize: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
@@ -1133,7 +1133,7 @@ class InboxCommandHandler:
                 await archive_fn(email_id)
                 logger.info("Archived email %s", email_id)
                 return {"archived": True}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Gmail archive failed: %s", e)
 
         # Fallback to demo mode
@@ -1159,7 +1159,7 @@ class InboxCommandHandler:
                 await self.gmail_connector.snooze_message(email_id, snooze_until)
                 logger.info("Snoozed email %s until %s", email_id, snooze_until)
                 return {"snoozed": True, "until": snooze_until.isoformat()}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Gmail snooze failed: %s", e)
 
         logger.info("[Demo] Snoozing email %s for %s", email_id, duration)
@@ -1177,7 +1177,7 @@ class InboxCommandHandler:
                 )
                 logger.info("Created reply draft for %s", email_id)
                 return {"draftId": draft_id}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Gmail draft creation failed: %s", e)
 
         logger.info("[Demo] Creating reply draft for %s", email_id)
@@ -1195,7 +1195,7 @@ class InboxCommandHandler:
                 )
                 logger.info("Created forward draft for %s", email_id)
                 return {"draftId": draft_id}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Gmail forward draft failed: %s", e)
 
         logger.info("[Demo] Creating forward draft for %s", email_id)
@@ -1208,7 +1208,7 @@ class InboxCommandHandler:
                 await self.gmail_connector.mark_spam(email_id)
                 logger.info("Marked %s as spam", email_id)
                 return {"spam": True}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Gmail mark spam failed: %s", e)
 
         logger.info("[Demo] Marking %s as spam", email_id)
@@ -1224,7 +1224,7 @@ class InboxCommandHandler:
                 )
                 logger.info("Marked %s as important", email_id)
                 return {"important": True}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Gmail modify labels failed: %s", e)
 
         logger.info("[Demo] Marking %s as important", email_id)
@@ -1265,7 +1265,7 @@ class InboxCommandHandler:
                 await self.gmail_connector.trash_message(email_id)
                 logger.info("Deleted email %s", email_id)
                 return {"deleted": True}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Gmail delete failed: %s", e)
 
         logger.info("[Demo] Deleting email %s", email_id)
