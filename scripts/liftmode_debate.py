@@ -183,7 +183,7 @@ async def run_debate():
         claude_agent = AgentRegistry.create(
             "anthropic-api",
             name="strategic-consultant",
-            model="claude-opus-4-1-20250805",
+            model="claude-opus-4-5-20251101",
             role="proposer",
             use_cache=False,
             timeout=300,  # 5 min timeout per response
@@ -201,7 +201,7 @@ async def run_debate():
         gpt_agent = AgentRegistry.create(
             "openai-api",
             name="cfo-advisor",
-            model="gpt-5.1",
+            model="gpt-5.2",
             role="critic",
             use_cache=False,
             timeout=300,

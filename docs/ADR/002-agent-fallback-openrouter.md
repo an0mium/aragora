@@ -23,7 +23,7 @@ Implement automatic fallback to OpenRouter when primary providers fail:
    ```python
    class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
        OPENROUTER_MODEL_MAP = {
-           "claude-opus-4-1-20250805": "anthropic/claude-sonnet-4",
+           "claude-opus-4-5-20251101": "anthropic/claude-sonnet-4",
            # ...
        }
    ```

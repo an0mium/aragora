@@ -3010,7 +3010,7 @@ Aragora should grow more powerful over time, not be stripped down."""
         )
 
         use_api_codex = os.environ.get("NOMIC_CODEX_USE_API", "0") == "1"
-        codex_api_model = os.environ.get("NOMIC_CODEX_API_MODEL", "gpt-5.1")
+        codex_api_model = os.environ.get("NOMIC_CODEX_API_MODEL", "gpt-5.2")
         if use_api_codex:
             self.codex = OpenAIAPIAgent(
                 name="codex-engineer",

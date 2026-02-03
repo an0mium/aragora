@@ -35,7 +35,7 @@ CLAUDE_SEARCH_TIMEOUT = 120.0  # Claude web search (includes search + summarizat
 SUMMARIZATION_TIMEOUT = 60.0  # Claude summarization of search results
 
 # Model for research tasks (Opus 4.5 for best quality)
-RESEARCH_MODEL = "claude-opus-4-1-20250805"
+RESEARCH_MODEL = "claude-opus-4-5-20251101"
 
 
 @dataclass

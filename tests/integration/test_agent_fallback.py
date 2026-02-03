@@ -346,13 +346,13 @@ class TestOpenRouterFallbackIntegration:
 
         class MockAnthropicAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "claude-opus-4-1-20250805": "anthropic/claude-sonnet-4",
+                "claude-opus-4-5-20251101": "anthropic/claude-sonnet-4",
             }
             DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
 
             def __init__(self):
                 self.name = "mock-anthropic"
-                self.model = "claude-opus-4-1-20250805"
+                self.model = "claude-opus-4-5-20251101"
                 self.enable_fallback = True
                 self._fallback_agent = None
 

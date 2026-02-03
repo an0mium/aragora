@@ -15,7 +15,7 @@ from aragora.agents.api_agents import (
 )
 
 # Create an agent with automatic fallback
-agent = AnthropicAPIAgent(name="claude-debate", model="claude-opus-4-1-20250805")
+agent = AnthropicAPIAgent(name="claude-debate", model="claude-opus-4-5-20251101")
 
 # Generate a response
 response = await agent.generate("Analyze the trade-offs of microservices vs monoliths")
@@ -93,8 +93,8 @@ Agent (core.py)
 
 | Provider | Agent Class | Default Model | Env Var | Capabilities |
 |----------|-------------|---------------|---------|--------------|
-| Anthropic | `AnthropicAPIAgent` | claude-opus-4-1-20250805 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
-| OpenAI | `OpenAIAPIAgent` | gpt-5.1 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
+| Anthropic | `AnthropicAPIAgent` | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
+| OpenAI | `OpenAIAPIAgent` | gpt-5.2 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
 | Google | `GeminiAgent` | gemini-3-pro-preview | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
 | xAI | `GrokAgent` | grok-4-latest | `XAI_API_KEY` | Streaming, Fallback |
 | Mistral | `MistralAPIAgent` | mistral-large-2512 | `MISTRAL_API_KEY` | Streaming, Fallback |

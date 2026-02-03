@@ -1396,8 +1396,8 @@ API (direct):
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `anthropic-api` | claude-opus-4-1-20250805 | Anthropic API, streaming |
-| `openai-api` | gpt-5.1 | OpenAI API, streaming |
+| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
+| `openai-api` | gpt-5.2 | OpenAI API, streaming |
 | `gemini` | gemini-3-pro-preview | Google API, streaming |
 | `grok` | grok-4-latest | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |
@@ -1422,9 +1422,9 @@ CLI:
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `claude` | claude-opus-4-1-20250805 | Claude CLI |
+| `claude` | claude-opus-4-5-20251101 | Claude CLI |
 | `codex` | gpt-5.2-codex | Codex CLI |
-| `openai` | gpt-5.1 | OpenAI CLI |
+| `openai` | gpt-5.2 | OpenAI CLI |
 | `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
 | `grok-cli` | grok-4-latest | Grok CLI |
 | `qwen-cli` | qwen3-coder | Qwen CLI |

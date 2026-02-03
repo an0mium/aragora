@@ -821,9 +821,9 @@ class TestOpenAIAgent:
     """Tests for OpenAIAgent."""
 
     def test_initialization_with_default_model(self):
-        """Should use gpt-5.1 as default model."""
+        """Should use gpt-5.2 as default model."""
         agent = OpenAIAgent(name="openai")
-        assert agent.model == "gpt-5.1"
+        assert agent.model == "gpt-5.2"
 
     def test_initialization_with_custom_model(self):
         """Should accept custom model."""
@@ -1279,9 +1279,9 @@ class TestCLIAgentModelMapping:
 
     def test_claude_model_mapping(self):
         """Should map Claude models correctly."""
-        agent = ClaudeAgent(name="test", model="claude-opus-4-1-20250805")
+        agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101")
         assert (
-            agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-1-20250805") == "anthropic/claude-opus-4"
+            agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-5-20251101") == "anthropic/claude-opus-4"
         )
 
     def test_codex_model_mapping(self):

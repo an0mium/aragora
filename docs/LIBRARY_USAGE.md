@@ -72,7 +72,7 @@ openai_agent = create_agent("openai-api")
 # With custom model selection
 anthropic_custom = create_agent(
     "anthropic-api",
-    model="claude-opus-4-1-20250805",
+    model="claude-opus-4-5-20251101",
 )
 anthropic_custom.set_generation_params(temperature=0.7)
 ```

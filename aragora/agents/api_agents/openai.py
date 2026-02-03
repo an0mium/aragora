@@ -35,7 +35,7 @@ _WEB_SEARCH_PATTERNS = [
 
 @AgentRegistry.register(
     "openai-api",
-    default_model="gpt-5.1",
+    default_model="gpt-5.2",
     default_name="openai-api",
     agent_type="API",
     env_vars="OPENAI_API_KEY",
@@ -59,7 +59,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         "gpt-4-turbo": "openai/gpt-4-turbo",
         "gpt-4": "openai/gpt-4",
         "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
-        "gpt-5.1": "openai/gpt-4o",  # Fallback to gpt-4o if gpt-5.1 not available
+        "gpt-5.2": "openai/gpt-4o",  # Fallback to gpt-4o if gpt-5.2 not available
         "gpt-4o-search-preview": "openai/gpt-4o",  # Search model fallback
     }
     DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
@@ -67,7 +67,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     def __init__(
         self,
         name: str = "openai-api",
-        model: str = "gpt-5.1",
+        model: str = "gpt-5.2",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

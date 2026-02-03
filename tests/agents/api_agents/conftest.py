@@ -117,7 +117,7 @@ def mock_anthropic_response():
         "type": "message",
         "role": "assistant",
         "content": [{"type": "text", "text": "This is a test response from Claude."}],
-        "model": "claude-opus-4-1-20250805",
+        "model": "claude-opus-4-5-20251101",
         "stop_reason": "end_turn",
         "stop_sequence": None,
         "usage": {"input_tokens": 100, "output_tokens": 50},
@@ -144,7 +144,7 @@ def mock_anthropic_web_search_response():
                 ],
             },
         ],
-        "model": "claude-opus-4-1-20250805",
+        "model": "claude-opus-4-5-20251101",
         "usage": {"input_tokens": 150, "output_tokens": 75},
     }
 
@@ -156,7 +156,7 @@ def mock_openai_response():
         "id": "chatcmpl-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "gpt-5.1",
+        "model": "gpt-5.2",
         "choices": [
             {
                 "index": 0,

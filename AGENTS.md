@@ -12,9 +12,9 @@ These agents invoke external CLI tools (use these agent type IDs with `create_ag
 
 | Agent Type | CLI Tool | Default Model |
 |------------|----------|---------------|
-| `claude` | `claude` (claude-code) | claude-opus-4-1-20250805 |
+| `claude` | `claude` (claude-code) | claude-opus-4-5-20251101 |
 | `codex` | `codex` | gpt-5.2-codex |
-| `openai` | `openai` | gpt-5.1 |
+| `openai` | `openai` | gpt-5.2 |
 | `gemini-cli` | `gemini` | gemini-3-pro-preview |
 | `grok-cli` | `grok` | grok-4-latest |
 | `qwen-cli` | `qwen` | qwen3-coder |
@@ -27,8 +27,8 @@ These agents make direct HTTP API calls to provider endpoints:
 
 | Agent Type | API | Default Model | Env Var |
 |------------|-----|---------------|---------|
-| `anthropic-api` | Anthropic | claude-opus-4-1-20250805 | `ANTHROPIC_API_KEY` |
-| `openai-api` | OpenAI | gpt-5.1 | `OPENAI_API_KEY` |
+| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` |
+| `openai-api` | OpenAI | gpt-5.2 | `OPENAI_API_KEY` |
 | `gemini` | Google | gemini-3-pro-preview | `GEMINI_API_KEY` |
 | `grok` | xAI | grok-4-latest | `XAI_API_KEY` |
 | `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` |

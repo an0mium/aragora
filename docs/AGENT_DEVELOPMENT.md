@@ -160,7 +160,7 @@ class OpenAICompatibleAgent(APIAgent):
         name: str,
         api_key: str,
         base_url: str = "https://api.openai.com/v1",
-        model: str = "gpt-5.1",
+        model: str = "gpt-5.2",
         role: str = "proposer",
         timeout: int = 120,
     ):
@@ -238,7 +238,7 @@ class AnthropicAgent(APIAgent):
     def __init__(
         self,
         name: str = "anthropic-api",
-        model: str = "claude-opus-4-1-20250805",
+        model: str = "claude-opus-4-5-20251101",
         api_key: str | None = None,
         role: str = "proposer",
         timeout: int = 120,
@@ -616,13 +616,13 @@ Synthesize these into a single, coherent response that captures the best insight
 agents:
   claude-expert:
     type: anthropic-api
-    model: claude-opus-4-1-20250805
+    model: claude-opus-4-5-20251101
     role: proposer
     system_prompt: "You are a helpful expert assistant."
 
   gpt-analyst:
     type: openai-api
-    model: gpt-5.1
+    model: gpt-5.2
     role: critic
     system_prompt: "You are a careful analyst who examines evidence."
 

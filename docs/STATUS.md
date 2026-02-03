@@ -1760,8 +1760,8 @@ All stabilization items addressed:
 | Agent | Model | API |
 |-------|-------|-----|
 | `grok` | grok-4-latest | xAI |
-| `anthropic-api` | claude-opus-4-1-20250805 | Anthropic |
-| `openai-api` | gpt-5.1 | OpenAI |
+| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
+| `openai-api` | gpt-5.2 | OpenAI |
 | `deepseek` | deepseek/deepseek-reasoner | OpenRouter |
 | `mistral-api` | mistral-large-2512 | Mistral |
 | `gemini` | gemini-3-pro-preview | Google |

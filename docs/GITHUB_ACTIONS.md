@@ -137,8 +137,8 @@ env:
 
 | Agent | Model | Best For |
 |-------|-------|----------|
-| `anthropic-api` | claude-opus-4-1-20250805 | Security analysis, nuanced review |
-| `openai-api` | gpt-5.1 | Code quality, performance |
+| `anthropic-api` | claude-opus-4-5-20251101 | Security analysis, nuanced review |
+| `openai-api` | gpt-5.2 | Code quality, performance |
 | `mistral-api` | mistral-large-2512 | European compliance, fast |
 | `gemini` | gemini-3-pro-preview | Architecture, scalability |
 | `openrouter` | model parameter | Cost-effective fallback |
