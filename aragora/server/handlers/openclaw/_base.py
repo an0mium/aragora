@@ -46,15 +46,27 @@ class OpenClawMixinBase:
 
     def _get_user_id(self, handler: Any) -> str:
         """Get user ID from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
+        raise NotImplementedError(
+            f"{self.__class__.__name__}._get_user_id() must be implemented by "
+            f"parent class (e.g., OpenClawGatewayHandler). "
+            f"Current MRO: {[c.__name__ for c in self.__class__.__mro__[:5]]}"
+        )
 
     def _get_tenant_id(self, handler: Any) -> str | None:
         """Get tenant ID from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
+        raise NotImplementedError(
+            f"{self.__class__.__name__}._get_tenant_id() must be implemented by "
+            f"parent class (e.g., OpenClawGatewayHandler). "
+            f"Current MRO: {[c.__name__ for c in self.__class__.__mro__[:5]]}"
+        )
 
     def get_current_user(self, handler: Any) -> Any:
         """Get current user from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.get_current_user() must be implemented by "
+            f"parent class (e.g., OpenClawGatewayHandler). "
+            f"Current MRO: {[c.__name__ for c in self.__class__.__mro__[:5]]}"
+        )
 
 
 __all__ = [

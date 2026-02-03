@@ -24,6 +24,7 @@ import os
 from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.server.decision_integrity_utils import extract_execution_overrides
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -338,8 +339,10 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                         "requested_by": f"whatsapp:{from_number}",
                     }
                     if command == "implement":
+                        args, overrides = extract_execution_overrides(args)
                         decision_integrity["execution_mode"] = "execute"
                         decision_integrity["execution_engine"] = "hybrid"
+                        decision_integrity.update(overrides)
                 self._start_debate(
                     from_number,
                     contact_name,

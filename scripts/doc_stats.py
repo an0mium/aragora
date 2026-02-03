@@ -150,7 +150,7 @@ def _count_ts_namespaces() -> int:
     base = ROOT / "sdk/typescript/src/namespaces"
     if not base.exists():
         return 0
-    return sum(1 for p in base.glob("*.ts") if p.is_file())
+    return sum(1 for p in base.rglob("*.ts") if p.is_file())
 
 
 def _count_allowlisted_agents() -> int:
@@ -158,7 +158,7 @@ def _count_allowlisted_agents() -> int:
     if not path.exists():
         return 0
     text = path.read_text()
-    m = re.search(r"ALLOWED_AGENT_TYPES:.*?=\\s*frozenset\\((\\s*\\{.*?\\}\\s*)\\)", text, re.S)
+    m = re.search(r"ALLOWED_AGENT_TYPES:.*?=\s*frozenset\((\s*\{.*?\}\s*)\)", text, re.S)
     if not m:
         return 0
     return len(re.findall(r"\"([^\"]+)\"", m.group(1)))
@@ -218,125 +218,146 @@ def patch_docs(stats: Stats, write: bool) -> int:
     replacements = {
         "README.md": [
             (
-                r"orchestrates\\s+\\d[\\d,]*\\+\\s+agent types",
+                r"orchestrates\s+\d[\d,]*\+\s+agent types",
                 f"orchestrates {agent_types_approx} agent types",
                 0,
             ),
             (
-                r"Knowledge Mound with\\s+\\d+\\s+registered adapters",
+                r"Knowledge Mound with\s+\d+\s+registered adapters",
                 f"Knowledge Mound with {stats.km_adapters_registered} registered adapters",
                 0,
             ),
-            (r"\\d[\\d,]*\\+\\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\\d[\\d,]*\\+\\s+paths", f"{api_paths_approx} paths", 0),
+            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*\+\s+paths", f"{api_paths_approx} paths", 0),
             (
-                r"\\d[\\d,]*\\+\\s+WebSocket event types",
+                r"\d[\d,]*\+\s+WebSocket event types",
                 f"{ws_events_approx} WebSocket event types",
                 0,
             ),
-            (r"\\d[\\d,]*\\+\\s+templates", f"{templates_approx} templates", 0),
-            (r"\\d[\\d,]*\\+\\s+Python modules", f"{modules_approx} Python modules", 0),
-            (r"\\d[\\d,]*\\+\\s+tests", f"{tests_approx} tests", 0),
-            (r"\\(\\d[\\d,]*\\s+namespaces\\)", f"({stats.ts_namespaces} namespaces)", 0),
+            (r"\d[\d,]*\+\s+templates", f"{templates_approx} templates", 0),
+            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*\+\s+tests", f"{tests_approx} tests", 0),
+            (r"\(\d[\d,]*\s+namespaces\)", f"({stats.ts_namespaces} namespaces)", 0),
         ],
         "docs/EXTENDED_README.md": [
             (
-                r"AGENT LAYER \\(\\d[\\d,]*\\+\\s+Agent Types\\)",
+                r"AGENT LAYER \(\d[\d,]*\+\s+Agent Types\)",
                 f"AGENT LAYER ({agent_types_approx} Agent Types)",
                 0,
             ),
-            (r"\\d[\\d,]*\\+\\s+agent types", f"{agent_types_approx} agent types", 0),
+            (r"\d[\d,]*\+\s+agent types", f"{agent_types_approx} agent types", 0),
             (
-                r"\\d+\\s+registered adapters",
+                r"\d+\s+registered adapters",
                 f"{stats.km_adapters_registered} registered adapters",
                 0,
             ),
-            (r"\\d[\\d,]*\\+\\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\\d[\\d,]*\\+\\s+paths", f"{api_paths_approx} paths", 0),
+            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*\+\s+paths", f"{api_paths_approx} paths", 0),
             (
-                r"\\d[\\d,]*\\+\\s+WebSocket event types",
+                r"\d[\d,]*\+\s+WebSocket event types",
                 f"{ws_events_approx} WebSocket event types",
                 0,
             ),
-            (r"\\d[\\d,]*\\+\\s+templates", f"{templates_approx} templates", 0),
-            (r"\\d[\\d,]*\\+\\s+Python modules", f"{modules_approx} Python modules", 0),
-            (r"\\d[\\d,]*\\+\\s+tests", f"{tests_approx} tests", 0),
-            (r"\\d[\\d,]*\\+\\s+test files", f"{test_files_approx} test files", 0),
+            (r"\d[\d,]*\+\s+templates", f"{templates_approx} templates", 0),
+            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
             (
-                r"\\d[\\d,]*\\s+TypeScript SDK namespaces",
+                r"(\*\*Scale:\*\*[^\n]*?)\d[\d,]*\+\s+tests",
+                lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
+                0,
+            ),
+            (r"\d[\d,]*\+\s+test files", f"{test_files_approx} test files", 0),
+            (
+                r"\d[\d,]*\s+TypeScript SDK namespaces",
                 f"{stats.ts_namespaces} TypeScript SDK namespaces",
                 0,
             ),
         ],
         "docs/COMMERCIAL_OVERVIEW.md": [
             (
-                r"orchestrating\\s+\\d[\\d,]*\\+\\s+agent types",
+                r"orchestrating\s+\d[\d,]*\+\s+agent types",
                 f"orchestrating {agent_types_approx} agent types",
                 0,
             ),
             (
-                r"\\d+\\s+registered adapters",
+                r"\d+\s+registered adapters",
                 f"{stats.km_adapters_registered} registered adapters",
                 0,
             ),
-            (r"\\d[\\d,]*\\+\\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\\d[\\d,]*\\+\\s+agent types", f"{agent_types_approx} agent types", 0),
+            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*\+\s+agent types", f"{agent_types_approx} agent types", 0),
         ],
         "docs/FEATURE_DISCOVERY.md": [
-            (r"\\d[\\d,]*\\+\\s+Python modules", f"{modules_approx} Python modules", 0),
-            (r"\\d[\\d,]*\\+\\s+tests", f"{tests_approx} tests", 0),
-            (r"\\d[\\d,]*\\+\\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\\d[\\d,]*\\+\\s+pre-built templates", f"{templates_approx} pre-built templates", 0),
+            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
             (
-                r"Supported Providers \\(\\d[\\d,]*\\+\\s+agent types\\)",
+                r"(\*\*Total\*\*:[^\n]*?)\d[\d,]*\+\s+tests",
+                lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
+                0,
+            ),
+            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*\+\s+pre-built templates", f"{templates_approx} pre-built templates", 0),
+            (
+                r"Supported Providers \(\d[\d,]*\+\s+agent types\)",
                 f"Supported Providers ({agent_types_approx} agent types)",
                 0,
             ),
         ],
         "docs/FEATURE_PARITY_MATRIX.md": [
-            (r"\\d[\\d,]*\\+\\s+operations", f"{api_ops_approx} operations", 0),
+            (r"\d[\d,]*\+\s+operations", f"{api_ops_approx} operations", 0),
         ],
         "docs/WEBSOCKET_EVENTS.md": [
-            (r"\\(\\d+ event types", f"({stats.ws_event_types} event types", 0),
+            (r"\(\d+ event types", f"({stats.ws_event_types} event types", 0),
         ],
         "docs/KNOWLEDGE_MOUND.md": [
             (
-                r"\\d+\\s+registered adapters",
+                r"\d+\s+registered adapters",
                 f"{stats.km_adapters_registered} registered adapters",
                 0,
             ),
         ],
         "docs/DOCUMENTATION_HUB.md": [
             (
-                r"\\d+\\s+registered adapters",
+                r"\d+\s+registered adapters",
                 f"{stats.km_adapters_registered} registered adapters",
                 0,
             ),
         ],
         "CLAUDE.md": [
-            (r"\\d[\\d,]*\\+\\s+Python modules", f"{modules_approx} Python modules", 0),
-            (r"\\d[\\d,]*\\+\\s+tests", f"{tests_approx} tests", 0),
-            (r"\\d[\\d,]*\\+\\s+test files", f"{test_files_approx} test files", 0),
-            (r"\\d[\\d,]*\\+\\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\\d[\\d,]*\\+\\s+paths", f"{api_paths_approx} paths", 0),
-            (r"\\d+\\s+KM adapters", f"{stats.km_adapters_registered} KM adapters", 0),
-            (r"\\d[\\d,]*\\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
+            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
+            (
+                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*\+\s+tests",
+                lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
+                0,
+            ),
+            (
+                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*\+\s+test files",
+                lambda m, value=test_files_approx: f"{m.group(1)}{value} test files",
+                0,
+            ),
+            (
+                r"\*\*Test Suite:\*\*\s*\d[\d,]*\+\s+tests\s+across\s+\d[\d,]*\+\s+test files",
+                f"**Test Suite:** {tests_approx} tests across {test_files_approx} test files",
+                0,
+            ),
+            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*\+\s+paths", f"{api_paths_approx} paths", 0),
+            (r"\d+\s+KM adapters", f"{stats.km_adapters_registered} KM adapters", 0),
+            (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
         ],
         "docs/architecture/system-overview.md": [
             (
-                r"Agents Layer \\(\\d[\\d,]*\\+\\s+Agent Types\\)",
+                r"Agents Layer \(\d[\d,]*\+\s+Agent Types\)",
                 f"Agents Layer ({agent_types_approx} Agent Types)",
                 0,
             ),
             (
-                r"\\d[\\d,]*\\+\\s+agent-type integrations",
+                r"\d[\d,]*\+\s+agent-type integrations",
                 f"{agent_types_approx} agent-type integrations",
                 0,
             ),
         ],
         "docs/landing/hero.md": [
             (
-                r"\\*\\*\\d[\\d,]*\\+\\s+agent types\\*\\*",
+                r"\*\*\d[\d,]*\+\s+agent types\*\*",
                 f"**{agent_types_approx} agent types**",
                 0,
             ),

@@ -10,12 +10,14 @@ from __future__ import annotations
 import logging
 from abc import abstractmethod
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from jinja2 import Template
 
 from aragora.core import Critique, Message
 from aragora.agents.api_agents.base import APIAgent
+from aragora.agents.base import AgentType, create_agent
+from aragora.config.legacy import ALLOWED_AGENT_TYPES
 from aragora.core_types import AgentRole
 from aragora.verticals.config import (
     ComplianceConfig,
@@ -25,6 +27,20 @@ from aragora.verticals.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Map friendly provider names to registered agent types
+_PROVIDER_MAP: dict[str, str] = {
+    "anthropic": "anthropic-api",
+    "openai": "openai-api",
+    "gpt": "openai-api",
+    "grok": "grok",
+    "gemini": "gemini",
+    "mistral": "mistral",
+    "deepseek": "deepseek",
+    "qwen": "qwen",
+    "kimi": "kimi",
+    "ollama": "ollama",
+}
 
 
 class VerticalSpecialistAgent(APIAgent):
@@ -68,6 +84,43 @@ class VerticalSpecialistAgent(APIAgent):
 
         # Track tool calls for audit
         self._tool_call_history: list[dict[str, Any]] = []
+
+        # Create a delegate LLM agent for generation/critique
+        self._delegate = None
+        try:
+            provider = self._resolve_provider(config.model_config.primary_provider)
+            self._delegate = create_agent(
+                model_type=cast(AgentType, provider),
+                name=f"{name}_llm",
+                role=role,
+                model=model,
+                api_key=api_key,
+            )
+            # Apply vertical system prompt and generation params
+            self.system_prompt = self.build_system_prompt()
+            self._delegate.system_prompt = self.system_prompt
+            if hasattr(self._delegate, "set_generation_params"):
+                self._delegate.set_generation_params(
+                    temperature=config.model_config.temperature,
+                    top_p=config.model_config.top_p,
+                )
+        except Exception as e:
+            logger.warning(f"[verticals] Failed to initialize delegate agent: {e}")
+            self._delegate = None
+
+    def _resolve_provider(self, provider: str) -> str:
+        """Resolve provider name to a registered agent type."""
+        if not provider:
+            return "anthropic-api"
+        provider_norm = provider.lower().strip()
+        if provider_norm in ALLOWED_AGENT_TYPES:
+            return provider_norm
+        if provider_norm in _PROVIDER_MAP:
+            return _PROVIDER_MAP[provider_norm]
+        # Handle common suffix/prefix variations
+        if provider_norm.endswith("-api") and provider_norm in ALLOWED_AGENT_TYPES:
+            return provider_norm
+        return "anthropic-api"
 
     @property
     def vertical_id(self) -> str:

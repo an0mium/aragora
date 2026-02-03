@@ -19,6 +19,7 @@ from urllib.parse import parse_qs
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import HandlerResult, json_response
+from aragora.server.decision_integrity_utils import extract_execution_overrides
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 from .blocks import build_debate_message_blocks
@@ -201,6 +202,8 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
 
             decision_integrity = None
             if subcommand in ("plan", "implement"):
+                if subcommand == "implement":
+                    args, overrides = extract_execution_overrides(args)
                 decision_integrity = {
                     "include_receipt": True,
                     "include_plan": True,
@@ -209,6 +212,10 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     "notify_origin": True,
                     "requested_by": f"slack:{user_id}",
                 }
+                if subcommand == "implement":
+                    decision_integrity["execution_mode"] = "execute"
+                    decision_integrity["execution_engine"] = "hybrid"
+                    decision_integrity.update(overrides)
 
             debate_id = await start_slack_debate(
                 topic=args,

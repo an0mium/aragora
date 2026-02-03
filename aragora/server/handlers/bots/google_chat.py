@@ -21,6 +21,7 @@ import os
 from typing import TYPE_CHECKING, Any, Coroutine, Optional, Protocol, cast
 
 from aragora.audit.unified import audit_data
+from aragora.server.decision_integrity_utils import extract_execution_overrides
 
 if TYPE_CHECKING:
     pass
@@ -412,8 +413,10 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                     "requested_by": f"google_chat:{user.get('name') or user.get('id')}",
                 }
                 if command == "implement":
+                    args, overrides = extract_execution_overrides(args)
                     decision_integrity["execution_mode"] = "execute"
                     decision_integrity["execution_engine"] = "hybrid"
+                    decision_integrity.update(overrides)
             return self._cmd_debate(args, space_name, user, event, decision_integrity)
         elif command == "gauntlet":
             return self._cmd_gauntlet(args, space_name, user, event)
@@ -768,8 +771,10 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                     "requested_by": f"google_chat:{user.get('name') or user.get('id')}",
                 }
                 if command == "implement":
+                    remainder, overrides = extract_execution_overrides(remainder)
                     decision_integrity["execution_mode"] = "execute"
                     decision_integrity["execution_engine"] = "hybrid"
+                    decision_integrity.update(overrides)
                 topic = remainder
             elif command in ("debate", "ask") and remainder:
                 topic = remainder

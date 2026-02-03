@@ -40,6 +40,7 @@ from aragora.routing.selection import (
     DomainDetector,
     TaskRequirements,
 )
+from aragora.routing.team_builder import TeamBuilder
 
 from .base import (
     BaseHandler,
@@ -55,6 +56,17 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter for selection endpoints (100 requests per minute)
 _selection_limiter = RateLimiter(requests_per_minute=100)
+
+# Global team builder for selection history tracking
+_team_builder: TeamBuilder | None = None
+
+
+def get_team_builder() -> TeamBuilder:
+    """Get or create the global TeamBuilder instance."""
+    global _team_builder
+    if _team_builder is None:
+        _team_builder = TeamBuilder()
+    return _team_builder
 
 
 def _create_agent_pool() -> dict[str, "AgentProfile"]:
@@ -407,10 +419,19 @@ class SelectionHandler(BaseHandler):
         """Get agent selection history."""
         limit = int(query_params.get("limit", 20))
         offset = int(query_params.get("offset", 0))
+
+        team_builder = get_team_builder()
+        # Get all history then apply offset/limit for pagination
+        all_history = team_builder.get_selection_history()
+        total = len(all_history)
+
+        # Apply pagination
+        paginated = all_history[offset : offset + limit]
+
         return json_response(
             {
-                "selections": [],
-                "total": 0,
+                "selections": paginated,
+                "total": total,
                 "limit": limit,
                 "offset": offset,
             }

@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from ...base import HandlerResult, json_response
+from aragora.server.decision_integrity_utils import extract_execution_overrides
 from ..chat_events import (
     emit_command_received,
     emit_debate_completed,
@@ -159,6 +160,7 @@ class TelegramCommandsMixin:
                 return self._deny_telegram_permission(
                     chat_id, _common.PERM_TELEGRAM_DEBATES_CREATE, "create implementation plans"
                 )
+            args, overrides = extract_execution_overrides(args)
             decision_integrity = {
                 "include_receipt": True,
                 "include_plan": True,
@@ -169,6 +171,7 @@ class TelegramCommandsMixin:
                 "execution_engine": "hybrid",
                 "requested_by": f"telegram:{user_id}",
             }
+            decision_integrity.update(overrides)
             return self._command_debate(
                 chat_id,
                 user_id,

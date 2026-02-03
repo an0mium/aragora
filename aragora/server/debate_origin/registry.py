@@ -460,6 +460,9 @@ def mark_result_sent(debate_id: str) -> None:
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             # Catch Redis errors (connection, timeout, etc.)
             logger.debug(f"Redis update skipped: {e}")
+        except Exception as e:
+            # Catch redis.exceptions.ConnectionError and other client errors
+            logger.debug(f"Redis update skipped: {e}")
 
 
 def cleanup_expired_origins() -> int:

@@ -196,16 +196,49 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
 
     async def _code_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search codebase for patterns."""
-        # Placeholder - would integrate with actual code search
-        pattern = parameters.get("pattern", "")
+        from aragora.connectors.local_docs import LocalDocsConnector
+
+        pattern = parameters.get("pattern") or parameters.get("query") or ""
+        if not pattern:
+            return {"matches": [], "error": "pattern is required"}
+
+        root_path = parameters.get("root_path", ".")
+        file_types = parameters.get("file_types", "all")
+        limit = int(parameters.get("limit", 10))
+        regex = bool(parameters.get("regex", False))
+        context_lines = int(parameters.get("context_lines", 2))
+
+        connector = LocalDocsConnector(root_path=root_path, file_types=file_types)
+        evidence = await connector.search(
+            query=pattern,
+            limit=limit,
+            regex=regex,
+            context_lines=context_lines,
+        )
+
         return {
-            "matches": [],
             "pattern": pattern,
-            "message": "Code search not yet implemented",
+            "count": len(evidence),
+            "matches": [e.to_dict() for e in evidence],
+            "root_path": str(root_path),
+            "file_types": file_types,
         }
 
     async def _security_scan(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Run security analysis on code."""
+        path = parameters.get("path")
+        if path:
+            from aragora.analysis.codebase.sast_scanner import scan_for_vulnerabilities
+
+            rule_sets = parameters.get("rule_sets")
+            min_confidence = float(parameters.get("min_confidence", 0.5))
+            result = await scan_for_vulnerabilities(
+                path=path,
+                rule_sets=rule_sets,
+                min_confidence=min_confidence,
+            )
+            return {"mode": "sast", "result": result.to_dict()}
+
         import re
 
         code = parameters.get("code", "")
@@ -227,24 +260,60 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
                     )
 
         return {
+            "mode": "pattern",
             "findings": findings,
             "scanned_lines": len(code.split("\n")),
         }
 
     async def _dependency_check(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Check for vulnerable dependencies."""
-        # Placeholder - would integrate with actual vulnerability database
-        return {
-            "vulnerable": [],
-            "message": "Dependency check not yet implemented",
-        }
+        from aragora.analysis.codebase.scanner import DependencyScanner
+
+        repo_path = parameters.get("path")
+        files = parameters.get("files") or parameters.get("file_paths")
+        skip_dev = bool(parameters.get("skip_dev_dependencies", False))
+
+        scanner = DependencyScanner(skip_dev_dependencies=skip_dev)
+
+        if files:
+            result = await scanner.scan_files(files, repository=str(repo_path or "unknown"))
+            return {"mode": "files", "result": result.to_dict()}
+
+        if not repo_path:
+            return {"error": "path or files is required"}
+
+        result = await scanner.scan_repository(repo_path)
+        return {"mode": "repository", "result": result.to_dict()}
 
     async def _github_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up GitHub issues or PRs."""
-        # Placeholder - would integrate with GitHub API
+        import os
+
+        from aragora.connectors.github import GitHubConnector
+
+        query = parameters.get("query") or parameters.get("q") or ""
+        if not query:
+            return {"results": [], "error": "query is required"}
+
+        repo = parameters.get("repo")
+        limit = int(parameters.get("limit", 10))
+        search_type = parameters.get("search_type", "issues")
+        state = parameters.get("state", "all")
+        token = parameters.get("token") or os.environ.get("GITHUB_TOKEN")
+
+        connector = GitHubConnector(repo=repo, token=token)
+        evidence = await connector.search(
+            query=query,
+            limit=limit,
+            search_type=search_type,
+            state=state,
+        )
+
         return {
-            "results": [],
-            "message": "GitHub lookup not yet implemented",
+            "repo": repo,
+            "query": query,
+            "count": len(evidence),
+            "results": [e.to_dict() for e in evidence],
         }
 
     async def _check_framework_compliance(

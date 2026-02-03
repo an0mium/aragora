@@ -131,7 +131,8 @@ def _create_mock_http_handler(
 class TestTeamsCommands:
     """Tests for Teams command handling."""
 
-    def test_help_command(self, teams_activity: MockTeamsActivity):
+    @pytest.mark.asyncio
+    async def test_help_command(self, teams_activity: MockTeamsActivity):
         """Test @aragora help returns acknowledgment."""
         from aragora.server.handlers.social.teams import TeamsIntegrationHandler
 
@@ -142,7 +143,7 @@ class TestTeamsCommands:
 
         # Patch _read_json_body to return our test data
         with patch.object(handler, "_read_json_body", return_value=teams_activity.to_dict()):
-            result = handler._handle_command(mock_http)
+            result = await handler._handle_command(mock_http)
 
         assert result is not None
         # Should return acknowledgment (help_sent status)
@@ -155,7 +156,8 @@ class TestTeamsCommands:
         assert isinstance(body, dict)
         assert body.get("status") == "help_sent" or "status" in str(body).lower()
 
-    def test_status_command(self, teams_activity: MockTeamsActivity):
+    @pytest.mark.asyncio
+    async def test_status_command(self, teams_activity: MockTeamsActivity):
         """Test @aragora status returns debate status."""
         from aragora.server.handlers.social.teams import TeamsIntegrationHandler
 
@@ -164,7 +166,7 @@ class TestTeamsCommands:
         mock_http = _create_mock_http_handler(teams_activity.to_dict())
 
         with patch.object(handler, "_read_json_body", return_value=teams_activity.to_dict()):
-            result = handler._handle_command(mock_http)
+            result = await handler._handle_command(mock_http)
 
         assert result is not None
         if hasattr(result, "body"):
@@ -175,7 +177,8 @@ class TestTeamsCommands:
         # Status returns {"active": false, "message": "..."} when no debate
         assert "active" in body or "status" in body or "message" in body
 
-    def test_debate_command_empty_topic(self, teams_activity: MockTeamsActivity):
+    @pytest.mark.asyncio
+    async def test_debate_command_empty_topic(self, teams_activity: MockTeamsActivity):
         """Test @aragora debate validates that topic is provided."""
         from aragora.server.handlers.social.teams import TeamsIntegrationHandler
 
@@ -185,7 +188,7 @@ class TestTeamsCommands:
         mock_http = _create_mock_http_handler(teams_activity.to_dict())
 
         with patch.object(handler, "_read_json_body", return_value=teams_activity.to_dict()):
-            result = handler._handle_command(mock_http)
+            result = await handler._handle_command(mock_http)
 
         # Should return error about missing topic
         assert result is not None
@@ -193,7 +196,8 @@ class TestTeamsCommands:
             # Error responses use status_code
             assert result.status_code >= 400 or result.status_code == 200
 
-    def test_debate_command_requires_connector(self, teams_activity: MockTeamsActivity):
+    @pytest.mark.asyncio
+    async def test_debate_command_requires_connector(self, teams_activity: MockTeamsActivity):
         """Test @aragora debate requires Teams connector to be configured."""
         from aragora.server.handlers.social.teams import TeamsIntegrationHandler
 
@@ -202,7 +206,7 @@ class TestTeamsCommands:
         mock_http = _create_mock_http_handler(teams_activity.to_dict())
 
         with patch.object(handler, "_read_json_body", return_value=teams_activity.to_dict()):
-            result = handler._handle_command(mock_http)
+            result = await handler._handle_command(mock_http)
 
         assert result is not None
         # Without connector configured, should return 503
@@ -423,7 +427,8 @@ class TestTeamsRateLimiting:
 class TestTeamsErrorHandling:
     """Tests for Teams error handling."""
 
-    def test_invalid_json_body(self):
+    @pytest.mark.asyncio
+    async def test_invalid_json_body(self):
         """Test handling of invalid JSON in request body."""
         from aragora.server.handlers.social.teams import TeamsIntegrationHandler
 
@@ -434,14 +439,15 @@ class TestTeamsErrorHandling:
         with patch.object(
             handler, "_read_json_body", side_effect=json.JSONDecodeError("test", "", 0)
         ):
-            result = handler._handle_command(mock_http)
+            result = await handler._handle_command(mock_http)
 
         # Should return error response
         assert result is not None
         if hasattr(result, "status_code"):
             assert result.status_code == 400
 
-    def test_missing_connector_still_works(self):
+    @pytest.mark.asyncio
+    async def test_missing_connector_still_works(self):
         """Test handling when Teams connector is not configured."""
         from aragora.server.handlers.social.teams import TeamsIntegrationHandler
 
@@ -456,7 +462,7 @@ class TestTeamsErrorHandling:
 
         # Without connector, help still returns acknowledgment
         with patch.object(handler, "_read_json_body", return_value=activity):
-            result = handler._handle_command(mock_http)
+            result = await handler._handle_command(mock_http)
 
         # Should still return response (connector is optional for acknowledgments)
         assert result is not None

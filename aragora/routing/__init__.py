@@ -1,8 +1,21 @@
 """
-Agent routing and selection.
+Routing - Agent selection and decision routing.
 
-Provides adaptive agent selection for optimal team composition,
-including domain detection and auto-routing.
+Provides:
+- Adaptive agent selection for optimal team composition
+- Domain detection and auto-routing
+- Unified decision routing (Gateway + Core integration)
+
+The unified router chains Gateway (business logic) with Core (execution):
+    Request → Gateway Router → Core Router → Result
+           (business criteria)  (engine selection)
+
+Usage:
+    # Agent selection
+    from aragora.routing import AgentSelector, TeamBuilder
+
+    # Decision routing
+    from aragora.routing import UnifiedDecisionRouter, route_decision_auto
 """
 
 from aragora.routing.selection import (
@@ -16,8 +29,16 @@ from aragora.routing.selection import (
     TeamBuilder,
     TeamComposition,
 )
+from aragora.routing.unified_router import (
+    UnifiedDecisionRouter,
+    UnifiedRoutingResult,
+    get_unified_router,
+    reset_unified_router,
+    route_decision_auto,
+)
 
 __all__ = [
+    # Agent selection
     "AgentSelector",
     "AgentProfile",
     "TaskRequirements",
@@ -27,4 +48,10 @@ __all__ = [
     "DOMAIN_KEYWORDS",
     "PHASE_ROLES",
     "DEFAULT_AGENT_EXPERTISE",
+    # Unified decision routing
+    "UnifiedDecisionRouter",
+    "UnifiedRoutingResult",
+    "get_unified_router",
+    "reset_unified_router",
+    "route_decision_auto",
 ]

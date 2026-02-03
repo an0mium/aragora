@@ -181,16 +181,47 @@ class OpenClawActionStep(BaseStep):
             if y is not None:
                 metadata.setdefault("y", y)
 
+        input_payload: dict[str, Any] = {}
+        if action_type == "shell" and command:
+            input_payload["command"] = command
+        if action_type in ("file_read", "file_write", "file_delete") and path:
+            input_payload["path"] = path
+        if action_type == "file_write" and content:
+            input_payload["content"] = content
+        if action_type in ("browser", "screenshot", "api") and url:
+            input_payload["url"] = url
+        if action_type == "keyboard":
+            payload_text = text or content
+            if payload_text:
+                input_payload["text"] = payload_text
+        if action_type == "mouse":
+            if x is not None:
+                input_payload["x"] = x
+            if y is not None:
+                input_payload["y"] = y
+        if isinstance(params, dict) and params:
+            input_payload.update(params)
+
         try:
             proxy = await self._get_proxy()
-            result = await proxy.execute_action(
-                session_id=session_id,
-                action_type=action_type,
-                path=path if action_type.startswith("file") else None,
-                command=command if action_type == "shell" else None,
-                url=url if action_type in ("browser", "screenshot", "api") else None,
-                metadata=metadata,
-            )
+            try:
+                result = await proxy.execute_action(
+                    session_id=session_id,
+                    action_type=action_type,
+                    input=input_payload,
+                    metadata=metadata,
+                )
+            except TypeError as exc:
+                if "input" not in str(exc):
+                    raise
+                result = await proxy.execute_action(
+                    session_id=session_id,
+                    action_type=action_type,
+                    path=path if action_type.startswith("file") else None,
+                    command=command if action_type == "shell" else None,
+                    url=url if action_type in ("browser", "screenshot", "api") else None,
+                    metadata=metadata,
+                )
 
             if hasattr(result, "to_dict"):
                 result_data = result.to_dict()

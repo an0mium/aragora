@@ -24,6 +24,7 @@ import threading
 from typing import Any, Protocol, cast
 
 from aragora.audit.unified import audit_data
+from aragora.server.decision_integrity_utils import extract_execution_overrides
 
 # RBAC imports - optional dependency
 try:
@@ -425,8 +426,10 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                     "requested_by": f"telegram:{user_id}",
                 }
                 if command == "implement":
+                    args, overrides = extract_execution_overrides(args)
                     decision_integrity["execution_mode"] = "execute"
                     decision_integrity["execution_engine"] = "hybrid"
+                    decision_integrity.update(overrides)
             return self._cmd_debate(
                 chat_id,
                 user_id,

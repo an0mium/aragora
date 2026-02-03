@@ -1122,6 +1122,115 @@ class TestDecisionRouterRouteMethods:
         assert result.success is True
         assert result.decision_integrity == package_payload
 
+    @pytest.mark.asyncio
+    async def test_route_to_debate_executes_decision_integrity(self, monkeypatch):
+        """Decision integrity execution triggers plan executor when enabled."""
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatus
+        from aragora.pipeline.decision_plan.memory import PlanOutcome
+        from aragora.implement.types import ImplementPlan, ImplementTask
+
+        monkeypatch.setenv("ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION", "1")
+
+        # Stub agent lookup
+        monkeypatch.setattr(
+            "aragora.agents.get_agents_by_names",
+            lambda _agents=None: [],
+        )
+
+        class DummyDebateResult:
+            debate_id = "debate-xyz"
+            task = "Implement a cache"
+            final_answer = "Use LRU"
+            confidence = 0.9
+            consensus_reached = True
+            rounds_used = 1
+            participants = ["agent-a"]
+            metadata = {"source": "test"}
+
+            def to_dict(self):
+                return {
+                    "debate_id": self.debate_id,
+                    "task": self.task,
+                    "final_answer": self.final_answer,
+                    "confidence": self.confidence,
+                    "consensus_reached": self.consensus_reached,
+                    "rounds_used": self.rounds_used,
+                    "participants": self.participants,
+                    "metadata": self.metadata,
+                }
+
+        class DummyArena:
+            def __init__(self, environment, agents, protocol, **_kwargs):
+                pass
+
+            async def run(self):
+                return DummyDebateResult()
+
+        router = DecisionRouter(debate_engine=DummyArena, enable_caching=False)
+
+        request = DecisionRequest(
+            content="Implement a cache",
+            decision_type=DecisionType.DEBATE,
+            config=DecisionConfig(
+                rounds=1,
+                agents=[],
+                decision_integrity={
+                    "include_plan": True,
+                    "execution_mode": "execute",
+                    "execution_engine": "hybrid",
+                    "notify_origin": False,
+                },
+            ),
+        )
+
+        task = ImplementTask(
+            id="task-1",
+            description="Add cache layer",
+            files=["cache.py"],
+            complexity="simple",
+        )
+        implement_plan = ImplementPlan(design_hash="hash123", tasks=[task])
+        package_payload = {"debate_id": "debate-xyz", "plan": implement_plan.to_dict()}
+        package = SimpleNamespace(plan=implement_plan, to_dict=lambda: package_payload)
+
+        monkeypatch.setattr(
+            "aragora.pipeline.decision_integrity.build_decision_integrity_package",
+            AsyncMock(return_value=package),
+        )
+
+        plan = DecisionPlan(
+            debate_id="debate-xyz",
+            task="Implement a cache",
+            implement_plan=implement_plan,
+            approval_mode=ApprovalMode.NEVER,
+            status=PlanStatus.APPROVED,
+        )
+        monkeypatch.setattr(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+            lambda *args, **kwargs: plan,
+        )
+
+        outcome = PlanOutcome(
+            plan_id=plan.id,
+            debate_id=plan.debate_id,
+            task=plan.task,
+            success=True,
+        )
+
+        with patch(
+            "aragora.pipeline.executor.PlanExecutor.execute",
+            AsyncMock(return_value=outcome),
+        ) as mock_execute:
+            result = await router.route(request)
+
+        assert mock_execute.called is True
+        assert result.success is True
+        assert result.decision_integrity is not None
+        assert result.decision_integrity["execution"]["status"] == "completed"
+
 
 # ===========================================================================
 # Test: Decision Router - Caching and Deduplication

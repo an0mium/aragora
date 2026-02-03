@@ -96,6 +96,8 @@ class DebateConfig:
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
     metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
     documents: list[str] = field(default_factory=list)
+    enable_verticals: bool = False  # Enable vertical specialist injection
+    vertical_id: str | None = None  # Explicit vertical ID (optional)
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
 
     def parse_agent_specs(self) -> list[AgentSpec]:
@@ -422,6 +424,57 @@ class DebateFactory:
             except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.debug(f"Failed to get persona params: {e}")
 
+    def _maybe_add_vertical_specialist(
+        self,
+        config: DebateConfig,
+        agent_result: AgentCreationResult,
+    ) -> AgentCreationResult:
+        """Optionally inject a vertical specialist agent."""
+        if not config.enable_verticals:
+            return agent_result
+
+        try:
+            from aragora.verticals.registry import VerticalRegistry
+        except ImportError:
+            logger.debug("Verticals registry not available; skipping specialist injection")
+            return agent_result
+
+        vertical_id = config.vertical_id or VerticalRegistry.get_for_task(config.question)
+        if not vertical_id:
+            logger.debug("No matching vertical found for task; skipping specialist injection")
+            return agent_result
+
+        # Avoid duplicates
+        for agent in agent_result.agents:
+            if getattr(agent, "vertical_id", None) == vertical_id:
+                return agent_result
+
+        if len(agent_result.agents) >= MAX_AGENTS_PER_DEBATE:
+            logger.info(
+                "Skipping vertical specialist (%s): max agents limit reached (%s)",
+                vertical_id,
+                MAX_AGENTS_PER_DEBATE,
+            )
+            return agent_result
+
+        try:
+            specialist = VerticalRegistry.create_specialist(
+                vertical_id=vertical_id,
+                name=f"{vertical_id}_specialist",
+                role="critic",
+            )
+            # Ensure vertical prompt is applied
+            try:
+                specialist.system_prompt = specialist.build_system_prompt()
+            except Exception:
+                pass
+            agent_result.agents.append(specialist)
+            logger.info("Injected vertical specialist: %s", vertical_id)
+        except Exception as e:
+            logger.warning(f"Failed to create vertical specialist {vertical_id}: {e}")
+
+        return agent_result
+
     def create_arena(
         self,
         config: DebateConfig,
@@ -465,6 +518,8 @@ class DebateFactory:
             stream_wrapper=stream_wrapper,
             debate_id=config.debate_id,
         )
+
+        agent_result = self._maybe_add_vertical_specialist(config, agent_result)
 
         if not agent_result.has_minimum:
             failed_names = [a for a, _ in agent_result.failed]

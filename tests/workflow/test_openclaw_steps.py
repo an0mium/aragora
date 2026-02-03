@@ -207,9 +207,14 @@ class TestValidActionTypes:
         """API action type should be valid."""
         assert "api" in VALID_ACTION_TYPES
 
+    def test_contains_keyboard_mouse(self):
+        """Keyboard and mouse action types should be valid."""
+        assert "keyboard" in VALID_ACTION_TYPES
+        assert "mouse" in VALID_ACTION_TYPES
+
     def test_total_count(self):
         """Exactly 7 action types should be defined."""
-        assert len(VALID_ACTION_TYPES) == 7
+        assert len(VALID_ACTION_TYPES) == 9
 
     def test_is_frozenset(self):
         """VALID_ACTION_TYPES should be immutable."""

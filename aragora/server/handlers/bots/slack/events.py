@@ -15,6 +15,7 @@ import re
 from typing import Any
 
 from aragora.audit.unified import audit_data
+from aragora.server.decision_integrity_utils import extract_execution_overrides
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -233,6 +234,8 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                 if command in ("ask", "debate", "aragora"):
                     clean_text = remainder
                 elif command in ("plan", "implement"):
+                    if command == "implement":
+                        remainder, overrides = extract_execution_overrides(remainder)
                     decision_integrity = {
                         "include_receipt": True,
                         "include_plan": True,
@@ -244,6 +247,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                     if command == "implement":
                         decision_integrity["execution_mode"] = "execute"
                         decision_integrity["execution_engine"] = "hybrid"
+                        decision_integrity.update(overrides)
                     clean_text = remainder
 
             attachments = _extract_slack_attachments(event)

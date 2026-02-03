@@ -6,6 +6,11 @@ on:
     paths:
       - 'docs/**'
       - 'docs-site/**'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'scripts/doc_stats.py'
+      - '.github/workflows/docs-build.yml'
 
 env:
   NODE_VERSION: '20'
@@ -29,9 +34,24 @@ jobs:
         working-directory: docs-site
         run: npm ci
 
+      - name: Update doc stats
+        run: python scripts/doc_stats.py --write
+
       - name: Sync documentation
         working-directory: docs-site
         run: node scripts/sync-docs.js
+
+      - name: Ensure docs are synced
+        run: |
+          if ! git diff --quiet; then
+            echo "Docs are out of sync. Run:"
+            echo "  python scripts/doc_stats.py --write"
+            echo "  node docs-site/scripts/sync-docs.js"
+            echo
+            git status --porcelain
+            git diff --stat
+            exit 1
+          fi
 
       - name: Build documentation
         working-directory: docs-site

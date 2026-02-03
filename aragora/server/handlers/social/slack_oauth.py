@@ -359,6 +359,11 @@ class SlackOAuthHandler(SecureHandler):
                 return await self._handle_uninstall(body, headers or {})
             return error_response("Method not allowed", 405)
 
+        # Allow unauthenticated install flow in non-production for developer convenience
+        if path == "/api/integrations/slack/install" and method == "GET":
+            if ARAGORA_ENV.lower() in {"development", "dev", "test", "local"}:
+                return await self._handle_install(query_params)
+
         # All other routes require authentication
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)

@@ -328,7 +328,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 130,700+ tests across 2,990+ test files
+**Test Suite:** 130,000+ tests across 3,000+ test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
@@ -385,7 +385,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 4,300+ tests passing)
-  - 25 adapters (Belief, CalibrationFusion, ComputerUse, Consensus, Continuum, ControlPlane, Cost, Critique, Culture, ELO, ERC8004, Evidence, Extraction, Fabric, Gateway, Insights, OpenClaw, Performance, Provenance, Pulse, Ranking, Receipt, RLM, Supermemory, Workspace)
+  - 28 adapters (Continuum, Consensus, Critique, Evidence, Belief, Insights, ELO, Performance, Pulse, Cost, Provenance, Fabric, Workspace, ComputerUse, Gateway, CalibrationFusion, ControlPlane, Culture, Receipt, DecisionPlan, Supermemory, RLM, Trickster, ERC8004, Obsidian, Debate, Workflow, Compliance)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics

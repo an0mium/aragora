@@ -163,6 +163,7 @@ class PlanExecutor:
         parallel_execution: bool | None = None,
         auth_context: AuthorizationContext | None = None,
         execution_mode: ExecutionMode | None = None,
+        on_task_complete: Any | None = None,
     ) -> PlanOutcome:
         """Execute a DecisionPlan and return the outcome.
 
@@ -174,6 +175,7 @@ class PlanExecutor:
                 If None, execution proceeds (for internal/system calls).
             execution_mode: Override the default execution mode for this call.
                 "workflow" uses WorkflowEngine, "hybrid" uses HybridExecutor.
+            on_task_complete: Optional callback invoked per task completion.
 
         Returns:
             PlanOutcome with execution results.
@@ -227,7 +229,11 @@ class PlanExecutor:
 
         try:
             if mode == "hybrid":
-                outcome = await self._run_hybrid(plan, parallel_execution=parallel_execution)
+                outcome = await self._run_hybrid(
+                    plan,
+                    parallel_execution=parallel_execution,
+                    on_task_complete=on_task_complete,
+                )
             elif mode == "computer_use":
                 outcome = await self._run_computer_use(plan)
             else:
@@ -371,6 +377,7 @@ class PlanExecutor:
         plan: DecisionPlan,
         *,
         parallel_execution: bool = False,
+        on_task_complete: Any | None = None,
     ) -> PlanOutcome:
         """Run plan tasks using HybridExecutor (Claude + Codex).
 
@@ -421,11 +428,20 @@ class PlanExecutor:
         try:
             # Execute all tasks
             completed: set[str] = set()
-            results = await executor.execute_plan(
-                tasks=tasks,
-                completed=completed,
-                stop_on_failure=False,  # Continue on failures, retry at end
-            )
+            if parallel_execution:
+                results = await executor.execute_plan_parallel(
+                    tasks=tasks,
+                    completed=completed,
+                    max_parallel=self._max_parallel,
+                    on_task_complete=on_task_complete,
+                )
+            else:
+                results = await executor.execute_plan(
+                    tasks=tasks,
+                    completed=completed,
+                    on_task_complete=on_task_complete,
+                    stop_on_failure=False,  # Continue on failures, retry at end
+                )
 
             duration = time.time() - start_time
 

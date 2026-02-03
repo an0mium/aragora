@@ -77,6 +77,19 @@ def _format_result_message(
         if isinstance(total_tokens, int) and total_tokens > 0:
             lines.append(f"**Context snapshot:** ~{total_tokens} tokens")
 
+        execution = package.get("execution") or package.get("workflow_execution")
+        if isinstance(execution, dict):
+            status = execution.get("status")
+            if status:
+                mode = execution.get("mode")
+                reason = execution.get("reason")
+                status_line = f"**Execution:** {status}"
+                if mode:
+                    status_line += f" ({mode})"
+                if reason:
+                    status_line += f" - {reason}"
+                lines.append(status_line)
+
         message = "\n".join(lines)
         if html:
             return message.replace("\n", "<br>")

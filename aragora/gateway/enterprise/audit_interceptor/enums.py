@@ -43,6 +43,7 @@ class AuditEventType(str, Enum):
 
 # HMAC signing key management
 _INTERCEPTOR_SIGNING_KEY: bytes | None = None
+_INTERCEPTOR_SIGNING_SOURCE: str | None = None  # "env" | "generated"
 _signing_key_lock = threading.Lock()
 
 
@@ -60,36 +61,38 @@ def get_interceptor_signing_key() -> bytes:
     Raises:
         RuntimeError: If key not set in production/staging environment
     """
-    global _INTERCEPTOR_SIGNING_KEY
+    global _INTERCEPTOR_SIGNING_KEY, _INTERCEPTOR_SIGNING_SOURCE
     with _signing_key_lock:
-        if _INTERCEPTOR_SIGNING_KEY is None:
-            key_hex = os.environ.get("ARAGORA_AUDIT_INTERCEPTOR_KEY") or os.environ.get(
-                "ARAGORA_AUDIT_SIGNING_KEY"
+        key_hex = os.environ.get("ARAGORA_AUDIT_INTERCEPTOR_KEY") or os.environ.get(
+            "ARAGORA_AUDIT_SIGNING_KEY"
+        )
+        if key_hex:
+            try:
+                _INTERCEPTOR_SIGNING_KEY = bytes.fromhex(key_hex)
+                if len(_INTERCEPTOR_SIGNING_KEY) < 32:
+                    raise ValueError("Key must be at least 32 bytes (64 hex chars)")
+                _INTERCEPTOR_SIGNING_SOURCE = "env"
+                logger.debug("Loaded audit interceptor signing key from environment")
+            except ValueError as e:
+                raise RuntimeError(
+                    f"Invalid signing key format: {e}. "
+                    "Key must be a hex-encoded string of at least 64 characters. "
+                    "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+                ) from e
+            return _INTERCEPTOR_SIGNING_KEY
+
+        env = os.environ.get("ARAGORA_ENV", "development")
+        if env in ("production", "prod", "staging"):
+            raise RuntimeError(
+                f"ARAGORA_AUDIT_INTERCEPTOR_KEY required in {env} environment. "
+                "Audit record signatures cannot be verified without a persistent key."
             )
-            if key_hex:
-                try:
-                    _INTERCEPTOR_SIGNING_KEY = bytes.fromhex(key_hex)
-                    if len(_INTERCEPTOR_SIGNING_KEY) < 32:
-                        raise ValueError("Key must be at least 32 bytes (64 hex chars)")
-                    logger.debug("Loaded audit interceptor signing key from environment")
-                except ValueError as e:
-                    raise RuntimeError(
-                        f"Invalid signing key format: {e}. "
-                        "Key must be a hex-encoded string of at least 64 characters. "
-                        "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
-                    ) from e
-            else:
-                env = os.environ.get("ARAGORA_ENV", "development")
-                if env in ("production", "prod", "staging"):
-                    raise RuntimeError(
-                        f"ARAGORA_AUDIT_INTERCEPTOR_KEY required in {env} environment. "
-                        "Audit record signatures cannot be verified without a persistent key."
-                    )
-                else:
-                    _INTERCEPTOR_SIGNING_KEY = secrets.token_bytes(32)
-                    logger.debug(
-                        "Generated ephemeral audit interceptor signing key for development"
-                    )
+
+        if _INTERCEPTOR_SIGNING_KEY is None or _INTERCEPTOR_SIGNING_SOURCE == "env":
+            _INTERCEPTOR_SIGNING_KEY = secrets.token_bytes(32)
+            _INTERCEPTOR_SIGNING_SOURCE = "generated"
+            logger.debug("Generated ephemeral audit interceptor signing key for development")
+
         return _INTERCEPTOR_SIGNING_KEY
 
 

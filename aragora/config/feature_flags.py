@@ -518,8 +518,29 @@ class FeatureFlagRegistry:
         self.register(
             "enable_telemetry",
             bool,
-            False,
+            True,  # Changed to True for default observability
             "Enable Prometheus/Blackbox telemetry emission",
+            FlagCategory.PERFORMANCE,
+        )
+        self.register(
+            "enable_tracing",
+            bool,
+            True,
+            "Enable distributed tracing with correlation IDs",
+            FlagCategory.PERFORMANCE,
+        )
+        self.register(
+            "enable_metrics",
+            bool,
+            True,
+            "Enable Prometheus metrics collection",
+            FlagCategory.PERFORMANCE,
+        )
+        self.register(
+            "enable_structured_logging",
+            bool,
+            True,
+            "Enable JSON structured logging with context",
             FlagCategory.PERFORMANCE,
         )
 

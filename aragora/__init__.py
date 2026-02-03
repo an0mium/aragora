@@ -374,6 +374,13 @@ _EXPORT_MAP = {
     "HealthChecker": ("aragora.resilience_patterns", "HealthChecker"),
     "HealthReport": ("aragora.resilience_patterns", "HealthReport"),
     "HealthRegistry": ("aragora.resilience_patterns.health", "HealthRegistry"),
+    # Canonical shared types (aragora.core.types) - preferred imports
+    "HealthLevel": ("aragora.core.types", "HealthLevel"),
+    "ValidationResult": ("aragora.core.types", "ValidationResult"),
+    "SyncResult": ("aragora.core.types", "SyncResult"),
+    # Unified decision routing (aragora.routing)
+    "UnifiedDecisionRouter": ("aragora.routing", "UnifiedDecisionRouter"),
+    "route_decision_auto": ("aragora.routing", "route_decision_auto"),
     # Computer Use (policy-gated browser automation)
     "ComputerUseOrchestrator": ("aragora.computer_use", "ComputerUseOrchestrator"),
     "ComputerUseConfig": ("aragora.computer_use", "ComputerUseConfig"),
@@ -672,6 +679,8 @@ __all__ = [
     "AgentProfile",
     "TaskRequirements",
     "TeamComposition",
+    "UnifiedDecisionRouter",
+    "route_decision_auto",
     # Templates
     "DebateTemplate",
     "TemplateType",
@@ -836,4 +845,8 @@ __all__ = [
     # Voice (wake word detection)
     "WakeWordDetector",
     "VoiceConfig",
+    # Canonical shared types (aragora.core.types)
+    "HealthLevel",
+    "ValidationResult",
+    "SyncResult",
 ]

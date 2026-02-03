@@ -96,6 +96,8 @@ class DebateRequest:
     trending_category: str | None = None
     metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
     documents: list[str] = field(default_factory=list)
+    enable_verticals: bool = False
+    vertical_id: str | None = None
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -133,6 +135,12 @@ class DebateRequest:
         except (ValueError, TypeError):
             rounds = DEFAULT_ROUNDS
 
+        metadata = data.get("metadata") or {}
+        enable_verticals = bool(
+            data.get("enable_verticals", metadata.get("enable_verticals", False))
+        )
+        vertical_id = data.get("vertical_id") or data.get("vertical") or metadata.get("vertical_id")
+
         return cls(
             question=question,
             agents_str=data.get("agents", DEFAULT_AGENTS),
@@ -143,7 +151,10 @@ class DebateRequest:
             auto_select_config=data.get("auto_select_config", {}),
             use_trending=data.get("use_trending", False),
             trending_category=data.get("trending_category"),
+            metadata=metadata,
             documents=_normalize_documents(data.get("documents") or data.get("document_ids") or []),
+            enable_verticals=enable_verticals,
+            vertical_id=vertical_id,
         )
 
 
@@ -492,6 +503,8 @@ Return JSON with these exact fields:
             trending_topic=trending_topic,
             metadata=request.metadata,
             documents=list(request.documents or []),
+            enable_verticals=request.enable_verticals,
+            vertical_id=request.vertical_id,
         )
 
         # Submit to thread pool

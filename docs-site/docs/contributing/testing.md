@@ -83,7 +83,7 @@ Automated fix loop for the first failing test:
 - Requires: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` secrets
 - Output: PR with proposed fix, plus `.testfixer/attempts.jsonl` artifact
 
-Local usage:
+You can also run it locally:
 
 ```bash
 aragora testfixer . --test-command "pytest tests/ -q --maxfail=1"

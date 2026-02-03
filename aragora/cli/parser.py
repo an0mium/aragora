@@ -177,6 +177,66 @@ def _add_ask_parser(subparsers) -> None:
         choices=["architect", "coder", "reviewer", "debugger", "orchestrator"],
         help="Operational mode for agents (architect, coder, reviewer, debugger, orchestrator)",
     )
+    ask_parser.add_argument(
+        "--enable-verticals",
+        action="store_true",
+        help="Enable vertical specialists (auto-detected by task)",
+    )
+    ask_parser.add_argument(
+        "--vertical",
+        help="Explicit vertical specialist ID to inject (e.g., software, legal, healthcare)",
+    )
+    run_mode = ask_parser.add_mutually_exclusive_group()
+    run_mode.add_argument(
+        "--api",
+        action="store_true",
+        help="Run debate via API server (uses shared storage and audit trails)",
+    )
+    run_mode.add_argument(
+        "--local",
+        action="store_true",
+        help="Run debate locally without API server (offline/air-gapped mode)",
+    )
+    debate_type = ask_parser.add_mutually_exclusive_group()
+    debate_type.add_argument(
+        "--graph",
+        action="store_true",
+        help="Run a graph debate with branching (API mode only)",
+    )
+    debate_type.add_argument(
+        "--matrix",
+        action="store_true",
+        help="Run a matrix debate with scenarios (API mode only)",
+    )
+    ask_parser.add_argument(
+        "--graph-rounds",
+        type=int,
+        default=5,
+        help="Max rounds per graph branch (default: 5)",
+    )
+    ask_parser.add_argument(
+        "--branch-threshold",
+        type=float,
+        default=0.5,
+        help="Divergence threshold for graph branching (0-1, default: 0.5)",
+    )
+    ask_parser.add_argument(
+        "--max-branches",
+        type=int,
+        default=5,
+        help="Maximum graph branches (default: 5)",
+    )
+    ask_parser.add_argument(
+        "--matrix-rounds",
+        type=int,
+        default=3,
+        help="Max rounds per matrix scenario (default: 3)",
+    )
+    ask_parser.add_argument(
+        "--scenario",
+        action="append",
+        help="Matrix scenario JSON or name (repeatable)",
+    )
     # Cross-pollination feature flags
     ask_parser.add_argument(
         "--no-elo-weighting",

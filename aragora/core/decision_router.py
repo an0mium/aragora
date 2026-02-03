@@ -433,6 +433,8 @@ class DecisionRouter:
                 result = await self._route_to_gauntlet(request)
             elif request.decision_type == DecisionType.QUICK:
                 result = await self._route_to_quick(request)
+            elif request.decision_type == DecisionType.AUTO:
+                result = await self._route_auto(request)
             else:
                 raise ValueError(f"Unknown decision type: {request.decision_type}")
 
@@ -734,99 +736,27 @@ class DecisionRouter:
     ) -> dict[str, Any] | None:
         """Optionally build a Decision Integrity package after debate completion."""
         cfg_raw = getattr(request.config, "decision_integrity", {}) or {}
-        if isinstance(cfg_raw, bool):
-            if not cfg_raw:
-                return None
-            cfg: dict[str, Any] = {}
-        elif isinstance(cfg_raw, dict):
-            cfg = cfg_raw
-        else:
-            return None
-
-        include_receipt = bool(cfg.get("include_receipt", True))
-        include_plan = bool(cfg.get("include_plan", True))
-        include_context = bool(cfg.get("include_context", False))
-        plan_strategy = str(cfg.get("plan_strategy", "single_task"))
-        notify_origin = bool(cfg.get("notify_origin", False))
-
-        if not any([include_receipt, include_plan, include_context]):
-            return None
+        notify_origin = False
+        if isinstance(cfg_raw, dict):
+            notify_origin = bool(cfg_raw.get("notify_origin", False))
 
         try:
-            from aragora.pipeline.decision_integrity import build_decision_integrity_package
-        except Exception as exc:
-            logger.debug("Decision integrity pipeline unavailable: %s", exc)
-            return None
-
-        debate_payload: dict[str, Any] = {}
-        if hasattr(debate_result, "to_dict"):
-            try:
-                debate_payload = debate_result.to_dict()
-            except Exception:
-                debate_payload = {}
-        if not debate_payload:
-            # Minimal fallback
-            debate_payload = {
-                "debate_id": getattr(debate_result, "debate_id", "") or "",
-                "task": getattr(debate_result, "task", "") or "",
-                "final_answer": getattr(debate_result, "final_answer", "") or "",
-                "confidence": getattr(debate_result, "confidence", 0.0) or 0.0,
-                "consensus_reached": getattr(debate_result, "consensus_reached", False) or False,
-                "rounds_used": getattr(debate_result, "rounds_used", 0) or 0,
-                "participants": getattr(debate_result, "participants", []) or [],
-            }
-
-        if getattr(debate_result, "metadata", None):
-            debate_payload["metadata"] = dict(getattr(debate_result, "metadata") or {})
-        if getattr(debate_result, "debate_id", None):
-            debate_payload["debate_id"] = getattr(debate_result, "debate_id")
-
-        continuum_memory = getattr(arena, "continuum_memory", None) if include_context else None
-        cross_debate_memory = (
-            getattr(arena, "cross_debate_memory", None) if include_context else None
-        )
-        knowledge_mound = getattr(arena, "knowledge_mound", None) if include_context else None
-
-        try:
-            package = await build_decision_integrity_package(
-                debate_payload,
-                include_receipt=include_receipt,
-                include_plan=include_plan,
-                include_context=include_context,
-                plan_strategy=plan_strategy,
-                continuum_memory=continuum_memory,
-                cross_debate_memory=cross_debate_memory,
-                knowledge_mound=knowledge_mound,
-                document_store=self._document_store,
-                evidence_store=self._evidence_store,
+            from aragora.server.decision_integrity_utils import (
+                build_decision_integrity_payload,
             )
         except Exception as exc:
-            logger.debug("Decision integrity build failed: %s", exc)
+            logger.debug("Decision integrity utilities unavailable: %s", exc)
             return None
 
-        payload = package.to_dict()
-
-        if notify_origin:
-            try:
-                from aragora.server.result_router import route_result
-
-                debate_id = (
-                    payload.get("debate_id")
-                    or debate_payload.get("debate_id")
-                    or request.request_id
-                )
-                await route_result(
-                    debate_id,
-                    {
-                        "debate_id": debate_id,
-                        "event": "decision_integrity",
-                        "package": payload,
-                    },
-                )
-            except Exception as exc:
-                logger.debug("Decision integrity routing failed: %s", exc)
-
-        return payload
+        return await build_decision_integrity_payload(
+            result=debate_result,
+            debate_id=getattr(debate_result, "debate_id", None),
+            arena=arena,
+            decision_integrity=cfg_raw,
+            document_store=self._document_store,
+            evidence_store=self._evidence_store,
+            notify_origin_override=notify_origin,
+        )
 
     def _ingest_attachments_to_documents(
         self,
@@ -1297,6 +1227,141 @@ class DecisionRouter:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Trace span cleanup error: {e}")
+
+    async def _route_auto(self, request: DecisionRequest) -> DecisionResult:
+        """
+        Route AUTO type using Gateway business logic.
+
+        Evaluates business criteria via Gateway router to intelligently decide:
+        - DEBATE: For high-stakes, compliance, or multi-stakeholder decisions
+        - QUICK: For straightforward execution
+
+        Falls back to DEBATE if Gateway router is unavailable.
+        """
+        span = None
+        span_ctx = None
+        if _trace_decision_engine:
+            try:
+                span_ctx = _trace_decision_engine("auto", request.request_id)
+                span = span_ctx.__enter__()
+            except (ImportError, AttributeError, RuntimeError) as e:
+                logger.debug(f"Trace span error: {e}")
+
+        try:
+            # Try to use Gateway router for intelligent routing
+            try:
+                from aragora.gateway.decision_router import (
+                    DecisionRouter as GatewayRouter,
+                    RoutingCriteria,
+                    RouteDestination,
+                )
+
+                gateway = GatewayRouter(criteria=RoutingCriteria())
+
+                # Build request for Gateway
+                gateway_request = self._build_gateway_request(request)
+                gateway_context = {
+                    "tenant_id": request.context.tenant_id,
+                    "workspace_id": request.context.workspace_id,
+                    "user_id": request.context.user_id,
+                }
+
+                # Get routing decision
+                decision = await gateway.route(gateway_request, gateway_context)
+
+                if span:
+                    span.set_attribute("auto.gateway_destination", decision.destination.value)
+                    span.set_attribute("auto.gateway_confidence", decision.confidence)
+
+                logger.info(
+                    f"AUTO routing via Gateway: {decision.destination.value} "
+                    f"(reason: {decision.reason[:80]})"
+                )
+
+                # Map Gateway destination to decision type
+                if decision.destination == RouteDestination.DEBATE:
+                    request.decision_type = DecisionType.DEBATE
+                    result = await self._route_to_debate(request)
+                elif decision.destination == RouteDestination.EXECUTE:
+                    request.decision_type = DecisionType.QUICK
+                    result = await self._route_to_quick(request)
+                elif decision.destination == RouteDestination.HYBRID_DEBATE_THEN_EXECUTE:
+                    # Start with debate for hybrid mode
+                    request.decision_type = DecisionType.DEBATE
+                    if request.context.metadata is None:
+                        request.context.metadata = {}
+                    request.context.metadata["hybrid_mode"] = "debate_then_execute"
+                    result = await self._route_to_debate(request)
+                elif decision.destination == RouteDestination.HYBRID_EXECUTE_WITH_VALIDATION:
+                    # Quick execution with validation flag
+                    request.decision_type = DecisionType.QUICK
+                    if request.context.metadata is None:
+                        request.context.metadata = {}
+                    request.context.metadata["hybrid_mode"] = "execute_with_validation"
+                    result = await self._route_to_quick(request)
+                elif decision.destination == RouteDestination.REJECT:
+                    return DecisionResult(
+                        request_id=request.request_id,
+                        decision_type=DecisionType.AUTO,
+                        answer="",
+                        confidence=0.0,
+                        consensus_reached=False,
+                        success=False,
+                        error=f"Request rejected: {decision.reason}",
+                    )
+                else:
+                    # Unknown destination, default to DEBATE
+                    request.decision_type = DecisionType.DEBATE
+                    result = await self._route_to_debate(request)
+
+                # Attach gateway metadata to result
+                if result.metadata is None:
+                    result.metadata = {}
+                result.metadata["gateway_routing"] = {
+                    "destination": decision.destination.value,
+                    "reason": decision.reason,
+                    "criteria_matched": decision.criteria_matched,
+                    "confidence": decision.confidence,
+                }
+
+                return result
+
+            except ImportError:
+                # Gateway router not available, fallback to DEBATE
+                logger.debug("Gateway router not available for AUTO routing, defaulting to DEBATE")
+                request.decision_type = DecisionType.DEBATE
+                return await self._route_to_debate(request)
+
+        finally:
+            if span_ctx:
+                try:
+                    span_ctx.__exit__(None, None, None)
+                except (AttributeError, RuntimeError, TypeError) as e:
+                    logger.debug(f"Trace span cleanup error: {e}")
+
+    def _build_gateway_request(self, request: DecisionRequest) -> dict[str, Any]:
+        """Build request dict for Gateway router from DecisionRequest."""
+        gateway_request: dict[str, Any] = {
+            "content": request.content,
+            "description": request.content[:500] if request.content else "",
+        }
+
+        # Extract relevant fields from metadata
+        if request.context.metadata:
+            meta = request.context.metadata
+            for key in ("amount", "risk_level", "compliance_flags", "stakeholders", "category"):
+                if key in meta:
+                    gateway_request[key] = meta[key]
+
+        # Extract from config if available
+        if request.config:
+            cfg = request.config
+            if hasattr(cfg, "financial_amount") and cfg.financial_amount:
+                gateway_request["amount"] = cfg.financial_amount
+            if hasattr(cfg, "risk_level") and cfg.risk_level:
+                gateway_request["risk_level"] = cfg.risk_level
+
+        return gateway_request
 
     async def _gather_knowledge_context(
         self,

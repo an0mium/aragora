@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 from typing import Any, cast
 
 from aragora.server.http_utils import run_async as _run_async
@@ -30,13 +31,30 @@ from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
+# Cached permission function and timestamp
+_cached_has_permission: Any = None
+_cache_timestamp: float = 0
+_CACHE_TTL_SECONDS = 60.0
+
 
 def _get_has_permission():
+    """Get the has_permission function with caching to avoid repeated module lookups."""
+    global _cached_has_permission, _cache_timestamp
+
+    now = time.time()
+    if _cached_has_permission is not None and (now - _cache_timestamp) < _CACHE_TTL_SECONDS:
+        return _cached_has_permission
+
     control_plane = sys.modules.get("aragora.server.handlers.control_plane")
     if control_plane is not None:
         candidate = getattr(control_plane, "has_permission", None)
         if callable(candidate):
+            _cached_has_permission = candidate
+            _cache_timestamp = now
             return candidate
+
+    _cached_has_permission = _has_permission
+    _cache_timestamp = now
     return _has_permission
 
 

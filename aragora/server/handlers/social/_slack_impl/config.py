@@ -122,6 +122,7 @@ def _validate_slack_url(url: str) -> bool:
 # --- Task tracking ---
 
 import asyncio
+import threading
 from typing import Coroutine
 
 
@@ -140,9 +141,30 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
     Use this instead of raw asyncio.create_task() for fire-and-forget tasks
     to ensure exceptions are logged rather than silently swallowed.
     """
-    task = asyncio.create_task(coro, name=name)
-    task.add_done_callback(lambda t: _handle_task_exception(t, name))
-    return task
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        task = loop.create_task(coro, name=name)
+        task.add_done_callback(lambda t: _handle_task_exception(t, name))
+        return task
+
+    def _run_in_thread() -> None:
+        try:
+            asyncio.run(coro)
+        except Exception as exc:  # pragma: no cover - safety net
+            logger.error(f"Task {name} failed with exception: {exc}", exc_info=exc)
+
+    thread = threading.Thread(target=_run_in_thread, name=f"slack-task-{name}", daemon=True)
+    thread.start()
+
+    class _BackgroundTask:
+        def add_done_callback(self, _cb):
+            return None
+
+    return _BackgroundTask()  # type: ignore[return-value]
 
 
 # --- Handler imports ---
