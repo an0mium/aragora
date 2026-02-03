@@ -36,7 +36,8 @@ class TestERC8004Connector:
         """Test connector source type."""
         assert connector.source_type == "blockchain"
 
-    def test_search_agents(self, connector, mock_provider, sample_agent_identities):
+    @pytest.mark.asyncio
+    async def test_search_agents(self, connector, mock_provider, sample_agent_identities):
         """Test searching for agents."""
         # Mock identity contract
         mock_identity = MagicMock()
@@ -50,13 +51,14 @@ class TestERC8004Connector:
         ]
         connector._identity_contract = mock_identity
 
-        results = connector.search("claude", limit=10)
+        results = await connector.search("claude", limit=10)
 
         assert len(results) > 0
         assert all(hasattr(r, "id") for r in results)
         assert all(hasattr(r, "title") for r in results)
 
-    def test_search_by_owner(self, connector, mock_provider, sample_agent_identities):
+    @pytest.mark.asyncio
+    async def test_search_by_owner(self, connector, mock_provider, sample_agent_identities):
         """Test searching agents by owner address."""
         mock_identity = MagicMock()
         owner = sample_agent_identities[0]["owner"]
@@ -74,11 +76,12 @@ class TestERC8004Connector:
         ]
         connector._identity_contract = mock_identity
 
-        results = connector.search_by_owner(owner=owner)
+        results = await connector.search_by_owner(owner=owner)
 
         assert len(results) == 2  # Agents 1 and 3 are owned by same address
 
-    def test_fetch_identity(self, connector, mock_provider, sample_agent_identity):
+    @pytest.mark.asyncio
+    async def test_fetch_identity(self, connector, mock_provider, sample_agent_identity):
         """Test fetching a specific agent identity."""
         mock_identity = MagicMock()
         mock_identity.get_agent.return_value = MagicMock(
@@ -89,13 +92,14 @@ class TestERC8004Connector:
         )
         connector._identity_contract = mock_identity
 
-        doc = connector.fetch("identity:1:42")
+        doc = await connector.fetch("identity:1:42")
 
         assert doc is not None
         assert doc.id == "identity:1:42"
         assert "42" in str(doc.content) or sample_agent_identity["agent_name"] in doc.content
 
-    def test_fetch_reputation(self, connector, mock_provider, sample_reputation_feedbacks):
+    @pytest.mark.asyncio
+    async def test_fetch_reputation(self, connector, mock_provider, sample_reputation_feedbacks):
         """Test fetching agent reputation."""
         mock_reputation = MagicMock()
         mock_reputation.get_all_feedback.return_value = [
@@ -109,12 +113,13 @@ class TestERC8004Connector:
         ]
         connector._reputation_contract = mock_reputation
 
-        doc = connector.fetch("reputation:1:42")
+        doc = await connector.fetch("reputation:1:42")
 
         assert doc is not None
         assert "reputation" in doc.id.lower()
 
-    def test_fetch_validations(self, connector, mock_provider, sample_validation_records):
+    @pytest.mark.asyncio
+    async def test_fetch_validations(self, connector, mock_provider, sample_validation_records):
         """Test fetching agent validations."""
         mock_validation = MagicMock()
         mock_validation.get_all_validations.return_value = [
@@ -127,21 +132,23 @@ class TestERC8004Connector:
         ]
         connector._validation_contract = mock_validation
 
-        doc = connector.fetch("validation:1:42")
+        doc = await connector.fetch("validation:1:42")
 
         assert doc is not None
         assert "validation" in doc.id.lower()
 
-    def test_fetch_invalid_id(self, connector, mock_provider):
+    @pytest.mark.asyncio
+    async def test_fetch_invalid_id(self, connector, mock_provider):
         """Test fetching with invalid ID format."""
         with pytest.raises(ValueError, match="Invalid identifier"):
-            connector.fetch("invalid_id")
+            await connector.fetch("invalid_id")
 
-    def test_health_check(self, connector, mock_provider):
+    @pytest.mark.asyncio
+    async def test_health_check(self, connector, mock_provider):
         """Test connector health check."""
         mock_provider.health_check.return_value = {"healthy": True, "chain_id": 1}
 
-        health = connector.health_check()
+        health = await connector.health_check()
 
         assert health["healthy"] is True
         assert health["connector"] == "erc8004"
