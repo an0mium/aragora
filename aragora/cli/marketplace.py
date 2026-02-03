@@ -515,7 +515,7 @@ def rate_template(ctx, template_id: str, score: int, review: str | None):
 def _rate_template_api(client, template_id: str, score: int, review: str | None):
     """Rate template via API."""
     try:
-        payload = {"score": score}
+        payload: dict[str, int | str] = {"score": score}
         if review:
             payload["review"] = review
         response = client.post(f"/api/v1/marketplace/templates/{template_id}/rate", json=payload)

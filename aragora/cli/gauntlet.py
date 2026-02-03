@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import hashlib
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -20,6 +21,28 @@ if TYPE_CHECKING:
     from aragora.agents.base import AgentType
 
 logger = logging.getLogger(__name__)
+
+# Default API URL from environment or localhost fallback
+DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+
+
+def _is_server_available(server_url: str) -> bool:
+    """Check if the API server is reachable."""
+    try:
+        import urllib.request
+
+        with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:
+            status_code = getattr(resp, "status", None) or resp.getcode()
+            return status_code == 200
+    except (OSError, TimeoutError):
+        return False
+
+
+def _build_api_client(server_url: str, api_key: str | None):
+    """Build an AragoraClient for API-backed runs."""
+    from aragora.client import AragoraClient
+
+    return AragoraClient(base_url=server_url, api_key=api_key)
 
 
 def parse_agents(agents_str: str) -> list[tuple[str, str]]:
@@ -98,6 +121,26 @@ def _save_receipt(receipt: Any, output_path: Path, format_ext: str) -> Path:
     return output_file
 
 
+def _run_gauntlet_api(
+    server_url: str,
+    api_key: str | None,
+    input_content: str,
+    input_type: str,
+    profile: str,
+    persona: str | None,
+    timeout: int,
+) -> Any:
+    """Run gauntlet via API and wait for completion."""
+    client = _build_api_client(server_url, api_key)
+    return client.gauntlet.run_and_wait(
+        input_content=input_content,
+        input_type=input_type,
+        persona=persona or "security",
+        profile=profile,
+        timeout=timeout,
+    )
+
+
 def cmd_gauntlet(args: argparse.Namespace) -> None:
     """Handle 'gauntlet' command - adversarial stress-testing."""
     from aragora.agents.base import create_agent
@@ -119,10 +162,6 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         get_compliance_gauntlet,
     )
 
-    print("\n" + "=" * 60)
-    print("GAUNTLET - Adversarial Stress-Testing")
-    print("=" * 60)
-
     # Load input content
     input_path = Path(args.input)
     if not input_path.exists():
@@ -135,6 +174,125 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         return
 
     input_content = input_path.read_text()
+
+    # API mode detection
+    server_url = getattr(args, "api_url", DEFAULT_API_URL)
+    api_key = (
+        getattr(args, "api_key", None)
+        or os.environ.get("ARAGORA_API_TOKEN")
+        or os.environ.get("ARAGORA_API_KEY")
+    )
+
+    requested_api = getattr(args, "api", False)
+    requested_local = getattr(args, "local", False)
+
+    use_api = requested_api
+    if not requested_api and not requested_local:
+        use_api = _is_server_available(server_url)
+
+    # Determine persona
+    persona = getattr(args, "persona", None)
+    profile = args.profile
+
+    if use_api:
+        try:
+            print("\n" + "=" * 60)
+            print("GAUNTLET - Adversarial Stress-Testing (API Mode)")
+            print("=" * 60)
+            print(f"\nInput: {input_path} ({len(input_content)} chars)")
+            print(f"Type: {args.input_type}")
+            print(f"Profile: {profile}")
+            if persona:
+                print(f"Persona: {persona}")
+            print("\n" + "-" * 60)
+            print("Running stress-test via API...")
+            print("-" * 60 + "\n")
+
+            timeout = args.timeout or 900
+            receipt = _run_gauntlet_api(
+                server_url=server_url,
+                api_key=api_key,
+                input_content=input_content,
+                input_type=args.input_type,
+                profile=profile,
+                persona=persona,
+                timeout=timeout,
+            )
+
+            # Print summary from receipt
+            print("\n" + "=" * 60)
+            print("GAUNTLET RESULT")
+            print("=" * 60)
+            print(f"Verdict: {receipt.verdict}")
+            print(f"Findings: {len(receipt.findings)}")
+            if receipt.findings:
+                print("\n" + "-" * 60)
+                print("FINDINGS:")
+                for i, finding in enumerate(receipt.findings[:10], 1):
+                    severity = getattr(finding, "severity", "unknown")
+                    title = getattr(finding, "title", str(finding))
+                    print(f"  {i}. [{severity}] {title}")
+                if len(receipt.findings) > 10:
+                    print(f"  ... and {len(receipt.findings) - 10} more")
+
+            # Save receipt if output specified
+            if args.output:
+                output_path = Path(args.output)
+                format_ext = args.format or output_path.suffix.lstrip(".")
+                if format_ext not in ("json", "md", "html"):
+                    format_ext = "html"
+
+                # Convert client model to local receipt format if needed
+                input_hash = hashlib.sha256(input_content.encode()).hexdigest()
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_file = output_path.with_suffix(f".{format_ext}")
+
+                if hasattr(receipt, "to_json"):
+                    if format_ext == "json":
+                        output_file.write_text(receipt.to_json())
+                    elif format_ext == "md":
+                        output_file.write_text(
+                            getattr(receipt, "to_markdown", lambda: str(receipt))()
+                        )
+                    else:
+                        output_file.write_text(getattr(receipt, "to_html", lambda: str(receipt))())
+                else:
+                    # Fallback: serialize as JSON
+                    import json as json_module
+
+                    output_file.write_text(json_module.dumps(receipt.model_dump(), indent=2))
+                print(f"\nDecision Receipt saved: {output_file}")
+
+            # Exit with non-zero if rejected
+            verdict_value = (
+                receipt.verdict.value if hasattr(receipt.verdict, "value") else str(receipt.verdict)
+            )
+            if verdict_value == "rejected":
+                print("\n[REJECTED] This input failed the stress-test.")
+                sys.exit(1)
+            elif verdict_value == "needs_review":
+                print("\n[NEEDS REVIEW] This input requires human review.")
+                sys.exit(2)
+
+            return
+
+        except Exception as e:
+            if requested_api:
+                print(f"API run failed: {e}", file=sys.stderr)
+                raise SystemExit(1)
+            if _is_server_available(server_url):
+                print(f"API run failed: {e}", file=sys.stderr)
+                raise SystemExit(1)
+            print(
+                "Warning: API server unavailable, falling back to local execution.",
+                file=sys.stderr,
+            )
+
+    # Local execution path
+    print("\n" + "=" * 60)
+    print("GAUNTLET - Adversarial Stress-Testing")
+    print("=" * 60)
+
     print(f"\nInput: {input_path} ({len(input_content)} chars)")
 
     # Determine input type
@@ -406,6 +564,28 @@ Examples:
         "--no-audit",
         action="store_true",
         help="Disable deep audit",
+    )
+    # API/local mode selection
+    run_mode = gauntlet_parser.add_mutually_exclusive_group()
+    run_mode.add_argument(
+        "--api",
+        action="store_true",
+        help="Run gauntlet via API server (uses shared storage and audit trails)",
+    )
+    run_mode.add_argument(
+        "--local",
+        action="store_true",
+        help="Run gauntlet locally without API server (offline/air-gapped mode)",
+    )
+    gauntlet_parser.add_argument(
+        "--api-url",
+        default=DEFAULT_API_URL,
+        help=f"API server URL (default: {DEFAULT_API_URL})",
+    )
+    gauntlet_parser.add_argument(
+        "--api-key",
+        default=None,
+        help="API key for server authentication (default: ARAGORA_API_KEY)",
     )
     gauntlet_parser.set_defaults(func=cmd_gauntlet)
 
