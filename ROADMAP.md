@@ -51,7 +51,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 ### Track 1: SME Starter Pack
 - [ ] Slack integration (OAuth, slash commands, thread debates)
 - [ ] Microsoft Teams integration (Bot Framework, Adaptive Cards)
-- [ ] Decision Receipts v1 (cryptographic signatures, PDF/JSON export)
+- [x] Decision Receipts v1 (cryptographic signatures, PDF/JSON/HTML export)
 - [ ] Budget controls and cost tracking per debate
 - [ ] Usage dashboard with spend analytics
 

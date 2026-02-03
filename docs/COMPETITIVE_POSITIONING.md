@@ -227,7 +227,7 @@ await mcp.call("aragora.verify.receipt", receipt_id="...")
    - Multi-tier memory consolidation
 
 2. **Build ecosystem lock-in**
-   - n8n workflow templates (done)
+   - n8n workflow templates (done, see `templates/n8n/`)
    - Linear/Obsidian integrations (done)
    - MCP server (done)
 

@@ -13,6 +13,7 @@ The debate process ensures fixes are cross-checked before application.
 from __future__ import annotations
 
 import difflib
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -22,6 +23,8 @@ from typing import Protocol
 
 
 from aragora.nomic.testfixer.analyzer import FailureAnalysis, FixTarget
+
+logger = logging.getLogger(__name__)
 
 
 class PatchStatus(str, Enum):
@@ -615,6 +618,7 @@ class PatchProposer:
 
         file_path = self.repo_path / file_to_fix
         if not file_path.exists():
+            logger.warning("proposal.file_missing path=%s", file_to_fix)
             return PatchProposal(
                 id=proposal_id,
                 analysis=analysis,
@@ -623,6 +627,12 @@ class PatchProposer:
             )
 
         original_content = file_path.read_text()
+        logger.info(
+            "proposal.start id=%s file=%s generators=%s",
+            proposal_id,
+            file_to_fix,
+            len(self.generators),
+        )
 
         # Phase 1: Generate proposals from each agent
         proposals = []
@@ -633,6 +643,13 @@ class PatchProposer:
                     original_content,
                     file_to_fix,
                 )
+                logger.info(
+                    "proposal.generated id=%s agent=%s confidence=%.2f changed=%s",
+                    proposal_id,
+                    f"agent_{i}",
+                    confidence,
+                    fixed_content != original_content,
+                )
                 proposals.append(
                     (
                         f"agent_{i}",
@@ -642,6 +659,9 @@ class PatchProposer:
                     )
                 )
             except Exception as e:
+                logger.exception(
+                    "proposal.generate_error id=%s agent=%s", proposal_id, f"agent_{i}"
+                )
                 proposals.append(
                     (
                         f"agent_{i}",
@@ -665,8 +685,18 @@ class PatchProposer:
                         content,
                         rationale,
                     )
+                    logger.debug(
+                        "proposal.critique id=%s critic=%s target=%s approved=%s",
+                        proposal_id,
+                        f"agent_{j}",
+                        agent,
+                        is_ok,
+                    )
                     all_critiques.append((f"agent_{j}", agent, critique, is_ok))
                 except Exception as e:
+                    logger.exception(
+                        "proposal.critique_error id=%s critic=%s", proposal_id, f"agent_{j}"
+                    )
                     all_critiques.append((f"agent_{j}", agent, f"Critique failed: {e}", False))
 
         # Phase 3: Synthesize
@@ -684,6 +714,7 @@ class PatchProposer:
                 critique_texts,
             )
         except Exception as e:
+            logger.exception("proposal.synthesis_error id=%s", proposal_id)
             # Fall back to highest confidence proposal
             best = max(proposals, key=lambda x: x[3])
             final_content = best[1]
@@ -693,6 +724,13 @@ class PatchProposer:
         # Check consensus
         approvals = sum(1 for c in all_critiques if c[3])
         consensus = approvals >= len(all_critiques) // 2 if all_critiques else True
+        logger.info(
+            "proposal.consensus id=%s approvals=%s critiques=%s consensus=%s",
+            proposal_id,
+            approvals,
+            len(all_critiques),
+            consensus,
+        )
 
         if self.require_consensus and not consensus:
             return PatchProposal(
@@ -713,6 +751,12 @@ class PatchProposer:
                     patched_content=final_content,
                 )
             )
+        logger.info(
+            "proposal.final id=%s confidence=%.2f patches=%s",
+            proposal_id,
+            final_confidence,
+            len(patches),
+        )
 
         return PatchProposal(
             id=proposal_id,

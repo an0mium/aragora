@@ -58,6 +58,7 @@ const DOC_MAP = {
   'CUSTOM_AGENTS.md': 'guides/custom-agents.md',
   'CHAT_CONNECTOR_GUIDE.md': 'guides/chat-connector.md',
   'CONNECTORS.md': 'guides/connectors.md',
+  'connectors/CONNECTOR_CATALOG.md': 'guides/connector-catalog.md',
   'CONNECTORS_SETUP.md': 'guides/connectors-setup.md',
   'CONNECTOR_TROUBLESHOOTING.md': 'guides/connector-troubleshooting.md',
   'ACCOUNTING.md': 'guides/accounting.md',

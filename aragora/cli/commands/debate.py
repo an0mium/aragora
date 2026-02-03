@@ -213,12 +213,20 @@ def _print_graph_result(debate: Any, verbose: bool = False) -> None:
     """Print a graph debate result summary."""
     branches = getattr(debate, "branches", []) or []
     consensus = getattr(debate, "consensus", None)
+    status = getattr(debate, "status", "unknown")
+    if hasattr(status, "value"):
+        status = status.value
 
     print("\n" + "=" * 60)
     print("GRAPH DEBATE RESULT:")
     print("=" * 60)
-    print(f"Status: {getattr(debate, 'status', 'unknown')}")
-    print(f"Branches: {len(branches)}")
+    print(f"Status: {status}")
+    if getattr(debate, "branch_count", None) is not None:
+        print(f"Branches: {getattr(debate, 'branch_count')}")
+    else:
+        print(f"Branches: {len(branches)}")
+    if getattr(debate, "node_count", None) is not None:
+        print(f"Nodes: {getattr(debate, 'node_count')}")
 
     if consensus and consensus.final_answer:
         print("\n" + "-" * 60)
@@ -229,9 +237,16 @@ def _print_graph_result(debate: Any, verbose: bool = False) -> None:
         print("\n" + "-" * 60)
         print("BRANCHES:")
         for branch in branches:
-            name = getattr(branch, "name", "")
-            node_count = len(getattr(branch, "nodes", []) or [])
-            print(f"- {name or branch.branch_id} ({node_count} nodes)")
+            if isinstance(branch, dict):
+                name = branch.get("name", "")
+                nodes = branch.get("nodes", []) or []
+                branch_id = branch.get("branch_id") or branch.get("id") or ""
+            else:
+                name = getattr(branch, "name", "")
+                nodes = getattr(branch, "nodes", []) or []
+                branch_id = getattr(branch, "branch_id", "")
+            node_count = len(nodes)
+            print(f"- {name or branch_id} ({node_count} nodes)")
 
 
 def _print_matrix_result(debate: Any, verbose: bool = False) -> None:
@@ -318,6 +333,8 @@ def _run_graph_debate_api(
         branch_threshold=branch_threshold,
         max_branches=max_branches,
     )
+    if getattr(response, "graph", None) or getattr(response, "branches", None):
+        return response
     debate_id = response.debate_id
 
     start = time.time()

@@ -1,0 +1,837 @@
+{
+  "by_category": {
+    "accounting": 4,
+    "advertising": 6,
+    "analytics": 4,
+    "automation": 2,
+    "blockchain": 1,
+    "browser": 1,
+    "calendar": 2,
+    "chat": 8,
+    "crm": 1,
+    "devices": 5,
+    "devops": 1,
+    "documents": 1,
+    "ecommerce": 4,
+    "email": 2,
+    "enterprise.collaboration": 8,
+    "enterprise.communication": 2,
+    "enterprise.crm": 1,
+    "enterprise.database": 5,
+    "enterprise.documents": 6,
+    "enterprise.git": 1,
+    "enterprise.healthcare": 2,
+    "enterprise.itsm": 1,
+    "enterprise.streaming": 3,
+    "evidence": 14,
+    "knowledge": 1,
+    "legal": 1,
+    "lowcode": 2,
+    "marketing": 2,
+    "marketplace": 1,
+    "misc": 1,
+    "payments": 2,
+    "support": 4
+  },
+  "by_kind": {
+    "enterprise": 29,
+    "evidence": 16,
+    "operational": 54
+  },
+  "connectors": [
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.asana",
+      "name": "AsanaConnector",
+      "path": "aragora/connectors/enterprise/collaboration/asana.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.confluence",
+      "name": "ConfluenceConnector",
+      "path": "aragora/connectors/enterprise/collaboration/confluence.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.jira",
+      "name": "JiraConnector",
+      "path": "aragora/connectors/enterprise/collaboration/jira.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.linear",
+      "name": "LinearConnector",
+      "path": "aragora/connectors/enterprise/collaboration/linear.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.monday",
+      "name": "MondayConnector",
+      "path": "aragora/connectors/enterprise/collaboration/monday.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.notion",
+      "name": "NotionConnector",
+      "path": "aragora/connectors/enterprise/collaboration/notion.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.slack",
+      "name": "SlackConnector",
+      "path": "aragora/connectors/enterprise/collaboration/slack.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.collaboration",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.collaboration.teams",
+      "name": "TeamsEnterpriseConnector",
+      "path": "aragora/connectors/enterprise/collaboration/teams.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.communication",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.communication.gmail",
+      "name": "GmailConnector",
+      "path": "aragora/connectors/enterprise/communication/gmail/__init__.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.communication",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.communication.outlook",
+      "name": "OutlookConnector",
+      "path": "aragora/connectors/enterprise/communication/outlook.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.crm",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.crm.salesforce",
+      "name": "SalesforceConnector",
+      "path": "aragora/connectors/enterprise/crm/salesforce.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.database",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.database.mongodb",
+      "name": "MongoDBConnector",
+      "path": "aragora/connectors/enterprise/database/mongodb.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.database",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.database.mysql",
+      "name": "MySQLConnector",
+      "path": "aragora/connectors/enterprise/database/mysql.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.database",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.database.postgres",
+      "name": "PostgreSQLConnector",
+      "path": "aragora/connectors/enterprise/database/postgres.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.database",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.database.sqlserver",
+      "name": "SQLServerConnector",
+      "path": "aragora/connectors/enterprise/database/sqlserver.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.database",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.database.snowflake",
+      "name": "SnowflakeConnector",
+      "path": "aragora/connectors/enterprise/database/snowflake.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.documents",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.documents.dropbox",
+      "name": "DropboxConnector",
+      "path": "aragora/connectors/enterprise/documents/dropbox.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.documents",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.documents.gdrive",
+      "name": "GoogleDriveConnector",
+      "path": "aragora/connectors/enterprise/documents/gdrive.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.documents",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.documents.gsheets",
+      "name": "GoogleSheetsConnector",
+      "path": "aragora/connectors/enterprise/documents/gsheets.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.documents",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.documents.onedrive",
+      "name": "OneDriveConnector",
+      "path": "aragora/connectors/enterprise/documents/onedrive.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.documents",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.documents.s3",
+      "name": "S3Connector",
+      "path": "aragora/connectors/enterprise/documents/s3.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.documents",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.documents.sharepoint",
+      "name": "SharePointConnector",
+      "path": "aragora/connectors/enterprise/documents/sharepoint.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.git",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.git.github",
+      "name": "GitHubEnterpriseConnector",
+      "path": "aragora/connectors/enterprise/git/github.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.healthcare",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.healthcare.fhir",
+      "name": "FHIRConnector",
+      "path": "aragora/connectors/enterprise/healthcare/fhir.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.healthcare",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.healthcare.hl7v2",
+      "name": "HL7v2Connector",
+      "path": "aragora/connectors/enterprise/healthcare/hl7v2.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.itsm",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.itsm.servicenow",
+      "name": "ServiceNowConnector",
+      "path": "aragora/connectors/enterprise/itsm/servicenow.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.streaming",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.streaming.kafka",
+      "name": "KafkaConnector",
+      "path": "aragora/connectors/enterprise/streaming/kafka.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.streaming",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.streaming.rabbitmq",
+      "name": "RabbitMQConnector",
+      "path": "aragora/connectors/enterprise/streaming/rabbitmq.py",
+      "status": "implemented"
+    },
+    {
+      "category": "enterprise.streaming",
+      "kind": "enterprise",
+      "module": "aragora.connectors.enterprise.streaming.snssqs",
+      "name": "SNSSQSConnector",
+      "path": "aragora/connectors/enterprise/streaming/snssqs.py",
+      "status": "implemented"
+    },
+    {
+      "category": "documents",
+      "kind": "evidence",
+      "module": "aragora.connectors.documents.connector",
+      "name": "DocumentConnector",
+      "path": "aragora/connectors/documents/connector.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.arxiv",
+      "name": "ArXivConnector",
+      "path": "aragora/connectors/arxiv.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.github",
+      "name": "GitHubConnector",
+      "path": "aragora/connectors/github.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.hackernews",
+      "name": "HackerNewsConnector",
+      "path": "aragora/connectors/hackernews.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.local_docs",
+      "name": "LocalDocsConnector",
+      "path": "aragora/connectors/local_docs.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.newsapi",
+      "name": "NewsAPIConnector",
+      "path": "aragora/connectors/newsapi.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.reddit",
+      "name": "RedditConnector",
+      "path": "aragora/connectors/reddit.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.repository_crawler",
+      "name": "RepositoryCrawler",
+      "path": "aragora/connectors/repository_crawler.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.sec",
+      "name": "SECConnector",
+      "path": "aragora/connectors/sec.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.sql",
+      "name": "SQLConnector",
+      "path": "aragora/connectors/sql.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.twitter",
+      "name": "TwitterConnector",
+      "path": "aragora/connectors/twitter.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.web",
+      "name": "WebConnector",
+      "path": "aragora/connectors/web.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.whisper",
+      "name": "WhisperConnector",
+      "path": "aragora/connectors/whisper.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.wikipedia",
+      "name": "WikipediaConnector",
+      "path": "aragora/connectors/wikipedia.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.youtube_uploader",
+      "name": "YouTubeUploaderConnector",
+      "path": "aragora/connectors/youtube_uploader.py",
+      "status": "implemented"
+    },
+    {
+      "category": "knowledge",
+      "kind": "evidence",
+      "module": "aragora.connectors.knowledge.obsidian",
+      "name": "ObsidianConnector",
+      "path": "aragora/connectors/knowledge/obsidian.py",
+      "status": "implemented"
+    },
+    {
+      "category": "accounting",
+      "kind": "operational",
+      "module": "aragora.connectors.accounting.gusto",
+      "name": "GustoConnector",
+      "path": "aragora/connectors/accounting/gusto.py",
+      "status": "implemented"
+    },
+    {
+      "category": "accounting",
+      "kind": "operational",
+      "module": "aragora.connectors.accounting.plaid",
+      "name": "PlaidConnector",
+      "path": "aragora/connectors/accounting/plaid.py",
+      "status": "implemented"
+    },
+    {
+      "category": "accounting",
+      "kind": "operational",
+      "module": "aragora.connectors.accounting.qbo",
+      "name": "QuickBooksConnector",
+      "path": "aragora/connectors/accounting/qbo.py",
+      "status": "implemented"
+    },
+    {
+      "category": "accounting",
+      "kind": "operational",
+      "module": "aragora.connectors.accounting.xero",
+      "name": "XeroConnector",
+      "path": "aragora/connectors/accounting/xero.py",
+      "status": "implemented"
+    },
+    {
+      "category": "advertising",
+      "kind": "operational",
+      "module": "aragora.connectors.advertising.google_ads",
+      "name": "GoogleAdsConnector",
+      "path": "aragora/connectors/advertising/google_ads.py",
+      "status": "implemented"
+    },
+    {
+      "category": "advertising",
+      "kind": "operational",
+      "module": "aragora.connectors.advertising.linkedin_ads",
+      "name": "LinkedInAdsConnector",
+      "path": "aragora/connectors/advertising/linkedin_ads.py",
+      "status": "implemented"
+    },
+    {
+      "category": "advertising",
+      "kind": "operational",
+      "module": "aragora.connectors.advertising.meta_ads",
+      "name": "MetaAdsConnector",
+      "path": "aragora/connectors/advertising/meta_ads.py",
+      "status": "implemented"
+    },
+    {
+      "category": "advertising",
+      "kind": "operational",
+      "module": "aragora.connectors.advertising.microsoft_ads",
+      "name": "MicrosoftAdsConnector",
+      "path": "aragora/connectors/advertising/microsoft_ads.py",
+      "status": "implemented"
+    },
+    {
+      "category": "advertising",
+      "kind": "operational",
+      "module": "aragora.connectors.advertising.tiktok_ads",
+      "name": "TikTokAdsConnector",
+      "path": "aragora/connectors/advertising/tiktok_ads.py",
+      "status": "implemented"
+    },
+    {
+      "category": "advertising",
+      "kind": "operational",
+      "module": "aragora.connectors.advertising.twitter_ads",
+      "name": "TwitterAdsConnector",
+      "path": "aragora/connectors/advertising/twitter_ads.py",
+      "status": "implemented"
+    },
+    {
+      "category": "analytics",
+      "kind": "operational",
+      "module": "aragora.connectors.analytics.google_analytics",
+      "name": "GoogleAnalyticsConnector",
+      "path": "aragora/connectors/analytics/google_analytics.py",
+      "status": "implemented"
+    },
+    {
+      "category": "analytics",
+      "kind": "operational",
+      "module": "aragora.connectors.analytics.metabase",
+      "name": "MetabaseConnector",
+      "path": "aragora/connectors/analytics/metabase.py",
+      "status": "implemented"
+    },
+    {
+      "category": "analytics",
+      "kind": "operational",
+      "module": "aragora.connectors.analytics.mixpanel",
+      "name": "MixpanelConnector",
+      "path": "aragora/connectors/analytics/mixpanel.py",
+      "status": "implemented"
+    },
+    {
+      "category": "analytics",
+      "kind": "operational",
+      "module": "aragora.connectors.analytics.segment",
+      "name": "SegmentConnector",
+      "path": "aragora/connectors/analytics/segment.py",
+      "status": "implemented"
+    },
+    {
+      "category": "automation",
+      "kind": "operational",
+      "module": "aragora.connectors.automation.n8n",
+      "name": "N8NConnector",
+      "path": "aragora/connectors/automation/n8n.py",
+      "status": "implemented"
+    },
+    {
+      "category": "automation",
+      "kind": "operational",
+      "module": "aragora.connectors.automation.zapier",
+      "name": "ZapierConnector",
+      "path": "aragora/connectors/automation/zapier.py",
+      "status": "implemented"
+    },
+    {
+      "category": "blockchain",
+      "kind": "operational",
+      "module": "aragora.connectors.blockchain.connector",
+      "name": "ERC8004Connector",
+      "path": "aragora/connectors/blockchain/connector.py",
+      "status": "implemented"
+    },
+    {
+      "category": "browser",
+      "kind": "operational",
+      "module": "aragora.connectors.browser.playwright_connector",
+      "name": "PlaywrightConnector",
+      "path": "aragora/connectors/browser/playwright_connector.py",
+      "status": "implemented"
+    },
+    {
+      "category": "calendar",
+      "kind": "operational",
+      "module": "aragora.connectors.calendar.google_calendar",
+      "name": "GoogleCalendarConnector",
+      "path": "aragora/connectors/calendar/google_calendar.py",
+      "status": "implemented"
+    },
+    {
+      "category": "calendar",
+      "kind": "operational",
+      "module": "aragora.connectors.calendar.outlook_calendar",
+      "name": "OutlookCalendarConnector",
+      "path": "aragora/connectors/calendar/outlook_calendar.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.discord",
+      "name": "DiscordConnector",
+      "path": "aragora/connectors/chat/discord.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.google_chat",
+      "name": "GoogleChatConnector",
+      "path": "aragora/connectors/chat/google_chat.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.imessage",
+      "name": "IMessageConnector",
+      "path": "aragora/connectors/chat/imessage.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.signal",
+      "name": "SignalConnector",
+      "path": "aragora/connectors/chat/signal.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.slack",
+      "name": "SlackConnector",
+      "path": "aragora/connectors/chat/slack/__init__.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.teams.connector",
+      "name": "TeamsConnector",
+      "path": "aragora/connectors/chat/teams/connector.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.telegram",
+      "name": "TelegramConnector",
+      "path": "aragora/connectors/chat/telegram.py",
+      "status": "implemented"
+    },
+    {
+      "category": "chat",
+      "kind": "operational",
+      "module": "aragora.connectors.chat.whatsapp",
+      "name": "WhatsAppConnector",
+      "path": "aragora/connectors/chat/whatsapp.py",
+      "status": "implemented"
+    },
+    {
+      "category": "crm",
+      "kind": "operational",
+      "module": "aragora.connectors.crm.hubspot",
+      "name": "HubSpotConnector",
+      "path": "aragora/connectors/crm/hubspot.py",
+      "status": "implemented"
+    },
+    {
+      "category": "devices",
+      "kind": "operational",
+      "module": "aragora.connectors.devices.push",
+      "name": "APNsConnector",
+      "path": "aragora/connectors/devices/push.py",
+      "status": "implemented"
+    },
+    {
+      "category": "devices",
+      "kind": "operational",
+      "module": "aragora.connectors.devices.alexa",
+      "name": "AlexaConnector",
+      "path": "aragora/connectors/devices/alexa.py",
+      "status": "implemented"
+    },
+    {
+      "category": "devices",
+      "kind": "operational",
+      "module": "aragora.connectors.devices.push",
+      "name": "FCMConnector",
+      "path": "aragora/connectors/devices/push.py",
+      "status": "implemented"
+    },
+    {
+      "category": "devices",
+      "kind": "operational",
+      "module": "aragora.connectors.devices.google_home",
+      "name": "GoogleHomeConnector",
+      "path": "aragora/connectors/devices/google_home.py",
+      "status": "implemented"
+    },
+    {
+      "category": "devices",
+      "kind": "operational",
+      "module": "aragora.connectors.devices.push",
+      "name": "WebPushConnector",
+      "path": "aragora/connectors/devices/push.py",
+      "status": "implemented"
+    },
+    {
+      "category": "devops",
+      "kind": "operational",
+      "module": "aragora.connectors.devops.pagerduty",
+      "name": "PagerDutyConnector",
+      "path": "aragora/connectors/devops/pagerduty.py",
+      "status": "implemented"
+    },
+    {
+      "category": "ecommerce",
+      "kind": "operational",
+      "module": "aragora.connectors.ecommerce.amazon",
+      "name": "AmazonConnector",
+      "path": "aragora/connectors/ecommerce/amazon.py",
+      "status": "implemented"
+    },
+    {
+      "category": "ecommerce",
+      "kind": "operational",
+      "module": "aragora.connectors.ecommerce.shipstation",
+      "name": "ShipStationConnector",
+      "path": "aragora/connectors/ecommerce/shipstation.py",
+      "status": "implemented"
+    },
+    {
+      "category": "ecommerce",
+      "kind": "operational",
+      "module": "aragora.connectors.ecommerce.shopify",
+      "name": "ShopifyConnector",
+      "path": "aragora/connectors/ecommerce/shopify.py",
+      "status": "implemented"
+    },
+    {
+      "category": "ecommerce",
+      "kind": "operational",
+      "module": "aragora.connectors.ecommerce.woocommerce.client",
+      "name": "WooCommerceConnector",
+      "path": "aragora/connectors/ecommerce/woocommerce/client.py",
+      "status": "implemented"
+    },
+    {
+      "category": "email",
+      "kind": "operational",
+      "module": "aragora.connectors.email.gmail_sync",
+      "name": "GmailSyncService",
+      "path": "aragora/connectors/email/gmail_sync.py",
+      "status": "implemented"
+    },
+    {
+      "category": "email",
+      "kind": "operational",
+      "module": "aragora.connectors.email.outlook_sync",
+      "name": "OutlookSyncService",
+      "path": "aragora/connectors/email/outlook_sync.py",
+      "status": "implemented"
+    },
+    {
+      "category": "legal",
+      "kind": "operational",
+      "module": "aragora.connectors.legal.docusign",
+      "name": "DocuSignConnector",
+      "path": "aragora/connectors/legal/docusign.py",
+      "status": "implemented"
+    },
+    {
+      "category": "lowcode",
+      "kind": "operational",
+      "module": "aragora.connectors.lowcode.airtable",
+      "name": "AirtableConnector",
+      "path": "aragora/connectors/lowcode/airtable.py",
+      "status": "implemented"
+    },
+    {
+      "category": "lowcode",
+      "kind": "operational",
+      "module": "aragora.connectors.lowcode.knack",
+      "name": "KnackConnector",
+      "path": "aragora/connectors/lowcode/knack.py",
+      "status": "implemented"
+    },
+    {
+      "category": "marketing",
+      "kind": "operational",
+      "module": "aragora.connectors.marketing.klaviyo",
+      "name": "KlaviyoConnector",
+      "path": "aragora/connectors/marketing/klaviyo.py",
+      "status": "implemented"
+    },
+    {
+      "category": "marketing",
+      "kind": "operational",
+      "module": "aragora.connectors.marketing.mailchimp",
+      "name": "MailchimpConnector",
+      "path": "aragora/connectors/marketing/mailchimp.py",
+      "status": "implemented"
+    },
+    {
+      "category": "marketplace",
+      "kind": "operational",
+      "module": "aragora.connectors.marketplace.walmart",
+      "name": "WalmartConnector",
+      "path": "aragora/connectors/marketplace/walmart.py",
+      "status": "implemented"
+    },
+    {
+      "category": "misc",
+      "kind": "operational",
+      "module": "aragora.connectors.twitter_poster",
+      "name": "TwitterPosterConnector",
+      "path": "aragora/connectors/twitter_poster.py",
+      "status": "implemented"
+    },
+    {
+      "category": "payments",
+      "kind": "operational",
+      "module": "aragora.connectors.payments.authorize_net",
+      "name": "AuthorizeNetConnector",
+      "path": "aragora/connectors/payments/authorize_net.py",
+      "status": "implemented"
+    },
+    {
+      "category": "payments",
+      "kind": "operational",
+      "module": "aragora.connectors.payments.stripe",
+      "name": "StripeConnector",
+      "path": "aragora/connectors/payments/stripe.py",
+      "status": "implemented"
+    },
+    {
+      "category": "support",
+      "kind": "operational",
+      "module": "aragora.connectors.support.freshdesk",
+      "name": "FreshdeskConnector",
+      "path": "aragora/connectors/support/freshdesk.py",
+      "status": "implemented"
+    },
+    {
+      "category": "support",
+      "kind": "operational",
+      "module": "aragora.connectors.support.helpscout",
+      "name": "HelpScoutConnector",
+      "path": "aragora/connectors/support/helpscout.py",
+      "status": "implemented"
+    },
+    {
+      "category": "support",
+      "kind": "operational",
+      "module": "aragora.connectors.support.intercom",
+      "name": "IntercomConnector",
+      "path": "aragora/connectors/support/intercom.py",
+      "status": "implemented"
+    },
+    {
+      "category": "support",
+      "kind": "operational",
+      "module": "aragora.connectors.support.zendesk",
+      "name": "ZendeskConnector",
+      "path": "aragora/connectors/support/zendesk.py",
+      "status": "implemented"
+    }
+  ],
+  "generated_at": "2026-02-03T23:26:15.460570+00:00",
+  "total": 99
+}

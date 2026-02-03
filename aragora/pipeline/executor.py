@@ -235,7 +235,7 @@ class PlanExecutor:
                     on_task_complete=on_task_complete,
                 )
             elif mode == "computer_use":
-                outcome = await self._run_computer_use(plan)
+                outcome = await self._run_computer_use(plan, on_task_complete=on_task_complete)
             else:
                 outcome = await self._run_workflow(plan, parallel_execution=parallel_execution)
         except Exception as e:
@@ -490,7 +490,12 @@ class PlanExecutor:
                 _os.environ.pop("IMPL_PARALLEL_TASKS", None)
                 _os.environ.pop("IMPL_MAX_PARALLEL", None)
 
-    async def _run_computer_use(self, plan: DecisionPlan) -> PlanOutcome:
+    async def _run_computer_use(
+        self,
+        plan: DecisionPlan,
+        *,
+        on_task_complete: Any | None = None,
+    ) -> PlanOutcome:
         """Run plan using ComputerUseOrchestrator for browser-based implementation.
 
         Computer Use mode executes tasks through browser automation via Playwright,
@@ -504,9 +509,12 @@ class PlanExecutor:
             PlanOutcome with execution results
         """
         from aragora.computer_use.executor import ExecutorConfig, PlaywrightActionExecutor
+        from types import SimpleNamespace
+
         from aragora.computer_use.orchestrator import (
             ComputerUseConfig,
             ComputerUseOrchestrator,
+            StepStatus,
             create_default_computer_policy,
         )
 
@@ -519,10 +527,28 @@ class PlanExecutor:
             task_descriptions = [t.description for t in plan.implement_plan.tasks]
             goal = f"{plan.task}\n\nTasks:\n" + "\n".join(f"- {d}" for d in task_descriptions)
 
+        def _on_step(step_result: Any) -> None:
+            if not on_task_complete:
+                return
+            success = getattr(step_result, "status", None) == StepStatus.SUCCESS and getattr(
+                getattr(step_result, "result", None), "success", False
+            )
+            duration_ms = getattr(getattr(step_result, "result", None), "duration_ms", 0.0)
+            error = getattr(getattr(step_result, "result", None), "error", None)
+            result_obj = SimpleNamespace(
+                success=success,
+                duration_seconds=duration_ms / 1000.0 if duration_ms else 0.0,
+                error=error,
+                model_used="computer_use",
+            )
+            step_id = f"step-{getattr(step_result, 'step_number', 'unknown')}"
+            on_task_complete(step_id, result_obj)
+
         # Configure computer use
         config = ComputerUseConfig(
             max_steps=50,  # Reasonable limit for automated tasks
             screenshot_delay_ms=500,
+            on_step_complete=_on_step if on_task_complete else None,
         )
         policy = create_default_computer_policy()
 
@@ -555,9 +581,20 @@ class PlanExecutor:
             duration = time.time() - start_time
 
             # Extract metrics from result
-            success = result.success if hasattr(result, "success") else False
+            success = False
+            if hasattr(result, "success"):
+                success = bool(getattr(result, "success"))
+            elif hasattr(result, "status"):
+                status = getattr(result, "status")
+                status_value = getattr(status, "value", status)
+                success = str(status_value).lower() == "completed"
+
             error = result.error if hasattr(result, "error") else None
-            steps_completed = result.steps_completed if hasattr(result, "steps_completed") else 0
+            if hasattr(result, "steps_completed"):
+                steps_completed = result.steps_completed
+            else:
+                steps = getattr(result, "steps", None)
+                steps_completed = len(steps) if isinstance(steps, list) else 0
 
             if steps_completed > 0:
                 lessons.append(f"Completed {steps_completed} browser automation steps")

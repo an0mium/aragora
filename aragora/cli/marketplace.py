@@ -99,7 +99,7 @@ def _list_templates_api(
         params["type"] = template_type
 
     try:
-        response = client.get("/api/v1/marketplace/templates", params=params)
+        response = client.request("GET", "/api/v1/marketplace/templates", params=params)
         templates = response.get("templates", [])
     except Exception as e:
         click.echo(f"API error: {e}", err=True)
@@ -197,7 +197,7 @@ def _search_templates_api(client, query: str, category: str | None, tags: str | 
         params["tags"] = tags
 
     try:
-        response = client.get("/api/v1/marketplace/search", params=params)
+        response = client.request("GET", "/api/v1/marketplace/search", params=params)
         templates = response.get("templates", [])
     except Exception as e:
         click.echo(f"API error: {e}", err=True)
@@ -274,7 +274,10 @@ def get_template(ctx, template_id: str, json_output: bool):
 def _get_template_api(client, template_id: str, json_output: bool):
     """Get template details via API."""
     try:
-        template = client.get(f"/api/v1/marketplace/templates/{template_id}")
+        template = client.request(
+            "GET",
+            f"/api/v1/marketplace/templates/{template_id}",
+        )
     except Exception as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
@@ -383,7 +386,10 @@ def export_template(ctx, template_id: str, output: str | None):
 def _export_template_api(client, template_id: str, output: str | None):
     """Export template via API."""
     try:
-        response = client.get(f"/api/v1/marketplace/templates/{template_id}/export")
+        response = client.request(
+            "GET",
+            f"/api/v1/marketplace/templates/{template_id}/export",
+        )
         json_str = json.dumps(response, indent=2)
     except Exception as e:
         click.echo(f"API error: {e}", err=True)
@@ -430,7 +436,11 @@ def _import_template_api(client, file_path: str):
     try:
         json_str = Path(file_path).read_text()
         template_data = json.loads(json_str)
-        response = client.post("/api/v1/marketplace/templates", json=template_data)
+        response = client.request(
+            "POST",
+            "/api/v1/marketplace/templates",
+            json=template_data,
+        )
         template_id = response.get("id", response.get("template_id", "unknown"))
         click.echo(f"Imported template: {template_id}")
     except json.JSONDecodeError as e:
@@ -472,7 +482,7 @@ def list_categories(ctx):
 def _list_categories_api(client):
     """List categories via API."""
     try:
-        response = client.get("/api/v1/marketplace/categories")
+        response = client.request("GET", "/api/v1/marketplace/categories")
         categories = response.get("categories", [])
     except Exception as e:
         click.echo(f"API error: {e}", err=True)
@@ -518,7 +528,11 @@ def _rate_template_api(client, template_id: str, score: int, review: str | None)
         payload: dict[str, int | str] = {"score": score}
         if review:
             payload["review"] = review
-        response = client.post(f"/api/v1/marketplace/templates/{template_id}/rate", json=payload)
+        response = client.request(
+            "POST",
+            f"/api/v1/marketplace/templates/{template_id}/rate",
+            json=payload,
+        )
         avg = response.get("average_rating", score)
         click.echo(f"Rated {template_id}: {'★' * score} ({score}/5)")
         click.echo(f"Average rating: {avg:.1f}")
@@ -569,7 +583,10 @@ def use_template(ctx, template_id: str, task: str, rounds: int):
 def _use_template_api(client, template_id: str, task: str, rounds: int):
     """Use template via API."""
     try:
-        template = client.get(f"/api/v1/marketplace/templates/{template_id}")
+        template = client.request(
+            "GET",
+            f"/api/v1/marketplace/templates/{template_id}",
+        )
     except Exception as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)

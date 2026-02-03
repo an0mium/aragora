@@ -188,6 +188,9 @@ class ComputerUseConfig:
     # Human approval callback
     require_approval_callback: Callable[[Action], bool] | None = None
 
+    # Progress callback (invoked per step result)
+    on_step_complete: Callable[[StepResult], None] | None = None
+
     # Approval workflow settings
     enforce_sensitive_approvals: bool = False
     approval_timeout_seconds: float = 300.0
@@ -295,6 +298,16 @@ class ComputerUseOrchestrator:
         """Get the policy."""
         return self._policy
 
+    def _emit_step(self, step_result: StepResult) -> None:
+        """Invoke progress callback for a completed step."""
+        callback = self._config.on_step_complete
+        if not callback:
+            return
+        try:
+            callback(step_result)
+        except Exception as exc:
+            logger.debug("Computer-use progress callback failed: %s", exc)
+
     async def run_task(
         self,
         goal: str,
@@ -391,6 +404,7 @@ class ComputerUseOrchestrator:
                         policy_reason=reason,
                     )
                     result.steps.append(step_result)
+                    self._emit_step(step_result)
                     self._metrics.policy_blocked_actions += 1
                     self._policy_checker.record_error()
 
@@ -426,6 +440,7 @@ class ComputerUseOrchestrator:
                             policy_reason=approval_reason,
                         )
                         result.steps.append(step_result)
+                        self._emit_step(step_result)
                         self._metrics.policy_blocked_actions += 1
                         self._policy_checker.record_error()
                         await asyncio.sleep(0.5)
@@ -450,6 +465,7 @@ class ComputerUseOrchestrator:
                             policy_reason="human approval required",
                         )
                         result.steps.append(step_result)
+                        self._emit_step(step_result)
                         continue
 
                 # Execute action
@@ -467,6 +483,7 @@ class ComputerUseOrchestrator:
                     policy_check_passed=True,
                 )
                 result.steps.append(step_result)
+                self._emit_step(step_result)
 
                 if action_result.success:
                     self._metrics.successful_actions += 1

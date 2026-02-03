@@ -36,7 +36,7 @@ integration map and points to the detailed setup docs.
 | Receipt webhooks | `aragora/integrations/receipt_webhooks.py` | Decision receipt delivery |
 | Generic webhooks | `aragora/integrations/webhooks.py` | Event-driven webhooks |
 | Zapier | `aragora/integrations/zapier.py` | Workflow automation |
-| n8n | `aragora/integrations/n8n.py` | Workflow automation |
+| n8n | `aragora/integrations/n8n.py` | Workflow automation (see `templates/n8n/README.md`) |
 | Twilio Voice | `aragora/integrations/twilio_voice.py` | Voice calls |
 | GitHub PR review API | `aragora/server/handlers/github/pr_review.py` | Automated pull request review |
 | GitHub audit bridge | `aragora/server/handlers/github/audit_bridge.py` | Sync audit findings to GitHub |

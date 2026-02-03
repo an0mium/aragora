@@ -594,6 +594,8 @@ class TestApprovalFlow:
         assert body["approval"]["id"] == "approval-001"
         assert body["approval"]["risk_level"] == "medium"
         assert body["approval"]["status"] == "pending"
+        assert body["execution_mode"] == "request_approval"
+        assert body["execution_engine"] == "hybrid"
 
     def test_request_approval_with_custom_risk_level(
         self, handler, mock_storage, mock_package, mock_approval_request
@@ -958,6 +960,9 @@ class TestExecuteMode:
 
         mock_outcome = MagicMock()
         mock_outcome.to_dict.return_value = {"success": True}
+        mock_outcome.tasks_total = 5
+        mock_outcome.tasks_completed = 3
+        mock_outcome.duration_seconds = 1.2
 
         with (
             patch(
@@ -998,6 +1003,7 @@ class TestExecuteMode:
         assert body["execution"]["status"] == "completed"
         assert body["execution"]["mode"] == "computer_use"
         assert body["execution"]["outcome"]["success"] is True
+        assert body["execution"]["progress"]["total_steps"] >= 0
         assert mock_executor_cls.called is True
 
     def test_execute_auto_approved(

@@ -56,6 +56,7 @@ class TestComputerUseConfig:
         assert config.display_height == 1080
         assert config.action_timeout_seconds == 10.0
         assert config.max_steps == 50
+        assert config.on_step_complete is None
 
     def test_custom_values(self):
         """Test custom configuration."""
@@ -270,6 +271,22 @@ class TestComputerUseOrchestrator:
         )
         assert result.status in [TaskStatus.COMPLETED, TaskStatus.RUNNING]
         assert result.task_id.startswith("task-")
+
+    @pytest.mark.asyncio
+    async def test_run_task_invokes_step_callback(self, orchestrator):
+        """Step callback should be invoked for completed steps."""
+        steps: list[StepResult] = []
+
+        def _capture_step(step_result: StepResult) -> None:
+            steps.append(step_result)
+
+        orchestrator._config.on_step_complete = _capture_step  # type: ignore[attr-defined]
+
+        result = await orchestrator.run_task(goal="Test", max_steps=2)
+
+        assert result.status in [TaskStatus.COMPLETED, TaskStatus.RUNNING]
+        assert steps
+        assert steps[0].step_number == 1
 
     @pytest.mark.asyncio
     async def test_run_task_with_metadata(self, orchestrator):

@@ -150,7 +150,7 @@ def _count_ts_namespaces() -> int:
     base = ROOT / "sdk/typescript/src/namespaces"
     if not base.exists():
         return 0
-    return sum(1 for p in base.rglob("*.ts") if p.is_file())
+    return sum(1 for p in base.glob("*.ts") if p.is_file())
 
 
 def _count_allowlisted_agents() -> int:

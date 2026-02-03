@@ -113,3 +113,5 @@ async def test_build_payload_executes_hybrid(monkeypatch):
     assert captured.get("on_task_complete") is not None
     assert payload is not None
     assert payload["execution"]["status"] == "completed"
+    assert payload["execution_mode"] == "execute"
+    assert payload["execution_engine"] == "hybrid"

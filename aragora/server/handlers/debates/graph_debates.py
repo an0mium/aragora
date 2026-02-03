@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 # RBAC permissions for graph debates
 DEBATES_READ_PERMISSION = "debates:read"
-DEBATES_WRITE_PERMISSION = "debates:write"
+DEBATES_WRITE_PERMISSION = "debates:create"
 
 # Rate limiter for graph debates (5 requests per minute - branching debates are expensive)
 _graph_limiter = RateLimiter(requests_per_minute=5)
@@ -55,7 +55,7 @@ class GraphDebatesHandler(SecureHandler):
 
     RBAC Protected:
     - debates:read - required for GET endpoints
-    - debates:write - required for POST endpoints
+    - debates:create - required for POST endpoints
     """
 
     def __init__(self, ctx: dict | None = None):
@@ -197,7 +197,7 @@ class GraphDebatesHandler(SecureHandler):
         if not normalized.rstrip("/").endswith("/debates/graph"):
             return error_response("Not found", 404)
 
-        # RBAC: Require authentication and debates:write permission
+        # RBAC: Require authentication and debates:create permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
             self.check_permission(auth_context, DEBATES_WRITE_PERMISSION)

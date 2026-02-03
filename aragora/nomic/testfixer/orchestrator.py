@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -57,6 +58,7 @@ class FixAttempt:
     applied: bool
     test_result_after: TestResult | None
     success: bool
+    run_id: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     duration_seconds: float = 0.0
     notes: list[str] = field(default_factory=list)
@@ -69,6 +71,7 @@ class FixLoopResult:
     status: LoopStatus
     started_at: datetime
     finished_at: datetime = field(default_factory=datetime.now)
+    run_id: str | None = None
 
     # Stats
     total_iterations: int = 0
@@ -144,6 +147,7 @@ class FixLoopConfig:
     save_attempts: bool = True
     attempts_dir: Path | None = None
     attempt_store: "TestFixerAttemptStore | None" = None
+    run_id: str | None = None
 
 
 class TestFixerOrchestrator:
@@ -202,6 +206,7 @@ class TestFixerOrchestrator:
         # State
         self._failure_history: list[str] = []  # Track failure patterns to detect loops
         self._applied_patches: list[tuple[PatchProposal, Path]] = []
+        self.run_id = self.config.run_id or uuid.uuid4().hex
 
     async def run_fix_loop(
         self,
@@ -222,16 +227,37 @@ class TestFixerOrchestrator:
             status=LoopStatus.RUNNING,
             started_at=started_at,
         )
+        result.run_id = self.run_id
+
+        logger.info(
+            "testfixer.start run_id=%s repo=%s test_command=%s max_iter=%s",
+            self.run_id,
+            self.repo_path,
+            self.test_command,
+            max_iter,
+        )
 
         try:
             for iteration in range(1, max_iter + 1):
                 result.total_iterations = iteration
 
-                logger.info(f"TestFixer iteration {iteration}/{max_iter}")
+                logger.info(
+                    "testfixer.iteration.start run_id=%s iteration=%s/%s",
+                    self.run_id,
+                    iteration,
+                    max_iter,
+                )
 
                 # Run tests
                 test_result = await self.runner.run()
                 result.final_test_result = test_result
+                logger.info(
+                    "testfixer.test_result run_id=%s iteration=%s exit_code=%s summary=%s",
+                    self.run_id,
+                    iteration,
+                    test_result.exit_code,
+                    test_result.summary(),
+                )
 
                 # Callback
                 if self.config.on_iteration_complete:
@@ -240,15 +266,31 @@ class TestFixerOrchestrator:
                 # Check for success
                 if test_result.success:
                     result.status = LoopStatus.SUCCESS
-                    logger.info(f"All tests pass after {iteration} iterations")
+                    logger.info(
+                        "testfixer.success run_id=%s iteration=%s",
+                        self.run_id,
+                        iteration,
+                    )
                     break
 
                 # Get first failure
                 failure = test_result.first_failure
                 if not failure:
-                    logger.warning("Tests failed but no failure details extracted")
+                    logger.warning(
+                        "testfixer.no_failure_details run_id=%s iteration=%s",
+                        self.run_id,
+                        iteration,
+                    )
                     result.status = LoopStatus.ERROR
                     break
+                logger.info(
+                    "testfixer.first_failure run_id=%s iteration=%s test=%s file=%s error_type=%s",
+                    self.run_id,
+                    iteration,
+                    failure.test_name,
+                    failure.test_file,
+                    failure.error_type,
+                )
 
                 # Check for stuck loop
                 failure_sig = f"{failure.test_file}::{failure.test_name}::{failure.error_type}"
@@ -256,20 +298,39 @@ class TestFixerOrchestrator:
 
                 recent = self._failure_history[-self.config.max_same_failure :]
                 if len(recent) == self.config.max_same_failure and len(set(recent)) == 1:
-                    logger.warning(f"Same failure {self.config.max_same_failure} times, stopping")
+                    logger.warning(
+                        "testfixer.stuck run_id=%s iteration=%s signature=%s",
+                        self.run_id,
+                        iteration,
+                        failure_sig,
+                    )
                     result.status = LoopStatus.STUCK
                     break
 
                 # Analyze failure
                 analysis = await self.analyzer.analyze(failure)
+                logger.info(
+                    "testfixer.analysis run_id=%s iteration=%s category=%s fix_target=%s confidence=%.2f root_file=%s",
+                    self.run_id,
+                    iteration,
+                    analysis.category.value,
+                    analysis.fix_target.value,
+                    analysis.confidence,
+                    analysis.root_cause_file,
+                )
 
                 # Check if human needed
                 if analysis.fix_target == FixTarget.HUMAN:
-                    logger.info("Analysis indicates human intervention needed")
+                    logger.info(
+                        "testfixer.human_required run_id=%s iteration=%s",
+                        self.run_id,
+                        iteration,
+                    )
                     result.status = LoopStatus.HUMAN_REQUIRED
                     result.attempts.append(
                         FixAttempt(
                             iteration=iteration,
+                            run_id=self.run_id,
                             failure=failure,
                             analysis=analysis,
                             proposal=PatchProposal(
@@ -288,6 +349,14 @@ class TestFixerOrchestrator:
 
                 # Propose fix
                 proposal = await self.proposer.propose_fix(analysis)
+                logger.info(
+                    "testfixer.proposal run_id=%s iteration=%s proposal_id=%s confidence=%.2f patches=%s",
+                    self.run_id,
+                    iteration,
+                    proposal.id,
+                    proposal.post_debate_confidence,
+                    len(proposal.patches),
+                )
 
                 # Check confidence
                 if proposal.post_debate_confidence < self.config.min_confidence_to_apply:
@@ -298,6 +367,7 @@ class TestFixerOrchestrator:
                     result.attempts.append(
                         FixAttempt(
                             iteration=iteration,
+                            run_id=self.run_id,
                             failure=failure,
                             analysis=analysis,
                             proposal=proposal,
@@ -313,10 +383,15 @@ class TestFixerOrchestrator:
                 if self.config.on_fix_proposed:
                     approved = await self.config.on_fix_proposed(proposal)
                     if not approved:
-                        logger.info("Fix proposal rejected by callback")
+                        logger.info(
+                            "testfixer.proposal.rejected run_id=%s iteration=%s",
+                            self.run_id,
+                            iteration,
+                        )
                         result.attempts.append(
                             FixAttempt(
                                 iteration=iteration,
+                                run_id=self.run_id,
                                 failure=failure,
                                 analysis=analysis,
                                 proposal=proposal,
@@ -330,10 +405,15 @@ class TestFixerOrchestrator:
 
                 # Apply fix
                 if not proposal.patches:
-                    logger.info("No patches in proposal, skipping")
+                    logger.info(
+                        "testfixer.proposal.no_patches run_id=%s iteration=%s",
+                        self.run_id,
+                        iteration,
+                    )
                     result.attempts.append(
                         FixAttempt(
                             iteration=iteration,
+                            run_id=self.run_id,
                             failure=failure,
                             analysis=analysis,
                             proposal=proposal,
@@ -345,15 +425,25 @@ class TestFixerOrchestrator:
                     )
                     continue
 
-                logger.info(f"Applying fix: {proposal.description}")
+                logger.info(
+                    "testfixer.apply.start run_id=%s iteration=%s description=%s",
+                    self.run_id,
+                    iteration,
+                    proposal.description,
+                )
                 applied = proposal.apply_all(self.repo_path)
                 result.fixes_applied += 1
 
                 if not applied:
-                    logger.error("Failed to apply patches")
+                    logger.error(
+                        "testfixer.apply.failed run_id=%s iteration=%s",
+                        self.run_id,
+                        iteration,
+                    )
                     result.attempts.append(
                         FixAttempt(
                             iteration=iteration,
+                            run_id=self.run_id,
                             failure=failure,
                             analysis=analysis,
                             proposal=proposal,
@@ -369,6 +459,12 @@ class TestFixerOrchestrator:
 
                 # Retest
                 retest_result = await self.runner.run()
+                logger.info(
+                    "testfixer.retest run_id=%s iteration=%s summary=%s",
+                    self.run_id,
+                    iteration,
+                    retest_result.summary(),
+                )
 
                 # Check if fix worked
                 fix_worked = retest_result.success or (
@@ -378,6 +474,7 @@ class TestFixerOrchestrator:
 
                 attempt = FixAttempt(
                     iteration=iteration,
+                    run_id=self.run_id,
                     failure=failure,
                     analysis=analysis,
                     proposal=proposal,
@@ -387,7 +484,12 @@ class TestFixerOrchestrator:
                 )
 
                 if fix_worked:
-                    logger.info(f"Fix successful for {failure.test_name}")
+                    logger.info(
+                        "testfixer.fix.success run_id=%s iteration=%s test=%s",
+                        self.run_id,
+                        iteration,
+                        failure.test_name,
+                    )
                     result.fixes_successful += 1
                     result.successful_patterns.append(
                         {
@@ -409,7 +511,12 @@ class TestFixerOrchestrator:
                         break
 
                 else:
-                    logger.info(f"Fix did not resolve {failure.test_name}")
+                    logger.info(
+                        "testfixer.fix.failed run_id=%s iteration=%s test=%s",
+                        self.run_id,
+                        iteration,
+                        failure.test_name,
+                    )
                     result.failed_patterns.append(
                         {
                             "category": analysis.category.value,
@@ -420,7 +527,11 @@ class TestFixerOrchestrator:
 
                     # Revert if configured
                     if self.config.revert_on_failure:
-                        logger.info("Reverting failed fix")
+                        logger.info(
+                            "testfixer.revert run_id=%s iteration=%s",
+                            self.run_id,
+                            iteration,
+                        )
                         proposal.revert_all(self.repo_path)
                         result.fixes_reverted += 1
 
@@ -443,6 +554,14 @@ class TestFixerOrchestrator:
                 result.attempts[-1].notes.append(f"Error: {e}")
 
         result.finished_at = datetime.now()
+        logger.info(
+            "testfixer.finish run_id=%s status=%s attempts=%s fixes_applied=%s fixes_successful=%s",
+            self.run_id,
+            result.status.value,
+            result.total_iterations,
+            result.fixes_applied,
+            result.fixes_successful,
+        )
         if self.config.attempt_store:
             self.config.attempt_store.record_run(result)
         return result
@@ -465,6 +584,7 @@ class TestFixerOrchestrator:
         if proposal.post_debate_confidence < self.config.min_confidence_to_apply:
             return FixAttempt(
                 iteration=0,
+                run_id=self.run_id,
                 failure=failure,
                 analysis=analysis,
                 proposal=proposal,
@@ -477,6 +597,7 @@ class TestFixerOrchestrator:
         if not proposal.patches:
             return FixAttempt(
                 iteration=0,
+                run_id=self.run_id,
                 failure=failure,
                 analysis=analysis,
                 proposal=proposal,
@@ -490,6 +611,7 @@ class TestFixerOrchestrator:
         if not applied:
             return FixAttempt(
                 iteration=0,
+                run_id=self.run_id,
                 failure=failure,
                 analysis=analysis,
                 proposal=proposal,
@@ -508,6 +630,7 @@ class TestFixerOrchestrator:
 
         return FixAttempt(
             iteration=0,
+            run_id=self.run_id,
             failure=failure,
             analysis=analysis,
             proposal=proposal,

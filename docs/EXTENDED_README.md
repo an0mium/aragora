@@ -336,7 +336,7 @@ aragora/
 └── cli/              # Command-line interface
 ```
 
-**Scale:** 3,000+ Python modules | 130,000+ tests across 3,000+ test files | 140 TypeScript SDK namespaces
+**Scale:** 3,000+ Python modules | 131,000+ tests across 3,000+ test files | 134 TypeScript SDK namespaces
 
 ---
 

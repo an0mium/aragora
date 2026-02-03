@@ -4,6 +4,9 @@ Aragora is the **control plane for multi-agent vetted decisionmaking across orga
 
 **Input Sources**: Documents, APIs, databases, web searches, academic papers, news, social media, financial filings, and more.
 
+**Authoritative inventory:** `docs/connectors/CONNECTOR_REGISTRY.json` (regenerate via `python scripts/update_connector_registry.py`).  
+**Readable catalog:** `docs/connectors/CONNECTOR_CATALOG.md` (generated from the registry).
+
 > **Full documentation**: See [Evidence System Guide](EVIDENCE.md) for detailed usage examples.
 
 ## Quick Reference (Evidence Connectors)

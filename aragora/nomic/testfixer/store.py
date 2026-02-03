@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.nomic.testfixer.orchestrator import FixAttempt, FixLoopResult
+
+logger = logging.getLogger(__name__)
 
 
 class TestFixerAttemptStore:
@@ -22,11 +25,13 @@ class TestFixerAttemptStore:
         record["recorded_at"] = datetime.now().isoformat()
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        logger.debug("store.append path=%s type=%s", self.path, record.get("type"))
 
     def record_attempt(self, attempt: "FixAttempt") -> None:
         self._append(
             {
                 "type": "attempt",
+                "run_id": attempt.run_id,
                 "iteration": attempt.iteration,
                 "failure": {
                     "test_name": attempt.failure.test_name,
@@ -57,6 +62,7 @@ class TestFixerAttemptStore:
         self._append(
             {
                 "type": "run",
+                "run_id": result.run_id,
                 "status": result.status.value,
                 "started_at": result.started_at.isoformat(),
                 "finished_at": result.finished_at.isoformat(),

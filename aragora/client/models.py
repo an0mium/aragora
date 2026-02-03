@@ -51,6 +51,7 @@ class DebateStatus(str, Enum):
             "active": cls.RUNNING,
             "concluded": cls.COMPLETED,
             "archived": cls.COMPLETED,
+            "initializing": cls.PENDING,
         }
         return legacy_map.get(value.lower())
 
@@ -357,8 +358,13 @@ class GraphDebateCreateResponse(BaseModel):
     """Response from creating a graph debate."""
 
     debate_id: str
-    status: str
-    task: str
+    status: str = "completed"
+    task: str | None = None
+    graph: dict[str, Any] | None = None
+    branches: list[dict[str, Any]] = Field(default_factory=list)
+    merge_results: list[dict[str, Any]] = Field(default_factory=list)
+    node_count: int | None = None
+    branch_count: int | None = None
 
 
 class GraphDebate(BaseModel):

@@ -10,6 +10,7 @@ Uses AI to:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -18,6 +19,8 @@ from pathlib import Path
 from typing import Protocol
 
 from aragora.nomic.testfixer.runner import TestFailure, TestResult
+
+logger = logging.getLogger(__name__)
 
 
 class FailureCategory(str, Enum):
@@ -361,6 +364,12 @@ class FailureAnalyzer:
         Returns:
             FailureAnalysis with categorization and fix guidance
         """
+        logger.info(
+            "analysis.start test=%s file=%s error_type=%s",
+            failure.test_name,
+            failure.test_file,
+            failure.error_type,
+        )
         # Start with heuristic categorization
         category, heuristic_confidence = categorize_by_heuristics(failure)
 
@@ -393,6 +402,7 @@ class FailureAnalyzer:
                     suggested_approach = ai_approach
                     confidence = ai_confidence
             except Exception:
+                logger.exception("analysis.ai_error")
                 pass  # Fall back to heuristics
 
         # Determine root cause file
@@ -463,7 +473,7 @@ class FailureAnalyzer:
         elif category in [FailureCategory.IMPL_BUG, FailureCategory.TEST_MOCK]:
             fix_complexity = "medium"
 
-        return FailureAnalysis(
+        analysis = FailureAnalysis(
             failure=failure,
             category=category,
             confidence=confidence,
@@ -475,6 +485,14 @@ class FailureAnalyzer:
             fix_complexity=fix_complexity,
             regression_risk="low" if fix_target == FixTarget.TEST_FILE else "medium",
         )
+        logger.info(
+            "analysis.complete category=%s fix_target=%s confidence=%.2f root_file=%s",
+            analysis.category.value,
+            analysis.fix_target.value,
+            analysis.confidence,
+            analysis.root_cause_file,
+        )
+        return analysis
 
     async def analyze_result(self, result: TestResult) -> list[FailureAnalysis]:
         """Analyze all failures in a test result.

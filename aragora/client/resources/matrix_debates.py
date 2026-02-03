@@ -57,7 +57,7 @@ class MatrixDebatesAPI:
             max_rounds=max_rounds,
         )
 
-        response = self._client._post("/api/debates/matrix", request.model_dump())
+        response = self._client._post("/api/v1/debates/matrix", request.model_dump())
         return MatrixDebateCreateResponse(**response)
 
     async def create_async(
@@ -80,7 +80,7 @@ class MatrixDebatesAPI:
             max_rounds=max_rounds,
         )
 
-        response = await self._client._post_async("/api/debates/matrix", request.model_dump())
+        response = await self._client._post_async("/api/v1/debates/matrix", request.model_dump())
         return MatrixDebateCreateResponse(**response)
 
     def get(self, matrix_id: str) -> MatrixDebate:
@@ -93,12 +93,12 @@ class MatrixDebatesAPI:
         Returns:
             MatrixDebate with full details including scenario results.
         """
-        response = self._client._get(f"/api/debates/matrix/{matrix_id}")
+        response = self._client._get(f"/api/v1/debates/matrix/{matrix_id}")
         return MatrixDebate(**response)
 
     async def get_async(self, matrix_id: str) -> MatrixDebate:
         """Async version of get()."""
-        response = await self._client._get_async(f"/api/debates/matrix/{matrix_id}")
+        response = await self._client._get_async(f"/api/v1/debates/matrix/{matrix_id}")
         return MatrixDebate(**response)
 
     def get_conclusions(self, matrix_id: str) -> MatrixConclusion:
@@ -111,12 +111,12 @@ class MatrixDebatesAPI:
         Returns:
             MatrixConclusion with universal, conditional, and contradictory findings.
         """
-        response = self._client._get(f"/api/debates/matrix/{matrix_id}/conclusions")
+        response = self._client._get(f"/api/v1/debates/matrix/{matrix_id}/conclusions")
         return MatrixConclusion(**response)
 
     async def get_conclusions_async(self, matrix_id: str) -> MatrixConclusion:
         """Async version of get_conclusions()."""
-        response = await self._client._get_async(f"/api/debates/matrix/{matrix_id}/conclusions")
+        response = await self._client._get_async(f"/api/v1/debates/matrix/{matrix_id}/conclusions")
         return MatrixConclusion(**response)
 
 

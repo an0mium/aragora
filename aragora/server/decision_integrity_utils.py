@@ -150,6 +150,14 @@ async def build_decision_integrity_payload(
 
     payload = package.to_dict()
 
+    if "execution_mode" in cfg or "execution_engine" in cfg:
+        payload["execution_mode"] = execution_mode
+        effective_engine = execution_engine or ("workflow" if workflow_mode else "")
+        if execution_mode in {"execute", "request_approval"} and not effective_engine:
+            effective_engine = "hybrid"
+        if effective_engine:
+            payload["execution_engine"] = effective_engine
+
     debate_key = (
         payload.get("debate_id")
         or debate_payload.get("debate_id")
@@ -297,15 +305,21 @@ async def build_decision_integrity_payload(
 
                 notifier = None
                 on_task_complete = None
-                if engine == "hybrid":
+                if engine in {"hybrid", "computer_use"}:
                     notifier = ExecutionNotifier(
                         debate_id=plan.debate_id or str(debate_key or ""),
                         plan_id=plan.id,
                         notify_channel=notify_origin,
                         notify_websocket=notify_origin,
                     )
-                    if plan.implement_plan is not None:
+                    if engine == "hybrid" and plan.implement_plan is not None:
                         notifier.set_task_descriptions(plan.implement_plan.tasks)
+                    if engine == "computer_use":
+                        max_steps = cfg.get("computer_use_max_steps", 50)
+                        try:
+                            notifier.progress.total_tasks = int(max_steps)
+                        except (TypeError, ValueError):
+                            notifier.progress.total_tasks = 50
                     on_task_complete = notifier.on_task_complete
 
                 executor = PlanExecutor(
@@ -327,6 +341,8 @@ async def build_decision_integrity_payload(
                     "mode": engine,
                     "outcome": outcome.to_dict(),
                 }
+                if engine == "computer_use" and notifier:
+                    execution_payload["progress"] = notifier.progress.to_dict()
             except Exception as exc:
                 execution_payload = {
                     "status": "failed",

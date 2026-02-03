@@ -174,6 +174,12 @@ class ImplementationOperationsMixin:
         if workflow_mode and not include_plan:
             include_plan = True
 
+        effective_engine = execution_engine or (
+            "workflow"
+            if workflow_mode
+            else ("hybrid" if execution_mode in {"execute", "request_approval"} else "")
+        )
+
         repo_root = self.ctx.get("repo_root")
         repo_path = Path(repo_root) if repo_root else None
 
@@ -209,6 +215,10 @@ class ImplementationOperationsMixin:
         )
 
         response_payload = package.to_dict()
+        if execution_mode != "plan_only" or execution_engine:
+            response_payload["execution_mode"] = execution_mode
+            if effective_engine:
+                response_payload["execution_engine"] = effective_engine
 
         # Persist receipt and plan for later retrieval via existing endpoints
         receipt_id = None
@@ -584,6 +594,11 @@ class ImplementationOperationsMixin:
                                 "status": "completed",
                                 "mode": "computer_use",
                                 "outcome": outcome.to_dict(),
+                                "progress": {
+                                    "total_steps": outcome.tasks_total,
+                                    "completed_steps": outcome.tasks_completed,
+                                    "duration_seconds": outcome.duration_seconds,
+                                },
                             }
                         except Exception as exc:
                             response_payload["execution"] = {

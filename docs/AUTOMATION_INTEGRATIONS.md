@@ -120,6 +120,8 @@ Asana: Create Task    Slack: Alert Team
 
 ### Setup (Self-Hosted)
 
+Pre-built workflow templates live in `templates/n8n/` (see `templates/n8n/README.md`).
+
 1. Install the Aragora n8n community node:
    ```bash
    npm install @aragora/n8n-nodes-aragora
@@ -178,6 +180,35 @@ CRUD operations on Aragora resources:
   ]
 }
 ```
+
+### Reference Workflow: Obsidian → Aragora → Linear
+
+Use the pre-built template in `templates/n8n/obsidian-aragora-linear.json` to
+connect local Obsidian notes to Aragora decision integrity and Linear execution.
+
+**What it does:**
+- Watches for notes tagged `#ready`
+- Launches a debate + decision integrity package
+- Creates a Linear issue
+- Writes a decision integrity note back to Obsidian
+- Updates the original note with `aragora_id`, `linear_issue`, and `decision_integrity`
+
+**Original note example (before):**
+
+```markdown
+---
+title: API Design Decision
+tags: [architecture, api]
+---
+
+# Should we use REST or GraphQL?
+
+Context here... #ready
+```
+
+**After automation:**
+- Decision receipt note added under `decisions/`
+- Original note frontmatter updated with `aragora_id`, `linear_issue`, and a backlink
 
 ---
 

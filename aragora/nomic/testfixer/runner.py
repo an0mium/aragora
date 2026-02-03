@@ -11,12 +11,15 @@ Runs test commands and parses output to extract:
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class TestFramework(str, Enum):
@@ -352,6 +355,15 @@ class TestRunner:
         """
         start_time = time.time()
         started_at = datetime.now()
+        logger.info(
+            "test.run.start command=%s cwd=%s timeout=%s framework=%s",
+            self.test_command,
+            self.repo_path,
+            self.timeout,
+            self.framework.value,
+        )
+        if self.env is not None:
+            logger.debug("test.run.env_keys=%s", sorted(self.env.keys()))
 
         try:
             # Run the test command
@@ -371,6 +383,11 @@ class TestRunner:
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
+                logger.error(
+                    "test.run.timeout command=%s timeout=%s",
+                    self.test_command,
+                    self.timeout,
+                )
                 return TestResult(
                     command=self.test_command,
                     exit_code=-1,
@@ -393,8 +410,19 @@ class TestRunner:
             stdout = stdout_bytes.decode("utf-8", errors="replace")
             stderr = stderr_bytes.decode("utf-8", errors="replace")
             exit_code = process.returncode or 0
+            logger.info(
+                "test.run.complete exit_code=%s duration=%.2fs stdout_bytes=%s stderr_bytes=%s",
+                exit_code,
+                time.time() - start_time,
+                len(stdout_bytes),
+                len(stderr_bytes),
+            )
+            if exit_code != 0:
+                logger.debug("test.run.stdout_tail=%s", stdout[-800:])
+                logger.debug("test.run.stderr_tail=%s", stderr[-800:])
 
         except Exception as e:
+            logger.exception("test.run.execution_error")
             return TestResult(
                 command=self.test_command,
                 exit_code=-1,
@@ -443,6 +471,24 @@ class TestRunner:
         # Enrich failures with file information
         for failure in failures:
             failure.involved_files = extract_involved_files(failure, self.repo_path)
+
+        logger.info(
+            "test.run.parsed total=%s passed=%s failed=%s errors=%s skipped=%s failures=%s",
+            stats["total"],
+            stats["passed"],
+            stats["failed"],
+            stats["errors"],
+            stats["skipped"],
+            len(failures),
+        )
+        if failures:
+            first = failures[0]
+            logger.info(
+                "test.run.first_failure test=%s file=%s error_type=%s",
+                first.test_name,
+                first.test_file,
+                first.error_type,
+            )
 
         return TestResult(
             command=self.test_command,

@@ -53,7 +53,7 @@ class GraphDebatesAPI:
             max_branches=max_branches,
         )
 
-        response = self._client._post("/api/debates/graph", request.model_dump())
+        response = self._client._post("/api/v1/debates/graph", request.model_dump())
         return GraphDebateCreateResponse(**response)
 
     async def create_async(
@@ -73,7 +73,7 @@ class GraphDebatesAPI:
             max_branches=max_branches,
         )
 
-        response = await self._client._post_async("/api/debates/graph", request.model_dump())
+        response = await self._client._post_async("/api/v1/debates/graph", request.model_dump())
         return GraphDebateCreateResponse(**response)
 
     def get(self, debate_id: str) -> GraphDebate:
@@ -86,12 +86,12 @@ class GraphDebatesAPI:
         Returns:
             GraphDebate with full details including branches.
         """
-        response = self._client._get(f"/api/debates/graph/{debate_id}")
+        response = self._client._get(f"/api/v1/debates/graph/{debate_id}")
         return GraphDebate(**response)
 
     async def get_async(self, debate_id: str) -> GraphDebate:
         """Async version of get()."""
-        response = await self._client._get_async(f"/api/debates/graph/{debate_id}")
+        response = await self._client._get_async(f"/api/v1/debates/graph/{debate_id}")
         return GraphDebate(**response)
 
     def get_branches(self, debate_id: str) -> list[GraphDebateBranch]:
@@ -104,13 +104,13 @@ class GraphDebatesAPI:
         Returns:
             List of GraphDebateBranch objects.
         """
-        response = self._client._get(f"/api/debates/graph/{debate_id}/branches")
+        response = self._client._get(f"/api/v1/debates/graph/{debate_id}/branches")
         branches = response.get("branches", response) if isinstance(response, dict) else response
         return [GraphDebateBranch(**b) for b in branches]
 
     async def get_branches_async(self, debate_id: str) -> list[GraphDebateBranch]:
         """Async version of get_branches()."""
-        response = await self._client._get_async(f"/api/debates/graph/{debate_id}/branches")
+        response = await self._client._get_async(f"/api/v1/debates/graph/{debate_id}/branches")
         branches = response.get("branches", response) if isinstance(response, dict) else response
         return [GraphDebateBranch(**b) for b in branches]
 

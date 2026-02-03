@@ -21,6 +21,7 @@ import asyncio
 import functools
 import logging
 import signal
+import threading
 import sys
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -187,6 +188,11 @@ def with_timeout_sync(
             if not hasattr(signal, "SIGALRM"):
                 logger.warning(f"SIGALRM not available, timeout not enforced for {func.__name__}")
                 return func(*args, **kwargs)
+            if threading.current_thread() is not threading.main_thread():
+                logger.warning(
+                    f"SIGALRM timeout not enforced for {func.__name__}: not in main thread"
+                )
+                return func(*args, **kwargs)
 
             def timeout_handler(signum: int, frame: Any) -> None:
                 operation = func.__name__
@@ -269,6 +275,10 @@ def timeout_context_sync(
     """
     if not hasattr(signal, "SIGALRM"):
         logger.warning(f"SIGALRM not available, timeout not enforced for {context_name}")
+        yield
+        return
+    if threading.current_thread() is not threading.main_thread():
+        logger.warning(f"SIGALRM timeout not enforced for {context_name}: not in main thread")
         yield
         return
 

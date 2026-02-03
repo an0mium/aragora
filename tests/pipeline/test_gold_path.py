@@ -777,3 +777,43 @@ class TestHybridExecutorBridge:
 
         assert outcome.success is True
         assert outcome.tasks_completed > 0
+
+    @pytest.mark.asyncio
+    async def test_computer_use_mode_emits_progress(self):
+        """Computer use execution should emit progress callbacks."""
+        from aragora.computer_use.orchestrator import MockActionExecutor
+        from aragora.pipeline.executor import PlanExecutor
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+
+        executor = PlanExecutor(execution_mode="computer_use")
+        progress_events: list[tuple[str, object]] = []
+
+        def _on_task_complete(task_id: str, result: object) -> None:
+            progress_events.append((task_id, result))
+
+        class _StubExecutor:
+            def __init__(self, *args, **kwargs):
+                self._executor = MockActionExecutor()
+
+            async def __aenter__(self):
+                return self._executor
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+        with patch(
+            "aragora.computer_use.executor.PlaywrightActionExecutor",
+            side_effect=lambda *args, **kwargs: _StubExecutor(),
+        ):
+            outcome = await executor.execute(
+                plan,
+                execution_mode="computer_use",
+                on_task_complete=_on_task_complete,
+            )
+
+        assert outcome.success is True
+        assert progress_events
+        assert progress_events[0][0].startswith("step-")

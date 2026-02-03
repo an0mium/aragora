@@ -39,6 +39,8 @@ const sidebars = {
         'guides/custom-agents',
         'guides/workflows',
         'guides/integrations',
+        'guides/connectors',
+        'guides/connector-catalog',
         'guides/evidence',
       ],
     },

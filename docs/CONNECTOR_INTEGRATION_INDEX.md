@@ -2,14 +2,19 @@
 
 Master index of all connectors available in Aragora.
 
+**Source of truth:** `docs/connectors/CONNECTOR_REGISTRY.json`  
+**Catalog:** `docs/connectors/CONNECTOR_CATALOG.md`  
+**Regenerate:** `python scripts/update_connector_registry.py`  
+Sections below are curated and may lag the registry; use the registry for authoritative counts and metadata.
+
 ## Summary
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Evidence Connectors | 14 | External knowledge sources |
-| Enterprise Connectors | 34 | Business systems integration |
-| Operational Connectors | 40 | Business operations tools |
-| **Total** | **88** | |
+| Evidence Connectors | 16 | External knowledge sources |
+| Enterprise Connectors | 29 | Business systems integration |
+| Operational Connectors | 54 | Business operations tools |
+| **Total** | **99** | |
 
 ---
 
@@ -41,10 +46,12 @@ Sources for gathering evidence for debates.
 | Connector | Module | Purpose |
 |-----------|--------|---------|
 | ArXiv | `aragora.connectors.arxiv` | Academic papers |
+| Documents | `aragora.connectors.documents.connector` | Multi-format document parsing |
 | GitHub | `aragora.connectors.github` | Repository content, issues, PRs |
 | HackerNews | `aragora.connectors.hackernews` | Tech news and discussions |
 | Local Docs | `aragora.connectors.local_docs` | Local file system documents |
 | NewsAPI | `aragora.connectors.newsapi` | News articles |
+| Obsidian | `aragora.connectors.knowledge.obsidian` | Local Obsidian vaults |
 | Reddit | `aragora.connectors.reddit` | Subreddit discussions |
 | Repository Crawler | `aragora.connectors.repository_crawler` | Git repository analysis |
 | SEC | `aragora.connectors.sec` | SEC filings (10-K, 10-Q) |
@@ -82,12 +89,12 @@ Business system integrations for enterprise deployments.
 |-----------|--------|---------|
 | Dropbox | `aragora.connectors.enterprise.documents.dropbox` | Cloud storage |
 | Google Drive | `aragora.connectors.enterprise.documents.gdrive` | Cloud storage |
+| Google Sheets | `aragora.connectors.enterprise.documents.gsheets` | Sheets ingestion |
 | OneDrive | `aragora.connectors.enterprise.documents.onedrive` | Cloud storage |
 | S3 | `aragora.connectors.enterprise.documents.s3` | AWS object storage |
 | SharePoint | `aragora.connectors.enterprise.documents.sharepoint` | Document management |
-| Document Parser | `aragora.connectors.documents.parser` | Multi-format parsing |
 
-### Database (4)
+### Database (5)
 
 | Connector | Module | Purpose |
 |-----------|--------|---------|
@@ -95,36 +102,35 @@ Business system integrations for enterprise deployments.
 | MongoDB | `aragora.connectors.enterprise.database.mongodb` | NoSQL database |
 | Snowflake | `aragora.connectors.enterprise.database.snowflake` | Data warehouse |
 | MySQL | `aragora.connectors.enterprise.database.mysql` | SQL database |
+| SQL Server | `aragora.connectors.enterprise.database.sqlserver` | SQL database |
 
-### Healthcare (3)
+### Healthcare (2)
 
 | Connector | Module | Purpose |
 |-----------|--------|---------|
 | FHIR | `aragora.connectors.enterprise.healthcare.fhir` | Healthcare data |
 | HL7v2 | `aragora.connectors.enterprise.healthcare.hl7v2` | Healthcare messaging |
-| EHR Base | `aragora.connectors.enterprise.healthcare.ehr.base` | EHR integration |
 
-### Communication (3)
+### Communication (2)
 
 | Connector | Module | Purpose |
 |-----------|--------|---------|
 | Gmail | `aragora.connectors.enterprise.communication.gmail` | Email |
 | Outlook | `aragora.connectors.enterprise.communication.outlook` | Email & Calendar |
-| Email | `aragora.connectors.email` | Generic email |
 
-### Streaming (2)
+### Streaming (3)
 
 | Connector | Module | Purpose |
 |-----------|--------|---------|
 | Kafka | `aragora.connectors.enterprise.streaming.kafka` | Event streaming |
 | RabbitMQ | `aragora.connectors.enterprise.streaming.rabbitmq` | Message queue |
+| SNS/SQS | `aragora.connectors.enterprise.streaming.snssqs` | AWS messaging |
 
-### CRM (2)
+### CRM (1)
 
 | Connector | Module | Purpose |
 |-----------|--------|---------|
 | Salesforce | `aragora.connectors.enterprise.crm.salesforce` | CRM |
-| Pipedrive | `aragora.connectors.crm.pipedrive` | Sales CRM |
 
 ### ITSM (1)
 
@@ -159,16 +165,25 @@ Business system integrations for enterprise deployments.
 
 Business operations and SaaS integrations.
 
-### Chat Platforms (6)
+### Chat Platforms (8)
 
 | Connector | Module | Purpose |
 |-----------|--------|---------|
 | Discord | `aragora.connectors.chat.discord` | Discord bot |
 | Google Chat | `aragora.connectors.chat.google_chat` | Google Chat integration |
-| Teams Chat | `aragora.connectors.chat.teams` | Teams messaging |
-| Teams Conversations | `aragora.connectors.chat.teams_conversations` | Teams channels |
+| iMessage | `aragora.connectors.chat.imessage` | iMessage integration |
+| Signal | `aragora.connectors.chat.signal` | Signal integration |
+| Slack | `aragora.connectors.chat.slack` | Slack bot |
+| Teams | `aragora.connectors.chat.teams` | Teams messaging |
 | Telegram | `aragora.connectors.chat.telegram` | Telegram bot |
 | WhatsApp | `aragora.connectors.chat.whatsapp` | WhatsApp messaging |
+
+### Email Sync (2)
+
+| Connector | Module | Purpose |
+|-----------|--------|---------|
+| Gmail Sync Service | `aragora.connectors.email.gmail_sync` | Legacy Gmail sync (deprecated) |
+| Outlook Sync Service | `aragora.connectors.email.outlook_sync` | Outlook background sync |
 
 ### Advertising (6)
 

@@ -4,12 +4,44 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
+import uuid
+from datetime import datetime
 from pathlib import Path
 
 from aragora.nomic.testfixer.generators import AgentCodeGenerator, AgentGeneratorConfig
 from aragora.nomic.testfixer.orchestrator import FixLoopConfig, TestFixerOrchestrator
 from aragora.nomic.testfixer.store import TestFixerAttemptStore
+
+
+def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Path | None:
+    level_name = (log_level or "info").upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    if log_file == "-":
+        handlers = [logging.StreamHandler()]
+        log_path = None
+    else:
+        if log_file:
+            log_path = Path(log_file)
+        else:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_path = repo_path / ".testfixer" / "logs" / f"testfixer_{ts}.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers = [
+            logging.StreamHandler(),
+            logging.FileHandler(log_path, encoding="utf-8"),
+        ]
+
+    logging.basicConfig(
+        level=level,
+        handlers=handlers,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        force=True,
+    )
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    return log_path
 
 
 def _parse_agents(agents: str) -> list[AgentCodeGenerator]:
@@ -33,10 +65,15 @@ async def _run(args: argparse.Namespace) -> int:
     test_command = args.test_command
     generators = _parse_agents(args.agents)
 
+    log_path = _setup_logging(repo_path, args.log_file, args.log_level)
+    if log_path:
+        print(f"[testfixer] logging to {log_path}")
+
     attempt_store = None
     if args.attempt_store:
         attempt_store = TestFixerAttemptStore(Path(args.attempt_store))
 
+    run_id = args.run_id or uuid.uuid4().hex
     config = FixLoopConfig(
         max_iterations=args.max_iterations,
         min_confidence_to_apply=args.min_confidence,
@@ -44,6 +81,7 @@ async def _run(args: argparse.Namespace) -> int:
         require_debate_consensus=args.require_consensus,
         revert_on_failure=not args.no_revert,
         attempt_store=attempt_store,
+        run_id=run_id,
     )
     if args.require_approval:
 
@@ -105,4 +143,7 @@ def build_parser(subparsers) -> None:
         action="store_true",
         help="Require manual approval before applying fixes",
     )
+    parser.add_argument("--log-file", default=None, help="Path to log file (or '-' for stderr)")
+    parser.add_argument("--log-level", default="info", help="Log level (debug, info, warning)")
+    parser.add_argument("--run-id", default=None, help="Optional run id for correlation")
     parser.set_defaults(func=cmd_testfixer)
