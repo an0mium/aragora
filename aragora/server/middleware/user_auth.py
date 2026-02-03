@@ -352,20 +352,10 @@ class SupabaseAuthValidator:
             logger.warning(f"JWT structure error: {e}")
             return None
         except (RuntimeError, OSError, AttributeError) as e:
-            # Unexpected system error - fail closed unless explicitly in dev mode
-            env = os.getenv("ARAGORA_ENVIRONMENT", "").lower()
-            is_dev = env in ("development", "dev", "local", "test")
-            allow_insecure = os.getenv("ARAGORA_ALLOW_INSECURE_JWT", "").lower() in (
-                "1",
-                "true",
-                "yes",
-            )
-            if not is_dev or not allow_insecure:
-                logger.error(f"JWT validation system error (failing closed): {e}")
-                raise  # Re-raise to trigger 500 error, don't silently allow
-            else:
-                logger.warning(f"JWT validation system error (dev mode): {e}")
-                return None
+            # Unexpected system error - always fail closed.
+            # Never silently bypass auth, even in dev mode.
+            logger.error(f"JWT validation system error (failing closed): {e}")
+            raise  # Re-raise to trigger 500 error, don't silently allow
 
     def _evict_stale_cache_entries(self) -> None:
         """Remove expired and oldest entries when cache is at capacity."""
