@@ -533,6 +533,16 @@ class TestDecisionRequest:
 
         assert request.context.correlation_id == "corr-123"
 
+    def test_from_http_with_documents(self):
+        """Parses document IDs from HTTP request body."""
+        body = {
+            "question": "Use uploaded docs?",
+            "documents": ["doc-1", "doc-2", "doc-1", "", 5],
+        }
+        request = DecisionRequest.from_http(body)
+
+        assert request.documents == ["doc-1", "doc-2"]
+
 
 class TestDecisionResult:
     """Tests for DecisionResult dataclass."""

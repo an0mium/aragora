@@ -786,6 +786,8 @@ class UnifiedServer:
                 enable_caching=True,
                 enable_deduplication=True,
                 cache_ttl_seconds=3600.0,
+                document_store=getattr(UnifiedHandler, "document_store", None),
+                evidence_store=getattr(UnifiedHandler, "evidence_store", None),
             )
             logger.info("DecisionRouter initialized for unified routing")
         except ImportError as e:

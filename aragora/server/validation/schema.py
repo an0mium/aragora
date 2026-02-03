@@ -54,6 +54,13 @@ DEBATE_START_SCHEMA = {
         "item_type": str,
         "required": False,
     },
+    "document_ids": {
+        "type": "list",
+        "min_length": 1,
+        "max_length": 50,
+        "item_type": str,
+        "required": False,
+    },
 }
 
 DEBATE_UPDATE_SCHEMA = {

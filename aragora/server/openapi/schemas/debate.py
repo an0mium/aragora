@@ -89,6 +89,20 @@ DEBATE_SCHEMAS: dict[str, Any] = {
                 "example": "We have 1M daily active users and need 99.9% uptime.",
                 "maxLength": 10000,
             },
+            "documents": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Document IDs to ground the debate in uploaded files",
+                "example": ["doc-123", "doc-456"],
+                "minItems": 1,
+                "maxItems": 50,
+            },
+            "document_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Alias for documents (deprecated)",
+                "deprecated": True,
+            },
             "auto_select": {
                 "type": "boolean",
                 "description": "Automatically select optimal agents based on topic",

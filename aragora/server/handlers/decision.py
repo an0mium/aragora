@@ -36,16 +36,26 @@ logger = logging.getLogger(__name__)
 _decision_router = None
 
 
-def _get_decision_router():
+def _get_decision_router(ctx: dict | None = None):
     """Get or create the decision router singleton."""
     global _decision_router
     if _decision_router is None:
         try:
             from aragora.core.decision import DecisionRouter
 
-            _decision_router = DecisionRouter()
+            ctx = ctx or {}
+            _decision_router = DecisionRouter(
+                document_store=ctx.get("document_store"),
+                evidence_store=ctx.get("evidence_store"),
+            )
         except Exception as e:
             logger.warning(f"DecisionRouter not available: {e}")
+    elif ctx:
+        # Fill in stores if they were not set initially.
+        if getattr(_decision_router, "_document_store", None) is None:
+            _decision_router._document_store = ctx.get("document_store")  # type: ignore[attr-defined]
+        if getattr(_decision_router, "_evidence_store", None) is None:
+            _decision_router._evidence_store = ctx.get("evidence_store")  # type: ignore[attr-defined]
     return _decision_router
 
 
@@ -234,7 +244,7 @@ class DecisionHandler(BaseHandler):
             return error_response(f"Failed to parse request: {e}", 400)
 
         # Get router
-        router = _get_decision_router()
+        router = _get_decision_router(self.ctx)
         if not router:
             return error_response("Decision router not available", 503)
 
@@ -479,7 +489,7 @@ class DecisionHandler(BaseHandler):
             )
 
         # Get router
-        router = _get_decision_router()
+        router = _get_decision_router(self.ctx)
         if not router:
             return error_response("Decision router not available", 503)
 
