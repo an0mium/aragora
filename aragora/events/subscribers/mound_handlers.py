@@ -412,14 +412,14 @@ class MoundHandlersMixin:
                         content=content,
                         debate_id=debate_id,
                     )
-                    logger.debug(f"Ingested {insight_type} insight to KM")
+                    logger.debug("Ingested %s insight to KM", insight_type)
             except Exception as e:
-                logger.debug(f"KM insight ingestion unavailable: {e}")
+                logger.debug("KM insight ingestion unavailable: %s", e)
 
             self.stats["insight_to_mound"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"Insight → Mound handler error: {e}")
+            logger.error("Insight -> Mound handler error: %s", e)
             self.stats["insight_to_mound"]["errors"] += 1
 
     def _handle_flip_to_mound(self, event: StreamEvent) -> None:
@@ -455,12 +455,12 @@ class MoundHandlersMixin:
                         debate_id=debate_id,
                     )
             except Exception as e:
-                logger.debug(f"KM position flip recording unavailable: {e}")
+                logger.debug("KM position flip recording unavailable: %s", e)
 
             self.stats["flip_to_mound"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"Flip → Mound handler error: {e}")
+            logger.error("Flip -> Mound handler error: %s", e)
             self.stats["flip_to_mound"]["errors"] += 1
 
     def _handle_mound_to_trickster(self, event: StreamEvent) -> None:
@@ -486,12 +486,12 @@ class MoundHandlersMixin:
                 if hasattr(mound, "get_hollow_consensus_patterns"):
                     patterns = mound.get_hollow_consensus_patterns(consensus_topic)
                     if patterns:
-                        logger.debug(f"Found {len(patterns)} hollow consensus patterns for topic")
+                        logger.debug("Found %s hollow consensus patterns for topic", len(patterns))
             except Exception as e:
-                logger.debug(f"KM hollow consensus patterns unavailable: {e}")
+                logger.debug("KM hollow consensus patterns unavailable: %s", e)
 
             self.stats["mound_to_trickster"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"Mound → Trickster handler error: {e}")
+            logger.error("Mound -> Trickster handler error: %s", e)
             self.stats["mound_to_trickster"]["errors"] += 1
