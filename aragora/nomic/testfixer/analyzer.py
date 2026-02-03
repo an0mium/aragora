@@ -427,6 +427,24 @@ class FailureAnalyzer:
                     if f"import {missing_mod}" in content or f"from {missing_mod}" in content:
                         root_cause_file = f
                         break
+        if (
+            category == FailureCategory.IMPL_MISSING
+            and failure.involved_files
+            and ("StrEnum" in failure.error_message or "StrEnum" in failure.stack_trace)
+        ):
+            for f in failure.involved_files:
+                if "test" in f.lower():
+                    continue
+                path = self.repo_path / f
+                if not path.exists():
+                    continue
+                try:
+                    content = path.read_text()
+                except Exception:
+                    continue
+                if "from enum import StrEnum" in content:
+                    root_cause_file = f
+                    break
 
         # Estimate complexity
         fix_complexity = "low"
