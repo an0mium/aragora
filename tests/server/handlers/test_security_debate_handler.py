@@ -114,21 +114,21 @@ class TestSecurityDebatePost:
         return result
 
     def test_post_missing_json_returns_400(self, handler):
-        handler.read_json = MagicMock(return_value=None)
+        handler.get_json_body = MagicMock(return_value=None)
         result = handler.post_api_v1_audit_security_debate()
         body = parse_handler_response(result)
         assert result.status_code == 400
         assert "invalid json" in body.get("error", "").lower()
 
     def test_post_empty_findings_returns_400(self, handler):
-        handler.read_json = MagicMock(return_value={"findings": []})
+        handler.get_json_body = MagicMock(return_value={"findings": []})
         result = handler.post_api_v1_audit_security_debate()
         body = parse_handler_response(result)
         assert result.status_code == 400
         assert "no findings" in body.get("error", "").lower()
 
     def test_post_findings_not_array_returns_400(self, handler):
-        handler.read_json = MagicMock(return_value={"findings": "string"})
+        handler.get_json_body = MagicMock(return_value={"findings": "string"})
         result = handler.post_api_v1_audit_security_debate()
         body = parse_handler_response(result)
         assert result.status_code == 400

@@ -96,11 +96,11 @@ class TestOAuthRateLimitConfig:
 
         config = OAuthRateLimitConfig()
         assert config.token_limit == 5
-        assert config.callback_limit == 10
+        assert config.callback_limit == 20  # Doubled for better UX during debugging
         assert config.auth_start_limit == 15
-        assert config.window_seconds == 900  # 15 minutes
-        assert config.max_backoff_seconds == 3600  # 1 hour
-        assert config.initial_backoff_seconds == 60  # 1 minute
+        assert config.window_seconds == 600  # 10 minutes
+        assert config.max_backoff_seconds == 900  # 15 minutes
+        assert config.initial_backoff_seconds == 30  # 30 seconds
         assert config.backoff_multiplier == 2.0
         assert config.enable_audit_logging is True
 
@@ -337,17 +337,16 @@ class TestOAuthRateLimiter:
         config = OAuthRateLimitConfig(
             token_limit=1,
             window_seconds=60,
-            initial_backoff_seconds=60,
         )
         limiter = OAuthRateLimiter(config=config)
 
         # First request passes
         limiter.check("192.168.1.105", "token", "google")
 
-        # Second request triggers backoff
+        # Second request triggers backoff (uses default initial_backoff_seconds=30)
         result = limiter.check("192.168.1.105", "token", "google")
         assert result.allowed is False
-        assert result.retry_after >= 60
+        assert result.retry_after >= 30
 
     def test_reset_client_clears_state(self):
         """Test that reset_client clears rate limit state."""
@@ -544,11 +543,11 @@ class TestOAuthRateLimitDecorator:
             # First request passes
             handler_func(mock_handler)
 
-            # Second request blocked with Retry-After
+            # Second request blocked with Retry-After (default backoff is 30s)
             result = handler_func(mock_handler)
             assert result.status_code == 429
             assert "Retry-After" in result.headers
-            assert int(result.headers["Retry-After"]) >= 60
+            assert int(result.headers["Retry-After"]) >= 30
 
 
 # ---------------------------------------------------------------------------

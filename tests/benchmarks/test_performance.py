@@ -61,6 +61,41 @@ class TestDebatePerformance:
         This test is marked flaky(reruns=3) due to timing sensitivity in CI
         environments where CPU/memory contention can cause outlier latencies.
         """
+        # Warmup run to stabilise timing and JIT caches
+        warmup_proto = DebateProtocol(
+            rounds=1,
+            consensus="any",
+            enable_research=False,
+            role_matching=False,
+            role_rotation=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_breakpoints=False,
+            enable_calibration=False,
+        )
+        with (
+            patch.object(
+                Arena, "_gather_trending_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                Arena, "_fetch_knowledge_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(Arena, "_init_km_context", new_callable=AsyncMock, return_value=None),
+            patch(
+                "aragora.debate.context_gatherer.ContextGatherer.gather_all",
+                new_callable=AsyncMock,
+                return_value="",
+            ),
+            patch(
+                "aragora.debate.phases.synthesis_generator.SynthesisGenerator.generate_mandatory_synthesis",
+                new=_stub_synthesis,
+            ),
+        ):
+            warmup_arena = Arena(benchmark_environment, benchmark_agents, warmup_proto)
+            if warmup_arena.prompt_builder:
+                warmup_arena.prompt_builder.classify_question_async = AsyncMock(return_value=None)
+            await asyncio.wait_for(warmup_arena.run(), timeout=30.0)
+
         protocol = DebateProtocol(
             rounds=1,
             consensus="any",
@@ -158,6 +193,7 @@ class TestDebatePerformance:
             assert_debate_slo("round_scaling_max_ratio", ratio)
 
     @pytest.mark.flaky(reruns=3)
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_agent_count_scaling(self, benchmark_environment):
         """Measure how latency scales with agent count.

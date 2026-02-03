@@ -16,23 +16,23 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import { AuthAPI } from '../auth';
 
 interface MockClient {
-  register: Mock;
+  registerUser: Mock;
   login: Mock;
   refreshToken: Mock;
   verifyEmail: Mock;
   getCurrentUser: Mock;
   updateProfile: Mock;
   changePassword: Mock;
-  forgotPassword: Mock;
+  requestPasswordReset: Mock;
   resetPassword: Mock;
   getOAuthUrl: Mock;
-  oauthCallback: Mock;
+  completeOAuth: Mock;
   setupMFA: Mock;
-  verifyMFA: Mock;
+  verifyMFASetup: Mock;
   disableMFA: Mock;
   listSessions: Mock;
   revokeSession: Mock;
-  revokeAllSessions: Mock;
+  logoutAll: Mock;
   listApiKeys: Mock;
   createApiKey: Mock;
   revokeApiKey: Mock;
@@ -46,23 +46,23 @@ describe('AuthAPI Namespace', () => {
 
   beforeEach(() => {
     mockClient = {
-      register: vi.fn(),
+      registerUser: vi.fn(),
       login: vi.fn(),
       refreshToken: vi.fn(),
       verifyEmail: vi.fn(),
       getCurrentUser: vi.fn(),
       updateProfile: vi.fn(),
       changePassword: vi.fn(),
-      forgotPassword: vi.fn(),
+      requestPasswordReset: vi.fn(),
       resetPassword: vi.fn(),
       getOAuthUrl: vi.fn(),
-      oauthCallback: vi.fn(),
+      completeOAuth: vi.fn(),
       setupMFA: vi.fn(),
-      verifyMFA: vi.fn(),
+      verifyMFASetup: vi.fn(),
       disableMFA: vi.fn(),
       listSessions: vi.fn(),
       revokeSession: vi.fn(),
-      revokeAllSessions: vi.fn(),
+      logoutAll: vi.fn(),
       listApiKeys: vi.fn(),
       createApiKey: vi.fn(),
       revokeApiKey: vi.fn(),
@@ -82,7 +82,7 @@ describe('AuthAPI Namespace', () => {
         user: { id: 'u1', email: 'test@example.com', name: 'Test User' },
         token: { access_token: 'token123', refresh_token: 'refresh123' },
       };
-      mockClient.register.mockResolvedValue(mockResponse);
+      mockClient.registerUser.mockResolvedValue(mockResponse);
 
       const result = await api.register({
         email: 'test@example.com',
@@ -90,7 +90,7 @@ describe('AuthAPI Namespace', () => {
         name: 'Test User',
       });
 
-      expect(mockClient.register).toHaveBeenCalledWith({
+      expect(mockClient.registerUser).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'securePassword123',
         name: 'Test User',
@@ -200,16 +200,15 @@ describe('AuthAPI Namespace', () => {
     });
 
     it('should request password reset', async () => {
-      mockClient.forgotPassword.mockResolvedValue({ sent: true });
+      mockClient.requestPasswordReset.mockResolvedValue(undefined);
 
-      const result = await api.forgotPassword({
+      await api.requestPasswordReset({
         email: 'test@example.com',
       });
 
-      expect(mockClient.forgotPassword).toHaveBeenCalledWith({
+      expect(mockClient.requestPasswordReset).toHaveBeenCalledWith({
         email: 'test@example.com',
       });
-      expect(result.sent).toBe(true);
     });
 
     it('should reset password with token', async () => {
@@ -249,12 +248,12 @@ describe('AuthAPI Namespace', () => {
     });
 
     it('should verify MFA code', async () => {
-      const mockVerify = { verified: true, token: { access_token: 'mfaToken123' } };
-      mockClient.verifyMFA.mockResolvedValue(mockVerify);
+      const mockVerify = { verified: true, backup_codes: ['code1', 'code2'] };
+      mockClient.verifyMFASetup.mockResolvedValue(mockVerify);
 
-      const result = await api.verifyMFA({ code: '123456' });
+      const result = await api.verifyMFASetup({ code: '123456' });
 
-      expect(mockClient.verifyMFA).toHaveBeenCalledWith({ code: '123456' });
+      expect(mockClient.verifyMFASetup).toHaveBeenCalledWith({ code: '123456' });
       expect(result.verified).toBe(true);
     });
 
@@ -298,12 +297,12 @@ describe('AuthAPI Namespace', () => {
     });
 
     it('should revoke all other sessions', async () => {
-      mockClient.revokeAllSessions.mockResolvedValue({ revoked_count: 3 });
+      mockClient.logoutAll.mockResolvedValue({ logged_out: true, sessions_revoked: 3 });
 
-      const result = await api.revokeAllSessions();
+      const result = await api.logoutAll();
 
-      expect(mockClient.revokeAllSessions).toHaveBeenCalled();
-      expect(result.revoked_count).toBe(3);
+      expect(mockClient.logoutAll).toHaveBeenCalled();
+      expect(result.sessions_revoked).toBe(3);
     });
   });
 
@@ -330,18 +329,14 @@ describe('AuthAPI Namespace', () => {
     it('should create API key', async () => {
       const mockKey = {
         id: 'k3',
-        name: 'New Key',
         key: 'ara_live_abc123xyz',
-        created_at: '2024-01-03',
+        prefix: 'ara_',
       };
       mockClient.createApiKey.mockResolvedValue(mockKey);
 
-      const result = await api.createApiKey({ name: 'New Key', scopes: ['read', 'write'] });
+      const result = await api.createApiKey('New Key', 30);
 
-      expect(mockClient.createApiKey).toHaveBeenCalledWith({
-        name: 'New Key',
-        scopes: ['read', 'write'],
-      });
+      expect(mockClient.createApiKey).toHaveBeenCalledWith('New Key', 30);
       expect(result.key).toBe('ara_live_abc123xyz');
     });
 
@@ -385,15 +380,15 @@ describe('AuthAPI Namespace', () => {
         refresh_token: 'oauthRefresh123',
         user: { id: 'u1', email: 'oauth@example.com' },
       };
-      mockClient.oauthCallback.mockResolvedValue(mockToken);
+      mockClient.completeOAuth.mockResolvedValue(mockToken);
 
-      const result = await api.oauthCallback({
+      const result = await api.completeOAuth({
         provider: 'google',
         code: 'authCode123',
         state: 'randomState123',
       });
 
-      expect(mockClient.oauthCallback).toHaveBeenCalledWith({
+      expect(mockClient.completeOAuth).toHaveBeenCalledWith({
         provider: 'google',
         code: 'authCode123',
         state: 'randomState123',
