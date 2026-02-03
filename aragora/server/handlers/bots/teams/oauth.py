@@ -118,7 +118,7 @@ class TeamsOAuth:
         token = auth_header[7:]  # Remove "Bearer " prefix
 
         try:
-            from aragora.connectors.chat.jwt_verify import HAS_JWT, decode_teams_token
+            from aragora.connectors.chat.jwt_verify import HAS_JWT, decode_teams_token  # type: ignore[attr-defined]
 
             if HAS_JWT:
                 return decode_teams_token(token, self.app_id)

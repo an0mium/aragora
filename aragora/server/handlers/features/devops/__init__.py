@@ -127,7 +127,7 @@ class DevOpsHandler(BaseHandler):
             return True
         return False
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult | None:
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult | None:  # type: ignore[override]
         if not self.can_handle(path):
             return None
 

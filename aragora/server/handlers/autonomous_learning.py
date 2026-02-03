@@ -81,22 +81,22 @@ def _ensure_wrapped(func: Any) -> Any:
     if asyncio.iscoroutinefunction(func):
 
         @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any):
+        async def _async_wrapper(*args: Any, **kwargs: Any) -> Any:
             return await func(*args, **kwargs)
 
-        return wrapper
+        return _async_wrapper
 
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any):
+    def _sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         return func(*args, **kwargs)
 
-    return wrapper
+    return _sync_wrapper
 
 
 _rbac_require_permission = require_permission
 
 
-def require_permission(*args: Any, **kwargs: Any):
+def require_permission(*args: Any, **kwargs: Any):  # type: ignore[no-redef]
     """Local wrapper to preserve __wrapped__ even if RBAC is bypassed in tests."""
     decorator = _rbac_require_permission(*args, **kwargs)
 

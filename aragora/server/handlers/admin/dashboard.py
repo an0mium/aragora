@@ -44,7 +44,7 @@ from .dashboard_health import (
 logger = logging.getLogger(__name__)
 
 
-def _call_bypassing_decorators(func, *args, **kwargs):
+def _call_bypassing_decorators(func: Any, *args: Any, **kwargs: Any) -> Any:
     """Call underlying function bypassing @require_permission/@rate_limit wrappers."""
     inner = func
     while hasattr(inner, "__wrapped__"):

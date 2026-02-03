@@ -385,9 +385,9 @@ def detect_circular_routing(
                 forward_graph[source].add(action.target)
 
     # Check new rule's forward actions for cycles
-    for action in new_rule_actions:
-        if action.get("type") == "forward" and action.get("target"):
-            target = action["target"]
+    for action in new_rule_actions:  # type: ignore[assignment]
+        if action.get("type") == "forward" and action.get("target"):  # type: ignore[union-attr, attr-defined]
+            target = action["target"]  # type: ignore[index]
 
             # Check if this creates a cycle using BFS
             visited = set()
