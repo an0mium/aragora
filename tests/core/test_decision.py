@@ -732,8 +732,8 @@ class TestDecisionRouter:
 
         # Route will attempt to use the debate engine
         # Metrics may not be available in test environment
-        with patch("aragora.core.decision._record_decision_request", None):
-            with patch("aragora.core.decision._record_decision_result", None):
+        with patch("aragora.core.decision_router._record_decision_request", None):
+            with patch("aragora.core.decision_router._record_decision_result", None):
                 try:
                     result = await router.route(request)
                     assert result is not None

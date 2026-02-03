@@ -653,6 +653,203 @@ class DecisionReceipt:
             },
         )
 
+    @classmethod
+    def from_plan_outcome(
+        cls,
+        outcome: Any,
+        plan: Any | None = None,
+        input_hash: str | None = None,
+    ) -> "DecisionReceipt":
+        """Create receipt from PlanOutcome after decision plan execution.
+
+        Used for generating cryptographic receipts after a DecisionPlan
+        has been executed, providing an audit trail for the implementation.
+
+        Args:
+            outcome: A PlanOutcome from the pipeline executor
+            plan: Optional DecisionPlan for additional context
+            input_hash: Optional pre-computed hash of input content
+
+        Returns:
+            DecisionReceipt for audit trail
+        """
+        receipt_id = str(uuid.uuid4())
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        plan_id = getattr(outcome, "plan_id", "")
+        debate_id = getattr(outcome, "debate_id", "")
+
+        # Build provenance chain from execution
+        provenance: list[ProvenanceRecord] = []
+
+        # Add plan creation event if we have the plan
+        if plan:
+            created_at = getattr(plan, "created_at", None)
+            if created_at:
+                created_ts = (
+                    created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
+                )
+            else:
+                created_ts = timestamp
+            provenance.append(
+                ProvenanceRecord(
+                    timestamp=created_ts,
+                    event_type="plan_created",
+                    description=f"Decision plan {plan_id} created from debate {debate_id}",
+                )
+            )
+
+            # Add approval event if approved
+            approval = getattr(plan, "approval_record", None)
+            if approval:
+                approval_ts = getattr(approval, "approved_at", timestamp)
+                if hasattr(approval_ts, "isoformat"):
+                    approval_ts = approval_ts.isoformat()
+                provenance.append(
+                    ProvenanceRecord(
+                        timestamp=str(approval_ts),
+                        event_type="plan_approved",
+                        agent=getattr(approval, "approver_id", None),
+                        description=f"Approved by {getattr(approval, 'approver_id', 'unknown')}",
+                    )
+                )
+
+        # Add task completion events
+        tasks_completed = getattr(outcome, "tasks_completed", 0)
+        tasks_total = getattr(outcome, "tasks_total", 0)
+        for i in range(tasks_completed):
+            provenance.append(
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="task_completed",
+                    description=f"Task {i + 1}/{tasks_total} completed",
+                )
+            )
+
+        # Add verification events
+        verification_passed = getattr(outcome, "verification_passed", 0)
+        verification_total = getattr(outcome, "verification_total", 0)
+        if verification_total > 0:
+            provenance.append(
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="verification",
+                    description=f"Verification: {verification_passed}/{verification_total} passed",
+                )
+            )
+
+        # Add final outcome event
+        success = getattr(outcome, "success", False)
+        error = getattr(outcome, "error", None)
+        provenance.append(
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="verdict",
+                description=f"Execution {'succeeded' if success else 'failed'}"
+                + (f": {error}" if error else ""),
+            )
+        )
+
+        # Build consensus proof from plan execution
+        lessons = list(getattr(outcome, "lessons", []))
+        consensus = ConsensusProof(
+            reached=success,
+            confidence=1.0 if success else 0.0,
+            method="plan_execution",
+            evidence_hash=hashlib.sha256(
+                json.dumps(
+                    {
+                        "plan_id": plan_id,
+                        "success": success,
+                        "tasks_completed": tasks_completed,
+                    },
+                    sort_keys=True,
+                ).encode()
+            ).hexdigest()[:16],
+        )
+
+        # Compute input hash from task if not provided
+        task = getattr(outcome, "task", "")
+        if not input_hash and task:
+            input_hash = hashlib.sha256(task.encode()).hexdigest()
+        elif not input_hash:
+            input_hash = ""
+
+        # Determine verdict
+        if success:
+            verdict = "PASS"
+        elif tasks_completed > 0 and tasks_completed < tasks_total:
+            verdict = "CONDITIONAL"  # Partial success
+        else:
+            verdict = "FAIL"
+
+        # Calculate robustness score
+        if tasks_total > 0:
+            task_ratio = tasks_completed / tasks_total
+        else:
+            task_ratio = 1.0 if success else 0.0
+
+        if verification_total > 0:
+            verify_ratio = verification_passed / verification_total
+        else:
+            verify_ratio = 1.0 if success else 0.0
+
+        robustness_score = (task_ratio + verify_ratio) / 2
+
+        # Build verdict reasoning
+        reasoning_parts = []
+        if success:
+            reasoning_parts.append("Execution completed successfully")
+        else:
+            reasoning_parts.append(f"Execution failed: {error or 'unknown error'}")
+
+        reasoning_parts.append(f"Tasks: {tasks_completed}/{tasks_total}")
+        if verification_total > 0:
+            reasoning_parts.append(f"Verification: {verification_passed}/{verification_total}")
+
+        verdict_reasoning = ". ".join(reasoning_parts)
+
+        # Get cost if available
+        total_cost = getattr(outcome, "total_cost_usd", 0.0)
+        duration = getattr(outcome, "duration_seconds", 0.0)
+
+        return cls(
+            receipt_id=receipt_id,
+            gauntlet_id=plan_id,  # Use plan_id for gauntlet_id field
+            timestamp=timestamp,
+            input_summary=task[:500] if task else "",
+            input_hash=input_hash,
+            risk_summary={
+                "critical": 0,
+                "high": 0 if success else 1,  # Failed execution is high risk
+                "medium": 0,
+                "low": len(lessons),  # Lessons are low-severity findings
+                "total": 0 if success else 1,
+            },
+            attacks_attempted=0,  # Not applicable for plan execution
+            attacks_successful=0,
+            probes_run=tasks_total,  # Map tasks to probes
+            vulnerabilities_found=0 if success else 1,
+            verdict=verdict,
+            confidence=robustness_score,
+            robustness_score=robustness_score,
+            vulnerability_details=[],
+            verdict_reasoning=verdict_reasoning,
+            dissenting_views=lessons,  # Lessons as dissenting views
+            consensus_proof=consensus,
+            provenance_chain=provenance,
+            config_used={
+                "plan_id": plan_id,
+                "debate_id": debate_id,
+                "tasks_total": tasks_total,
+                "tasks_completed": tasks_completed,
+                "verification_passed": verification_passed,
+                "verification_total": verification_total,
+                "total_cost_usd": total_cost,
+                "duration_seconds": duration,
+            },
+        )
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export."""
         data = {

@@ -1293,6 +1293,7 @@ class PlanOutcome:
     error: str | None = None
     duration_seconds: float = 0.0
     lessons: list[str] = field(default_factory=list)
+    receipt_id: str | None = None  # Cryptographic receipt ID for audit trail
 
     @property
     def completion_rate(self) -> float:
@@ -1322,6 +1323,7 @@ class PlanOutcome:
             "completion_rate": self.completion_rate,
             "verification_rate": self.verification_rate,
             "lessons": self.lessons,
+            "receipt_id": self.receipt_id,
         }
 
     def to_memory_content(self) -> str:
@@ -1467,10 +1469,10 @@ async def record_plan_outcome(
 
             extractor = PatternExtractor()
 
-            # Build content from debate result for pattern extraction
-            debate_content = _extract_debate_content(plan.debate_result)
-            if debate_content:
-                patterns = extractor.extract(debate_content)
+            # Build outcome dict from debate result for pattern extraction
+            debate_outcome = _build_debate_outcome_dict(plan.debate_result)
+            if debate_outcome:
+                patterns = extractor.extract(debate_outcome)
 
                 if patterns and knowledge_mound is not None:
                     stored_count = 0
@@ -1538,6 +1540,58 @@ def _extract_debate_content(debate_result: Any) -> str:
                 parts.append(arg)
 
     return "\n\n".join(parts)
+
+
+def _build_debate_outcome_dict(debate_result: Any) -> dict[str, Any]:
+    """Build a dict from DebateResult for PatternExtractor.extract().
+
+    PatternExtractor expects a dict with 'winner', 'messages', and 'critiques' keys.
+    """
+    outcome: dict[str, Any] = {}
+
+    # Extract winner
+    if hasattr(debate_result, "winner"):
+        outcome["winner"] = debate_result.winner
+    elif hasattr(debate_result, "winning_agent"):
+        outcome["winner"] = debate_result.winning_agent
+    else:
+        outcome["winner"] = None
+
+    # Extract messages
+    messages: list[dict[str, Any]] = []
+    if hasattr(debate_result, "messages") and debate_result.messages:
+        for msg in debate_result.messages:
+            if hasattr(msg, "to_dict"):
+                messages.append(msg.to_dict())
+            elif isinstance(msg, dict):
+                messages.append(msg)
+            else:
+                messages.append(
+                    {
+                        "content": getattr(msg, "content", str(msg)),
+                        "agent": getattr(msg, "agent", None),
+                    }
+                )
+    outcome["messages"] = messages
+
+    # Extract critiques
+    critiques: list[dict[str, Any]] = []
+    if hasattr(debate_result, "critiques") and debate_result.critiques:
+        for critique in debate_result.critiques:
+            if hasattr(critique, "to_dict"):
+                critiques.append(critique.to_dict())
+            elif isinstance(critique, dict):
+                critiques.append(critique)
+            else:
+                critiques.append(
+                    {
+                        "content": getattr(critique, "content", str(critique)),
+                        "agent": getattr(critique, "agent", None),
+                    }
+                )
+    outcome["critiques"] = critiques
+
+    return outcome
 
 
 __all__ = [

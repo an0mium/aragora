@@ -56,6 +56,11 @@ class SourceGatheringMixin:
     _max_document_context_items: int
     _max_evidence_context_items: int
 
+    # Method from CompressionMixin
+    async def _compress_with_rlm(
+        self, content: str, source_type: str = "documentation", max_chars: int = 3000
+    ) -> str: ...
+
     def _get_task_hash(self, task: str) -> str:
         """Generate a cache key from task to prevent cache leaks between debates."""
         raise NotImplementedError("Must be implemented by main class")

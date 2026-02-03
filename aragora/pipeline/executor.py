@@ -187,6 +187,15 @@ class PlanExecutor:
         except Exception as e:
             logger.warning("Failed to record plan outcome to memory: %s", e)
 
+        # Generate receipt (best-effort)
+        try:
+            receipt = await self._generate_receipt(plan, outcome)
+            if receipt:
+                outcome.receipt_id = receipt.receipt_id
+                logger.info("Generated receipt %s for plan %s", receipt.receipt_id, plan.id)
+        except Exception as e:
+            logger.debug("Receipt generation failed (non-critical): %s", e)
+
         # Update store with final state
         store_plan(plan)
 
@@ -278,3 +287,46 @@ class PlanExecutor:
             duration_seconds=duration,
             lessons=lessons,
         )
+
+    async def _generate_receipt(
+        self,
+        plan: DecisionPlan,
+        outcome: PlanOutcome,
+    ) -> Any | None:
+        """Generate a cryptographic receipt for the plan execution.
+
+        Args:
+            plan: The executed DecisionPlan
+            outcome: The execution outcome
+
+        Returns:
+            DecisionReceipt if successful, None otherwise
+        """
+        try:
+            from aragora.gauntlet.receipt import DecisionReceipt
+
+            receipt = DecisionReceipt.from_plan_outcome(outcome, plan=plan)
+
+            # Attempt to sign the receipt
+            try:
+                receipt.sign()
+                logger.debug("Signed receipt %s", receipt.receipt_id)
+            except Exception as sign_err:
+                logger.debug("Receipt signing skipped: %s", sign_err)
+
+            # Store receipt if we have a receipt store
+            if self._knowledge_mound is not None:
+                try:
+                    # Use KM receipt adapter if available
+                    from aragora.knowledge.mound.adapters.receipt import get_receipt_adapter
+
+                    adapter = get_receipt_adapter(self._knowledge_mound)
+                    if adapter:
+                        await adapter.store_receipt(receipt)
+                except (ImportError, AttributeError) as e:
+                    logger.debug("Receipt adapter not available: %s", e)
+
+            return receipt
+        except ImportError:
+            logger.debug("Receipt generation not available (gauntlet not installed)")
+            return None

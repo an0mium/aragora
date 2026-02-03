@@ -332,12 +332,860 @@ class OpenClawGatewayStore:
         }
 
 
+# ---------------------------------------------------------------------------
+# Persistent Store Implementation
+# ---------------------------------------------------------------------------
+
+
+class OpenClawPersistentStore:
+    """Persistent SQLite store for OpenClaw gateway data.
+
+    Provides the same interface as OpenClawGatewayStore but persists data
+    to SQLite. Supports LRU caching for hot reads.
+
+    Usage:
+        store = OpenClawPersistentStore()  # Uses default SQLite path
+        store = OpenClawPersistentStore(db_path="/path/to/db.sqlite")
+    """
+
+    def __init__(
+        self,
+        db_path: str | None = None,
+        cache_size: int = 500,
+    ) -> None:
+        import threading
+        from collections import OrderedDict
+        from pathlib import Path
+
+        from aragora.config import resolve_db_path
+
+        self._db_path = Path(db_path or resolve_db_path("openclaw_gateway.db"))
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # In-memory LRU cache
+        self._session_cache: OrderedDict[str, Session] = OrderedDict()
+        self._action_cache: OrderedDict[str, Action] = OrderedDict()
+        self._cache_size = cache_size
+        self._cache_lock = threading.Lock()
+
+        # Initialize database
+        self._init_db()
+
+    def _get_connection(self) -> Any:
+        """Get a database connection."""
+        import sqlite3
+
+        conn = sqlite3.connect(
+            str(self._db_path),
+            timeout=30.0,
+            check_same_thread=False,
+        )
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        return conn
+
+    def _init_db(self) -> None:
+        """Initialize database schema."""
+        conn = self._get_connection()
+        try:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS openclaw_sessions (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    tenant_id TEXT,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    last_activity_at TEXT NOT NULL,
+                    config_json TEXT,
+                    metadata_json TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_sessions_user ON openclaw_sessions(user_id);
+                CREATE INDEX IF NOT EXISTS idx_sessions_status ON openclaw_sessions(status);
+
+                CREATE TABLE IF NOT EXISTS openclaw_actions (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    action_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    input_json TEXT NOT NULL,
+                    output_json TEXT,
+                    error TEXT,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    metadata_json TEXT,
+                    FOREIGN KEY (session_id) REFERENCES openclaw_sessions(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_actions_session ON openclaw_actions(session_id);
+                CREATE INDEX IF NOT EXISTS idx_actions_status ON openclaw_actions(status);
+
+                CREATE TABLE IF NOT EXISTS openclaw_credentials (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    credential_type TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    tenant_id TEXT,
+                    secret_encrypted TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    last_rotated_at TEXT,
+                    expires_at TEXT,
+                    metadata_json TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_creds_user ON openclaw_credentials(user_id);
+                CREATE INDEX IF NOT EXISTS idx_creds_type ON openclaw_credentials(credential_type);
+
+                CREATE TABLE IF NOT EXISTS openclaw_audit (
+                    id TEXT PRIMARY KEY,
+                    timestamp TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    actor_id TEXT NOT NULL,
+                    resource_type TEXT NOT NULL,
+                    resource_id TEXT,
+                    result TEXT NOT NULL,
+                    details_json TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON openclaw_audit(timestamp DESC);
+                CREATE INDEX IF NOT EXISTS idx_audit_actor ON openclaw_audit(actor_id);
+            """)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _encrypt_secret(self, value: str) -> str:
+        """Encrypt a secret value for storage."""
+        try:
+            from aragora.security.encryption import encrypt_value
+
+            return encrypt_value(value)
+        except ImportError:
+            # Fallback: base64 encoding (not secure, for dev only)
+            import base64
+
+            return base64.b64encode(value.encode()).decode()
+
+    def _decrypt_secret(self, encrypted: str) -> str:
+        """Decrypt a stored secret value."""
+        try:
+            from aragora.security.encryption import decrypt_value
+
+            return decrypt_value(encrypted)
+        except ImportError:
+            import base64
+
+            return base64.b64decode(encrypted.encode()).decode()
+
+    def _cache_session(self, session: Session) -> None:
+        """Add session to LRU cache."""
+        with self._cache_lock:
+            self._session_cache[session.id] = session
+            self._session_cache.move_to_end(session.id)
+            while len(self._session_cache) > self._cache_size:
+                self._session_cache.popitem(last=False)
+
+    def _cache_action(self, action: Action) -> None:
+        """Add action to LRU cache."""
+        with self._cache_lock:
+            self._action_cache[action.id] = action
+            self._action_cache.move_to_end(action.id)
+            while len(self._action_cache) > self._cache_size:
+                self._action_cache.popitem(last=False)
+
+    # Session methods
+    def create_session(
+        self,
+        user_id: str,
+        tenant_id: str | None = None,
+        config: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Session:
+        """Create a new session."""
+        import json
+
+        now = datetime.now(timezone.utc)
+        session = Session(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            tenant_id=tenant_id,
+            status=SessionStatus.ACTIVE,
+            created_at=now,
+            updated_at=now,
+            last_activity_at=now,
+            config=config or {},
+            metadata=metadata or {},
+        )
+
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """INSERT INTO openclaw_sessions
+                   (id, user_id, tenant_id, status, created_at, updated_at,
+                    last_activity_at, config_json, metadata_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    session.id,
+                    session.user_id,
+                    session.tenant_id,
+                    session.status.value,
+                    session.created_at.isoformat(),
+                    session.updated_at.isoformat(),
+                    session.last_activity_at.isoformat(),
+                    json.dumps(session.config),
+                    json.dumps(session.metadata),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._cache_session(session)
+        return session
+
+    def get_session(self, session_id: str) -> Session | None:
+        """Get session by ID."""
+        import json
+
+        # Check cache first
+        with self._cache_lock:
+            if session_id in self._session_cache:
+                self._session_cache.move_to_end(session_id)
+                return self._session_cache[session_id]
+
+        conn = self._get_connection()
+        try:
+            row = conn.execute(
+                "SELECT * FROM openclaw_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+            if not row:
+                return None
+
+            session = Session(
+                id=row["id"],
+                user_id=row["user_id"],
+                tenant_id=row["tenant_id"],
+                status=SessionStatus(row["status"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+                updated_at=datetime.fromisoformat(row["updated_at"]),
+                last_activity_at=datetime.fromisoformat(row["last_activity_at"]),
+                config=json.loads(row["config_json"] or "{}"),
+                metadata=json.loads(row["metadata_json"] or "{}"),
+            )
+            self._cache_session(session)
+            return session
+        finally:
+            conn.close()
+
+    def list_sessions(
+        self,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
+        status: SessionStatus | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Session], int]:
+        """List sessions with optional filtering."""
+        import json
+
+        conn = self._get_connection()
+        try:
+            # Build query
+            where_clauses = []
+            params: list[Any] = []
+            if user_id:
+                where_clauses.append("user_id = ?")
+                params.append(user_id)
+            if tenant_id:
+                where_clauses.append("tenant_id = ?")
+                params.append(tenant_id)
+            if status:
+                where_clauses.append("status = ?")
+                params.append(status.value)
+
+            where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+            # Get total count
+            count_row = conn.execute(
+                f"SELECT COUNT(*) FROM openclaw_sessions WHERE {where_sql}", params
+            ).fetchone()
+            total = count_row[0] if count_row else 0
+
+            # Get paginated results
+            rows = conn.execute(
+                f"""SELECT * FROM openclaw_sessions
+                    WHERE {where_sql}
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?""",
+                params + [limit, offset],
+            ).fetchall()
+
+            sessions = []
+            for row in rows:
+                session = Session(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    tenant_id=row["tenant_id"],
+                    status=SessionStatus(row["status"]),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    updated_at=datetime.fromisoformat(row["updated_at"]),
+                    last_activity_at=datetime.fromisoformat(row["last_activity_at"]),
+                    config=json.loads(row["config_json"] or "{}"),
+                    metadata=json.loads(row["metadata_json"] or "{}"),
+                )
+                sessions.append(session)
+
+            return sessions, total
+        finally:
+            conn.close()
+
+    def update_session_status(self, session_id: str, status: SessionStatus) -> Session | None:
+        """Update session status."""
+        now = datetime.now(timezone.utc)
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                "UPDATE openclaw_sessions SET status = ?, updated_at = ? WHERE id = ?",
+                (status.value, now.isoformat(), session_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Invalidate cache and reload
+        with self._cache_lock:
+            self._session_cache.pop(session_id, None)
+        return self.get_session(session_id)
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("DELETE FROM openclaw_sessions WHERE id = ?", (session_id,))
+            conn.commit()
+            deleted = cursor.rowcount > 0
+        finally:
+            conn.close()
+
+        if deleted:
+            with self._cache_lock:
+                self._session_cache.pop(session_id, None)
+        return deleted
+
+    # Action methods
+    def create_action(
+        self,
+        session_id: str,
+        action_type: str,
+        input_data: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> Action:
+        """Create a new action."""
+        import json
+
+        now = datetime.now(timezone.utc)
+        action = Action(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            action_type=action_type,
+            status=ActionStatus.PENDING,
+            input_data=input_data,
+            output_data=None,
+            error=None,
+            created_at=now,
+            started_at=None,
+            completed_at=None,
+            metadata=metadata or {},
+        )
+
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """INSERT INTO openclaw_actions
+                   (id, session_id, action_type, status, input_json, output_json,
+                    error, created_at, started_at, completed_at, metadata_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    action.id,
+                    action.session_id,
+                    action.action_type,
+                    action.status.value,
+                    json.dumps(action.input_data),
+                    None,
+                    None,
+                    action.created_at.isoformat(),
+                    None,
+                    None,
+                    json.dumps(action.metadata),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._cache_action(action)
+        return action
+
+    def get_action(self, action_id: str) -> Action | None:
+        """Get action by ID."""
+        import json
+
+        # Check cache first
+        with self._cache_lock:
+            if action_id in self._action_cache:
+                self._action_cache.move_to_end(action_id)
+                return self._action_cache[action_id]
+
+        conn = self._get_connection()
+        try:
+            row = conn.execute(
+                "SELECT * FROM openclaw_actions WHERE id = ?", (action_id,)
+            ).fetchone()
+            if not row:
+                return None
+
+            action = Action(
+                id=row["id"],
+                session_id=row["session_id"],
+                action_type=row["action_type"],
+                status=ActionStatus(row["status"]),
+                input_data=json.loads(row["input_json"] or "{}"),
+                output_data=json.loads(row["output_json"]) if row["output_json"] else None,
+                error=row["error"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+                started_at=datetime.fromisoformat(row["started_at"]) if row["started_at"] else None,
+                completed_at=datetime.fromisoformat(row["completed_at"])
+                if row["completed_at"]
+                else None,
+                metadata=json.loads(row["metadata_json"] or "{}"),
+            )
+            self._cache_action(action)
+            return action
+        finally:
+            conn.close()
+
+    def update_action(
+        self,
+        action_id: str,
+        status: ActionStatus | None = None,
+        output_data: dict[str, Any] | None = None,
+        error: str | None = None,
+    ) -> Action | None:
+        """Update action state."""
+        import json
+
+        action = self.get_action(action_id)
+        if not action:
+            return None
+
+        now = datetime.now(timezone.utc)
+        updates: list[str] = []
+        params: list[Any] = []
+
+        if status:
+            updates.append("status = ?")
+            params.append(status.value)
+            if status == ActionStatus.RUNNING and not action.started_at:
+                updates.append("started_at = ?")
+                params.append(now.isoformat())
+            elif status in (ActionStatus.COMPLETED, ActionStatus.FAILED, ActionStatus.CANCELLED):
+                updates.append("completed_at = ?")
+                params.append(now.isoformat())
+
+        if output_data is not None:
+            updates.append("output_json = ?")
+            params.append(json.dumps(output_data))
+
+        if error is not None:
+            updates.append("error = ?")
+            params.append(error)
+
+        if not updates:
+            return action
+
+        params.append(action_id)
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                f"UPDATE openclaw_actions SET {', '.join(updates)} WHERE id = ?",
+                params,
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Invalidate cache and reload
+        with self._cache_lock:
+            self._action_cache.pop(action_id, None)
+        return self.get_action(action_id)
+
+    # Credential methods
+    def store_credential(
+        self,
+        name: str,
+        credential_type: CredentialType,
+        secret_value: str,
+        user_id: str,
+        tenant_id: str | None = None,
+        expires_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Credential:
+        """Store a new credential."""
+        import json
+
+        now = datetime.now(timezone.utc)
+        credential = Credential(
+            id=str(uuid.uuid4()),
+            name=name,
+            credential_type=credential_type,
+            user_id=user_id,
+            tenant_id=tenant_id,
+            created_at=now,
+            updated_at=now,
+            last_rotated_at=None,
+            expires_at=expires_at,
+            metadata=metadata or {},
+        )
+
+        encrypted = self._encrypt_secret(secret_value)
+
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """INSERT INTO openclaw_credentials
+                   (id, name, credential_type, user_id, tenant_id, secret_encrypted,
+                    created_at, updated_at, last_rotated_at, expires_at, metadata_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    credential.id,
+                    credential.name,
+                    credential.credential_type.value,
+                    credential.user_id,
+                    credential.tenant_id,
+                    encrypted,
+                    credential.created_at.isoformat(),
+                    credential.updated_at.isoformat(),
+                    None,
+                    credential.expires_at.isoformat() if credential.expires_at else None,
+                    json.dumps(credential.metadata),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return credential
+
+    def get_credential(self, credential_id: str) -> Credential | None:
+        """Get credential metadata by ID (not the secret)."""
+        import json
+
+        conn = self._get_connection()
+        try:
+            row = conn.execute(
+                "SELECT * FROM openclaw_credentials WHERE id = ?", (credential_id,)
+            ).fetchone()
+            if not row:
+                return None
+
+            return Credential(
+                id=row["id"],
+                name=row["name"],
+                credential_type=CredentialType(row["credential_type"]),
+                user_id=row["user_id"],
+                tenant_id=row["tenant_id"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+                updated_at=datetime.fromisoformat(row["updated_at"]),
+                last_rotated_at=datetime.fromisoformat(row["last_rotated_at"])
+                if row["last_rotated_at"]
+                else None,
+                expires_at=datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None,
+                metadata=json.loads(row["metadata_json"] or "{}"),
+            )
+        finally:
+            conn.close()
+
+    def list_credentials(
+        self,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
+        credential_type: CredentialType | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Credential], int]:
+        """List credentials with optional filtering (no secret values)."""
+        import json
+
+        conn = self._get_connection()
+        try:
+            where_clauses = []
+            params: list[Any] = []
+            if user_id:
+                where_clauses.append("user_id = ?")
+                params.append(user_id)
+            if tenant_id:
+                where_clauses.append("tenant_id = ?")
+                params.append(tenant_id)
+            if credential_type:
+                where_clauses.append("credential_type = ?")
+                params.append(credential_type.value)
+
+            where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+            count_row = conn.execute(
+                f"SELECT COUNT(*) FROM openclaw_credentials WHERE {where_sql}", params
+            ).fetchone()
+            total = count_row[0] if count_row else 0
+
+            rows = conn.execute(
+                f"""SELECT * FROM openclaw_credentials
+                    WHERE {where_sql}
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?""",
+                params + [limit, offset],
+            ).fetchall()
+
+            credentials = []
+            for row in rows:
+                credentials.append(
+                    Credential(
+                        id=row["id"],
+                        name=row["name"],
+                        credential_type=CredentialType(row["credential_type"]),
+                        user_id=row["user_id"],
+                        tenant_id=row["tenant_id"],
+                        created_at=datetime.fromisoformat(row["created_at"]),
+                        updated_at=datetime.fromisoformat(row["updated_at"]),
+                        last_rotated_at=datetime.fromisoformat(row["last_rotated_at"])
+                        if row["last_rotated_at"]
+                        else None,
+                        expires_at=datetime.fromisoformat(row["expires_at"])
+                        if row["expires_at"]
+                        else None,
+                        metadata=json.loads(row["metadata_json"] or "{}"),
+                    )
+                )
+
+            return credentials, total
+        finally:
+            conn.close()
+
+    def delete_credential(self, credential_id: str) -> bool:
+        """Delete a credential."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("DELETE FROM openclaw_credentials WHERE id = ?", (credential_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def rotate_credential(self, credential_id: str, new_secret_value: str) -> Credential | None:
+        """Rotate a credential's secret value."""
+        now = datetime.now(timezone.utc)
+        encrypted = self._encrypt_secret(new_secret_value)
+
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """UPDATE openclaw_credentials
+                   SET secret_encrypted = ?, last_rotated_at = ?, updated_at = ?
+                   WHERE id = ?""",
+                (encrypted, now.isoformat(), now.isoformat(), credential_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return self.get_credential(credential_id)
+
+    # Audit methods
+    def add_audit_entry(
+        self,
+        action: str,
+        actor_id: str,
+        resource_type: str,
+        resource_id: str | None = None,
+        result: str = "success",
+        details: dict[str, Any] | None = None,
+    ) -> AuditEntry:
+        """Add an audit log entry."""
+        import json
+
+        entry = AuditEntry(
+            id=str(uuid.uuid4()),
+            timestamp=datetime.now(timezone.utc),
+            action=action,
+            actor_id=actor_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            result=result,
+            details=details or {},
+        )
+
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """INSERT INTO openclaw_audit
+                   (id, timestamp, action, actor_id, resource_type, resource_id, result, details_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    entry.id,
+                    entry.timestamp.isoformat(),
+                    entry.action,
+                    entry.actor_id,
+                    entry.resource_type,
+                    entry.resource_id,
+                    entry.result,
+                    json.dumps(entry.details),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return entry
+
+    def get_audit_log(
+        self,
+        action: str | None = None,
+        actor_id: str | None = None,
+        resource_type: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[AuditEntry], int]:
+        """Get audit log entries with optional filtering."""
+        import json
+
+        conn = self._get_connection()
+        try:
+            where_clauses = []
+            params: list[Any] = []
+            if action:
+                where_clauses.append("action = ?")
+                params.append(action)
+            if actor_id:
+                where_clauses.append("actor_id = ?")
+                params.append(actor_id)
+            if resource_type:
+                where_clauses.append("resource_type = ?")
+                params.append(resource_type)
+
+            where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+            count_row = conn.execute(
+                f"SELECT COUNT(*) FROM openclaw_audit WHERE {where_sql}", params
+            ).fetchone()
+            total = count_row[0] if count_row else 0
+
+            rows = conn.execute(
+                f"""SELECT * FROM openclaw_audit
+                    WHERE {where_sql}
+                    ORDER BY timestamp DESC
+                    LIMIT ? OFFSET ?""",
+                params + [limit, offset],
+            ).fetchall()
+
+            entries = []
+            for row in rows:
+                entries.append(
+                    AuditEntry(
+                        id=row["id"],
+                        timestamp=datetime.fromisoformat(row["timestamp"]),
+                        action=row["action"],
+                        actor_id=row["actor_id"],
+                        resource_type=row["resource_type"],
+                        resource_id=row["resource_id"],
+                        result=row["result"],
+                        details=json.loads(row["details_json"] or "{}"),
+                    )
+                )
+
+            return entries, total
+        finally:
+            conn.close()
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get gateway metrics."""
+        conn = self._get_connection()
+        try:
+            # Session counts
+            session_counts = {}
+            for sess_status in SessionStatus:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM openclaw_sessions WHERE status = ?",
+                    (sess_status.value,),
+                ).fetchone()
+                session_counts[sess_status.value] = row[0] if row else 0
+
+            total_sessions = sum(session_counts.values())
+            active_sessions = session_counts.get(SessionStatus.ACTIVE.value, 0)
+
+            # Action counts
+            action_counts = {}
+            for action_status in ActionStatus:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM openclaw_actions WHERE status = ?",
+                    (action_status.value,),
+                ).fetchone()
+                action_counts[action_status.value] = row[0] if row else 0
+
+            total_actions = sum(action_counts.values())
+            pending_actions = action_counts.get(ActionStatus.PENDING.value, 0)
+            running_actions = action_counts.get(ActionStatus.RUNNING.value, 0)
+
+            # Credential counts
+            cred_counts = {}
+            for ctype in CredentialType:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM openclaw_credentials WHERE credential_type = ?",
+                    (ctype.value,),
+                ).fetchone()
+                cred_counts[ctype.value] = row[0] if row else 0
+
+            total_credentials = sum(cred_counts.values())
+
+            # Audit count
+            audit_row = conn.execute("SELECT COUNT(*) FROM openclaw_audit").fetchone()
+            audit_count = audit_row[0] if audit_row else 0
+
+            return {
+                "sessions": {
+                    "total": total_sessions,
+                    "active": active_sessions,
+                    "by_status": session_counts,
+                },
+                "actions": {
+                    "total": total_actions,
+                    "pending": pending_actions,
+                    "running": running_actions,
+                    "by_status": action_counts,
+                },
+                "credentials": {
+                    "total": total_credentials,
+                    "by_type": cred_counts,
+                },
+                "audit_log_entries": audit_count,
+            }
+        finally:
+            conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Global store instance
-_store: OpenClawGatewayStore | None = None
+# ---------------------------------------------------------------------------
+
+_store: OpenClawGatewayStore | OpenClawPersistentStore | None = None
 
 
-def _get_store() -> OpenClawGatewayStore:
-    """Get or create the global store instance."""
+def _get_store() -> OpenClawGatewayStore | OpenClawPersistentStore:
+    """Get or create the global store instance.
+
+    Uses OpenClawPersistentStore (SQLite) by default. Set
+    ARAGORA_OPENCLAW_STORE=memory to use the in-memory store.
+    """
+    import os
+
     # Allow test overrides via the compatibility shim module.
     try:
         import sys
@@ -351,11 +1199,16 @@ def _get_store() -> OpenClawGatewayStore:
 
     global _store
     if _store is None:
-        _store = OpenClawGatewayStore()
+        store_type = os.environ.get("ARAGORA_OPENCLAW_STORE", "persistent").lower()
+        if store_type == "memory":
+            _store = OpenClawGatewayStore()
+        else:
+            _store = OpenClawPersistentStore()
     return _store
 
 
 __all__ = [
     "OpenClawGatewayStore",
+    "OpenClawPersistentStore",
     "_get_store",
 ]

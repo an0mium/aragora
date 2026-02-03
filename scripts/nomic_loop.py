@@ -4339,6 +4339,84 @@ After debate, reach consensus on the best approach to fix this issue.
         except Exception as e:
             self._log(f"  [topics] Failed to save issue outcome: {e}")
 
+    async def _bridge_to_decision_plan(
+        self,
+        debate_result: dict,
+        impl_result: dict,
+        verify_result: dict,
+    ) -> None:
+        """Bridge nomic loop outcome to DecisionPlan for organizational learning.
+
+        This is a best-effort integration - failures are logged but do not
+        affect the nomic loop execution.
+        """
+        try:
+            from aragora.pipeline.decision_plan import (
+                DecisionPlanFactory,
+                PlanOutcome,
+                PlanStatus,
+                record_plan_outcome,
+            )
+            from aragora.core_types import DebateResult
+
+            # Create a minimal DebateResult from the debate dict
+            dr = DebateResult(
+                debate_id=f"nomic-cycle-{self.cycle_count}",
+                task=debate_result.get("task", f"Nomic improvement cycle {self.cycle_count}"),
+                final_answer=debate_result.get("final_answer", ""),
+                confidence=debate_result.get("confidence", 0.5),
+                consensus_reached=debate_result.get("consensus_reached", False),
+                rounds_used=debate_result.get("rounds_used", 1),
+            )
+
+            # Create DecisionPlan (will generate risk register, verification plan)
+            plan = DecisionPlanFactory.from_debate_result(
+                dr,
+                approval_mode="never",  # Nomic loop handles its own approval
+                metadata={"source": "nomic_loop", "cycle": self.cycle_count},
+            )
+
+            # Mark as executed since nomic loop already ran implementation
+            plan.status = (
+                PlanStatus.COMPLETED if verify_result.get("all_passed") else PlanStatus.FAILED
+            )
+            plan.execution_started_at = datetime.now()
+            plan.execution_completed_at = datetime.now()
+
+            # Create outcome
+            files_modified = impl_result.get("files_modified", [])
+            test_results = verify_result.get("test_results", {})
+            passed = test_results.get("passed", 0)
+            total = passed + test_results.get("failed", 0) + test_results.get("errors", 0)
+
+            outcome = PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=verify_result.get("all_passed", False),
+                tasks_completed=len(files_modified) if files_modified else 1,
+                tasks_total=len(files_modified) if files_modified else 1,
+                verification_passed=passed,
+                verification_total=total if total > 0 else 1,
+                total_cost_usd=0.0,  # Nomic loop doesn't track per-cycle costs
+                lessons=[f"Nomic cycle {self.cycle_count}: {plan.task[:100]}"],
+            )
+
+            # Record to memory (best-effort)
+            try:
+                from aragora.memory.continuum import ContinuumMemory
+
+                cm = ContinuumMemory()
+                await record_plan_outcome(plan, outcome, continuum_memory=cm)
+                self._log(f"  [decision-plan] Recorded outcome to memory: plan={plan.id[:8]}")
+            except Exception as mem_err:
+                self._log(f"  [decision-plan] Memory write skipped: {mem_err}")
+
+        except ImportError:
+            pass  # DecisionPlan not available
+        except Exception as e:
+            self._log(f"  [decision-plan] Bridge skipped: {e}")
+
     def _calculate_proposal_alignment(self, proposals: dict[str, str]) -> float:
         """Calculate semantic alignment between proposals using Jaccard similarity.
 

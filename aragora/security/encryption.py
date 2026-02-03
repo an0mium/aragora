@@ -843,3 +843,38 @@ def decrypt_data(data: bytes, key_id: str = "") -> bytes:
         data if isinstance(data, str) else data.decode("utf-8", errors="replace")
     )
     return result.encode("utf-8") if isinstance(result, str) else result
+
+
+def encrypt_value(value: str) -> str:
+    """Encrypt a string value for storage.
+
+    Convenience wrapper around encrypt_data for string values.
+
+    Args:
+        value: String value to encrypt
+
+    Returns:
+        Base64-encoded encrypted string
+    """
+    import base64
+
+    encrypted = encrypt_data(value.encode("utf-8"))
+    return base64.b64encode(encrypted).decode("ascii")
+
+
+def decrypt_value(encrypted: str) -> str:
+    """Decrypt a stored string value.
+
+    Convenience wrapper around decrypt_data for string values.
+
+    Args:
+        encrypted: Base64-encoded encrypted string
+
+    Returns:
+        Decrypted string value
+    """
+    import base64
+
+    data = base64.b64decode(encrypted.encode("ascii"))
+    decrypted = decrypt_data(data)
+    return decrypted.decode("utf-8")
