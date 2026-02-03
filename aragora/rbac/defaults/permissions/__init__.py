@@ -27,6 +27,17 @@ Usage:
 
 from __future__ import annotations
 
+# =============================================================================
+# PERMISSION SECTIONS
+# =============================================================================
+# ADMIN PERMISSIONS
+# DEBATE PERMISSIONS
+# AGENT PERMISSIONS
+# USER MANAGEMENT PERMISSIONS
+# ORGANIZATION PERMISSIONS
+# CONTROL PLANE PERMISSIONS
+# COMPLIANCE PERMISSIONS
+
 # Import the helper function for use in this package
 from ._helpers import _permission
 

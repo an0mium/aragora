@@ -64,6 +64,8 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
         channel_id = params.get("channel_id", [""])[0]
         response_url = params.get("response_url", [""])[0]
         team_id = params.get("team_id", [""])[0]
+        # Thread support: if command is invoked from a thread, responses go to that thread
+        thread_ts = params.get("thread_ts", [None])[0]
 
         # Validate required identifiers
         if user_id:
@@ -222,6 +224,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                 channel_id=channel_id,
                 user_id=user_id,
                 response_url=response_url,
+                thread_ts=thread_ts,
                 attachments=attachments,
                 decision_integrity=decision_integrity,
             )

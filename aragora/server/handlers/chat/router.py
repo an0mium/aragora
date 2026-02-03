@@ -712,7 +712,7 @@ class ChatWebhookRouter:
             request_kwargs["config"] = config
 
         # Create decision request
-        request = DecisionRequest(**request_kwargs)
+        request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
 
         # Route through DecisionRouter
         result = await self._decision_router.route(request)

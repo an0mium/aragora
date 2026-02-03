@@ -170,3 +170,8 @@ cors_config = CORSConfig()
 # Convenience exports for backwards compatibility
 ALLOWED_ORIGINS = cors_config.get_origins_list()
 WS_ALLOWED_ORIGINS = ALLOWED_ORIGINS  # Alias for stream.py compatibility
+
+
+def get_origins_list() -> list[str]:
+    """Return allowed origins from the singleton (compat shim)."""
+    return cors_config.get_origins_list()

@@ -8,8 +8,12 @@ and codebase context building.
 import argparse
 import asyncio
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from aragora.modes import ModeRegistry
+
+if TYPE_CHECKING:
+    from aragora.nomic.autonomous_orchestrator import OrchestrationResult
 
 
 def cmd_modes(args: argparse.Namespace) -> None:
@@ -83,36 +87,285 @@ def cmd_templates(args: argparse.Namespace) -> None:
 
 
 def cmd_improve(args: argparse.Namespace) -> None:
-    """Handle 'improve' command - self-improvement mode."""
+    """Handle 'improve' command - self-improvement mode using AutonomousOrchestrator."""
+    from aragora.nomic.autonomous_orchestrator import (
+        Track,
+    )
+
+    goal = args.goal
+    tracks = args.tracks.split(",") if args.tracks else None
+    dry_run = args.dry_run
+    max_cycles = args.max_cycles
+    require_approval = args.require_approval
+    use_debate = args.debate
+    max_parallel = args.max_parallel
+    codebase_path = Path(args.path).resolve() if args.path else Path.cwd()
+    verbose = getattr(args, "verbose", False)
+
+    # Validate tracks if provided
+    valid_tracks = {t.value for t in Track}
+    if tracks:
+        invalid = [t for t in tracks if t.lower() not in valid_tracks]
+        if invalid:
+            print(f"\nError: Invalid track(s): {', '.join(invalid)}")
+            print(f"Valid tracks: {', '.join(sorted(valid_tracks))}")
+            return
+
     print("\n" + "=" * 60)
-    print("\U0001f527 SELF-IMPROVEMENT MODE")
+    print("SELF-IMPROVEMENT MODE (AutonomousOrchestrator)")
     print("=" * 60)
-    print(f"\nTarget: {args.path or 'current directory'}")
-    print(f"Focus: {args.focus or 'general improvements'}")
+    print(f"\nGoal: {goal}")
+    print(f"Codebase: {codebase_path}")
+    if tracks:
+        print(f"Tracks: {', '.join(tracks)}")
+    if dry_run:
+        print("Mode: DRY RUN (preview only)")
+    else:
+        print(f"Max cycles: {max_cycles}")
+        print(f"Max parallel: {max_parallel}")
+        if require_approval:
+            print("Approval: Required at gates")
+    if use_debate:
+        print("Decomposition: Multi-agent debate")
     print()
 
-    # This is a placeholder - full implementation would use SelfImprover
-    print("\u26a0\ufe0f  Self-improvement mode is experimental.")
-    print("   Use 'aragora ask' to debate specific improvements.")
+    if dry_run:
+        # Dry run: just show the decomposition plan
+        _run_dry_run(goal, tracks, use_debate, verbose)
+    else:
+        # Full execution via orchestrator
+        _run_orchestration(
+            goal=goal,
+            tracks=tracks,
+            max_cycles=max_cycles,
+            require_approval=require_approval,
+            use_debate=use_debate,
+            max_parallel=max_parallel,
+            codebase_path=codebase_path,
+            verbose=verbose,
+        )
+
+
+def _run_dry_run(
+    goal: str,
+    tracks: list[str] | None,
+    use_debate: bool,
+    verbose: bool,
+) -> None:
+    """Run dry-run mode: show decomposition without executing."""
+    from aragora.nomic.task_decomposer import TaskDecomposer, DecomposerConfig
+    from aragora.nomic.autonomous_orchestrator import AgentRouter, Track
+
+    print("-" * 60)
+    print("TASK DECOMPOSITION PREVIEW")
+    print("-" * 60)
+
+    decomposer = TaskDecomposer(config=DecomposerConfig(complexity_threshold=4))
+    router = AgentRouter()
+
+    # Enrich goal with track context
+    if tracks:
+        enriched_goal = f"{goal}\n\nFocus tracks: {', '.join(tracks)}"
+    else:
+        enriched_goal = goal
+
+    if use_debate:
+        print("\nUsing multi-agent debate for decomposition...")
+        print("(This may take a minute and consume API tokens)\n")
+        decomposition = asyncio.run(decomposer.analyze_with_debate(enriched_goal))
+    else:
+        print("\nUsing heuristic decomposition...\n")
+        decomposition = decomposer.analyze(enriched_goal)
+
+    # Show analysis results
+    print(
+        f"Complexity Score: {decomposition.complexity_score}/10 ({decomposition.complexity_level})"
+    )
+    print(f"Should Decompose: {'Yes' if decomposition.should_decompose else 'No'}")
+    print(f"Rationale: {decomposition.rationale}")
     print()
 
-    if args.analyze:
-        from aragora.tools.code import CodeReader
+    if not decomposition.subtasks:
+        print("No subtasks generated. Goal may be too simple or abstract.")
+        print("\nTips:")
+        print("  - Add specific file paths or areas to focus on")
+        print("  - Use --debate for abstract goals like 'maximize utility'")
+        return
 
-        reader = CodeReader(args.path or ".")
-        tree = reader.get_file_tree(max_depth=2)
+    # Filter by allowed tracks if specified
+    allowed_tracks = {Track(t.lower()) for t in tracks} if tracks else set(Track)
 
-        print("\U0001f4c2 Codebase structure:")
+    print(f"Subtasks ({len(decomposition.subtasks)}):")
+    print("-" * 40)
 
-        def print_tree(t, indent=0):
-            for k, v in sorted(t.items()):
-                if isinstance(v, dict):
-                    print("  " * indent + f"\U0001f4c1 {k}")
-                    print_tree(v, indent + 1)
-                else:
-                    print("  " * indent + f"\U0001f4c4 {k} ({v} bytes)")
+    for i, subtask in enumerate(decomposition.subtasks, 1):
+        track = router.determine_track(subtask)
+        agent = router.select_agent_type(subtask, track)
 
-        print_tree(tree)
+        # Check if this track is allowed
+        if track not in allowed_tracks:
+            status = " [SKIPPED - track not selected]"
+        else:
+            status = ""
+
+        print(f"\n{i}. {subtask.title}{status}")
+        print(f"   Track: {track.value}")
+        print(f"   Agent: {agent}")
+        print(f"   Complexity: {subtask.estimated_complexity}")
+
+        if subtask.file_scope:
+            print(f"   Files: {', '.join(subtask.file_scope[:3])}")
+            if len(subtask.file_scope) > 3:
+                print(f"          ... and {len(subtask.file_scope) - 3} more")
+
+        if subtask.dependencies:
+            print(f"   Dependencies: {', '.join(subtask.dependencies)}")
+
+        if verbose:
+            print(f"   Description: {subtask.description[:200]}...")
+
+    print("\n" + "-" * 60)
+    print("To execute this plan, run without --dry-run:")
+    cmd_parts = ["aragora improve", f'--goal "{goal}"']
+    if tracks:
+        cmd_parts.append(f"--tracks {','.join(tracks)}")
+    if use_debate:
+        cmd_parts.append("--debate")
+    print(f"  {' '.join(cmd_parts)}")
+    print()
+
+
+def _run_orchestration(
+    goal: str,
+    tracks: list[str] | None,
+    max_cycles: int,
+    require_approval: bool,
+    use_debate: bool,
+    max_parallel: int,
+    codebase_path: Path,
+    verbose: bool,
+) -> None:
+    """Run full orchestration via AutonomousOrchestrator."""
+    from aragora.nomic.autonomous_orchestrator import (
+        AutonomousOrchestrator,
+    )
+
+    checkpoints: list[tuple[str, dict[str, Any]]] = []
+
+    def on_checkpoint(phase: str, data: dict[str, Any]) -> None:
+        """Callback for orchestration checkpoints."""
+        checkpoints.append((phase, data))
+        if verbose:
+            print(f"  [Checkpoint] {phase}: {data.get('orchestration_id', '')}")
+
+        # Handle approval gates if required
+        if require_approval and phase in ("decomposed", "assigned"):
+            _prompt_approval(phase, data)
+
+    print("-" * 60)
+    print("STARTING ORCHESTRATION")
+    print("-" * 60)
+
+    orchestrator = AutonomousOrchestrator(
+        aragora_path=codebase_path,
+        require_human_approval=require_approval,
+        max_parallel_tasks=max_parallel,
+        on_checkpoint=on_checkpoint,
+        use_debate_decomposition=use_debate,
+    )
+
+    try:
+        result = asyncio.run(
+            orchestrator.execute_goal(
+                goal=goal,
+                tracks=tracks,
+                max_cycles=max_cycles,
+            )
+        )
+        _print_result(result, verbose)
+
+    except KeyboardInterrupt:
+        print("\n\nOrchestration interrupted by user.")
+        print("Active assignments may be left in progress.")
+
+    except Exception as e:
+        print(f"\nOrchestration failed: {e}")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+
+
+def _prompt_approval(phase: str, data: dict[str, Any]) -> None:
+    """Prompt for human approval at a gate."""
+    print(f"\n{'=' * 40}")
+    print(f"APPROVAL GATE: {phase.upper()}")
+    print(f"{'=' * 40}")
+
+    if phase == "decomposed":
+        count = data.get("subtask_count", 0)
+        print(f"The goal has been decomposed into {count} subtasks.")
+    elif phase == "assigned":
+        count = data.get("assignment_count", 0)
+        print(f"{count} assignments have been created.")
+
+    while True:
+        response = input("\nProceed? [y/n/details]: ").strip().lower()
+        if response in ("y", "yes"):
+            print("Approved. Continuing...\n")
+            return
+        elif response in ("n", "no"):
+            raise KeyboardInterrupt("User rejected at approval gate")
+        elif response in ("d", "details"):
+            import json
+
+            print(json.dumps(data, indent=2, default=str))
+        else:
+            print("Please enter 'y' to approve, 'n' to reject, or 'd' for details.")
+
+
+def _print_result(result: "OrchestrationResult", verbose: bool) -> None:
+    """Print orchestration result."""
+
+    print("\n" + "=" * 60)
+    print("ORCHESTRATION RESULT")
+    print("=" * 60)
+
+    status = "SUCCESS" if result.success else "FAILED"
+    print(f"\nStatus: {status}")
+    print(f"Goal: {result.goal}")
+    print(f"Duration: {result.duration_seconds:.1f}s")
+    print()
+    print(f"Total subtasks: {result.total_subtasks}")
+    print(f"  Completed: {result.completed_subtasks}")
+    print(f"  Failed: {result.failed_subtasks}")
+    print(f"  Skipped: {result.skipped_subtasks}")
+
+    if result.error:
+        print(f"\nError: {result.error}")
+
+    if result.summary:
+        print(f"\n{result.summary}")
+
+    if verbose and result.assignments:
+        print("\n" + "-" * 40)
+        print("ASSIGNMENT DETAILS")
+        print("-" * 40)
+
+        for a in result.assignments:
+            status_icon = "+" if a.status == "completed" else ("-" if a.status == "failed" else "?")
+            print(f"\n{status_icon} {a.subtask.title}")
+            print(f"  Track: {a.track.value}")
+            print(f"  Agent: {a.agent_type}")
+            print(f"  Status: {a.status}")
+            if a.started_at and a.completed_at:
+                duration = (a.completed_at - a.started_at).total_seconds()
+                print(f"  Duration: {duration:.1f}s")
+            if a.result and a.status == "failed":
+                error = a.result.get("error", "Unknown error")
+                print(f"  Error: {error[:100]}...")
+
+    print()
 
 
 def cmd_context(args: argparse.Namespace) -> None:

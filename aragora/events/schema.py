@@ -55,7 +55,13 @@ T = TypeVar("T", bound="EventPayload")
 
 @dataclass
 class EventPayload:
-    """Base class for typed event payloads."""
+    """Base class for typed event payloads.
+
+    Note: Trace correlation is handled at event dispatch time via
+    aragora.observability.tracing context, not in payload schemas.
+    The trace_id is automatically injected by EventDispatcher when
+    tracing is enabled. See aragora/events/dispatcher.py for details.
+    """
 
     def to_dict(self) -> dict[str, Any]:
         """Convert payload to dictionary."""
@@ -254,7 +260,7 @@ class ErrorPayload(EventPayload):
     message: str
     debate_id: str | None = None
     agent: str | None = None
-    trace_id: str | None = None
+    trace_id: str | None = None  # Explicit trace_id for error correlation
     recoverable: bool = True
 
 

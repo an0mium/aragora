@@ -58,6 +58,7 @@ from aragora.cli.commands.testfixer import build_parser as build_testfixer_parse
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+DEFAULT_API_KEY = os.environ.get("ARAGORA_API_KEY")
 
 
 def get_version() -> str:
@@ -123,6 +124,9 @@ Examples:
     _add_cross_pollination_parser(subparsers)
     _add_mcp_parser(subparsers)
     _add_marketplace_parser(subparsers)
+    _add_skills_parser(subparsers)
+    _add_nomic_parser(subparsers)
+    _add_workflow_parser(subparsers)
     _add_control_plane_parser(subparsers)
     _add_decide_parser(subparsers)
     _add_plans_parser(subparsers)
@@ -196,6 +200,16 @@ def _add_ask_parser(subparsers) -> None:
         "--local",
         action="store_true",
         help="Run debate locally without API server (offline/air-gapped mode)",
+    )
+    ask_parser.add_argument(
+        "--api-url",
+        default=DEFAULT_API_URL,
+        help=f"API server URL (default: {DEFAULT_API_URL})",
+    )
+    ask_parser.add_argument(
+        "--api-key",
+        default=None if DEFAULT_API_KEY is None else DEFAULT_API_KEY,
+        help="API key for server authentication (default: ARAGORA_API_KEY)",
     )
     debate_type = ask_parser.add_mutually_exclusive_group()
     debate_type.add_argument(
@@ -404,11 +418,72 @@ def _add_validate_env_parser(subparsers) -> None:
 
 def _add_improve_parser(subparsers) -> None:
     """Add the 'improve' subcommand parser."""
-    improve_parser = subparsers.add_parser("improve", help="Self-improvement mode")
-    improve_parser.add_argument("--path", "-p", help="Path to codebase (default: current dir)")
-    improve_parser.add_argument("--focus", "-f", help="Focus area for improvements")
+    improve_parser = subparsers.add_parser(
+        "improve",
+        help="Self-improvement mode using AutonomousOrchestrator",
+        description="""
+Run self-improvement on the codebase using the Nomic AutonomousOrchestrator.
+
+The orchestrator decomposes high-level goals into subtasks, routes them to
+appropriate agents based on domain expertise, and executes them with
+verification and feedback loops.
+
+Examples:
+  aragora improve --goal "Improve test coverage" --tracks qa
+  aragora improve --goal "Refactor authentication" --dry-run
+  aragora improve --goal "Add SDK endpoints" --tracks developer --max-cycles 3
+  aragora improve --goal "Security audit" --tracks security --require-approval
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     improve_parser.add_argument(
-        "--analyze", "-a", action="store_true", help="Analyze codebase structure"
+        "--goal",
+        "-g",
+        required=True,
+        help="The improvement goal to execute (required)",
+    )
+    improve_parser.add_argument(
+        "--tracks",
+        "-t",
+        help="Comma-separated tracks to focus on (sme, developer, self_hosted, qa, core, security)",
+    )
+    improve_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview decomposition without executing (uses TaskDecomposer)",
+    )
+    improve_parser.add_argument(
+        "--max-cycles",
+        type=int,
+        default=5,
+        help="Maximum improvement cycles per subtask (default: 5)",
+    )
+    improve_parser.add_argument(
+        "--require-approval",
+        action="store_true",
+        help="Require human approval at checkpoint gates",
+    )
+    improve_parser.add_argument(
+        "--debate",
+        action="store_true",
+        help="Use multi-agent debate for goal decomposition (slower but better for abstract goals)",
+    )
+    improve_parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=4,
+        help="Maximum parallel tasks across all tracks (default: 4)",
+    )
+    improve_parser.add_argument(
+        "--path",
+        "-p",
+        help="Path to codebase (default: current dir)",
+    )
+    improve_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed progress and checkpoint information",
     )
     improve_parser.set_defaults(func=cmd_improve)
 
@@ -802,6 +877,27 @@ def _add_marketplace_parser(subparsers) -> None:
     marketplace_parser.set_defaults(func=cmd_marketplace)
 
 
+def _add_skills_parser(subparsers) -> None:
+    """Add the 'skills' subcommand parser for skill marketplace."""
+    from aragora.cli.commands.skills import add_skills_parser
+
+    add_skills_parser(subparsers)
+
+
+def _add_nomic_parser(subparsers) -> None:
+    """Add the 'nomic' subcommand parser for self-improvement loop."""
+    from aragora.cli.commands.nomic import add_nomic_parser
+
+    add_nomic_parser(subparsers)
+
+
+def _add_workflow_parser(subparsers) -> None:
+    """Add the 'workflow' subcommand parser for workflow engine."""
+    from aragora.cli.commands.workflow import add_workflow_parser
+
+    add_workflow_parser(subparsers)
+
+
 def _add_control_plane_parser(subparsers) -> None:
     """Add the 'control-plane' subcommand parser."""
     cp_parser = subparsers.add_parser(
@@ -879,6 +975,22 @@ Examples:
         "--dry-run",
         action="store_true",
         help="Create plan but don't execute",
+    )
+    execution_group = decide_parser.add_mutually_exclusive_group()
+    execution_group.add_argument(
+        "--execution-mode",
+        choices=["workflow", "hybrid", "computer_use"],
+        help="Execution engine for implementation tasks",
+    )
+    execution_group.add_argument(
+        "--hybrid",
+        action="store_true",
+        help="Use hybrid executor (Claude + Codex)",
+    )
+    execution_group.add_argument(
+        "--computer-use",
+        action="store_true",
+        help="Use browser-based computer use executor",
     )
     decide_parser.add_argument(
         "--budget-limit",
@@ -973,6 +1085,22 @@ Examples:
     # plans execute
     execute_parser = plans_subparsers.add_parser("execute", help="Execute a plan")
     execute_parser.add_argument("plan_id", help="Plan ID to execute")
+    execute_exec_group = execute_parser.add_mutually_exclusive_group()
+    execute_exec_group.add_argument(
+        "--execution-mode",
+        choices=["workflow", "hybrid", "computer_use"],
+        help="Execution engine for implementation tasks",
+    )
+    execute_exec_group.add_argument(
+        "--hybrid",
+        action="store_true",
+        help="Use hybrid executor (Claude + Codex)",
+    )
+    execute_exec_group.add_argument(
+        "--computer-use",
+        action="store_true",
+        help="Use browser-based computer use executor",
+    )
     execute_parser.set_defaults(func=cmd_plans_execute)
 
     # Default behavior when just 'aragora plans' is called

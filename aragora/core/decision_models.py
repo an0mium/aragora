@@ -447,7 +447,7 @@ class DecisionRequest:
         if config is not None:
             request_kwargs["config"] = config
 
-        return cls(**request_kwargs)
+        return cls(**request_kwargs)  # type: ignore[arg-type]
 
     @classmethod
     def from_http(
@@ -635,7 +635,7 @@ class DecisionResult:
             "error": self.error,
         }
         if self.decision_integrity is not None:
-            result["decision_integrity"] = self.decision_integrity
+            result["decision_integrity"] = self.decision_integrity  # type: ignore[assignment]
         return result
 
 

@@ -372,9 +372,7 @@ class FileGatewayStore:
             auto_save_interval: Minimum seconds between auto-saves.
         """
         if path is None:
-            from aragora.persistence.db_config import get_nomic_dir
-
-            path = get_nomic_dir() / "gateway.json"
+            path = Path.home() / ".aragora" / "gateway.json"
         self._path = Path(path)
         self._auto_save = auto_save
         self._auto_save_interval = auto_save_interval

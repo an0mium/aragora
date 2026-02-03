@@ -130,6 +130,7 @@ class AragoraRLM(RLMStreamingMixin):
         hierarchy_cache: Optional["RLMHierarchyCache"] = None,
         knowledge_mound: Any | None = None,  # For auto-creating cache
         enable_caching: bool = True,  # Enable compression caching
+        belief_network: Any | None = None,  # For belief-augmented reasoning
     ):
         """
         Initialize Aragora RLM.
@@ -141,11 +142,23 @@ class AragoraRLM(RLMStreamingMixin):
             hierarchy_cache: Optional pre-configured RLMHierarchyCache
             knowledge_mound: Optional KnowledgeMound for persistent caching
             enable_caching: Whether to cache compression hierarchies
+            belief_network: Optional BeliefNetwork for belief-augmented reasoning
         """
         self.backend_config = backend_config or RLMBackendConfig()
         self.aragora_config = aragora_config or RLMConfig()
         self.agent_registry = agent_registry
         self.enable_caching = enable_caching
+
+        # Belief network integration (Phase 2: RLM-Belief Bridge)
+        self._belief_network = belief_network
+        self._belief_context_adapter: Any | None = None
+        if belief_network:
+            try:
+                from .belief_context_adapter import BeliefContextAdapter
+
+                self._belief_context_adapter = BeliefContextAdapter(belief_network=belief_network)
+            except ImportError:
+                logger.debug("BeliefContextAdapter not available")
 
         self._official_rlm: Any | None = None
         self._fallback_rlm: Any | None = None
@@ -217,6 +230,57 @@ class AragoraRLM(RLMStreamingMixin):
         if "/" in model_name:
             return model_name
         return f"openai/{model_name}"
+
+    def set_belief_network(self, belief_network: Any) -> None:
+        """Set or update the belief network for belief-augmented reasoning.
+
+        Args:
+            belief_network: BeliefNetwork instance to use for belief context
+        """
+        self._belief_network = belief_network
+        if belief_network:
+            try:
+                from .belief_context_adapter import BeliefContextAdapter
+
+                if self._belief_context_adapter:
+                    self._belief_context_adapter.set_belief_network(belief_network)
+                else:
+                    self._belief_context_adapter = BeliefContextAdapter(
+                        belief_network=belief_network
+                    )
+            except ImportError:
+                logger.debug("BeliefContextAdapter not available")
+
+    def get_belief_context_summary(self, topic: str) -> str:
+        """Get a text summary of belief context for a topic.
+
+        Args:
+            topic: The topic to build belief context for
+
+        Returns:
+            Formatted text summary of relevant beliefs and cruxes
+        """
+        if self._belief_context_adapter:
+            return self._belief_context_adapter.build_belief_context_summary(topic)
+        return ""
+
+    def _extract_topic_from_query(self, query: str) -> str:
+        """Extract a topic string from a query for belief context lookup.
+
+        Args:
+            query: The query string
+
+        Returns:
+            Extracted topic (first 100 chars, trimmed to last word boundary)
+        """
+        # Simple extraction: take first 100 chars, trim to word boundary
+        topic = query[:100]
+        if len(query) > 100:
+            # Find last space to avoid cutting words
+            last_space = topic.rfind(" ")
+            if last_space > 50:
+                topic = topic[:last_space]
+        return topic.strip()
 
     async def build_context(
         self,
@@ -367,6 +431,7 @@ class AragoraRLM(RLMStreamingMixin):
         query: str,
         context: RLMContext,
         strategy: str = "auto",
+        inject_belief_context: bool = True,
     ) -> RLMResult:
         """
         Query using RLM over hierarchical context.
@@ -378,6 +443,7 @@ class AragoraRLM(RLMStreamingMixin):
             query: The query to answer
             context: Pre-compressed hierarchical context
             strategy: Decomposition strategy (auto, peek, grep, partition_map, etc.)
+            inject_belief_context: Whether to inject belief network context
 
         Returns:
             RLMResult with answer and provenance. Check `used_true_rlm` and
@@ -387,16 +453,34 @@ class AragoraRLM(RLMStreamingMixin):
         self._last_query_used_true_rlm = False
         self._last_query_used_compression_fallback = False
 
+        # Reset belief context tracking
+        belief_context_used = False
+        if self._belief_context_adapter:
+            self._belief_context_adapter.reset_tracking()
+
+        # Build belief-augmented query if belief network available
+        augmented_query = query
+        if inject_belief_context and self._belief_context_adapter:
+            try:
+                # Extract topic from query for belief context
+                topic = self._extract_topic_from_query(query)
+                belief_summary = self._belief_context_adapter.build_belief_context_summary(topic)
+                if belief_summary.strip():
+                    augmented_query = f"{belief_summary}\n\n## Query\n{query}"
+                    belief_context_used = True
+                    logger.debug(f"Injected belief context for topic: {topic}")
+            except Exception as e:
+                logger.debug(f"Belief context injection skipped: {e}")
+
         if self._official_rlm:
             # PRIMARY: Use TRUE RLM (REPL-based recursive decomposition)
             logger.info(
                 "[AragoraRLM] Using TRUE RLM (REPL-based) for query - "
                 "model will write code to examine context"
             )
-            result = await self._true_rlm_query(query, context, strategy)
+            result = await self._true_rlm_query(augmented_query, context, strategy)
             result.used_true_rlm = self._last_query_used_true_rlm
             result.used_compression_fallback = self._last_query_used_compression_fallback
-            return result
         else:
             # FALLBACK: Use compression-based approach
             logger.warning(
@@ -404,10 +488,17 @@ class AragoraRLM(RLMStreamingMixin):
                 "context will be pre-summarized rather than model-driven"
             )
             self._last_query_used_compression_fallback = True
-            result = await self._compression_fallback(query, context, strategy)
+            result = await self._compression_fallback(augmented_query, context, strategy)
             result.used_true_rlm = False
             result.used_compression_fallback = True
-            return result
+
+        # Add belief context tracking to result
+        result.belief_context_used = belief_context_used
+        if self._belief_context_adapter:
+            result.beliefs_consulted = self._belief_context_adapter.get_consulted_beliefs()
+            result.cruxes_addressed = self._belief_context_adapter.get_consulted_cruxes()
+
+        return result
 
     async def _true_rlm_query(
         self,

@@ -943,6 +943,63 @@ class TestExecuteMode:
         assert status == 200
         assert body["execution"]["status"] == "completed"
 
+    def test_execute_approved_computer_use(
+        self, handler, mock_storage, mock_package, mock_approval_request
+    ):
+        """Approved execution uses PlanExecutor computer_use mode."""
+        handler._body = {"execution_mode": "execute", "execution_engine": "computer_use"}
+
+        from aragora.autonomous.loop_enhancement import ApprovalStatus
+
+        mock_approval_request.status = ApprovalStatus.APPROVED
+
+        mock_flow = MagicMock()
+        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
+
+        mock_outcome = MagicMock()
+        mock_outcome.to_dict.return_value = {"success": True}
+
+        with (
+            patch(
+                "aragora.server.handlers.debates.implementation.run_async",
+            ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation._persist_receipt",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.get_approval_flow",
+                return_value=mock_flow,
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.get_permission_checker",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.PlanExecutor",
+            ) as mock_executor_cls,
+            patch.dict(
+                "os.environ",
+                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
+            ),
+        ):
+            mock_executor = MagicMock()
+            mock_executor.execute = AsyncMock(return_value=mock_outcome)
+            mock_executor_cls.return_value = mock_executor
+
+            mock_run.side_effect = [
+                mock_package,
+                mock_approval_request,
+                mock_outcome,
+            ]
+            result = handler._create_decision_integrity(None, "debate-001")
+
+        body, status = parse_result(result)
+        assert status == 200
+        assert body["execution"]["status"] == "completed"
+        assert body["execution"]["mode"] == "computer_use"
+        assert body["execution"]["outcome"]["success"] is True
+        assert mock_executor_cls.called is True
+
     def test_execute_auto_approved(
         self, handler, mock_storage, mock_package, mock_approval_request
     ):

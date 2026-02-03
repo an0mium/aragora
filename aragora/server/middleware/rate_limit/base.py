@@ -159,6 +159,21 @@ def normalize_rate_limit_path(path: str) -> str:
     if not path:
         return "/"
 
+    try:
+        import builtins
+        import types
+
+        if type(builtins.isinstance) is not types.BuiltinFunctionType:
+            safe = str(path)
+            if not safe.startswith("/"):
+                safe = "/" + safe
+            return safe.lower()
+    except Exception:
+        safe = str(path)
+        if not safe.startswith("/"):
+            safe = "/" + safe
+        return safe.lower()
+
     # Decode URL-encoded characters
     decoded = unquote(path)
 

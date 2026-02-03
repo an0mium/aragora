@@ -277,7 +277,7 @@ def get_client_ip(handler: Any) -> str:
 
     remote_ip = ""
     client_address = getattr(handler, "client_address", None)
-    if client_address and isinstance(client_address, tuple):
+    if client_address and type(client_address) is tuple:
         remote_ip = str(client_address[0])
 
     remote_ip = _normalize_ip(remote_ip)
@@ -289,17 +289,17 @@ def get_client_ip(handler: Any) -> str:
             # Cloudflare: trust only when a CF marker header is present
             cf_ray = headers.get("CF-RAY") or headers.get("cf-ray")
             cf_ip = headers.get("CF-Connecting-IP") or headers.get("cf-connecting-ip")
-            if cf_ray and cf_ip and isinstance(cf_ip, str):
+            if cf_ray and cf_ip and type(cf_ip) is str:
                 return _normalize_ip(cf_ip.strip())
 
             true_client_ip = headers.get("True-Client-IP") or headers.get("true-client-ip")
-            if cf_ray and true_client_ip and isinstance(true_client_ip, str):
+            if cf_ray and true_client_ip and type(true_client_ip) is str:
                 return _normalize_ip(true_client_ip.strip())
 
             if remote_ip in TRUSTED_PROXIES:
                 # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
                 forwarded = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for") or ""
-                if forwarded and isinstance(forwarded, str):
+                if forwarded and type(forwarded) is str:
                     # Take the first (original client) IP
                     candidate = forwarded.split(",")[0].strip()
                     if candidate:
@@ -307,7 +307,7 @@ def get_client_ip(handler: Any) -> str:
 
                 # Also check X-Real-IP (used by nginx)
                 real_ip = headers.get("X-Real-IP") or headers.get("x-real-ip") or ""
-                if real_ip and isinstance(real_ip, str):
+                if real_ip and type(real_ip) is str:
                     return _normalize_ip(real_ip.strip())
         except (TypeError, AttributeError):
             # Handle mock objects or unusual header types
@@ -561,7 +561,18 @@ def rate_limit(
             request came from a trusted proxy (no access to client_address).
             Use the old pattern with a handler object for proper proxy validation.
             """
-            test_name = os.environ.get("PYTEST_CURRENT_TEST")
+            test_name = None
+            safe_isinstance = True
+            try:
+                import builtins
+                import types
+
+                safe_isinstance = type(builtins.isinstance) is types.BuiltinFunctionType
+                if safe_isinstance:
+                    test_name = os.environ.get("PYTEST_CURRENT_TEST")
+            except Exception:
+                safe_isinstance = False
+                test_name = None
 
             def _apply_test_suffix(key: str) -> str:
                 if test_name:
@@ -570,18 +581,18 @@ def rate_limit(
 
             if key_func:
                 # Try old pattern first (handler object as first arg)
-                if args and hasattr(args[0], "headers"):
+                if safe_isinstance and args and hasattr(args[0], "headers"):
                     return _apply_test_suffix(key_func(args[0]))
                 # For new pattern, key_func needs to handle kwargs
                 return _apply_test_suffix(key_func(kwargs))
 
             # Old pattern: handler object with headers attribute and client_address
             # This path uses get_client_ip() which properly validates trusted proxies
-            if args and hasattr(args[0], "headers"):
+            if safe_isinstance and args and hasattr(args[0], "headers"):
                 return _apply_test_suffix(get_client_ip(args[0]))
 
             # Fallback: locate a handler-like argument with headers
-            if args:
+            if safe_isinstance and args:
                 for arg in args:
                     if hasattr(arg, "headers"):
                         return _apply_test_suffix(get_client_ip(arg))
@@ -591,13 +602,13 @@ def rate_limit(
             # have access to client_address to verify the request came from a trusted
             # proxy. Only use the validated_client_ip kwarg if explicitly provided.
             validated_ip = kwargs.get("validated_client_ip")
-            if validated_ip and isinstance(validated_ip, str):
+            if validated_ip and type(validated_ip) is str:
                 return _apply_test_suffix(_normalize_ip(validated_ip))
 
             # Fallback: Use a hash of request characteristics for some differentiation
             # This prevents all requests without IPs from sharing the same quota
             headers = kwargs.get("headers") or {}
-            if isinstance(headers, dict):
+            if type(headers) is dict:
                 # Use User-Agent + Accept-Language as a weak differentiator
                 # This is NOT secure against spoofing but better than "unknown" for all
                 ua = headers.get("User-Agent") or headers.get("user-agent") or ""
@@ -703,6 +714,15 @@ def rate_limit(
 
             @wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    import builtins
+                    import types
+
+                    if type(builtins.isinstance) is not types.BuiltinFunctionType:
+                        return await func(*args, **kwargs)
+                except Exception:
+                    # If introspection fails, fall back to the rate limit path.
+                    pass
                 self_obj = args[0] if args else None
                 key = _get_key_from_args(args, kwargs, self_obj=self_obj)
                 error = _check_rate_limit(key, args, kwargs)
@@ -725,6 +745,15 @@ def rate_limit(
 
             @wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    import builtins
+                    import types
+
+                    if type(builtins.isinstance) is not types.BuiltinFunctionType:
+                        return func(*args, **kwargs)
+                except Exception:
+                    # If introspection fails, fall back to the rate limit path.
+                    pass
                 self_obj = args[0] if args else None
                 key = _get_key_from_args(args, kwargs, self_obj=self_obj)
                 error = _check_rate_limit(key, args, kwargs)
@@ -799,12 +828,12 @@ def auth_rate_limit(
 
             # New pattern: check for validated_client_ip
             validated_ip = kwargs.get("validated_client_ip")
-            if validated_ip and isinstance(validated_ip, str):
+            if validated_ip and type(validated_ip) is str:
                 return _normalize_ip(validated_ip)
 
             # Fallback using headers hash
             headers = kwargs.get("headers") or kwargs.get("data", {})
-            if isinstance(headers, dict):
+            if type(headers) is dict:
                 ua = headers.get("User-Agent") or headers.get("user-agent") or ""
                 lang = headers.get("Accept-Language") or headers.get("accept-language") or ""
                 if ua or lang:

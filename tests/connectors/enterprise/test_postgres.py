@@ -6,9 +6,6 @@ Tests the PostgreSQL integration including:
 - LISTEN/NOTIFY for real-time change detection
 - Table/view selection with schema support
 - Connection pooling for performance
-
-NOTE: Some tests are skipped because they mock internal methods that don't exist.
-TODO: Rewrite tests to use correct mocking patterns.
 """
 
 import json

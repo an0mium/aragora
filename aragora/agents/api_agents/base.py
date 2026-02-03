@@ -37,8 +37,10 @@ class APIAgent(CritiqueMixin, Agent):
         circuit_breaker: BaseCircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
         # Circuit breaker configuration (allows per-agent tuning)
-        circuit_breaker_threshold: int = 8,
-        circuit_breaker_cooldown: float = 90.0,
+        # Default threshold=5 provides faster failure detection for improved resilience
+        # Default cooldown=60s balances recovery time with service availability
+        circuit_breaker_threshold: int = 5,
+        circuit_breaker_cooldown: float = 60.0,
         # Generation parameters (can be set from Persona)
         temperature: float | None = None,
         top_p: float | None = None,

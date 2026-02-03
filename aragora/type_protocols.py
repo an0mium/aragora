@@ -1,16 +1,30 @@
 """
-Type definitions and protocols for Aragora.
+Domain protocol definitions for Aragora.
 
 Provides Protocol classes for duck-typed interfaces, enabling better
 type checking without requiring concrete inheritance relationships.
+These are *domain* protocols with async methods and full-featured interfaces.
 
-Usage:
-    from aragora.type_protocols import AgentProtocol, MemoryProtocol
+Note: For *backend* protocols (sync, simple storage interfaces),
+see `aragora.core_protocols`.
 
-    def process_agent(agent: AgentProtocol) -> str:
-        return agent.respond("prompt")
+**Canonical Import Point**: Use `aragora.protocols` for all protocol imports:
 
-    # Any object with name attribute and respond method will satisfy the protocol
+    from aragora.protocols import AgentProtocol, EloSystemProtocol
+
+The `aragora.protocols` module provides unified access to both backend and
+domain protocols with clear documentation on when to use each.
+
+Protocol Hierarchy:
+    AgentProtocol           → Base agent interface (async respond)
+    StreamingAgentProtocol  → Extends with streaming
+    ToolUsingAgentProtocol  → Extends with tool use
+
+    MemoryProtocol          → Basic memory interface
+    TieredMemoryProtocol    → Full ContinuumMemory interface
+
+    EloSystemProtocol       → Full ELO system with calibration, voting accuracy
+    CalibrationTrackerProtocol → Prediction calibration tracking
 """
 
 from __future__ import annotations

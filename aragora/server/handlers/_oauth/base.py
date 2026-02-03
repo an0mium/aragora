@@ -23,6 +23,10 @@ from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.oauth.models import OAuthUserInfo
 
 from .utils import _impl
+
+# Maximum retries for database operations on connection errors
+_DB_MAX_RETRIES = 3
+_DB_RETRY_DELAY_BASE = 0.5  # seconds
 from aragora.server.handlers.utils.rate_limit import get_client_ip
 
 from .google import GoogleOAuthMixin
@@ -391,15 +395,84 @@ class OAuthHandler(
         return self._maybe_await(self._find_user_by_oauth_async(user_store, user_info))
 
     async def _find_user_by_oauth_async(self, user_store, user_info: OAuthUserInfo):
-        """Async implementation for finding user by OAuth provider ID."""
-        # Look for user with matching OAuth link
-        # This requires the user store to support OAuth lookups
-        async_lookup = getattr(user_store, "get_user_by_oauth_async", None)
-        if async_lookup and inspect.iscoroutinefunction(async_lookup):
-            return await async_lookup(user_info.provider, user_info.provider_user_id)
-        if hasattr(user_store, "get_user_by_oauth"):
-            return user_store.get_user_by_oauth(user_info.provider, user_info.provider_user_id)
+        """Async implementation for finding user by OAuth provider ID.
+
+        Includes retry logic for handling transient database connection errors
+        (e.g., InterfaceError from stale asyncpg pools).
+        """
+        last_error: Exception | None = None
+
+        for attempt in range(_DB_MAX_RETRIES):
+            try:
+                # Look for user with matching OAuth link
+                # This requires the user store to support OAuth lookups
+                async_lookup = getattr(user_store, "get_user_by_oauth_async", None)
+                if async_lookup and inspect.iscoroutinefunction(async_lookup):
+                    return await async_lookup(user_info.provider, user_info.provider_user_id)
+                if hasattr(user_store, "get_user_by_oauth"):
+                    return user_store.get_user_by_oauth(
+                        user_info.provider, user_info.provider_user_id
+                    )
+                return None
+
+            except Exception as e:
+                error_name = type(e).__name__
+                # Check for retryable database connection errors
+                is_retryable = error_name in (
+                    "InterfaceError",  # asyncpg pool/connection invalid
+                    "ConnectionDoesNotExistError",  # asyncpg connection closed
+                    "ConnectionRefusedError",  # TCP connection refused
+                    "TimeoutError",  # Connection timeout
+                )
+                if not is_retryable or attempt >= _DB_MAX_RETRIES - 1:
+                    raise
+
+                last_error = e
+                delay = _DB_RETRY_DELAY_BASE * (2**attempt)
+                logger.warning(
+                    f"OAuth DB lookup failed (attempt {attempt + 1}/{_DB_MAX_RETRIES}): "
+                    f"{error_name}: {e}. Retrying in {delay:.1f}s..."
+                )
+
+                # Try to refresh the pool before retrying
+                try:
+                    await self._try_refresh_user_store_pool(user_store)
+                except Exception as refresh_err:
+                    logger.warning(f"Pool refresh failed: {refresh_err}")
+
+                await asyncio.sleep(delay)
+
+        # Should not reach here, but just in case
+        if last_error:
+            raise last_error
         return None
+
+    async def _try_refresh_user_store_pool(self, user_store) -> None:
+        """Attempt to refresh the user store's database pool.
+
+        This is a best-effort operation to recover from stale pool connections.
+        """
+        try:
+            from aragora.storage.pool_manager import (
+                get_shared_pool,
+                initialize_shared_pool,
+                is_pool_initialized,
+            )
+
+            # Check if we need to reinitialize the pool
+            if not is_pool_initialized():
+                logger.info("Shared pool not initialized, attempting to initialize...")
+                await initialize_shared_pool()
+
+            # Get fresh pool reference
+            new_pool = get_shared_pool()
+            if new_pool and hasattr(user_store, "_pool"):
+                # Update user store's pool reference
+                user_store._pool = new_pool
+                logger.info("User store pool reference updated")
+
+        except ImportError:
+            pass  # pool_manager not available
 
     def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
         """Link OAuth provider to existing user."""

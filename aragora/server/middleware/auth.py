@@ -33,11 +33,13 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
+    from aragora.rbac.models import AuthorizationContext
     from aragora.server.handlers.base import HandlerResult
 
 logger = logging.getLogger(__name__)
@@ -49,17 +51,55 @@ class AuthContext:
     Authentication context passed to handlers.
 
     Contains information about the authenticated user/client.
+
+    Note: For new code requiring permissions/RBAC, prefer using
+    `AuthorizationContext` from `aragora.rbac.models` which provides:
+    - Roles and permissions
+    - Org/workspace scoping
+    - API key scope validation
+    - Permission checking methods
+
+    Use `to_authorization_context()` to upgrade this context when needed.
     """
 
     authenticated: bool = False
     token: str | None = None
     client_ip: str | None = None
-    user_id: str | None = None  # Future: user identification
+    user_id: str | None = None
+    # Extended fields for RBAC compatibility
+    org_id: str | None = None
+    workspace_id: str | None = None
+    roles: set[str] | None = None
+    permissions: set[str] | None = None
 
     @property
     def is_authenticated(self) -> bool:
         """Alias for authenticated."""
         return self.authenticated
+
+    def to_authorization_context(self) -> "AuthorizationContext":
+        """
+        Convert to full AuthorizationContext for RBAC operations.
+
+        Returns:
+            AuthorizationContext with this context's fields populated.
+        """
+        from aragora.rbac.models import AuthorizationContext
+
+        return AuthorizationContext(
+            user_id=self.user_id or "anonymous",
+            org_id=self.org_id,
+            workspace_id=self.workspace_id,
+            roles=self.roles or set(),
+            permissions=self.permissions or set(),
+            ip_address=self.client_ip,
+        )
+
+    def has_permission(self, permission_key: str) -> bool:
+        """Check if context has a permission (delegates to RBAC)."""
+        if not self.permissions:
+            return False
+        return permission_key in self.permissions or "*" in self.permissions
 
 
 # Import utilities from auth_v2 to avoid duplication
@@ -224,13 +264,19 @@ def require_auth_or_localhost(func: Callable) -> Callable:
         if handler is None:
             return _error_response("Authentication required", 401)
 
-        # Check if localhost
-        client_ip = extract_client_ip(handler)
-        if client_ip in ("127.0.0.1", "::1", "localhost"):
-            logger.debug(f"Allowing localhost access from {client_ip}")
-            return func(*args, **kwargs)
+        # Check if localhost - only in non-production environments
+        # Use client_address directly (not X-Forwarded-For which is spoofable)
+        env = os.environ.get("ARAGORA_ENVIRONMENT", "").lower()
+        is_production = env in ("production", "prod", "staging", "live")
+        if not is_production and hasattr(handler, "client_address"):
+            addr = handler.client_address
+            if isinstance(addr, tuple) and len(addr) >= 1:
+                direct_ip = str(addr[0])
+                if direct_ip in ("127.0.0.1", "::1"):
+                    logger.debug(f"Allowing localhost access from {direct_ip}")
+                    return func(*args, **kwargs)
 
-        # Not localhost - require auth
+        # Not localhost or in production - require auth
         from aragora.server.auth import auth_config
 
         if not auth_config.api_token:

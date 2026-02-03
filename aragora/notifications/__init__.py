@@ -58,6 +58,11 @@ from .service import (
     notify_checkpoint_escalation,
     notify_checkpoint_resolved,
 )
+from .receipt_delivery import (
+    deliver_receipt,
+    ReceiptDeliveryConfig,
+    ReceiptDeliveryResult,
+)
 
 __all__ = [
     # Core service
@@ -85,4 +90,8 @@ __all__ = [
     "notify_checkpoint_approval_requested",
     "notify_checkpoint_escalation",
     "notify_checkpoint_resolved",
+    # Receipt delivery
+    "deliver_receipt",
+    "ReceiptDeliveryConfig",
+    "ReceiptDeliveryResult",
 ]

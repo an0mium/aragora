@@ -128,6 +128,13 @@ def _resolve_load_origin_redis():
     return _load_origin_redis
 
 
+def _should_use_redis() -> bool:
+    """Return True if Redis should be used for debate origin storage."""
+    if is_distributed_state_required():
+        return True
+    return bool(os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL"))
+
+
 def register_debate_origin(
     debate_id: str,
     platform: str,
@@ -260,31 +267,32 @@ def register_debate_origin(
 
     # Persist to Redis for distributed deployments
     redis_success = False
-    store_redis_fn = _resolve_store_origin_redis()
-    try:
-        store_redis_fn(origin)
-        redis_success = True
-    except ImportError:
-        if is_distributed_state_required():
-            raise DistributedStateError(
-                "debate_origin",
-                "Redis library not installed (pip install redis)",
-            )
-        logger.debug("Redis not available, using SQLite/PostgreSQL only")
-    except (OSError, ConnectionError, TimeoutError, ValueError) as e:
-        if is_distributed_state_required():
-            raise DistributedStateError(
-                "debate_origin",
-                f"Redis connection failed: {e}",
-            )
-        logger.debug(f"Redis origin storage not available: {e}")
-    except Exception as e:
-        if is_distributed_state_required():
-            raise DistributedStateError(
-                "debate_origin",
-                f"Redis error: {e}",
-            )
-        logger.debug(f"Redis origin storage not available: {e}")
+    if _should_use_redis():
+        store_redis_fn = _resolve_store_origin_redis()
+        try:
+            store_redis_fn(origin)
+            redis_success = True
+        except ImportError:
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "debate_origin",
+                    "Redis library not installed (pip install redis)",
+                )
+            logger.debug("Redis not available, using SQLite/PostgreSQL only")
+        except (OSError, ConnectionError, TimeoutError, ValueError) as e:
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "debate_origin",
+                    f"Redis connection failed: {e}",
+                )
+            logger.debug(f"Redis origin storage not available: {e}")
+        except Exception as e:
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "debate_origin",
+                    f"Redis error: {e}",
+                )
+            logger.debug(f"Redis origin storage not available: {e}")
 
     logger.info(
         f"Registered debate origin: {debate_id} from {platform}:{channel_id} "
@@ -308,23 +316,24 @@ def get_debate_origin(debate_id: str) -> DebateOrigin | None:
         return origin
 
     # Try Redis
-    load_redis_fn = _resolve_load_origin_redis()
-    try:
-        origin = load_redis_fn(debate_id)
-        if origin:
-            _origin_store[debate_id] = origin  # Cache locally
-            return origin
-    except (
-        ImportError,
-        OSError,
-        ConnectionError,
-        TimeoutError,
-        ValueError,
-        json.JSONDecodeError,
-    ) as e:
-        logger.debug(f"Redis origin lookup not available: {e}")
-    except Exception as e:
-        logger.debug(f"Redis origin lookup not available: {e}")
+    if _should_use_redis():
+        load_redis_fn = _resolve_load_origin_redis()
+        try:
+            origin = load_redis_fn(debate_id)
+            if origin:
+                _origin_store[debate_id] = origin  # Cache locally
+                return origin
+        except (
+            ImportError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
+            logger.debug(f"Redis origin lookup not available: {e}")
+        except Exception as e:
+            logger.debug(f"Redis origin lookup not available: {e}")
 
     # Try PostgreSQL if configured
     pg_store = _get_postgres_store_sync()
@@ -377,21 +386,22 @@ async def get_debate_origin_async(debate_id: str) -> DebateOrigin | None:
         return origin
 
     # Try Redis
-    load_redis_fn = _resolve_load_origin_redis()
-    try:
-        origin = load_redis_fn(debate_id)
-        if origin:
-            _origin_store[debate_id] = origin  # Cache locally
-            return origin
-    except (
-        ImportError,
-        OSError,
-        ConnectionError,
-        TimeoutError,
-        ValueError,
-        json.JSONDecodeError,
-    ) as e:
-        logger.debug(f"Redis origin lookup not available: {e}")
+    if _should_use_redis():
+        load_redis_fn = _resolve_load_origin_redis()
+        try:
+            origin = load_redis_fn(debate_id)
+            if origin:
+                _origin_store[debate_id] = origin  # Cache locally
+                return origin
+        except (
+            ImportError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as e:
+            logger.debug(f"Redis origin lookup not available: {e}")
 
     # Try PostgreSQL if configured
     pg_store = await _get_postgres_store()
@@ -454,15 +464,16 @@ def mark_result_sent(debate_id: str) -> None:
                     logger.debug(f"SQLite update failed: {e}")
 
         # Update Redis if available
-        store_redis_fn = _resolve_store_origin_redis()
-        try:
-            store_redis_fn(origin)
-        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            # Catch Redis errors (connection, timeout, etc.)
-            logger.debug(f"Redis update skipped: {e}")
-        except Exception as e:
-            # Catch redis.exceptions.ConnectionError and other client errors
-            logger.debug(f"Redis update skipped: {e}")
+        if _should_use_redis():
+            store_redis_fn = _resolve_store_origin_redis()
+            try:
+                store_redis_fn(origin)
+            except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
+                # Catch Redis errors (connection, timeout, etc.)
+                logger.debug(f"Redis update skipped: {e}")
+            except Exception as e:
+                # Catch redis.exceptions.ConnectionError and other client errors
+                logger.debug(f"Redis update skipped: {e}")
 
 
 def cleanup_expired_origins() -> int:

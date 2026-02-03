@@ -16,6 +16,16 @@ from .backends import (
 )
 from .base_database import BaseDatabase
 from .base_store import SQLiteStore
+from .interface import (
+    AsyncStorageInterface,
+    AsyncStoreBackend,
+    BatchStoreBackend,
+    HealthCheckBackend,
+    StorageInterface,
+    StoreBackend,
+    SyncBackendWrapper,
+    sync_backend,
+)
 from .organization_store import OrganizationStore
 from .share_store import ShareLinkStore
 from .user_store import UserStore
@@ -147,6 +157,16 @@ __all__ = [
     # Legacy base classes
     "BaseDatabase",
     "SQLiteStore",
+    "StorageInterface",
+    "AsyncStorageInterface",
+    # Unified store protocols (recommended)
+    "StoreBackend",
+    "AsyncStoreBackend",
+    "BatchStoreBackend",
+    "HealthCheckBackend",
+    "SyncBackendWrapper",
+    "sync_backend",
+    # Domain stores
     "UserStore",
     "OrganizationStore",
     "AuditStore",

@@ -23,6 +23,7 @@ async def run_decide(
     auto_approve: bool = False,
     dry_run: bool = False,
     budget_limit: float | None = None,
+    execution_mode: str | None = None,
     verbose: bool = False,
 ) -> dict[str, Any]:
     """Run the full decision pipeline: debate → plan → execute.
@@ -34,6 +35,7 @@ async def run_decide(
         auto_approve: Automatically approve plans (skip approval)
         dry_run: Create plan but don't execute
         budget_limit: Maximum budget for plan execution in USD
+        execution_mode: Execution engine override ("workflow", "hybrid", "computer_use")
         verbose: Print detailed progress
 
     Returns:
@@ -101,10 +103,10 @@ async def run_decide(
     if verbose:
         print("[decide] Executing plan...")
 
-    executor = PlanExecutor()
+    executor = PlanExecutor(execution_mode=execution_mode)
 
     try:
-        outcome = await executor.execute(plan)
+        outcome = await executor.execute(plan, execution_mode=execution_mode)
         result["outcome"] = outcome
 
         if verbose:
@@ -127,6 +129,11 @@ async def run_decide(
 
 def cmd_decide(args: argparse.Namespace) -> None:
     """Handle 'decide' command - full gold path."""
+    execution_mode = getattr(args, "execution_mode", None)
+    if getattr(args, "computer_use", False):
+        execution_mode = "computer_use"
+    elif getattr(args, "hybrid", False):
+        execution_mode = "hybrid"
     result = asyncio.run(
         run_decide(
             task=args.task,
@@ -135,6 +142,7 @@ def cmd_decide(args: argparse.Namespace) -> None:
             auto_approve=getattr(args, "auto_approve", False),
             dry_run=getattr(args, "dry_run", False),
             budget_limit=getattr(args, "budget_limit", None),
+            execution_mode=execution_mode,
             verbose=getattr(args, "verbose", False),
         )
     )
@@ -313,12 +321,18 @@ def cmd_plans_execute(args: argparse.Namespace) -> None:
         print(f"Plan not found: {args.plan_id}")
         sys.exit(1)
 
-    executor = PlanExecutor()
+    execution_mode = getattr(args, "execution_mode", None)
+    if getattr(args, "computer_use", False):
+        execution_mode = "computer_use"
+    elif getattr(args, "hybrid", False):
+        execution_mode = "hybrid"
+
+    executor = PlanExecutor(execution_mode=execution_mode)
 
     print(f"Executing plan {plan.id[:12]}...")
 
     try:
-        outcome = asyncio.run(executor.execute(plan))
+        outcome = asyncio.run(executor.execute(plan, execution_mode=execution_mode))
         print()
         print("Execution complete:")
         print(f"  Success: {outcome.success}")

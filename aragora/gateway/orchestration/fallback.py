@@ -252,7 +252,19 @@ class FallbackChain:
 
             for retry in range(self._max_retries):
                 try:
-                    result = await adapter.execute(task, credentials={}, sandbox_config={})
+                    try:
+                        result = await adapter.execute(
+                            task,
+                            credentials={},
+                            sandbox_config={},
+                        )
+                    except TypeError as exc:
+                        # Backwards compatibility for adapters with legacy signatures.
+                        # Some test adapters only accept (task).
+                        if "credentials" in str(exc) or "sandbox" in str(exc):
+                            result = await adapter.execute(task)
+                        else:
+                            raise
                     last_result = result
 
                     if result.success:

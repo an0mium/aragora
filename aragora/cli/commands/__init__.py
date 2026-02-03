@@ -49,6 +49,16 @@ from aragora.cli.commands.delegated import (
     cmd_control_plane,
 )
 from aragora.cli.commands.testfix import cmd_testfix
+from aragora.cli.commands.skills import cmd_skills, add_skills_parser
+from aragora.cli.commands.nomic import cmd_nomic, add_nomic_parser
+from aragora.cli.commands.workflow import cmd_workflow, add_workflow_parser
+from aragora.cli.commands.receipt import (
+    cmd_receipt,
+    cmd_receipt_verify,
+    cmd_receipt_inspect,
+    cmd_receipt_export,
+    setup_receipt_parser,
+)
 
 __all__ = [
     # debate
@@ -92,4 +102,19 @@ __all__ = [
     "cmd_marketplace",
     "cmd_control_plane",
     "cmd_testfix",
+    # skills (API-backed)
+    "cmd_skills",
+    "add_skills_parser",
+    # nomic loop
+    "cmd_nomic",
+    "add_nomic_parser",
+    # workflow engine
+    "cmd_workflow",
+    "add_workflow_parser",
+    # receipt verification
+    "cmd_receipt",
+    "cmd_receipt_verify",
+    "cmd_receipt_inspect",
+    "cmd_receipt_export",
+    "setup_receipt_parser",
 ]

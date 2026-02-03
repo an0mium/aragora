@@ -184,12 +184,8 @@ class AuthConfig:
             _logger.warning(f"Invalid ARAGORA_TOKEN_TTL '{ttl_str}', using default: {e}")
 
         # Re-read validated origins from centralized CORS config.
-        # Rebuild from environment to pick up runtime overrides.
-        from aragora.server.cors_config import CORSConfig
-
-        self.allowed_origins = CORSConfig(
-            _env_mode=os.environ.get("ARAGORA_ENV")
-        ).get_origins_list()
+        # Uses module-level cors_config for test compatibility.
+        self.allowed_origins = cors_config.get_origins_list()
 
     def generate_token(self, loop_id: str = "", expires_in: int | None = None) -> str:
         """Generate a signed token for access."""

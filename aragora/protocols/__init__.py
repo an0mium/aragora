@@ -1,12 +1,61 @@
 """
 Protocol Integrations for Aragora.
 
+This module is the canonical import point for all protocol definitions.
+
 Supports:
 - MCP (Model Context Protocol) for tool access
 - A2A (Agent-to-Agent Protocol) for inter-agent communication
-- Core protocols for debate, agents, and memory
+- Backend protocols for storage, memory, and infrastructure
+- Domain protocols for agents, debates, and tracking systems
+
+Protocol Categories
+-------------------
+
+**Backend Protocols** (sync, simple interfaces for storage implementations):
+    Use these when implementing storage backends or simple wrappers.
+    - StorageBackend: Debate storage (SQLite, Supabase)
+    - MemoryBackend: Multi-tier memory storage
+    - EloBackend: ELO rating persistence
+    - EmbeddingBackend: Vector/embedding storage
+    - ConsensusBackend: Consensus memory storage
+    - CritiqueBackend: Critique/pattern storage
+    - PersonaBackend: Agent persona storage
+    - GenesisBackend: Agent genome/evolution storage
+
+**Domain Protocols** (async, full-featured interfaces for domain logic):
+    Use these when typing debate components, agents, and business logic.
+    - AgentProtocol: Agent interface with async respond()
+    - StreamingAgentProtocol: Agent with streaming support
+    - ToolUsingAgentProtocol: Agent with tool use
+    - MemoryProtocol: Basic memory interface
+    - TieredMemoryProtocol: Multi-tier memory (ContinuumMemory)
+    - EloSystemProtocol: Full ELO system with calibration
+    - DebateStorageProtocol: Full debate storage interface
+    - CalibrationTrackerProtocol: Prediction calibration
+    - PositionLedgerProtocol: Agent position tracking
+    - RelationshipTrackerProtocol: Agent relationship tracking
+    - ConsensusMemoryProtocol: Consensus outcome storage
+
+**Infrastructure Protocols**:
+    - RedisClientProtocol: Redis client interface
+    - HTTPRequestHandler: HTTP handler interface
+    - AuthenticatedUser: User context interface
+
+Usage:
+    # For backend storage implementations
+    from aragora.protocols import StorageBackend, MemoryBackend
+
+    # For domain logic typing
+    from aragora.protocols import AgentProtocol, EloSystemProtocol
+
+    # For A2A communication
+    from aragora.protocols import A2AClient, A2AServer
 """
 
+# =============================================================================
+# A2A Protocol
+# =============================================================================
 from aragora.protocols.a2a import (
     A2AClient,
     A2AServer,
@@ -17,22 +66,98 @@ from aragora.protocols.a2a import (
 )
 from aragora.protocols.bridge import ProtocolBridge
 
-# Re-export core protocols from aragora.core_protocols
+# =============================================================================
+# Backend Protocols (sync, simple interfaces for storage)
+# =============================================================================
 from aragora.core_protocols import (
+    # Agent basics
     Agent,
     AgentRating,
+    # HTTP/Auth
     AuthenticatedUser,
+    HTTPHeaders,
+    HTTPRequestHandler,
+    # Storage backends
     ConsensusBackend,
     CritiqueBackend,
     EloBackend,
     EmbeddingBackend,
     GenesisBackend,
-    HTTPHeaders,
-    HTTPRequestHandler,
     MemoryBackend,
     PersonaBackend,
     StorageBackend,
 )
+
+# =============================================================================
+# Domain Protocols (async, full-featured interfaces)
+# =============================================================================
+from aragora.type_protocols import (
+    # Agent protocols
+    AgentProtocol,
+    StreamingAgentProtocol,
+    ToolUsingAgentProtocol,
+    # Memory protocols
+    MemoryProtocol,
+    TieredMemoryProtocol,
+    CritiqueStoreProtocol,
+    ContinuumMemoryProtocol,
+    # Event protocols
+    EventEmitterProtocol,
+    AsyncEventEmitterProtocol,
+    # Handler protocols
+    HandlerProtocol,
+    BaseHandlerProtocol,
+    # Debate protocols
+    DebateResultProtocol,
+    ConsensusDetectorProtocol,
+    # Ranking protocols
+    RankingSystemProtocol,
+    EloSystemProtocol,
+    # Tracker protocols
+    CalibrationTrackerProtocol,
+    PositionLedgerProtocol,
+    RelationshipTrackerProtocol,
+    MomentDetectorProtocol,
+    PersonaManagerProtocol,
+    DissentRetrieverProtocol,
+    PositionTrackerProtocol,
+    # Infrastructure
+    RedisClientProtocol,
+    # Storage protocols (domain-level)
+    DebateStorageProtocol,
+    UserStoreProtocol,
+    # Verification
+    VerificationBackendProtocol,
+    # Feedback phase
+    DebateEmbeddingsProtocol,
+    FlipDetectorProtocol,
+    ConsensusMemoryProtocol,
+    PopulationManagerProtocol,
+    PulseManagerProtocol,
+    PromptEvolverProtocol,
+    InsightStoreProtocol,
+    BroadcastPipelineProtocol,
+    EvidenceCollectorProtocol,
+    # Callback types
+    EventCallback,
+    AsyncEventCallback,
+    ResponseFilter,
+    VoteCallback,
+    # Result types
+    Result,
+)
+
+# =============================================================================
+# Protocol Aliases (for migration)
+# =============================================================================
+# When both a Backend and Domain protocol exist for the same concept,
+# prefer the Domain protocol for new code.
+#
+# Mappings:
+#   MemoryBackend (sync, simple) vs MemoryProtocol/TieredMemoryProtocol (async, full)
+#   EloBackend (sync, simple) vs EloSystemProtocol (async, full)
+#   StorageBackend (sync, simple) vs DebateStorageProtocol (async, full)
+#   CritiqueBackend (sync, simple) vs CritiqueStoreProtocol (async, full)
 
 __all__ = [
     # A2A
@@ -44,7 +169,7 @@ __all__ = [
     "TaskStatus",
     # Bridge
     "ProtocolBridge",
-    # Core protocols
+    # Backend protocols (sync, storage-focused)
     "Agent",
     "AgentRating",
     "AuthenticatedUser",
@@ -58,4 +183,57 @@ __all__ = [
     "MemoryBackend",
     "PersonaBackend",
     "StorageBackend",
+    # Domain protocols - Agents
+    "AgentProtocol",
+    "StreamingAgentProtocol",
+    "ToolUsingAgentProtocol",
+    # Domain protocols - Memory
+    "MemoryProtocol",
+    "TieredMemoryProtocol",
+    "CritiqueStoreProtocol",
+    "ContinuumMemoryProtocol",
+    # Domain protocols - Events
+    "EventEmitterProtocol",
+    "AsyncEventEmitterProtocol",
+    # Domain protocols - Handlers
+    "HandlerProtocol",
+    "BaseHandlerProtocol",
+    # Domain protocols - Debate
+    "DebateResultProtocol",
+    "ConsensusDetectorProtocol",
+    # Domain protocols - Ranking
+    "RankingSystemProtocol",
+    "EloSystemProtocol",
+    # Domain protocols - Trackers
+    "CalibrationTrackerProtocol",
+    "PositionLedgerProtocol",
+    "RelationshipTrackerProtocol",
+    "MomentDetectorProtocol",
+    "PersonaManagerProtocol",
+    "DissentRetrieverProtocol",
+    "PositionTrackerProtocol",
+    # Domain protocols - Infrastructure
+    "RedisClientProtocol",
+    # Domain protocols - Storage
+    "DebateStorageProtocol",
+    "UserStoreProtocol",
+    # Domain protocols - Verification
+    "VerificationBackendProtocol",
+    # Domain protocols - Feedback phase
+    "DebateEmbeddingsProtocol",
+    "FlipDetectorProtocol",
+    "ConsensusMemoryProtocol",
+    "PopulationManagerProtocol",
+    "PulseManagerProtocol",
+    "PromptEvolverProtocol",
+    "InsightStoreProtocol",
+    "BroadcastPipelineProtocol",
+    "EvidenceCollectorProtocol",
+    # Callback types
+    "EventCallback",
+    "AsyncEventCallback",
+    "ResponseFilter",
+    "VoteCallback",
+    # Result types
+    "Result",
 ]
