@@ -43,6 +43,23 @@ async def _run(args: argparse.Namespace) -> int:
         revert_on_failure=not args.no_revert,
         attempt_store=attempt_store,
     )
+    if args.require_approval:
+
+        async def approve(proposal):
+            print("\nProposed fix:")
+            print(f"  {proposal.description}")
+            print(f"  Confidence: {proposal.post_debate_confidence:.0%}")
+            diff = proposal.as_diff()
+            if diff:
+                print("\nDiff:\n")
+                print(diff)
+            if not sys.stdin.isatty():
+                print("[testfixer] Approval required but no TTY; rejecting.")
+                return False
+            response = input("Apply this fix? [y/N]: ").strip().lower()
+            return response in ("y", "yes")
+
+        config.on_fix_proposed = approve
 
     fixer = TestFixerOrchestrator(
         repo_path=repo_path,
@@ -81,4 +98,9 @@ def build_parser(subparsers) -> None:
     parser.add_argument("--attempt-store", default=None)
     parser.add_argument("--require-consensus", action="store_true")
     parser.add_argument("--no-revert", action="store_true")
+    parser.add_argument(
+        "--require-approval",
+        action="store_true",
+        help="Require manual approval before applying fixes",
+    )
     parser.set_defaults(func=cmd_testfixer)
