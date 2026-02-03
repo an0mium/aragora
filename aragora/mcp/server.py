@@ -1,44 +1,118 @@
 """
 MCP Server for Aragora.
 
-Exposes Aragora capabilities as Model Context Protocol (MCP) tools,
-allowing any MCP-compatible AI agent (Claude Code, Cursor, etc.) to:
+Exposes Aragora capabilities as Model Context Protocol (MCP) tools for
+integration with MCP-compatible clients (Claude Desktop, Cursor, etc.).
 
-- Launch multi-agent debates
-- Verify decision receipts
-- Query the Knowledge Mound
-- Execute Gauntlet stress tests
-- Manage workflows
-
-This positions Aragora as infrastructure that AI agents invoke,
-rather than a competing product.
+This module provides two layers:
+- AragoraMCPServer: lightweight, testable tool registry + request handlers
+- run_server/main: runtime server using FastMCP when MCP is installed
 """
 
 from __future__ import annotations
 
-import hashlib
+import argparse
+import asyncio
 import json
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Coroutine
+from types import SimpleNamespace
+from typing import Any, Awaitable, Callable, Coroutine
+
+from aragora.config import MAX_CONTENT_LENGTH, MAX_QUESTION_LENGTH
+from aragora.mcp.tools import TOOLS_METADATA
 
 logger = logging.getLogger(__name__)
+
+# MCP optional dependency
+try:
+    from mcp.types import (
+        Tool,
+        TextContent,
+        Resource,
+        ResourceTemplate,
+        ListToolsRequest,
+        ListToolsResult,
+        CallToolRequest,
+        CallToolResult,
+        ListResourcesRequest,
+        ListResourcesResult,
+        ListResourceTemplatesRequest,
+        ListResourceTemplatesResult,
+        ReadResourceRequest,
+        ReadResourceResult,
+    )
+
+    MCP_AVAILABLE = True
+except Exception:  # pragma: no cover - handled by MCP_AVAILABLE flag
+    MCP_AVAILABLE = False
+    Tool = TextContent = Resource = ResourceTemplate = None  # type: ignore[assignment]
+    ListToolsRequest = ListToolsResult = None  # type: ignore[assignment]
+    CallToolRequest = CallToolResult = None  # type: ignore[assignment]
+    ListResourcesRequest = ListResourcesResult = None  # type: ignore[assignment]
+    ListResourceTemplatesRequest = ListResourceTemplatesResult = None  # type: ignore[assignment]
+    ReadResourceRequest = ReadResourceResult = None  # type: ignore[assignment]
+
+
+MAX_QUERY_LENGTH = 1000
+
+
+# =============================================================================
+# Rate Limiting
+# =============================================================================
+
+
+class RateLimiter:
+    """Simple per-tool rate limiter with a rolling window."""
+
+    def __init__(self, limits: dict[str, int] | None = None, window_seconds: int = 60):
+        self._limits = limits or {}
+        self._window_seconds = window_seconds
+        self._usage: dict[str, dict[str, float | int]] = {}
+
+    def _get_bucket(self, tool: str) -> dict[str, float | int]:
+        bucket = self._usage.get(tool)
+        if bucket is None:
+            bucket = {"count": 0, "window_start": time.time()}
+            self._usage[tool] = bucket
+        return bucket
+
+    def check(self, tool: str) -> tuple[bool, str | None]:
+        limit = self._limits.get(tool)
+        if not limit:
+            return True, None
+
+        bucket = self._get_bucket(tool)
+        now = time.time()
+        window_start = float(bucket["window_start"])
+
+        if now - window_start >= self._window_seconds:
+            bucket["window_start"] = now
+            bucket["count"] = 0
+
+        if int(bucket["count"]) >= limit:
+            retry_in = int(self._window_seconds - (now - float(bucket["window_start"])))
+            return False, f"Rate limit exceeded for {tool}. Try again in {retry_in}s"
+
+        bucket["count"] = int(bucket["count"]) + 1
+        return True, None
+
+    def get_remaining(self, tool: str) -> int | None:
+        limit = self._limits.get(tool)
+        if limit is None:
+            return None
+        bucket = self._get_bucket(tool)
+        now = time.time()
+        if now - float(bucket["window_start"]) >= self._window_seconds:
+            bucket["window_start"] = now
+            bucket["count"] = 0
+        return max(0, limit - int(bucket["count"]))
 
 
 # =============================================================================
 # MCP Protocol Types
 # =============================================================================
-
-
-class MCPCapability(str, Enum):
-    """MCP server capabilities."""
-
-    TOOLS = "tools"
-    RESOURCES = "resources"
-    PROMPTS = "prompts"
 
 
 @dataclass
@@ -51,7 +125,6 @@ class MCPTool:
     handler: Callable[..., Coroutine[Any, Any, dict[str, Any]]]
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to MCP tool format."""
         return {
             "name": self.name,
             "description": self.description,
@@ -69,7 +142,6 @@ class MCPResource:
     mime_type: str = "application/json"
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to MCP resource format."""
         return {
             "uri": self.uri,
             "name": self.name,
@@ -87,7 +159,6 @@ class MCPPrompt:
     arguments: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to MCP prompt format."""
         return {
             "name": self.name,
             "description": self.description,
@@ -101,341 +172,444 @@ class MCPPrompt:
 
 
 class AragoraMCPServer:
-    """
-    MCP Server exposing Aragora's decision integrity capabilities.
-
-    Implements the Model Context Protocol to allow any MCP client
-    to invoke Aragora's multi-agent debate engine, verification
-    system, and knowledge management.
-    """
+    """Lightweight MCP server registry with optional MCP request handlers."""
 
     def __init__(
         self,
         name: str = "aragora",
         version: str = "1.0.0",
-        api_base: str = "https://api.aragora.ai",
-    ):
+        tools_metadata: list[dict[str, Any]] | None = None,
+        require_mcp: bool = True,
+        rate_limits: dict[str, int] | None = None,
+    ) -> None:
+        if require_mcp and not MCP_AVAILABLE:
+            raise ImportError("MCP package not installed")
+
         self.name = name
         self.version = version
-        self.api_base = api_base
-
+        self._tools_metadata = tools_metadata or TOOLS_METADATA
         self._tools: dict[str, MCPTool] = {}
         self._resources: dict[str, MCPResource] = {}
         self._prompts: dict[str, MCPPrompt] = {}
+        self._rate_limiter = RateLimiter(rate_limits)
+        self._debates_cache: dict[str, dict[str, Any]] = {}
 
         self._register_builtin_tools()
         self._register_builtin_resources()
         self._register_builtin_prompts()
 
-    async def initialize(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Handle MCP initialize request."""
+        # MCP request handlers shim (used in tests when MCP is installed)
+        self.server = self._build_mcp_server_shim() if MCP_AVAILABLE else None
+
+    # ---------------------------------------------------------------------
+    # Registry helpers
+    # ---------------------------------------------------------------------
+
+    def register_tool(self, tool: MCPTool) -> None:
+        self._tools[tool.name] = tool
+        logger.debug("Registered MCP tool: %s", tool.name)
+
+    def register_resource(self, resource: MCPResource) -> None:
+        self._resources[resource.uri] = resource
+
+    def register_prompt(self, prompt: MCPPrompt) -> None:
+        self._prompts[prompt.name] = prompt
+
+    def _register_builtin_tools(self) -> None:
+        overrides = {
+            "run_debate": self._run_debate,
+            "get_debate": self._get_debate,
+            "search_debates": self._search_debates,
+            "run_gauntlet": self._run_gauntlet,
+            "list_agents": self._list_agents,
+        }
+
+        for meta in self._tools_metadata:
+            name = meta.get("name")
+            if not name:
+                continue
+            description = meta.get("description", "")
+            input_schema = _build_input_schema(meta.get("parameters", {}))
+            handler = overrides.get(name) or meta.get("function")
+            if handler is None:
+                continue
+            self.register_tool(
+                MCPTool(
+                    name=name,
+                    description=description,
+                    input_schema=input_schema,
+                    handler=handler,
+                )
+            )
+
+    def _register_builtin_resources(self) -> None:
+        # Resources are generated dynamically from cached debates.
+        pass
+
+    def _register_builtin_prompts(self) -> None:
+        self.register_prompt(
+            MCPPrompt(
+                name="debate-decision",
+                description="Template for launching a decision debate",
+                arguments=[
+                    {"name": "topic", "description": "The decision topic", "required": True}
+                ],
+            )
+        )
+
+    # ---------------------------------------------------------------------
+    # Input validation & sanitization
+    # ---------------------------------------------------------------------
+
+    def _sanitize_arguments(self, args: dict[str, Any]) -> dict[str, Any]:
+        sanitized: dict[str, Any] = {}
+        for key, value in args.items():
+            if isinstance(value, str):
+                sanitized[key] = value.strip()
+            else:
+                sanitized[key] = value
+        return sanitized
+
+    def _validate_input(self, tool_name: str, args: dict[str, Any]) -> str | None:
+        if tool_name == "run_debate":
+            question = args.get("question")
+            if not question:
+                return "Question is required"
+            if len(question) > MAX_QUESTION_LENGTH:
+                return f"Question exceeds maximum length ({MAX_QUESTION_LENGTH})"
+            rounds = args.get("rounds")
+            if rounds is not None and not isinstance(rounds, int):
+                return "Rounds must be an integer"
+        elif tool_name == "run_gauntlet":
+            content = args.get("content")
+            if not content:
+                return "Content is required"
+            if len(content) > MAX_CONTENT_LENGTH:
+                return f"Content exceeds maximum length ({MAX_CONTENT_LENGTH})"
+        elif tool_name == "search_debates":
+            query = args.get("query", "")
+            if query and len(query) > MAX_QUERY_LENGTH:
+                return f"Query exceeds maximum length ({MAX_QUERY_LENGTH})"
+        return None
+
+    # ---------------------------------------------------------------------
+    # Tool execution entry points
+    # ---------------------------------------------------------------------
+
+    async def invoke_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        tool = self._tools.get(name)
+        if tool is None:
+            return {"error": f"Unknown tool: {name}"}
+
+        args = self._sanitize_arguments(arguments or {})
+        error = self._validate_input(name, args)
+        if error:
+            return {"error": error}
+
+        allowed, rate_error = self._rate_limiter.check(name)
+        if not allowed:
+            return {"error": rate_error or "Rate limit exceeded"}
+
+        try:
+            result = tool.handler(args) if _expects_dict(tool.handler) else tool.handler(**args)
+            if isinstance(result, Awaitable):
+                result = await result
+            return result if isinstance(result, dict) else {"result": result}
+        except Exception as e:
+            logger.exception("Tool %s failed", name)
+            return {"error": f"Tool execution failed: {e}"}
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        result = await self.invoke_tool(name, arguments)
+        is_error = bool(result.get("error"))
         return {
-            "protocolVersion": "2024-11-05",
-            "serverInfo": {"name": self.name, "version": self.version},
-            "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
+            "isError": is_error,
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(result, indent=2, default=str),
+                }
+            ],
         }
 
     async def list_tools(self) -> dict[str, Any]:
-        """List available MCP tools."""
         return {"tools": [tool.to_dict() for tool in self._tools.values()]}
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        """Execute an MCP tool."""
-        tool = self._tools.get(name)
-        if not tool:
-            return {"isError": True, "content": [{"type": "text", "text": f"Unknown tool: {name}"}]}
-        try:
-            result = await tool.handler(**arguments)
-            return {
-                "content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]
-            }
-        except Exception as e:
-            logger.error(f"Tool {name} failed: {e}")
-            return {
-                "isError": True,
-                "content": [{"type": "text", "text": f"Tool execution failed: {e}"}],
-            }
-
     async def list_resources(self) -> dict[str, Any]:
-        """List available MCP resources."""
-        return {"resources": [res.to_dict() for res in self._resources.values()]}
+        resources = []
+        for debate_id, debate in self._debates_cache.items():
+            task = debate.get("task", "")
+            name = f"Debate {debate_id}: {task[:60]}" if task else f"Debate {debate_id}"
+            resources.append(
+                MCPResource(
+                    uri=f"debate://{debate_id}",
+                    name=name,
+                    description="Cached debate result",
+                ).to_dict()
+            )
+        return {"resources": resources}
 
     async def read_resource(self, uri: str) -> dict[str, Any]:
-        """Read an MCP resource."""
+        if uri.startswith("debate://"):
+            debate_id = uri.replace("debate://", "")
+            debate = self._debates_cache.get(debate_id)
+            if debate:
+                return {
+                    "contents": [
+                        {
+                            "uri": uri,
+                            "mimeType": "application/json",
+                            "text": json.dumps(debate, indent=2, default=str),
+                        }
+                    ]
+                }
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps({"error": f"Debate {debate_id} not found"}),
+                    }
+                ]
+            }
+
         return {
             "contents": [
                 {
                     "uri": uri,
                     "mimeType": "application/json",
-                    "text": json.dumps({"status": "available"}),
+                    "text": json.dumps({"error": f"Unknown resource: {uri}"}),
                 }
             ]
         }
 
     async def list_prompts(self) -> dict[str, Any]:
-        """List available MCP prompts."""
         return {"prompts": [prompt.to_dict() for prompt in self._prompts.values()]}
 
-    def register_tool(self, tool: MCPTool) -> None:
-        """Register an MCP tool."""
-        self._tools[tool.name] = tool
-        logger.info(f"Registered MCP tool: {tool.name}")
+    # ---------------------------------------------------------------------
+    # Internal tool handlers (used for caching/validation)
+    # ---------------------------------------------------------------------
 
-    def _register_builtin_tools(self) -> None:
-        """Register Aragora's built-in MCP tools."""
-
-        # Debate Tools
-        self.register_tool(
-            MCPTool(
-                name="aragora.debate.create",
-                description="Launch a multi-agent debate on a topic or decision with structured phases.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "task": {
-                            "type": "string",
-                            "description": "The question or decision to debate",
-                        },
-                        "agents": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Agent types to include",
-                        },
-                        "rounds": {
-                            "type": "integer",
-                            "default": 3,
-                            "description": "Number of debate rounds",
-                        },
-                        "consensus_threshold": {
-                            "type": "number",
-                            "default": 0.7,
-                            "description": "Confidence threshold (0-1)",
-                        },
-                    },
-                    "required": ["task"],
-                },
-                handler=self._handle_debate_create,
-            )
-        )
-
-        self.register_tool(
-            MCPTool(
-                name="aragora.debate.status",
-                description="Get the current status of a debate.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "debate_id": {"type": "string", "description": "The debate ID to check"}
-                    },
-                    "required": ["debate_id"],
-                },
-                handler=self._handle_debate_status,
-            )
-        )
-
-        self.register_tool(
-            MCPTool(
-                name="aragora.debate.receipt",
-                description="Get the cryptographic decision receipt for a completed debate.",
-                input_schema={
-                    "type": "object",
-                    "properties": {"debate_id": {"type": "string", "description": "The debate ID"}},
-                    "required": ["debate_id"],
-                },
-                handler=self._handle_debate_receipt,
-            )
-        )
-
-        # Verification Tools
-        self.register_tool(
-            MCPTool(
-                name="aragora.verify.receipt",
-                description="Verify the cryptographic integrity of a decision receipt.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "receipt_id": {"type": "string", "description": "Receipt ID to verify"},
-                        "receipt_data": {
-                            "type": "object",
-                            "description": "Optional full receipt data",
-                        },
-                    },
-                    "required": ["receipt_id"],
-                },
-                handler=self._handle_verify_receipt,
-            )
-        )
-
-        # Knowledge Mound Tools
-        self.register_tool(
-            MCPTool(
-                name="aragora.knowledge.search",
-                description="Search the Knowledge Mound for relevant evidence.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query"},
-                        "limit": {
-                            "type": "integer",
-                            "default": 10,
-                            "description": "Maximum results",
-                        },
-                        "source_types": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Filter by source types",
-                        },
-                    },
-                    "required": ["query"],
-                },
-                handler=self._handle_knowledge_search,
-            )
-        )
-
-        self.register_tool(
-            MCPTool(
-                name="aragora.knowledge.ingest",
-                description="Add new evidence to the Knowledge Mound.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "content": {"type": "string", "description": "Evidence content"},
-                        "source_type": {"type": "string", "description": "Type of source"},
-                        "source_id": {"type": "string", "description": "Unique source identifier"},
-                        "title": {"type": "string", "description": "Evidence title"},
-                    },
-                    "required": ["content", "source_type", "source_id"],
-                },
-                handler=self._handle_knowledge_ingest,
-            )
-        )
-
-        # Gauntlet Tools
-        self.register_tool(
-            MCPTool(
-                name="aragora.gauntlet.run",
-                description="Run a Gauntlet stress test on a decision or proposal.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "proposal": {"type": "string", "description": "Proposal to stress test"},
-                        "intensity": {
-                            "type": "string",
-                            "enum": ["light", "standard", "intense"],
-                            "default": "standard",
-                        },
-                        "focus_areas": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Areas to probe",
-                        },
-                    },
-                    "required": ["proposal"],
-                },
-                handler=self._handle_gauntlet_run,
-            )
-        )
-
-    def _register_builtin_resources(self) -> None:
-        """Register Aragora's MCP resources."""
-        self._resources["aragora://agents"] = MCPResource(
-            uri="aragora://agents",
-            name="Available Agents",
-            description="List of available AI agents",
-        )
-        self._resources["aragora://connectors"] = MCPResource(
-            uri="aragora://connectors", name="Connectors", description="Available integrations"
-        )
-        self._resources["aragora://workflows"] = MCPResource(
-            uri="aragora://workflows", name="Workflow Templates", description="Predefined workflows"
-        )
-
-    def _register_builtin_prompts(self) -> None:
-        """Register Aragora's MCP prompt templates."""
-        self._prompts["debate-decision"] = MCPPrompt(
-            name="debate-decision",
-            description="Template for launching a decision debate",
-            arguments=[{"name": "topic", "description": "The decision topic", "required": True}],
-        )
-
-    # Tool Handlers
-    async def _handle_debate_create(
-        self,
-        task: str,
-        agents: list[str] | None = None,
-        rounds: int = 3,
-        consensus_threshold: float = 0.7,
-        **kwargs,
+    async def _run_debate(
+        self, args: dict[str, Any] | None = None, **kwargs: Any
     ) -> dict[str, Any]:
-        debate_id = f"debate_{hashlib.sha256(f'{task}{time.time()}'.encode()).hexdigest()[:12]}"
-        return {
-            "debate_id": debate_id,
-            "status": "created",
-            "task": task,
-            "agents": agents or ["claude", "gpt-4", "gemini"],
-            "rounds": rounds,
-            "websocket_url": f"{self.api_base}/ws?debate_id={debate_id}",
+        from aragora.mcp.tools_module.debate import run_debate_tool
+
+        payload = args or kwargs
+        if not payload.get("question"):
+            return {"error": "Question is required"}
+
+        result = await run_debate_tool(**payload)
+        if "error" not in result and result.get("debate_id"):
+            self._debates_cache[result["debate_id"]] = result
+        return result
+
+    async def _get_debate(
+        self, args: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        from aragora.mcp.tools_module.debate import get_debate_tool
+
+        payload = args or kwargs
+        debate_id = payload.get("debate_id") if isinstance(payload, dict) else None
+        if not debate_id:
+            return {"error": "debate_id is required"}
+
+        if debate_id in self._debates_cache:
+            return self._debates_cache[debate_id]
+
+        result = await get_debate_tool(debate_id=debate_id)
+        return result
+
+    async def _search_debates(
+        self, args: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        from aragora.mcp.tools_module.debate import search_debates_tool
+
+        payload = args or kwargs
+        return await search_debates_tool(**payload)
+
+    async def _run_gauntlet(
+        self, args: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        from aragora.mcp.tools_module.gauntlet import run_gauntlet_tool
+
+        payload = args or kwargs
+        if not payload.get("content"):
+            return {"error": "Content is required"}
+        return await run_gauntlet_tool(**payload)
+
+    async def _list_agents(
+        self, args: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        from aragora.mcp.tools_module.agent import list_agents_tool
+
+        _ = args or kwargs
+        return await list_agents_tool()
+
+    # ---------------------------------------------------------------------
+    # MCP request handler shim for tests
+    # ---------------------------------------------------------------------
+
+    def _build_mcp_server_shim(self) -> Any:
+        if not MCP_AVAILABLE:
+            return None
+
+        async def handle_list_tools(_request: Any) -> Any:
+            tools = [
+                Tool(name=t.name, description=t.description, inputSchema=t.input_schema)
+                for t in self._tools.values()
+            ]
+            return ListToolsResult(tools=tools)
+
+        async def handle_call_tool(request: Any) -> Any:
+            name = request.params.name  # type: ignore[attr-defined]
+            arguments = request.params.arguments or {}  # type: ignore[attr-defined]
+            result = await self.invoke_tool(name, arguments)
+            is_error = bool(result.get("error"))
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(result, default=str))],
+                isError=is_error,
+            )
+
+        async def handle_list_resources(_request: Any) -> Any:
+            resources = []
+            for debate_id, debate in self._debates_cache.items():
+                task = debate.get("task", "")
+                name = f"Debate {debate_id}: {task[:60]}" if task else f"Debate {debate_id}"
+                resources.append(
+                    Resource(
+                        uri=f"debate://{debate_id}",
+                        name=name,
+                        description="Cached debate result",
+                        mimeType="application/json",
+                    )
+                )
+            return ListResourcesResult(resources=resources)
+
+        async def handle_list_resource_templates(_request: Any) -> Any:
+            templates = [
+                ResourceTemplate(
+                    name="debate",
+                    uriTemplate="debate://{debate_id}",
+                    description="Cached debate result",
+                    mimeType="application/json",
+                )
+            ]
+            return ListResourceTemplatesResult(resourceTemplates=templates)
+
+        async def handle_read_resource(request: Any) -> Any:
+            uri = request.params.uri  # type: ignore[attr-defined]
+            content = await self.read_resource(uri)
+            text = content["contents"][0]["text"] if content.get("contents") else ""
+            return ReadResourceResult(
+                contents=[
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": text,
+                    }
+                ]
+            )
+
+        request_handlers = {
+            ListToolsRequest: handle_list_tools,
+            CallToolRequest: handle_call_tool,
+            ListResourcesRequest: handle_list_resources,
+            ListResourceTemplatesRequest: handle_list_resource_templates,
+            ReadResourceRequest: handle_read_resource,
         }
 
-    async def _handle_debate_status(self, debate_id: str) -> dict[str, Any]:
-        return {
-            "debate_id": debate_id,
-            "status": "running",
-            "current_round": 2,
-            "total_rounds": 3,
-            "phase": "critique",
-            "consensus_progress": 0.65,
-        }
+        return SimpleNamespace(name=self.name, request_handlers=request_handlers)
 
-    async def _handle_debate_receipt(self, debate_id: str) -> dict[str, Any]:
-        return {
-            "debate_id": debate_id,
-            "receipt_id": f"receipt_{debate_id}",
-            "status": "completed",
-            "consensus": True,
-            "confidence": 0.87,
-            "signature": "ed25519:...",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
 
-    async def _handle_verify_receipt(
-        self, receipt_id: str, receipt_data: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return {
-            "receipt_id": receipt_id,
-            "verified": True,
-            "signature_valid": True,
-            "content_hash_valid": True,
-        }
+# =============================================================================
+# FastMCP runtime integration
+# =============================================================================
 
-    async def _handle_knowledge_search(
-        self, query: str, limit: int = 10, source_types: list[str] | None = None, **kwargs
-    ) -> dict[str, Any]:
-        return {"query": query, "results": [], "total_count": 0}
 
-    async def _handle_knowledge_ingest(
-        self, content: str, source_type: str, source_id: str, title: str | None = None, **kwargs
-    ) -> dict[str, Any]:
-        evidence_id = f"evidence_{hashlib.sha256(content.encode()).hexdigest()[:12]}"
-        return {"evidence_id": evidence_id, "status": "ingested", "source_type": source_type}
+def build_fastmcp_app(server: AragoraMCPServer) -> Any:
+    """Create a FastMCP app from an AragoraMCPServer registry."""
+    if not MCP_AVAILABLE:
+        raise ImportError("MCP package not installed")
 
-    async def _handle_gauntlet_run(
-        self, proposal: str, intensity: str = "standard", focus_areas: list[str] | None = None
-    ) -> dict[str, Any]:
-        run_id = f"gauntlet_{hashlib.sha256(proposal.encode()).hexdigest()[:12]}"
-        return {
-            "run_id": run_id,
-            "status": "running",
-            "intensity": intensity,
-            "focus_areas": focus_areas or ["logic", "assumptions"],
-        }
+    from mcp.server.fastmcp import FastMCP
+
+    app = FastMCP(name=server.name)
+
+    for tool in server._tools.values():
+
+        async def _handler(**kwargs: Any) -> dict[str, Any]:
+            return await server.invoke_tool(tool.name, kwargs)
+
+        app.add_tool(_handler, name=tool.name, description=tool.description)
+
+    return app
+
+
+async def run_server(transport: str = "stdio") -> None:
+    """Run the MCP server using FastMCP."""
+    if not MCP_AVAILABLE:
+        raise SystemExit(1)
+
+    server = AragoraMCPServer(require_mcp=True)
+    app = build_fastmcp_app(server)
+    app.run(transport=transport)
+
+
+def main() -> None:
+    """CLI entrypoint for running the MCP server."""
+    parser = argparse.ArgumentParser(description="Run Aragora MCP server")
+    parser.add_argument("--transport", default="stdio", choices=["stdio", "sse", "streamable-http"])
+    args = parser.parse_args()
+
+    try:
+        asyncio.run(run_server(transport=args.transport))
+    except SystemExit:
+        raise
+    except Exception as e:
+        logger.error("MCP server failed: %s", e)
+        raise SystemExit(1) from e
 
 
 def create_mcp_server(
-    name: str = "aragora", version: str = "1.0.0", api_base: str = "https://api.aragora.ai"
+    name: str = "aragora",
+    version: str = "1.0.0",
+    tools_metadata: list[dict[str, Any]] | None = None,
+    require_mcp: bool = True,
+    rate_limits: dict[str, int] | None = None,
 ) -> AragoraMCPServer:
-    """Create an Aragora MCP server instance."""
-    return AragoraMCPServer(name=name, version=version, api_base=api_base)
+    return AragoraMCPServer(
+        name=name,
+        version=version,
+        tools_metadata=tools_metadata,
+        require_mcp=require_mcp,
+        rate_limits=rate_limits,
+    )
+
+
+def _build_input_schema(parameters: dict[str, Any]) -> dict[str, Any]:
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for name, spec in parameters.items():
+        if not isinstance(spec, dict):
+            continue
+        schema = {k: v for k, v in spec.items() if k not in {"required"}}
+        if "type" in spec:
+            schema["type"] = spec["type"]
+        if spec.get("required"):
+            required.append(name)
+        properties[name] = schema
+
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+    }
+
+
+def _expects_dict(handler: Callable[..., Any]) -> bool:
+    return handler.__name__.startswith("_")
 
 
 __all__ = [
@@ -443,6 +617,13 @@ __all__ = [
     "MCPTool",
     "MCPResource",
     "MCPPrompt",
-    "MCPCapability",
     "create_mcp_server",
+    "build_fastmcp_app",
+    "run_server",
+    "MCP_AVAILABLE",
+    "RateLimiter",
 ]
+
+
+if __name__ == "__main__":
+    main()
