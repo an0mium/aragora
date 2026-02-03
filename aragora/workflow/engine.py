@@ -164,6 +164,14 @@ class WorkflowEngine:
         except ImportError as e:
             logger.debug(f"OpenClaw step types not available: {e}")
 
+        # Computer-use step (Playwright + Claude)
+        try:
+            from aragora.workflow.nodes.computer_use import ComputerUseTaskStep
+
+            self._step_types["computer_use_task"] = ComputerUseTaskStep
+        except ImportError as e:
+            logger.debug(f"Computer-use step type not available: {e}")
+
     def register_step_type(self, type_name: str, step_class: type[WorkflowStep]) -> None:
         """
         Register a custom step type.

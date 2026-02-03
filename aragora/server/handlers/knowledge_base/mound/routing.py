@@ -578,7 +578,13 @@ class RoutingMixin:
     ) -> HandlerResult | None:
         """Invoke a handler method with appropriate arguments."""
         # Determine which arguments the handler expects based on its name
-        method_name = handler_method.__name__
+        method_name = getattr(handler_method, "__name__", None)
+        if not method_name:
+            method_name = getattr(handler_method, "_mock_name", None)
+        if not method_name:
+            method_name = getattr(handler_method, "__qualname__", None)
+        if not method_name:
+            method_name = handler_method.__class__.__name__
 
         # Methods that only need query_params
         if method_name in {

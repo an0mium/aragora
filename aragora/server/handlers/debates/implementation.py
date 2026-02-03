@@ -271,8 +271,8 @@ class ImplementationOperationsMixin:
                     try:
                         checker = get_permission_checker()
                         decision = checker.check_permission(
-                            user,
-                            "autonomous:approve",  # type: ignore[arg-type]
+                            user,  # type: ignore[arg-type]
+                            "autonomous:approve",
                         )
                         if not decision.allowed:
                             return error_response(
@@ -361,13 +361,13 @@ class ImplementationOperationsMixin:
                     return error_response(f"Budget limit: {budget_msg}", 402)
 
                 if plan.is_approved:
-                    executor = PlanExecutor(
+                    plan_executor = PlanExecutor(
                         continuum_memory=self.ctx.get("continuum_memory"),
                         knowledge_mound=self.ctx.get("knowledge_mound"),
                         parallel_execution=parallel_execution,
                     )
                     outcome = run_async(
-                        executor.execute(plan, parallel_execution=parallel_execution)
+                        plan_executor.execute(plan, parallel_execution=parallel_execution)
                     )
                     response_payload["workflow_execution"] = {
                         "status": "completed",
@@ -477,7 +477,7 @@ class ImplementationOperationsMixin:
                     if package.plan is None:
                         return error_response("No implementation plan available", 400)
 
-                    executor = HybridExecutor(repo_path=repo_path or Path.cwd())
+                    hybrid_executor = HybridExecutor(repo_path=repo_path or Path.cwd())
                     notifier = ExecutionNotifier(
                         debate_id=debate_id,
                         notify_channel=notify_origin,
@@ -486,7 +486,7 @@ class ImplementationOperationsMixin:
                     notifier.set_task_descriptions(package.plan.tasks)
                     if parallel_execution:
                         results = run_async(
-                            executor.execute_plan_parallel(
+                            hybrid_executor.execute_plan_parallel(
                                 package.plan.tasks,
                                 set(),
                                 on_task_complete=notifier.on_task_complete,
@@ -494,7 +494,7 @@ class ImplementationOperationsMixin:
                         )
                     else:
                         results = run_async(
-                            executor.execute_plan(
+                            hybrid_executor.execute_plan(
                                 package.plan.tasks,
                                 set(),
                                 on_task_complete=notifier.on_task_complete,

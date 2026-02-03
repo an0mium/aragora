@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
+from aragora.server.handlers.utils.url_security import validate_webhook_url
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
@@ -373,6 +374,13 @@ class SharingNotificationsHandler(BaseHandler):
                 return err
             if body is None:
                 body = {}
+
+            # Validate webhook URL if provided (SSRF protection)
+            webhook_url = body.get("webhook_url")
+            if webhook_url:
+                is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
+                if not is_valid:
+                    return error_response(f"Invalid webhook URL: {url_error}", 400)
 
             prefs = NotificationPreferences(
                 user_id=user_id,

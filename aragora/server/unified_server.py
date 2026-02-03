@@ -149,6 +149,9 @@ class UnifiedHandler(  # type: ignore[misc]
     """
 
     storage: DebateStorage | None = None
+    continuum_memory: Any = None
+    cross_debate_memory: Any = None
+    knowledge_mound: Any = None
     MAX_UPLOADS_PER_MINUTE: int = MAX_UPLOADS_PER_MINUTE
     MAX_UPLOADS_PER_HOUR: int = MAX_UPLOADS_PER_HOUR
     MAX_JSON_CONTENT_LENGTH: int = MAX_JSON_CONTENT_LENGTH

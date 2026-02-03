@@ -219,4 +219,214 @@ export class DecisionsAPI {
 
     throw new Error(`Decision ${requestId} did not complete within ${timeoutMs}ms`);
   }
+
+  // ---------------------------------------------------------------------------
+  // DecisionPlan methods (gold path: debate → plan → execute → verify)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Create a DecisionPlan from a completed debate.
+   * @param debateId - ID of the completed debate
+   * @param options - Plan creation options
+   */
+  async createPlan(
+    debateId: string,
+    options?: {
+      budget_limit_usd?: number;
+      approval_mode?: ApprovalMode;
+      max_auto_risk?: RiskLevel;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<DecisionPlanResponse> {
+    const body = {
+      debate_id: debateId,
+      ...options,
+    };
+    return this.client.post('/api/v1/decisions/plans', body);
+  }
+
+  /**
+   * Get a DecisionPlan by ID.
+   * @param planId - Plan identifier
+   */
+  async getPlan(planId: string): Promise<DecisionPlanResponse> {
+    return this.client.get(`/api/v1/decisions/plans/${planId}`);
+  }
+
+  /**
+   * List DecisionPlans with optional filtering.
+   * @param options - Filter options
+   */
+  async listPlans(options?: {
+    status?: PlanStatus;
+    limit?: number;
+  }): Promise<DecisionPlanListResponse> {
+    return this.client.request('GET', '/api/v1/decisions/plans', { params: options });
+  }
+
+  /**
+   * Approve a DecisionPlan for execution.
+   * @param planId - Plan identifier
+   * @param options - Approval options
+   */
+  async approvePlan(
+    planId: string,
+    options?: { reason?: string; conditions?: string[] }
+  ): Promise<DecisionPlanApprovalResponse> {
+    return this.client.post(`/api/v1/decisions/plans/${planId}/approve`, options);
+  }
+
+  /**
+   * Reject a DecisionPlan.
+   * @param planId - Plan identifier
+   * @param reason - Reason for rejection
+   */
+  async rejectPlan(planId: string, reason?: string): Promise<DecisionPlanApprovalResponse> {
+    return this.client.post(`/api/v1/decisions/plans/${planId}/reject`, { reason });
+  }
+
+  /**
+   * Execute an approved DecisionPlan.
+   * @param planId - Plan identifier
+   */
+  async executePlan(planId: string): Promise<DecisionPlanExecutionResponse> {
+    return this.client.post(`/api/v1/decisions/plans/${planId}/execute`);
+  }
+
+  /**
+   * Get the execution outcome for a completed plan.
+   * @param planId - Plan identifier
+   */
+  async getPlanOutcome(planId: string): Promise<PlanOutcomeResponse> {
+    return this.client.get(`/api/v1/decisions/plans/${planId}/outcome`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DecisionPlan types
+// ---------------------------------------------------------------------------
+
+/**
+ * Plan status values
+ */
+export type PlanStatus =
+  | 'created'
+  | 'awaiting_approval'
+  | 'approved'
+  | 'rejected'
+  | 'executing'
+  | 'verifying'
+  | 'completed'
+  | 'failed'
+  | 'rolled_back';
+
+/**
+ * Approval mode for plans
+ */
+export type ApprovalMode = 'always' | 'risk_based' | 'confidence_based' | 'never';
+
+/**
+ * Risk level
+ */
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+/**
+ * Plan approval record
+ */
+export interface PlanApprovalRecord {
+  approved: boolean;
+  approver_id: string;
+  timestamp: string;
+  reason?: string;
+  conditions?: string[];
+}
+
+/**
+ * Budget allocation
+ */
+export interface BudgetAllocation {
+  limit_usd: number | null;
+  spent_usd: number;
+  remaining_usd: number | null;
+}
+
+/**
+ * DecisionPlan details
+ */
+export interface DecisionPlan {
+  id: string;
+  debate_id: string;
+  task: string;
+  status: PlanStatus;
+  risk_level?: RiskLevel;
+  requires_human_approval: boolean;
+  budget?: BudgetAllocation;
+  approval_record?: PlanApprovalRecord;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Response for plan operations
+ */
+export interface DecisionPlanResponse {
+  success: boolean;
+  plan: DecisionPlan;
+  outcome?: PlanOutcome;
+  error?: string;
+}
+
+/**
+ * Response for plan list
+ */
+export interface DecisionPlanListResponse {
+  success: boolean;
+  plans: DecisionPlan[];
+  count: number;
+}
+
+/**
+ * Response for plan approval/rejection
+ */
+export interface DecisionPlanApprovalResponse {
+  success: boolean;
+  plan: {
+    id: string;
+    status: PlanStatus;
+    approval_record?: PlanApprovalRecord;
+  };
+}
+
+/**
+ * Response for plan execution
+ */
+export interface DecisionPlanExecutionResponse {
+  success: boolean;
+  plan: DecisionPlan;
+  outcome: PlanOutcome;
+}
+
+/**
+ * Plan execution outcome
+ */
+export interface PlanOutcome {
+  plan_id: string;
+  debate_id: string;
+  task: string;
+  success: boolean;
+  tasks_completed: number;
+  tasks_total: number;
+  verification_passed?: number;
+  verification_total?: number;
+  total_cost_usd: number;
+  error?: string;
+  lessons?: string[];
+}
+
+/**
+ * Response for plan outcome
+ */
+export interface PlanOutcomeResponse {
+  success: boolean;
+  outcome: PlanOutcome;
 }

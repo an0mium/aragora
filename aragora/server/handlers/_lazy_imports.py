@@ -49,6 +49,7 @@ HANDLER_MODULES: dict[str, str] = {
     "MatrixDebatesHandler": "aragora.server.handlers.debates",
     # decisions/ directory
     "DecisionExplainHandler": "aragora.server.handlers.decisions",
+    "DecisionPipelineHandler": "aragora.server.handlers.decisions",
     # evolution/ directory
     "EvolutionABTestingHandler": "aragora.server.handlers.evolution",
     "EvolutionHandler": "aragora.server.handlers.evolution",

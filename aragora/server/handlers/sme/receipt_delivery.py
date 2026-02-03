@@ -23,6 +23,7 @@ from ..base import (
     json_response,
 )
 from ..utils.responses import HandlerResult
+from ..utils.url_security import validate_webhook_url
 from ..secure import SecureHandler
 from aragora.rbac.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -402,6 +403,12 @@ class ReceiptDeliveryHandler(SecureHandler):
         # For Slack/Teams, workspace_id is required
         if channel_type in ["slack", "teams"] and not workspace_id:
             return error_response(f"workspace_id is required for {channel_type}", 400)
+
+        # For webhook, validate the URL for SSRF protection
+        if channel_type == "webhook":
+            is_valid, url_error = validate_webhook_url(channel_id, allow_localhost=False)
+            if not is_valid:
+                return error_response(f"Invalid webhook URL: {url_error}", 400)
 
         # Attempt test delivery
         try:

@@ -102,6 +102,12 @@ BELIEF_CRUX_TIMEOUT = float(os.getenv("ARAGORA_BELIEF_CRUX_TIMEOUT", "5.0"))
 # Threat intelligence enrichment timeout
 THREAT_INTEL_TIMEOUT = float(os.getenv("ARAGORA_THREAT_INTEL_TIMEOUT", "10.0"))
 
+# Document store context timeout
+DOCUMENT_STORE_TIMEOUT = float(os.getenv("ARAGORA_DOCUMENT_STORE_TIMEOUT", "5.0"))
+
+# Evidence store context timeout
+EVIDENCE_STORE_TIMEOUT = float(os.getenv("ARAGORA_EVIDENCE_STORE_TIMEOUT", "5.0"))
+
 # Codebase context building timeout
 CODEBASE_CONTEXT_TIMEOUT = float(os.getenv("ARAGORA_CODEBASE_CONTEXT_TIMEOUT", "60.0"))
 

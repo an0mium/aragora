@@ -134,13 +134,15 @@ class TestHasValidMfaBypass:
         user = MockUser(is_service_account=True, mfa_bypass_approved_at=None)
         assert _has_valid_mfa_bypass(user) is False
 
-    def test_service_account_with_approval_no_expiry(self):
+    def test_service_account_with_approval_no_expiry_denied(self):
+        """Service accounts without expiration are denied (security governance)."""
         user = MockUser(
             is_service_account=True,
             mfa_bypass_approved_at=datetime.now(timezone.utc),
             mfa_bypass_expires_at=None,
         )
-        assert _has_valid_mfa_bypass(user) is True
+        # As of security hardening, permanent bypasses are no longer allowed
+        assert _has_valid_mfa_bypass(user) is False
 
     def test_service_account_with_future_expiry(self):
         user = MockUser(
@@ -679,7 +681,7 @@ class TestRequireMfaDecorator:
 
     @patch("aragora.server.middleware.mfa.get_current_user")
     def test_service_account_bypass_in_require_mfa(self, mock_get_user):
-        """Service accounts with valid bypass skip MFA requirement."""
+        """Service accounts with valid bypass (including expiration) skip MFA requirement."""
         mock_user = MagicMock()
         mock_user.id = "svc-123"
         mock_user.metadata = {}
@@ -695,7 +697,8 @@ class TestRequireMfaDecorator:
             mfa_enabled=False,
             is_service_account=True,
             mfa_bypass_approved_at=datetime.now(timezone.utc),
-            mfa_bypass_expires_at=None,
+            # Expiration is now mandatory - set to 30 days in future
+            mfa_bypass_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         )
         handler = make_mock_handler(ctx={"user_store": user_store})
 
@@ -838,7 +841,7 @@ class TestRequireAdminMfaDecorator:
 
     @patch("aragora.server.middleware.mfa.get_current_user")
     def test_admin_service_account_bypass(self, mock_get_user):
-        """Admin service account with approved bypass gets through."""
+        """Admin service account with approved bypass (including expiration) gets through."""
         mock_user = MagicMock()
         mock_user.id = "svc-admin"
         mock_user.role = "admin"
@@ -856,6 +859,8 @@ class TestRequireAdminMfaDecorator:
             mfa_enabled=False,
             is_service_account=True,
             mfa_bypass_approved_at=datetime.now(timezone.utc),
+            # Expiration is now mandatory
+            mfa_bypass_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         )
         handler = make_mock_handler(ctx={"user_store": user_store})
 
@@ -991,6 +996,7 @@ class TestRequireAdminWithMfaDecorator:
 
     @patch("aragora.server.middleware.mfa.get_current_user")
     def test_admin_service_account_bypass(self, mock_get_user):
+        """Service account with valid bypass (including expiration) gets through."""
         mock_user = MagicMock()
         mock_user.id = "svc-admin"
         mock_user.is_admin = True
@@ -1007,6 +1013,8 @@ class TestRequireAdminWithMfaDecorator:
             mfa_enabled=False,
             is_service_account=True,
             mfa_bypass_approved_at=datetime.now(timezone.utc),
+            # Expiration is now mandatory
+            mfa_bypass_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         )
         handler = make_mock_handler(ctx={"user_store": user_store})
 

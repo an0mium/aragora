@@ -509,7 +509,7 @@ class TestSubConfigClasses:
         assert SupermemorySubConfig in SUB_CONFIG_CLASSES
 
     def test_sub_config_count(self):
-        assert len(SUB_CONFIG_CLASSES) == 13
+        assert len(SUB_CONFIG_CLASSES) == 14  # Includes BudgetSubConfig
 
     def test_all_are_dataclasses(self):
         for cls in SUB_CONFIG_CLASSES:

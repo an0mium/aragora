@@ -29,6 +29,7 @@ OrchestrationHandler = _safe_import("aragora.server.handlers", "OrchestrationHan
 
 # Decision handlers
 DecisionExplainHandler = _safe_import("aragora.server.handlers", "DecisionExplainHandler")
+DecisionPipelineHandler = _safe_import("aragora.server.handlers", "DecisionPipelineHandler")
 DecisionHandler = _safe_import("aragora.server.handlers", "DecisionHandler")
 CritiqueHandler = _safe_import("aragora.server.handlers", "CritiqueHandler")
 ExplainabilityHandler = _safe_import("aragora.server.handlers", "ExplainabilityHandler")
@@ -85,6 +86,7 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_debates_handler", DebatesHandler),
     ("_consensus_handler", ConsensusHandler),
     ("_decision_explain_handler", DecisionExplainHandler),
+    ("_decision_pipeline_handler", DecisionPipelineHandler),
     ("_decision_handler", DecisionHandler),
     ("_deliberations_handler", DeliberationsHandler),
     ("_critique_handler", CritiqueHandler),
@@ -128,6 +130,7 @@ __all__ = [
     "OrchestrationHandler",
     # Decision handlers
     "DecisionExplainHandler",
+    "DecisionPipelineHandler",
     "DecisionHandler",
     "CritiqueHandler",
     "ExplainabilityHandler",

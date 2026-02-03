@@ -18,12 +18,16 @@ Usage:
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, Callable
 
 from aragora.server.middleware.user_auth import User, get_current_user
 
 logger = logging.getLogger(__name__)
+
+# Maximum MFA bypass duration: 90 days (security governance)
+MAX_MFA_BYPASS_DAYS = 90
 
 
 def _has_valid_mfa_bypass(full_user: Any) -> bool:
@@ -33,7 +37,12 @@ def _has_valid_mfa_bypass(full_user: Any) -> bool:
     Service accounts can be configured to bypass MFA requirements when:
     1. User is a service account (is_service_account=True)
     2. MFA bypass has been approved (mfa_bypass_approved_at is set)
-    3. Bypass has not expired (mfa_bypass_expires_at is None or in the future)
+    3. Bypass has not expired (mfa_bypass_expires_at is set AND in the future)
+    4. Bypass does not exceed MAX_MFA_BYPASS_DAYS from approval date
+
+    Security governance:
+    - Permanent bypasses (mfa_bypass_expires_at=None) are no longer allowed
+    - Maximum bypass duration is enforced even if longer expiry was set
 
     Args:
         full_user: User object from user_store with all fields
@@ -57,15 +66,35 @@ def _has_valid_mfa_bypass(full_user: Any) -> bool:
     if not mfa_bypass_approved_at:
         return False
 
-    mfa_bypass_expires_at = getattr(full_user, "mfa_bypass_expires_at", None)
-    if mfa_bypass_expires_at:
-        from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
 
-        now = datetime.now(timezone.utc)
-        if isinstance(mfa_bypass_expires_at, str):
-            mfa_bypass_expires_at = datetime.fromisoformat(mfa_bypass_expires_at)
-        if now >= mfa_bypass_expires_at:
-            return False  # Bypass expired
+    # Parse approval date if string
+    if isinstance(mfa_bypass_approved_at, str):
+        mfa_bypass_approved_at = datetime.fromisoformat(mfa_bypass_approved_at)
+
+    # Security governance: enforce maximum bypass duration from approval date
+    max_expiry = mfa_bypass_approved_at + timedelta(days=MAX_MFA_BYPASS_DAYS)
+    if now >= max_expiry:
+        logger.warning(
+            f"MFA bypass exceeded maximum duration of {MAX_MFA_BYPASS_DAYS} days "
+            f"for service account {getattr(full_user, 'id', 'unknown')}"
+        )
+        return False
+
+    # Check explicit expiration (mandatory - no permanent bypasses allowed)
+    mfa_bypass_expires_at = getattr(full_user, "mfa_bypass_expires_at", None)
+    if not mfa_bypass_expires_at:
+        logger.warning(
+            f"MFA bypass without expiration denied for service account "
+            f"{getattr(full_user, 'id', 'unknown')} - expiration is mandatory"
+        )
+        return False
+
+    if isinstance(mfa_bypass_expires_at, str):
+        mfa_bypass_expires_at = datetime.fromisoformat(mfa_bypass_expires_at)
+
+    if now >= mfa_bypass_expires_at:
+        return False  # Bypass expired
 
     return True
 

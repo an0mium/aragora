@@ -199,6 +199,7 @@ class PlanExecutor:
         parallel_execution: bool = False,
     ) -> PlanOutcome:
         """Run the workflow engine against the plan's generated definition."""
+        engine: Any  # Union of WorkflowEngine and EnhancedWorkflowEngine
         if parallel_execution:
             from aragora.workflow.engine_v2 import EnhancedWorkflowEngine, ResourceLimits
 

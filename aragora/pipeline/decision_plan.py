@@ -1459,10 +1459,85 @@ async def record_plan_outcome(
             logger.warning(err)
             results["errors"].append(err)
 
+    # 3. Extract patterns from debate (organizational learning)
+    if outcome.success and plan.debate_result is not None:
+        try:
+            # Extract patterns from the winning debate approach
+            from aragora.evolution.pattern_extractor import PatternExtractor
+
+            extractor = PatternExtractor()
+
+            # Build content from debate result for pattern extraction
+            debate_content = _extract_debate_content(plan.debate_result)
+            if debate_content:
+                patterns = extractor.extract(debate_content)
+
+                if patterns and knowledge_mound is not None:
+                    stored_count = 0
+                    for pattern in patterns[:5]:  # Limit to top 5 patterns
+                        try:
+                            await knowledge_mound.store_knowledge(
+                                content=f"Pattern: {pattern.description}\nExamples: {', '.join(pattern.examples[:3])}",
+                                source="pattern_extractor",
+                                source_id=f"{plan.id}:{pattern.pattern_type}",
+                                confidence=pattern.effectiveness,
+                                metadata={
+                                    "type": "debate_pattern",
+                                    "pattern_type": pattern.pattern_type,
+                                    "plan_id": plan.id,
+                                    "debate_id": plan.debate_id,
+                                    "agent": pattern.agent,
+                                    "frequency": pattern.frequency,
+                                },
+                            )
+                            stored_count += 1
+                        except Exception:
+                            pass  # Best-effort pattern storage
+
+                    if stored_count > 0:
+                        logger.info(
+                            "Extracted and stored %d patterns from debate %s",
+                            stored_count,
+                            plan.debate_id,
+                        )
+                    results["patterns_stored"] = stored_count
+
+        except ImportError:
+            pass  # PatternExtractor not available
+        except Exception as e:
+            logger.debug("Pattern extraction skipped: %s", e)
+
     # Mark feedback written
     plan.memory_written = len(results["errors"]) == 0
 
     return results
+
+
+def _extract_debate_content(debate_result: Any) -> str:
+    """Extract text content from DebateResult for pattern analysis."""
+    parts: list[str] = []
+
+    # Final answer is the main content
+    if hasattr(debate_result, "final_answer") and debate_result.final_answer:
+        parts.append(debate_result.final_answer)
+
+    # Add critiques if available
+    if hasattr(debate_result, "critiques") and debate_result.critiques:
+        for critique in debate_result.critiques[:5]:
+            if hasattr(critique, "content"):
+                parts.append(critique.content)
+            elif isinstance(critique, str):
+                parts.append(critique)
+
+    # Add winning arguments if available
+    if hasattr(debate_result, "arguments") and debate_result.arguments:
+        for arg in debate_result.arguments[:5]:
+            if hasattr(arg, "content"):
+                parts.append(arg.content)
+            elif isinstance(arg, str):
+                parts.append(arg)
+
+    return "\n\n".join(parts)
 
 
 __all__ = [

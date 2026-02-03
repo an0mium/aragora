@@ -31,7 +31,59 @@ _MEMORY_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["memory"]
 
 
 class OutcomeMixin:
-    """Mixin providing outcome and surprise scoring operations for ContinuumMemory."""
+    """Mixin providing outcome and surprise scoring operations for ContinuumMemory.
+
+    Supports post-outcome hooks for pattern extraction and other downstream
+    processing. Hooks are fire-and-forget (failures are logged but don't
+    block the update).
+    """
+
+    # Post-outcome hooks registered via register_post_outcome_hook()
+    _post_outcome_hooks: list | None = None
+
+    def register_post_outcome_hook(
+        self: "ContinuumMemory",
+        hook: Any,
+    ) -> None:
+        """Register a callback to fire after update_outcome completes.
+
+        The hook receives a dict with:
+            - id: Memory ID that was updated
+            - success: Whether the outcome was successful
+            - surprise_score: Updated surprise score
+            - tier: Memory tier
+            - total_observations: Total success + failure count
+
+        Hooks are fire-and-forget: exceptions are logged but don't propagate.
+
+        Args:
+            hook: Callable[[dict], None] to invoke after outcome updates.
+        """
+        if self._post_outcome_hooks is None:
+            self._post_outcome_hooks = []
+        self._post_outcome_hooks.append(hook)
+
+    def _fire_post_outcome_hooks(
+        self: "ContinuumMemory",
+        outcome_data: dict[str, Any],
+    ) -> None:
+        """Fire all registered post-outcome hooks (non-blocking)."""
+        if not self._post_outcome_hooks:
+            return
+
+        for hook in self._post_outcome_hooks:
+            try:
+                result = hook(outcome_data)
+                # Handle async hooks via fire-and-forget task
+                if asyncio.iscoroutine(result):
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(result)
+                    except RuntimeError:
+                        # No event loop running - can't dispatch async
+                        pass
+            except Exception as hook_err:
+                logger.warning("Post-outcome hook failed: %s", hook_err)
 
     def update_outcome(
         self: "ContinuumMemory",

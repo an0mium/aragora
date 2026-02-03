@@ -216,6 +216,152 @@ class DecisionsAPI:
 
         return self._client._request("POST", "/api/v1/feedback/general", json=data)
 
+    # -------------------------------------------------------------------------
+    # DecisionPlan methods (gold path: debate → plan → execute → verify)
+    # -------------------------------------------------------------------------
+
+    def create_plan(
+        self,
+        debate_id: str,
+        budget_limit_usd: float | None = None,
+        approval_mode: Literal["always", "risk_based", "confidence_based", "never"] = "risk_based",
+        max_auto_risk: Literal["low", "medium", "high", "critical"] = "low",
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a DecisionPlan from a completed debate.
+
+        Args:
+            debate_id: ID of the completed debate
+            budget_limit_usd: Optional budget cap for execution
+            approval_mode: When human approval is required
+            max_auto_risk: Maximum risk level for auto-approval
+            metadata: Optional extra metadata
+
+        Returns:
+            Created plan details including plan_id and status
+        """
+        data: dict[str, Any] = {"debate_id": debate_id}
+        if budget_limit_usd is not None:
+            data["budget_limit_usd"] = budget_limit_usd
+        if approval_mode:
+            data["approval_mode"] = approval_mode
+        if max_auto_risk:
+            data["max_auto_risk"] = max_auto_risk
+        if metadata:
+            data["metadata"] = metadata
+
+        return self._client._request("POST", "/api/v1/decisions/plans", json=data)
+
+    def get_plan(self, plan_id: str) -> dict[str, Any]:
+        """
+        Get a DecisionPlan by ID.
+
+        Args:
+            plan_id: Plan identifier
+
+        Returns:
+            Plan details including status, risk assessment, and tasks
+        """
+        return self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}")
+
+    def list_plans(
+        self,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """
+        List DecisionPlans with optional filtering.
+
+        Args:
+            status: Filter by status (created, approved, executing, completed, etc.)
+            limit: Maximum results (default 50, max 200)
+
+        Returns:
+            List of plans with count
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
+
+        return self._client._request("GET", "/api/v1/decisions/plans", params=params)
+
+    def approve_plan(
+        self,
+        plan_id: str,
+        reason: str = "",
+        conditions: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Approve a DecisionPlan for execution.
+
+        Args:
+            plan_id: Plan identifier
+            reason: Optional approval reason
+            conditions: Optional conditions for approval
+
+        Returns:
+            Updated plan status with approval record
+        """
+        data: dict[str, Any] = {}
+        if reason:
+            data["reason"] = reason
+        if conditions:
+            data["conditions"] = conditions
+
+        return self._client._request(
+            "POST",
+            f"/api/v1/decisions/plans/{plan_id}/approve",
+            json=data if data else None,
+        )
+
+    def reject_plan(self, plan_id: str, reason: str = "") -> dict[str, Any]:
+        """
+        Reject a DecisionPlan.
+
+        Args:
+            plan_id: Plan identifier
+            reason: Reason for rejection
+
+        Returns:
+            Updated plan status with rejection record
+        """
+        data: dict[str, Any] = {}
+        if reason:
+            data["reason"] = reason
+
+        return self._client._request(
+            "POST",
+            f"/api/v1/decisions/plans/{plan_id}/reject",
+            json=data if data else None,
+        )
+
+    def execute_plan(self, plan_id: str) -> dict[str, Any]:
+        """
+        Execute an approved DecisionPlan.
+
+        Triggers workflow execution. The plan must be in APPROVED status.
+
+        Args:
+            plan_id: Plan identifier
+
+        Returns:
+            Execution result with plan status and outcome
+        """
+        return self._client._request("POST", f"/api/v1/decisions/plans/{plan_id}/execute")
+
+    def get_plan_outcome(self, plan_id: str) -> dict[str, Any]:
+        """
+        Get the execution outcome for a completed plan.
+
+        Args:
+            plan_id: Plan identifier
+
+        Returns:
+            Execution outcome with success status, tasks completed, and lessons
+        """
+        return self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}/outcome")
+
 
 class AsyncDecisionsAPI:
     """Asynchronous decisions API."""
@@ -333,3 +479,83 @@ class AsyncDecisionsAPI:
             data["comment"] = f"Feedback for decision {decision_id}"
 
         return await self._client._request("POST", "/api/v1/feedback/general", json=data)
+
+    # -------------------------------------------------------------------------
+    # DecisionPlan methods (gold path: debate → plan → execute → verify)
+    # -------------------------------------------------------------------------
+
+    async def create_plan(
+        self,
+        debate_id: str,
+        budget_limit_usd: float | None = None,
+        approval_mode: Literal["always", "risk_based", "confidence_based", "never"] = "risk_based",
+        max_auto_risk: Literal["low", "medium", "high", "critical"] = "low",
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a DecisionPlan from a completed debate."""
+        data: dict[str, Any] = {"debate_id": debate_id}
+        if budget_limit_usd is not None:
+            data["budget_limit_usd"] = budget_limit_usd
+        if approval_mode:
+            data["approval_mode"] = approval_mode
+        if max_auto_risk:
+            data["max_auto_risk"] = max_auto_risk
+        if metadata:
+            data["metadata"] = metadata
+
+        return await self._client._request("POST", "/api/v1/decisions/plans", json=data)
+
+    async def get_plan(self, plan_id: str) -> dict[str, Any]:
+        """Get a DecisionPlan by ID."""
+        return await self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}")
+
+    async def list_plans(
+        self,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """List DecisionPlans with optional filtering."""
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
+
+        return await self._client._request("GET", "/api/v1/decisions/plans", params=params)
+
+    async def approve_plan(
+        self,
+        plan_id: str,
+        reason: str = "",
+        conditions: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Approve a DecisionPlan for execution."""
+        data: dict[str, Any] = {}
+        if reason:
+            data["reason"] = reason
+        if conditions:
+            data["conditions"] = conditions
+
+        return await self._client._request(
+            "POST",
+            f"/api/v1/decisions/plans/{plan_id}/approve",
+            json=data if data else None,
+        )
+
+    async def reject_plan(self, plan_id: str, reason: str = "") -> dict[str, Any]:
+        """Reject a DecisionPlan."""
+        data: dict[str, Any] = {}
+        if reason:
+            data["reason"] = reason
+
+        return await self._client._request(
+            "POST",
+            f"/api/v1/decisions/plans/{plan_id}/reject",
+            json=data if data else None,
+        )
+
+    async def execute_plan(self, plan_id: str) -> dict[str, Any]:
+        """Execute an approved DecisionPlan."""
+        return await self._client._request("POST", f"/api/v1/decisions/plans/{plan_id}/execute")
+
+    async def get_plan_outcome(self, plan_id: str) -> dict[str, Any]:
+        """Get the execution outcome for a completed plan."""
+        return await self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}/outcome")

@@ -680,6 +680,7 @@ __all__ = [
     "ControlPlaneHandler",
     "OrchestrationHandler",
     "DecisionExplainHandler",
+    "DecisionPipelineHandler",
     "DecisionHandler",
     "CostHandler",
     "CritiqueHandler",

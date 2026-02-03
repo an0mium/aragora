@@ -31,6 +31,7 @@ from .base import (
     safe_error_message,
 )
 from .utils.rate_limit import rate_limit
+from .utils.url_security import validate_webhook_url
 
 logger = logging.getLogger(__name__)
 
@@ -400,9 +401,13 @@ class PartnerHandler(BaseHandler):
         if not url:
             return error_response("url is required", 400)
 
-        # Validate URL
+        # Validate URL - require HTTPS and check for SSRF
         if not url.startswith("https://"):
             return error_response("Webhook URL must use HTTPS", 400)
+
+        is_valid, url_error = validate_webhook_url(url, allow_localhost=False)
+        if not is_valid:
+            return error_response(f"Invalid webhook URL: {url_error}", 400)
 
         try:
             from aragora.billing.partner import get_partner_api

@@ -689,17 +689,28 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 if state.get("running"):
                     return error_response("Nomic loop is already running", 409)
 
-            # Extract and validate configuration
+            # Extract and validate configuration with strict type checking
             try:
-                cycles = int(body.get("cycles", 1))
-                max_cycles = int(body.get("max_cycles", 10))
+                cycles_raw = body.get("cycles", 1)
+                max_cycles_raw = body.get("max_cycles", 10)
+                # Reject non-numeric types explicitly (security hardening)
+                if not isinstance(cycles_raw, (int, float, str)):
+                    return error_response("cycles must be a number", 400)
+                if not isinstance(max_cycles_raw, (int, float, str)):
+                    return error_response("max_cycles must be a number", 400)
+                cycles = int(cycles_raw)
+                max_cycles = int(max_cycles_raw)
             except (ValueError, TypeError):
                 return error_response("cycles and max_cycles must be integers", 400)
 
-            # Ensure positive bounds
+            # Ensure positive bounds (bounded integer prevents overflow/DoS)
             cycles = max(1, min(cycles, 100))  # Cap at 100 cycles
             max_cycles = max(1, min(max_cycles, 100))
             auto_approve = bool(body.get("auto_approve", False))
+
+            # Security assertion: verify all subprocess args are bounded integers
+            assert isinstance(cycles, int) and 1 <= cycles <= 100
+            assert isinstance(max_cycles, int) and 1 <= max_cycles <= 100
 
             # Start nomic loop as subprocess
             script_path = nomic_dir.parent.parent / "scripts" / "nomic_loop.py"
@@ -710,8 +721,17 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             if not script_path.exists():
                 return error_response("Nomic loop script not found", 500)
 
+            # Security: resolve and validate script path to prevent path traversal
+            script_path = script_path.resolve()
+            if not script_path.name == "nomic_loop.py":
+                return error_response("Invalid script path", 500)
+            if not str(script_path).endswith("scripts/nomic_loop.py"):
+                return error_response("Script must be in scripts directory", 500)
+
+            import sys
+
             cmd = [
-                "python",
+                sys.executable,  # Use current interpreter, not PATH lookup
                 str(script_path),
                 "--cycles",
                 str(min(cycles, max_cycles)),

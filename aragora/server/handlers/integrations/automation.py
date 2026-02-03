@@ -42,6 +42,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.secure import SecureHandler
+from aragora.server.handlers.utils.url_security import validate_webhook_url
 
 logger = logging.getLogger(__name__)
 
@@ -353,6 +354,11 @@ class AutomationHandler(SecureHandler):
         webhook_url = body.get("webhook_url") or body.get("url")
         if not webhook_url:
             return error_response("webhook_url is required", status=400)
+
+        # SSRF protection: validate webhook URL
+        is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
+        if not is_valid:
+            return error_response(f"Invalid webhook URL: {url_error}", status=400)
 
         events_raw = body.get("events", [])
         if not events_raw:

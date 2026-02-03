@@ -84,6 +84,7 @@ class HookHandlerRegistry:
         count += self._register_webhook_handlers()
         count += self._register_receipt_handlers()
         count += self._register_provenance_handlers()
+        count += self._register_decision_plan_handlers()
 
         self._registered = True
         logger.info("HookHandlerRegistry registered %s handlers", count)
@@ -1040,6 +1041,145 @@ class HookHandlerRegistry:
 
         return count
 
+    # =========================================================================
+    # Decision Plan Handlers (Gold Path)
+    # =========================================================================
+
+    def _register_decision_plan_handlers(self) -> int:
+        """Wire hooks for automatic decision plan creation after debate.
+
+        Handles:
+        - Auto-generating DecisionPlan from high-confidence debates
+        - Storing plans for later approval/execution
+        - Emitting WebSocket events for UI notification
+        """
+        # Check if auto-plan creation is enabled in arena config
+        arena_config = self.subsystems.get("arena_config")
+        protocol = self.subsystems.get("protocol")
+
+        # Check if feature is enabled (can be in arena_config or protocol)
+        enable_auto_plan = False
+        min_confidence = 0.7  # Default threshold
+
+        if arena_config:
+            enable_auto_plan = getattr(arena_config, "auto_create_plan", False)
+            min_confidence = getattr(arena_config, "plan_min_confidence", min_confidence)
+
+        if protocol:
+            # Protocol flag takes precedence
+            if hasattr(protocol, "auto_create_plan"):
+                enable_auto_plan = protocol.auto_create_plan
+            if hasattr(protocol, "plan_min_confidence"):
+                min_confidence = protocol.plan_min_confidence
+
+        if not enable_auto_plan:
+            return 0
+
+        count = 0
+        from aragora.debate.hooks import HookType, HookPriority
+
+        def handle_auto_plan_creation(
+            ctx: Any = None,
+            result: Any = None,
+            **kwargs: Any,
+        ) -> None:
+            """Auto-generate decision plan after high-confidence debate."""
+            try:
+                if not result:
+                    return
+
+                # Check confidence threshold
+                confidence = getattr(result, "confidence", 0.0)
+                if confidence < min_confidence:
+                    logger.debug(
+                        "Skipping auto-plan: confidence %s < %s",
+                        confidence,
+                        min_confidence,
+                    )
+                    return
+
+                # Check if consensus was reached
+                consensus_reached = getattr(result, "consensus_reached", False)
+                if not consensus_reached:
+                    logger.debug("Skipping auto-plan: no consensus reached")
+                    return
+
+                # Import plan factory
+                from aragora.pipeline.decision_plan import (
+                    ApprovalMode,
+                    DecisionPlanFactory,
+                )
+                from aragora.pipeline.executor import store_plan
+
+                # Get approval mode from config
+                approval_mode = ApprovalMode.RISK_BASED
+                if arena_config and hasattr(arena_config, "plan_approval_mode"):
+                    try:
+                        approval_mode = ApprovalMode(arena_config.plan_approval_mode)
+                    except ValueError:
+                        pass
+
+                # Get budget limit from config
+                budget_limit = None
+                if arena_config and hasattr(arena_config, "plan_budget_limit_usd"):
+                    budget_limit = arena_config.plan_budget_limit_usd
+
+                # Build the plan
+                plan = DecisionPlanFactory.from_debate_result(
+                    result,
+                    budget_limit_usd=budget_limit,
+                    approval_mode=approval_mode,
+                    metadata={"auto_created": True},
+                )
+
+                # Store it
+                store_plan(plan)
+
+                logger.info(
+                    "Auto-created decision plan %s from debate (confidence: %s, status: %s)",
+                    plan.id,
+                    confidence,
+                    plan.status.value,
+                )
+
+                # Emit WebSocket event if stream emitter is available
+                stream_emitter = self.subsystems.get("stream_emitter")
+                if stream_emitter and hasattr(stream_emitter, "emit"):
+                    try:
+                        debate_id = getattr(ctx, "debate_id", None) if ctx else None
+                        stream_emitter.emit(
+                            "decision_plan_created",
+                            {
+                                "plan_id": plan.id,
+                                "debate_id": debate_id,
+                                "status": plan.status.value,
+                                "requires_approval": plan.status.value == "awaiting_approval",
+                                "confidence": confidence,
+                            },
+                        )
+                    except Exception as emit_err:
+                        logger.debug("Failed to emit plan_created event: %s", emit_err)
+
+                # Attach plan_id to result for downstream consumers
+                if hasattr(result, "__dict__"):
+                    result.plan_id = plan.id
+
+            except ImportError as e:
+                logger.debug("Decision plan creation unavailable: %s", e)
+            except Exception as e:
+                logger.warning("Auto decision plan creation failed: %s", e)
+
+        if self._register(
+            HookType.POST_DEBATE.value,
+            handle_auto_plan_creation,
+            "decision_plan_auto_create",
+            HookPriority.NORMAL,  # After core handlers, before webhooks
+        ):
+            count += 1
+            logger.debug("Registered decision plan auto-creation handler")
+
+        return count
+
     @property
     def registered_count(self) -> int:
         """Number of handlers currently registered."""
@@ -1069,6 +1209,8 @@ def create_hook_handler_registry(
     arena_config: Any = None,
     receipt_store: Any = None,
     provenance_store: Any = None,
+    protocol: Any = None,
+    stream_emitter: Any = None,
     auto_register: bool = True,
 ) -> HookHandlerRegistry:
     """Create and optionally register a HookHandlerRegistry.
@@ -1090,6 +1232,8 @@ def create_hook_handler_registry(
         arena_config: ArenaConfig for receipt generation settings
         receipt_store: Receipt store for persisting decision receipts
         provenance_store: ProvenanceStore for persisting evidence provenance
+        protocol: DebateProtocol for auto_create_plan flag
+        stream_emitter: StreamEmitter for WebSocket events
         auto_register: If True, automatically call register_all()
 
     Returns:
@@ -1127,6 +1271,10 @@ def create_hook_handler_registry(
         subsystems["receipt_store"] = receipt_store
     if provenance_store is not None:
         subsystems["provenance_store"] = provenance_store
+    if protocol is not None:
+        subsystems["protocol"] = protocol
+    if stream_emitter is not None:
+        subsystems["stream_emitter"] = stream_emitter
 
     registry = HookHandlerRegistry(hook_manager=hook_manager, subsystems=subsystems)
 

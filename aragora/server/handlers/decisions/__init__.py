@@ -8,3 +8,5 @@ from .explain import DecisionExplainHandler
 from .pipeline import DecisionPipelineHandler
 
 __all__ = ["DecisionExplainHandler", "DecisionPipelineHandler"]
+
+# Stability: DecisionPipelineHandler is ALPHA (new gold path endpoints)

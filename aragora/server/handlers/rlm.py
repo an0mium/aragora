@@ -715,7 +715,7 @@ class RLMContextHandler(BaseHandler):
             List of context IDs with metadata
         """
         limit = safe_query_int(query_params, "limit", default=50, max_val=100)
-        offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=100000)
 
         # Get context list
         all_ids = list(self._contexts.keys())
