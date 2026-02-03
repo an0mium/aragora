@@ -85,6 +85,7 @@ from .checker import (
 )
 
 # Decorators for handlers
+from . import decorators as decorators
 from .decorators import (
     PermissionDeniedError,
     RoleRequiredError,

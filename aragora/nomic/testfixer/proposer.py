@@ -304,20 +304,77 @@ class SimpleCodeGenerator:
                     try_block = (
                         "try:\n"
                         "    import tiktoken\n"
-                        "    TIKTOKEN_AVAILABLE = True\n"
+                        "    TIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility\n"
                         "except Exception:\n"
                         "    tiktoken = None\n"
                         "    TIKTOKEN_AVAILABLE = False\n"
                     )
                     if "TIKTOKEN_AVAILABLE" in file_content:
                         fixed_content = file_content.replace(
-                            "import tiktoken\n\nTIKTOKEN_AVAILABLE = True",
+                            "import tiktoken\n\nTIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility",
                             try_block,
                         )
+                        if fixed_content == file_content:
+                            fixed_content = file_content.replace(
+                                "import tiktoken\n\nTIKTOKEN_AVAILABLE = True",
+                                try_block,
+                            )
                     else:
                         fixed_content = file_content.replace("import tiktoken", try_block)
                     rationale = "Make tiktoken optional with a safe fallback"
                     confidence = 0.7
+
+        # Pattern: StrEnum missing on Python < 3.11
+        if analysis.category in (FailureCategory.IMPL_MISSING, FailureCategory.ENV_DEPENDENCY):
+            if (
+                "StrEnum" in analysis.failure.error_message
+                or "StrEnum" in analysis.failure.stack_trace
+            ) and "from enum import StrEnum" in file_content:
+                fallback_block = (
+                    "try:\n"
+                    "    from enum import StrEnum\n"
+                    "except ImportError:\n"
+                    "    from enum import Enum\n"
+                    "\n"
+                    "    class StrEnum(str, Enum):\n"
+                    "        pass\n"
+                )
+                fixed_content = file_content.replace("from enum import StrEnum", fallback_block)
+                rationale = "Provide StrEnum fallback for Python < 3.11"
+                confidence = 0.7
+
+        # Pattern: missing submodule export (e.g., aragora.rbac.decorators)
+        if analysis.category == FailureCategory.IMPL_MISSING:
+            attr_match = re.search(
+                r"module '([\w\.]+)' has no attribute '([\w_]+)'",
+                analysis.failure.error_message,
+            )
+            if (
+                attr_match
+                and attr_match.group(2) == "decorators"
+                and file_path.endswith("__init__.py")
+                and "from . import decorators" not in file_content
+                and "import decorators as decorators" not in file_content
+            ):
+                insert_line = "from . import decorators as decorators\n"
+                lines = file_content.splitlines(keepends=True)
+                inserted = False
+                for idx, line in enumerate(lines):
+                    if line.startswith("from .decorators") or line.startswith("from . import"):
+                        lines.insert(idx + 1, insert_line)
+                        inserted = True
+                        break
+                if not inserted:
+                    # Place near top after docstring/imports
+                    for idx, line in enumerate(lines):
+                        if line.strip().startswith("from ") or line.strip().startswith("import "):
+                            lines.insert(idx, insert_line)
+                            inserted = True
+                            break
+                if inserted:
+                    fixed_content = "".join(lines)
+                    rationale = "Expose decorators submodule on package"
+                    confidence = 0.65
 
         return fixed_content, rationale, confidence
 

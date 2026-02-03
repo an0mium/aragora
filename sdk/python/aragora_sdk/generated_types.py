@@ -13,7 +13,16 @@ Generated from: docs/api/openapi.json
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+
+try:
+    from enum import StrEnum
+except ImportError:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
+
+
 from typing import Annotated, Any
 
 from pydantic import AnyUrl, BaseModel, Field

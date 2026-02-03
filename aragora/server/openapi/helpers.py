@@ -303,6 +303,7 @@ STANDARD_ERRORS = {
     "401": _error_response("401", "Unauthorized - Authentication required or token invalid"),
     "403": _error_response("403", "Forbidden - Insufficient permissions for this operation"),
     "404": _error_response("404", "Not found - The requested resource does not exist"),
+    "409": _error_response("409", "Conflict - The request could not be completed"),
     "402": _error_response("402", "Payment required - Quota exceeded, upgrade required"),
     "429": _error_response("429", "Too many requests - Rate limit exceeded"),
     "500": _error_response("500", "Internal server error - Unexpected error occurred"),

@@ -427,6 +427,34 @@ class FailureAnalyzer:
                     if f"import {missing_mod}" in content or f"from {missing_mod}" in content:
                         root_cause_file = f
                         break
+        if (
+            category == FailureCategory.IMPL_MISSING
+            and failure.involved_files
+            and ("StrEnum" in failure.error_message or "StrEnum" in failure.stack_trace)
+        ):
+            for f in failure.involved_files:
+                if "test" in f.lower():
+                    continue
+                path = self.repo_path / f
+                if not path.exists():
+                    continue
+                try:
+                    content = path.read_text()
+                except Exception:
+                    continue
+                if "from enum import StrEnum" in content:
+                    root_cause_file = f
+                    break
+        # Attribute errors on modules often mean missing submodule export.
+        attr_match = re.search(
+            r"module '([\w\.]+)' has no attribute '([\w_]+)'", failure.error_message
+        )
+        if attr_match:
+            module_name = attr_match.group(1)
+            candidate = Path(module_name.replace(".", "/")) / "__init__.py"
+            candidate_path = self.repo_path / candidate
+            if candidate_path.exists():
+                root_cause_file = str(candidate)
 
         # Estimate complexity
         fix_complexity = "low"
