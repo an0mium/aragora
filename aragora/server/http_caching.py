@@ -6,6 +6,7 @@ supporting:
 - ETag generation and validation (304 Not Modified)
 - Cache-Control headers (max-age, public/private)
 - Last-Modified headers
+- Serialization cache with TTL to avoid re-serializing identical data
 
 Usage:
     from aragora.server.http_caching import cache_control, with_etag
@@ -16,6 +17,10 @@ Usage:
 
     # Or apply ETag to response data
     response_data, headers = with_etag(data, request_etag)
+
+    # For high-throughput endpoints, use the serialization cache
+    from aragora.server.http_caching import get_cached_serialization
+    cached = get_cached_serialization(cache_key, data, ttl=60)
 """
 
 from __future__ import annotations
@@ -23,13 +28,156 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
+import time
 from datetime import datetime
-from typing import Any, TypeVar
+from typing import Any, NamedTuple, TypeVar
 
 logger = logging.getLogger(__name__)
 
 # Type for response data
 T = TypeVar("T")
+
+
+# =============================================================================
+# Serialization Cache (TTL-based)
+# =============================================================================
+
+
+class CacheEntry(NamedTuple):
+    """A cached serialization entry."""
+
+    serialized: str
+    etag: str
+    timestamp: float
+
+
+# Global serialization cache
+_serialization_cache: dict[str, CacheEntry] = {}
+_cache_lock = threading.Lock()
+
+# Cache configuration
+SERIALIZATION_CACHE_MAX_SIZE = 1000  # Max entries
+SERIALIZATION_CACHE_DEFAULT_TTL = 60  # Default TTL in seconds
+
+
+def _evict_expired_cache_entries() -> None:
+    """Remove expired entries from the serialization cache.
+
+    Called under _cache_lock.
+    """
+    now = time.time()
+    expired_keys = [
+        key
+        for key, entry in _serialization_cache.items()
+        if now - entry.timestamp > SERIALIZATION_CACHE_DEFAULT_TTL * 2  # 2x TTL for cleanup
+    ]
+    for key in expired_keys:
+        del _serialization_cache[key]
+
+
+def _evict_oldest_entries(count: int) -> None:
+    """Evict oldest entries to make room.
+
+    Called under _cache_lock.
+    """
+    if count <= 0:
+        return
+    # Sort by timestamp and remove oldest
+    sorted_keys = sorted(
+        _serialization_cache.keys(),
+        key=lambda k: _serialization_cache[k].timestamp,
+    )
+    for key in sorted_keys[:count]:
+        del _serialization_cache[key]
+
+
+def get_cached_serialization(
+    cache_key: str,
+    data: Any,
+    ttl: int = SERIALIZATION_CACHE_DEFAULT_TTL,
+) -> tuple[str, str]:
+    """Get or create cached serialization and ETag for data.
+
+    Avoids re-serializing identical data within TTL window, which provides
+    significant performance improvement for high-throughput analytics endpoints.
+
+    Args:
+        cache_key: Unique key for this data (e.g., endpoint + params hash)
+        data: The data to serialize
+        ttl: Time-to-live in seconds (default 60)
+
+    Returns:
+        Tuple of (serialized_json, etag)
+    """
+    now = time.time()
+
+    with _cache_lock:
+        # Check cache first
+        if cache_key in _serialization_cache:
+            entry = _serialization_cache[cache_key]
+            if now - entry.timestamp <= ttl:
+                return entry.serialized, entry.etag
+
+        # Evict expired entries periodically (every ~10% of max size)
+        if len(_serialization_cache) > SERIALIZATION_CACHE_MAX_SIZE * 0.9:
+            _evict_expired_cache_entries()
+
+        # If still at capacity, evict oldest 10%
+        if len(_serialization_cache) >= SERIALIZATION_CACHE_MAX_SIZE:
+            _evict_oldest_entries(int(SERIALIZATION_CACHE_MAX_SIZE * 0.1))
+
+    # Serialize outside lock
+    try:
+        serialized = json.dumps(data, sort_keys=True, default=str)
+        hash_value = hashlib.md5(serialized.encode(), usedforsecurity=False).hexdigest()[:16]
+        etag = f'"{hash_value}"'
+    except (TypeError, ValueError) as e:
+        logger.debug(f"Cached serialization failed: {e}")
+        serialized = json.dumps(str(data))
+        etag = f'"{hashlib.md5(serialized.encode(), usedforsecurity=False).hexdigest()[:16]}"'
+
+    # Store in cache
+    entry = CacheEntry(serialized=serialized, etag=etag, timestamp=now)
+    with _cache_lock:
+        _serialization_cache[cache_key] = entry
+
+    return serialized, etag
+
+
+def clear_serialization_cache() -> int:
+    """Clear the serialization cache.
+
+    Returns:
+        Number of entries cleared
+    """
+    with _cache_lock:
+        count = len(_serialization_cache)
+        _serialization_cache.clear()
+        return count
+
+
+def get_serialization_cache_stats() -> dict[str, Any]:
+    """Get statistics about the serialization cache.
+
+    Returns:
+        Dictionary with cache statistics
+    """
+    with _cache_lock:
+        now = time.time()
+        valid_count = sum(
+            1
+            for entry in _serialization_cache.values()
+            if now - entry.timestamp <= SERIALIZATION_CACHE_DEFAULT_TTL
+        )
+        return {
+            "total_entries": len(_serialization_cache),
+            "valid_entries": valid_count,
+            "expired_entries": len(_serialization_cache) - valid_count,
+            "max_size": SERIALIZATION_CACHE_MAX_SIZE,
+            "default_ttl": SERIALIZATION_CACHE_DEFAULT_TTL,
+        }
+
 
 # =============================================================================
 # Cache Configuration
@@ -301,6 +449,8 @@ __all__ = [
     "CACHE_DURATIONS",
     "NO_CACHE_PATTERNS",
     "get_cache_duration",
+    "SERIALIZATION_CACHE_MAX_SIZE",
+    "SERIALIZATION_CACHE_DEFAULT_TTL",
     # ETag utilities
     "generate_etag",
     "generate_weak_etag",
@@ -311,4 +461,8 @@ __all__ = [
     # High-level
     "with_etag",
     "apply_cache_headers_to_response",
+    # Serialization cache
+    "get_cached_serialization",
+    "clear_serialization_cache",
+    "get_serialization_cache_stats",
 ]

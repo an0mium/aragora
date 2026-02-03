@@ -435,6 +435,27 @@ class SSOHandler(SecureHandler):
             )
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid SSO callback data: {e}")
+            error_msg = str(e)
+            if "DOMAIN_NOT_ALLOWED" in error_msg:
+                return self._format_response(
+                    handler,
+                    error_response(
+                        error_msg,
+                        403,
+                        code="SSO_DOMAIN_NOT_ALLOWED",
+                        suggestion="Contact your administrator to add your domain",
+                    ),
+                )
+            if "INVALID_STATE" in error_msg:
+                return self._format_response(
+                    handler,
+                    error_response(
+                        "Session expired. Please try logging in again.",
+                        401,
+                        code="SSO_SESSION_EXPIRED",
+                        suggestion="Click the login button to start a new session",
+                    ),
+                )
             return self._format_response(
                 handler,
                 error_response(

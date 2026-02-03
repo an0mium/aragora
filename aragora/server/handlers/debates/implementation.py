@@ -147,7 +147,8 @@ class ImplementationOperationsMixin:
         include_plan = bool(payload.get("include_plan", True))
         include_context = bool(payload.get("include_context", False))
         plan_strategy = str(payload.get("plan_strategy", "single_task"))
-        execution_mode = str(payload.get("execution_mode", "plan_only"))
+        execution_mode = str(payload.get("execution_mode", "plan_only")).lower()
+        execution_engine = str(payload.get("execution_engine", "")).lower()
         parallel_execution = bool(payload.get("parallel_execution", False))
         notify_origin = bool(payload.get("notify_origin", False))
         risk_level = str(payload.get("risk_level", "medium"))
@@ -158,6 +159,10 @@ class ImplementationOperationsMixin:
         openclaw_actions = payload.get("openclaw_actions")
         computer_use_actions = payload.get("computer_use_actions")
         openclaw_session = payload.get("openclaw_session")
+
+        if execution_mode in {"hybrid", "computer_use"}:
+            execution_engine = execution_mode
+            execution_mode = "execute"
 
         workflow_mode = execution_mode in {
             "workflow",
@@ -212,8 +217,28 @@ class ImplementationOperationsMixin:
             if receipt_id:
                 response_payload["receipt_id"] = receipt_id
 
+        computer_use_plan = None
         if package.plan is not None and not workflow_mode:
-            _persist_plan(package.plan, debate_id)
+            if execution_engine == "computer_use":
+                try:
+                    from aragora.pipeline.decision_plan import DecisionPlanFactory
+                    from aragora.pipeline.executor import store_plan
+
+                    if isinstance(debate, dict):
+                        debate_task = str(debate.get("task", "") or "")
+                    else:
+                        debate_task = str(getattr(debate, "task", "") or "")
+                    computer_use_plan = DecisionPlanFactory.from_implement_plan(
+                        package.plan,
+                        debate_id=debate_id,
+                        task=debate_task,
+                    )
+                    store_plan(computer_use_plan)
+                    response_payload["plan_id"] = computer_use_plan.id
+                except Exception as exc:
+                    logger.debug("Computer use plan persistence failed: %s", exc)
+            else:
+                _persist_plan(package.plan, debate_id)
 
         # Optional Obsidian writeback for decision integrity packages
         if os.environ.get("ARAGORA_OBSIDIAN_WRITEBACK", "0") == "1":
@@ -515,6 +540,10 @@ class ImplementationOperationsMixin:
                 if not budget_ok:
                     return error_response(f"Budget limit: {budget_msg}", 402)
 
+                engine = execution_engine or "hybrid"
+                if engine not in {"hybrid", "computer_use"}:
+                    engine = "hybrid"
+
                 if approval_request.status in {
                     ApprovalStatus.APPROVED,
                     ApprovalStatus.AUTO_APPROVED,
@@ -522,36 +551,77 @@ class ImplementationOperationsMixin:
                     if package.plan is None:
                         return error_response("No implementation plan available", 400)
 
-                    hybrid_executor = HybridExecutor(repo_path=repo_path or Path.cwd())
-                    notifier = ExecutionNotifier(
-                        debate_id=debate_id,
-                        notify_channel=notify_origin,
-                        notify_websocket=notify_origin,
-                    )
-                    notifier.set_task_descriptions(package.plan.tasks)
-                    if parallel_execution:
-                        results = run_async(
-                            hybrid_executor.execute_plan_parallel(
-                                package.plan.tasks,
-                                set(),
-                                on_task_complete=notifier.on_task_complete,
+                    if engine == "computer_use":
+                        try:
+                            from aragora.pipeline.executor import PlanExecutor, store_plan
+
+                            if computer_use_plan is None:
+                                return error_response(
+                                    "No execution plan available for computer use", 400
+                                )
+                            computer_use_plan.approve(
+                                approver_id=approval_request.approved_by
+                                or requested_by
+                                or "system",
+                                reason="Approved",
                             )
-                        )
+                            store_plan(computer_use_plan)
+                            plan_executor = PlanExecutor(
+                                continuum_memory=self.ctx.get("continuum_memory"),
+                                knowledge_mound=self.ctx.get("knowledge_mound"),
+                                parallel_execution=parallel_execution,
+                                execution_mode="computer_use",
+                                repo_path=repo_path or Path.cwd(),
+                            )
+                            outcome = run_async(
+                                plan_executor.execute(
+                                    computer_use_plan,
+                                    parallel_execution=parallel_execution,
+                                    execution_mode="computer_use",
+                                )
+                            )
+                            response_payload["execution"] = {
+                                "status": "completed",
+                                "mode": "computer_use",
+                                "outcome": outcome.to_dict(),
+                            }
+                        except Exception as exc:
+                            response_payload["execution"] = {
+                                "status": "failed",
+                                "mode": "computer_use",
+                                "error": str(exc),
+                            }
                     else:
-                        results = run_async(
-                            hybrid_executor.execute_plan(
-                                package.plan.tasks,
-                                set(),
-                                on_task_complete=notifier.on_task_complete,
-                            )
+                        hybrid_executor = HybridExecutor(repo_path=repo_path or Path.cwd())
+                        notifier = ExecutionNotifier(
+                            debate_id=debate_id,
+                            notify_channel=notify_origin,
+                            notify_websocket=notify_origin,
                         )
-                    if notify_origin:
-                        run_async(notifier.send_completion_summary())
-                    response_payload["execution"] = {
-                        "status": "completed",
-                        "results": [r.to_dict() for r in results],
-                        "progress": notifier.progress.to_dict(),
-                    }
+                        notifier.set_task_descriptions(package.plan.tasks)
+                        if parallel_execution:
+                            results = run_async(
+                                hybrid_executor.execute_plan_parallel(
+                                    package.plan.tasks,
+                                    set(),
+                                    on_task_complete=notifier.on_task_complete,
+                                )
+                            )
+                        else:
+                            results = run_async(
+                                hybrid_executor.execute_plan(
+                                    package.plan.tasks,
+                                    set(),
+                                    on_task_complete=notifier.on_task_complete,
+                                )
+                            )
+                        if notify_origin:
+                            run_async(notifier.send_completion_summary())
+                        response_payload["execution"] = {
+                            "status": "completed",
+                            "results": [r.to_dict() for r in results],
+                            "progress": notifier.progress.to_dict(),
+                        }
                 else:
                     response_payload["execution"] = {
                         "status": "pending_approval",

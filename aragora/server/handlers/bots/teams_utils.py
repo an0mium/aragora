@@ -397,7 +397,7 @@ async def _start_teams_debate(
             request_kwargs["config"] = config
 
         # Create decision request
-        request = DecisionRequest(**request_kwargs)
+        request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
 
         # Register origin for result routing (best-effort)
         try:

@@ -860,7 +860,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             if config is not None:
                 request_kwargs["config"] = config
 
-            request = DecisionRequest(**request_kwargs)
+            request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
 
             router = get_decision_router()
             result = await router.route(request)

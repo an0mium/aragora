@@ -701,7 +701,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 if config is not None:
                     request_kwargs["config"] = config
 
-                request = DecisionRequest(**request_kwargs)
+                request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
 
                 # Route through DecisionRouter (handles deduplication, caching)
                 router = get_decision_router()

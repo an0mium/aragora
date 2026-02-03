@@ -480,6 +480,42 @@ class GauntletReceiptsMixin:
             except Exception as e:
                 logger.debug(f"Receipt webhook notification skipped: {e}")
 
+            # Auto-ingest receipt to Knowledge Mound for cross-debate learning
+            try:
+                from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
+                from aragora.knowledge.mound import get_knowledge_mound
+
+                mound = get_knowledge_mound()
+                if mound:
+                    adapter = ReceiptAdapter(auto_ingest=True)
+                    adapter.set_mound(mound)
+
+                    # Extract workspace_id from run context if available
+                    workspace_id = run.get("workspace_id") or run.get("tenant_id")
+
+                    # Ingest receipt - extracts claims, findings, dissenting views
+                    ingest_result = await adapter.ingest_receipt(
+                        receipt=receipt,
+                        workspace_id=workspace_id,
+                    )
+
+                    if ingest_result.get("success"):
+                        claims_count = ingest_result.get("claims_ingested", 0)
+                        findings_count = ingest_result.get("findings_ingested", 0)
+                        logger.info(
+                            f"Receipt {receipt.receipt_id} ingested to KM: "
+                            f"{claims_count} claims, {findings_count} findings"
+                        )
+                    else:
+                        logger.debug(
+                            f"Receipt KM ingestion returned non-success: "
+                            f"{ingest_result.get('error', 'unknown')}"
+                        )
+            except ImportError:
+                logger.debug("Knowledge Mound not available for receipt ingestion")
+            except Exception as e:
+                logger.debug(f"Receipt KM ingestion skipped: {e}")
+
             # Optional auto-signing
             if os.environ.get("ARAGORA_AUTO_SIGN_RECEIPTS", "").lower() in ("true", "1", "yes"):
                 try:

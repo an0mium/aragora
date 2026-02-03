@@ -358,8 +358,9 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         decision_integrity: dict[str, Any] | None = None,
         require_integrity: bool = False,
         mode_label: str = "Debate",
+        topic_override: str | None = None,
     ) -> CommandResult:
-        topic = ctx.raw_args
+        topic = topic_override if topic_override is not None else ctx.raw_args
         if not topic:
             return CommandResult.fail("Please provide a debate topic.")
 
@@ -417,7 +418,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
             if config is not None:
                 request_kwargs["config"] = config
 
-            request = DecisionRequest(**request_kwargs)
+            request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
 
             # Register debate origin for routing (best-effort)
             try:
@@ -554,6 +555,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                 "include_context": False,
                 "plan_strategy": "single_task",
                 "notify_origin": True,
+                "requested_by": f"{ctx.platform.value}:{ctx.user_id}",
             },
             require_integrity=True,
             mode_label="Decision plan",
@@ -569,6 +571,9 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
     )
     async def cmd_implement(ctx: CommandContext) -> CommandResult:
         """Start a debate and generate an implementation plan with context snapshot."""
+        from aragora.server.decision_integrity_utils import extract_execution_overrides
+
+        cleaned_topic, overrides = extract_execution_overrides(ctx.raw_args)
         return await _run_debate(
             ctx,
             decision_integrity={
@@ -577,9 +582,14 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                 "include_context": True,
                 "plan_strategy": "single_task",
                 "notify_origin": True,
+                "execution_mode": "execute",
+                "execution_engine": "hybrid",
+                "requested_by": f"{ctx.platform.value}:{ctx.user_id}",
+                **overrides,
             },
             require_integrity=True,
             mode_label="Implementation plan",
+            topic_override=cleaned_topic,
         )
 
     @registry.command(
