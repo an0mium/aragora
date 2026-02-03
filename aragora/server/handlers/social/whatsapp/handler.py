@@ -454,6 +454,7 @@ class WhatsAppHandler(BaseHandler):
                 "include_context": False,
                 "plan_strategy": "single_task",
                 "notify_origin": True,
+                "requested_by": f"whatsapp:{from_number}",
             }
             command_debate(self, from_number, profile_name, topic, decision_integrity)
             return
@@ -469,6 +470,9 @@ class WhatsAppHandler(BaseHandler):
                 "include_context": True,
                 "plan_strategy": "single_task",
                 "notify_origin": True,
+                "execution_mode": "execute",
+                "execution_engine": "hybrid",
+                "requested_by": f"whatsapp:{from_number}",
             }
             command_debate(self, from_number, profile_name, topic, decision_integrity)
             return

@@ -335,7 +335,11 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                         "include_context": command == "implement",
                         "plan_strategy": "single_task",
                         "notify_origin": True,
+                        "requested_by": f"whatsapp:{from_number}",
                     }
+                    if command == "implement":
+                        decision_integrity["execution_mode"] = "execute"
+                        decision_integrity["execution_engine"] = "hybrid"
                 self._start_debate(
                     from_number,
                     contact_name,

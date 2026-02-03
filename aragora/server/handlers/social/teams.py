@@ -278,6 +278,7 @@ class TeamsIntegrationHandler(BaseHandler):
                     "include_context": False,
                     "plan_strategy": "single_task",
                     "notify_origin": True,
+                    "requested_by": f"teams:{from_user.get('id')}",
                 }
                 return await self._start_debate(
                     topic=args.strip(),
@@ -294,6 +295,9 @@ class TeamsIntegrationHandler(BaseHandler):
                     "include_context": True,
                     "plan_strategy": "single_task",
                     "notify_origin": True,
+                    "execution_mode": "execute",
+                    "execution_engine": "hybrid",
+                    "requested_by": f"teams:{from_user.get('id')}",
                 }
                 return await self._start_debate(
                     topic=args.strip(),

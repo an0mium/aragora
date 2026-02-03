@@ -645,6 +645,7 @@ class TestCommands:
         assert mock_cmd.call_args is not None
         kwargs = mock_cmd.call_args.kwargs
         assert kwargs["decision_integrity"]["include_plan"] is True
+        assert kwargs["decision_integrity"]["requested_by"] == "telegram:456"
         assert kwargs["mode_label"] == "plan"
 
     def test_handle_command_implement(self, handler):
@@ -653,6 +654,7 @@ class TestCommands:
             handler._handle_command(123, 456, "user", "/implement Automate reporting")
         kwargs = mock_cmd.call_args.kwargs
         assert kwargs["decision_integrity"]["include_context"] is True
+        assert kwargs["decision_integrity"]["requested_by"] == "telegram:456"
         assert kwargs["mode_label"] == "implementation plan"
 
 

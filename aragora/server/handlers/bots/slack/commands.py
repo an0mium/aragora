@@ -207,6 +207,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     "include_context": subcommand == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
+                    "requested_by": f"slack:{user_id}",
                 }
 
             debate_id = await start_slack_debate(

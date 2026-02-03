@@ -65,7 +65,7 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | Agent Type | Default Model | Env Var | Notes |
 |------------|---------------|---------|-------|
 | `external-framework` | external | `EXTERNAL_FRAMEWORK_URL`, `EXTERNAL_FRAMEWORK_API_KEY` (optional) | Generic proxy for external frameworks |
-| `openclaw` | openclaw | `OPENCLAW_URL`, `OPENCLAW_API_KEY` | Allowlisted; import `aragora.agents.api_agents.openclaw` before `create_agent()` to register |
+| `openclaw` | openclaw | `OPENCLAW_URL`, `OPENCLAW_API_KEY` | Allowlisted OpenClaw integration |
 | `crewai` | crewai | `CREWAI_URL`, `CREWAI_API_KEY` | CrewAI server integration |
 | `autogen` | autogen | `AUTOGEN_URL`, `AUTOGEN_API_KEY` | AutoGen Studio integration |
 | `langgraph` | langgraph | `LANGGRAPH_URL`, `LANGGRAPH_API_KEY` | LangGraph Cloud/self-hosted |

@@ -201,7 +201,11 @@ class TeamsEventProcessor:
                     "include_context": command == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
+                    "requested_by": f"teams:{user_id}",
                 }
+                if command == "implement":
+                    decision_integrity["execution_mode"] = "execute"
+                    decision_integrity["execution_engine"] = "hybrid"
             return await self._cmd_debate(
                 args,
                 conversation_id,

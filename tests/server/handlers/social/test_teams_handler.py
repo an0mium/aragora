@@ -248,6 +248,7 @@ class TestCommandEndpoint:
         assert result is not None
         kwargs = mock_start.call_args.kwargs
         assert kwargs["decision_integrity"]["include_plan"] is True
+        assert kwargs["decision_integrity"]["requested_by"] == "teams:user123"
 
     async def test_implement_command_routes(self, handler, mock_teams_connector):
         """Implement command should route to debate with context snapshot."""
@@ -272,6 +273,7 @@ class TestCommandEndpoint:
         assert result is not None
         kwargs = mock_start.call_args.kwargs
         assert kwargs["decision_integrity"]["include_context"] is True
+        assert kwargs["decision_integrity"]["requested_by"] == "teams:user123"
 
     async def test_status_command_no_debate(self, handler):
         """Status command with no active debate."""

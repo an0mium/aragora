@@ -422,7 +422,11 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                     "include_context": command == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
+                    "requested_by": f"telegram:{user_id}",
                 }
+                if command == "implement":
+                    decision_integrity["execution_mode"] = "execute"
+                    decision_integrity["execution_engine"] = "hybrid"
             return self._cmd_debate(
                 chat_id,
                 user_id,

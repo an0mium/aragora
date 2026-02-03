@@ -409,7 +409,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                     "include_context": command == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
+                    "requested_by": f"google_chat:{user.get('name') or user.get('id')}",
                 }
+                if command == "implement":
+                    decision_integrity["execution_mode"] = "execute"
+                    decision_integrity["execution_engine"] = "hybrid"
             return self._cmd_debate(args, space_name, user, event, decision_integrity)
         elif command == "gauntlet":
             return self._cmd_gauntlet(args, space_name, user, event)
@@ -761,7 +765,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                     "include_context": command == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
+                    "requested_by": f"google_chat:{user.get('name') or user.get('id')}",
                 }
+                if command == "implement":
+                    decision_integrity["execution_mode"] = "execute"
+                    decision_integrity["execution_engine"] = "hybrid"
                 topic = remainder
             elif command in ("debate", "ask") and remainder:
                 topic = remainder

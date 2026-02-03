@@ -48,6 +48,7 @@ from aragora.agents.api_agents.openrouter import (
     SonarAgent,
     YiAgent,
 )
+from aragora.agents.api_agents.openclaw import OpenClawAgent, OpenClawConfig
 from aragora.agents.api_agents.rate_limiter import (
     OPENROUTER_TIERS,
     OpenRouterRateLimiter,
@@ -111,6 +112,9 @@ __all__ = [
     "TinkerLlamaAgent",
     "TinkerQwenAgent",
     "TinkerDeepSeekAgent",
+    # OpenClaw
+    "OpenClawAgent",
+    "OpenClawConfig",
     # Rate limiting
     "OpenRouterRateLimiter",
     "OpenRouterTier",

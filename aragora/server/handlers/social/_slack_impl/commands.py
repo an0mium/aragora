@@ -151,6 +151,7 @@ class CommandsMixin(BlocksMixin):
                         "include_context": False,
                         "plan_strategy": "single_task",
                         "notify_origin": True,
+                        "requested_by": f"slack:{user_id}",
                     }
                     result = self._command_debate(
                         args,
@@ -169,6 +170,9 @@ class CommandsMixin(BlocksMixin):
                         "include_context": True,
                         "plan_strategy": "single_task",
                         "notify_origin": True,
+                        "execution_mode": "execute",
+                        "execution_engine": "hybrid",
+                        "requested_by": f"slack:{user_id}",
                     }
                     result = self._command_debate(
                         args,

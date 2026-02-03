@@ -141,6 +141,7 @@ class TelegramCommandsMixin:
                 "include_context": False,
                 "plan_strategy": "single_task",
                 "notify_origin": True,
+                "requested_by": f"telegram:{user_id}",
             }
             return self._command_debate(
                 chat_id,
@@ -164,6 +165,9 @@ class TelegramCommandsMixin:
                 "include_context": True,
                 "plan_strategy": "single_task",
                 "notify_origin": True,
+                "execution_mode": "execute",
+                "execution_engine": "hybrid",
+                "requested_by": f"telegram:{user_id}",
             }
             return self._command_debate(
                 chat_id,
