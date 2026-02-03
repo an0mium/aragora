@@ -728,3 +728,97 @@ class TestOAuthCallbackApi:
 
         assert result.status_code == 400
         assert b"Unsupported provider" in result.body
+
+    def test_callback_api_extracts_tokens_from_fragment(self, mock_request_handler):
+        """Test callback API extracts tokens from URL fragment (#) - security best practice."""
+        # Create handler with callback that returns tokens in fragment
+        handler = AccountManagementTestHandler()
+
+        def mock_google_callback(h, q):
+            # Tokens in fragment (#) - this is the secure way
+            return HandlerResult(
+                status_code=302,
+                headers={
+                    "Location": "https://app.example.com/callback#access_token=frag-token&refresh_token=frag-refresh&token_type=Bearer&expires_in=3600"
+                },
+                body=b"",
+                content_type="text/html",
+            )
+
+        handler._handle_google_callback = mock_google_callback
+
+        mock_request_handler._json_body = {
+            "provider": "google",
+            "code": "test-code",
+            "state": "test-state",
+        }
+
+        result = handler._handle_oauth_callback_api(mock_request_handler)
+
+        assert result.status_code == 200
+        response = json.loads(result.body)
+        assert response["access_token"] == "frag-token"
+        assert response["refresh_token"] == "frag-refresh"
+        assert response["token_type"] == "Bearer"
+        assert response["expires_in"] == 3600
+
+    def test_callback_api_falls_back_to_query_params(self, mock_request_handler):
+        """Test callback API falls back to query params (?) for backward compatibility."""
+        # Create handler with callback that returns tokens in query params
+        handler = AccountManagementTestHandler()
+
+        def mock_google_callback(h, q):
+            # Tokens in query params (?) - legacy behavior
+            return HandlerResult(
+                status_code=302,
+                headers={
+                    "Location": "https://app.example.com/callback?access_token=query-token&refresh_token=query-refresh&token_type=Bearer&expires_in=7200"
+                },
+                body=b"",
+                content_type="text/html",
+            )
+
+        handler._handle_google_callback = mock_google_callback
+
+        mock_request_handler._json_body = {
+            "provider": "google",
+            "code": "test-code",
+            "state": "test-state",
+        }
+
+        result = handler._handle_oauth_callback_api(mock_request_handler)
+
+        assert result.status_code == 200
+        response = json.loads(result.body)
+        assert response["access_token"] == "query-token"
+        assert response["refresh_token"] == "query-refresh"
+
+    def test_callback_api_prefers_fragment_over_query(self, mock_request_handler):
+        """Test that fragment takes precedence over query params when both present."""
+        handler = AccountManagementTestHandler()
+
+        def mock_google_callback(h, q):
+            # Both fragment and query params present - fragment should win
+            return HandlerResult(
+                status_code=302,
+                headers={
+                    "Location": "https://app.example.com/callback?access_token=query-token#access_token=fragment-token&refresh_token=fragment-refresh"
+                },
+                body=b"",
+                content_type="text/html",
+            )
+
+        handler._handle_google_callback = mock_google_callback
+
+        mock_request_handler._json_body = {
+            "provider": "google",
+            "code": "test-code",
+            "state": "test-state",
+        }
+
+        result = handler._handle_oauth_callback_api(mock_request_handler)
+
+        assert result.status_code == 200
+        response = json.loads(result.body)
+        # Fragment should take precedence
+        assert response["access_token"] == "fragment-token"

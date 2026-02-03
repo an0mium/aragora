@@ -1048,6 +1048,7 @@ class DecisionRouter:
                     "content": request.content,
                     "documents": documents,
                     "attachments": request.attachments or [],
+                    "evidence": request.evidence or [],
                     **request.config.workflow_inputs,
                 },
             )

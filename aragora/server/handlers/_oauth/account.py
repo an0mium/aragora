@@ -174,12 +174,19 @@ class AccountManagementMixin:
         from urllib.parse import parse_qs, urlparse
 
         parsed = urlparse(location)
-        params = parse_qs(parsed.query)
+        # Tokens are in URL fragment (#) for security (not logged by servers/proxies)
+        # Fall back to query params (?) for backward compatibility
+        params = parse_qs(parsed.fragment) if parsed.fragment else parse_qs(parsed.query)
         if "error" in params:
             return error_response(params.get("error", ["OAuth error"])[0], 400)
 
         access_token = params.get("access_token", [None])[0]
         if not access_token:
+            # Log to help debug token location issues
+            logger.warning(
+                f"OAuth callback missing tokens: fragment={bool(parsed.fragment)}, "
+                f"query={bool(parsed.query)}, location_prefix={location[:50]}..."
+            )
             return error_response("OAuth callback did not return tokens", 502)
 
         refresh_token = params.get("refresh_token", [None])[0]
