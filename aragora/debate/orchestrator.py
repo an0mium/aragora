@@ -588,6 +588,7 @@ class Arena(ArenaDelegatesMixin):
         post_debate_workflow = cfg.post_debate_workflow
         enable_post_debate_workflow = cfg.enable_post_debate_workflow
         post_debate_workflow_threshold = cfg.post_debate_workflow_threshold
+        power_sampling_config = cfg.power_sampling_config
 
         # Handle fabric integration - get agents from fabric pool if configured
         agents = self._init_fabric_integration(fabric, fabric_config, agents)
@@ -635,6 +636,7 @@ class Arena(ArenaDelegatesMixin):
             use_performance_selection=use_performance_selection,
             prompt_evolver=prompt_evolver,
             enable_prompt_evolution=enable_prompt_evolution,
+            power_sampling_config=power_sampling_config,
             org_id=org_id,
             user_id=user_id,
             usage_tracker=usage_tracker,

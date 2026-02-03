@@ -22,7 +22,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, Awaitable, Optional, TypeVar
+from typing import TYPE_CHECKING, Awaitable, Optional, TypeVar, Any
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.resilience import CircuitBreaker
@@ -138,6 +138,8 @@ class AutonomicExecutor:
         performance_monitor: Optional["AgentPerformanceMonitor"] = None,
         enable_telemetry: bool = False,
         event_hooks: dict | None = None,  # Optional hooks for emitting events
+        power_sampling_config: Any | None = None,
+        power_sampling_scorer: Any | None = None,
     ):
         """
         Initialize the autonomic executor.
@@ -171,6 +173,11 @@ class AutonomicExecutor:
         self.loop_id = loop_id
         self.performance_monitor = performance_monitor
         self.enable_telemetry = enable_telemetry
+        self.power_sampling_config = power_sampling_config
+        self._power_sampling_scorer = power_sampling_scorer
+        self._power_sampler = None
+        self._power_sampling_runtime_config = None
+        self._power_sampling_resolved = False
         # Track retry counts per agent for timeout escalation
         self._retry_counts: dict[str, int] = defaultdict(int)
 
@@ -208,6 +215,122 @@ class AutonomicExecutor:
                 )
             except Exception as e:
                 logger.debug(f"[Autonomic] Failed to emit agent error event: {e}")
+
+    def _should_power_sample(self, agent: "Agent", phase: str) -> bool:
+        cfg = self.power_sampling_config
+        if cfg is None or not getattr(cfg, "enable_power_sampling", False):
+            return False
+        role = getattr(agent, "role", "")
+        if role == "critic" and not getattr(cfg, "enable_for_critiques", False):
+            return False
+        return True
+
+    def _resolve_power_sampling(self) -> None:
+        if self._power_sampling_resolved:
+            return
+        self._power_sampling_resolved = True
+
+        cfg = self.power_sampling_config
+        if cfg is None:
+            return
+
+        try:
+            from aragora.reasoning.sampling.power_sampling import (
+                PowerSamplingConfig as RuntimeConfig,
+            )
+
+            temps = [float(getattr(cfg, "sampling_temperature", 1.0))] * int(
+                getattr(cfg, "n_samples", 8)
+            )
+            self._power_sampling_runtime_config = RuntimeConfig(
+                n_samples=int(getattr(cfg, "n_samples", 8)),
+                power_alpha=float(getattr(cfg, "alpha", 2.0)),
+                min_samples=min(
+                    int(getattr(cfg, "k_diverse", 3)), int(getattr(cfg, "n_samples", 8))
+                ),
+                temperature_schedule=temps,
+                timeout_seconds=float(getattr(cfg, "sample_timeout", 30.0)),
+            )
+        except Exception as e:
+            logger.debug("[Autonomic] Power sampling config resolution failed: %s", e)
+            self._power_sampling_runtime_config = None
+
+        # Resolve custom scorer if configured
+        custom_path = getattr(cfg, "custom_scorer", None) if cfg is not None else None
+        if custom_path and self._power_sampling_scorer is None:
+            self._power_sampling_scorer = self._load_custom_scorer(custom_path)
+
+    def _load_custom_scorer(self, path: str) -> Any | None:
+        try:
+            import importlib
+
+            module_path, _, attr = path.rpartition(".")
+            if not module_path:
+                return None
+            module = importlib.import_module(module_path)
+            scorer = getattr(module, attr, None)
+            if scorer is None:
+                return None
+            if isinstance(scorer, type):
+                scorer = scorer()
+            if callable(scorer) and not hasattr(scorer, "score"):
+                func = scorer
+
+                class _FuncScorer:
+                    async def score(self, response: str, prompt: str) -> float:  # type: ignore[override]
+                        return float(func(response, prompt))
+
+                return _FuncScorer()
+            return scorer
+        except Exception as e:
+            logger.debug("[Autonomic] Failed to load custom scorer %s: %s", path, e)
+            return None
+
+    def _get_power_sampler(self) -> Any | None:
+        self._resolve_power_sampling()
+        if self._power_sampling_runtime_config is None:
+            return None
+        if self._power_sampler is None:
+            try:
+                from aragora.reasoning.sampling.power_sampling import PowerSampler
+
+                self._power_sampler = PowerSampler(config=self._power_sampling_runtime_config)
+            except Exception as e:
+                logger.debug("[Autonomic] Failed to initialize PowerSampler: %s", e)
+                self._power_sampler = None
+        return self._power_sampler
+
+    async def _generate_with_power_sampling(
+        self,
+        agent: "Agent",
+        prompt: str,
+        context: list["Message"],
+    ) -> str:
+        sampler = self._get_power_sampler()
+        if sampler is None:
+            return await agent.generate(prompt, context)
+
+        scorer = self._power_sampling_scorer
+        if scorer is None:
+            try:
+                from aragora.reasoning.sampling.power_sampling import DefaultScorer
+
+                scorer = DefaultScorer()
+            except Exception:
+                scorer = None
+
+        async def generator(p: str) -> str:
+            return await agent.generate(p, context)
+
+        if scorer is None:
+            return await generator(prompt)
+
+        try:
+            result = await sampler.sample_best_reasoning(generator, prompt, scorer)
+            return result.best_response or await generator(prompt)
+        except Exception as e:
+            logger.debug("[Autonomic] Power sampling failed: %s", e)
+            return await generator(prompt)
 
     @staticmethod
     def _is_empty_critique(result: "Critique | None") -> bool:
@@ -412,7 +535,10 @@ class AutonomicExecutor:
             self.immune_system.agent_started(agent.name, task=prompt[:100])
 
         try:
-            raw_output = await agent.generate(prompt, context)
+            if self._should_power_sample(agent, phase):
+                raw_output = await self._generate_with_power_sampling(agent, prompt, context)
+            else:
+                raw_output = await agent.generate(prompt, context)
             response_ms = (time.time() - start_time) * 1000
 
             # Notify immune system of successful completion

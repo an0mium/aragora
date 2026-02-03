@@ -179,6 +179,7 @@ class ArenaInitializer:
         use_performance_selection: bool,
         prompt_evolver,
         enable_prompt_evolution: bool,
+        power_sampling_config: Any | None = None,
         org_id: str = "",
         user_id: str = "",
         usage_tracker=None,
@@ -264,6 +265,7 @@ class ArenaInitializer:
             performance_monitor=perf_monitor,
             enable_telemetry=enable_telemetry,
             event_hooks=hooks,
+            power_sampling_config=power_sampling_config,
         )
 
         # Checkpoint manager for debate resume support
