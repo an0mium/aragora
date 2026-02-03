@@ -304,16 +304,21 @@ class SimpleCodeGenerator:
                     try_block = (
                         "try:\n"
                         "    import tiktoken\n"
-                        "    TIKTOKEN_AVAILABLE = True\n"
+                        "    TIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility\n"
                         "except Exception:\n"
                         "    tiktoken = None\n"
                         "    TIKTOKEN_AVAILABLE = False\n"
                     )
                     if "TIKTOKEN_AVAILABLE" in file_content:
                         fixed_content = file_content.replace(
-                            "import tiktoken\n\nTIKTOKEN_AVAILABLE = True",
+                            "import tiktoken\n\nTIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility",
                             try_block,
                         )
+                        if fixed_content == file_content:
+                            fixed_content = file_content.replace(
+                                "import tiktoken\n\nTIKTOKEN_AVAILABLE = True",
+                                try_block,
+                            )
                     else:
                         fixed_content = file_content.replace("import tiktoken", try_block)
                     rationale = "Make tiktoken optional with a safe fallback"
