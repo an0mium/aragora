@@ -324,6 +324,25 @@ class SimpleCodeGenerator:
                     rationale = "Make tiktoken optional with a safe fallback"
                     confidence = 0.7
 
+        # Pattern: StrEnum missing on Python < 3.11
+        if analysis.category in (FailureCategory.IMPL_MISSING, FailureCategory.ENV_DEPENDENCY):
+            if (
+                "StrEnum" in analysis.failure.error_message
+                or "StrEnum" in analysis.failure.stack_trace
+            ) and "from enum import StrEnum" in file_content:
+                fallback_block = (
+                    "try:\n"
+                    "    from enum import StrEnum\n"
+                    "except ImportError:\n"
+                    "    from enum import Enum\n"
+                    "\n"
+                    "    class StrEnum(str, Enum):\n"
+                    "        pass\n"
+                )
+                fixed_content = file_content.replace("from enum import StrEnum", fallback_block)
+                rationale = "Provide StrEnum fallback for Python < 3.11"
+                confidence = 0.7
+
         return fixed_content, rationale, confidence
 
     async def critique_fix(
