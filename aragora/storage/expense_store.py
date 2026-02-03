@@ -20,18 +20,22 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import threading
 import time
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from datetime import datetime, timezone
 from decimal import Decimal
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
-from aragora.config import resolve_db_path
+
+from aragora.storage.generic_store import (
+    GenericInMemoryStore,
+    GenericPostgresStore,
+    GenericSQLiteStore,
+    GenericStoreBackend,
+)
 
 if TYPE_CHECKING:
-    from asyncpg import Pool
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -60,64 +64,40 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
     return dct
 
 
-class ExpenseStoreBackend(ABC):
+# =============================================================================
+# Abstract Backend
+# =============================================================================
+
+
+class ExpenseStoreBackend(GenericStoreBackend):
     """Abstract base class for expense storage backends."""
 
-    @abstractmethod
-    async def get(self, expense_id: str) -> dict[str, Any] | None:
-        """Get expense by ID."""
-        pass
+    PRIMARY_KEY = "id"
 
     @abstractmethod
-    async def save(self, data: dict[str, Any]) -> None:
-        """Save expense data."""
-        pass
-
-    @abstractmethod
-    async def delete(self, expense_id: str) -> bool:
-        """Delete expense."""
-        pass
-
-    @abstractmethod
-    async def list_all(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:  # type: ignore[override]
         """List all expenses with pagination."""
-        pass
+        ...
 
     @abstractmethod
-    async def list_by_status(
-        self,
-        status: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_status(self, status: str, limit: int = 100) -> list[dict[str, Any]]:
         """List expenses by status."""
-        pass
+        ...
 
     @abstractmethod
-    async def list_by_employee(
-        self,
-        employee_id: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_employee(self, employee_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """List expenses by employee."""
-        pass
+        ...
 
     @abstractmethod
-    async def list_by_category(
-        self,
-        category: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_category(self, category: str, limit: int = 100) -> list[dict[str, Any]]:
         """List expenses by category."""
-        pass
+        ...
 
     @abstractmethod
     async def list_pending_sync(self) -> list[dict[str, Any]]:
         """List expenses pending QBO sync."""
-        pass
+        ...
 
     @abstractmethod
     async def find_duplicates(
@@ -127,7 +107,7 @@ class ExpenseStoreBackend(ABC):
         date_tolerance_days: int = 3,
     ) -> list[dict[str, Any]]:
         """Find potential duplicate expenses."""
-        pass
+        ...
 
     @abstractmethod
     async def get_statistics(
@@ -136,7 +116,7 @@ class ExpenseStoreBackend(ABC):
         end_date: datetime | None = None,
     ) -> dict[str, Any]:
         """Get expense statistics."""
-        pass
+        ...
 
     @abstractmethod
     async def update_status(
@@ -146,7 +126,7 @@ class ExpenseStoreBackend(ABC):
         approved_by: str | None = None,
     ) -> bool:
         """Update expense status."""
-        pass
+        ...
 
     @abstractmethod
     async def mark_synced(
@@ -155,44 +135,20 @@ class ExpenseStoreBackend(ABC):
         qbo_id: str,
     ) -> bool:
         """Mark expense as synced to QBO."""
-        pass
-
-    @abstractmethod
-    async def close(self) -> None:
-        """Close any resources."""
-        pass
+        ...
 
 
-class InMemoryExpenseStore(ExpenseStoreBackend):
+# =============================================================================
+# In-Memory Implementation
+# =============================================================================
+
+
+class InMemoryExpenseStore(GenericInMemoryStore, ExpenseStoreBackend):
     """In-memory expense store for testing."""
 
-    def __init__(self) -> None:
-        self._data: dict[str, dict[str, Any]] = {}
-        self._lock = threading.RLock()
+    PRIMARY_KEY = "id"
 
-    async def get(self, expense_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            return self._data.get(expense_id)
-
-    async def save(self, data: dict[str, Any]) -> None:
-        expense_id = data.get("id")
-        if not expense_id:
-            raise ValueError("id is required")
-        with self._lock:
-            self._data[expense_id] = data
-
-    async def delete(self, expense_id: str) -> bool:
-        with self._lock:
-            if expense_id in self._data:
-                del self._data[expense_id]
-                return True
-            return False
-
-    async def list_all(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:  # type: ignore[override]
         with self._lock:
             items = sorted(
                 self._data.values(),
@@ -201,31 +157,19 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
             )
             return items[offset : offset + limit]
 
-    async def list_by_status(
-        self,
-        status: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_status(self, status: str, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock:
-            items = [e for e in self._data.values() if e.get("status") == status]
+            items = self._filter_by("status", status)
             return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
-    async def list_by_employee(
-        self,
-        employee_id: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_employee(self, employee_id: str, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock:
-            items = [e for e in self._data.values() if e.get("employee_id") == employee_id]
+            items = self._filter_by("employee_id", employee_id)
             return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
-    async def list_by_category(
-        self,
-        category: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_category(self, category: str, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock:
-            items = [e for e in self._data.values() if e.get("category") == category]
+            items = self._filter_by("category", category)
             return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_pending_sync(self) -> list[dict[str, Any]]:
@@ -334,150 +278,122 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
             self._data[expense_id]["synced_at"] = datetime.now(timezone.utc).isoformat()
             return True
 
-    async def close(self) -> None:
-        pass
+
+# =============================================================================
+# SQLite Implementation
+# =============================================================================
 
 
-class SQLiteExpenseStore(ExpenseStoreBackend):
+class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
     """SQLite-backed expense store."""
 
-    def __init__(self, db_path: Path | None = None) -> None:
-        if db_path is None:
-            db_path = Path("expenses.db")
+    TABLE_NAME = "expenses"
+    PRIMARY_KEY = "id"
+    SCHEMA_SQL = """
+        CREATE TABLE IF NOT EXISTS expenses (
+            id TEXT PRIMARY KEY,
+            vendor_name TEXT,
+            amount TEXT NOT NULL,
+            category TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            employee_id TEXT,
+            approved_by TEXT,
+            expense_date TEXT,
+            synced_to_qbo INTEGER DEFAULT 0,
+            qbo_expense_id TEXT,
+            synced_at TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            data_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_expense_status ON expenses(status);
+        CREATE INDEX IF NOT EXISTS idx_expense_employee ON expenses(employee_id);
+        CREATE INDEX IF NOT EXISTS idx_expense_category ON expenses(category);
+        CREATE INDEX IF NOT EXISTS idx_expense_vendor ON expenses(vendor_name);
+        CREATE INDEX IF NOT EXISTS idx_expense_date ON expenses(expense_date);
+        CREATE INDEX IF NOT EXISTS idx_expense_sync ON expenses(synced_to_qbo);
+    """
+    INDEX_COLUMNS = {
+        "status",
+        "employee_id",
+        "category",
+        "vendor_name",
+        "expense_date",
+    }
 
-        self._db_path = Path(resolve_db_path(db_path))
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.RLock()
-        self._init_db()
+    def _extract_columns(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Extract indexed columns, handling Decimal amounts."""
+        result = super()._extract_columns(data)
+        # Handle amount separately (convert Decimal to string)
+        amount = data.get("amount", "0")
+        if isinstance(amount, Decimal):
+            amount = str(amount)
+        result["amount"] = amount
+        # Handle synced_to_qbo as integer
+        result["synced_to_qbo"] = 1 if data.get("synced_to_qbo") else 0
+        result["qbo_expense_id"] = data.get("qbo_expense_id")
+        result["synced_at"] = data.get("synced_at")
+        result["approved_by"] = data.get("approved_by")
+        return result
 
-    def _init_db(self) -> None:
+    async def get(self, item_id: str) -> dict[str, Any] | None:
+        """Override to apply decimal_decoder."""
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS expenses (
-                        id TEXT PRIMARY KEY,
-                        vendor_name TEXT,
-                        amount TEXT NOT NULL,
-                        category TEXT,
-                        status TEXT NOT NULL DEFAULT 'pending',
-                        employee_id TEXT,
-                        approved_by TEXT,
-                        expense_date TEXT,
-                        synced_to_qbo INTEGER DEFAULT 0,
-                        qbo_expense_id TEXT,
-                        synced_at TEXT,
-                        created_at REAL NOT NULL,
-                        updated_at REAL NOT NULL,
-                        data_json TEXT NOT NULL
-                    )
-                    """)
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_expense_status ON expenses(status)")
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_expense_employee ON expenses(employee_id)"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_expense_category ON expenses(category)"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_expense_vendor ON expenses(vendor_name)"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_expense_date ON expenses(expense_date)"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_expense_sync ON expenses(synced_to_qbo)"
-                )
-                conn.commit()
-            finally:
-                conn.close()
-
-    async def get(self, expense_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT data_json FROM expenses WHERE id = ?",
-                    (expense_id,),
+                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",
+                    (item_id,),
                 )
                 row = cursor.fetchone()
-                if row:
-                    return json.loads(row[0], object_hook=decimal_decoder)
-                return None
+                return json.loads(row[0], object_hook=decimal_decoder) if row else None
             finally:
                 conn.close()
 
     async def save(self, data: dict[str, Any]) -> None:
-        expense_id = data.get("id")
-        if not expense_id:
-            raise ValueError("id is required")
+        """Override to use DecimalEncoder."""
+        item_id = data.get(self.PRIMARY_KEY)
+        if not item_id:
+            raise ValueError(f"{self.PRIMARY_KEY} is required")
 
         now = time.time()
         data_json = json.dumps(data, cls=DecimalEncoder)
+        extra_cols = self._extract_columns(data)
 
-        # Convert amount to string for storage
-        amount = data.get("amount", "0")
-        if isinstance(amount, Decimal):
-            amount = str(amount)
+        # Build column list
+        columns = [self.PRIMARY_KEY]
+        values: list[Any] = [item_id]
+
+        for col, val in extra_cols.items():
+            columns.append(col)
+            values.append(val)
+
+        columns.extend(["created_at", "updated_at", "data_json"])
+        values.extend([now, now, data_json])
+
+        placeholders = ", ".join(["?"] * len(columns))
+        col_names = ", ".join(columns)
 
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO expenses
-                    (id, vendor_name, amount, category, status, employee_id,
-                     approved_by, expense_date, synced_to_qbo, qbo_expense_id,
-                     synced_at, created_at, updated_at, data_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        expense_id,
-                        data.get("vendor_name"),
-                        amount,
-                        data.get("category"),
-                        data.get("status", "pending"),
-                        data.get("employee_id"),
-                        data.get("approved_by"),
-                        data.get("expense_date"),
-                        1 if data.get("synced_to_qbo") else 0,
-                        data.get("qbo_expense_id"),
-                        data.get("synced_at"),
-                        now,
-                        now,
-                        data_json,
-                    ),
+                conn.execute(
+                    f"INSERT OR REPLACE INTO {self.TABLE_NAME} ({col_names}) VALUES ({placeholders})",
+                    values,
                 )
                 conn.commit()
             finally:
                 conn.close()
 
-    async def delete(self, expense_id: str) -> bool:
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:  # type: ignore[override]
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
-                conn.commit()
-                return cursor.rowcount > 0
-            finally:
-                conn.close()
-
-    async def list_all(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[dict[str, Any]]:
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    """
-                    SELECT data_json FROM expenses
+                    f"""
+                    SELECT data_json FROM {self.TABLE_NAME}
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
                     """,
@@ -489,21 +405,15 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
             finally:
                 conn.close()
 
-    async def list_by_status(
-        self,
-        status: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_status(self, status: str, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    SELECT data_json FROM expenses
+                cursor = conn.execute(
+                    f"""
+                    SELECT data_json FROM {self.TABLE_NAME}
                     WHERE status = ?
-                    ORDER BY created_at DESC
-                    LIMIT ?
+                    ORDER BY created_at DESC LIMIT ?
                     """,
                     (status, limit),
                 )
@@ -513,21 +423,15 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
             finally:
                 conn.close()
 
-    async def list_by_employee(
-        self,
-        employee_id: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_employee(self, employee_id: str, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    SELECT data_json FROM expenses
+                cursor = conn.execute(
+                    f"""
+                    SELECT data_json FROM {self.TABLE_NAME}
                     WHERE employee_id = ?
-                    ORDER BY created_at DESC
-                    LIMIT ?
+                    ORDER BY created_at DESC LIMIT ?
                     """,
                     (employee_id, limit),
                 )
@@ -537,21 +441,15 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
             finally:
                 conn.close()
 
-    async def list_by_category(
-        self,
-        category: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_category(self, category: str, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    SELECT data_json FROM expenses
+                cursor = conn.execute(
+                    f"""
+                    SELECT data_json FROM {self.TABLE_NAME}
                     WHERE category = ?
-                    ORDER BY created_at DESC
-                    LIMIT ?
+                    ORDER BY created_at DESC LIMIT ?
                     """,
                     (category, limit),
                 )
@@ -563,14 +461,15 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
 
     async def list_pending_sync(self) -> list[dict[str, Any]]:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT data_json FROM expenses
+                cursor = conn.execute(
+                    f"""
+                    SELECT data_json FROM {self.TABLE_NAME}
                     WHERE synced_to_qbo = 0 AND status = 'approved'
                     ORDER BY created_at ASC
-                    """)
+                    """
+                )
                 return [
                     json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
@@ -584,12 +483,11 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
         date_tolerance_days: int = 3,
     ) -> list[dict[str, Any]]:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    SELECT data_json FROM expenses
+                cursor = conn.execute(
+                    f"""
+                    SELECT data_json FROM {self.TABLE_NAME}
                     WHERE LOWER(vendor_name) = LOWER(?)
                       AND amount = ?
                       AND expense_date >= date('now', ?)
@@ -608,7 +506,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
         end_date: datetime | None = None,
     ) -> dict[str, Any]:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
 
@@ -626,7 +524,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                 cursor.execute(
                     f"""
                     SELECT COUNT(*), COALESCE(SUM(CAST(amount AS REAL)), 0)
-                    FROM expenses
+                    FROM {self.TABLE_NAME}
                     WHERE {where_clause}
                     """,
                     params,
@@ -639,7 +537,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                 cursor.execute(
                     f"""
                     SELECT category, SUM(CAST(amount AS REAL))
-                    FROM expenses
+                    FROM {self.TABLE_NAME}
                     WHERE {where_clause}
                     GROUP BY category
                     """,
@@ -654,7 +552,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                 cursor.execute(
                     f"""
                     SELECT status, COUNT(*)
-                    FROM expenses
+                    FROM {self.TABLE_NAME}
                     WHERE {where_clause}
                     GROUP BY status
                     """,
@@ -678,13 +576,13 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
         approved_by: str | None = None,
     ) -> bool:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
 
                 # Get current data
                 cursor.execute(
-                    "SELECT data_json FROM expenses WHERE id = ?",
+                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",
                     (expense_id,),
                 )
                 row = cursor.fetchone()
@@ -698,10 +596,10 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     data["approved_by"] = approved_by
 
                 cursor.execute(
-                    """
-                    UPDATE expenses
+                    f"""
+                    UPDATE {self.TABLE_NAME}
                     SET status = ?, approved_by = ?, updated_at = ?, data_json = ?
-                    WHERE id = ?
+                    WHERE {self.PRIMARY_KEY} = ?
                     """,
                     (
                         status,
@@ -722,13 +620,13 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
         qbo_id: str,
     ) -> bool:
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
 
                 # Get current data
                 cursor.execute(
-                    "SELECT data_json FROM expenses WHERE id = ?",
+                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",
                     (expense_id,),
                 )
                 row = cursor.fetchone()
@@ -742,11 +640,11 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                 data["synced_at"] = synced_at
 
                 cursor.execute(
-                    """
-                    UPDATE expenses
+                    f"""
+                    UPDATE {self.TABLE_NAME}
                     SET synced_to_qbo = 1, qbo_expense_id = ?, synced_at = ?,
                         updated_at = ?, data_json = ?
-                    WHERE id = ?
+                    WHERE {self.PRIMARY_KEY} = ?
                     """,
                     (
                         qbo_id,
@@ -761,17 +659,18 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
             finally:
                 conn.close()
 
-    async def close(self) -> None:
-        pass
+
+# =============================================================================
+# PostgreSQL Implementation
+# =============================================================================
 
 
-class PostgresExpenseStore(ExpenseStoreBackend):
+class PostgresExpenseStore(GenericPostgresStore, ExpenseStoreBackend):
     """PostgreSQL-backed expense store for production."""
 
-    SCHEMA_NAME = "expenses"
-    SCHEMA_VERSION = 1
-
-    INITIAL_SCHEMA = """
+    TABLE_NAME = "expenses"
+    PRIMARY_KEY = "id"
+    SCHEMA_SQL = """
         CREATE TABLE IF NOT EXISTS expenses (
             id TEXT PRIMARY KEY,
             vendor_name TEXT,
@@ -795,30 +694,10 @@ class PostgresExpenseStore(ExpenseStoreBackend):
         CREATE INDEX IF NOT EXISTS idx_expense_date ON expenses(expense_date);
         CREATE INDEX IF NOT EXISTS idx_expense_sync ON expenses(synced_to_qbo);
     """
-
-    def __init__(self, pool: "Pool"):
-        self._pool = pool
-        self._initialized = False
-
-    async def initialize(self) -> None:
-        if self._initialized:
-            return
-        async with self._pool.acquire() as conn:
-            await conn.execute(self.INITIAL_SCHEMA)
-        self._initialized = True
-
-    async def get(self, expense_id: str) -> dict[str, Any] | None:
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT data_json FROM expenses WHERE id = $1",
-                expense_id,
-            )
-            if row:
-                data = row["data_json"]
-                return json.loads(data) if isinstance(data, str) else data
-            return None
+    INDEX_COLUMNS = {"status", "employee_id", "category", "vendor_name"}
 
     async def save(self, data: dict[str, Any]) -> None:
+        """Override to handle Decimal and datetime types."""
         expense_id = data.get("id")
         if not expense_id:
             raise ValueError("id is required")
@@ -875,19 +754,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 data_json,
             )
 
-    async def delete(self, expense_id: str) -> bool:
-        async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM expenses WHERE id = $1",
-                expense_id,
-            )
-            return result != "DELETE 0"
-
-    async def list_all(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:  # type: ignore[override]
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -898,17 +765,9 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 limit,
                 offset,
             )
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            return [self._parse_data_json(row["data_json"]) for row in rows]
 
-    async def list_by_status(
-        self,
-        status: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_status(self, status: str, limit: int = 100) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -920,17 +779,9 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 status,
                 limit,
             )
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            return [self._parse_data_json(row["data_json"]) for row in rows]
 
-    async def list_by_employee(
-        self,
-        employee_id: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_employee(self, employee_id: str, limit: int = 100) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -942,17 +793,9 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 employee_id,
                 limit,
             )
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            return [self._parse_data_json(row["data_json"]) for row in rows]
 
-    async def list_by_category(
-        self,
-        category: str,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    async def list_by_category(self, category: str, limit: int = 100) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -964,24 +807,18 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 category,
                 limit,
             )
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            return [self._parse_data_json(row["data_json"]) for row in rows]
 
     async def list_pending_sync(self) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT data_json FROM expenses
                 WHERE synced_to_qbo = FALSE AND status = 'approved'
                 ORDER BY created_at ASC
-                """)
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+                """
+            )
+            return [self._parse_data_json(row["data_json"]) for row in rows]
 
     async def find_duplicates(
         self,
@@ -1001,11 +838,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 float(amount),
                 date_tolerance_days,
             )
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            return [self._parse_data_json(row["data_json"]) for row in rows]
 
     async def get_statistics(
         self,
@@ -1083,8 +916,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
             if not row:
                 return False
 
-            raw_data = row["data_json"]
-            data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+            data = self._parse_data_json(row["data_json"])
             data["status"] = status
             data["updated_at"] = datetime.now(timezone.utc).isoformat()
             if approved_by:
@@ -1117,8 +949,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 return False
 
             synced_at = datetime.now(timezone.utc)
-            raw_data = row["data_json"]
-            data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+            data = self._parse_data_json(row["data_json"])
             data["synced_to_qbo"] = True
             data["qbo_expense_id"] = qbo_id
             data["synced_at"] = synced_at.isoformat()
@@ -1137,8 +968,10 @@ class PostgresExpenseStore(ExpenseStoreBackend):
             )
             return result != "UPDATE 0"
 
-    async def close(self) -> None:
-        pass
+
+# =============================================================================
+# Factory Functions
+# =============================================================================
 
 
 def get_expense_store() -> ExpenseStoreBackend:
@@ -1198,4 +1031,6 @@ __all__ = [
     "get_expense_store",
     "set_expense_store",
     "reset_expense_store",
+    "DecimalEncoder",
+    "decimal_decoder",
 ]

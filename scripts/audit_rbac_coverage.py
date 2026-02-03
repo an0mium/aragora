@@ -58,6 +58,8 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
         r"\bcheck_permission\s*\(|self\.check_permission\s*\(|_check_permission\s*\("
         r"|require_permission_or_error\s*\(|require_auth_or_error\s*\("
         r"|self\.require_permission_or_error\s*\(|self\.require_auth_or_error\s*\("
+        r"|auth_ctx\.permissions|context\.permissions"  # Inline permission checks
+        r"|_enforce_permission_if_context\s*\("  # Common helper pattern
     )
     # Pattern for SecureHandler inheritance
     secure_handler_pattern = re.compile(r"class\s+\w+\s*\([^)]*SecureHandler[^)]*\)\s*:")
@@ -149,10 +151,35 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                         protection_type=protection_type,
                     )
 
-                    # Only include if it's a route handler
-                    if route_match or func_name.startswith(
-                        ("get_", "post_", "put_", "delete_", "handle_")
-                    ):
+                    # Only include if it's a route handler (not internal utility functions)
+                    # Exclude common utility patterns
+                    utility_suffixes = ("_store", "_cache", "_config", "_context", "_session")
+                    utility_prefixes = (
+                        "get_store",
+                        "get_storage",
+                        "get_cache",
+                        "get_config",
+                        "get_session",
+                        "get_auth_context",
+                        "get_user_from",
+                        "get_current_user",
+                        "get_permission_checker",
+                        "get_role",
+                        "get_tenant",
+                        "get_workspace_store",
+                        "get_authorization",
+                    )
+                    is_utility = (
+                        func_name.startswith("_")
+                        or any(func_name.startswith(p) for p in utility_prefixes)
+                        or any(func_name.endswith(s) for s in utility_suffixes)
+                    )
+                    # Include if: has route decorator OR is a handler function (not utility)
+                    is_handler = route_match or (
+                        func_name.startswith(("handle_", "get_", "post_", "put_", "delete_"))
+                        and not is_utility
+                    )
+                    if is_handler:
                         handlers.append(handler)
 
                 i += 1

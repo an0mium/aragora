@@ -1230,7 +1230,7 @@ def get_settings() -> Settings:
     try:
         from aragora.config.secrets import hydrate_env_from_secrets
 
-        hydrate_env_from_secrets()
+        hydrate_env_from_secrets(overwrite=True)
     except Exception:
         # Best-effort hydration; settings should still load even if secrets are unavailable.
         pass
