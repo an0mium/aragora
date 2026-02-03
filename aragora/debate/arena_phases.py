@@ -227,6 +227,8 @@ def init_phases(arena: "Arena") -> None:
         knowledge_mound=getattr(arena, "knowledge_mound", None),
         knowledge_workspace_id=getattr(arena, "loop_id", None) or "debate",
         enable_trending_context=getattr(arena.protocol, "enable_trending_injection", True),
+        document_store=getattr(arena, "document_store", None),
+        evidence_store=getattr(arena, "evidence_store", None),
     )
 
     # Auto-initialize PopulationManager for genome evolution when auto_evolve is enabled

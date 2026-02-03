@@ -465,6 +465,14 @@ class DebateProtocol:
     translate_messages: bool = True  # Translate messages between rounds
     translate_conclusions: bool = True  # Translate final conclusions
 
+    # Decision plan auto-creation: Automatically create DecisionPlan after high-confidence debates
+    # When enabled, a DecisionPlan is created after debate completion if confidence exceeds threshold
+    # Plans can be auto-approved (for low-risk) or require manual approval (for high-risk)
+    auto_create_plan: bool = False  # Enable automatic decision plan creation
+    plan_min_confidence: float = 0.7  # Min confidence to create plan (0.0-1.0)
+    plan_approval_mode: str = "risk_based"  # "always", "never", "risk_based"
+    plan_budget_limit_usd: float | None = None  # Budget limit for plan execution
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 

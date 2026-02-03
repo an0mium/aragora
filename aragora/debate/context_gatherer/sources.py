@@ -22,6 +22,8 @@ from .constants import (
     KNOWLEDGE_MOUND_TIMEOUT,
     THREAT_INTEL_TIMEOUT,
     BELIEF_CRUX_TIMEOUT,
+    DOCUMENT_STORE_TIMEOUT,
+    EVIDENCE_STORE_TIMEOUT,
     MAX_EVIDENCE_CACHE_SIZE,
     MAX_TRENDING_CACHE_SIZE,
 )
@@ -46,6 +48,13 @@ class SourceGatheringMixin:
     _project_root: Any
     _research_evidence_pack: dict[str, Any]
     _trending_topics_cache: list[Any]
+    _document_store: Any | None
+    _evidence_store: Any | None
+    _document_ids: list[str] | None
+    _enable_document_context: bool
+    _enable_evidence_store_context: bool
+    _max_document_context_items: int
+    _max_evidence_context_items: int
 
     def _get_task_hash(self, task: str) -> str:
         """Generate a cache key from task to prevent cache leaks between debates."""
@@ -167,6 +176,34 @@ class SourceGatheringMixin:
             )
         except asyncio.TimeoutError:
             logger.warning("[culture] Culture pattern gathering timed out")
+            return None
+
+    async def _gather_document_store_with_timeout(self, task: str) -> str | None:
+        """Gather uploaded document context with timeout protection."""
+        try:
+            return await asyncio.wait_for(
+                self.gather_document_store_context(task),
+                timeout=DOCUMENT_STORE_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "[documents] Document store context timed out after %ss",
+                DOCUMENT_STORE_TIMEOUT,
+            )
+            return None
+
+    async def _gather_evidence_store_with_timeout(self, task: str) -> str | None:
+        """Gather evidence store context with timeout protection."""
+        try:
+            return await asyncio.wait_for(
+                self.gather_evidence_store_context(task),
+                timeout=EVIDENCE_STORE_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "[evidence] Evidence store context timed out after %ss",
+                EVIDENCE_STORE_TIMEOUT,
+            )
             return None
 
     async def gather_threat_intel_context(self, task: str) -> str | None:
@@ -313,6 +350,103 @@ class SourceGatheringMixin:
             logger.warning("Unexpected error in evidence collection: %s", e)
 
         return None
+
+    async def gather_document_store_context(self, task: str) -> str | None:
+        """Gather context from uploaded documents (DocumentStore)."""
+        if not self._enable_document_context or not self._document_store:
+            return None
+
+        try:
+            docs = []
+            if self._document_ids:
+                for doc_id in self._document_ids[: self._max_document_context_items]:
+                    doc = self._document_store.get(doc_id)
+                    if doc:
+                        docs.append(doc)
+            else:
+                items = self._document_store.list_all() or []
+                if not items:
+                    return None
+
+                import re
+
+                tokens = [t for t in re.split(r"\W+", task.lower()) if t and len(t) > 3]
+                for item in items:
+                    haystack = f"{item.get('filename', '')} {item.get('preview', '')}".lower()
+                    score = sum(1 for t in tokens if t in haystack)
+                    item["score"] = score
+                items.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+                selected = items[: self._max_document_context_items]
+                for item in selected:
+                    doc = self._document_store.get(item.get("id", ""))
+                    if doc:
+                        docs.append(doc)
+
+            if not docs:
+                return None
+
+            context_parts = [
+                "## DOCUMENT CONTEXT",
+                "Relevant uploaded documents:",
+                "",
+            ]
+            for doc in docs:
+                filename = getattr(doc, "filename", "document")
+                text = getattr(doc, "text", "") or ""
+                snippet = await self._compress_with_rlm(
+                    text,
+                    source_type="document",
+                    max_chars=2000,
+                )
+                context_parts.append(f"### {filename}")
+                context_parts.append(snippet)
+                context_parts.append("")
+
+            return "\n".join(context_parts).strip()
+
+        except Exception as e:
+            logger.warning("[documents] Failed to gather document store context: %s", e)
+            return None
+
+    async def gather_evidence_store_context(self, task: str) -> str | None:
+        """Gather context from stored evidence snippets."""
+        if not self._enable_evidence_store_context or not self._evidence_store:
+            return None
+
+        try:
+            evidence = self._evidence_store.search_evidence(
+                task, limit=self._max_evidence_context_items
+            )
+            if not evidence:
+                return None
+
+            context_parts = [
+                "## EVIDENCE STORE CONTEXT",
+                "Relevant evidence snippets from prior work:",
+                "",
+            ]
+            for item in evidence[: self._max_evidence_context_items]:
+                snippet = (item.get("snippet") or "").strip()
+                if not snippet:
+                    continue
+                source = item.get("source", "unknown")
+                reliability = item.get("reliability_score", 0.0)
+                url = item.get("url")
+                prefix = f"- [{source} | {reliability:.0%}]"
+                line = f"{prefix} {snippet[:240]}"
+                if url:
+                    line += f" ({url})"
+                context_parts.append(line)
+
+            if len(context_parts) <= 3:
+                return None
+
+            return "\n".join(context_parts)
+
+        except Exception as e:
+            logger.warning("[evidence] Failed to gather evidence store context: %s", e)
+            return None
 
     async def gather_trending_context(self) -> str | None:
         """

@@ -197,6 +197,17 @@ class OutcomeMixin:
                     )
 
                 cursor.execute("COMMIT")
+
+                # Fire post-outcome hooks (non-blocking, outside transaction)
+                self._fire_post_outcome_hooks(
+                    {
+                        "id": id,
+                        "success": success,
+                        "surprise_score": updated_surprise,
+                        "tier": tier,
+                        "total_observations": update_count,
+                    }
+                )
             except sqlite3.Error as e:
                 logger.error(f"Database error updating surprise score: {e}", exc_info=True)
                 cursor.execute("ROLLBACK")

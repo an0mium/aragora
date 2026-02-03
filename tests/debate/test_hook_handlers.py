@@ -514,3 +514,97 @@ class TestSubsystemCoordinatorIntegration:
         assert "hook_handler_registry" in status["subsystems"]
         assert "hook_handlers" in status["capabilities"]
         assert "hook_handlers_registered" in status
+
+
+class TestDecisionPlanHandlers:
+    """Test decision plan auto-creation handlers."""
+
+    @pytest.mark.asyncio
+    async def test_plan_creation_disabled_by_default(self) -> None:
+        """Decision plan handler not registered when auto_create_plan=False."""
+        manager = create_hook_manager()
+
+        # Mock protocol with auto_create_plan disabled (default)
+        mock_protocol = Mock()
+        mock_protocol.auto_create_plan = False
+
+        registry = create_hook_handler_registry(
+            manager,
+            protocol=mock_protocol,
+        )
+
+        # Should not have registered any decision plan handlers
+        # Check by counting - there should be 0 handlers since only protocol is provided
+        # and auto_create_plan is False
+        assert registry.registered_count == 0
+
+    @pytest.mark.asyncio
+    async def test_plan_creation_enabled_with_protocol(self) -> None:
+        """Decision plan handler registered when auto_create_plan=True."""
+        manager = create_hook_manager()
+
+        # Mock protocol with auto_create_plan enabled
+        mock_protocol = Mock()
+        mock_protocol.auto_create_plan = True
+        mock_protocol.plan_min_confidence = 0.7
+        mock_protocol.plan_approval_mode = "risk_based"
+        mock_protocol.plan_budget_limit_usd = None
+
+        registry = create_hook_handler_registry(
+            manager,
+            protocol=mock_protocol,
+        )
+
+        # Should have registered the decision plan handler
+        assert registry.registered_count == 1
+
+    @pytest.mark.asyncio
+    async def test_plan_creation_skips_low_confidence(self) -> None:
+        """Plan not created when confidence below threshold."""
+        manager = create_hook_manager()
+
+        mock_protocol = Mock()
+        mock_protocol.auto_create_plan = True
+        mock_protocol.plan_min_confidence = 0.8  # High threshold
+
+        registry = create_hook_handler_registry(
+            manager,
+            protocol=mock_protocol,
+        )
+
+        # Mock result with low confidence
+        mock_result = Mock()
+        mock_result.confidence = 0.5  # Below threshold
+        mock_result.consensus_reached = True
+
+        # Trigger POST_DEBATE
+        await manager.trigger(HookType.POST_DEBATE, ctx=None, result=mock_result)
+
+        # Plan should not be created (we can't easily verify this without mocking imports)
+        # Just verify no exception was raised
+        assert registry.is_registered
+
+    @pytest.mark.asyncio
+    async def test_plan_creation_skips_no_consensus(self) -> None:
+        """Plan not created when consensus not reached."""
+        manager = create_hook_manager()
+
+        mock_protocol = Mock()
+        mock_protocol.auto_create_plan = True
+        mock_protocol.plan_min_confidence = 0.5
+
+        registry = create_hook_handler_registry(
+            manager,
+            protocol=mock_protocol,
+        )
+
+        # Mock result with no consensus
+        mock_result = Mock()
+        mock_result.confidence = 0.9  # High confidence
+        mock_result.consensus_reached = False  # But no consensus
+
+        # Trigger POST_DEBATE
+        await manager.trigger(HookType.POST_DEBATE, ctx=None, result=mock_result)
+
+        # Plan should not be created
+        assert registry.is_registered

@@ -78,6 +78,13 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
         enable_threat_intel_enrichment: bool = True,
         threat_intel_enrichment: Any | None = None,
         enable_trending_context: bool = True,
+        document_store: Any | None = None,
+        evidence_store: Any | None = None,
+        document_ids: list[str] | None = None,
+        enable_document_context: bool = True,
+        enable_evidence_store_context: bool = True,
+        max_document_context_items: int = 5,
+        max_evidence_context_items: int = 5,
     ):
         """
         Initialize the context gatherer.
@@ -98,6 +105,13 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
             enable_threat_intel_enrichment: Whether to enrich security topics with threat intel.
             threat_intel_enrichment: Optional pre-configured ThreatIntelEnrichment instance.
             enable_trending_context: Whether to gather Pulse trending context.
+            document_store: Optional DocumentStore for uploaded document context.
+            evidence_store: Optional EvidenceStore for stored evidence context.
+            document_ids: Optional explicit document IDs to include.
+            enable_document_context: Whether to include DocumentStore context.
+            enable_evidence_store_context: Whether to include EvidenceStore context.
+            max_document_context_items: Max documents to include.
+            max_evidence_context_items: Max evidence snippets to include.
         """
         self._evidence_store_callback = evidence_store_callback
         self._prompt_builder = prompt_builder
@@ -114,6 +128,15 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
 
         # Cache for trending topics (TrendingTopic objects, not just formatted string)
         self._trending_topics_cache: list[Any] = []
+
+        # Document/evidence stores (optional)
+        self._document_store = document_store
+        self._evidence_store = evidence_store
+        self._document_ids = document_ids
+        self._enable_document_context = enable_document_context
+        self._enable_evidence_store_context = enable_evidence_store_context
+        self._max_document_context_items = max_document_context_items
+        self._max_evidence_context_items = max_evidence_context_items
 
         self._enable_trending_context = enable_trending_context and not DISABLE_TRENDING
         if DISABLE_TRENDING:
@@ -357,10 +380,24 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
             # 7. Gather threat intelligence context for security topics
             threat_intel_task = asyncio.create_task(self._gather_threat_intel_with_timeout(task))
 
-            # 8. Gather additional evidence in parallel (fallback if Claude search weak)
+            # 8. Gather document/evidence store context (if available)
+            document_task = None
+            evidence_store_task = None
+            if self._document_store and self._enable_document_context:
+                document_task = asyncio.create_task(self._gather_document_store_with_timeout(task))
+            if self._evidence_store and self._enable_evidence_store_context:
+                evidence_store_task = asyncio.create_task(
+                    self._gather_evidence_store_with_timeout(task)
+                )
+
+            # 9. Gather additional evidence in parallel (fallback if Claude search weak)
             tasks = [knowledge_task, belief_task, culture_task, threat_intel_task]
             if trending_task is not None:
                 tasks.append(trending_task)
+            if document_task is not None:
+                tasks.append(document_task)
+            if evidence_store_task is not None:
+                tasks.append(evidence_store_task)
 
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
