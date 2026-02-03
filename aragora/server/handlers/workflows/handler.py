@@ -226,6 +226,17 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             pass
         return bool(rbac_enabled)
 
+    def _list_pending_approvals_fn(self) -> Any:
+        """Return list_pending_approvals, honoring test overrides."""
+        try:
+            pkg = sys.modules.get("aragora.server.handlers.workflows")
+            override = getattr(pkg, "list_pending_approvals", None) if pkg is not None else None
+            if override is not None and override is not list_pending_approvals:
+                return override
+        except Exception:
+            pass
+        return list_pending_approvals
+
     def _get_auth_context(
         self, handler: Any
     ) -> "AuthorizationContext" | _UnauthenticatedSentinel | None:
@@ -992,7 +1003,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
             approvals = _run_async(
-                list_pending_approvals(
+                self._list_pending_approvals_fn()(
                     workflow_id=get_string_param(query_params, "workflow_id", None),
                     tenant_id=tenant_id,
                 )

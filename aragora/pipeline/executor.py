@@ -12,12 +12,17 @@ Usage:
     executor = PlanExecutor(execution_mode="hybrid", repo_path=Path.cwd())
     outcome = await executor.execute(plan)
 
+    # Use Computer Use for browser-based implementation
+    executor = PlanExecutor(execution_mode="computer_use")
+    outcome = await executor.execute(plan)
+
 The executor also manages an in-memory plan store for retrieval by
 plan_id, enabling the HTTP handler to look up plans across the lifecycle.
 
 Execution Modes:
     - "workflow": Uses WorkflowEngine with DAG-based step execution (default)
     - "hybrid": Uses HybridExecutor with Claude primary + Codex fallback
+    - "computer_use": Uses ComputerUseOrchestrator for browser automation
 
 Stability: ALPHA
 """
@@ -44,7 +49,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Execution mode type
-ExecutionMode = Literal["workflow", "hybrid"]
+ExecutionMode = Literal["workflow", "hybrid", "computer_use"]
 
 # Environment variable to control default execution mode
 DEFAULT_EXECUTION_MODE: ExecutionMode = os.environ.get("PLAN_EXECUTION_MODE", "workflow")  # type: ignore[assignment]
@@ -223,6 +228,8 @@ class PlanExecutor:
         try:
             if mode == "hybrid":
                 outcome = await self._run_hybrid(plan, parallel_execution=parallel_execution)
+            elif mode == "computer_use":
+                outcome = await self._run_computer_use(plan)
             else:
                 outcome = await self._run_workflow(plan, parallel_execution=parallel_execution)
         except Exception as e:
@@ -466,6 +473,133 @@ class PlanExecutor:
             if parallel_execution:
                 _os.environ.pop("IMPL_PARALLEL_TASKS", None)
                 _os.environ.pop("IMPL_MAX_PARALLEL", None)
+
+    async def _run_computer_use(self, plan: DecisionPlan) -> PlanOutcome:
+        """Run plan using ComputerUseOrchestrator for browser-based implementation.
+
+        Computer Use mode executes tasks through browser automation via Playwright,
+        guided by Claude's computer_use tool. This is suitable for tasks that
+        require interacting with web UIs or desktop applications.
+
+        Args:
+            plan: DecisionPlan with task description
+
+        Returns:
+            PlanOutcome with execution results
+        """
+        from aragora.computer_use.executor import ExecutorConfig, PlaywrightActionExecutor
+        from aragora.computer_use.orchestrator import (
+            ComputerUseConfig,
+            ComputerUseOrchestrator,
+            create_default_computer_policy,
+        )
+
+        start_time = time.time()
+
+        # Use task description as the goal for computer use
+        goal = plan.task
+        if plan.implement_plan and plan.implement_plan.tasks:
+            # Combine task descriptions for more context
+            task_descriptions = [t.description for t in plan.implement_plan.tasks]
+            goal = f"{plan.task}\n\nTasks:\n" + "\n".join(f"- {d}" for d in task_descriptions)
+
+        # Configure computer use
+        config = ComputerUseConfig(
+            max_steps=50,  # Reasonable limit for automated tasks
+            screenshot_delay_ms=500,
+        )
+        policy = create_default_computer_policy()
+
+        tasks_total = len(plan.implement_plan.tasks) if plan.implement_plan else 1
+        lessons: list[str] = []
+
+        try:
+            # Create executor and orchestrator
+            executor_config = ExecutorConfig(
+                headless=True,
+                viewport_width=1920,
+                viewport_height=1080,
+            )
+
+            async with PlaywrightActionExecutor(executor_config) as executor:
+                orchestrator = ComputerUseOrchestrator(
+                    executor=executor,
+                    policy=policy,
+                    config=config,
+                )
+
+                # Run the computer use task
+                result = await orchestrator.run_task(
+                    goal=goal,
+                    max_steps=config.max_steps,
+                    initial_context=f"Debate ID: {plan.debate_id}\nPlan ID: {plan.id}",
+                    metadata={"debate_id": plan.debate_id, "plan_id": plan.id},
+                )
+
+            duration = time.time() - start_time
+
+            # Extract metrics from result
+            success = result.success if hasattr(result, "success") else False
+            error = result.error if hasattr(result, "error") else None
+            steps_completed = result.steps_completed if hasattr(result, "steps_completed") else 0
+
+            if steps_completed > 0:
+                lessons.append(f"Completed {steps_completed} browser automation steps")
+
+            if hasattr(result, "actions") and result.actions:
+                action_types = set(
+                    a.action_type for a in result.actions if hasattr(a, "action_type")
+                )
+                lessons.append(f"Used actions: {', '.join(str(t) for t in action_types)}")
+
+            # Update plan status
+            plan.status = PlanStatus.COMPLETED if success else PlanStatus.FAILED
+            plan.execution_completed_at = datetime.now()
+
+            return PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=success,
+                tasks_completed=tasks_total if success else 0,
+                tasks_total=tasks_total,
+                total_cost_usd=plan.budget.spent_usd,  # Computer use cost tracking TBD
+                error=error,
+                duration_seconds=duration,
+                lessons=lessons,
+            )
+
+        except ImportError as e:
+            duration = time.time() - start_time
+            logger.error("Computer use dependencies not available: %s", e)
+            return PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=False,
+                error=(
+                    f"Computer use dependencies not available: {e}. "
+                    "Install with: pip install playwright"
+                ),
+                duration_seconds=duration,
+                tasks_total=tasks_total,
+            )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error("Computer use execution failed: %s", e)
+            plan.status = PlanStatus.FAILED
+            plan.execution_completed_at = datetime.now()
+            return PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=False,
+                error=str(e),
+                duration_seconds=duration,
+                tasks_total=tasks_total,
+                lessons=[f"Computer use failed: {e}"],
+            )
 
     async def _generate_receipt(
         self,
