@@ -99,7 +99,7 @@ class RateLimiter:
         endpoint: str,
         requests_per_minute: int,
         burst_size: int | None = None,
-        key_type: str = "ip",
+        key_type: str = "combined",
     ) -> None:
         """
         Configure rate limit for a specific endpoint.
@@ -110,6 +110,8 @@ class RateLimiter:
             burst_size: Max burst capacity (default: 2x rate).
             key_type: How to key the limit ("ip", "token", "endpoint", "combined").
         """
+        if burst_size is None:
+            burst_size = requests_per_minute
         self._endpoint_configs[endpoint] = RateLimitConfig(
             requests_per_minute=requests_per_minute,
             burst_size=burst_size,

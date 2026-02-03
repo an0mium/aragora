@@ -48,6 +48,7 @@ async def initialize_shared_pool(
     max_size: int = 20,
     command_timeout: float = 60.0,
     statement_timeout: int = 60,
+    force: bool = False,
 ) -> Optional["Pool"]:
     """
     Initialize the shared PostgreSQL pool in the current event loop.
@@ -82,11 +83,25 @@ async def initialize_shared_pool(
         return None
 
     # Check if already initialized on THIS event loop
-    if _shared_pool is not None:
+    if _shared_pool is not None and not force:
         current_loop = asyncio.get_running_loop()
         if _pool_event_loop is current_loop:
             logger.debug("[pool_manager] Shared pool already initialized on this loop")
             return _shared_pool
+
+    # Force-close the existing pool when refreshing due to stale connections
+    if force and _shared_pool is not None:
+        logger.warning("[pool_manager] Force-reinitializing shared pool (stale connections)")
+        try:
+            await _shared_pool.close()
+        except Exception as close_err:
+            logger.warning("[pool_manager] Error closing stale pool: %s", close_err)
+            try:
+                _shared_pool.terminate()
+            except Exception:
+                pass
+        _shared_pool = None
+        _pool_event_loop = None
 
     # Check if PostgreSQL is configured
     from aragora.storage.connection_factory import (

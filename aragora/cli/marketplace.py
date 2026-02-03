@@ -34,7 +34,7 @@ def _get_api_client():
             api_key=os.environ.get("ARAGORA_API_KEY"),
         )
         # Quick health check
-        client.get("/api/health")
+        client.system.health()
         return client
     except Exception:
         return None

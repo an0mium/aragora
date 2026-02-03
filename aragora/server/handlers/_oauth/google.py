@@ -181,10 +181,13 @@ class GoogleOAuthMixin:
             user = await _maybe_await(self._find_user_by_oauth(user_store, user_info))
             logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
         except Exception as e:
-            logger.error(f"OAuth callback: _find_user_by_oauth failed: {e}", exc_info=True)
-            return self._redirect_with_error(
-                f"Database error while looking up user: {type(e).__name__}"
-            )
+            logger.error("OAuth callback: _find_user_by_oauth failed: %s", e, exc_info=True)
+            error_name = type(e).__name__
+            if error_name in ("InterfaceError", "ConnectionDoesNotExistError", "TimeoutError"):
+                msg = "A temporary connection issue prevented login. Please try again."
+            else:
+                msg = "A database error occurred during login. Please try again."
+            return self._redirect_with_error(msg)
 
         if not user:
             # Check if email already registered (without OAuth)
@@ -195,9 +198,9 @@ class GoogleOAuthMixin:
                     f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
                 )
             except Exception as e:
-                logger.error(f"OAuth callback: get_user_by_email failed: {e}", exc_info=True)
+                logger.error("OAuth callback: get_user_by_email failed: %s", e, exc_info=True)
                 return self._redirect_with_error(
-                    f"Database error while looking up email: {type(e).__name__}"
+                    "A database error occurred during login. Please try again."
                 )
 
             if user:
@@ -211,9 +214,9 @@ class GoogleOAuthMixin:
                     user = await _maybe_await(self._create_oauth_user(user_store, user_info))
                     logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
                 except Exception as e:
-                    logger.error(f"OAuth callback: _create_oauth_user failed: {e}", exc_info=True)
+                    logger.error("OAuth callback: _create_oauth_user failed: %s", e, exc_info=True)
                     return self._redirect_with_error(
-                        f"Failed to create user account: {type(e).__name__}"
+                        "Failed to create your account. Please try again."
                     )
 
         if not user:

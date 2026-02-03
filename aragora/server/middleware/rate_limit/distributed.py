@@ -151,6 +151,10 @@ class DistributedRateLimiter:
         self._fallback_requests = 0
         self._last_circuit_state = "closed"
 
+        # Eagerly initialize when strict mode is requested to enforce requirements.
+        if self.strict_mode:
+            self._initialize()
+
     def _initialize(self) -> None:
         """Initialize the rate limiter backend."""
         if self._initialized:
@@ -223,7 +227,7 @@ class DistributedRateLimiter:
         endpoint: str,
         requests_per_minute: int,
         burst_size: int | None = None,
-        key_type: str = "ip",
+        key_type: str = "combined",
     ) -> None:
         """Configure rate limit for a specific endpoint.
 
@@ -236,6 +240,9 @@ class DistributedRateLimiter:
             key_type: Key type ("ip", "token", "tenant", "combined")
         """
         self._initialize()
+
+        if burst_size is None:
+            burst_size = requests_per_minute
 
         if self._redis_limiter:
             self._redis_limiter.configure_endpoint(

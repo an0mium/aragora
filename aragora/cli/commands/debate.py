@@ -83,6 +83,15 @@ def _split_agents_list(agents_str: str) -> list[str]:
     return [agent.strip() for agent in agents_str.split(",") if agent.strip()]
 
 
+def _agent_names_for_graph_matrix(agents_str: str) -> list[str]:
+    """Resolve agent names for graph/matrix debates (provider-only)."""
+    try:
+        specs = parse_agents(agents_str)
+        return [spec.provider for spec in specs if spec.provider]
+    except Exception:
+        return _split_agents_list(agents_str)
+
+
 def _is_server_available(server_url: str) -> bool:
     """Check if the API server is reachable."""
     try:
@@ -586,11 +595,12 @@ def cmd_ask(args: argparse.Namespace) -> None:
             }
 
             if graph_mode:
+                graph_agents = _agent_names_for_graph_matrix(agents)
                 result = _run_graph_debate_api(
                     server_url=server_url,
                     api_key=api_key,
                     task=args.task,
-                    agents=agents_list,
+                    agents=graph_agents,
                     max_rounds=args.graph_rounds,
                     branch_threshold=args.branch_threshold,
                     max_branches=args.max_branches,
@@ -600,12 +610,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 return
 
             if matrix_mode:
+                matrix_agents = _agent_names_for_graph_matrix(agents)
                 scenarios = _parse_matrix_scenarios(args.scenario)
                 result = _run_matrix_debate_api(
                     server_url=server_url,
                     api_key=api_key,
                     task=args.task,
-                    agents=agents_list,
+                    agents=matrix_agents,
                     scenarios=scenarios,
                     max_rounds=args.matrix_rounds,
                     verbose=args.verbose,

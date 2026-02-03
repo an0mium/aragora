@@ -975,7 +975,7 @@ class TestExecuteMode:
                 "aragora.server.handlers.debates.implementation.get_permission_checker",
             ),
             patch(
-                "aragora.server.handlers.debates.implementation.PlanExecutor",
+                "aragora.pipeline.executor.PlanExecutor",
             ) as mock_executor_cls,
             patch.dict(
                 "os.environ",

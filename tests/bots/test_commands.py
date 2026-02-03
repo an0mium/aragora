@@ -564,3 +564,30 @@ class TestBuiltInCommands:
 
         # Should either fail or prompt for input
         assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_implement_command_computer_use_override(self, default_context):
+        """Implement command should pass computer_use override to DecisionRouter."""
+        registry = get_default_registry()
+        default_context.args = ["implement", "Update", "docs", "--computer-use"]
+
+        captured: dict[str, Any] = {}
+
+        class _MockRouter:
+            async def route(self, request):
+                captured["request"] = request
+                mock_result = MagicMock()
+                mock_result.request_id = request.request_id
+                mock_result.debate_result = MagicMock(debate_id="debate-123")
+                return mock_result
+
+        with patch("aragora.core.get_decision_router", return_value=_MockRouter()):
+            result = await registry.execute(default_context)
+
+        assert result.success is True
+        request = captured.get("request")
+        assert request is not None
+        config = request.config
+        decision_integrity = config.decision_integrity
+        assert decision_integrity["execution_mode"] == "execute"
+        assert decision_integrity["execution_engine"] == "computer_use"

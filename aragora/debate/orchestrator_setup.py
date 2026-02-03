@@ -1,0 +1,306 @@
+"""Subsystem setup helpers for Arena initialization.
+
+Extracted from orchestrator.py to reduce its size. Contains the larger
+initialization methods for fabric integration, debate strategy, post-debate
+workflow, knowledge operations, RLM limiter, agent hierarchy, grounded
+operations, and agent channel management.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Optional
+
+from aragora.debate.grounded_operations import GroundedOperations
+from aragora.debate.hierarchy import AgentHierarchy, HierarchyConfig
+from aragora.debate.knowledge_manager import ArenaKnowledgeManager
+from aragora.logging_config import get_logger as get_structured_logger
+
+if TYPE_CHECKING:
+    from aragora.core import Agent
+    from aragora.debate.context import DebateContext
+    from aragora.debate.orchestrator import Arena
+    from aragora.rlm.cognitive_limiter import RLMCognitiveLoadLimiter
+
+logger = get_structured_logger(__name__)
+
+
+def init_fabric_integration(
+    arena: Arena,
+    fabric: Optional[Any],
+    fabric_config: Optional[Any],
+    agents: list[Agent],
+) -> list[Agent]:
+    """Initialize fabric integration for agent pool management.
+
+    Returns the agents list (possibly from fabric pool if configured).
+
+    Args:
+        arena: Arena instance.
+        fabric: Optional fabric instance.
+        fabric_config: Optional fabric configuration.
+        agents: List of agents (may be empty if using fabric).
+
+    Returns:
+        List of agents to use for the debate.
+    """
+    if fabric is not None and fabric_config is not None:
+        if agents:
+            raise ValueError(
+                "Cannot specify both 'agents' and 'fabric'/'fabric_config'. "
+                "Use either direct agents or fabric-managed agents."
+            )
+        from aragora.debate.orchestrator_agents import (
+            get_fabric_agents_sync as _agents_get_fabric_agents_sync,
+        )
+
+        agents = _agents_get_fabric_agents_sync(fabric, fabric_config)
+        arena._fabric = fabric
+        arena._fabric_config = fabric_config
+        logger.info(
+            f"[fabric] Arena using fabric pool {fabric_config.pool_id} with {len(agents)} agents"
+        )
+    else:
+        arena._fabric = None
+        arena._fabric_config = None
+    return agents
+
+
+def init_debate_strategy(
+    arena: Arena,
+    enable_adaptive_rounds: bool,
+    debate_strategy: Optional[Any],
+) -> Optional[Any]:
+    """Initialize debate strategy for adaptive rounds.
+
+    Auto-creates DebateStrategy if adaptive rounds enabled but no strategy provided.
+
+    Args:
+        arena: Arena instance to configure.
+        enable_adaptive_rounds: Whether adaptive rounds are enabled.
+        debate_strategy: Optional pre-configured strategy.
+
+    Returns:
+        The debate strategy (may be auto-created or None).
+    """
+    arena.enable_adaptive_rounds = enable_adaptive_rounds
+    arena.debate_strategy = debate_strategy
+
+    if arena.enable_adaptive_rounds and arena.debate_strategy is None:
+        try:
+            from aragora.debate.strategy import DebateStrategy
+
+            arena.debate_strategy = DebateStrategy(
+                continuum_memory=arena.continuum_memory,
+            )
+            logger.info("debate_strategy auto-initialized for adaptive rounds")
+        except ImportError:
+            logger.debug("DebateStrategy not available")
+            arena.debate_strategy = None
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Failed to initialize DebateStrategy: {e}")
+            arena.debate_strategy = None
+        except Exception as e:
+            logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
+            arena.debate_strategy = None
+
+    return arena.debate_strategy
+
+
+def init_post_debate_workflow(
+    arena: Arena,
+    enable_post_debate_workflow: bool,
+    post_debate_workflow: Optional[Any],
+    post_debate_workflow_threshold: float,
+) -> None:
+    """Initialize post-debate workflow automation.
+
+    Auto-creates default post-debate workflow if enabled but not provided.
+
+    Args:
+        arena: Arena instance to configure.
+        enable_post_debate_workflow: Whether post-debate workflow is enabled.
+        post_debate_workflow: Optional pre-configured workflow.
+        post_debate_workflow_threshold: Confidence threshold for triggering.
+    """
+    if enable_post_debate_workflow and post_debate_workflow is None:
+        try:
+            from aragora.workflow.patterns.post_debate import get_default_post_debate_workflow
+
+            post_debate_workflow = get_default_post_debate_workflow()
+            logger.debug("[arena] Auto-created default post-debate workflow")
+        except ImportError:
+            logger.warning("[arena] Post-debate workflow enabled but pattern not available")
+
+    arena.post_debate_workflow = post_debate_workflow
+    arena.enable_post_debate_workflow = enable_post_debate_workflow
+    arena.post_debate_workflow_threshold = post_debate_workflow_threshold
+
+
+def init_knowledge_ops(arena: Arena) -> None:
+    """Initialize ArenaKnowledgeManager for knowledge retrieval and ingestion.
+
+    Sets up the knowledge mound, supermemory adapter, revalidation scheduler,
+    and knowledge bridge hub on the Arena instance.
+
+    Args:
+        arena: Arena instance to configure.
+    """
+    arena._km_manager = ArenaKnowledgeManager(
+        knowledge_mound=arena.knowledge_mound,
+        enable_retrieval=arena.enable_knowledge_retrieval,
+        enable_ingestion=arena.enable_knowledge_ingestion,
+        enable_supermemory=arena.enable_supermemory,
+        supermemory_adapter=arena.supermemory_adapter,
+        supermemory_inject_on_start=arena.supermemory_inject_on_start,
+        supermemory_max_context_items=arena.supermemory_max_context_items,
+        supermemory_context_container_tag=arena.supermemory_context_container_tag,
+        supermemory_sync_on_conclusion=arena.supermemory_sync_on_conclusion,
+        supermemory_min_confidence_for_sync=arena.supermemory_min_confidence_for_sync,
+        supermemory_outcome_container_tag=arena.supermemory_outcome_container_tag,
+        supermemory_enable_privacy_filter=arena.supermemory_enable_privacy_filter,
+        supermemory_enable_resilience=arena.supermemory_enable_resilience,
+        supermemory_enable_km_adapter=arena.supermemory_enable_km_adapter,
+        enable_auto_revalidation=arena.enable_auto_revalidation,
+        revalidation_staleness_threshold=getattr(arena, "revalidation_staleness_threshold", 0.7),
+        revalidation_check_interval_seconds=getattr(
+            arena, "revalidation_check_interval_seconds", 3600
+        ),
+        notify_callback=lambda event_type, data: arena._notify_spectator(event_type, **data),
+    )
+    arena._km_manager.initialize(
+        continuum_memory=arena.continuum_memory,
+        consensus_memory=arena.consensus_memory,
+        elo_system=arena.elo_system,
+        cost_tracker=getattr(arena, "cost_tracker", None),
+        insight_store=arena.insight_store,
+        flip_detector=arena.flip_detector,
+        evidence_store=getattr(arena, "evidence_store", None),
+        pulse_manager=getattr(arena, "pulse_manager", None),
+        memory=arena.memory,
+    )
+    # Propagate supermemory adapter/config (may be initialized in manager)
+    arena.supermemory_adapter = arena._km_manager.supermemory_adapter
+    arena.enable_supermemory = arena._km_manager.enable_supermemory
+    arena._knowledge_ops = arena._km_manager._knowledge_ops
+    arena.knowledge_bridge_hub = arena._km_manager.knowledge_bridge_hub
+    if arena._km_manager.revalidation_scheduler is not None:
+        arena.revalidation_scheduler = arena._km_manager.revalidation_scheduler
+    arena._km_coordinator = arena._km_manager._km_coordinator
+    arena._km_adapters = arena._km_manager._km_adapters
+
+
+def init_grounded_operations(arena: Arena) -> None:
+    """Initialize GroundedOperations helper for verdict and relationship management.
+
+    Args:
+        arena: Arena instance to configure.
+    """
+    arena._grounded_ops = GroundedOperations(
+        position_ledger=arena.position_ledger,
+        elo_system=arena.elo_system,
+        evidence_grounder=None,  # Set after _init_phases
+    )
+
+
+def init_agent_hierarchy(
+    arena: Arena,
+    enable_agent_hierarchy: bool,
+    hierarchy_config: HierarchyConfig | None,
+) -> None:
+    """Initialize AgentHierarchy for Gastown pattern.
+
+    Args:
+        arena: Arena instance to configure.
+        enable_agent_hierarchy: Whether hierarchy is enabled.
+        hierarchy_config: Optional hierarchy configuration.
+    """
+    from aragora.debate.orchestrator_agents import (
+        init_agent_hierarchy as _agents_init_agent_hierarchy,
+    )
+
+    arena.enable_agent_hierarchy = enable_agent_hierarchy
+    arena._hierarchy: AgentHierarchy | None = _agents_init_agent_hierarchy(
+        enable_agent_hierarchy, hierarchy_config
+    )
+
+
+def init_rlm_limiter(
+    arena: Arena,
+    use_rlm_limiter: bool,
+    rlm_limiter: Optional[RLMCognitiveLoadLimiter],
+    rlm_compression_threshold: int,
+    rlm_max_recent_messages: int,
+    rlm_summary_level: str,
+    rlm_compression_round_threshold: int,
+) -> None:
+    """Initialize the RLM cognitive load limiter for context compression.
+
+    Args:
+        arena: Arena instance to configure.
+        use_rlm_limiter: Whether to use the limiter.
+        rlm_limiter: Optional pre-configured limiter.
+        rlm_compression_threshold: Token threshold for compression.
+        rlm_max_recent_messages: Max recent messages to keep.
+        rlm_summary_level: Summary level for compression.
+        rlm_compression_round_threshold: Round threshold for compression.
+    """
+    from aragora.debate.orchestrator_memory import (
+        init_rlm_limiter_state as _mem_init_rlm_limiter_state,
+    )
+
+    state = _mem_init_rlm_limiter_state(
+        use_rlm_limiter=use_rlm_limiter,
+        rlm_limiter=rlm_limiter,
+        rlm_compression_threshold=rlm_compression_threshold,
+        rlm_max_recent_messages=rlm_max_recent_messages,
+        rlm_summary_level=rlm_summary_level,
+    )
+    arena.use_rlm_limiter = state["use_rlm_limiter"]
+    arena.rlm_compression_threshold = state["rlm_compression_threshold"]
+    arena.rlm_max_recent_messages = state["rlm_max_recent_messages"]
+    arena.rlm_summary_level = state["rlm_summary_level"]
+    arena.rlm_limiter = state["rlm_limiter"]
+    arena.rlm_compression_round_threshold = rlm_compression_round_threshold
+
+
+async def setup_agent_channels(arena: Arena, ctx: DebateContext, debate_id: str) -> None:
+    """Initialize agent-to-agent channels for the current debate.
+
+    Args:
+        arena: Arena instance.
+        ctx: Current debate context.
+        debate_id: Debate identifier.
+    """
+    if not getattr(arena.protocol, "enable_agent_channels", False):
+        return
+    try:
+        from aragora.debate.channel_integration import create_channel_integration
+
+        arena._channel_integration = create_channel_integration(
+            debate_id=debate_id,
+            agents=arena.agents,
+            protocol=arena.protocol,
+        )
+        if await arena._channel_integration.setup():
+            ctx.channel_integration = arena._channel_integration
+        else:
+            arena._channel_integration = None
+    except (ImportError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
+        logger.debug(f"[channels] Channel setup failed (non-critical): {e}")
+        arena._channel_integration = None
+
+
+async def teardown_agent_channels(arena: Arena) -> None:
+    """Tear down agent channels after debate completion.
+
+    Args:
+        arena: Arena instance.
+    """
+    if not arena._channel_integration:
+        return
+    try:
+        await arena._channel_integration.teardown()
+    except (ConnectionError, OSError, RuntimeError) as e:
+        logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
+    finally:
+        arena._channel_integration = None

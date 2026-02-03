@@ -162,6 +162,7 @@ class RateLimitCircuitBreaker:
         self,
         failure_threshold: int = 5,
         recovery_timeout: float = 30.0,
+        reset_timeout_seconds: float | None = None,
         half_open_max_calls: int = 3,
     ):
         """
@@ -172,6 +173,8 @@ class RateLimitCircuitBreaker:
             recovery_timeout: Seconds to wait before testing recovery
             half_open_max_calls: Max calls to allow in half-open state
         """
+        if reset_timeout_seconds is not None:
+            recovery_timeout = reset_timeout_seconds
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
         self.half_open_max_calls = half_open_max_calls

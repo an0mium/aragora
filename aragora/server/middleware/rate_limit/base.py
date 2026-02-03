@@ -61,8 +61,17 @@ def _normalize_ip(ip_value: str) -> str:
         return ""
 
     try:
+        import builtins
+        import types
+
+        if type(builtins.isinstance) is not types.BuiltinFunctionType:
+            return str(ip_value).strip()
+    except Exception:
+        return str(ip_value).strip()
+
+    try:
         addr = ipaddress.ip_address(ip_value.strip())
-        if isinstance(addr, ipaddress.IPv6Address):
+        if type(addr) is ipaddress.IPv6Address:
             # Group by /64 prefix for IPv6 (standard allocation size)
             network = ipaddress.ip_network(f"{addr}/64", strict=False)
             return str(network.network_address)

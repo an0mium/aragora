@@ -182,11 +182,11 @@ class OAuthRateLimitConfig:
     """
 
     token_limit: int = 5
-    callback_limit: int = 20  # Doubled from 10 for better UX during debugging
+    callback_limit: int = 10
     auth_start_limit: int = 15
-    window_seconds: int = 600  # 10 minutes (reduced from 15)
-    max_backoff_seconds: int = 900  # 15 minutes (reduced from 1 hour)
-    initial_backoff_seconds: int = 30  # 30 seconds (reduced from 60)
+    window_seconds: int = 900  # 15 minutes
+    max_backoff_seconds: int = 3600  # 1 hour
+    initial_backoff_seconds: int = 60
     backoff_multiplier: float = 2.0
     enable_audit_logging: bool = True
 
@@ -196,11 +196,11 @@ def _get_default_config() -> OAuthRateLimitConfig:
     """Get default OAuth rate limit configuration from environment."""
     return OAuthRateLimitConfig(
         token_limit=int(os.environ.get("ARAGORA_OAUTH_TOKEN_LIMIT", "5")),
-        callback_limit=int(os.environ.get("ARAGORA_OAUTH_CALLBACK_LIMIT", "20")),
+        callback_limit=int(os.environ.get("ARAGORA_OAUTH_CALLBACK_LIMIT", "10")),
         auth_start_limit=int(os.environ.get("ARAGORA_OAUTH_AUTH_START_LIMIT", "15")),
-        window_seconds=int(os.environ.get("ARAGORA_OAUTH_WINDOW_SECONDS", "600")),
-        max_backoff_seconds=int(os.environ.get("ARAGORA_OAUTH_MAX_BACKOFF", "900")),
-        initial_backoff_seconds=int(os.environ.get("ARAGORA_OAUTH_INITIAL_BACKOFF", "30")),
+        window_seconds=int(os.environ.get("ARAGORA_OAUTH_WINDOW_SECONDS", "900")),
+        max_backoff_seconds=int(os.environ.get("ARAGORA_OAUTH_MAX_BACKOFF", "3600")),
+        initial_backoff_seconds=int(os.environ.get("ARAGORA_OAUTH_INITIAL_BACKOFF", "60")),
         backoff_multiplier=float(os.environ.get("ARAGORA_OAUTH_BACKOFF_MULTIPLIER", "2.0")),
         enable_audit_logging=os.environ.get("ARAGORA_OAUTH_AUDIT_LOGGING", "true").lower()
         in ("1", "true", "yes"),

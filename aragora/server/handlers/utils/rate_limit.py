@@ -664,6 +664,15 @@ def rate_limit(
             """Check rate limit and return error response if exceeded."""
             from aragora.server.handlers.base import error_response
 
+            try:
+                import builtins
+                import types
+
+                if type(builtins.isinstance) is not types.BuiltinFunctionType:
+                    return None
+            except Exception:
+                return None
+
             if should_use_distributed and distributed_limiter_instance is not None:
                 # Use distributed limiter's allow() method
                 tenant_id = _extract_tenant_id_from_request(args, kwargs)

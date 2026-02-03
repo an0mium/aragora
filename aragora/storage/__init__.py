@@ -26,6 +26,7 @@ from .interface import (
     SyncBackendWrapper,
     sync_backend,
 )
+from .adapters import DebateStorageAdapter
 from .organization_store import OrganizationStore
 from .share_store import ShareLinkStore
 from .user_store import UserStore
@@ -159,6 +160,7 @@ __all__ = [
     "SQLiteStore",
     "StorageInterface",
     "AsyncStorageInterface",
+    "DebateStorageAdapter",
     # Unified store protocols (recommended)
     "StoreBackend",
     "AsyncStoreBackend",
