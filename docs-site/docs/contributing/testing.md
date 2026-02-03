@@ -74,6 +74,21 @@ CI workflows and what they cover:
 | `.github/workflows/integration.yml` | E2E harness, integration, and control plane tests |
 | `.github/workflows/load-tests.yml` | Scheduled load tests and memory checks |
 
+## TestFixer Automation
+
+Automated fix loop for the first failing test:
+
+- Workflow: `.github/workflows/testfixer-auto.yml`
+- Trigger: on failed `Tests` workflow or manual dispatch
+- Requires: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` secrets
+- Output: PR with proposed fix, plus `.testfixer/attempts.jsonl` artifact
+
+Local usage:
+
+```bash
+aragora testfixer . --test-command "pytest tests/ -q --maxfail=1"
+```
+
 ## Test Organization
 
 ```
