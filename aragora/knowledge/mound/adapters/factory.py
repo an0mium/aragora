@@ -242,6 +242,7 @@ def _init_specs() -> None:
     from .rlm_adapter import RlmAdapter
     from .erc8004_adapter import ERC8004Adapter
     from .supermemory_adapter import SupermemoryAdapter
+    from .trickster_adapter import TricksterAdapter
 
     register_adapter_spec(
         AdapterSpec(
@@ -316,6 +317,21 @@ def _init_specs() -> None:
         )
     )
 
+    # Decision Plan adapter (Gold Path → Knowledge Mound)
+    from .decision_plan_adapter import DecisionPlanAdapter
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="decision_plan",
+            adapter_class=DecisionPlanAdapter,
+            required_deps=[],  # Uses KM singleton internally
+            forward_method="ingest_plan_outcome",
+            reverse_method="query_similar_plans",
+            priority=64,  # Just below receipt - same tier
+            config_key="km_decision_plan_adapter",
+        )
+    )
+
     register_adapter_spec(
         AdapterSpec(
             name="supermemory",
@@ -337,6 +353,19 @@ def _init_specs() -> None:
             reverse_method="load_from_mound",
             priority=20,  # Lower priority - compression optimization
             config_key="km_rlm_adapter",
+        )
+    )
+
+    # Trickster adapter (Hollow consensus detection → Knowledge Mound)
+    register_adapter_spec(
+        AdapterSpec(
+            name="trickster",
+            adapter_class=TricksterAdapter,
+            required_deps=["trickster"],  # EvidencePoweredTrickster instance
+            forward_method="sync_to_km",
+            reverse_method=None,  # No reverse sync (read patterns via search_by_topic)
+            priority=55,  # Same as calibration_fusion - debate quality
+            config_key="km_trickster_adapter",
         )
     )
 
@@ -685,6 +714,11 @@ class AdapterFactory:
                 adapter = adapter_class(
                     compressor=deps.get("compressor"),
                 )
+            elif spec.name == "trickster":
+                adapter = adapter_class(
+                    trickster=deps.get("trickster"),
+                    event_callback=self._event_callback,
+                )
             elif spec.name == "erc8004":
                 adapter = adapter_class(
                     event_callback=self._event_callback,
@@ -754,6 +788,8 @@ class AdapterFactory:
                     )
                 elif spec.name == "rlm":
                     return adapter_class(compressor=deps.get("compressor"))
+                elif spec.name == "trickster":
+                    return adapter_class(trickster=deps.get("trickster"))
                 elif spec.name == "erc8004":
                     return adapter_class()
                 else:

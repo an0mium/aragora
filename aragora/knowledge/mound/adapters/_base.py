@@ -63,6 +63,7 @@ ADAPTER_CIRCUIT_CONFIGS: dict[str, AdapterCircuitBreakerConfig] = {
     # Control plane adapters
     "control_plane": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
     "receipt": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    "decision_plan": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
     "culture": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
     "rlm": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
     # Blockchain adapter - external with potential network latency

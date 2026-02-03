@@ -115,6 +115,12 @@ from .receipt_adapter import (
     ReceiptNotFoundError,
     ReceiptIngestionResult,
 )
+from .decision_plan_adapter import (
+    DecisionPlanAdapter,
+    DecisionPlanAdapterError,
+    PlanIngestionResult,
+    get_decision_plan_adapter,
+)
 from .calibration_fusion_adapter import (
     CalibrationFusionAdapter,
     CalibrationSearchResult,
@@ -147,6 +153,11 @@ from .supermemory_adapter import (
     ContextInjectionResult,
     SyncOutcomeResult,
     SupermemorySearchResult,
+)
+from .trickster_adapter import (
+    TricksterAdapter,
+    TricksterSearchResult,
+    InterventionRecord,
 )
 
 # Factory for auto-creating adapters from Arena subsystems
@@ -236,6 +247,11 @@ __all__ = [
     "ReceiptAdapterError",
     "ReceiptNotFoundError",
     "ReceiptIngestionResult",
+    # Decision Plan adapter (Gold Path → Knowledge Mound)
+    "DecisionPlanAdapter",
+    "DecisionPlanAdapterError",
+    "PlanIngestionResult",
+    "get_decision_plan_adapter",
     # Calibration fusion adapter (Phase A3)
     "CalibrationFusionAdapter",
     "CalibrationSearchResult",
@@ -271,4 +287,8 @@ __all__ = [
     "ContextInjectionResult",
     "SyncOutcomeResult",
     "SupermemorySearchResult",
+    # Trickster adapter (Hollow consensus → Knowledge Mound)
+    "TricksterAdapter",
+    "TricksterSearchResult",
+    "InterventionRecord",
 ]
