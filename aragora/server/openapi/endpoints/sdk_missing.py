@@ -35,32 +35,6 @@ SDK_MISSING_ENDPOINTS.update(SDK_MISSING_INTEGRATION_ENDPOINTS)
 
 # Additional endpoints that don't fit into the main categories
 _OTHER_ENDPOINTS: dict = {
-    "/api/agent/{name}/persona": {
-        "delete": {
-            "tags": ["Agent"],
-            "summary": "DELETE persona",
-            "operationId": "deleteAgentPersona",
-            "parameters": [
-                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
-            ],
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
-                "404": STANDARD_ERRORS["404"],
-            },
-        },
-        "put": {
-            "tags": ["Agent"],
-            "summary": "PUT persona",
-            "operationId": "putAgentPersona",
-            "parameters": [
-                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
-            ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
-            },
-        },
-    },
     "/api/debates/{id}/replay": {
         "get": {
             "tags": ["Debates"],
@@ -1100,11 +1074,6 @@ _ADDITIONAL_METHODS: dict = {
             "Configure transcription",
             op_id="postTranscriptionConfigV1",
             has_body=True,
-        ),
-    },
-    "/api/agent/{name}/persona": {
-        "get": _method_stub(
-            "Agent", "GET", "Get agent persona", op_id="getAgentPersona", has_path_param=True
         ),
     },
     "/api/replays/{id}": {

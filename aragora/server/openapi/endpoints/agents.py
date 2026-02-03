@@ -538,6 +538,44 @@ Includes trustworthiness, expertise recognition, and community standing.""",
                 )
             },
         },
+        "delete": {
+            "tags": ["Agents"],
+            "summary": "Delete persona",
+            "description": "Delete an agent's custom persona configuration.",
+            "operationId": "deleteAgentPersona",
+            "parameters": [
+                {
+                    "name": "name",
+                    "in": "path",
+                    "required": True,
+                    "description": "Agent name",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "404": {"description": "Agent not found"},
+            },
+        },
+        "put": {
+            "tags": ["Agents"],
+            "summary": "Update persona",
+            "description": "Update an agent's persona configuration.",
+            "operationId": "putAgentPersona",
+            "parameters": [
+                {
+                    "name": "name",
+                    "in": "path",
+                    "required": True,
+                    "description": "Agent name",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "responses": {
+                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+            },
+        },
     },
     "/api/agent/{name}/grounded-persona": {
         "get": {

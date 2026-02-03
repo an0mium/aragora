@@ -82,21 +82,26 @@ def get_openapi_routes(spec_path: str) -> set[str]:
     return set(spec.get("paths", {}).keys())
 
 
-def normalize_route(route: str) -> str:
+def normalize_route(route: str | tuple) -> str:
     """Normalize a route for comparison.
 
     Handles:
+    - Tuple routes like (method, path) or (method, path, handler)
     - Version prefixes (/api/v1/ vs /api/)
     - Trailing slashes
     - Wildcard patterns (* to {param})
 
     Args:
-        route: Raw route string.
+        route: Raw route string or tuple containing route path.
 
     Returns:
         Normalized route for comparison.
     """
     import re
+
+    # Handle tuple routes - extract path (second element for (method, path, ...) format)
+    if isinstance(route, tuple):
+        route = route[1] if len(route) > 1 else str(route[0])
 
     # Strip trailing slash
     route = route.rstrip("/")
