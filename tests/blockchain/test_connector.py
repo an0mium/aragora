@@ -17,9 +17,10 @@ class TestERC8004Connector:
     @pytest.fixture
     def mock_provider(self):
         """Create mock Web3Provider."""
-        with patch("aragora.connectors.blockchain.connector.Web3Provider") as mock_cls:
+        with patch("aragora.blockchain.provider.Web3Provider") as mock_cls:
             mock_provider = MagicMock()
             mock_cls.from_env.return_value = mock_provider
+            mock_cls.from_config.return_value = mock_provider
             yield mock_provider
 
     @pytest.fixture
@@ -152,12 +153,13 @@ class TestERC8004ConnectorAsync:
     @pytest.fixture
     def mock_async_provider(self):
         """Create mock async Web3Provider."""
-        with patch("aragora.connectors.blockchain.connector.Web3Provider") as mock_cls:
+        with patch("aragora.blockchain.provider.Web3Provider") as mock_cls:
             mock_provider = MagicMock()
             mock_provider.health_check_async = AsyncMock(
                 return_value={"healthy": True, "chain_id": 1}
             )
             mock_cls.from_env.return_value = mock_provider
+            mock_cls.from_config.return_value = mock_provider
             yield mock_provider
 
     @pytest.fixture
