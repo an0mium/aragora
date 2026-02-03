@@ -100,6 +100,15 @@ from aragora.debate.orchestrator_runner import (
     record_debate_metrics as _runner_record_debate_metrics,
     setup_debate_infrastructure as _runner_setup_debate_infrastructure,
 )
+from aragora.debate.orchestrator_channels import (
+    setup_agent_channels as _channels_setup,
+    teardown_agent_channels as _channels_teardown,
+)
+from aragora.debate.orchestrator_strategies import (
+    init_debate_strategy as _strategies_init_debate_strategy,
+    init_fabric_integration as _strategies_init_fabric_integration,
+    init_post_debate_workflow as _strategies_init_post_debate_workflow,
+)
 
 # Structured logger for all debate events (JSON-formatted in production)
 logger = get_structured_logger(__name__)
@@ -1213,26 +1222,10 @@ class Arena(ArenaDelegatesMixin):
         fabric_config: Optional[Any],
         agents: list["Agent"],
     ) -> list["Agent"]:
-        """Initialize fabric integration for agent pool management.
-
-        Returns the agents list (possibly from fabric pool if configured).
-        """
-        if fabric is not None and fabric_config is not None:
-            if agents:
-                raise ValueError(
-                    "Cannot specify both 'agents' and 'fabric'/'fabric_config'. "
-                    "Use either direct agents or fabric-managed agents."
-                )
-            agents = self._get_fabric_agents_sync(fabric, fabric_config)
-            self._fabric = fabric
-            self._fabric_config = fabric_config
-            logger.info(
-                f"[fabric] Arena using fabric pool {fabric_config.pool_id} "
-                f"with {len(agents)} agents"
-            )
-        else:
-            self._fabric = None
-            self._fabric_config = None
+        """Initialize fabric integration for agent pool management."""
+        agents, self._fabric, self._fabric_config = _strategies_init_fabric_integration(
+            fabric, fabric_config, agents, self._get_fabric_agents_sync
+        )
         return agents
 
     def _init_debate_strategy(
@@ -1240,31 +1233,11 @@ class Arena(ArenaDelegatesMixin):
         enable_adaptive_rounds: bool,
         debate_strategy: Optional[Any],
     ) -> Optional[Any]:
-        """Initialize debate strategy for adaptive rounds.
-
-        Auto-creates DebateStrategy if adaptive rounds enabled but no strategy provided.
-        """
+        """Initialize debate strategy for adaptive rounds."""
         self.enable_adaptive_rounds = enable_adaptive_rounds
-        self.debate_strategy = debate_strategy
-
-        if self.enable_adaptive_rounds and self.debate_strategy is None:
-            try:
-                from aragora.debate.strategy import DebateStrategy
-
-                self.debate_strategy = DebateStrategy(
-                    continuum_memory=self.continuum_memory,
-                )
-                logger.info("debate_strategy auto-initialized for adaptive rounds")
-            except ImportError:
-                logger.debug("DebateStrategy not available")
-                self.debate_strategy = None
-            except (TypeError, ValueError) as e:
-                logger.warning(f"Failed to initialize DebateStrategy: {e}")
-                self.debate_strategy = None
-            except Exception as e:
-                logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
-                self.debate_strategy = None
-
+        self.debate_strategy = _strategies_init_debate_strategy(
+            enable_adaptive_rounds, debate_strategy, self.continuum_memory
+        )
         return self.debate_strategy
 
     def _init_post_debate_workflow(
@@ -1273,20 +1246,10 @@ class Arena(ArenaDelegatesMixin):
         post_debate_workflow: Optional[Any],
         post_debate_workflow_threshold: float,
     ) -> None:
-        """Initialize post-debate workflow automation.
-
-        Auto-creates default post-debate workflow if enabled but not provided.
-        """
-        if enable_post_debate_workflow and post_debate_workflow is None:
-            try:
-                from aragora.workflow.patterns.post_debate import get_default_post_debate_workflow
-
-                post_debate_workflow = get_default_post_debate_workflow()
-                logger.debug("[arena] Auto-created default post-debate workflow")
-            except ImportError:
-                logger.warning("[arena] Post-debate workflow enabled but pattern not available")
-
-        self.post_debate_workflow = post_debate_workflow
+        """Initialize post-debate workflow automation."""
+        self.post_debate_workflow = _strategies_init_post_debate_workflow(
+            enable_post_debate_workflow, post_debate_workflow
+        )
         self.enable_post_debate_workflow = enable_post_debate_workflow
         self.post_debate_workflow_threshold = post_debate_workflow_threshold
 
@@ -1413,34 +1376,14 @@ class Arena(ArenaDelegatesMixin):
 
     async def _setup_agent_channels(self, ctx: "DebateContext", debate_id: str) -> None:
         """Initialize agent-to-agent channels for the current debate."""
-        if not getattr(self.protocol, "enable_agent_channels", False):
-            return
-        try:
-            from aragora.debate.channel_integration import create_channel_integration
-
-            self._channel_integration = create_channel_integration(
-                debate_id=debate_id,
-                agents=self.agents,
-                protocol=self.protocol,
-            )
-            if await self._channel_integration.setup():
-                ctx.channel_integration = self._channel_integration
-            else:
-                self._channel_integration = None
-        except (ImportError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"[channels] Channel setup failed (non-critical): {e}")
-            self._channel_integration = None
+        self._channel_integration = await _channels_setup(
+            self.protocol, self.agents, debate_id, ctx
+        )
 
     async def _teardown_agent_channels(self) -> None:
         """Tear down agent channels after debate completion."""
-        if not self._channel_integration:
-            return
-        try:
-            await self._channel_integration.teardown()
-        except (ConnectionError, OSError, RuntimeError) as e:
-            logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
-        finally:
-            self._channel_integration = None
+        await _channels_teardown(self._channel_integration)
+        self._channel_integration = None
 
     # =========================================================================
     # Debate Execution
