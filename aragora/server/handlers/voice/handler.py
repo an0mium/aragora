@@ -56,6 +56,9 @@ try:
 except ImportError:
     HAS_TWILIO_VALIDATOR = False
 
+# Expose for test patching even when Twilio isn't installed
+RequestValidator = _RequestValidatorCls
+
 if TYPE_CHECKING:
     from aiohttp.web import Application, Request, Response
     from aragora.gateway.device_registry import DeviceRegistry, DeviceNode
@@ -181,7 +184,7 @@ class VoiceHandler:
             True if signature is valid, False otherwise
         """
         # Check if validator is available
-        if not HAS_TWILIO_VALIDATOR:
+        if not HAS_TWILIO_VALIDATOR or RequestValidator is None:
             logger.warning("Twilio validator not available, skipping signature check")
             # In production, you should fail closed - return False
             # For development, we allow requests through
@@ -214,7 +217,7 @@ class VoiceHandler:
 
         # Validate the signature
         try:
-            validator = _RequestValidatorCls(auth_token)
+            validator = RequestValidator(auth_token)
             is_valid = validator.validate(url, params, signature)
 
             if not is_valid:
@@ -557,4 +560,10 @@ def setup_voice_routes(
     return handler
 
 
-__all__ = ["VoiceHandler", "setup_voice_routes", "HAS_DEVICE_REGISTRY"]
+__all__ = [
+    "VoiceHandler",
+    "setup_voice_routes",
+    "HAS_DEVICE_REGISTRY",
+    "HAS_TWILIO_VALIDATOR",
+    "RequestValidator",
+]

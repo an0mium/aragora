@@ -15,7 +15,6 @@ from .core import (
     _get_store,
     _get_engine,
     _step_result_to_dict,
-    audit_data,
 )
 
 
@@ -68,15 +67,18 @@ async def execute_workflow(
         )
         store.save_execution(execution)
 
-        audit_data(
-            user_id="system",
-            resource_type="workflow_execution",
-            resource_id=execution_id,
-            action="execute",
-            workflow_id=workflow_id,
-            status=execution["status"],
-            tenant_id=tenant_id,
-        )
+        from aragora.server.handlers import workflows as workflows_module
+
+        if workflows_module.audit_data is not None:
+            workflows_module.audit_data(
+                user_id="system",
+                resource_type="workflow_execution",
+                resource_id=execution_id,
+                action="execute",
+                workflow_id=workflow_id,
+                status=execution["status"],
+                tenant_id=tenant_id,
+            )
 
         return execution
 

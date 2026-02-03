@@ -68,6 +68,14 @@ if RBAC_AVAILABLE:
     from aragora.billing.auth import extract_user_from_request
 
 
+def _workflows_module():
+    """Return workflows package module to honor test patching."""
+    module = sys.modules.get("aragora.server.handlers.workflows")
+    if module is None:
+        from aragora.server.handlers import workflows as module
+    return module
+
+
 # =============================================================================
 # Legacy HTTP Route Handlers (for integration with unified_server)
 # =============================================================================
@@ -79,7 +87,8 @@ class WorkflowHandlers:
     @staticmethod
     async def handle_list_workflows(params: dict[str, Any]) -> dict[str, Any]:
         """GET /api/workflows"""
-        return await list_workflows(
+        workflows_module = _workflows_module()
+        return await workflows_module.list_workflows(
             tenant_id=params.get("tenant_id", "default"),
             category=params.get("category"),
             tags=params.get("tags"),
@@ -93,14 +102,19 @@ class WorkflowHandlers:
         workflow_id: str, params: dict[str, Any]
     ) -> dict[str, Any] | None:
         """GET /api/workflows/:id"""
-        return await get_workflow(workflow_id, params.get("tenant_id", "default"))
+        workflows_module = _workflows_module()
+        return await workflows_module.get_workflow(
+            workflow_id,
+            params.get("tenant_id", "default"),
+        )
 
     @staticmethod
     async def handle_create_workflow(
         data: dict[str, Any], params: dict[str, Any]
     ) -> dict[str, Any]:
         """POST /api/workflows"""
-        return await create_workflow(
+        workflows_module = _workflows_module()
+        return await workflows_module.create_workflow(
             data,
             tenant_id=params.get("tenant_id", "default"),
             created_by=params.get("user_id", ""),
@@ -111,19 +125,29 @@ class WorkflowHandlers:
         workflow_id: str, data: dict[str, Any], params: dict[str, Any]
     ) -> dict[str, Any] | None:
         """PUT /api/workflows/:id"""
-        return await update_workflow(workflow_id, data, params.get("tenant_id", "default"))
+        workflows_module = _workflows_module()
+        return await workflows_module.update_workflow(
+            workflow_id,
+            data,
+            params.get("tenant_id", "default"),
+        )
 
     @staticmethod
     async def handle_delete_workflow(workflow_id: str, params: dict[str, Any]) -> bool:
         """DELETE /api/workflows/:id"""
-        return await delete_workflow(workflow_id, params.get("tenant_id", "default"))
+        workflows_module = _workflows_module()
+        return await workflows_module.delete_workflow(
+            workflow_id,
+            params.get("tenant_id", "default"),
+        )
 
     @staticmethod
     async def handle_execute_workflow(
         workflow_id: str, data: dict[str, Any], params: dict[str, Any]
     ) -> dict[str, Any]:
         """POST /api/workflows/:id/execute"""
-        return await execute_workflow(
+        workflows_module = _workflows_module()
+        return await workflows_module.execute_workflow(
             workflow_id,
             inputs=data.get("inputs"),
             tenant_id=params.get("tenant_id", "default"),
@@ -132,7 +156,8 @@ class WorkflowHandlers:
     @staticmethod
     async def handle_list_templates(params: dict[str, Any]) -> list[dict[str, Any]]:
         """GET /api/workflow-templates"""
-        return await list_templates(
+        workflows_module = _workflows_module()
+        return await workflows_module.list_templates(
             category=params.get("category"),
             tags=params.get("tags"),
         )
@@ -140,7 +165,8 @@ class WorkflowHandlers:
     @staticmethod
     async def handle_list_approvals(params: dict[str, Any]) -> list[dict[str, Any]]:
         """GET /api/workflow-approvals"""
-        return await list_pending_approvals(
+        workflows_module = _workflows_module()
+        return await workflows_module.list_pending_approvals(
             workflow_id=params.get("workflow_id"),
             tenant_id=params.get("tenant_id", "default"),
         )
@@ -150,7 +176,8 @@ class WorkflowHandlers:
         request_id: str, data: dict[str, Any], params: dict[str, Any]
     ) -> bool:
         """POST /api/workflow-approvals/:id/resolve"""
-        return await resolve_approval(
+        workflows_module = _workflows_module()
+        return await workflows_module.resolve_approval(
             request_id,
             status=data.get("status", "approved"),
             responder_id=params.get("user_id", ""),
@@ -236,6 +263,17 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         except Exception:
             pass
         return list_pending_approvals
+
+    def _run_async_fn(self) -> Any:
+        """Return _run_async, honoring test overrides."""
+        try:
+            pkg = sys.modules.get("aragora.server.handlers.workflows")
+            override = getattr(pkg, "_run_async", None) if pkg is not None else None
+            if override is not None and override is not _run_async:
+                return override
+        except Exception:
+            pass
+        return _run_async
 
     def _get_auth_context(
         self, handler: Any
@@ -597,20 +635,27 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if error := self._check_permission(handler, "workflows:read"):
             return error
 
+        coro = None
         try:
             limit, offset = self.get_pagination(query_params)
             tenant_id = self._get_tenant_id(handler, query_params)
-            result = _run_async(
-                list_workflows(
-                    tenant_id=tenant_id,
-                    category=get_string_param(query_params, "category", None),
-                    search=get_string_param(query_params, "search", None),
-                    limit=limit,
-                    offset=offset,
-                )
+            coro = list_workflows(
+                tenant_id=tenant_id,
+                category=get_string_param(query_params, "category", None),
+                search=get_string_param(query_params, "search", None),
+                limit=limit,
+                offset=offset,
             )
+            result = self._run_async_fn()(coro)
             return json_response(result)
+        except (OSError, IOError) as e:
+            if coro is not None and hasattr(coro, "close"):
+                coro.close()
+            logger.error("Storage error listing workflows: %s", e)
+            return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
+            if coro is not None and hasattr(coro, "close"):
+                coro.close()
             logger.error("Data error listing workflows: %s", e)
             return error_response("Internal data error", 500)
 
@@ -630,7 +675,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            result = _run_async(
+            result = self._run_async_fn()(
                 get_workflow(
                     workflow_id,
                     tenant_id=tenant_id,
@@ -667,7 +712,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 else get_string_param(query_params, "user_id", "")
             )
 
-            result = _run_async(
+            result = self._run_async_fn()(
                 create_workflow(
                     body,
                     tenant_id=tenant_id,
@@ -700,7 +745,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            result = _run_async(
+            result = self._run_async_fn()(
                 update_workflow(
                     workflow_id,
                     body,
@@ -735,7 +780,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            deleted = _run_async(
+            deleted = self._run_async_fn()(
                 delete_workflow(
                     workflow_id,
                     tenant_id=tenant_id,
@@ -767,7 +812,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            result = _run_async(
+            result = self._run_async_fn()(
                 execute_workflow(
                     workflow_id,
                     inputs=body.get("inputs"),
@@ -803,7 +848,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            workflow_dict = _run_async(
+            workflow_dict = self._run_async_fn()(
                 get_workflow(
                     workflow_id,
                     tenant_id=tenant_id,
@@ -869,7 +914,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error
 
         try:
-            executions = _run_async(list_executions(workflow_id=workflow_id, limit=1))
+            executions = self._run_async_fn()(list_executions(workflow_id=workflow_id, limit=1))
             if executions:
                 return json_response(executions[0])
             return json_response(
@@ -902,7 +947,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            versions = _run_async(
+            versions = self._run_async_fn()(
                 get_workflow_versions(
                     workflow_id,
                     tenant_id=tenant_id,
@@ -937,7 +982,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            result = _run_async(restore_workflow_version(workflow_id, version, tenant_id=tenant_id))
+            result = self._run_async_fn()(
+                restore_workflow_version(workflow_id, version, tenant_id=tenant_id)
+            )
             if result:
                 logger.info("Restored workflow %s to version %s", workflow_id, version)
                 return json_response({"restored": True, "workflow": result})
@@ -968,7 +1015,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error
 
         try:
-            success = _run_async(terminate_execution(execution_id))
+            success = self._run_async_fn()(terminate_execution(execution_id))
             if success:
                 logger.info("Terminated execution %s", execution_id)
                 return json_response({"terminated": True, "execution_id": execution_id})
@@ -993,7 +1040,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error
 
         try:
-            templates = _run_async(
+            templates = self._run_async_fn()(
                 list_templates(
                     category=get_string_param(query_params, "category", None),
                 )
@@ -1020,7 +1067,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
-            approvals = _run_async(
+            approvals = self._run_async_fn()(
                 self._list_pending_approvals_fn()(
                     workflow_id=get_string_param(query_params, "workflow_id", None),
                     tenant_id=tenant_id,
@@ -1056,7 +1103,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             limit = get_int_param(query_params, "limit", 50)
             tenant_id = self._get_tenant_id(handler, query_params)
 
-            executions = _run_async(
+            executions = self._run_async_fn()(
                 list_executions(
                     workflow_id=workflow_id,
                     tenant_id=tenant_id,
@@ -1100,7 +1147,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error
 
         try:
-            execution = _run_async(get_execution(execution_id))
+            execution = self._run_async_fn()(get_execution(execution_id))
             if not execution:
                 return error_response(f"Execution not found: {execution_id}", 404)
 
@@ -1135,7 +1182,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 else get_string_param(query_params, "user_id", "")
             )
 
-            resolved = _run_async(
+            resolved = self._run_async_fn()(
                 resolve_approval(
                     request_id,
                     status=body.get("status", "approved"),

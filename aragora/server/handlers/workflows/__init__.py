@@ -95,6 +95,20 @@ from .approvals import (
     get_approval,
 )
 
+# Human approval helpers (for patching in tests)
+try:
+    from aragora.workflow.nodes.human_checkpoint import (
+        get_pending_approvals,
+        get_approval_request,
+        resolve_approval as _resolve,
+        ApprovalStatus,
+    )
+except ImportError:  # pragma: no cover - optional dependency
+    get_pending_approvals = None
+    get_approval_request = None
+    _resolve = None
+    ApprovalStatus = None
+
 # HTTP handlers
 from .handler import (
     WorkflowHandler,
@@ -108,9 +122,10 @@ except ImportError:  # pragma: no cover - optional dependency
     extract_user_from_request = None
 
 try:
-    from aragora.rbac import check_permission
+    from aragora.rbac import check_permission, get_role_permissions
 except ImportError:  # pragma: no cover - optional dependency
     check_permission = None
+    get_role_permissions = None
 
 # Initialize templates on module import (matches original behavior)
 initialize_templates()
@@ -166,9 +181,14 @@ __all__ = [
     "list_pending_approvals",
     "resolve_approval",
     "get_approval",
+    "get_pending_approvals",
+    "get_approval_request",
+    "_resolve",
+    "ApprovalStatus",
     # HTTP handlers
     "WorkflowHandler",
     "WorkflowHandlers",
     "extract_user_from_request",
     "check_permission",
+    "get_role_permissions",
 ]
