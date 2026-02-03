@@ -7,9 +7,6 @@ Tests cover:
 - Incremental sync with timestamps
 - Collection discovery
 - Error handling
-
-NOTE: Some tests are skipped because they mock internal methods that don't exist.
-TODO: Rewrite tests to use correct mocking patterns.
 """
 
 import asyncio

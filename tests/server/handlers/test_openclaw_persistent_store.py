@@ -119,7 +119,7 @@ class TestPersistentStoreSessions:
         s3 = persistent_store.create_session(user_id="user-2", tenant_id="tenant-a")
 
         # Update one to a different status
-        persistent_store.update_session_status(s3.id, SessionStatus.COMPLETED)
+        persistent_store.update_session_status(s3.id, SessionStatus.CLOSED)
 
         # Filter by user_id
         sessions, total = persistent_store.list_sessions(user_id="user-1")
@@ -163,15 +163,15 @@ class TestPersistentStoreSessions:
         assert session.status == SessionStatus.ACTIVE
 
         # Update status
-        updated = persistent_store.update_session_status(session.id, SessionStatus.PAUSED)
+        updated = persistent_store.update_session_status(session.id, SessionStatus.IDLE)
         assert updated is not None
-        assert updated.status == SessionStatus.PAUSED
+        assert updated.status == SessionStatus.IDLE
 
         # Verify persisted
         store2 = OpenClawPersistentStore(db_path=persistent_store._db_path)
         retrieved = store2.get_session(session.id)
         assert retrieved is not None
-        assert retrieved.status == SessionStatus.PAUSED
+        assert retrieved.status == SessionStatus.IDLE
 
     def test_delete_session(self, persistent_store: OpenClawPersistentStore) -> None:
         """Delete should remove session and invalidate cache."""
@@ -531,7 +531,7 @@ class TestPersistentStoreMetrics:
         # Create sessions with different statuses
         s1 = persistent_store.create_session(user_id="user-1")
         s2 = persistent_store.create_session(user_id="user-2")
-        persistent_store.update_session_status(s2.id, SessionStatus.COMPLETED)
+        persistent_store.update_session_status(s2.id, SessionStatus.CLOSED)
 
         # Create actions
         a1 = persistent_store.create_action(session_id=s1.id, action_type="click", input_data={})
@@ -553,7 +553,7 @@ class TestPersistentStoreMetrics:
         assert metrics["sessions"]["total"] == 2
         assert metrics["sessions"]["active"] == 1
         assert metrics["sessions"]["by_status"]["active"] == 1
-        assert metrics["sessions"]["by_status"]["completed"] == 1
+        assert metrics["sessions"]["by_status"]["closed"] == 1
 
         assert metrics["actions"]["total"] == 1
         assert metrics["actions"]["running"] == 1
@@ -647,8 +647,8 @@ class TestPersistentStoreParityWithMemory:
         assert ps.config == ms.config
 
         # Update status
-        persistent_store.update_session_status(ps.id, SessionStatus.PAUSED)
-        memory_store.update_session_status(ms.id, SessionStatus.PAUSED)
+        persistent_store.update_session_status(ps.id, SessionStatus.IDLE)
+        memory_store.update_session_status(ms.id, SessionStatus.IDLE)
 
         ps_updated = persistent_store.get_session(ps.id)
         ms_updated = memory_store.get_session(ms.id)

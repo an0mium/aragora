@@ -699,16 +699,27 @@ class TestListener:
         """Test stopping listener."""
         import asyncio
 
-        # Create a real task that can be cancelled and awaited
+        # Create a real task that waits indefinitely until cancelled
+        cancelled = asyncio.Event()
+
         async def dummy_listener():
-            await asyncio.sleep(1)  # Will be cancelled
+            try:
+                await asyncio.Event().wait()  # Wait forever until cancelled
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
 
         task = asyncio.create_task(dummy_listener())
         postgres_connector._listener_task = task
 
+        # Give task a chance to start
+        await asyncio.sleep(0.01)
+
         await postgres_connector.stop_listener()
 
-        assert task.cancelled()
+        # Verify the task was cancelled (either via .cancelled() or our event)
+        assert task.done()
+        assert cancelled.is_set() or task.cancelled()
         assert postgres_connector._listener_task is None
 
 

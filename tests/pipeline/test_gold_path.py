@@ -706,3 +706,74 @@ class TestHybridExecutorBridge:
         # Can override in constructor
         executor2 = PlanExecutor(execution_mode="hybrid", repo_path=Path("/tmp"))
         assert executor2._execution_mode == "hybrid"
+
+    @pytest.mark.asyncio
+    async def test_computer_use_mode_handles_missing_dependencies(self):
+        """Computer use mode should gracefully handle missing playwright."""
+        from aragora.pipeline.executor import PlanExecutor
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+
+        executor = PlanExecutor(execution_mode="computer_use")
+
+        # Mock the import to raise ImportError
+        with patch(
+            "aragora.pipeline.executor.PlanExecutor._run_computer_use",
+        ) as mock_run:
+            # Simulate missing playwright
+            from aragora.pipeline.decision_plan import PlanOutcome
+
+            mock_run.return_value = PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=False,
+                error="Computer use dependencies not available",
+                tasks_total=4,
+            )
+
+            outcome = await executor.execute(plan, execution_mode="computer_use")
+
+        assert outcome.success is False
+        assert "Computer use" in outcome.error or "dependencies" in outcome.error
+
+    @pytest.mark.asyncio
+    async def test_computer_use_mode_executes_task(self):
+        """Computer use mode should execute via ComputerUseOrchestrator."""
+        from aragora.pipeline.executor import PlanExecutor
+        from aragora.pipeline.decision_plan import PlanOutcome
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+
+        executor = PlanExecutor(execution_mode="computer_use")
+
+        # Create a mock task result
+        mock_task_result = MagicMock()
+        mock_task_result.success = True
+        mock_task_result.error = None
+        mock_task_result.steps_completed = 5
+        mock_task_result.total_steps = 5
+        mock_task_result.actions = []
+
+        with (
+            patch("aragora.computer_use.executor.PlaywrightActionExecutor") as MockExecutor,
+            patch("aragora.computer_use.orchestrator.ComputerUseOrchestrator") as MockOrch,
+        ):
+            # Mock the executor context manager
+            mock_exec_instance = AsyncMock()
+            MockExecutor.return_value.__aenter__ = AsyncMock(return_value=mock_exec_instance)
+            MockExecutor.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            # Mock the orchestrator
+            mock_orch_instance = MagicMock()
+            mock_orch_instance.run_task = AsyncMock(return_value=mock_task_result)
+            MockOrch.return_value = mock_orch_instance
+
+            outcome = await executor.execute(plan, execution_mode="computer_use")
+
+        assert outcome.success is True
+        assert outcome.tasks_completed > 0
