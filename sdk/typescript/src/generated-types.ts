@@ -171,6 +171,10 @@ export interface DebateCreateRequest {
   consensus?: "majority" | "unanimous" | "supermajority" | "weighted" | "hybrid" | "judge" | "none";
   /** Additional context or background information */
   context?: string;
+  /** Document IDs to ground the debate in uploaded files */
+  documents?: string[];
+  /** Alias for documents (deprecated) */
+  document_ids?: string[];
   /** Automatically select optimal agents based on topic */
   auto_select?: boolean;
   /** Configuration for auto-selection algorithm */
@@ -1138,6 +1142,7 @@ export interface DecisionRequest {
   priority?: string;
   attachments?: Record<string, any>[];
   evidence?: Record<string, any>[];
+  documents?: string[];
 }
 
 export interface DecisionResult {
