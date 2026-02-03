@@ -180,6 +180,19 @@ from aragora.nomic.molecules import (
     reset_molecule_engine,
 )
 
+# SOAR Curriculum (stepping stones for self-improvement)
+from aragora.nomic.curriculum import (
+    CurriculumPlanner,
+    SteppingStoneGenerator,
+    SteppingStone,
+    Curriculum,
+    SkillCategory,
+    generate_curriculum,
+    CurriculumAwareFeedbackLoop,
+    CurriculumConfig,
+    integrate_curriculum_with_orchestrator,
+)
+
 # Cross-cycle learning
 from aragora.nomic.cycle_record import (
     AgentContribution,
@@ -458,4 +471,14 @@ __all__ = [
     "StepExecutor",
     "get_molecule_engine",
     "reset_molecule_engine",
+    # SOAR Curriculum
+    "CurriculumPlanner",
+    "SteppingStoneGenerator",
+    "SteppingStone",
+    "Curriculum",
+    "SkillCategory",
+    "generate_curriculum",
+    "CurriculumAwareFeedbackLoop",
+    "CurriculumConfig",
+    "integrate_curriculum_with_orchestrator",
 ]

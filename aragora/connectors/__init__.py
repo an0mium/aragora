@@ -128,6 +128,15 @@ from aragora.connectors.blockchain import (
     BlockchainSearchResult,
 )
 
+# Knowledge connectors
+from aragora.connectors.knowledge import (
+    ObsidianConnector,
+    ObsidianConfig,
+    ObsidianNote,
+    NoteType,
+    create_obsidian_connector,
+)
+
 __all__ = [
     # Base classes
     "BaseConnector",
@@ -227,4 +236,10 @@ __all__ = [
     "BlockchainCredentials",
     "BlockchainEvidence",
     "BlockchainSearchResult",
+    # Knowledge Connectors
+    "ObsidianConnector",
+    "ObsidianConfig",
+    "ObsidianNote",
+    "NoteType",
+    "create_obsidian_connector",
 ]

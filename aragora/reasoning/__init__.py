@@ -59,6 +59,15 @@ from aragora.reasoning.provenance_enhanced import (
     WebProvenanceTracker,
     WebSourceInfo,
 )
+
+# Power Sampling for inference-time reasoning
+from aragora.reasoning.sampling import (
+    PowerSampler,
+    PowerSamplingConfig,
+    SamplingResult,
+    sample_with_power_law,
+)
+
 from aragora.reasoning.reliability import (
     ClaimReliability,
     EvidenceReliability,
@@ -124,4 +133,9 @@ __all__ = [
     "ClaimReliability",
     "EvidenceReliability",
     "compute_claim_reliability",
+    # Power Sampling
+    "PowerSampler",
+    "PowerSamplingConfig",
+    "SamplingResult",
+    "sample_with_power_law",
 ]

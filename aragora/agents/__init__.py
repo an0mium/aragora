@@ -89,6 +89,19 @@ from aragora.agents.telemetry import (
     unregister_telemetry_collector,
     with_telemetry,
 )
+
+# Power Sampling mixin
+from aragora.agents.power_sampling_mixin import PowerSamplingMixin
+
+# SDPO Learning
+from aragora.agents.learning import (
+    SDPOLearner,
+    SDPOConfig,
+    SDPOCalibrationBridge,
+    SDPOCalibrationConfig,
+    integrate_sdpo_with_calibration,
+)
+
 from aragora.agents.credential_validator import (
     CredentialStatus,
     filter_available_agents,
@@ -231,6 +244,14 @@ __all__ = [
     "get_missing_credentials_summary",
     "log_credential_status",
     "validate_agent_credentials",
+    # Power Sampling
+    "PowerSamplingMixin",
+    # SDPO Learning
+    "SDPOLearner",
+    "SDPOConfig",
+    "SDPOCalibrationBridge",
+    "SDPOCalibrationConfig",
+    "integrate_sdpo_with_calibration",
 ]
 
 # Email-specific agents for inbox prioritization
