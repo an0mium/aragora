@@ -5,7 +5,7 @@ description: Aragora API Reference
 
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-25 (SDK parity, CI improvements, enterprise hardening)
+> **Last Updated:** 2026-02-01 (v2.5.0 alignment with repo versions)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
 for multi-agent vetted decisionmaking across organizational knowledge and channels.
@@ -14,14 +14,19 @@ for multi-agent vetted decisionmaking across organizational knowledge and channe
 
 | SDK | Version | Methods | Coverage |
 |-----|---------|---------|----------|
-| TypeScript (`@aragora/sdk`) | 2.5.0 | 346 async | Full API |
-| Python (`aragora`) | 2.5.0 | 210 async + 400 sync | Full API |
+| TypeScript (`@aragora/sdk`) | 2.5.0 | 380 async | Full API (79 namespaces) |
+| Python (`aragora`) | 2.5.0 | 220 async + 420 sync | Full API |
+
+Versions reflect the current repo tags (see `pyproject.toml` and
+`aragora/__version__.py`). If versions drift, run
+`python scripts/check_version_alignment.py`.
 
 Both SDKs provide complete coverage of all API endpoints including:
 - Debates, Agents, Memory, Knowledge
 - Gauntlet, Verification, Workflows
 - Control Plane, RBAC, Tenancy
 - Authentication, Billing, Audit
+- Backups, Expenses, RLM, Unified Inbox, Feedback
 
 ## Related Documentation
 
@@ -57,6 +62,10 @@ The canonical spec is produced by `aragora/server/openapi` and the endpoint
 definitions under `aragora/server/openapi/endpoints/`. If you add or change endpoints, update the
 OpenAPI endpoint definitions and re-export the docs.
 
+Each OpenAPI operation includes `x-aragora-stability` to indicate whether it is
+stable, beta, experimental, internal, or deprecated. See `docs/API_STABILITY.md`
+for the promotion workflow.
+
 ## Auth Signup & SSO API
 
 Self-service signup and SSO/OIDC endpoints live under `/api/v1/auth`.
@@ -78,6 +87,55 @@ Signup flows are in-memory by default; use a database-backed store for productio
 | GET | `/api/v1/auth/sso/providers` | List available providers |
 | GET | `/api/v1/auth/sso/config` | Get provider configuration |
 
+## SCIM 2.0 Provisioning API
+
+SCIM 2.0 (RFC 7643/7644) endpoints for automated user and group provisioning
+from identity providers (Okta, Azure AD, OneLogin, etc.). Endpoints are
+mounted at `/scim/v2/` and use Bearer token authentication.
+
+**Authentication**: Set `SCIM_BEARER_TOKEN` environment variable. All requests
+must include `Authorization: Bearer <token>` header.
+
+### User Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/scim/v2/Users` | List users with filtering and pagination |
+| POST | `/scim/v2/Users` | Create a new user |
+| GET | `/scim/v2/Users/\{id\}` | Get user by ID |
+| PUT | `/scim/v2/Users/\{id\}` | Replace user (full update) |
+| PATCH | `/scim/v2/Users/\{id\}` | Partial update user |
+| DELETE | `/scim/v2/Users/\{id\}` | Delete user (soft delete by default) |
+
+### Group Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/scim/v2/Groups` | List groups with filtering and pagination |
+| POST | `/scim/v2/Groups` | Create a new group |
+| GET | `/scim/v2/Groups/\{id\}` | Get group by ID |
+| PUT | `/scim/v2/Groups/\{id\}` | Replace group (full update) |
+| PATCH | `/scim/v2/Groups/\{id\}` | Partial update group (add/remove members) |
+| DELETE | `/scim/v2/Groups/\{id\}` | Delete group |
+
+### Query Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `startIndex` | int | 1-based pagination offset | 1 |
+| `count` | int | Page size (max 1000) | 100 |
+| `filter` | string | SCIM filter expression | — |
+
+### Supported Filter Operators
+
+`eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `ge`, `lt`, `le`, `and`, `or`
+
+Example: `filter=userName eq "john@example.com"`
+
+### Content Type
+
+All responses use `application/scim+json` media type per RFC 7644.
+
 ## Dashboard API
 
 Dashboard endpoints return overview stats, activity, and quick actions.
@@ -91,6 +149,17 @@ Responses are cached in-memory for 30 seconds by default.
 | GET | `/api/v1/dashboard/inbox-summary` | Get inbox summary |
 | GET | `/api/v1/dashboard/quick-actions` | Get available quick actions |
 | POST | `/api/v1/dashboard/quick-actions/\{action\}` | Execute quick action |
+
+## Deliberations API
+
+Active vetted decisionmaking sessions and stats.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/deliberations/active` | List active deliberations |
+| GET | `/api/v1/deliberations/stats` | Deliberation statistics |
+| GET | `/api/v1/deliberations/\{id\}` | Get deliberation details |
+| GET | `/api/v1/deliberations/stream` | WebSocket stream of deliberations |
 
 ## Code Review API
 
@@ -121,6 +190,68 @@ Device registration and push notification endpoints.
 | POST | `/api/v1/devices/\{device_id\}/notify` | Notify a device |
 | POST | `/api/v1/devices/alexa/webhook` | Alexa skill webhook |
 | POST | `/api/v1/devices/google/webhook` | Google Home webhook |
+
+## A2A (Agent-to-Agent) API
+
+Agent discovery and task execution endpoints.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/a2a/.well-known/agent.json` | Agent discovery card |
+| GET | `/api/v1/a2a/openapi.json` | A2A OpenAPI spec |
+| GET | `/api/v1/a2a/agents` | List agents |
+| GET | `/api/v1/a2a/agents/\{name\}` | Get agent details |
+| POST | `/api/v1/a2a/tasks` | Submit task |
+| GET | `/api/v1/a2a/tasks/\{id\}` | Get task status |
+| POST | `/api/v1/a2a/tasks/\{id\}/stream` | Stream task output |
+
+## Metrics API
+
+Operational and Prometheus metrics endpoints.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/metrics` | Operational metrics |
+| GET | `/api/metrics/health` | Health metrics |
+| GET | `/api/metrics/cache` | Cache metrics |
+| GET | `/api/metrics/system` | System metrics |
+| GET | `/api/metrics/verification` | Verification metrics |
+| GET | `/api/metrics/background` | Background task metrics |
+| GET | `/api/metrics/debate` | Debate metrics |
+| GET | `/metrics` | Prometheus export |
+
+## Plugins API
+
+Plugin management and marketplace endpoints.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/plugins` | List plugins |
+| GET | `/api/v1/plugins/installed` | List installed plugins |
+| GET | `/api/v1/plugins/marketplace` | Marketplace listings |
+| GET | `/api/v1/plugins/submissions` | List submissions |
+| POST | `/api/v1/plugins/submit` | Submit plugin |
+| GET | `/api/v1/plugins/\{name\}` | Plugin details |
+| POST | `/api/v1/plugins/\{name\}/install` | Install plugin |
+| DELETE | `/api/v1/plugins/\{name\}/install` | Uninstall plugin |
+| POST | `/api/v1/plugins/\{name\}/run` | Run plugin action |
+
+## Cross-Pollination API
+
+Knowledge sharing between debates and Knowledge Mound.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/cross-pollination/stats` | Cross-pollination stats |
+| GET | `/api/v1/cross-pollination/metrics` | Cross-pollination metrics |
+| GET | `/api/v1/cross-pollination/subscribers` | List subscribers |
+| POST | `/api/v1/cross-pollination/subscribe` | Subscribe a debate |
+| DELETE | `/api/v1/cross-pollination/subscribers/\{debate_id\}` | Unsubscribe a debate |
+| GET | `/api/v1/cross-pollination/bridge` | Bridge configuration |
+| PUT | `/api/v1/cross-pollination/bridge` | Update bridge config |
+| GET | `/api/v1/cross-pollination/km` | Knowledge Mound status |
+| GET | `/api/v1/cross-pollination/km/staleness-check` | Knowledge staleness check |
+| GET | `/api/v1/laboratory/cross-pollinations/suggest` | Suggest cross-pollination |
 
 ## Platform APIs (Advertising, Analytics, CRM, Ecommerce, Support)
 
@@ -314,6 +445,90 @@ Audit session endpoints manage multi-agent document audits. The UI uses
 | GET | `/api/v1/audit/sessions/\{session_id\}/events` | Stream SSE events |
 | POST | `/api/v1/audit/sessions/\{session_id\}/intervene` | Human intervention |
 | GET | `/api/v1/audit/sessions/\{session_id\}/report` | Export report |
+
+## Security Debate API
+
+Trigger multi-agent debates on security vulnerability findings. Debates use the Arena with
+security-focused agents to analyze vulnerabilities and recommend remediation strategies.
+
+**Authentication:** Required. Permissions: `audit:write` (POST), `audit:read` (GET).
+**Rate limit:** 10 requests per minute per user.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/audit/security/debate` | Trigger security debate on findings |
+| GET | `/api/v1/audit/security/debate/\{id\}` | Get security debate status |
+
+### POST /api/v1/audit/security/debate
+
+Trigger a multi-agent security debate on vulnerability findings.
+
+**Request body:**
+
+```json
+{
+    "findings": [
+        {
+            "id": "optional-uuid",
+            "finding_type": "vulnerability",
+            "severity": "critical",
+            "title": "SQL Injection in user handler",
+            "description": "Unsanitized user input passed to SQL query",
+            "file_path": "aragora/server/handlers/users.py",
+            "line_number": 42,
+            "cve_id": "CVE-2024-1234",
+            "package_name": "optional-package",
+            "package_version": "1.2.3",
+            "recommendation": "Use parameterized queries",
+            "metadata": {}
+        }
+    ],
+    "repository": "repo-name",
+    "confidence_threshold": 0.7,
+    "timeout_seconds": 300
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| findings | array | Yes | List of security findings to debate |
+| repository | string | No | Repository name (default: "unknown") |
+| confidence_threshold | number | No | Debate confidence threshold, 0.1-1.0 (default: 0.7) |
+| timeout_seconds | integer | No | Debate timeout, 30-600 (default: 300) |
+
+**Response (200):**
+
+```json
+{
+    "debate_id": "uuid",
+    "status": "completed",
+    "consensus_reached": true,
+    "confidence": 0.85,
+    "final_answer": "Remediation recommendations...",
+    "rounds_used": 3,
+    "duration_ms": 12500,
+    "findings_analyzed": 2,
+    "votes": {
+        "SecurityAnalyst": "remediate",
+        "CodeReviewer": "remediate"
+    }
+}
+```
+
+### GET /api/v1/audit/security/debate/\{id\}
+
+Get the status of a previously triggered security debate. Currently debates are synchronous,
+so this endpoint returns `not_found` for any ID (placeholder for future async support).
+
+**Response (200):**
+
+```json
+{
+    "debate_id": "the-id",
+    "status": "not_found",
+    "message": "Debate results are not persisted. Use POST to trigger a new debate."
+}
+```
 
 ## Shared Inbox API
 
@@ -577,6 +792,79 @@ Threat intelligence endpoints live under `/api/v1/threat`.
 | POST | `/api/v1/threat/hashes` | Batch hash lookup |
 | POST | `/api/v1/threat/email` | Scan email content |
 | GET | `/api/v1/threat/status` | Service status |
+
+## Backups API
+
+Disaster recovery and backup management endpoints under `/api/v1/backups`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/backups` | Create a new backup |
+| GET | `/api/v1/backups` | List all backups |
+| GET | `/api/v1/backups/\{backup_id\}` | Get backup details |
+| DELETE | `/api/v1/backups/\{backup_id\}` | Delete a backup |
+| POST | `/api/v1/backups/\{backup_id\}/restore` | Restore from backup |
+| POST | `/api/v1/backups/\{backup_id\}/verify` | Verify backup integrity |
+| GET | `/api/v1/backups/status` | Get backup service status |
+| POST | `/api/v1/backups/schedule` | Configure backup schedule |
+| GET | `/api/v1/backups/schedule` | Get backup schedule |
+
+## Expenses API
+
+Receipt management and expense categorization under `/api/v1/expenses`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/expenses/receipts` | Upload a receipt |
+| GET | `/api/v1/expenses/receipts` | List receipts |
+| GET | `/api/v1/expenses/receipts/\{receipt_id\}` | Get receipt details |
+| POST | `/api/v1/expenses/receipts/\{receipt_id\}/categorize` | Categorize receipt |
+| POST | `/api/v1/expenses/receipts/\{receipt_id\}/approve` | Approve expense |
+| POST | `/api/v1/expenses/sync` | Sync with accounting system |
+| GET | `/api/v1/expenses/categories` | List expense categories |
+| GET | `/api/v1/expenses/summary` | Get expense summary |
+
+## RLM (Recursive Language Models) API
+
+Context compression and programmatic context management under `/api/v1/rlm`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/rlm/compress` | Compress context |
+| POST | `/api/v1/rlm/decompress` | Decompress context |
+| POST | `/api/v1/rlm/query` | Query compressed context |
+| GET | `/api/v1/rlm/sessions` | List active sessions |
+| GET | `/api/v1/rlm/sessions/\{session_id\}` | Get session details |
+| DELETE | `/api/v1/rlm/sessions/\{session_id\}` | End session |
+| POST | `/api/v1/rlm/stream` | Stream compressed output |
+
+## Unified Inbox API
+
+Multi-provider email management under `/api/v1/unified-inbox`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/unified-inbox` | Get unified inbox messages |
+| GET | `/api/v1/unified-inbox/accounts` | List connected accounts |
+| POST | `/api/v1/unified-inbox/accounts` | Connect email account |
+| DELETE | `/api/v1/unified-inbox/accounts/\{account_id\}` | Disconnect account |
+| GET | `/api/v1/unified-inbox/messages/\{message_id\}` | Get message details |
+| POST | `/api/v1/unified-inbox/messages/\{message_id\}/archive` | Archive message |
+| POST | `/api/v1/unified-inbox/messages/\{message_id\}/reply` | Reply to message |
+| POST | `/api/v1/unified-inbox/sync` | Sync all accounts |
+| GET | `/api/v1/unified-inbox/stats` | Get inbox statistics |
+
+## Feedback API
+
+User feedback and NPS collection under `/api/v1/feedback`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/feedback/nps` | Submit NPS feedback |
+| POST | `/api/v1/feedback/general` | Submit general feedback |
+| GET | `/api/v1/feedback/nps/summary` | Get NPS summary (admin) |
+| GET | `/api/v1/feedback/prompts` | Get feedback prompts |
+| GET | `/api/v1/feedback/history` | Get feedback history |
 
 ### New Endpoints (2026-01-27)
 
@@ -1200,7 +1488,7 @@ API (direct):
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
 | `openai-api` | gpt-5.2 | OpenAI API, streaming |
 | `gemini` | gemini-3-pro-preview | Google API, streaming |
-| `grok` | grok-3 | xAI API, streaming |
+| `grok` | grok-4-latest | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |
 | `codestral` | codestral-latest | Mistral code model |
 | `ollama` | llama3.2 | Local Ollama |
@@ -1208,27 +1496,26 @@ API (direct):
 | `kimi` | moonshot-v1-8k | Moonshot API |
 
 OpenRouter:
-
 | Type | Default Model | Notes |
 |------|---------------|-------|
 | `openrouter` | deepseek/deepseek-chat-v3-0324 | Model via `model` parameter |
-| `deepseek` | deepseek/deepseek-chat-v3-0324 | DeepSeek V3 (chat) |
+| `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 (reasoning) |
 | `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek reasoning |
 | `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
-| `qwen` | qwen/qwen-2.5-coder-32b-instruct | Qwen 2.5 Coder |
-| `qwen-max` | qwen/qwen-max | Qwen Max |
+| `qwen` | qwen/qwen3-max | Qwen3 Max |
+| `qwen-max` | qwen/qwen3-max | Qwen3 Max |
 | `yi` | 01-ai/yi-large | Yi Large |
 
 CLI:
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `claude` | claude-sonnet-4 | Claude CLI |
+| `claude` | claude-opus-4-5-20251101 | Claude CLI |
 | `codex` | gpt-5.2-codex | Codex CLI |
-| `openai` | gpt-4o | OpenAI CLI |
+| `openai` | gpt-5.2 | OpenAI CLI |
 | `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
-| `grok-cli` | grok-4 | Grok CLI |
+| `grok-cli` | grok-4-latest | Grok CLI |
 | `qwen-cli` | qwen3-coder | Qwen CLI |
 | `deepseek-cli` | deepseek-v3 | DeepSeek CLI |
 | `kilocode` | gemini-explorer | Codebase explorer |
@@ -1241,6 +1528,36 @@ CLI:
   "message": "Debate started with 2 agents"
 }
 ```
+
+#### POST /api/v1/debates/batch
+Submit a batch of debates for processing.
+
+**Request Body:**
+```json
+{
+  "items": [
+    {
+      "question": "Evaluate rate limiting options",
+      "agents": "anthropic-api,openai-api",
+      "rounds": 3,
+      "consensus": "majority",
+      "priority": 5
+    }
+  ],
+  "webhook_url": "https://example.com/webhooks/batch",
+  "max_parallel": 5
+}
+```
+
+#### GET /api/v1/debates/batch/\{batch_id\}/status
+Get batch status and item results.
+
+#### GET /api/v1/debates/batch
+List batch requests.
+
+**Parameters:**
+- `limit` (int, default=50, max=100): Maximum batches to return
+- `status` (string, optional): Filter by status (pending, processing, completed, failed)
 
 #### GET /api/debates/:id/export/:format
 Export a debate in various formats.
@@ -5455,7 +5772,7 @@ Data export and account deletion for regulatory compliance.
 ### Export User Data
 
 ```http
-GET /api/privacy/export
+GET /api/v1/privacy/export
 Authorization: Bearer <token>
 ```
 
@@ -5473,7 +5790,7 @@ Response:
 ### Get Data Inventory
 
 ```http
-GET /api/privacy/data-inventory
+GET /api/v1/privacy/data-inventory
 Authorization: Bearer <token>
 ```
 
@@ -5500,12 +5817,13 @@ Response:
 ### Delete Account
 
 ```http
-DELETE /api/privacy/account
+DELETE /api/v1/privacy/account
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "confirmation": "DELETE_MY_ACCOUNT",
+  "password": "your-current-password",
+  "confirm": true,
   "reason": "no_longer_needed"
 }
 ```
@@ -5515,14 +5833,15 @@ GDPR Article 17, CCPA Right to Delete.
 ### Update Privacy Preferences
 
 ```http
-POST /api/privacy/preferences
+POST /api/v1/privacy/preferences
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
   "do_not_sell": true,
-  "marketing_emails": false,
-  "analytics_tracking": false
+  "marketing_opt_out": false,
+  "analytics_opt_out": false,
+  "third_party_sharing": true
 }
 ```
 

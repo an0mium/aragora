@@ -1,18 +1,34 @@
 ---
-title: Aragora - Control Plane for Multi-Agent Vetted Decisionmaking
-description: Aragora - Control Plane for Multi-Agent Vetted Decisionmaking
+title: Aragora -- The Decision Integrity Platform
+description: Aragora -- The Decision Integrity Platform
 ---
 
-# Aragora - Control Plane for Multi-Agent Vetted Decisionmaking
+# Aragora -- The Decision Integrity Platform
 
-*Version 2.1 | Commercial Overview*
+*Version 2.5.0 | Commercial Overview*
 *Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
 
 ## Executive Summary
 
-Aragora is the **control plane for multi-agent vetted decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
+Aragora is the **Decision Integrity Platform** -- orchestrating 30+ agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
 
-Unlike chatbots, Aragora builds institutional memory with full audit trails. **Vetted decisionmaking is the engine. The product is a defensible decision record.**
+**You don't just get an answer. You get a defensible decision trail.**
+
+Unlike chatbots, Aragora builds institutional memory with full audit trails. Vetted decisionmaking is the engine. The product is a defensible decision record.
+
+---
+
+## Five Pillars
+
+Aragora is built on five architectural commitments that together produce something no single-model tool can offer.
+
+| Pillar | What It Means |
+|--------|---------------|
+| **1. SMB-Ready, Enterprise-Grade** | Useful to a 5-person startup on day one; scales to regulated enterprise without rearchitecting. Security and compliance built in, not bolted on. |
+| **2. Leading-Edge Memory and Context** | 4-tier Continuum Memory, Knowledge Mound (28 registered adapters), and RLM context compression enable coherence across long multi-round sessions and large document sets. |
+| **3. Extensible and Modular** | Connectors, SDKs (Python + TypeScript, 140 namespaces), 2,000+ API operations, OpenClaw integration, workflow engine, marketplace. |
+| **4. Multi-Agent Robustness** | Heterogeneous agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) produce outputs more robust, less biased, and higher quality than single models. |
+| **5. Self-Healing and Self-Extending** | Nomic Loop autonomous improvement, red-team stress-testing, multi-agent code editing with human approval gates. |
 
 ---
 
@@ -22,10 +38,10 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **V
 |------------|-------------|----------------|
 | **Omnivorous Input** | Ingest from documents, APIs, databases, web, voice | Single platform for all information sources |
 | **Multi-Channel Access** | Query via web, Slack, Telegram, WhatsApp, API | Meet users where they already work |
-| **Multi-Agent Consensus** | 15+ heterogeneous AI models debate to conclusions | Diverse perspectives, defensible decisions |
+| **Multi-Agent Consensus** | 30+ heterogeneous agent types debate to conclusions | Diverse perspectives, defensible decisions |
 | **Bidirectional Dialogue** | Ask follow-ups, refine questions, drill into details | Interactive human-AI collaboration |
 | **Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
-| **Learn & Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
+| **Learn and Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
 
 ---
 
@@ -56,7 +72,7 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **V
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    AGENT LAYER (15+ Providers)                    │   │
+│  │                    AGENT LAYER (30+ Agent Types)                  │   │
 │  │  Claude │ GPT │ Gemini │ Grok │ Mistral │ DeepSeek │ Qwen │ Kimi │   │
 │  │                     + Local Models (Ollama, LM Studio)            │   │
 │  └──────────────────────────────┬───────────────────────────────────┘   │
@@ -95,18 +111,19 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **V
 
 ## Commercial Readiness Assessment
 
-### Overall: 85% Production Ready (internal estimate)
+### Overall: 90% Production Ready (internal estimate)
 
 | Category | Score | Status | Notes |
 |----------|-------|--------|-------|
 | Error Handling & Resilience | 95% | Ready | Circuit breakers, retry policies, graceful degradation |
-| Security & Authentication | 88% | Ready | OIDC/SAML, MFA, encryption, audit logging |
+| Security & Authentication | 92% | Ready | OIDC/SAML, MFA, encryption, audit logging |
 | Scalability & Performance | 92% | Ready | Connection pooling, caching, rate limiting |
 | Observability & Monitoring | 90% | Ready | Prometheus, Grafana, OpenTelemetry |
-| Testing & QA | 93% | Ready | See `docs/STATUS.md` for current counts |
+| Testing & QA | 95% | Ready | 130,000+ tests across 3,000+ files |
 | Documentation | 91% | Ready | API docs, runbooks, compliance guides |
-| Compliance & Governance | 78% | Partial | RBAC needs enhancement |
-| **OVERALL** | **85%** | **SMB Ready** | Enterprise: 4-6 weeks additional |
+| Compliance & Governance | 88% | Ready | RBAC v2 with 50+ permissions, role hierarchy |
+| SDK & Integrations | 90% | Ready | 140 TypeScript namespaces, 8 bot handlers |
+| **OVERALL** | **90%** | **SMB Ready** | Enterprise-grade features integrated |
 
 ### Deployment Readiness
 
@@ -121,7 +138,7 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **V
 ## Key Differentiators
 
 ### 1. Heterogeneous Agent Orchestration
-Unlike single-model solutions, Aragora runs debates across 15+ AI providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
+Unlike single-model solutions, Aragora runs debates across 30+ agent types/providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
 
 ### 2. Audit-Ready Output
 Every debate produces a **Decision Receipt** with:
@@ -238,14 +255,18 @@ Structured debate for strategic decisions with evidence-based recommendations.
 
 ---
 
-## Roadmap to Enterprise (4-6 weeks)
+## Enterprise Readiness
 
-| Gap | Resolution | Effort |
-|-----|------------|--------|
-| Fine-grained RBAC | Implement permission matrix | 2 weeks |
-| Automated backups | Scheduled backup with verification | 1 week |
-| SLA documentation | Legally-binding service levels | 1 week |
-| Distributed rate limiting | Redis-backed cluster-aware limiting | 1 week |
+| Capability | Resolution | Status |
+|------------|------------|--------|
+| Fine-grained RBAC | RBAC v2 with 7 roles, 50+ permissions | Complete |
+| Automated backups | BackupManager with incremental support | Complete |
+| Bot handler consolidation | BotHandlerMixin across 8 platforms | Complete |
+| TypeScript SDK | 140 namespaces wired to client | Complete |
+| OpenClaw integration | Portable agent governance | Complete |
+| Knowledge Mound Phase A2 | Contradiction detection, confidence decay, RBAC governance | Complete |
+| SLA documentation | Legally-binding service levels | In Progress |
+| Distributed rate limiting | Redis-backed cluster-aware limiting | In Progress |
 
 ---
 
@@ -294,4 +315,4 @@ See [SDK_GUIDE.md](../guides/sdk) for the Python SDK reference.
 
 ---
 
-*Document generated from comprehensive codebase exploration. Feature counts verified against actual module inventory.*
+*Document generated from comprehensive codebase exploration. Feature counts verified against actual module inventory (February 2026).*

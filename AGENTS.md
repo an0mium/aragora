@@ -4,53 +4,86 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 
 ## Agent Types
 
-Aragora supports 20+ agent types across three backends:
+Aragora currently registers 41 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 34 types as of 2026-02-03). Entries marked **opt-in** are registered but not allowlisted by default.
 
-### CLI-Based Agents
+### CLI-Based Agents (allowlisted)
 
-These agents invoke external CLI tools (use these agent type IDs with `create_agent()`):
+| Agent Type | CLI Tool | Default Model | Notes |
+|------------|----------|---------------|-------|
+| `claude` | `claude` (claude-code) | claude-opus-4-5-20251101 | |
+| `codex` | `codex` | gpt-5.2-codex | |
+| `openai` | `openai` | gpt-5.2 | Requires `OPENAI_API_KEY` |
+| `gemini-cli` | `gemini` | gemini-3-pro-preview | |
+| `grok-cli` | `grok` | grok-4-latest | |
+| `qwen-cli` | `qwen` | qwen3-coder | |
+| `deepseek-cli` | `deepseek` | deepseek-v3 | Requires `DEEPSEEK_API_KEY` |
+| `kilocode` | `kilocode` | provider-specific | Defaults to `openrouter/google/gemini-3-pro-preview` via `provider_id` |
 
-| Agent Type | CLI Tool | Default Model |
-|------------|----------|---------------|
-| `claude` | `claude` (claude-code) | claude-opus-4-5-20251101 |
-| `codex` | `codex` | gpt-5.2-codex |
-| `openai` | `openai` | gpt-5.2 |
-| `gemini-cli` | `gemini` | gemini-3-pro-preview |
-| `grok-cli` | `grok` | grok-4-latest |
-| `qwen-cli` | `qwen` | qwen3-coder |
-| `deepseek-cli` | `deepseek` | deepseek-v3 |
-| `kilocode` | `kilocode` | gemini-explorer (provider id) |
+### Direct API Agents (cloud)
 
-### API-Based Agents (Direct)
+| Agent Type | Provider | Default Model | Env Var | Allowlist |
+|------------|----------|---------------|---------|-----------|
+| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` | allowlisted |
+| `openai-api` | OpenAI | gpt-5.2 | `OPENAI_API_KEY` | allowlisted |
+| `gemini` | Google | gemini-3-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
+| `grok` | xAI | grok-4-latest | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |
+| `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` | opt-in |
+| `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` | opt-in |
 
-These agents make direct HTTP API calls to provider endpoints:
+### Local & Legacy Direct Agents
 
-| Agent Type | API | Default Model | Env Var |
-|------------|-----|---------------|---------|
-| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` |
-| `openai-api` | OpenAI | gpt-5.2 | `OPENAI_API_KEY` |
-| `gemini` | Google | gemini-3-pro-preview | `GEMINI_API_KEY` |
-| `grok` | xAI | grok-4-latest | `XAI_API_KEY` |
-| `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` |
-| `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` |
-| `ollama` | Local Ollama | llama3.2 | `OLLAMA_HOST` |
-| `kimi` | Moonshot | moonshot-v1-8k | `KIMI_API_KEY` |
+| Agent Type | Provider | Default Model | Env Var | Allowlist |
+|------------|----------|---------------|---------|-----------|
+| `ollama` | Local Ollama | llama3.2 | `OLLAMA_HOST` (optional) | allowlisted |
+| `lm-studio` | LM Studio | local-model | `LM_STUDIO_HOST` (optional) | opt-in |
+| `kimi-legacy` | Moonshot | moonshot-v1-8k | `KIMI_API_KEY` | opt-in |
 
-### API-Based Agents (via OpenRouter)
-
-These agents use OpenRouter for unified multi-model access:
-
-| Agent Type | Model | Description |
-|------------|-------|-------------|
-| `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 - reasoning model |
-| `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek R1 - chain-of-thought reasoning |
-| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
-| `mistral` | mistralai/mistral-large-2411 | Mistral Large via OpenRouter |
-| `qwen` | qwen/qwen3-max | Qwen3 Max - frontier model |
-| `qwen-max` | qwen/qwen3-max | Qwen3 Max - frontier model |
-| `yi` | 01-ai/yi-large | Yi Large - balanced capabilities |
+### OpenRouter Agents (allowlisted)
 
 All OpenRouter agents require `OPENROUTER_API_KEY`.
+
+| Agent Type | Default Model | Description |
+|------------|---------------|-------------|
+| `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 (reasoning) |
+| `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek R1 (chain-of-thought) |
+| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `llama4-maverick` | meta-llama/llama-4-maverick | Llama 4 Maverick |
+| `llama4-scout` | meta-llama/llama-4-scout | Llama 4 Scout |
+| `mistral` | mistralai/mistral-large-2411 | Mistral Large |
+| `qwen` | qwen/qwen3-max | Qwen3 Max |
+| `qwen-max` | qwen/qwen3-max | Qwen3 Max |
+| `yi` | 01-ai/yi-large | Yi Large |
+| `kimi` | moonshotai/kimi-k2-0905 | Kimi K2 |
+| `kimi-thinking` | moonshotai/kimi-k2-thinking | Kimi K2 Thinking |
+| `sonar` | perplexity/sonar-reasoning | Sonar (reasoning + web search) |
+| `command-r` | cohere/command-r-plus | Command R+ (RAG-optimized) |
+| `jamba` | ai21/jamba-1.6-large | Jamba (SSM-Transformer hybrid) |
+| `openrouter` | deepseek/deepseek-chat-v3-0324 | Generic OpenRouter default |
+
+### External Framework Proxies
+
+| Agent Type | Default Model | Env Var | Notes |
+|------------|---------------|---------|-------|
+| `external-framework` | external | `EXTERNAL_FRAMEWORK_URL`, `EXTERNAL_FRAMEWORK_API_KEY` (optional) | Generic proxy for external frameworks |
+| `openclaw` | openclaw | `OPENCLAW_URL`, `OPENCLAW_API_KEY` | Allowlisted; import `aragora.agents.api_agents.openclaw` before `create_agent()` to register |
+| `crewai` | crewai | `CREWAI_URL`, `CREWAI_API_KEY` | CrewAI server integration |
+| `autogen` | autogen | `AUTOGEN_URL`, `AUTOGEN_API_KEY` | AutoGen Studio integration |
+| `langgraph` | langgraph | `LANGGRAPH_URL`, `LANGGRAPH_API_KEY` | LangGraph Cloud/self-hosted |
+
+### Fine-Tuned (Tinker) Agents (opt-in)
+
+| Agent Type | Default Model | Env Var |
+|------------|---------------|---------|
+| `tinker` | llama-3.3-70b | `TINKER_API_KEY` |
+| `tinker-llama` | llama-3.3-70b | `TINKER_API_KEY` |
+| `tinker-qwen` | qwen-2.5-72b | `TINKER_API_KEY` |
+| `tinker-deepseek` | deepseek-v3 | `TINKER_API_KEY` |
+
+### Built-In
+
+| Agent Type | Default Model | Notes |
+|------------|---------------|-------|
+| `demo` | demo | Offline demo agent for local/testing |
 
 ## Agent Creation
 
@@ -75,7 +108,11 @@ Each agent has a role that determines its behavior in debates:
 
 - **proposer** - Generates initial responses to tasks
 - **critic** - Analyzes and critiques other proposals
-- **synthesizer** - Creates final consensus answers from multiple proposals
+- **synthesizer** - Produces final consensus outputs
+- **judge** - Arbiter role for judge-based consensus
+- **analyst** - Deep analysis / research-focused role
+- **implementer** - Implements or executes plans
+- **planner** - Breaks down tasks and sequences work
 
 ## Core Agent Interface
 
@@ -85,7 +122,7 @@ All agents implement the abstract `Agent` class from `aragora/core.py`:
 class Agent(ABC):
     name: str
     model: str
-    role: str  # "proposer", "critic", "synthesizer"
+    role: str  # "proposer", "critic", "synthesizer", "judge", "analyst", "implementer", "planner"
     system_prompt: str
     stance: str  # "affirmative", "negative", "neutral"
 

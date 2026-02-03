@@ -94,6 +94,7 @@ from aragora.cli.commands.delegated import (  # noqa: E402, F401
     cmd_marketplace,
     cmd_control_plane,
 )
+from aragora.cli.commands.testfix import cmd_testfix  # noqa: E402, F401
 from aragora.cli.parser import get_version, build_parser  # noqa: E402, F401
 
 # Re-export essential objects used by other modules (e.g., aragora.cli.batch)

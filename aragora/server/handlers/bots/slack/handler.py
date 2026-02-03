@@ -346,6 +346,8 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 
 *Available Commands:*
 * `/aragora debate <topic>` - Start a debate on a topic
+* `/aragora plan <topic>` - Debate + implementation plan
+* `/aragora implement <topic>` - Debate + plan with context snapshot
 * `/aragora status` - Show system status and active debates
 * `/aragora help` - Show this help message
 * `/aragora agents` - List available agents with ELO ratings
@@ -354,6 +356,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 *Examples:*
 * `/aragora debate Should AI be regulated?`
 * `/aragora debate "What's the best programming language?"`
+* `/aragora plan Draft a policy update for Q2`
 * `/aragora status`
 
 Need more help? Visit https://aragora.ai/docs/slack"""

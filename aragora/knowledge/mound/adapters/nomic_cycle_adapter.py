@@ -49,6 +49,53 @@ class CycleStatus(Enum):
 
 
 @dataclass
+class CurriculumOutcome:
+    """Outcome of curriculum-based learning within a cycle.
+
+    Tracks how stepping stones were used to bridge capability gaps.
+    """
+
+    curricula_created: int = 0
+    stones_attempted: int = 0
+    stones_succeeded: int = 0
+    skill_gaps: list[str] = field(default_factory=list)
+    skills_improved: list[str] = field(default_factory=list)
+
+    # Per-curriculum details (curriculum_id -> results)
+    curriculum_results: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "curricula_created": self.curricula_created,
+            "stones_attempted": self.stones_attempted,
+            "stones_succeeded": self.stones_succeeded,
+            "skill_gaps": self.skill_gaps,
+            "skills_improved": self.skills_improved,
+            "curriculum_results": self.curriculum_results,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "CurriculumOutcome":
+        """Deserialize from dictionary."""
+        return cls(
+            curricula_created=data.get("curricula_created", 0),
+            stones_attempted=data.get("stones_attempted", 0),
+            stones_succeeded=data.get("stones_succeeded", 0),
+            skill_gaps=data.get("skill_gaps", []),
+            skills_improved=data.get("skills_improved", []),
+            curriculum_results=data.get("curriculum_results", {}),
+        )
+
+    @property
+    def stone_success_rate(self) -> float:
+        """Calculate stepping stone success rate."""
+        if self.stones_attempted == 0:
+            return 0.0
+        return self.stones_succeeded / self.stones_attempted
+
+
+@dataclass
 class GoalOutcome:
     """Outcome of a single goal within a cycle."""
 
@@ -121,9 +168,12 @@ class NomicCycleOutcome:
     tracks_affected: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # Curriculum learning data (optional)
+    curriculum_outcome: CurriculumOutcome | None = None
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
-        return {
+        result = {
             "cycle_id": self.cycle_id,
             "objective": self.objective,
             "status": self.status.value,
@@ -143,10 +193,17 @@ class NomicCycleOutcome:
             "tracks_affected": self.tracks_affected,
             "metadata": self.metadata,
         }
+        if self.curriculum_outcome:
+            result["curriculum_outcome"] = self.curriculum_outcome.to_dict()
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "NomicCycleOutcome":
         """Deserialize from dictionary."""
+        curriculum_data = data.get("curriculum_outcome")
+        curriculum_outcome = (
+            CurriculumOutcome.from_dict(curriculum_data) if curriculum_data else None
+        )
         return cls(
             cycle_id=data["cycle_id"],
             objective=data["objective"],
@@ -166,6 +223,7 @@ class NomicCycleOutcome:
             agents_used=data.get("agents_used", []),
             tracks_affected=data.get("tracks_affected", []),
             metadata=data.get("metadata", {}),
+            curriculum_outcome=curriculum_outcome,
         )
 
     @property
@@ -478,6 +536,82 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                     if hasattr(result, "item_id"):
                         knowledge_item_ids.append(result.item_id)
 
+            # 5. Ingest curriculum outcome if present
+            if outcome.curriculum_outcome:
+                curriculum_data = outcome.curriculum_outcome
+                curriculum_id = self._generate_learning_id(f"curriculum:{cycle_id}", cycle_id)
+                curriculum_content = self._build_curriculum_summary(
+                    curriculum_data, outcome.objective
+                )
+                curriculum_request = IngestionRequest(
+                    content=curriculum_content,
+                    workspace_id=workspace_id,
+                    source_type=KnowledgeSource.INSIGHT,
+                    document_id=curriculum_id,
+                    confidence=0.85,
+                    topics=["nomic", "curriculum", "learning"],
+                    metadata={
+                        "type": "nomic_curriculum",
+                        "parent_cycle_id": cycle_id,
+                        "objective": outcome.objective,
+                        "curricula_created": curriculum_data.curricula_created,
+                        "stones_attempted": curriculum_data.stones_attempted,
+                        "stones_succeeded": curriculum_data.stones_succeeded,
+                        "stone_success_rate": curriculum_data.stone_success_rate,
+                        "skill_gaps": curriculum_data.skill_gaps,
+                        "skills_improved": curriculum_data.skills_improved,
+                    },
+                )
+                result = await mound.store(curriculum_request)
+                if result and not result.deduplicated:
+                    learnings_ingested += 1
+                    if hasattr(result, "item_id"):
+                        knowledge_item_ids.append(result.item_id)
+
+                # Ingest individual skill gaps as searchable items
+                for gap in curriculum_data.skill_gaps:
+                    gap_id = self._generate_learning_id(f"skill_gap:{gap}", cycle_id)
+                    gap_request = IngestionRequest(
+                        content=f"SKILL GAP: {gap}",
+                        workspace_id=workspace_id,
+                        source_type=KnowledgeSource.INSIGHT,
+                        document_id=gap_id,
+                        confidence=0.8,
+                        topics=["nomic", "curriculum", "skill_gap"],
+                        metadata={
+                            "type": "nomic_skill_gap",
+                            "parent_cycle_id": cycle_id,
+                            "objective": outcome.objective,
+                        },
+                    )
+                    result = await mound.store(gap_request)
+                    if result and not result.deduplicated:
+                        learnings_ingested += 1
+                        if hasattr(result, "item_id"):
+                            knowledge_item_ids.append(result.item_id)
+
+                # Ingest improved skills
+                for skill in curriculum_data.skills_improved:
+                    skill_id = self._generate_learning_id(f"skill_improved:{skill}", cycle_id)
+                    skill_request = IngestionRequest(
+                        content=f"SKILL IMPROVED: {skill}",
+                        workspace_id=workspace_id,
+                        source_type=KnowledgeSource.INSIGHT,
+                        document_id=skill_id,
+                        confidence=0.85,
+                        topics=["nomic", "curriculum", "skill_improvement"],
+                        metadata={
+                            "type": "nomic_skill_improvement",
+                            "parent_cycle_id": cycle_id,
+                            "objective": outcome.objective,
+                        },
+                    )
+                    result = await mound.store(skill_request)
+                    if result and not result.deduplicated:
+                        learnings_ingested += 1
+                        if hasattr(result, "item_id"):
+                            knowledge_item_ids.append(result.item_id)
+
             self._emit_event(
                 "nomic_cycle_ingested",
                 {
@@ -532,6 +666,103 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                 lines.append(f"  - {rec}")
 
         return "\n".join(lines)
+
+    def _build_curriculum_summary(
+        self,
+        curriculum: CurriculumOutcome,
+        objective: str,
+    ) -> str:
+        """Build a text summary of curriculum learning for knowledge storage."""
+        lines = [
+            f"CURRICULUM LEARNING: {objective}",
+            f"Curricula Created: {curriculum.curricula_created}",
+            f"Stepping Stones: {curriculum.stones_succeeded}/{curriculum.stones_attempted} succeeded ({curriculum.stone_success_rate:.0%})",
+            "",
+        ]
+
+        if curriculum.skill_gaps:
+            lines.append("SKILL GAPS IDENTIFIED:")
+            for gap in curriculum.skill_gaps[:5]:
+                lines.append(f"  - {gap}")
+            lines.append("")
+
+        if curriculum.skills_improved:
+            lines.append("SKILLS IMPROVED:")
+            for skill in curriculum.skills_improved[:5]:
+                lines.append(f"  - {skill}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    async def find_similar_curricula(
+        self,
+        task_description: str,
+        limit: int = 5,
+        min_similarity: float = 0.3,
+        workspace_id: str = "nomic",
+    ) -> list[dict[str, Any]]:
+        """
+        Find past curricula similar to the given task description.
+
+        Used by MetaPlanner to find relevant past learning experiences
+        when planning how to approach a new task.
+
+        Args:
+            task_description: Description of the current task
+            limit: Maximum number of curricula to return
+            min_similarity: Minimum similarity score (0-1)
+            workspace_id: Workspace to search in
+
+        Returns:
+            List of curriculum data dicts with similarity scores
+        """
+        mound = self.mound
+        if mound is None:
+            return []
+
+        similar_curricula: list[dict[str, Any]] = []
+
+        try:
+            results = await mound.search(
+                query=task_description,
+                workspace_id=workspace_id,
+                limit=limit * 2,
+                filters={"type": "nomic_curriculum"},
+            )
+
+            for result in results:
+                if not hasattr(result, "metadata"):
+                    continue
+
+                metadata = result.metadata
+                if metadata.get("type") != "nomic_curriculum":
+                    continue
+
+                similarity = getattr(result, "score", 0.5)
+                if similarity < min_similarity:
+                    continue
+
+                similar_curricula.append(
+                    {
+                        "objective": metadata.get("objective", ""),
+                        "similarity": similarity,
+                        "curricula_created": metadata.get("curricula_created", 0),
+                        "stones_attempted": metadata.get("stones_attempted", 0),
+                        "stones_succeeded": metadata.get("stones_succeeded", 0),
+                        "stone_success_rate": metadata.get("stone_success_rate", 0.0),
+                        "skill_gaps": metadata.get("skill_gaps", []),
+                        "skills_improved": metadata.get("skills_improved", []),
+                        "cycle_id": metadata.get("parent_cycle_id", ""),
+                    }
+                )
+
+            # Sort by similarity
+            similar_curricula.sort(key=lambda c: c["similarity"], reverse=True)
+            return similar_curricula[:limit]
+
+        except Exception as e:
+            logger.warning(f"Failed to find similar curricula: {e}")
+            return []
 
     async def find_similar_cycles(
         self,
@@ -774,6 +1005,7 @@ __all__ = [
     "NomicCycleAdapter",
     "NomicCycleOutcome",
     "GoalOutcome",
+    "CurriculumOutcome",
     "CycleStatus",
     "CycleIngestionResult",
     "SimilarCycle",

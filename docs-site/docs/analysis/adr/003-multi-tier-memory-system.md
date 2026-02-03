@@ -82,6 +82,6 @@ await memory.sweep()
 - Metrics track tier hit rates for optimization
 
 ## Related
-- `aragora/memory/continuum.py` - ContinuumMemory implementation
+- `aragora/memory/continuum/core.py` - ContinuumMemory implementation
 - `aragora/memory/tier_manager.py` - Tier promotion/demotion
 - `aragora/memory/consensus.py` - Consensus-specific memory

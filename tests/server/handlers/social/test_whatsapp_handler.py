@@ -363,6 +363,27 @@ class TestTextMessageHandling:
 
         # Should not send immediate response (debate handler manages it)
         # The _command_debate is called which handles its own messaging
+        assert mock_task.called
+
+    def test_handle_text_message_plan(self, handler):
+        """Test handling 'plan' command."""
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
+            handler._handle_text_message(
+                "15551234567", "Test User", "plan Improve our on-call process"
+            )
+        assert mock_task.called
+
+    def test_handle_text_message_implement(self, handler):
+        """Test handling 'implement' command."""
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
+            handler._handle_text_message(
+                "15551234567", "Test User", "implement Automate weekly reporting"
+            )
+        assert mock_task.called
 
     def test_handle_text_message_short(self, handler):
         """Test handling short message."""
@@ -400,6 +421,8 @@ class TestCommands:
         response = handler._command_help()
         assert "help" in response.lower()
         assert "debate" in response.lower()
+        assert "plan" in response.lower()
+        assert "implement" in response.lower()
         assert "gauntlet" in response.lower()
         assert "status" in response.lower()
 

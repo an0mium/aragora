@@ -152,6 +152,13 @@ async def initialize_debate_context(
     governor = get_complexity_governor()
     governor.set_task_complexity(task_complexity)
 
+    # Wire governor to API agents for per-agent adaptive timeout management
+    from aragora.agents.api_agents.base import APIAgent
+
+    for agent in arena.agents:
+        if isinstance(agent, APIAgent):
+            agent.set_complexity_governor(governor)
+
     # Classify question domain using LLM for accurate persona selection
     if arena.prompt_builder:
         try:

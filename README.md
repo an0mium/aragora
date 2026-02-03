@@ -8,7 +8,7 @@
 
 **You don't just get an answer. You get a defensible decision trail.**
 
-Aragora orchestrates 15+ AI models to adversarially vet decisions against your organization's knowledge, then delivers audit-ready decision receipts to any channel.
+Aragora orchestrates 30+ agent types across CLI, direct API, OpenRouter, and local backends to adversarially vet decisions against your organization's knowledge, then delivers audit-ready decision receipts to any channel.
 
 ```bash
 # Stress-test a specification
@@ -33,11 +33,11 @@ Aragora is useful to a 5-person startup on day one and scales to regulated enter
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 25 adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system stores context as live Python variables rather than token-consuming prompt text, enabling debates that sustain coherence across 50+ rounds and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 28 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
-Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (140 namespaces). 500+ HTTP endpoints and 26 WebSocket streams. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 15+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack -- not the other way around.
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (140 namespaces in the TypeScript SDK). 2,000+ API operations across 1,800+ paths and 190+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 50+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack -- not the other way around.
 
 ### 4. Multi-Agent Robustness
 
@@ -45,7 +45,7 @@ Different models have different blind spots. Aragora runs Claude, GPT, Gemini, G
 
 ### 5. Self-Healing and Self-Extending
 
-The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 2,900+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
+The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 3,000+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
 
 ---
 
@@ -143,14 +143,14 @@ aragora/
 │   ├── consensus.py      # Consensus detection and proofs
 │   ├── convergence.py    # Semantic similarity detection
 │   └── phases/           # Propose, critique, revise, vote, judge
-├── agents/         # 18+ agent implementations
+├── agents/         # 30+ registered agent types (CLI, direct API, OpenRouter, local)
 │   ├── api_agents/       # Anthropic, OpenAI, Gemini, Grok, Mistral, OpenRouter
 │   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
 │   └── fallback.py       # OpenRouter fallback on quota errors
 ├── gauntlet/       # Adversarial stress testing
-├── knowledge/      # Knowledge Mound with 25 adapters
+├── knowledge/      # Knowledge Mound with 28 registered adapters
 ├── memory/         # 4-tier memory (fast/medium/slow/glacial)
-├── server/         # 500+ HTTP handlers, 26 WebSocket streams
+├── server/         # 2,000+ API operations, 190+ WebSocket event types
 ├── pipeline/       # Decision-to-PR generation
 ├── genesis/        # Fractal debates, agent evolution
 ├── sandbox/        # Docker-based safe execution
@@ -159,7 +159,7 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 2,900+ Python modules | 125,000+ tests | 140 TypeScript SDK namespaces
+**Scale:** 3,000+ Python modules | 130,000+ tests
 
 ---
 

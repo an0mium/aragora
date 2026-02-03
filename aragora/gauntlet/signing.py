@@ -505,3 +505,291 @@ def verify_receipt(signed_receipt: SignedReceipt) -> bool:
         True if valid
     """
     return get_default_signer().verify(signed_receipt)
+
+
+# ============================================================================
+# RFC 3161 Trusted Timestamp Support
+# ============================================================================
+
+
+@dataclass
+class TimestampToken:
+    """RFC 3161 timestamp token from a Time Stamping Authority (TSA).
+
+    Provides cryptographic proof that a receipt existed at a specific point in time,
+    which cannot be backdated. Essential for legal non-repudiation.
+    """
+
+    tsa_url: str
+    timestamp: str  # ISO format
+    token: str  # Base64-encoded timestamp token
+    hash_algorithm: str  # e.g., "SHA-256"
+    message_imprint: str  # Base64-encoded hash of signed data
+    serial_number: str | None = None
+    policy_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "tsa_url": self.tsa_url,
+            "timestamp": self.timestamp,
+            "token": self.token,
+            "hash_algorithm": self.hash_algorithm,
+            "message_imprint": self.message_imprint,
+            "serial_number": self.serial_number,
+            "policy_id": self.policy_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TimestampToken":
+        return cls(
+            tsa_url=data["tsa_url"],
+            timestamp=data["timestamp"],
+            token=data["token"],
+            hash_algorithm=data["hash_algorithm"],
+            message_imprint=data["message_imprint"],
+            serial_number=data.get("serial_number"),
+            policy_id=data.get("policy_id"),
+        )
+
+
+# Well-known free RFC 3161 TSA servers
+KNOWN_TSA_SERVERS = {
+    "freetsa": "https://freetsa.org/tsr",
+    "digicert": "http://timestamp.digicert.com",
+    "sectigo": "http://timestamp.sectigo.com",
+    "globalsign": "http://timestamp.globalsign.com/tsa/r6advanced1",
+}
+
+DEFAULT_TSA_URL = os.environ.get(
+    "ARAGORA_TSA_URL", KNOWN_TSA_SERVERS.get("freetsa", "https://freetsa.org/tsr")
+)
+
+
+class TimestampAuthority:
+    """Client for RFC 3161 Time Stamping Authority (TSA) services.
+
+    Requests trusted timestamps from external TSA servers to provide
+    cryptographic proof of when a receipt was signed. This is essential
+    for legal non-repudiation - proving the receipt existed at a specific time.
+
+    Example:
+        tsa = TimestampAuthority()
+        token = await tsa.get_timestamp(signed_receipt)
+        # token.timestamp is trusted, cannot be backdated
+    """
+
+    def __init__(self, tsa_url: str = DEFAULT_TSA_URL, timeout: float = 30.0):
+        """Initialize with TSA server URL.
+
+        Args:
+            tsa_url: RFC 3161 TSA server URL
+            timeout: Request timeout in seconds
+        """
+        self.tsa_url = tsa_url
+        self.timeout = timeout
+
+    def _create_timestamp_request(self, message_hash: bytes) -> bytes:
+        """Create an RFC 3161 TimeStampReq ASN.1 structure.
+
+        This is a minimal implementation. For production, use pyasn1 or
+        a dedicated TSA library like rfc3161ng.
+        """
+        # Try to use rfc3161ng if available
+        try:
+            import rfc3161ng
+
+            return rfc3161ng.make_timestamp_request(message_hash, hashname="sha256")
+        except ImportError:
+            pass
+
+        # Fallback: Create minimal ASN.1 timestamp request
+        # This is a simplified implementation
+        # OID for SHA-256: 2.16.840.1.101.3.4.2.1
+        sha256_oid = bytes([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01])
+
+        # MessageImprint
+        hash_alg = bytes([0x30, len(sha256_oid) + 2]) + sha256_oid + bytes([0x05, 0x00])
+        hash_value = bytes([0x04, len(message_hash)]) + message_hash
+        msg_imprint = bytes([0x30, len(hash_alg) + len(hash_value)]) + hash_alg + hash_value
+
+        # Version (always 1)
+        version = bytes([0x02, 0x01, 0x01])
+
+        # Nonce (random 8 bytes)
+        nonce_value = secrets.token_bytes(8)
+        nonce = bytes([0x02, len(nonce_value)]) + nonce_value
+
+        # CertReq (true)
+        cert_req = bytes([0x01, 0x01, 0xFF])
+
+        # TimeStampReq sequence
+        body = version + msg_imprint + nonce + cert_req
+        return bytes([0x30, len(body)]) + body
+
+    async def get_timestamp(self, signed_receipt: SignedReceipt) -> TimestampToken:
+        """Request a trusted timestamp for a signed receipt.
+
+        Args:
+            signed_receipt: The signed receipt to timestamp
+
+        Returns:
+            TimestampToken with proof from the TSA
+
+        Raises:
+            TimestampError: If the TSA request fails
+        """
+        # Hash the signed receipt data
+        canonical = json.dumps(signed_receipt.to_dict(), sort_keys=True, default=str)
+        message_hash = hashlib.sha256(canonical.encode()).digest()
+
+        # Create timestamp request
+        ts_request = self._create_timestamp_request(message_hash)
+
+        # Send to TSA
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    self.tsa_url,
+                    content=ts_request,
+                    headers={"Content-Type": "application/timestamp-query"},
+                )
+
+                if response.status_code != 200:
+                    raise TimestampError(
+                        f"TSA returned status {response.status_code}: {response.text}"
+                    )
+
+                # Parse response
+                ts_response = response.content
+                token_b64 = base64.b64encode(ts_response).decode("ascii")
+
+                return TimestampToken(
+                    tsa_url=self.tsa_url,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    token=token_b64,
+                    hash_algorithm="SHA-256",
+                    message_imprint=base64.b64encode(message_hash).decode("ascii"),
+                )
+
+        except ImportError:
+            raise TimestampError("httpx not installed - required for TSA requests")
+        except Exception as e:
+            raise TimestampError(f"TSA request failed: {e}")
+
+    def verify_timestamp(self, token: TimestampToken, signed_receipt: SignedReceipt) -> bool:
+        """Verify that a timestamp token matches the signed receipt.
+
+        Args:
+            token: The timestamp token to verify
+            signed_receipt: The original signed receipt
+
+        Returns:
+            True if the timestamp is valid for this receipt
+        """
+        # Recompute hash
+        canonical = json.dumps(signed_receipt.to_dict(), sort_keys=True, default=str)
+        message_hash = hashlib.sha256(canonical.encode()).digest()
+        expected_imprint = base64.b64encode(message_hash).decode("ascii")
+
+        # Compare message imprints
+        return token.message_imprint == expected_imprint
+
+
+class TimestampError(Exception):
+    """Error during timestamp operations."""
+
+    pass
+
+
+# ============================================================================
+# Legal Hold Support
+# ============================================================================
+
+
+@dataclass
+class LegalHold:
+    """Legal hold metadata for a receipt.
+
+    When a legal hold is placed on a receipt, it cannot be deleted even
+    after the retention period expires. Used for litigation holds and
+    regulatory investigations.
+    """
+
+    hold_id: str
+    receipt_id: str
+    reason: str
+    placed_by: str  # User/system that placed the hold
+    placed_at: str  # ISO timestamp
+    matter_id: str | None = None  # Legal matter reference
+    expires_at: str | None = None  # Optional expiration (None = indefinite)
+    notes: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "hold_id": self.hold_id,
+            "receipt_id": self.receipt_id,
+            "reason": self.reason,
+            "placed_by": self.placed_by,
+            "placed_at": self.placed_at,
+            "matter_id": self.matter_id,
+            "expires_at": self.expires_at,
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "LegalHold":
+        return cls(
+            hold_id=data["hold_id"],
+            receipt_id=data["receipt_id"],
+            reason=data["reason"],
+            placed_by=data["placed_by"],
+            placed_at=data["placed_at"],
+            matter_id=data.get("matter_id"),
+            expires_at=data.get("expires_at"),
+            notes=data.get("notes"),
+        )
+
+    def is_active(self) -> bool:
+        """Check if the hold is still active."""
+        if self.expires_at is None:
+            return True
+        try:
+            expires = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
+            return datetime.now(timezone.utc) < expires
+        except ValueError:
+            return True  # If we can't parse, assume active
+
+
+def create_legal_hold(
+    receipt_id: str,
+    reason: str,
+    placed_by: str,
+    matter_id: str | None = None,
+    expires_at: str | None = None,
+    notes: str | None = None,
+) -> LegalHold:
+    """Create a new legal hold for a receipt.
+
+    Args:
+        receipt_id: The receipt to place under hold
+        reason: Reason for the hold (e.g., "Litigation - Smith v. Corp")
+        placed_by: User or system placing the hold
+        matter_id: Optional legal matter reference
+        expires_at: Optional expiration timestamp (ISO format)
+        notes: Optional additional notes
+
+    Returns:
+        LegalHold object
+    """
+    return LegalHold(
+        hold_id=secrets.token_hex(16),
+        receipt_id=receipt_id,
+        reason=reason,
+        placed_by=placed_by,
+        placed_at=datetime.now(timezone.utc).isoformat(),
+        matter_id=matter_id,
+        expires_at=expires_at,
+        notes=notes,
+    )

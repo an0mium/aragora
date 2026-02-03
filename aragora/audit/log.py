@@ -415,8 +415,8 @@ class PostgreSQLBackend:
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to close audit log connection: %s", e)
         self._connections.clear()
         self._conn_var.set(None)
 

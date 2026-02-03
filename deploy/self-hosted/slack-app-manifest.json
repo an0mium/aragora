@@ -7,7 +7,7 @@
     "name": "Aragora",
     "description": "Multi-agent vetted decisionmaking platform for your organization",
     "background_color": "#0D0D0D",
-    "long_description": "Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. It orchestrates 15+ AI models to debate your organization's knowledge and deliver defensible decisions to any channel.\n\nFeatures:\n- Start debates from Slack with /debate command\n- Receive consensus notifications in channels\n- View decision receipts with full audit trail\n- Integrate with your existing knowledge bases"
+    "long_description": "Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. It orchestrates 30+ agent types to debate your organization's knowledge and deliver defensible decisions to any channel.\n\nFeatures:\n- Start debates from Slack with /debate command\n- Receive consensus notifications in channels\n- View decision receipts with full audit trail\n- Integrate with your existing knowledge bases"
   },
   "features": {
     "app_home": {

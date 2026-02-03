@@ -18,6 +18,7 @@ __all__ = [
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import (
@@ -293,10 +294,14 @@ class ProposalPhase:
         prompt = self._build_proposal_prompt(agent)
         logger.debug(f"agent_generating agent={agent.name} phase=proposal")
 
+        # Track timing for governor feedback
+        start_time = time.perf_counter()
+        governor = get_complexity_governor()
+
         try:
             # Use complexity-scaled timeout from governor
             base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
-            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
+            timeout = governor.get_scaled_timeout(float(base_timeout))
             # Use unique task_id to prevent token interleaving between concurrent agents
             task_id = f"{agent.name}:proposal"
             with streaming_task_context(task_id):
@@ -323,9 +328,23 @@ class ProposalPhase:
                             agent, prompt, ctx.context_messages
                         )
             if self._is_effectively_empty_response(result):
+                # Record failure to governor
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                governor.record_agent_response(agent.name, latency_ms, success=False)
                 return (agent, ValueError("Agent response was empty"))
+
+            # Record success to governor
+            latency_ms = (time.perf_counter() - start_time) * 1000
+            governor.record_agent_response(agent.name, latency_ms, success=True)
             return (agent, result)
+        except asyncio.TimeoutError as e:
+            # Record timeout to governor
+            governor.record_agent_timeout(agent.name, timeout)
+            return (agent, e)
         except Exception as e:
+            # Record failure to governor
+            latency_ms = (time.perf_counter() - start_time) * 1000
+            governor.record_agent_response(agent.name, latency_ms, success=False)
             return (agent, e)
 
     def _process_proposal_result(

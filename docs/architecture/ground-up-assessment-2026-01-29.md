@@ -1,5 +1,7 @@
 # Ground-Up Project Assessment (2026-01-29)
 
+**Note:** This assessment is a dated snapshot (January 2026). For current API counts and system scale, see `docs/STATUS.md`.
+
 ## Executive Summary
 
 Comprehensive assessment across 6 dimensions: test health, code quality, API coverage, documentation, security, and performance.

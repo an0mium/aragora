@@ -1,13 +1,14 @@
 """
 Telegram bot command handling.
 
-Handles /start, /help, /status, /agents, /debate, /gauntlet, /search, /recent, /receipt commands
+Handles /start, /help, /status, /agents, /debate, /plan, /implement, /gauntlet, /search, /recent, /receipt commands
 and their associated async execution flows.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from ...base import HandlerResult, json_response
 from ..chat_events import (
@@ -126,6 +127,53 @@ class TelegramCommandsMixin:
                     chat_id, _common.PERM_TELEGRAM_DEBATES_CREATE, "create debates"
                 )
             return self._command_debate(chat_id, user_id, username, args)
+        elif command == "/plan":
+            record_command("telegram", "plan")
+            if not self._check_telegram_user_permission(
+                user_id, username, chat_id, _common.PERM_TELEGRAM_DEBATES_CREATE
+            ):
+                return self._deny_telegram_permission(
+                    chat_id, _common.PERM_TELEGRAM_DEBATES_CREATE, "create decision plans"
+                )
+            decision_integrity = {
+                "include_receipt": True,
+                "include_plan": True,
+                "include_context": False,
+                "plan_strategy": "single_task",
+                "notify_origin": True,
+            }
+            return self._command_debate(
+                chat_id,
+                user_id,
+                username,
+                args,
+                decision_integrity=decision_integrity,
+                mode_label="plan",
+            )
+        elif command == "/implement":
+            record_command("telegram", "implement")
+            if not self._check_telegram_user_permission(
+                user_id, username, chat_id, _common.PERM_TELEGRAM_DEBATES_CREATE
+            ):
+                return self._deny_telegram_permission(
+                    chat_id, _common.PERM_TELEGRAM_DEBATES_CREATE, "create implementation plans"
+                )
+            decision_integrity = {
+                "include_receipt": True,
+                "include_plan": True,
+                "include_context": True,
+                "plan_strategy": "single_task",
+                "notify_origin": True,
+            }
+            return self._command_debate(
+                chat_id,
+                user_id,
+                username,
+                args,
+                decision_integrity=decision_integrity,
+                mode_label="implementation plan",
+                command_label="implement",
+            )
         elif command == "/gauntlet":
             record_command("telegram", "gauntlet")
             if not self._check_telegram_user_permission(
@@ -180,6 +228,8 @@ class TelegramCommandsMixin:
             "I can run multi-agent debates and adversarial validations.\n\n"
             "Commands:\n"
             "/debate <topic> - Start a debate\n"
+            "/plan <topic> - Debate with an implementation plan\n"
+            "/implement <topic> - Debate with plan + context snapshot\n"
             "/gauntlet <statement> - Stress-test a statement\n"
             "/search <query> - Search past debates\n"
             "/recent - Show recent debates\n"
@@ -195,6 +245,8 @@ class TelegramCommandsMixin:
             "*Aragora Bot Commands*\n\n"
             "/start - Welcome message\n"
             "/debate <topic> - Start a multi-agent debate on a topic\n"
+            "/plan <topic> - Debate with an implementation plan\n"
+            "/implement <topic> - Debate with plan + context snapshot\n"
             "/gauntlet <statement> - Run adversarial stress-test\n"
             "/search <query> - Search past debates\n"
             "/recent - Show recent debates\n"
@@ -204,6 +256,8 @@ class TelegramCommandsMixin:
             "/help - Show this help\n\n"
             "*Examples:*\n"
             "/debate Should AI be regulated?\n"
+            "/plan Improve our on-call process\n"
+            "/implement Automate weekly incident reporting\n"
             "/gauntlet We should migrate to microservices\n"
             "/search machine learning\n"
             "/receipt abc123"
@@ -253,10 +307,16 @@ class TelegramCommandsMixin:
         user_id: int,
         username: str,
         args: str,
+        decision_integrity: dict[str, Any] | bool | None = None,
+        mode_label: str = "debate",
+        command_label: str | None = None,
     ) -> HandlerResult:
         """Handle /debate command."""
         if not args:
-            response = "Please provide a topic.\n\nExample: /debate Should AI be regulated?"
+            command_label = command_label or mode_label
+            response = (
+                f"Please provide a topic.\n\nExample: /{command_label} Should AI be regulated?"
+            )
             _tg().create_tracked_task(
                 self._send_message_async(chat_id, response),
                 name=f"telegram-debate-help-{chat_id}",
@@ -285,7 +345,7 @@ class TelegramCommandsMixin:
         _tg().create_tracked_task(
             self._send_message_async(
                 chat_id,
-                f"*Starting debate on:*\n_{topic}_\n\nRequested by @{username}\nProcessing... (this may take a few minutes)",
+                f"*Starting {mode_label} on:*\n_{topic}_\n\nRequested by @{username}\nProcessing... (this may take a few minutes)",
                 parse_mode="Markdown",
             ),
             name=f"telegram-debate-ack-{chat_id}",
@@ -293,7 +353,13 @@ class TelegramCommandsMixin:
 
         # Queue the debate asynchronously
         _tg().create_tracked_task(
-            self._run_debate_async(chat_id, user_id, username, topic),
+            self._run_debate_async(
+                chat_id,
+                user_id,
+                username,
+                topic,
+                decision_integrity=decision_integrity,
+            ),
             name=f"telegram-debate-{topic[:30]}",
         )
 
@@ -306,6 +372,7 @@ class TelegramCommandsMixin:
         username: str,
         topic: str,
         message_id: int | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> None:
         """Run debate asynchronously and send result to chat."""
         from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
@@ -478,6 +545,24 @@ class TelegramCommandsMixin:
 
             # Record successful debate completion
             record_debate_completed("telegram", result.consensus_reached)
+
+            # Optionally emit decision integrity package
+            from aragora.server.decision_integrity_utils import (
+                maybe_emit_decision_integrity,
+            )
+
+            ctx = getattr(self, "ctx", {}) or {}
+            document_store = ctx.get("document_store")
+            evidence_store = ctx.get("evidence_store")
+
+            await maybe_emit_decision_integrity(
+                result=result,
+                debate_id=debate_id or getattr(result, "debate_id", None),
+                arena=arena,
+                decision_integrity=decision_integrity,
+                document_store=document_store,
+                evidence_store=evidence_store,
+            )
 
         except Exception as e:
             logger.error("Telegram debate failed: %s", e, exc_info=True)

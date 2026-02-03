@@ -18,7 +18,7 @@ Aragora uses **6 major SQLite databases** for persistence:
 | ELO Rankings | `aragora_elo.db` | Agent rankings & calibration | Small-Medium (10K matches) |
 | Critique Store | `aragora_traces.db` | Pattern learning | Large (100K+ critiques) |
 | Evidence Store | `evidence.db` | Evidence persistence | Medium (10K+ snippets) |
-| Circuit Breaker | `.data/circuit_breaker.db` | Resilience tracking | Small |
+| Circuit Breaker | `ARAGORA_DATA_DIR/circuit_breaker.db` | Resilience tracking | Small |
 
 All databases use **SQLite with WAL mode** for concurrent access.
 

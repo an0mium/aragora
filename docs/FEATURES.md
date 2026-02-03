@@ -1,6 +1,6 @@
 # Aragora Feature Documentation
 
-> **Last Updated:** 2026-01-22
+> **Last Updated:** 2026-02-03
 
 
 This document provides a snapshot of major features and their origins. For live counts and recent updates, see `docs/STATUS.md`.
@@ -26,7 +26,7 @@ This document provides a snapshot of major features and their origins. For live 
 ## Phase 1: Foundation
 
 ### ContinuumMemory
-**File:** `aragora/memory/continuum.py`
+**File:** `aragora/memory/continuum/core.py`
 
 Multi-timescale learning system that organizes memories into fast, medium, and slow tiers based on recency and importance.
 
@@ -916,7 +916,7 @@ from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
 - Computes consensus probability
 
 ### ContinuumMemory (Integrated)
-**File:** `aragora/memory/continuum.py`
+**File:** `aragora/memory/continuum/core.py`
 
 Now integrated into Arena for cross-debate learning context.
 

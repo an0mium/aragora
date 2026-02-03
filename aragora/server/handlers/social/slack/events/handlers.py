@@ -53,12 +53,20 @@ class EventsMixin:
             response_text = (
                 "Hi! You can ask me to:\n"
                 '• Debate a topic: `@aragora debate "Should AI be regulated?"`\n'
+                '• Plan implementation: `@aragora plan "Improve onboarding"`\n'
+                '• Implementation plan + context: `@aragora implement "Automate reports"`\n'
                 "• Show status: `@aragora status`\n"
                 "• List agents: `@aragora agents`"
             )
         elif clean_text.lower().startswith("debate "):
             topic = clean_text[7:].strip().strip("\"'")
             response_text = f'To start a debate, use the slash command: `/aragora debate "{topic}"`'
+        elif clean_text.lower().startswith("plan "):
+            topic = clean_text[5:].strip().strip("\"'")
+            response_text = f'To create a plan, use: `/aragora plan "{topic}"`'
+        elif clean_text.lower().startswith("implement "):
+            topic = clean_text[10:].strip().strip("\"'")
+            response_text = f'To create an implementation plan, use: `/aragora implement "{topic}"`'
         elif clean_text.lower() == "status":
             response_text = "Use `/aragora status` to check the system status."
         elif clean_text.lower() == "agents":
@@ -193,7 +201,9 @@ class EventsMixin:
                 "• `help` - Show available commands\n"
                 "• `status` - Check system status\n"
                 "• `agents` - List available agents\n"
-                '• `debate "topic"` - Start a debate'
+                '• `debate "topic"` - Start a debate\n'
+                '• `plan "topic"` - Debate with an implementation plan\n'
+                '• `implement "topic"` - Debate with plan + context snapshot'
             )
 
         text_lower = text.lower()
@@ -205,6 +215,8 @@ class EventsMixin:
                 "• `status` - Check system status\n"
                 "• `agents` - List available agents\n"
                 '• `debate "Your topic here"` - Start a debate on a topic\n'
+                '• `plan "Your topic here"` - Debate with an implementation plan\n'
+                '• `implement "Your topic here"` - Debate with plan + context snapshot\n'
                 "• `recent` - Show recent debates\n\n"
                 "_You can also use `/aragora` commands in any channel._"
             )
@@ -221,6 +233,18 @@ class EventsMixin:
                 f'To start a full debate on "{topic}", '
                 f'use `/aragora debate "{topic}"` in any channel.\n\n'
                 "_Debates require slash commands for proper formatting._"
+            )
+        if text_lower.startswith("plan "):
+            topic = text[5:].strip().strip("\"'")
+            return (
+                f'To create an implementation plan for "{topic}", '
+                f'use `/aragora plan "{topic}"` in any channel.'
+            )
+        if text_lower.startswith("implement "):
+            topic = text[10:].strip().strip("\"'")
+            return (
+                f'To create a plan with context snapshot for "{topic}", '
+                f'use `/aragora implement "{topic}"` in any channel.'
             )
 
         # Unknown command

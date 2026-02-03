@@ -141,6 +141,59 @@ Run local LLMs through LM Studio's OpenAI-compatible server.
 LM_STUDIO_HOST=http://localhost:1234
 ```
 
+## Supermemory (Cross-Session Memory)
+
+Optional integration with [Supermemory](https://github.com/supermemoryai/supermemory) for cross-session learning and context injection. Supermemory provides external persistent memory that enables debates to learn from past sessions across projects.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `SUPERMEMORY_API_KEY` | Required for feature | Supermemory API key (sm_... format) | - |
+| `SUPERMEMORY_BASE_URL` | Optional | Base URL override | SDK default |
+| `SUPERMEMORY_TIMEOUT` | Optional | Request timeout (seconds) | `30` |
+| `SUPERMEMORY_SYNC_THRESHOLD` | Optional | Min importance to sync externally (0.0-1.0) | `0.7` |
+| `SUPERMEMORY_PRIVACY_FILTER` | Optional | Enable privacy filtering before sync | `true` |
+| `SUPERMEMORY_CONTAINER_TAG` | Optional | Default container tag for memories | `aragora` |
+
+**Features:**
+- **Context Injection**: Load relevant context from past sessions at debate start
+- **Outcome Persistence**: Sync debate conclusions to external memory
+- **Semantic Search**: Query historical memories across projects
+- **Privacy Filter**: Automatically redacts API keys, tokens, passwords before sync
+
+**Usage:**
+```bash
+# Enable Supermemory integration
+SUPERMEMORY_API_KEY=sm_xxxxxxxxxxxxx
+
+# Optional: adjust sync threshold (default: 0.7)
+# Only debates with >= 0.7 confidence are synced externally
+SUPERMEMORY_SYNC_THRESHOLD=0.8
+
+# Optional: disable privacy filter (not recommended)
+SUPERMEMORY_PRIVACY_FILTER=true
+
+# Optional: custom container for memories
+SUPERMEMORY_CONTAINER_TAG=aragora_production
+```
+
+**ArenaConfig Options:**
+```python
+from aragora.debate.arena_config import ArenaConfig
+
+config = (
+    ArenaConfig.builder()
+    .with_supermemory(
+        enable_supermemory=True,
+        supermemory_enable_km_adapter=True,  # Force-enable KM adapter in coordinator
+        supermemory_inject_on_start=True,
+        supermemory_sync_on_conclusion=True,
+    )
+    .build()
+)
+```
+
+**Note:** Supermemory is opt-in and disabled by default. Set `enable_supermemory=True` in ArenaConfig to activate. Use `supermemory_enable_km_adapter=True` to force-enable the Supermemory KM adapter in the bidirectional coordinator (requires `SUPERMEMORY_API_KEY`).
+
 ## Persistence (Supabase)
 
 Optional but recommended for production.
@@ -393,18 +446,18 @@ explicitly if you need consistent pooling across subsystems.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_DEFAULT_ROUNDS` | Optional | Default debate rounds | `3` |
-| `ARAGORA_MAX_ROUNDS` | Optional | Max debate rounds | `10` |
-| `ARAGORA_DEFAULT_CONSENSUS` | Optional | Consensus mode | `hybrid` |
-| `ARAGORA_DEBATE_TIMEOUT` | Optional | Debate timeout (seconds) | `900` |
+| `ARAGORA_DEFAULT_ROUNDS` | Optional | Default debate rounds | `9` |
+| `ARAGORA_MAX_ROUNDS` | Optional | Max debate rounds | `12` |
+| `ARAGORA_DEFAULT_CONSENSUS` | Optional | Consensus mode | `judge` |
+| `ARAGORA_DEBATE_TIMEOUT` | Optional | Debate timeout (seconds) | `600` |
 | `ARAGORA_AGENT_TIMEOUT` | Optional | Per-agent timeout (seconds) | `240` |
 
 ## Agent Defaults
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_DEFAULT_AGENTS` | Optional | Default agent list when none specified | `grok,anthropic-api,openai-api,deepseek,gemini` |
-| `ARAGORA_STREAMING_AGENTS` | Optional | Agents allowed for streaming responses | `grok,anthropic-api,openai-api` |
+| `ARAGORA_DEFAULT_AGENTS` | Optional | Default agent list when none specified | `grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi` |
+| `ARAGORA_STREAMING_AGENTS` | Optional | Agents allowed for streaming responses | `grok,anthropic-api,openai-api,mistral` |
 
 ## Streaming Controls
 
@@ -483,7 +536,13 @@ Use `aragora.config.resolve_db_path()` to keep legacy SQLite files under
 If you ran Aragora in the repo root, stray `.db` files may land there. Move them under `ARAGORA_DATA_DIR` with:
 
 ```bash
-scripts/cleanup_runtime_artifacts.sh
+python scripts/cleanup_runtime_artifacts.py --apply
+```
+
+For a DB-only migration with tracked-file safeguards, preview first:
+
+```bash
+python scripts/migrate_runtime_dbs.py --dry-run
 ```
 
 ## Receipt Retention
@@ -826,6 +885,24 @@ ARAGORA_SSO_ALLOWED_DOMAINS=yourcompany.com
 ```
 
 See [SSO_SETUP.md](../enterprise/sso) for detailed provider-specific setup instructions.
+
+### SCIM 2.0 Provisioning
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `SCIM_BEARER_TOKEN` | Yes (for SCIM) | Bearer token for SCIM endpoint authentication | _(empty - no auth)_ |
+| `SCIM_TENANT_ID` | Optional | Tenant ID for multi-tenant SCIM deployments | _(none)_ |
+| `SCIM_BASE_URL` | Optional | Base URL for SCIM resource location headers | _(empty)_ |
+
+Example SCIM Configuration:
+```bash
+SCIM_BEARER_TOKEN=scim-secret-token-from-idp
+SCIM_TENANT_ID=acme-corp
+SCIM_BASE_URL=https://api.aragora.ai
+```
+
+SCIM endpoints are available at `/scim/v2/Users` and `/scim/v2/Groups`.
+See [API_REFERENCE.md](../api/reference) for full endpoint documentation.
 
 ## Embedding Providers
 

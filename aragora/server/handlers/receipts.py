@@ -13,6 +13,7 @@ Endpoints:
     GET  /api/v2/receipts/search                       - Full-text search receipts
     GET  /api/v2/receipts/:receipt_id                  - Get specific receipt
     GET  /api/v2/receipts/:receipt_id/export           - Export (format=json|html|md|pdf)
+    GET  /api/v2/receipts/:receipt_id/verify           - Verify integrity + signature
     POST /api/v2/receipts/:receipt_id/verify           - Verify integrity checksum
     POST /api/v2/receipts/:receipt_id/verify-signature - Verify cryptographic signature
     POST /api/v2/receipts/verify-batch                 - Batch signature verification
@@ -163,6 +164,10 @@ class ReceiptsHandler(BaseHandler):
                 # Export endpoint
                 if len(parts) > 5 and parts[5] == "export":
                     return await self._export_receipt(receipt_id, query_params)
+
+                # Combined verification (signature + integrity)
+                if len(parts) > 5 and parts[5] == "verify" and method == "GET":
+                    return await self._verify_receipt(receipt_id)
 
                 # Integrity verification
                 if len(parts) > 5 and parts[5] == "verify" and method == "POST":
@@ -530,6 +535,47 @@ class ReceiptsHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Export failed: {e}")
             return error_response(safe_error_message(e, "receipt export"), 500)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts/{receipt_id}/verify",
+        summary="Verify receipt integrity and signature",
+        description="Verify both receipt integrity checksum and cryptographic signature.",
+        tags=["Receipts", "Verification"],
+        parameters=[
+            {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Verification results returned"},
+            "404": {"description": "Receipt not found"},
+        },
+    )
+    @require_permission("receipts:verify")
+    async def _verify_receipt(self, receipt_id: str) -> HandlerResult:
+        """Verify receipt integrity checksum and signature."""
+        store = self._get_store()
+        signature_result = store.verify_signature(receipt_id)
+        integrity_result = store.verify_integrity(receipt_id)
+
+        signature_error = getattr(signature_result, "error", None)
+        integrity_error = (
+            integrity_result.get("error") if isinstance(integrity_result, dict) else None
+        )
+
+        if signature_error and "not found" in signature_error.lower():
+            return error_response("Receipt not found", 404)
+        if integrity_error and "not found" in integrity_error.lower():
+            return error_response("Receipt not found", 404)
+
+        return json_response(
+            {
+                "receipt_id": receipt_id,
+                "signature": signature_result.to_dict()
+                if hasattr(signature_result, "to_dict")
+                else signature_result,
+                "integrity": integrity_result,
+            }
+        )
 
     @api_endpoint(
         method="POST",

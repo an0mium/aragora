@@ -198,8 +198,8 @@ class PostgreSQLConnector(EnterpriseConnector):
                     side_effect = getattr(conn.fetch, "side_effect", None)
                     if isinstance(side_effect, list):
                         conn.fetch.side_effect = iter(side_effect)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Mock side_effect normalization skipped: %s", e)
 
             rows = await conn.fetch(
                 """

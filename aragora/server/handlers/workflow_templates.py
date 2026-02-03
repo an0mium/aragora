@@ -177,6 +177,7 @@ class WorkflowTemplatesHandler(BaseHandler):
     ROUTES: list[str] = [
         "/api/v1/workflow/templates",
         "/api/v1/workflow/templates/*",
+        "/api/v1/workflow/templates/*/package",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

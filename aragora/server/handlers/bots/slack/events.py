@@ -225,8 +225,22 @@ async def handle_slack_events(request: Any) -> HandlerResult:
             logger.info(f"Slack mention from {user} in {channel}: {text[:100]}")
 
             clean_text = re.sub(r"<@[^>]+>", "", text).strip()
-            if clean_text.lower().startswith(("ask ", "debate ", "aragora ")):
-                clean_text = clean_text.split(maxsplit=1)[-1].strip()
+            decision_integrity = None
+            if clean_text:
+                parts = clean_text.split(maxsplit=1)
+                command = parts[0].lower()
+                remainder = parts[1] if len(parts) > 1 else ""
+                if command in ("ask", "debate", "aragora"):
+                    clean_text = remainder
+                elif command in ("plan", "implement"):
+                    decision_integrity = {
+                        "include_receipt": True,
+                        "include_plan": True,
+                        "include_context": command == "implement",
+                        "plan_strategy": "single_task",
+                        "notify_origin": True,
+                    }
+                    clean_text = remainder
 
             attachments = _extract_slack_attachments(event)
             attachments = await _hydrate_slack_attachments(attachments)
@@ -234,6 +248,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
             if clean_text:
                 try:
                     from aragora.core import (
+                        DecisionConfig,
                         DecisionRequest,
                         DecisionType,
                         InputSource,
@@ -253,14 +268,19 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                         session_id=f"slack:{channel}",
                         metadata={"team_id": team_id},
                     )
-                    request = DecisionRequest(
-                        content=clean_text,
-                        decision_type=DecisionType.DEBATE,
-                        source=InputSource.SLACK,
-                        response_channels=[response_channel],
-                        context=context,
-                        attachments=attachments,
-                    )
+                    request_kwargs = {
+                        "content": clean_text,
+                        "decision_type": DecisionType.DEBATE,
+                        "source": InputSource.SLACK,
+                        "response_channels": [response_channel],
+                        "context": context,
+                        "attachments": attachments,
+                    }
+                    if decision_integrity is not None:
+                        request_kwargs["config"] = DecisionConfig(
+                            decision_integrity=decision_integrity
+                        )
+                    request = DecisionRequest(**request_kwargs)
                     router = get_decision_router()
                     asyncio.create_task(router.route(request))
                 except ImportError:

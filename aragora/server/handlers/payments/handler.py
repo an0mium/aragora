@@ -35,6 +35,36 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# Route Registry (for SDK audit visibility)
+# =============================================================================
+
+ROUTES = [
+    "/api/payments/charge",
+    "/api/payments/authorize",
+    "/api/payments/capture",
+    "/api/payments/refund",
+    "/api/payments/void",
+    "/api/payments/transaction/*",
+    "/api/payments/customer",
+    "/api/payments/customer/*",
+    "/api/payments/subscription",
+    "/api/payments/subscription/*",
+    "/api/payments/webhook/stripe",
+    "/api/payments/webhook/authnet",
+    "/api/v1/payments/charge",
+    "/api/v1/payments/authorize",
+    "/api/v1/payments/capture",
+    "/api/v1/payments/refund",
+    "/api/v1/payments/void",
+    "/api/v1/payments/transaction/*",
+    "/api/v1/payments/customer",
+    "/api/v1/payments/customer/*",
+    "/api/v1/payments/subscription",
+    "/api/v1/payments/subscription/*",
+]
+
+
+# =============================================================================
 # RBAC Permission Constants for Payments
 # =============================================================================
 

@@ -189,36 +189,27 @@ Response:
 ## TypeScript SDK Usage
 
 ```typescript
-import { AragoraClient } from 'aragora-js';
+import { createClient } from '@aragora/sdk';
 
-const client = new AragoraClient({
+const client = createClient({
   baseUrl: 'http://localhost:8080',
-  accessToken: 'your-token',
+  apiKey: 'your-token',
 });
 
-// List evidence
-const evidence = await client.evidence.list({
-  limit: 20,
-  sourceType: 'academic',
-  minQuality: 0.7,
-});
+// Get evidence for a debate
+const evidence = await client.debates.getEvidence('debate-123');
 
-// Search evidence
-const results = await client.evidence.search({
-  query: 'machine learning healthcare',
-  sourceTypes: ['academic', 'government'],
+// Search knowledge/evidence
+const results = await client.knowledge.search('machine learning healthcare', {
   limit: 10,
 });
 
-// Collect new evidence
-const collected = await client.evidence.collect({
-  topic: 'Quantum computing applications',
-  sources: ['academic'],
-  maxItems: 5,
-});
-
-// Get debate evidence
-const debateEvidence = await client.evidence.forDebate('debate-123');
+// Add evidence to a debate
+const collected = await client.debates.addEvidence(
+  'debate-123',
+  'New evidence text',
+  'research-paper'
+);
 ```
 
 ## Quality Scoring

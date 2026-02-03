@@ -698,6 +698,81 @@ class CostTracker:
 
         return report
 
+    def get_dashboard_summary(
+        self,
+        workspace_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a consolidated dashboard summary for SMB customers.
+
+        Provides a simple, unified view of current spend, budget status,
+        top cost drivers, and projected costs suitable for non-technical users.
+
+        Args:
+            workspace_id: Filter by workspace
+            org_id: Filter by organization
+
+        Returns:
+            Dashboard summary with spend, budget, and projections.
+        """
+        # Current spend from workspace stats
+        stats: dict[str, Any] = {}
+        if workspace_id:
+            stats = self._workspace_stats.get(workspace_id, {})
+
+        total_cost = stats.get("total_cost", Decimal("0"))
+        api_calls = stats.get("api_calls", 0)
+
+        # Budget status
+        budget = self.get_budget(workspace_id=workspace_id, org_id=org_id)
+        budget_info: dict[str, Any] = {"configured": False}
+        if budget:
+            budget_info = {
+                "configured": True,
+                "monthly_limit_usd": str(budget.monthly_limit_usd or 0),
+                "current_monthly_spend": str(budget.current_monthly_spend or Decimal("0")),
+                "utilization_pct": float(
+                    (budget.current_monthly_spend / budget.monthly_limit_usd * 100)
+                    if budget.monthly_limit_usd
+                    else 0
+                ),
+                "alert_level": getattr(budget.check_alert_level(), "value", None),
+            }
+
+        # Top cost drivers
+        by_agent = stats.get("by_agent", {})
+        top_agents = sorted(by_agent.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        by_model = stats.get("by_model", {})
+        top_models = sorted(by_model.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Simple projection (daily rate * 30)
+        projected_monthly = None
+        if api_calls > 0 and total_cost > 0:
+            # Assume data is for current month so far
+            now = datetime.now(timezone.utc)
+            days_elapsed = max(1, now.day)
+            daily_rate = total_cost / days_elapsed
+            projected_monthly = str(daily_rate * 30)
+
+        return {
+            "workspace_id": workspace_id,
+            "org_id": org_id,
+            "current_spend": {
+                "total_cost_usd": str(total_cost),
+                "total_api_calls": api_calls,
+                "total_tokens": stats.get("tokens_in", 0) + stats.get("tokens_out", 0),
+            },
+            "budget": budget_info,
+            "top_cost_drivers": {
+                "by_agent": [{"agent": k, "cost_usd": str(v)} for k, v in top_agents],
+                "by_model": [{"model": k, "cost_usd": str(v)} for k, v in top_models],
+            },
+            "projections": {
+                "projected_monthly_usd": projected_monthly,
+            },
+        }
+
     async def get_agent_costs(
         self,
         workspace_id: str,

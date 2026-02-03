@@ -44,6 +44,8 @@ class KnowledgeSource(str, Enum):
     RLM = "rlm"  # RLM compression patterns
     EXTRACTION = "extraction"  # Extracted content from documents
     CALIBRATION = "calibration"  # Multi-party calibration fusion consensus
+    WORKFLOW = "workflow"  # Workflow execution outcomes
+    COMPLIANCE = "compliance"  # Compliance check results and violations
 
 
 class RelationshipType(str, Enum):

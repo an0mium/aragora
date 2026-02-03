@@ -3,6 +3,8 @@ Slack Slash Commands Handler.
 
 This module handles /aragora slash commands from Slack including:
 - /aragora ask <question> - Start a new debate
+- /aragora plan <question> - Debate + implementation plan
+- /aragora implement <question> - Debate + plan with context snapshot
 - /aragora status - Show active debates
 - /aragora vote - Vote in active debate
 - /aragora leaderboard - Show agent rankings
@@ -181,7 +183,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
             elif isinstance(parsed, dict):
                 attachments.append(parsed)
 
-        if subcommand == "ask" and args:
+        if subcommand in ("ask", "plan", "implement") and args:
             # RBAC: Check debate creation permission
             perm_error = _check_command_permission(PERM_SLACK_DEBATES_CREATE)
             if perm_error:
@@ -197,18 +199,38 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     }
                 )
 
+            decision_integrity = None
+            if subcommand in ("plan", "implement"):
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": True,
+                    "include_context": subcommand == "implement",
+                    "plan_strategy": "single_task",
+                    "notify_origin": True,
+                }
+
             debate_id = await start_slack_debate(
                 topic=args,
                 channel_id=channel_id,
                 user_id=user_id,
                 response_url=response_url,
                 attachments=attachments,
+                decision_integrity=decision_integrity,
             )
+
+            mode_label = "debate"
+            if subcommand == "plan":
+                mode_label = "decision plan"
+            elif subcommand == "implement":
+                mode_label = "implementation plan"
 
             return json_response(
                 {
                     "response_type": "in_channel",
-                    "text": f"Starting debate: _{args[:100]}_\n\nAgents are deliberating... (ID: {debate_id[:8]}...)",
+                    "text": (
+                        f"Starting {mode_label}: _{args[:100]}_\n\n"
+                        f"Agents are deliberating... (ID: {debate_id[:8]}...)"
+                    ),
                     "blocks": build_debate_message_blocks(
                         debate_id=debate_id,
                         task=args,
@@ -271,6 +293,8 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     "text": (
                         "*Aragora Commands*\n\n"
                         "`/aragora ask <question>` - Start a new debate\n"
+                        "`/aragora plan <question>` - Debate + implementation plan\n"
+                        "`/aragora implement <question>` - Debate + plan with context snapshot\n"
                         "`/aragora status` - Show active debates\n"
                         "`/aragora vote` - Vote in active debate\n"
                         "`/aragora leaderboard` - Show agent rankings\n"

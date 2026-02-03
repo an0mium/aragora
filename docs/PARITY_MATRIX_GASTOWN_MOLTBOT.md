@@ -40,10 +40,10 @@ Reference: https://github.com/steveyegge/gastown
 | **Hooks** | Pinned Bead per agent = persistent work queue in git worktree | No equivalent | **missing** | Core gap: Aragora has no git-worktree-backed per-agent task persistence |
 | **Beads** | Git-backed atomic work units (JSONL, prefix+5-char IDs) | `nomic/task_decomposer.py` tasks, Gauntlet receipts | partial | Work items exist but not git-backed JSONL with atomic tracking |
 | **Convoys** | Bundled work orders tracking multiple beads as peers | Nomic Loop cycles, debate session groups | partial | Grouping exists conceptually; no first-class convoy tracking |
-| **Wisps** | Ephemeral beads (not persisted to git) | `memory/continuum.py` fast tier | present | Fast-tier memory is transient by design |
+| **Wisps** | Ephemeral beads (not persisted to git) | `memory/continuum/core.py` fast tier | present | Fast-tier memory is transient by design |
 | **Molecules / Formulas** | Multi-step workflow templates (TOML-based) | `workflow/engine.py` + `workflow/patterns/` | present | Workflow engine + pattern library exists |
 | **Nudge** | Real-time inter-agent messaging | `debate/protocol_messages/` | partial | Protocol messages exist within debates; no cross-debate agent mail |
-| **Seance** | Query previous sessions for decisions/context | `memory/continuum.py` (cross-session), `knowledge/mound/` | present | Multi-tier memory + KnowledgeMound provide historical context |
+| **Seance** | Query previous sessions for decisions/context | `memory/continuum/core.py` (cross-session), `knowledge/mound/` | present | Multi-tier memory + KnowledgeMound provide historical context |
 | **Dashboard** | Web UI for convoy/agent/hook status | Debate streaming WebSocket events | partial | Real-time debate streaming; no workspace management dashboard |
 | **`gt` CLI** | Unified CLI for workspace operations | `scripts/self_develop.py`, `scripts/nomic_loop.py` | partial | CLI tools exist but not Gastown-style workspace commands |
 
@@ -131,7 +131,7 @@ These modules provide the foundation for both parity extensions:
 | ThreeTierWatchdog | `control_plane/watchdog.py` | Mechanical/Boot/Deacon monitoring tiers |
 | Coordinator | `control_plane/coordinator.py` | Unified agent/task operations and orchestration glue |
 | Workflow Engine | `workflow/engine.py` | DAG-based automation with reusable patterns |
-| Memory Continuum | `memory/continuum.py` | Multi-tier memory and retention policies |
+| Memory Continuum | `memory/continuum/core.py` | Multi-tier memory and retention policies |
 | Knowledge Mound | `knowledge/mound/` | Knowledge storage, retrieval, and evidence linking |
 
 ---

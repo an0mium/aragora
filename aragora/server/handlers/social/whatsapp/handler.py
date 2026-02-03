@@ -334,9 +334,15 @@ class WhatsAppHandler(BaseHandler):
         """Return agents list. Delegates to commands module."""
         return command_agents()
 
-    def _command_debate(self, from_number: str, profile_name: str, topic: str) -> None:
+    def _command_debate(
+        self,
+        from_number: str,
+        profile_name: str,
+        topic: str,
+        decision_integrity: dict[str, Any] | bool | None = None,
+    ) -> None:
         """Handle debate command. Delegates to commands module."""
-        command_debate(self, from_number, profile_name, topic)
+        command_debate(self, from_number, profile_name, topic, decision_integrity)
 
     def _command_gauntlet(self, from_number: str, profile_name: str, statement: str) -> None:
         """Handle gauntlet command. Delegates to commands module."""
@@ -437,6 +443,34 @@ class WhatsAppHandler(BaseHandler):
                 "whatsapp", from_number, from_number, profile_name, "debate", topic
             )
             command_debate(self, from_number, profile_name, topic)
+            return
+        elif lower_text.startswith("plan "):
+            record_command("whatsapp", "plan")
+            topic = text[5:].strip()
+            emit_command_received("whatsapp", from_number, from_number, profile_name, "plan", topic)
+            decision_integrity = {
+                "include_receipt": True,
+                "include_plan": True,
+                "include_context": False,
+                "plan_strategy": "single_task",
+                "notify_origin": True,
+            }
+            command_debate(self, from_number, profile_name, topic, decision_integrity)
+            return
+        elif lower_text.startswith("implement "):
+            record_command("whatsapp", "implement")
+            topic = text[10:].strip()
+            emit_command_received(
+                "whatsapp", from_number, from_number, profile_name, "implement", topic
+            )
+            decision_integrity = {
+                "include_receipt": True,
+                "include_plan": True,
+                "include_context": True,
+                "plan_strategy": "single_task",
+                "notify_origin": True,
+            }
+            command_debate(self, from_number, profile_name, topic, decision_integrity)
             return
         elif lower_text.startswith("gauntlet "):
             record_command("whatsapp", "gauntlet")

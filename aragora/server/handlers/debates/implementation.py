@@ -206,6 +206,7 @@ class ImplementationOperationsMixin:
         response_payload = package.to_dict()
 
         # Persist receipt and plan for later retrieval via existing endpoints
+        receipt_id = None
         if package.receipt is not None:
             receipt_id = _persist_receipt(package.receipt, debate_id)
             if receipt_id:
@@ -213,6 +214,50 @@ class ImplementationOperationsMixin:
 
         if package.plan is not None and not workflow_mode:
             _persist_plan(package.plan, debate_id)
+
+        # Optional Obsidian writeback for decision integrity packages
+        if os.environ.get("ARAGORA_OBSIDIAN_WRITEBACK", "0") == "1":
+            try:
+                from aragora.connectors.knowledge.obsidian import (
+                    ObsidianConfig,
+                    ObsidianConnector,
+                )
+
+                config = ObsidianConfig.from_env()
+                verification_payload = None
+                if receipt_id:
+                    try:
+                        from aragora.storage.receipt_store import get_receipt_store
+
+                        store = get_receipt_store()
+                        signature_result = store.verify_signature(receipt_id)
+                        integrity_result = store.verify_integrity(receipt_id)
+                        verification_payload = {
+                            "signature": signature_result.to_dict()
+                            if hasattr(signature_result, "to_dict")
+                            else signature_result,
+                            "integrity": integrity_result,
+                        }
+                    except Exception as exc:
+                        logger.debug("Receipt verification for Obsidian writeback failed: %s", exc)
+
+                if config is None:
+                    logger.debug("Obsidian writeback enabled but vault is not configured")
+                else:
+                    connector = ObsidianConnector(config)
+                    folder = os.environ.get(
+                        "ARAGORA_OBSIDIAN_WRITEBACK_FOLDER",
+                        "decisions",
+                    )
+                    run_async(
+                        connector.write_decision_integrity_package(
+                            package,
+                            folder=folder,
+                            verification=verification_payload,
+                        )
+                    )
+            except Exception as exc:
+                logger.debug("Obsidian writeback failed: %s", exc)
 
         # Workflow-based execution path (DecisionPlan + WorkflowEngine)
         if workflow_mode:
@@ -279,8 +324,8 @@ class ImplementationOperationsMixin:
                                 f"Permission denied: {decision.reason}",
                                 403,
                             )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning("Permission check for autonomous:approve failed: %s", e)
 
                 requested_by = getattr(user, "user_id", None) if user else "system"
                 changes = []
@@ -298,8 +343,8 @@ class ImplementationOperationsMixin:
                 risk_level_for_approval = risk_level
                 try:
                     risk_level_for_approval = plan.highest_risk_level.value
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Could not extract risk level from plan: %s", e)
 
                 approval_flow = get_approval_flow()
                 approval_request = run_async(

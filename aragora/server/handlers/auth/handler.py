@@ -154,6 +154,9 @@ class AuthHandler(SecureHandler):
         "/api/auth/invite",
         "/api/auth/check-invite",
         "/api/auth/accept-invite",
+        # SDK aliases for API key management
+        "/api/keys",
+        "/api/keys/*",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -165,6 +168,9 @@ class AuthHandler(SecureHandler):
         if normalized.startswith("/api/auth/sessions/"):
             return True
         if normalized.startswith("/api/auth/api-keys/"):
+            return True
+        # SDK alias: /api/keys/* -> /api/auth/api-keys/*
+        if normalized.startswith("/api/keys/"):
             return True
         return False
 
@@ -181,6 +187,12 @@ class AuthHandler(SecureHandler):
         """
         # Normalize path to handle v1 routes
         path = strip_version_prefix(path)
+
+        # Normalize SDK alias: /api/keys -> /api/auth/api-keys
+        if path == "/api/keys":
+            path = "/api/auth/api-keys"
+        elif path.startswith("/api/keys/"):
+            path = "/api/auth/api-keys/" + path[len("/api/keys/") :]
 
         # Determine HTTP method from handler
         method = method or (getattr(handler, "command", "GET") if handler else "GET")

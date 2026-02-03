@@ -95,6 +95,31 @@ def sensitive_endpoint(self, handler, user):
 - IP-based and user-based tracking
 - Automatic unlock after cooldown
 
+### SCIM 2.0 Provisioning
+**Location**: `aragora/auth/scim/`
+
+Automated user and group provisioning per RFC 7643/7644:
+- **User CRUD**: Create, read, update (PUT/PATCH), delete users
+- **Group CRUD**: Create, read, update (PUT/PATCH), delete groups with member management
+- **Filtering**: Full SCIM filter support (eq, ne, co, sw, ew, pr, gt, ge, lt, le, and, or)
+- **Pagination**: 1-indexed pagination with configurable page sizes (up to 1000)
+- **Soft Delete**: Users marked inactive by default (configurable hard delete)
+- **Bearer Token Auth**: Dedicated SCIM bearer token separate from API auth
+- **Multi-Tenant**: Optional tenant isolation via `SCIM_TENANT_ID`
+
+**Supported Identity Providers**:
+- Okta (SCIM 2.0 integration)
+- Azure Active Directory (Enterprise app provisioning)
+- OneLogin (SCIM provisioning)
+- Any SCIM 2.0 compliant IdP
+
+**Configuration**:
+```bash
+SCIM_BEARER_TOKEN=your-scim-token    # Required: Bearer token for SCIM endpoints
+SCIM_TENANT_ID=tenant-id             # Optional: Multi-tenant isolation
+SCIM_BASE_URL=https://api.example.com  # Optional: Base URL for resource locations
+```
+
 ---
 
 ## 2. Multi-Tenancy
@@ -358,7 +383,7 @@ Service Level Objective tracking:
 
 | Platform | Location | Capabilities |
 |----------|----------|--------------|
-| **Slack** | `aragora/connectors/chat/slack.py` | Messages, channels, threads, evidence collection |
+| **Slack** | `aragora/connectors/chat/slack/` | Messages, channels, threads, evidence collection |
 | **Discord** | `aragora/connectors/chat/discord.py` | Guilds, channels, DMs, reactions |
 | **Teams** | `aragora/connectors/chat/teams.py` | Teams, channels, meetings |
 | **Google Chat** | `aragora/connectors/chat/google_chat.py` | Spaces, messages |

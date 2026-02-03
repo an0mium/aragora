@@ -122,5 +122,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 267 (includes deprecated)
-- Last updated: 2026-01-27
+- Markdown files under `docs/`: 435 (includes deprecated)
+- Last updated: 2026-02-03

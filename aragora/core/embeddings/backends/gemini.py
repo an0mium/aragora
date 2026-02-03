@@ -2,8 +2,6 @@
 
 import asyncio
 import logging
-import os
-
 import aiohttp
 
 from aragora.core.embeddings.backends import EmbeddingBackend
@@ -38,9 +36,12 @@ class GeminiBackend(EmbeddingBackend):
             use_circuit_breaker: Whether to use circuit breaker
         """
         super().__init__(config, use_circuit_breaker)
-        self._api_key = (
-            config.api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        )
+        if config.api_key:
+            self._api_key = config.api_key
+        else:
+            from aragora.config.secrets import get_secret
+
+            self._api_key = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
         self._model = config.model or self.DEFAULT_MODEL
         self._timeout = aiohttp.ClientTimeout(total=config.timeout)
         self.dimension = 768  # Gemini text-embedding-004

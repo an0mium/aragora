@@ -612,8 +612,8 @@ class ERC8004Connector(BaseConnector):
 
         return _AwaitableValue(None)
 
-    def search_by_owner(self, owner: str, limit: int = 10) -> _AwaitableList:
-        """Search agents by owner address."""
+    def _search_by_owner_direct(self, owner: str, limit: int = 10) -> _AwaitableList:
+        """Search agents by owner address (direct contract call)."""
         results: list[BlockchainSearchResult] = []
         try:
             agents = self._get_identity_contract().get_agents_by_owner(owner)

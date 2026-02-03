@@ -84,9 +84,12 @@ HANDLER_MODULES: dict[str, str] = {
     "SchedulerHandler": "aragora.server.handlers.features",
     "SmartUploadHandler": "aragora.server.handlers.features",
     "UnifiedInboxHandler": "aragora.server.handlers.features",
+    "SharedInboxHandler": "aragora.server.handlers.shared_inbox",
     # features/gmail_* modules
     "GmailLabelsHandler": "aragora.server.handlers.features.gmail_labels",
     "GmailThreadsHandler": "aragora.server.handlers.features.gmail_threads",
+    # billing/ directory
+    "CostDashboardHandler": "aragora.server.handlers.billing",
     # costs/ directory
     "CostHandler": "aragora.server.handlers.costs",
     # Connector platform handlers (from features/)
@@ -349,6 +352,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "GmailIngestHandler",
     "GmailQueryHandler",
     "UnifiedInboxHandler",
+    "SharedInboxHandler",
     "EmailWebhooksHandler",
     "MemoryAnalyticsHandler",
     "GauntletSchemaHandler",
@@ -401,6 +405,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "TriggerHandler",
     "MonitoringHandler",
     "AutonomousLearningHandler",
+    "CostDashboardHandler",
     "CostHandler",
     "ExpenseHandler",
     "InvoiceHandler",

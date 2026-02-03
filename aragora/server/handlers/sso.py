@@ -167,9 +167,38 @@ class SSOHandler(SecureHandler):
             return result
         return self._to_legacy_result(result)
 
+    # Static ROUTES list for SDK audit visibility
+    ROUTES = [
+        "/auth/sso/login",
+        "/auth/sso/callback",
+        "/auth/sso/logout",
+        "/auth/sso/metadata",
+        "/auth/sso/status",
+        # SDK v2 aliases
+        "/api/v2/sso/login",
+        "/api/v2/sso/callback",
+        "/api/v2/sso/logout",
+        "/api/v2/sso/status",
+        "/api/v2/sso/metadata",
+        "/api/sso/login",
+        "/api/sso/callback",
+        "/api/sso/logout",
+        "/api/sso/status",
+        "/api/sso/metadata",
+    ]
+
+    @staticmethod
+    def _normalize_sso_path(path: str) -> str:
+        """Normalize SDK SSO paths to internal auth paths."""
+        import re
+
+        # Strip /api/v2/ or /api/ prefix and map to /auth/
+        normalized = re.sub(r"^/api(?:/v\d+)?/sso/", "/auth/sso/", path)
+        return normalized
+
     def routes(self) -> list[tuple[str, str, str]]:
         """Return SSO routes."""
-        return [
+        base_routes = [
             ("GET", "/auth/sso/login", "handle_login"),
             ("POST", "/auth/sso/login", "handle_login"),
             ("GET", "/auth/sso/callback", "handle_callback"),
@@ -179,6 +208,14 @@ class SSOHandler(SecureHandler):
             ("GET", "/auth/sso/metadata", "handle_metadata"),
             ("GET", "/auth/sso/status", "handle_status"),
         ]
+        # Add SDK v2 aliases
+        alias_routes = []
+        for method, path, handler_name in base_routes:
+            api_path = path.replace("/auth/sso/", "/api/v2/sso/")
+            alias_routes.append((method, api_path, handler_name))
+            api_unversioned = path.replace("/auth/sso/", "/api/sso/")
+            alias_routes.append((method, api_unversioned, handler_name))
+        return base_routes + alias_routes
 
     @rate_limit(requests_per_minute=10)
     async def handle_login(

@@ -886,6 +886,185 @@ class TestConsentDeleter:
             assert is_deleted is True
 
 
+# ============================================================================
+# Verification Callback Tests
+# ============================================================================
+
+
+class TestVerificationCallbacks:
+    """Tests for the verification callback system on GDPRDeletionScheduler."""
+
+    def _make_scheduler(self):
+        """Create a minimal scheduler for callback tests."""
+        cascade_manager = DeletionCascadeManager()
+        verifier = DataErasureVerifier(cascade_manager)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = DeletionStore(storage_path=Path(tmpdir) / "test.json")
+            scheduler = GDPRDeletionScheduler(
+                store=store,
+                cascade_manager=cascade_manager,
+                verifier=verifier,
+            )
+        return scheduler
+
+    def _sample_data(self):
+        """Return sample callback data dict."""
+        return {
+            "request_id": "req-cb-001",
+            "user_id": "user-cb-123",
+            "entities_deleted": {"consent_records": 3},
+            "certificate_id": "cert-cb-001",
+            "verified_at": "2025-01-01T00:00:00+00:00",
+        }
+
+    def test_register_callback(self):
+        """Test registering a single callback."""
+        scheduler = self._make_scheduler()
+        cb = MagicMock()
+
+        scheduler.register_verification_callback(cb)
+
+        assert cb in scheduler._verification_callbacks
+
+    def test_register_multiple_callbacks(self):
+        """Test registering multiple callbacks."""
+        scheduler = self._make_scheduler()
+        cb1 = MagicMock()
+        cb2 = MagicMock()
+
+        scheduler.register_verification_callback(cb1)
+        scheduler.register_verification_callback(cb2)
+
+        assert len(scheduler._verification_callbacks) == 2
+        assert cb1 in scheduler._verification_callbacks
+        assert cb2 in scheduler._verification_callbacks
+
+    def test_fire_callbacks_sync(self):
+        """Test firing a synchronous callback."""
+        scheduler = self._make_scheduler()
+        cb = MagicMock(return_value=None)
+        scheduler.register_verification_callback(cb)
+
+        data = self._sample_data()
+        scheduler._fire_verification_callbacks(data)
+
+        cb.assert_called_once_with(data)
+
+    def test_fire_callbacks_async(self):
+        """Test firing an async callback creates a task on the running loop."""
+        scheduler = self._make_scheduler()
+        cb = AsyncMock()
+        scheduler.register_verification_callback(cb)
+
+        mock_loop = MagicMock()
+        data = self._sample_data()
+
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
+            scheduler._fire_verification_callbacks(data)
+
+        cb.assert_called_once_with(data)
+        mock_loop.create_task.assert_called_once()
+
+    def test_fire_callbacks_no_running_loop(self):
+        """Test async callback when no running loop exists does not raise."""
+        scheduler = self._make_scheduler()
+        cb = AsyncMock()
+        scheduler.register_verification_callback(cb)
+
+        data = self._sample_data()
+        # No running loop => asyncio.get_running_loop raises RuntimeError internally.
+        # The method should catch it silently.
+        scheduler._fire_verification_callbacks(data)
+
+    def test_fire_callbacks_exception_caught(self):
+        """Test that a callback raising an exception does not propagate."""
+        scheduler = self._make_scheduler()
+        cb = MagicMock(side_effect=ValueError("boom"))
+        scheduler.register_verification_callback(cb)
+
+        data = self._sample_data()
+        # Should not raise
+        scheduler._fire_verification_callbacks(data)
+
+        cb.assert_called_once_with(data)
+
+    def test_fire_multiple_callbacks(self):
+        """Test firing multiple sync callbacks in order."""
+        scheduler = self._make_scheduler()
+        cb1 = MagicMock(return_value=None)
+        cb2 = MagicMock(return_value=None)
+        scheduler.register_verification_callback(cb1)
+        scheduler.register_verification_callback(cb2)
+
+        data = self._sample_data()
+        scheduler._fire_verification_callbacks(data)
+
+        cb1.assert_called_once_with(data)
+        cb2.assert_called_once_with(data)
+
+    def test_no_callbacks_registered(self):
+        """Test firing with no registered callbacks does not raise."""
+        scheduler = self._make_scheduler()
+
+        data = self._sample_data()
+        # Should complete without error
+        scheduler._fire_verification_callbacks(data)
+
+    def test_callback_data_shape(self):
+        """Test that callback receives dict with all expected keys."""
+        scheduler = self._make_scheduler()
+        received = {}
+
+        def capture(data):
+            received.update(data)
+
+        scheduler.register_verification_callback(capture)
+
+        data = self._sample_data()
+        scheduler._fire_verification_callbacks(data)
+
+        expected_keys = {
+            "request_id",
+            "user_id",
+            "entities_deleted",
+            "certificate_id",
+            "verified_at",
+        }
+        assert set(received.keys()) == expected_keys
+        assert received["request_id"] == "req-cb-001"
+        assert received["user_id"] == "user-cb-123"
+        assert received["entities_deleted"] == {"consent_records": 3}
+        assert received["certificate_id"] == "cert-cb-001"
+        assert received["verified_at"] == "2025-01-01T00:00:00+00:00"
+
+    def test_deletion_verified_at_field(self):
+        """Test deletion_verified_at field on DeletionRequest."""
+        now = datetime.now(timezone.utc)
+        request = DeletionRequest(
+            request_id="req-vat-001",
+            user_id="user-vat-123",
+            scheduled_for=now + timedelta(days=30),
+            reason="Test verified_at",
+            created_at=now,
+        )
+
+        # Defaults to None
+        assert request.deletion_verified_at is None
+
+        # Set it
+        verified_time = datetime.now(timezone.utc)
+        request.deletion_verified_at = verified_time
+
+        # Verify it serializes in to_dict()
+        data = request.to_dict()
+        assert data["deletion_verified_at"] == verified_time.isoformat()
+
+        # Verify None serializes as None
+        request.deletion_verified_at = None
+        data = request.to_dict()
+        assert data["deletion_verified_at"] is None
+
+
 __all__ = [
     "TestDeletionRequest",
     "TestLegalHold",
@@ -896,4 +1075,5 @@ __all__ = [
     "TestLegalHoldManager",
     "TestDeletionIntegration",
     "TestConsentDeleter",
+    "TestVerificationCallbacks",
 ]

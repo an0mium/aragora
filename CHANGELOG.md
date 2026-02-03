@@ -1,6 +1,35 @@
 # Changelog
 
 
+## [Unreleased]
+
+### Features
+- Knowledge Mound: compliance, debate, and workflow adapters with factory registration
+- Security Debate API: multi-agent vulnerability debate at `/api/v1/audit/security/debate`
+- Security Audit Scheduling: cron-based security scans with debate on critical findings
+- CI Security Pipeline: 6-job workflow (CodeQL, Bandit, Aragora Scanner, dependency audit, RBAC, secrets)
+- Server handlers: auth, payments, SLO monitoring, selection role assignment improvements
+- Privacy: deletion verification callbacks for GDPR compliance
+
+### Improvements
+- OpenClaw handler refactoring with shared base class
+- Decision system modularization (routing, models, integrity packages)
+- Generic store abstraction layer
+- Gauntlet worker ELO feedback integration
+
+### Testing
+- 135+ new tests across security, scheduler, validators, and handler modules
+- Context strategy and similarity backend coverage
+- RBAC handler enforcement expansion
+- Privacy deletion callback tests
+
+### Code Quality
+- F-string logger anti-patterns fixed across handler and worker files
+- OTel instrumentation for Nomic Loop phase transitions
+- Documentation updated (STATUS.md, API_REFERENCE.md)
+
+---
+
 ## [v2.4.1] - 2026-01-31
 
 ### Security

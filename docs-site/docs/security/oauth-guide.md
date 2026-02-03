@@ -91,7 +91,7 @@ http://localhost:3000/auth/callback#access_token=xxx&refresh_token=xxx&token_typ
 ## TypeScript SDK Usage
 
 ```typescript
-import { AragoraClient } from 'aragora-js';
+import { createClient } from '@aragora/sdk';
 
 // Redirect to OAuth
 window.location.href = 'http://localhost:8080/api/auth/oauth/google';
@@ -107,9 +107,9 @@ const tokens = {
 };
 
 // Use tokens with client
-const client = new AragoraClient({
+const client = createClient({
   baseUrl: 'http://localhost:8080',
-  accessToken: tokens.accessToken,
+  apiKey: tokens.accessToken,
 });
 ```
 

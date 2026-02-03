@@ -110,6 +110,10 @@ def extract_ts_endpoints(sdk_path: Path) -> list[Endpoint]:
                     # Normalize path (handle template literals)
                     path = re.sub(r"\$\{[^}]+\}", "*", path)
                     path = re.sub(r"`", "", path)
+                    # Remove trailing wildcard that's a query param interpolation
+                    # e.g., /api/v1/documents* -> /api/v1/documents
+                    if path.endswith("*") and not path.endswith("/*"):
+                        path = path[:-1]
 
                     if path.startswith("/api"):
                         endpoints.append(
@@ -204,8 +208,10 @@ def extract_handler_routes(aragora_path: Path) -> list[str]:
         print(f"Warning: Handlers dir not found: {handlers_dir}")
         return routes
 
-    # Pattern to match ROUTES arrays
-    routes_pattern = re.compile(r"ROUTES\s*=\s*\[(.*?)\]", re.DOTALL)
+    # Pattern to match ROUTES/ROUTE_LIST arrays
+    routes_pattern = re.compile(
+        r"(?:ROUTES|ROUTE_LIST)\s*(?::\s*\w+\[?\w*\]?)?\s*=\s*\[(.*?)\]", re.DOTALL
+    )
     route_string_pattern = re.compile(r'["\']([^"\']+)["\']')
 
     # Pattern to match @api_endpoint(...) decorators with path= argument
@@ -215,6 +221,11 @@ def extract_handler_routes(aragora_path: Path) -> list[str]:
         re.DOTALL,
     )
     api_endpoint_path_pattern = re.compile(r'path\s*=\s*["\']([^"\']+)["\']')
+
+    # Pattern to match app.router.add_* calls
+    router_add_pattern = re.compile(
+        r'app\.router\.add_(?:get|post|put|delete|patch)\s*\(\s*[f]?["\']([^"\']+)["\']',
+    )
 
     for py_file in handlers_dir.rglob("*.py"):
         content = py_file.read_text(errors="ignore")
@@ -234,6 +245,14 @@ def extract_handler_routes(aragora_path: Path) -> list[str]:
                 route = path_match.group(1)
                 if route.startswith("/api"):
                     routes.append(route)
+
+        # Extract routes from app.router.add_* calls
+        for router_match in router_add_pattern.finditer(content):
+            route = router_match.group(1)
+            # Normalize aiohttp path params to wildcards
+            route = re.sub(r"\{[^}]+\}", "*", route)
+            if route.startswith("/api"):
+                routes.append(route)
 
     # Also check handler_registry for PREFIX_PATTERNS
     registry_dir = aragora_path / "server" / "handler_registry"

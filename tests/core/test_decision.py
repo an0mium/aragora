@@ -1058,6 +1058,70 @@ class TestDecisionRouterRouteMethods:
         assert result.success is True
         assert evidence_store.search_evidence("Requirement X")
 
+    @pytest.mark.asyncio
+    async def test_route_to_debate_builds_decision_integrity(self, monkeypatch):
+        """Decision integrity package is built when enabled."""
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        # Stub agent lookup
+        monkeypatch.setattr(
+            "aragora.agents.get_agents_by_names",
+            lambda _agents=None: [],
+        )
+
+        class DummyDebateResult:
+            debate_id = "debate-123"
+            task = "Design a cache"
+            final_answer = "Use LRU"
+            confidence = 0.9
+            consensus_reached = True
+            rounds_used = 1
+            participants = ["agent-a"]
+            metadata = {"source": "test"}
+
+            def to_dict(self):
+                return {
+                    "debate_id": self.debate_id,
+                    "task": self.task,
+                    "final_answer": self.final_answer,
+                    "confidence": self.confidence,
+                    "consensus_reached": self.consensus_reached,
+                    "rounds_used": self.rounds_used,
+                    "participants": self.participants,
+                    "metadata": self.metadata,
+                }
+
+        class DummyArena:
+            def __init__(self, environment, agents, protocol, **_kwargs):
+                pass
+
+            async def run(self):
+                return DummyDebateResult()
+
+        router = DecisionRouter(debate_engine=DummyArena, enable_caching=False)
+
+        request = DecisionRequest(
+            content="Implement a cache",
+            decision_type=DecisionType.DEBATE,
+            config=DecisionConfig(
+                rounds=1,
+                agents=[],
+                decision_integrity={"include_plan": True},
+            ),
+        )
+
+        package_payload = {"debate_id": "debate-123", "plan": {"tasks": []}}
+
+        with patch(
+            "aragora.pipeline.decision_integrity.build_decision_integrity_package",
+            AsyncMock(return_value=SimpleNamespace(to_dict=lambda: package_payload)),
+        ):
+            result = await router.route(request)
+
+        assert result.success is True
+        assert result.decision_integrity == package_payload
+
 
 # ===========================================================================
 # Test: Decision Router - Caching and Deduplication

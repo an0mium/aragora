@@ -18,7 +18,7 @@ A single-tier approach would either:
 We implemented a **four-tier memory continuum** with differentiated TTLs:
 
 ### Tier Structure
-Located in `aragora/memory/continuum.py`:
+Located in `aragora/memory/continuum/core.py`:
 
 | Tier | TTL | Purpose | Storage |
 |------|-----|---------|---------|
@@ -62,7 +62,7 @@ Located in `aragora/memory/continuum.py`:
 - Redis dependency for Medium tier at scale
 
 ## References
-- `aragora/memory/continuum.py` - Tier implementation
+- `aragora/memory/continuum/core.py` - Tier implementation
 - `aragora/memory/store.py` - CritiqueStore
 - `aragora/memory/consensus.py` - ConsensusMemory
 - `docs/MEMORY_TIERS.md` - Tier documentation

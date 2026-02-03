@@ -371,8 +371,8 @@ class HTTPClientPool:
             finally:
                 try:
                     await client.aclose()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed to close async HTTP client: %s", e)
             return
 
         start_time = time.time()

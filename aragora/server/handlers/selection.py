@@ -83,6 +83,14 @@ class SelectionHandler(BaseHandler):
         "/api/v1/selection/score",
         "/api/v1/selection/team",
         "/api/v1/team-selection",
+        # SDK agent-selection aliases
+        "/api/v1/agent-selection/plugins",
+        "/api/v1/agent-selection/defaults",
+        "/api/v1/agent-selection/score",
+        "/api/v1/agent-selection/best",
+        "/api/v1/agent-selection/select-team",
+        "/api/v1/agent-selection/assign-roles",
+        "/api/v1/agent-selection/history",
     ]
 
     # Routes with path parameters
@@ -91,6 +99,10 @@ class SelectionHandler(BaseHandler):
         "/api/v1/selection/team-selectors/",
         "/api/v1/selection/role-assigners/",
     ]
+
+    def _normalize_path(self, path: str) -> str:
+        """Normalize agent-selection paths to selection paths."""
+        return path.replace("/agent-selection/", "/selection/")
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -107,10 +119,15 @@ class SelectionHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for selection endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # Normalize agent-selection alias paths
+        path = self._normalize_path(path)
+
         if path == "/api/v1/selection/plugins":
             return self._list_plugins()
         if path == "/api/v1/selection/defaults":
             return self._get_defaults()
+        if path == "/api/v1/selection/history":
+            return self._get_history(query_params)
         if path.startswith("/api/v1/selection/scorers/"):
             name = path.split("/")[-1]
             return self._get_scorer(name)
@@ -125,10 +142,19 @@ class SelectionHandler(BaseHandler):
     @require_permission("selection:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
-        if path == "/api/v1/selection/score":
+        # Normalize agent-selection alias paths
+        path = self._normalize_path(path)
+
+        if path in ("/api/v1/selection/score", "/api/v1/selection/best"):
             return self._score_agents(handler)
-        if path in ("/api/v1/selection/team", "/api/v1/team-selection"):
+        if path in (
+            "/api/v1/selection/team",
+            "/api/v1/team-selection",
+            "/api/v1/selection/select-team",
+        ):
             return self._select_team(handler)
+        if path == "/api/v1/selection/assign-roles":
+            return self._assign_roles(handler)
         return None
 
     @handle_errors("list plugins")
@@ -373,6 +399,63 @@ class SelectionHandler(BaseHandler):
                     "team_selector": team_selector.name,
                     "role_assigner": role_assigner.name,
                 },
+            }
+        )
+
+    @handle_errors("get selection history")
+    def _get_history(self, query_params: dict) -> HandlerResult:
+        """Get agent selection history."""
+        limit = int(query_params.get("limit", 20))
+        offset = int(query_params.get("offset", 0))
+        return json_response(
+            {
+                "selections": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
+
+    @handle_errors("assign roles")
+    def _assign_roles(self, handler: Any) -> HandlerResult:
+        """Assign roles to a list of agents for a task."""
+        try:
+            body = self._get_json_body(handler)
+        except (json.JSONDecodeError, ValueError):
+            return error_response("Invalid JSON body", 400)
+
+        agent_names = body.get("agents", [])
+        task_description = body.get("task_description")
+        if not task_description or not agent_names:
+            return error_response("task_description and agents are required", 400)
+
+        plugin_registry = get_selection_registry()
+        try:
+            role_assigner = plugin_registry.get_role_assigner(body.get("role_assigner"))
+        except KeyError as e:
+            return error_response(str(e), 400)
+
+        agent_pool = _create_agent_pool()
+        agents = [agent_pool[n] for n in agent_names if n in agent_pool]
+        if not agents:
+            return error_response("No valid agents found", 400)
+
+        detector = DomainDetector()
+        primary_domain = body.get("primary_domain") or detector.get_primary_domain(task_description)
+
+        requirements = TaskRequirements(
+            task_id=f"roles-{hash(task_description) % 10000:04d}",
+            description=task_description[:500],
+            primary_domain=primary_domain,
+        )
+        context = SelectionContext(agent_pool=agent_pool)
+        roles = role_assigner.assign_roles(agents, requirements, context)
+
+        return json_response(
+            {
+                "task_id": requirements.task_id,
+                "assignments": [{"agent": name, "role": role} for name, role in roles.items()],
+                "role_assigner": role_assigner.name,
             }
         )
 

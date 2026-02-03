@@ -54,7 +54,7 @@ The system draws inspiration from termite colonies, where specialized individual
 
 | System | Purpose | File |
 |--------|---------|------|
-| ContinuumMemory | Multi-timescale learning (fast/medium/slow/glacial) | `aragora/memory/continuum.py` |
+| ContinuumMemory | Multi-timescale learning (fast/medium/slow/glacial) | `aragora/memory/continuum/core.py` |
 | ConsensusMemory | Settled vs contested topic tracking | `aragora/memory/consensus.py` |
 | MemoryStreams | Per-agent persistent context | `aragora/memory/streams.py` |
 | SemanticRetriever | Embedding-based similarity search | `aragora/memory/semantic.py` |

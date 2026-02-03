@@ -199,6 +199,7 @@ class RelationshipHandler(BaseHandler):
         "/api/v1/relationships/summary",
         "/api/v1/relationships/graph",
         "/api/v1/relationships/stats",
+        "/api/v1/relationship/*/*",
     ]
 
     def can_handle(self, path: str) -> bool:

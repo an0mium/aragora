@@ -494,8 +494,8 @@ class WebConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Mock side_effect normalization skipped: %s", e)
 
                 while redirect_count <= max_redirects:
                     response = await client.get(

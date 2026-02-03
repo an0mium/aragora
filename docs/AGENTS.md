@@ -2,11 +2,15 @@
 
 Aragora supports multiple agent backends for vetted decisionmaking. This page summarizes
 the agent families and how to select them. For the full up-to-date catalog,
-see `AGENTS.md` at the repository root.
+see `AGENTS.md` at the repository root or call `list_available_agents()` at runtime.
+
+**Allowlist note:** Server-side validation uses `ALLOWED_AGENT_TYPES` in
+`aragora/config/settings.py`. Some registered agents are opt-in and not
+allowlisted by default.
 
 ## Agent Families
 
-### CLI Agents
+### CLI Agents (allowlisted)
 
 Use external CLI tools with local credentials:
 
@@ -17,14 +21,25 @@ Use external CLI tools with local credentials:
 
 Call provider APIs directly:
 
-- `anthropic-api`, `openai-api`, `gemini`, `grok`, `mistral-api`, `codestral`,
-  `ollama`, `kimi`
+- Allowlisted: `anthropic-api`, `openai-api`, `gemini`, `grok`, `ollama`
+- Opt-in: `mistral-api`, `codestral`, `lm-studio`, `kimi-legacy`
+- Fine-tuned (opt-in): `tinker`, `tinker-llama`, `tinker-qwen`, `tinker-deepseek`
 
-### OpenRouter Agents
+### OpenRouter Agents (allowlisted)
 
 OpenRouter-backed unified access:
 
-- `deepseek`, `deepseek-r1`, `llama`, `mistral`, `qwen`, `qwen-max`, `yi`
+- `deepseek`, `deepseek-r1`, `llama`, `mistral`, `qwen`, `qwen-max`, `yi`,
+  `kimi`, `kimi-thinking`, `llama4-maverick`, `llama4-scout`, `sonar`,
+  `command-r`, `jamba`, `openrouter`
+
+### External Framework Proxies (allowlisted)
+
+- `external-framework`, `openclaw`, `crewai`, `autogen`, `langgraph`
+
+### Built-In
+
+- `demo`
 
 ## Choosing Agents
 

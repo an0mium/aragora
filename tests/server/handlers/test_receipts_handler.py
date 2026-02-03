@@ -328,6 +328,10 @@ class TestReceiptsHandlerRouting:
         """Test can_handle for verify endpoint."""
         assert receipts_handler.can_handle("/api/v2/receipts/receipt-001/verify", "POST") is True
 
+    def test_can_handle_verify_get(self, receipts_handler):
+        """Test can_handle for combined verify endpoint."""
+        assert receipts_handler.can_handle("/api/v2/receipts/receipt-001/verify", "GET") is True
+
     def test_can_handle_stats(self, receipts_handler):
         """Test can_handle for stats endpoint."""
         assert receipts_handler.can_handle("/api/v2/receipts/stats", "GET") is True
@@ -596,6 +600,26 @@ class TestReceiptsHandlerVerification:
         """Test verify integrity returns 404."""
         result = await receipts_handler.handle("POST", "/api/v2/receipts/nonexistent/verify")
 
+        assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_combined(self, receipts_handler, mock_receipt_store):
+        """Test combined verify endpoint (signature + integrity)."""
+        mock_receipt_store.save({"receipt_id": "receipt-001", "gauntlet_id": "gauntlet-001"})
+        mock_receipt_store.receipts["receipt-001"].signature = "sig=="
+        mock_receipt_store.receipts["receipt-001"].signature_algorithm = "HMAC-SHA256"
+
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/receipt-001/verify")
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["signature"]["signature_valid"] is True
+        assert data["integrity"]["integrity_valid"] is True
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_combined_not_found(self, receipts_handler):
+        """Test combined verify returns 404."""
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/nonexistent/verify")
         assert result.status_code == 404
 
     @pytest.mark.asyncio

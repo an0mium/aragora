@@ -30,6 +30,8 @@ class CommandsMixin:
 
 *Core Commands:*
 `/aragora debate "topic"` - Start a multi-agent debate on a topic
+`/aragora plan "topic"` - Debate with an implementation plan
+`/aragora implement "topic"` - Debate with plan + context snapshot
 `/aragora ask "question"` - Quick Q&A without full debate
 `/aragora gauntlet "statement"` - Run adversarial stress-test validation
 

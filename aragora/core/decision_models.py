@@ -192,6 +192,17 @@ class DecisionConfig:
     include_evidence: bool = True
     evidence_sources: list[str] = field(default_factory=list)
 
+    # Decision integrity / implementation planning
+    # Example:
+    # decision_integrity = {
+    #   "include_receipt": True,
+    #   "include_plan": True,
+    #   "include_context": False,
+    #   "plan_strategy": "single_task",
+    #   "notify_origin": False,
+    # }
+    decision_integrity: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -213,11 +224,20 @@ class DecisionConfig:
             "use_knowledge_mound": self.use_knowledge_mound,
             "include_evidence": self.include_evidence,
             "evidence_sources": self.evidence_sources,
+            "decision_integrity": self.decision_integrity,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DecisionConfig":
         """Create from dictionary."""
+        raw_decision_integrity = data.get("decision_integrity", {}) or {}
+        if isinstance(raw_decision_integrity, dict):
+            decision_integrity = raw_decision_integrity
+        elif isinstance(raw_decision_integrity, bool):
+            decision_integrity = {} if raw_decision_integrity else {}
+        else:
+            decision_integrity = {}
+
         return cls(
             timeout_seconds=data.get("timeout_seconds", 300),
             max_agents=data.get("max_agents", _DEFAULT_DECISION_MAX_AGENTS),
@@ -237,6 +257,7 @@ class DecisionConfig:
             use_knowledge_mound=data.get("use_knowledge_mound", True),
             include_evidence=data.get("include_evidence", True),
             evidence_sources=data.get("evidence_sources", []),
+            decision_integrity=decision_integrity,
         )
 
 
@@ -392,6 +413,14 @@ class DecisionRequest:
         )
         attachments = kwargs.pop("attachments", []) or []
         evidence = kwargs.pop("evidence", []) or []
+        config = kwargs.pop("config", None) or kwargs.pop("decision_config", None)
+        decision_integrity = kwargs.pop("decision_integrity", None)
+        if config is None and decision_integrity is not None:
+            if isinstance(decision_integrity, bool):
+                decision_integrity = {} if decision_integrity else {}
+            elif not isinstance(decision_integrity, dict):
+                decision_integrity = {}
+            config = DecisionConfig(decision_integrity=decision_integrity or {})
         source = InputSource(platform.lower())
 
         response_channel = ResponseChannel(
@@ -406,15 +435,19 @@ class DecisionRequest:
             metadata=kwargs,
         )
 
-        return cls(
-            content=message,
-            source=source,
-            response_channels=[response_channel],
-            context=context,
-            documents=documents,
-            attachments=attachments,
-            evidence=evidence,
-        )
+        request_kwargs = {
+            "content": message,
+            "source": source,
+            "response_channels": [response_channel],
+            "context": context,
+            "documents": documents,
+            "attachments": attachments,
+            "evidence": evidence,
+        }
+        if config is not None:
+            request_kwargs["config"] = config
+
+        return cls(**request_kwargs)
 
     @classmethod
     def from_http(
@@ -445,6 +478,7 @@ class DecisionRequest:
                     rounds=body.get("rounds", _DEFAULT_DECISION_ROUNDS),
                     consensus=body.get("consensus", _DEFAULT_DECISION_CONSENSUS),
                     timeout_seconds=body.get("timeout", 300),
+                    decision_integrity=body.get("decision_integrity", {}) or {},
                 ),
                 documents=documents,
                 attachments=body.get("attachments", []),
@@ -577,6 +611,7 @@ class DecisionResult:
     debate_result: Any | None = None  # DebateResult
     workflow_result: Any | None = None  # WorkflowResult
     gauntlet_result: Any | None = None  # GauntletResult
+    decision_integrity: dict[str, Any] | None = None  # Receipt + plan package
 
     # Status
     success: bool = True
@@ -584,7 +619,7 @@ class DecisionResult:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result = {
             "request_id": self.request_id,
             "decision_type": self.decision_type.value,
             "answer": self.answer,
@@ -595,9 +630,13 @@ class DecisionResult:
             "agent_contributions": self.agent_contributions,
             "duration_seconds": self.duration_seconds,
             "completed_at": self.completed_at.isoformat(),
+            "debate_id": self.debate_id,
             "success": self.success,
             "error": self.error,
         }
+        if self.decision_integrity is not None:
+            result["decision_integrity"] = self.decision_integrity
+        return result
 
 
 __all__ = [

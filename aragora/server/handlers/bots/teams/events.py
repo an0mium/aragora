@@ -146,6 +146,8 @@ class TeamsEventProcessor:
             known_commands = {
                 "debate",
                 "ask",
+                "plan",
+                "implement",
                 "status",
                 "help",
                 "leaderboard",
@@ -190,9 +192,24 @@ class TeamsEventProcessor:
         logger.info(f"Teams command: {command} {args[:50]}...")
         thread_id = activity.get("replyToId")
 
-        if command in ("debate", "ask"):
+        if command in ("debate", "ask", "plan", "implement"):
+            decision_integrity = None
+            if command in ("plan", "implement"):
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": True,
+                    "include_context": command == "implement",
+                    "plan_strategy": "single_task",
+                    "notify_origin": True,
+                }
             return await self._cmd_debate(
-                args, conversation_id, user_id, service_url, thread_id, activity
+                args,
+                conversation_id,
+                user_id,
+                service_url,
+                thread_id,
+                activity,
+                decision_integrity=decision_integrity,
             )
         elif command == "status":
             return await self._cmd_status(activity)
@@ -215,6 +232,7 @@ class TeamsEventProcessor:
         service_url: str,
         thread_id: str | None,
         activity: dict[str, Any],
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> dict[str, Any]:
         """Handle debate command - start a new multi-agent debate."""
         # RBAC: Check permission to create debates
@@ -246,6 +264,7 @@ class TeamsEventProcessor:
             service_url=service_url,
             thread_id=thread_id,
             attachments=attachments,
+            decision_integrity=decision_integrity,
         )
 
         # Build and send the debate card
@@ -258,7 +277,10 @@ class TeamsEventProcessor:
             include_vote_buttons=False,  # Voting enabled after round 1
         )
 
-        await self.bot.send_card(activity, card, f"Starting debate on: {topic[:100]}...")
+        label = "debate"
+        if decision_integrity:
+            label = "implementation plan"
+        await self.bot.send_card(activity, card, f"Starting {label} on: {topic[:100]}...")
 
         logger.info(f"Started debate {debate_id} from Teams user {user_id}")
         audit_data(
@@ -344,6 +366,8 @@ class TeamsEventProcessor:
 
 @Aragora **debate** <topic> - Start a multi-agent debate
 @Aragora **ask** <topic> - Alias for debate
+@Aragora **plan** <topic> - Debate + implementation plan
+@Aragora **implement** <topic> - Debate + plan with context snapshot
 @Aragora **status** - Check system status
 @Aragora **agents** - List available AI agents
 @Aragora **leaderboard** - Show agent rankings

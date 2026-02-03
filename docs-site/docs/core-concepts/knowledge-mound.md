@@ -490,6 +490,9 @@ await adapter.sync()  # Sync critique patterns to mound
 
 The Knowledge Mound supports bidirectional integration with all major subsystems through specialized adapters. These adapters enable:
 
+- **28 registered adapters** wired via `aragora/knowledge/mound/adapters/factory.py`
+- **Experimental/auxiliary modules** present but not auto-registered (`extraction`, `nomic_cycle`, `openclaw`, `ranking`)
+
 - **Data Flow IN**: Subsystems automatically sync relevant data to KM
 - **Data Flow OUT**: Subsystems query KM for existing knowledge before creating new data
 - **WebSocket Events**: Real-time dashboard updates when data syncs to KM
@@ -502,6 +505,7 @@ The Knowledge Mound supports bidirectional integration with all major subsystems
 | `BeliefAdapter` | Belief Network | Converged beliefs with confidence >= 0.8, Cruxes | Related beliefs, historical cruxes |
 | `InsightsAdapter` | Insight Store, Flip Detector | Insights, Flip events | Similar patterns |
 | `EloAdapter` | ELO System, Team Selector | Agent ratings, match history | Skill history, domain expertise |
+| `PerformanceAdapter` | ELO + Ranking | Unified performance + expertise | Domain expertise, calibration |
 | `PulseAdapter` | Pulse Scheduler | Trending topics, debate outcomes | Past debates on topic |
 | `CostAdapter` | Cost Tracker | Budget alerts, cost anomalies | Cost patterns, alert history |
 
@@ -526,6 +530,7 @@ from aragora.knowledge.mound.adapters import (
     BeliefAdapter,
     InsightsAdapter,
     EloAdapter,
+    PerformanceAdapter,
     PulseAdapter,
     CostAdapter,
 )
@@ -985,6 +990,10 @@ When a debate completes, writes occur in this deterministic order:
 │     ├── priority=40:  elo_adapter                            │
 │     ├── priority=30:  pulse_adapter                          │
 │     └── priority=10:  cost_adapter (opt-in)                  │
+
+Note: The diagram above shows core adapters. The complete registry (including workflow,
+compliance, receipt, and other adapters) is defined in
+`aragora/knowledge/mound/adapters/factory.py`.
 │                                                              │
 │     Reverse Sync (KM → Source) same priority order           │
 └──────────────────────────────────────────────────────────────┘

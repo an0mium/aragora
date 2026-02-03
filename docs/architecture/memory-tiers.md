@@ -125,7 +125,7 @@ rather than starting from scratch.
 
 | Module | Path | Role |
 |--------|------|------|
-| ContinuumMemory | `aragora/memory/continuum.py` | Four-tier implementation |
+| ContinuumMemory | `aragora/memory/continuum/core.py` | Four-tier implementation |
 | MemoryCoordinator | `aragora/memory/coordinator.py` | Atomic writes |
 | ConsensusMemory | `aragora/memory/consensus.py` | Historical outcomes |
 | MemoryManager | `aragora/debate/memory_manager.py` | Debate-level coordination |

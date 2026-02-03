@@ -11,7 +11,7 @@ persistent, and improvable across debates, workflows, and channels.
 ## Core Components
 
 - **ContinuumMemory**: Tiered memory with promotion/demotion rules and
-  retention controls. (`aragora/memory/continuum.py`)
+  retention controls. (`aragora/memory/continuum/core.py`)
 - **ConsensusMemory**: Stores consensus outcomes, dissent, and similar-topic
   retrieval. (`aragora/memory/consensus.py`)
 - **MemoryStream**: Per-agent event timelines used for episodic recall.

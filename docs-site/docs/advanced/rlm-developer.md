@@ -61,6 +61,19 @@ export ARAGORA_RLM_MODE=auto
 | Real-time streaming | Partial | Adds latency for compression |
 | Document summarization | Yes | Hierarchical abstraction |
 
+## Codebase Context (10M token scale)
+
+Aragora can build a REPL-queryable codebase context using TRUE RLM. This
+is used by Nomic, and can also be enabled across the codebase for internal
+Aragora topics.
+
+Key settings:
+
+- `ARAGORA_CONTEXT_USE_CODEBASE` (default: true for Aragora topics)
+- `ARAGORA_CODEBASE_MAX_CONTEXT_BYTES` (overrides 10M-token byte cap)
+- `ARAGORA_CODEBASE_INCLUDE_TESTS` (include tests in the index)
+- `ARAGORA_CODEBASE_RLM_FULL_CORPUS` (enable full-corpus REPL summary)
+
 ## RLM Modes
 
 ### TRUE_RLM Mode

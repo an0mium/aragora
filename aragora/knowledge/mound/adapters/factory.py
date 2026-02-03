@@ -398,6 +398,51 @@ def _init_specs() -> None:
         )
     )
 
+    # Debate adapter (full debate outcomes → Knowledge Mound)
+    from .debate_adapter import DebateAdapter
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="debate",
+            adapter_class=DebateAdapter,
+            required_deps=[],  # Accepts DebateResult objects directly
+            forward_method="sync_to_km",
+            reverse_method=None,
+            priority=88,  # High priority - core debate persistence
+            config_key="km_debate_adapter",
+        )
+    )
+
+    # Workflow adapter (workflow executions → Knowledge Mound)
+    from .workflow_adapter import WorkflowAdapter
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="workflow",
+            adapter_class=WorkflowAdapter,
+            required_deps=[],  # Accepts WorkflowResult objects directly
+            forward_method="sync_to_km",
+            reverse_method=None,
+            priority=50,  # Medium priority - workflow analytics
+            config_key="km_workflow_adapter",
+        )
+    )
+
+    # Compliance adapter (compliance results/violations → Knowledge Mound)
+    from .compliance_adapter import ComplianceAdapter
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="compliance",
+            adapter_class=ComplianceAdapter,
+            required_deps=[],  # Accepts ComplianceCheckResult/Violation objects
+            forward_method="sync_to_km",
+            reverse_method=None,
+            priority=75,  # High priority - compliance audit trail
+            config_key="km_compliance_adapter",
+        )
+    )
+
 
 # Initialize specs on import
 _init_specs()
@@ -737,16 +782,16 @@ class AdapterFactory:
             elif spec.name == "supermemory":
                 from aragora.connectors.supermemory import SupermemoryConfig, SupermemoryClient
 
-                config = SupermemoryConfig.from_env()
-                if config is None:
+                supermemory_config = SupermemoryConfig.from_env()
+                if supermemory_config is None:
                     return None
 
-                client = SupermemoryClient(config)
+                client = SupermemoryClient(supermemory_config)
                 adapter = adapter_class(
                     client=client,
-                    config=config,
-                    min_importance_threshold=config.sync_threshold,
-                    enable_privacy_filter=config.privacy_filter_enabled,
+                    config=supermemory_config,
+                    min_importance_threshold=supermemory_config.sync_threshold,
+                    enable_privacy_filter=supermemory_config.privacy_filter_enabled,
                     event_callback=self._event_callback,
                 )
             elif spec.name == "rlm":
@@ -814,16 +859,16 @@ class AdapterFactory:
                 elif spec.name == "supermemory":
                     from aragora.connectors.supermemory import SupermemoryConfig, SupermemoryClient
 
-                    config = SupermemoryConfig.from_env()
-                    if config is None:
+                    supermemory_config = SupermemoryConfig.from_env()
+                    if supermemory_config is None:
                         return None
 
-                    client = SupermemoryClient(config)
+                    client = SupermemoryClient(supermemory_config)
                     return adapter_class(
                         client=client,
-                        config=config,
-                        min_importance_threshold=config.sync_threshold,
-                        enable_privacy_filter=config.privacy_filter_enabled,
+                        config=supermemory_config,
+                        min_importance_threshold=supermemory_config.sync_threshold,
+                        enable_privacy_filter=supermemory_config.privacy_filter_enabled,
                     )
                 elif spec.name == "rlm":
                     return adapter_class(compressor=deps.get("compressor"))

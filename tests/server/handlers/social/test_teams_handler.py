@@ -225,6 +225,54 @@ class TestCommandEndpoint:
         assert result is not None
         assert get_status_code(result) == 200
 
+    async def test_plan_command_routes(self, handler, mock_teams_connector):
+        """Plan command should route to debate with decision integrity."""
+        body = {
+            "text": "plan Improve our on-call process",
+            "conversation": {"id": "conv123"},
+            "serviceUrl": "https://smba.trafficmanager.net/amer/",
+            "from": {"id": "user123", "name": "Test User"},
+        }
+
+        mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
+
+        with patch(
+            "aragora.server.handlers.social.teams.get_teams_connector",
+            return_value=mock_teams_connector,
+        ):
+            with patch.object(handler, "_start_debate", return_value={"ok": True}) as mock_start:
+                result = await handler.handle_post(
+                    "/api/v1/integrations/teams/commands", {}, mock_http
+                )
+
+        assert result is not None
+        kwargs = mock_start.call_args.kwargs
+        assert kwargs["decision_integrity"]["include_plan"] is True
+
+    async def test_implement_command_routes(self, handler, mock_teams_connector):
+        """Implement command should route to debate with context snapshot."""
+        body = {
+            "text": "implement Automate reporting",
+            "conversation": {"id": "conv123"},
+            "serviceUrl": "https://smba.trafficmanager.net/amer/",
+            "from": {"id": "user123", "name": "Test User"},
+        }
+
+        mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
+
+        with patch(
+            "aragora.server.handlers.social.teams.get_teams_connector",
+            return_value=mock_teams_connector,
+        ):
+            with patch.object(handler, "_start_debate", return_value={"ok": True}) as mock_start:
+                result = await handler.handle_post(
+                    "/api/v1/integrations/teams/commands", {}, mock_http
+                )
+
+        assert result is not None
+        kwargs = mock_start.call_args.kwargs
+        assert kwargs["decision_integrity"]["include_context"] is True
+
     async def test_status_command_no_debate(self, handler):
         """Status command with no active debate."""
         body = {

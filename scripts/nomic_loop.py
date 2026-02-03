@@ -118,6 +118,18 @@ try:
         NOMIC_FIX_DEADLINE_BUFFER as _NOMIC_FIX_DEADLINE_BUFFER,
         NOMIC_FIX_ITERATION_BUDGET as _NOMIC_FIX_ITERATION_BUDGET,
         NOMIC_AUTO_CHECKPOINT as _NOMIC_AUTO_CHECKPOINT,
+        NOMIC_TESTFIXER_ENABLED as _NOMIC_TESTFIXER_ENABLED,
+        NOMIC_TESTFIXER_TEST_COMMAND as _NOMIC_TESTFIXER_TEST_COMMAND,
+        NOMIC_TESTFIXER_TEST_TIMEOUT as _NOMIC_TESTFIXER_TEST_TIMEOUT,
+        NOMIC_TESTFIXER_MAX_ITERATIONS as _NOMIC_TESTFIXER_MAX_ITERATIONS,
+        NOMIC_TESTFIXER_MAX_SAME_FAILURE as _NOMIC_TESTFIXER_MAX_SAME_FAILURE,
+        NOMIC_TESTFIXER_MIN_CONFIDENCE as _NOMIC_TESTFIXER_MIN_CONFIDENCE,
+        NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE as _NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE,
+        NOMIC_TESTFIXER_REQUIRE_CONSENSUS as _NOMIC_TESTFIXER_REQUIRE_CONSENSUS,
+        NOMIC_TESTFIXER_REQUIRE_APPROVAL as _NOMIC_TESTFIXER_REQUIRE_APPROVAL,
+        NOMIC_TESTFIXER_REVERT_ON_FAILURE as _NOMIC_TESTFIXER_REVERT_ON_FAILURE,
+        NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS as _NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS,
+        NOMIC_TESTFIXER_AGENTS as _NOMIC_TESTFIXER_AGENTS,
     )
     from scripts.nomic.error_taxonomy import (
         classify_error as _classify_error,
@@ -195,6 +207,30 @@ NOMIC_FIX_ITERATION_BUDGET = int(os.environ.get("NOMIC_FIX_ITERATION_BUDGET", "6
 
 # Enable automatic checkpointing between phases (default ON)
 NOMIC_AUTO_CHECKPOINT = os.environ.get("NOMIC_AUTO_CHECKPOINT", "1") == "1"
+
+
+# =============================================================================
+# TESTFIXER FLAGS - Automated test repair loop integration
+# =============================================================================
+
+NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "0") == "1"
+NOMIC_TESTFIXER_TEST_COMMAND = os.environ.get(
+    "NOMIC_TESTFIXER_TEST_COMMAND", "pytest tests/ -q --maxfail=1"
+)
+NOMIC_TESTFIXER_TEST_TIMEOUT = int(os.environ.get("NOMIC_TESTFIXER_TEST_TIMEOUT", "600"))
+NOMIC_TESTFIXER_MAX_ITERATIONS = int(os.environ.get("NOMIC_TESTFIXER_MAX_ITERATIONS", "5"))
+NOMIC_TESTFIXER_MAX_SAME_FAILURE = int(os.environ.get("NOMIC_TESTFIXER_MAX_SAME_FAILURE", "3"))
+NOMIC_TESTFIXER_MIN_CONFIDENCE = float(os.environ.get("NOMIC_TESTFIXER_MIN_CONFIDENCE", "0.5"))
+NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE = float(
+    os.environ.get("NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE", "0.7")
+)
+NOMIC_TESTFIXER_REQUIRE_CONSENSUS = os.environ.get("NOMIC_TESTFIXER_REQUIRE_CONSENSUS", "0") == "1"
+NOMIC_TESTFIXER_REQUIRE_APPROVAL = os.environ.get("NOMIC_TESTFIXER_REQUIRE_APPROVAL", "0") == "1"
+NOMIC_TESTFIXER_REVERT_ON_FAILURE = os.environ.get("NOMIC_TESTFIXER_REVERT_ON_FAILURE", "1") == "1"
+NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS = (
+    os.environ.get("NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS", "0") == "1"
+)
+NOMIC_TESTFIXER_AGENTS = os.environ.get("NOMIC_TESTFIXER_AGENTS", "")
 
 
 # =============================================================================
@@ -1490,6 +1526,18 @@ if _NOMIC_PACKAGE_AVAILABLE:
     NOMIC_AUTO_CONTINUE = _NOMIC_AUTO_CONTINUE
     NOMIC_MAX_CYCLE_SECONDS = _NOMIC_MAX_CYCLE_SECONDS
     NOMIC_STALL_THRESHOLD = _NOMIC_STALL_THRESHOLD
+    NOMIC_TESTFIXER_ENABLED = _NOMIC_TESTFIXER_ENABLED
+    NOMIC_TESTFIXER_TEST_COMMAND = _NOMIC_TESTFIXER_TEST_COMMAND
+    NOMIC_TESTFIXER_TEST_TIMEOUT = _NOMIC_TESTFIXER_TEST_TIMEOUT
+    NOMIC_TESTFIXER_MAX_ITERATIONS = _NOMIC_TESTFIXER_MAX_ITERATIONS
+    NOMIC_TESTFIXER_MAX_SAME_FAILURE = _NOMIC_TESTFIXER_MAX_SAME_FAILURE
+    NOMIC_TESTFIXER_MIN_CONFIDENCE = _NOMIC_TESTFIXER_MIN_CONFIDENCE
+    NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE = _NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE
+    NOMIC_TESTFIXER_REQUIRE_CONSENSUS = _NOMIC_TESTFIXER_REQUIRE_CONSENSUS
+    NOMIC_TESTFIXER_REQUIRE_APPROVAL = _NOMIC_TESTFIXER_REQUIRE_APPROVAL
+    NOMIC_TESTFIXER_REVERT_ON_FAILURE = _NOMIC_TESTFIXER_REVERT_ON_FAILURE
+    NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS = _NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS
+    NOMIC_TESTFIXER_AGENTS = _NOMIC_TESTFIXER_AGENTS
 
 
 class NomicLoop:
@@ -8562,6 +8610,63 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
             "error": result.get("error"),
         }
 
+    async def _run_testfixer_loop(self) -> dict:
+        """Run the TestFixer loop if enabled."""
+        if not NOMIC_TESTFIXER_ENABLED:
+            return {"status": "disabled"}
+
+        try:
+            from aragora.nomic.testfixer import FixLoopConfig, TestFixerOrchestrator
+            from aragora.nomic.testfixer.proposer import AgentCodeGenerator
+        except Exception as exc:
+            self._log(f"[testfixer] Unavailable: {exc}")
+            return {"status": "unavailable", "error": str(exc)}
+
+        agent_names = [a.strip() for a in NOMIC_TESTFIXER_AGENTS.split(",") if a.strip()]
+        generators = []
+        for agent_name in agent_names:
+            try:
+                generators.append(AgentCodeGenerator(agent_name))
+            except Exception as exc:
+                self._log(f"[testfixer] Skipping agent '{agent_name}': {exc}")
+
+        config = FixLoopConfig(
+            max_iterations=NOMIC_TESTFIXER_MAX_ITERATIONS,
+            max_same_failure=NOMIC_TESTFIXER_MAX_SAME_FAILURE,
+            min_confidence_to_apply=NOMIC_TESTFIXER_MIN_CONFIDENCE,
+            min_confidence_for_auto=NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE,
+            require_debate_consensus=NOMIC_TESTFIXER_REQUIRE_CONSENSUS,
+            revert_on_failure=NOMIC_TESTFIXER_REVERT_ON_FAILURE,
+            stop_on_first_success=NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS,
+        )
+
+        if NOMIC_TESTFIXER_REQUIRE_APPROVAL:
+
+            async def approve(proposal):
+                if not sys.stdin.isatty():
+                    self._log("[testfixer] Approval required but no TTY; rejecting.")
+                    return False
+                self._log(f"[testfixer] Proposed fix: {proposal.description}")
+                diff = proposal.as_diff()
+                if diff:
+                    print("\n" + diff)
+                response = input("Apply this fix? [y/N]: ").strip().lower()
+                return response in ("y", "yes")
+
+            config.on_fix_proposed = approve
+
+        fixer = TestFixerOrchestrator(
+            repo_path=self.aragora_path,
+            test_command=NOMIC_TESTFIXER_TEST_COMMAND,
+            config=config,
+            generators=generators or None,
+            test_timeout=NOMIC_TESTFIXER_TEST_TIMEOUT,
+        )
+
+        result = await fixer.run_fix_loop(max_iterations=NOMIC_TESTFIXER_MAX_ITERATIONS)
+        self._log(f"[testfixer] {result.summary()}")
+        return result.to_dict()
+
     async def phase_commit(self, improvement: str) -> dict:
         """Phase 5: Commit changes if verification passes."""
         commit_phase = self._create_commit_phase()
@@ -9543,6 +9648,31 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                 "test_counts": test_counts,
                 "duration_seconds": iteration_duration,
             }
+
+            if NOMIC_TESTFIXER_ENABLED and "testfixer" not in cycle_result:
+                self._log("\n  TestFixer running automated fix loop...", agent="testfixer")
+                testfixer_result = await self._run_testfixer_loop()
+                iteration_result["testfixer"] = testfixer_result
+                cycle_result["testfixer"] = testfixer_result
+
+                if testfixer_result.get("status") == "success":
+                    self._log("  TestFixer reported success; re-verifying...")
+                    try:
+                        verify_result = await self._run_with_phase_timeout(
+                            "verify", self.phase_verify()
+                        )
+                        verify_result = PhaseValidator.normalize_result("verify", verify_result)
+                        cycle_result["phases"]["verify"] = verify_result
+                        iteration_result["verify_result"] = verify_result
+                    except Exception as e:
+                        self._log(f"  Re-verify crashed after TestFixer: {e}")
+                        verify_result = {"all_passed": False, "checks": [], "error": str(e)}
+                        cycle_result["phases"]["verify"] = verify_result
+                        iteration_result["verify_result"] = verify_result
+
+                    if verify_result.get("all_passed"):
+                        cycle_result["fix_iterations"].append(iteration_result)
+                        break
 
             if fix_iteration > max_fix_iterations:
                 # No more fix attempts allowed - try smart rollback first

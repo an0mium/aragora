@@ -71,6 +71,16 @@ class StoredReceipt:
     signature_algorithm: str | None = None
     signature_key_id: str | None = None
     signed_at: float | None = None
+    # RFC 3161 trusted timestamp
+    timestamp_token: str | None = None  # Base64-encoded TSA response
+    timestamp_tsa_url: str | None = None
+    timestamp_at: float | None = None
+    # Legal hold (prevents deletion even after retention expires)
+    legal_hold: bool = False
+    legal_hold_reason: str | None = None
+    legal_hold_placed_by: str | None = None
+    legal_hold_placed_at: float | None = None
+    legal_hold_matter_id: str | None = None
     # Links
     audit_trail_id: str | None = None
     # Full data
@@ -91,12 +101,26 @@ class StoredReceipt:
             "checksum": self.checksum,
             "audit_trail_id": self.audit_trail_id,
             "is_signed": self.signature is not None,
+            "has_timestamp": self.timestamp_token is not None,
+            "legal_hold": self.legal_hold,
         }
         if self.signature:
             result["signature_metadata"] = {
                 "algorithm": self.signature_algorithm,
                 "key_id": self.signature_key_id,
                 "signed_at": self.signed_at,
+            }
+        if self.timestamp_token:
+            result["timestamp_metadata"] = {
+                "tsa_url": self.timestamp_tsa_url,
+                "timestamp_at": self.timestamp_at,
+            }
+        if self.legal_hold:
+            result["legal_hold_metadata"] = {
+                "reason": self.legal_hold_reason,
+                "placed_by": self.legal_hold_placed_by,
+                "placed_at": self.legal_hold_placed_at,
+                "matter_id": self.legal_hold_matter_id,
             }
         return result
 
@@ -160,6 +184,14 @@ class ReceiptStore:
             signature_algorithm TEXT,
             signature_key_id TEXT,
             signed_at REAL,
+            timestamp_token TEXT,
+            timestamp_tsa_url TEXT,
+            timestamp_at REAL,
+            legal_hold INTEGER DEFAULT 0,
+            legal_hold_reason TEXT,
+            legal_hold_placed_by TEXT,
+            legal_hold_placed_at REAL,
+            legal_hold_matter_id TEXT,
             audit_trail_id TEXT,
             data_json TEXT NOT NULL
         )
@@ -171,6 +203,19 @@ class ReceiptStore:
         "CREATE INDEX IF NOT EXISTS idx_receipts_verdict ON receipts(verdict)",
         "CREATE INDEX IF NOT EXISTS idx_receipts_risk ON receipts(risk_level)",
         "CREATE INDEX IF NOT EXISTS idx_receipts_signed ON receipts(signed_at)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_legal_hold ON receipts(legal_hold)",
+    ]
+
+    # Migration statements for existing databases (add new columns if missing)
+    MIGRATION_STATEMENTS_SQLITE = [
+        "ALTER TABLE receipts ADD COLUMN timestamp_token TEXT",
+        "ALTER TABLE receipts ADD COLUMN timestamp_tsa_url TEXT",
+        "ALTER TABLE receipts ADD COLUMN timestamp_at REAL",
+        "ALTER TABLE receipts ADD COLUMN legal_hold INTEGER DEFAULT 0",
+        "ALTER TABLE receipts ADD COLUMN legal_hold_reason TEXT",
+        "ALTER TABLE receipts ADD COLUMN legal_hold_placed_by TEXT",
+        "ALTER TABLE receipts ADD COLUMN legal_hold_placed_at REAL",
+        "ALTER TABLE receipts ADD COLUMN legal_hold_matter_id TEXT",
     ]
 
     # PostgreSQL schema (uses DOUBLE PRECISION for floating point, JSONB for data)
@@ -191,6 +236,14 @@ class ReceiptStore:
             signature_algorithm TEXT,
             signature_key_id TEXT,
             signed_at DOUBLE PRECISION,
+            timestamp_token TEXT,
+            timestamp_tsa_url TEXT,
+            timestamp_at DOUBLE PRECISION,
+            legal_hold BOOLEAN DEFAULT FALSE,
+            legal_hold_reason TEXT,
+            legal_hold_placed_by TEXT,
+            legal_hold_placed_at DOUBLE PRECISION,
+            legal_hold_matter_id TEXT,
             audit_trail_id TEXT,
             data_json JSONB NOT NULL
         )
@@ -202,8 +255,21 @@ class ReceiptStore:
         "CREATE INDEX IF NOT EXISTS idx_receipts_verdict ON receipts(verdict)",
         "CREATE INDEX IF NOT EXISTS idx_receipts_risk ON receipts(risk_level)",
         "CREATE INDEX IF NOT EXISTS idx_receipts_signed ON receipts(signed_at)",
+        "CREATE INDEX IF NOT EXISTS idx_receipts_legal_hold ON receipts(legal_hold)",
         # PostgreSQL-specific: GIN index for JSONB queries
         "CREATE INDEX IF NOT EXISTS idx_receipts_data_gin ON receipts USING GIN (data_json)",
+    ]
+
+    # Migration statements for existing PostgreSQL databases
+    MIGRATION_STATEMENTS_POSTGRESQL = [
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS timestamp_token TEXT",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS timestamp_tsa_url TEXT",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS timestamp_at DOUBLE PRECISION",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS legal_hold BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS legal_hold_reason TEXT",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS legal_hold_placed_by TEXT",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS legal_hold_placed_at DOUBLE PRECISION",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS legal_hold_matter_id TEXT",
     ]
 
     # Legacy property for backwards compatibility
@@ -1141,6 +1207,240 @@ class ReceiptStore:
             "total_receipts": self.count(),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
+
+    # =========================================================================
+    # Legal Hold Management
+    # =========================================================================
+
+    def place_legal_hold(
+        self,
+        receipt_id: str,
+        reason: str,
+        placed_by: str,
+        matter_id: str | None = None,
+    ) -> bool:
+        """
+        Place a legal hold on a receipt to prevent deletion.
+
+        When a receipt is under legal hold, it cannot be deleted even after
+        the retention period expires. Used for litigation holds and regulatory
+        investigations.
+
+        Args:
+            receipt_id: The receipt to place under hold
+            reason: Reason for the hold (e.g., "Litigation - Smith v. Corp")
+            placed_by: User or system placing the hold
+            matter_id: Optional legal matter reference
+
+        Returns:
+            True if the hold was placed successfully
+        """
+        if self._backend is None:
+            return False
+
+        query = """
+            UPDATE receipts
+            SET legal_hold = ?,
+                legal_hold_reason = ?,
+                legal_hold_placed_by = ?,
+                legal_hold_placed_at = ?,
+                legal_hold_matter_id = ?
+            WHERE receipt_id = ?
+        """
+        now = time.time()
+        params = (True, reason, placed_by, now, matter_id, receipt_id)
+
+        try:
+            self._backend.execute(query, params)
+            logger.info(f"Legal hold placed on receipt {receipt_id} by {placed_by}: {reason}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to place legal hold on receipt {receipt_id}: {e}")
+            return False
+
+    def remove_legal_hold(self, receipt_id: str, removed_by: str) -> bool:
+        """
+        Remove a legal hold from a receipt.
+
+        Args:
+            receipt_id: The receipt to release
+            removed_by: User removing the hold (for audit)
+
+        Returns:
+            True if the hold was removed successfully
+        """
+        if self._backend is None:
+            return False
+
+        query = """
+            UPDATE receipts
+            SET legal_hold = ?,
+                legal_hold_reason = NULL,
+                legal_hold_placed_by = NULL,
+                legal_hold_placed_at = NULL,
+                legal_hold_matter_id = NULL
+            WHERE receipt_id = ?
+        """
+        params = (False, receipt_id)
+
+        try:
+            self._backend.execute(query, params)
+            logger.info(f"Legal hold removed from receipt {receipt_id} by {removed_by}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to remove legal hold from receipt {receipt_id}: {e}")
+            return False
+
+    def list_under_legal_hold(
+        self,
+        matter_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[StoredReceipt]:
+        """
+        List all receipts currently under legal hold.
+
+        Args:
+            matter_id: Optional filter by legal matter ID
+            limit: Max results to return
+            offset: Pagination offset
+
+        Returns:
+            List of receipts under legal hold
+        """
+        if self._backend is None:
+            return []
+
+        if matter_id:
+            query = """
+                SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                       verdict, confidence, risk_level, risk_score, checksum,
+                       signature, signature_algorithm, signature_key_id, signed_at,
+                       timestamp_token, timestamp_tsa_url, timestamp_at,
+                       legal_hold, legal_hold_reason, legal_hold_placed_by,
+                       legal_hold_placed_at, legal_hold_matter_id,
+                       audit_trail_id, data_json
+                FROM receipts
+                WHERE legal_hold = ? AND legal_hold_matter_id = ?
+                ORDER BY legal_hold_placed_at DESC
+                LIMIT ? OFFSET ?
+            """
+            params = (True, matter_id, limit, offset)
+        else:
+            query = """
+                SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                       verdict, confidence, risk_level, risk_score, checksum,
+                       signature, signature_algorithm, signature_key_id, signed_at,
+                       timestamp_token, timestamp_tsa_url, timestamp_at,
+                       legal_hold, legal_hold_reason, legal_hold_placed_by,
+                       legal_hold_placed_at, legal_hold_matter_id,
+                       audit_trail_id, data_json
+                FROM receipts
+                WHERE legal_hold = ?
+                ORDER BY legal_hold_placed_at DESC
+                LIMIT ? OFFSET ?
+            """
+            params = (True, limit, offset)
+
+        rows = self._backend.fetch_all(query, params)
+        return [self._row_to_stored_receipt_extended(row) for row in rows]
+
+    def is_under_legal_hold(self, receipt_id: str) -> bool:
+        """
+        Check if a receipt is under legal hold.
+
+        Args:
+            receipt_id: The receipt to check
+
+        Returns:
+            True if the receipt is under legal hold
+        """
+        if self._backend is None:
+            return False
+
+        row = self._backend.fetch_one(
+            "SELECT legal_hold FROM receipts WHERE receipt_id = ?",
+            (receipt_id,),
+        )
+        return bool(row and row[0])
+
+    # =========================================================================
+    # Trusted Timestamp Management
+    # =========================================================================
+
+    def add_timestamp(
+        self,
+        receipt_id: str,
+        timestamp_token: str,
+        tsa_url: str,
+    ) -> bool:
+        """
+        Add an RFC 3161 trusted timestamp to a receipt.
+
+        Args:
+            receipt_id: The receipt to timestamp
+            timestamp_token: Base64-encoded TSA response
+            tsa_url: The TSA server URL used
+
+        Returns:
+            True if the timestamp was added successfully
+        """
+        if self._backend is None:
+            return False
+
+        query = """
+            UPDATE receipts
+            SET timestamp_token = ?,
+                timestamp_tsa_url = ?,
+                timestamp_at = ?
+            WHERE receipt_id = ?
+        """
+        now = time.time()
+        params = (timestamp_token, tsa_url, now, receipt_id)
+
+        try:
+            self._backend.execute(query, params)
+            logger.info(f"Timestamp added to receipt {receipt_id} from {tsa_url}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add timestamp to receipt {receipt_id}: {e}")
+            return False
+
+    def _row_to_stored_receipt_extended(self, row: tuple) -> StoredReceipt:
+        """Convert a database row to StoredReceipt including new fields."""
+        data = {}
+        if row[23]:  # data_json
+            try:
+                data = json.loads(row[23]) if isinstance(row[23], str) else row[23]
+            except (json.JSONDecodeError, TypeError):
+                data = {}
+
+        return StoredReceipt(
+            receipt_id=row[0],
+            gauntlet_id=row[1],
+            debate_id=row[2],
+            created_at=row[3],
+            expires_at=row[4],
+            verdict=row[5],
+            confidence=row[6],
+            risk_level=row[7],
+            risk_score=row[8],
+            checksum=row[9],
+            signature=row[10],
+            signature_algorithm=row[11],
+            signature_key_id=row[12],
+            signed_at=row[13],
+            timestamp_token=row[14],
+            timestamp_tsa_url=row[15],
+            timestamp_at=row[16],
+            legal_hold=bool(row[17]),
+            legal_hold_reason=row[18],
+            legal_hold_placed_by=row[19],
+            legal_hold_placed_at=row[20],
+            legal_hold_matter_id=row[21],
+            audit_trail_id=row[22],
+            data=data,
+        )
 
 
 # =========================================================================

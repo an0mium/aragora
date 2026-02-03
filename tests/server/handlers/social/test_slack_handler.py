@@ -1685,6 +1685,88 @@ class TestSlashCommandDebate:
         assert body_data.get("response_type") == "ephemeral"
 
     @pytest.mark.asyncio
+    async def test_plan_command_without_topic(self, handler, signing_secret):
+        """Plan without topic should show error."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "plan",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "provide" in text.lower() or "topic" in text.lower()
+        assert body_data.get("response_type") == "ephemeral"
+
+    @pytest.mark.asyncio
+    async def test_implement_command_without_topic(self, handler, signing_secret):
+        """Implement without topic should show error."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "implement",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "provide" in text.lower() or "topic" in text.lower()
+        assert body_data.get("response_type") == "ephemeral"
+
+    @pytest.mark.asyncio
     async def test_debate_command_topic_too_short(self, handler, signing_secret):
         """Debate with very short topic should show error."""
         body = urlencode(

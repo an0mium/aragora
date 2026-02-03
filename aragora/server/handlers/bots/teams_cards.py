@@ -673,6 +673,11 @@ def create_help_card(
 
     default_commands = [
         {"name": "/aragora debate", "desc": 'Start a new debate: `/aragora debate "topic"`'},
+        {"name": "/aragora plan", "desc": 'Debate + implementation plan: `/aragora plan "topic"`'},
+        {
+            "name": "/aragora implement",
+            "desc": 'Debate + plan with context snapshot: `/aragora implement "topic"`',
+        },
         {"name": "/aragora status", "desc": "Check debate status"},
         {"name": "/aragora vote", "desc": "Vote on active debate"},
         {"name": "/aragora leaderboard", "desc": "View agent rankings"},

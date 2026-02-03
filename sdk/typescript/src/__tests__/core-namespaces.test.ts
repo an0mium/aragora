@@ -150,6 +150,7 @@ describe('Core Namespace APIs', () => {
       expect(client.receipts).toBeDefined();
       expect(typeof client.receipts.list).toBe('function');
       expect(typeof client.receipts.get).toBe('function');
+      expect(typeof client.receipts.verifyFull).toBe('function');
     });
 
     it('should list receipts via namespace', async () => {
@@ -195,6 +196,23 @@ describe('Core Namespace APIs', () => {
 
       const result = await client.receipts.verify('receipt-123');
       expect(result.valid).toBe(true);
+    });
+
+    it('should verify receipt with signature via namespace', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({
+          receipt_id: 'receipt-123',
+          signature: { signature_valid: true },
+          integrity: { integrity_valid: true },
+        })),
+      });
+
+      const result = await client.receipts.verifyFull('receipt-123');
+      expect(result.signature.signature_valid).toBe(true);
+      expect(result.integrity.integrity_valid).toBe(true);
     });
   });
 

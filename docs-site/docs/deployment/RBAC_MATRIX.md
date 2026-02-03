@@ -118,6 +118,19 @@ Roles inherit all permissions from their descendants in the hierarchy.
 | `control_plane.cancel` | ✓ | ✓ | - | - | - | - | - | - |
 | `control_plane.deliberate` | ✓ | ✓ | - | - | - | - | - | - |
 
+#### Computer Use (`computer_use.*`)
+| Permission | Owner | Admin | Compliance | Team Lead | Creator | Member | Analyst | Viewer |
+|------------|:-----:|:-----:|:----------:|:---------:|:-------:|:------:|:-------:|:------:|
+| `computer_use.read` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.execute` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.browser` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.shell` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.file_read` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.file_write` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.screenshot` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.network` | ✓ | ✓ | - | - | - | - | - | - |
+| `computer_use.admin` | ✓ | ✓ | - | - | - | - | - | - |
+
 ## Handler Permission Mapping
 
 ### Admin Handlers (`/api/v1/admin/*`)

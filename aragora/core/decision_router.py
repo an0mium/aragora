@@ -700,6 +700,12 @@ class DecisionRouter:
                 if hasattr(debate_result, "rounds_used"):
                     span.set_attribute("debate.rounds_used", debate_result.rounds_used)
 
+            decision_integrity = await self._maybe_build_decision_integrity(
+                request,
+                debate_result,
+                arena=arena,
+            )
+
             return DecisionResult(
                 request_id=request.request_id,
                 decision_type=DecisionType.DEBATE,
@@ -709,7 +715,9 @@ class DecisionRouter:
                 ),
                 consensus_reached=debate_result.consensus_reached,
                 reasoning=debate_result.summary if hasattr(debate_result, "summary") else None,
+                debate_id=getattr(debate_result, "debate_id", None),
                 debate_result=debate_result,
+                decision_integrity=decision_integrity,
             )
         finally:
             if span_ctx:
@@ -717,6 +725,108 @@ class DecisionRouter:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Trace span cleanup error: {e}")
+
+    async def _maybe_build_decision_integrity(
+        self,
+        request: DecisionRequest,
+        debate_result: Any,
+        arena: Any | None = None,
+    ) -> dict[str, Any] | None:
+        """Optionally build a Decision Integrity package after debate completion."""
+        cfg_raw = getattr(request.config, "decision_integrity", {}) or {}
+        if isinstance(cfg_raw, bool):
+            if not cfg_raw:
+                return None
+            cfg: dict[str, Any] = {}
+        elif isinstance(cfg_raw, dict):
+            cfg = cfg_raw
+        else:
+            return None
+
+        include_receipt = bool(cfg.get("include_receipt", True))
+        include_plan = bool(cfg.get("include_plan", True))
+        include_context = bool(cfg.get("include_context", False))
+        plan_strategy = str(cfg.get("plan_strategy", "single_task"))
+        notify_origin = bool(cfg.get("notify_origin", False))
+
+        if not any([include_receipt, include_plan, include_context]):
+            return None
+
+        try:
+            from aragora.pipeline.decision_integrity import build_decision_integrity_package
+        except Exception as exc:
+            logger.debug("Decision integrity pipeline unavailable: %s", exc)
+            return None
+
+        debate_payload: dict[str, Any] = {}
+        if hasattr(debate_result, "to_dict"):
+            try:
+                debate_payload = debate_result.to_dict()
+            except Exception:
+                debate_payload = {}
+        if not debate_payload:
+            # Minimal fallback
+            debate_payload = {
+                "debate_id": getattr(debate_result, "debate_id", "") or "",
+                "task": getattr(debate_result, "task", "") or "",
+                "final_answer": getattr(debate_result, "final_answer", "") or "",
+                "confidence": getattr(debate_result, "confidence", 0.0) or 0.0,
+                "consensus_reached": getattr(debate_result, "consensus_reached", False) or False,
+                "rounds_used": getattr(debate_result, "rounds_used", 0) or 0,
+                "participants": getattr(debate_result, "participants", []) or [],
+            }
+
+        if getattr(debate_result, "metadata", None):
+            debate_payload["metadata"] = dict(getattr(debate_result, "metadata") or {})
+        if getattr(debate_result, "debate_id", None):
+            debate_payload["debate_id"] = getattr(debate_result, "debate_id")
+
+        continuum_memory = getattr(arena, "continuum_memory", None) if include_context else None
+        cross_debate_memory = (
+            getattr(arena, "cross_debate_memory", None) if include_context else None
+        )
+        knowledge_mound = getattr(arena, "knowledge_mound", None) if include_context else None
+
+        try:
+            package = await build_decision_integrity_package(
+                debate_payload,
+                include_receipt=include_receipt,
+                include_plan=include_plan,
+                include_context=include_context,
+                plan_strategy=plan_strategy,
+                continuum_memory=continuum_memory,
+                cross_debate_memory=cross_debate_memory,
+                knowledge_mound=knowledge_mound,
+                document_store=self._document_store,
+                evidence_store=self._evidence_store,
+            )
+        except Exception as exc:
+            logger.debug("Decision integrity build failed: %s", exc)
+            return None
+
+        payload = package.to_dict()
+
+        if notify_origin:
+            try:
+                from aragora.server.result_router import route_result
+
+                debate_id = (
+                    payload.get("debate_id")
+                    or debate_payload.get("debate_id")
+                    or request.request_id
+                )
+                await route_result(
+                    debate_id,
+                    {
+                        "debate_id": debate_id,
+                        "event": "decision_integrity",
+                        "package": payload,
+                    },
+                )
+            except Exception as exc:
+                logger.debug("Decision integrity routing failed: %s", exc)
+
+        return payload
 
     def _ingest_attachments_to_documents(
         self,

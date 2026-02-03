@@ -387,6 +387,21 @@ ARAGORA_CI=true pytest tests/e2e/ -v
 pytest tests/e2e/test_full_flow.py::TestDebateIntegration -v
 ```
 
+### CI-safe E2E subset
+
+Some E2E suites exercise external services (Redis, third-party connectors) and may require local
+dependencies. For a stable CI-friendly subset that stays in-memory, run:
+
+```bash
+pytest \
+  tests/e2e/test_full_flow.py \
+  tests/e2e/test_control_plane_workflows.py \
+  tests/e2e/test_debate_crash_recovery.py \
+  tests/e2e/test_chat_result_routing.py \
+  tests/e2e/test_api_rate_limiting.py \
+  tests/e2e/test_complete_user_signup_flow.py -v
+```
+
 ### Using the Harness in Tests
 
 Basic usage with context manager:
@@ -629,6 +644,13 @@ def test_with_logging(caplog):
 ```bash
 # Run benchmarks
 pytest tests/benchmarks/ -v
+
+# Run task ROI/quality benchmark harness (offline demo mode)
+python benchmarks/task_bench.py --mode demo --profile fast
+# Include Pulse trending context (network required)
+python benchmarks/task_bench.py --mode demo --profile fast --enable-trending
+
+Sample artifacts live in `examples/task_bench/demo`.
 
 # Run with timing info
 pytest tests/ --durations=10

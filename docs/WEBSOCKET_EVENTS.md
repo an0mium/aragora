@@ -2,7 +2,7 @@
 
 This document covers control messages and stream events sent by the Aragora
 WebSocket server. Stream events use the `StreamEvent` envelope from
-`aragora/server/stream/events.py`.
+`aragora/events/types.py` (re-exported by `aragora/server/stream/events.py`).
 
 ## Connection
 
@@ -174,25 +174,30 @@ Each failure record includes:
 
 ## Stream Event Types
 
-These are the canonical event names from `StreamEventType`, plus a few
-analytics events emitted directly by the debate pipeline.
+Canonical event names are defined in `aragora/events/types.py` (the server re-exports them via `aragora/server/stream/events.py`).
+The list below is the full `StreamEventType` catalog, grouped by the category comments in code (197 event types as of 2026-02-03).
 
-### Debate lifecycle
+### Debate events
 - `debate_start`
 - `round_start`
 - `agent_message`
-- `agent_error`
 - `critique`
 - `vote`
 - `consensus`
+- `synthesis`
 - `debate_end`
 
-### Token streaming
+### Quick preview events (shown in first 5 seconds of debate initialization)
+- `quick_classification`
+- `agent_preview`
+- `context_preview`
+
+### Token streaming events (for real-time response display)
 - `token_start`
 - `token_delta`
 - `token_end`
 
-### Nomic loop
+### Nomic loop events
 - `cycle_start`
 - `cycle_end`
 - `phase_start`
@@ -206,96 +211,120 @@ analytics events emitted directly by the debate pipeline.
 - `backup_created`
 - `backup_restored`
 - `error`
+- `phase_timeout`
 - `log_message`
 
-### Verification events
-Verification-related events are listed under **Nomic loop** and **Claim verification**.
-
-### Multi-loop management
+### Multi-loop management events
 - `loop_register`
 - `loop_unregister`
 - `loop_list`
 
-### Audience participation
+### Audience participation events
 - `user_vote`
 - `user_suggestion`
 - `audience_summary`
 - `audience_metrics`
 - `audience_drain`
 
-### Memory & learning
+### Memory/learning events
 - `memory_recall`
 - `insight_extracted`
+- `memory_stored`
+- `memory_retrieved`
 
-### Rankings & leaderboard
+### Ranking/leaderboard events (debate consensus feature)
 - `match_recorded`
 - `leaderboard_update`
 - `grounded_verdict`
 - `moment_detected`
 - `agent_elo_updated`
+- `agent_calibration_changed`
+- `agent_fallback_triggered`
 
-### Claim verification
+### Knowledge Mound events (cross-pollination)
+- `knowledge_indexed`
+- `knowledge_queried`
+- `mound_updated`
+- `knowledge_stale`
+- `km_batch`
+
+### Belief Network events (bidirectional KM integration)
+- `belief_converged`
+- `crux_detected`
+
+### KM Adapter sync events (bidirectional tracking)
+- `km_adapter_forward_sync`
+- `km_adapter_reverse_query`
+- `km_adapter_validation`
+
+### RLM events (bidirectional KM integration)
+- `rlm_compression_complete`
+
+### Claim verification events
 - `claim_verification_result`
-- `formal_verification_result`
 
-### Memory tiers
+### Memory tier events
 - `memory_tier_promotion`
 - `memory_tier_demotion`
 
-### Graph debates
+### Graph debate events (branching/merging visualization)
 - `graph_node_added`
 - `graph_branch_created`
 - `graph_branch_merged`
 
-### Position tracking
+### Position tracking events
 - `flip_detected`
 
-### Feature integration
+### Feature integration events (data flow from backends to panels)
 - `trait_emerged`
 - `risk_warning`
 - `evidence_found`
 - `calibration_update`
 - `genesis_evolution`
 - `training_data_exported`
+- `selection_feedback`
+- `memory_coordination`
 
-### Analytics
-- `uncertainty_analysis`
-
-### Rhetorical analysis
+### Rhetorical analysis events
 - `rhetorical_observation`
 
-### Trickster events
+### Trickster/hollow consensus events
 - `hollow_consensus`
 - `trickster_intervention`
 
-### Breakpoints
+### Human intervention breakpoint events
 - `breakpoint`
 - `breakpoint_resolved`
 
-### Mood/sentiment
+### Progress/heartbeat events (for detecting stalled debates)
+- `heartbeat`
+- `agent_error`
+- `phase_progress`
+
+### Mood/sentiment events (Real-Time Debate Drama)
 - `mood_detected`
 - `mood_shift`
 - `debate_energy`
 
-### Capability probes
+### Capability probe events (Adversarial Testing)
 - `probe_start`
 - `probe_result`
 - `probe_complete`
 
-### Deep audit
+### Deep Audit events (Intensive Multi-Round Analysis)
 - `audit_start`
 - `audit_round`
 - `audit_finding`
 - `audit_cross_exam`
 - `audit_verdict`
 
-### Telemetry
+### Telemetry events (Cognitive Firewall)
 - `telemetry_thought`
 - `telemetry_capability`
 - `telemetry_redaction`
 - `telemetry_diagnostic`
 
-### Gauntlet
+### Gauntlet events (Adversarial Validation)
 - `gauntlet_start`
 - `gauntlet_phase`
 - `gauntlet_agent_active`
@@ -307,6 +336,125 @@ Verification-related events are listed under **Nomic loop** and **Claim verifica
 - `gauntlet_progress`
 - `gauntlet_verdict`
 - `gauntlet_complete`
+
+### Phase 2: Workflow Builder Events
+- `workflow_created`
+- `workflow_updated`
+- `workflow_deleted`
+- `workflow_start`
+- `workflow_step_start`
+- `workflow_step_progress`
+- `workflow_step_complete`
+- `workflow_step_failed`
+- `workflow_step_skipped`
+- `workflow_transition`
+- `workflow_checkpoint`
+- `workflow_resumed`
+- `workflow_human_approval_required`
+- `workflow_human_approval_received`
+- `workflow_human_approval_timeout`
+- `workflow_debate_start`
+- `workflow_debate_round`
+- `workflow_debate_complete`
+- `workflow_memory_read`
+- `workflow_memory_write`
+- `workflow_complete`
+- `workflow_failed`
+- `workflow_terminated`
+- `workflow_metrics`
+
+### Voice/Transcription events (Speech-to-Text and Text-to-Speech)
+- `voice_start`
+- `voice_chunk`
+- `voice_transcript`
+- `voice_end`
+- `voice_response`
+- `voice_response_start`
+- `voice_response_end`
+- `transcription_queued`
+- `transcription_started`
+- `transcription_progress`
+- `transcription_complete`
+- `transcription_failed`
+
+### 5.1 Approval Flow events
+- `approval_requested`
+- `approval_approved`
+- `approval_rejected`
+- `approval_timeout`
+- `approval_auto_approved`
+
+### 5.1 Rollback events
+- `rollback_point_created`
+- `rollback_executed`
+
+### 5.1 Verification events (improvement cycle)
+- `improvement_cycle_start`
+- `improvement_cycle_verified`
+- `improvement_cycle_failed`
+- `improvement_cycle_complete`
+
+### 5.2 Continuous Learning events
+- `learning_event`
+- `elo_updated`
+- `pattern_discovered`
+- `calibration_updated`
+- `knowledge_decayed`
+
+### 5.3 Alert events
+- `alert_created`
+- `alert_acknowledged`
+- `alert_resolved`
+- `alert_escalated`
+
+### 5.3 Trigger events
+- `trigger_added`
+- `trigger_removed`
+- `trigger_executed`
+- `trigger_scheduler_start`
+- `trigger_scheduler_stop`
+
+### 5.3 Monitoring events
+- `trend_detected`
+- `anomaly_detected`
+- `metric_recorded`
+
+### Explainability Events (real-time explanation generation)
+- `explainability_started`
+- `explainability_factors`
+- `explainability_counterfactual`
+- `explainability_provenance`
+- `explainability_narrative`
+- `explainability_complete`
+
+### Workflow Template Events (template execution updates)
+- `template_execution_started`
+- `template_execution_progress`
+- `template_execution_step`
+- `template_execution_complete`
+- `template_execution_failed`
+- `template_instantiated`
+
+### Gauntlet Receipt Events (receipt lifecycle updates)
+- `receipt_generated`
+- `receipt_verified`
+- `receipt_exported`
+- `receipt_shared`
+- `receipt_integrity_failed`
+
+### KM Resilience Events (real-time resilience status)
+- `km_circuit_breaker_state`
+- `km_retry_exhausted`
+- `km_cache_invalidated`
+- `km_integrity_error`
+
+### Connector Webhook Events (external service notifications)
+- `connector_webhook_received`
+- `connector_pagerduty_incident`
+- `connector_plaid_transaction_sync`
+- `connector_qbo_webhook`
+
+## Selected Payload Examples
 
 ### Explainability (2026-01-20)
 Real-time events during explanation generation:

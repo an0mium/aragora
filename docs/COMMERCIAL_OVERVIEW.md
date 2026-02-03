@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-Aragora is the **Decision Integrity Platform** -- orchestrating 15+ AI models to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
+Aragora is the **Decision Integrity Platform** -- orchestrating 30+ agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
 
 **You don't just get an answer. You get a defensible decision trail.**
 
@@ -20,8 +20,8 @@ Aragora is built on five architectural commitments that together produce somethi
 | Pillar | What It Means |
 |--------|---------------|
 | **1. SMB-Ready, Enterprise-Grade** | Useful to a 5-person startup on day one; scales to regulated enterprise without rearchitecting. Security and compliance built in, not bolted on. |
-| **2. Leading-Edge Memory and Context** | 4-tier Continuum Memory, Knowledge Mound (25 adapters), and RLM context management enable coherence across 50+ rounds and large document sets. |
-| **3. Extensible and Modular** | Connectors, SDKs (Python + TypeScript, 140 namespaces), 500+ HTTP endpoints, OpenClaw integration, workflow engine, marketplace. |
+| **2. Leading-Edge Memory and Context** | 4-tier Continuum Memory, Knowledge Mound (28 registered adapters), and RLM context compression enable coherence across long multi-round sessions and large document sets. |
+| **3. Extensible and Modular** | Connectors, SDKs (Python + TypeScript, 140 namespaces), 2,000+ API operations, OpenClaw integration, workflow engine, marketplace. |
 | **4. Multi-Agent Robustness** | Heterogeneous agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) produce outputs more robust, less biased, and higher quality than single models. |
 | **5. Self-Healing and Self-Extending** | Nomic Loop autonomous improvement, red-team stress-testing, multi-agent code editing with human approval gates. |
 
@@ -33,7 +33,7 @@ Aragora is built on five architectural commitments that together produce somethi
 |------------|-------------|----------------|
 | **Omnivorous Input** | Ingest from documents, APIs, databases, web, voice | Single platform for all information sources |
 | **Multi-Channel Access** | Query via web, Slack, Telegram, WhatsApp, API | Meet users where they already work |
-| **Multi-Agent Consensus** | 15+ heterogeneous AI models debate to conclusions | Diverse perspectives, defensible decisions |
+| **Multi-Agent Consensus** | 30+ heterogeneous agent types debate to conclusions | Diverse perspectives, defensible decisions |
 | **Bidirectional Dialogue** | Ask follow-ups, refine questions, drill into details | Interactive human-AI collaboration |
 | **Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
 | **Learn and Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
@@ -67,7 +67,7 @@ Aragora is built on five architectural commitments that together produce somethi
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    AGENT LAYER (15+ Providers)                    │   │
+│  │                    AGENT LAYER (30+ Agent Types)                  │   │
 │  │  Claude │ GPT │ Gemini │ Grok │ Mistral │ DeepSeek │ Qwen │ Kimi │   │
 │  │                     + Local Models (Ollama, LM Studio)            │   │
 │  └──────────────────────────────┬───────────────────────────────────┘   │
@@ -114,7 +114,7 @@ Aragora is built on five architectural commitments that together produce somethi
 | Security & Authentication | 92% | Ready | OIDC/SAML, MFA, encryption, audit logging |
 | Scalability & Performance | 92% | Ready | Connection pooling, caching, rate limiting |
 | Observability & Monitoring | 90% | Ready | Prometheus, Grafana, OpenTelemetry |
-| Testing & QA | 95% | Ready | 125,000+ tests across 2,980+ files |
+| Testing & QA | 95% | Ready | 130,000+ tests across 3,000+ files |
 | Documentation | 91% | Ready | API docs, runbooks, compliance guides |
 | Compliance & Governance | 88% | Ready | RBAC v2 with 50+ permissions, role hierarchy |
 | SDK & Integrations | 90% | Ready | 140 TypeScript namespaces, 8 bot handlers |
@@ -133,7 +133,7 @@ Aragora is built on five architectural commitments that together produce somethi
 ## Key Differentiators
 
 ### 1. Heterogeneous Agent Orchestration
-Unlike single-model solutions, Aragora runs debates across 15+ AI providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
+Unlike single-model solutions, Aragora runs debates across 30+ agent types/providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
 
 ### 2. Audit-Ready Output
 Every debate produces a **Decision Receipt** with:

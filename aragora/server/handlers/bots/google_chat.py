@@ -400,8 +400,17 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
         logger.info(f"Google Chat command from {user_name}: /{command} {args[:50]}...")
 
-        if command == "debate":
-            return self._cmd_debate(args, space_name, user, event)
+        if command in ("debate", "plan", "implement"):
+            decision_integrity = None
+            if command in ("plan", "implement"):
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": True,
+                    "include_context": command == "implement",
+                    "plan_strategy": "single_task",
+                    "notify_origin": True,
+                }
+            return self._cmd_debate(args, space_name, user, event, decision_integrity)
         elif command == "gauntlet":
             return self._cmd_gauntlet(args, space_name, user, event)
         elif command == "status":
@@ -534,6 +543,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             "to debate and deliver defensible decisions.\n\n"
             "*Commands:*\n"
             "/debate <topic> - Start a multi-agent vetted decisionmaking\n"
+            "/plan <topic> - Debate + implementation plan\n"
+            "/implement <topic> - Debate + plan with context snapshot\n"
             "/gauntlet <statement> - Run adversarial validation\n"
             "/status - Check system status\n"
             "/help - Show available commands\n\n"
@@ -555,6 +566,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         return self._card_response(
             title="Aragora Commands",
             body="*/debate <topic>* - Start a multi-agent debate\n"
+            "*/plan <topic>* - Debate + implementation plan\n"
+            "*/implement <topic>* - Debate + plan with context snapshot\n"
             "*/gauntlet <statement>* - Run adversarial stress-test\n"
             "*/status* - Check system status\n"
             "*/agents* - List available agents\n"
@@ -621,6 +634,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         space_name: str,
         user: dict[str, Any],
         event: dict[str, Any],
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> HandlerResult:
         """Start a debate."""
         # RBAC: check debate creation permission
@@ -653,7 +667,13 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
         # Queue debate asynchronously
         create_tracked_task(
-            self._run_debate_async(topic, space_name, user_id, attachments),
+            self._run_debate_async(
+                topic,
+                space_name,
+                user_id,
+                attachments,
+                decision_integrity=decision_integrity,
+            ),
             name=f"gchat-debate-{topic[:30]}",
         )
 
@@ -728,8 +748,25 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             return self._card_response(
                 body="I need more context. Try asking a specific question or use /debate <topic>."
             )
+        decision_integrity = None
+        topic = clean_text
+        parts = clean_text.split(maxsplit=1)
+        if parts:
+            command = parts[0].lower()
+            remainder = parts[1] if len(parts) > 1 else ""
+            if command in ("plan", "implement") and remainder:
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": True,
+                    "include_context": command == "implement",
+                    "plan_strategy": "single_task",
+                    "notify_origin": True,
+                }
+                topic = remainder
+            elif command in ("debate", "ask") and remainder:
+                topic = remainder
 
-        return self._cmd_debate(clean_text, space_name, user, event)
+        return self._cmd_debate(topic, space_name, user, event, decision_integrity)
 
     # ==========================================================================
     # Async Operations
@@ -741,6 +778,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         space_name: str,
         user_id: str,
         attachments: list[dict[str, Any]] | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> None:
         """Run debate asynchronously via DecisionRouter and post result.
 
@@ -760,6 +798,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         # Try DecisionRouter first (preferred)
         try:
             from aragora.core.decision import (
+                DecisionConfig,
                 DecisionRequest,
                 DecisionType,
                 InputSource,
@@ -781,23 +820,34 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 metadata={"topic": topic},
             )
 
-            request = DecisionRequest(
-                content=topic,
-                decision_type=DecisionType.DEBATE,
-                source=InputSource.GOOGLE_CHAT,
-                response_channels=[
+            config = None
+            if decision_integrity is not None:
+                if isinstance(decision_integrity, bool):
+                    decision_integrity = {} if decision_integrity else None
+                if isinstance(decision_integrity, dict):
+                    config = DecisionConfig(decision_integrity=decision_integrity)
+
+            request_kwargs = {
+                "content": topic,
+                "decision_type": DecisionType.DEBATE,
+                "source": InputSource.GOOGLE_CHAT,
+                "response_channels": [
                     ResponseChannel(
                         platform="google_chat",
                         channel_id=space_name,
                         user_id=user_id,
                     )
                 ],
-                context=RequestContext(
+                "context": RequestContext(
                     user_id=f"gchat:{user_id}",
                     metadata={"space_name": space_name},
                 ),
-                attachments=attachments or [],
-            )
+                "attachments": attachments or [],
+            }
+            if config is not None:
+                request_kwargs["config"] = config
+
+            request = DecisionRequest(**request_kwargs)
 
             router = get_decision_router()
             result = await router.route(request)

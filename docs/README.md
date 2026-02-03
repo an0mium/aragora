@@ -195,11 +195,11 @@ Documentation is reviewed and updated according to this schedule:
 
 | Category | Review Frequency | Last Review |
 |----------|------------------|-------------|
-| Quick Start / Getting Started | Monthly | 2026-01 |
-| API Reference | With each release | 2026-01 |
-| Architecture / Core Concepts | Quarterly | 2026-01 |
-| Feature Documentation | When features change | Ongoing |
-| Security Documentation | Monthly | 2026-01 |
+| Quick Start / Getting Started | Monthly | 2026-02 |
+| API Reference | With each release | 2026-02 |
+| Architecture / Core Concepts | Quarterly | 2026-02 |
+| Feature Documentation | When features change | 2026-02 |
+| Security Documentation | Monthly | 2026-02 |
 | Troubleshooting | As issues are reported | Ongoing |
 
 ### Documentation Review Checklist

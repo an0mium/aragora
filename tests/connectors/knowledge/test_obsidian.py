@@ -522,6 +522,67 @@ class TestObsidianConnectorWrite:
         assert any(f.name.endswith("-receipt.md") for f in decisions_dir.iterdir())
 
     @pytest.mark.asyncio
+    async def test_write_decision_integrity_package(
+        self, connector: ObsidianConnector, temp_vault: Path
+    ) -> None:
+        """Test writing a decision integrity package."""
+        package = {
+            "debate_id": "debate_integrity_123",
+            "receipt": {
+                "receipt_id": "r1",
+                "gauntlet_id": "debate_integrity_123",
+                "timestamp": "2026-02-03T00:00:00Z",
+                "verdict": "PASS",
+                "confidence": 0.9,
+                "verdict_reasoning": "Consensus reached with strong confidence",
+                "consensus_proof": {"reached": True, "confidence": 0.9},
+                "dissenting_views": ["Agent 2: concern about latency"],
+            },
+            "plan": {
+                "design_hash": "hash",
+                "tasks": [
+                    {
+                        "id": "task-1",
+                        "description": "Implement endpoint",
+                        "files": ["api.py"],
+                        "complexity": "simple",
+                    }
+                ],
+            },
+            "context_snapshot": {
+                "continuum_entries": [{"content": "entry"}],
+                "cross_debate_ids": ["debate_old"],
+                "knowledge_items": [{"content": "knowledge"}],
+                "knowledge_sources": ["knowledge_mound"],
+                "document_items": [{"preview": "doc"}],
+                "evidence_items": [{"snippet": "evidence"}],
+            },
+        }
+
+        verification = {
+            "signature": {
+                "signature_valid": True,
+                "verification_timestamp": "2026-02-03T00:00:01Z",
+            },
+            "integrity": {"integrity_valid": True, "verified_at": "2026-02-03T00:00:02Z"},
+        }
+
+        note = await connector.write_decision_integrity_package(
+            package,
+            title="Decision Integrity Test",
+            verification=verification,
+        )
+
+        assert note is not None
+        assert note.frontmatter.debate_id == "debate_integrity_123"
+        assert note.frontmatter.custom.get("verification", {}).get("signature_valid") is True
+        assert note.frontmatter.custom.get("verification", {}).get("integrity_valid") is True
+
+        # Verify file exists in decisions folder
+        decisions_dir = temp_vault / "decisions"
+        assert any(f.name.endswith("-integrity.md") for f in decisions_dir.iterdir())
+
+    @pytest.mark.asyncio
     async def test_update_note_frontmatter(
         self, connector: ObsidianConnector, temp_vault: Path
     ) -> None:

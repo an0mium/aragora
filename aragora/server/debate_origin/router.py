@@ -87,7 +87,16 @@ async def route_debate_result(
         logger.warning(f"No origin found for debate {debate_id}")
         return False
 
-    if origin.result_sent:
+    event_type = result.get("event")
+    aux_events = {
+        "decision_integrity",
+        "decision_plan",
+        "execution_progress",
+        "execution_complete",
+    }
+    is_aux_event = event_type in aux_events or "package" in result or "progress" in result
+
+    if origin.result_sent and not is_aux_event:
         logger.debug(f"Result already sent for debate {debate_id}")
         return True
 
@@ -111,7 +120,8 @@ async def route_debate_result(
             )
 
             if send_result.success:
-                mark_result_sent(debate_id)
+                if not is_aux_event:
+                    mark_result_sent(debate_id)
                 # Post receipt if provided
                 if receipt and receipt_url:
                     try:
@@ -154,7 +164,8 @@ async def route_debate_result(
             return False
 
         if success:
-            mark_result_sent(debate_id)
+            if not is_aux_event:
+                mark_result_sent(debate_id)
             # Post receipt if provided
             if receipt and receipt_url:
                 try:

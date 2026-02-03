@@ -490,6 +490,44 @@ class DebateProtocol:
             return phases[round_number]
         return None
 
+    @classmethod
+    def with_gold_path(
+        cls,
+        min_confidence: float = 0.7,
+        approval_mode: str = "risk_based",
+        budget_limit_usd: float | None = None,
+        **kwargs,
+    ) -> "DebateProtocol":
+        """Create a protocol with Gold Path enabled.
+
+        Gold Path automatically creates DecisionPlans after debates that reach
+        consensus with sufficient confidence. Plans can be auto-approved or
+        require manual approval based on risk level.
+
+        Args:
+            min_confidence: Minimum confidence to create a plan (default 0.7)
+            approval_mode: "always", "never", "risk_based", or "confidence_based"
+            budget_limit_usd: Optional budget limit for plan execution
+            **kwargs: Additional DebateProtocol parameters
+
+        Returns:
+            DebateProtocol with Gold Path enabled
+
+        Example:
+            protocol = DebateProtocol.with_gold_path(
+                min_confidence=0.8,
+                rounds=5,
+            )
+            arena = Arena(environment=env, agents=agents, protocol=protocol)
+        """
+        return cls(
+            auto_create_plan=True,
+            plan_min_confidence=min_confidence,
+            plan_approval_mode=approval_mode,
+            plan_budget_limit_usd=budget_limit_usd,
+            **kwargs,
+        )
+
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """

@@ -47,8 +47,8 @@ def get_slack_integration() -> Any | None:
             if override is not None:
                 _slack_integration = override
                 return _slack_integration
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to resolve slack integration override: %s", e)
 
     # Return cached if available
     if _slack_integration is not None:

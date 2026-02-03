@@ -1,5 +1,7 @@
 # Aragora Identity Debate Results
 
+**Note:** This is a historical debate artifact. Metrics referenced below reflect the state as of late January 2026. For current counts, see [STATUS.md](STATUS.md).
+
 **Date:** 2026-01-22 13:51:21
 
 **Participants:** gemini_creative, grok_contrarian, deepseek_engineer, mistral_analyst, qwen_integrator, kimi_challenger

@@ -112,7 +112,9 @@ class DeletionRequest:
             "verification_hash": self.verification_hash,
             "deletion_certificate": self.deletion_certificate,
             "metadata": self.metadata,
-            "deletion_verified_at": self.deletion_verified_at.isoformat() if self.deletion_verified_at else None,
+            "deletion_verified_at": self.deletion_verified_at.isoformat()
+            if self.deletion_verified_at
+            else None,
         }
 
     @classmethod
@@ -142,7 +144,9 @@ class DeletionRequest:
             deletion_certificate=data.get("deletion_certificate"),
             metadata=data.get("metadata", {}),
             deletion_verified_at=(
-                datetime.fromisoformat(data["deletion_verified_at"]) if data.get("deletion_verified_at") else None
+                datetime.fromisoformat(data["deletion_verified_at"])
+                if data.get("deletion_verified_at")
+                else None
             ),
         )
 
@@ -701,6 +705,24 @@ class GDPRDeletionScheduler:
         """Get the deletion store."""
         return self._store
 
+    def register_verification_callback(
+        self,
+        callback: Any,
+    ) -> None:
+        """Register a callback invoked after deletion is verified.
+
+        Callbacks receive a dict with:
+            - request_id: Deletion request ID
+            - user_id: User whose data was deleted
+            - entities_deleted: Dict of entity_type -> count
+            - certificate_id: ID of the deletion certificate
+            - verified_at: ISO timestamp of verification
+
+        Args:
+            callback: Callable[[dict], None] or async callable.
+        """
+        self._verification_callbacks.append(callback)
+
     def schedule_deletion(
         self,
         user_id: str,
@@ -830,6 +852,21 @@ class GDPRDeletionScheduler:
             request.status = DeletionStatus.COMPLETED
 
             self._store.save_certificate(certificate)
+
+            # Record verification timestamp
+            request.deletion_verified_at = datetime.now(timezone.utc)
+
+            # Fire verification callbacks
+            self._fire_verification_callbacks(
+                {
+                    "request_id": request.request_id,
+                    "user_id": request.user_id,
+                    "entities_deleted": request.entities_deleted,
+                    "certificate_id": certificate.certificate_id,
+                    "verified_at": request.deletion_verified_at.isoformat(),
+                }
+            )
+
             self._store.save_request(request)
 
             logger.info(
@@ -913,6 +950,20 @@ class GDPRDeletionScheduler:
                 logger.error("Error in deletion scheduler loop: %s", e)
 
             await asyncio.sleep(self._check_interval)
+
+    def _fire_verification_callbacks(self, data: dict[str, Any]) -> None:
+        """Fire all registered verification callbacks (non-blocking)."""
+        for callback in self._verification_callbacks:
+            try:
+                result = callback(data)
+                if asyncio.iscoroutine(result):
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(result)
+                    except RuntimeError:
+                        pass
+            except Exception as e:
+                logger.warning("Verification callback failed: %s", e)
 
 
 # ============================================================================

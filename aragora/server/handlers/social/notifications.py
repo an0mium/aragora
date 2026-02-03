@@ -340,6 +340,16 @@ class NotificationsHandler(SecureHandler):
 
     RESOURCE_TYPE = "notification"
 
+    ROUTES = [
+        "/api/v1/notifications/status",
+        "/api/v1/notifications/email/recipients",
+        "/api/v1/notifications/email/config",
+        "/api/v1/notifications/telegram/config",
+        "/api/v1/notifications/email/recipient",
+        "/api/v1/notifications/test",
+        "/api/v1/notifications/send",
+    ]
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/notifications")

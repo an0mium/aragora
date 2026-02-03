@@ -5,24 +5,146 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: February 1, 2026*
+*Last updated: February 3, 2026*
+
+> See [README](../analysis/adr) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
+
+## Phase 7 Complete (February 2026)
+
+### Code Quality Quick Wins
+- **Ruff Linting**: All violations fixed - 0 lint errors
+- **Circular Imports**: Fixed in `shared_inbox/__init__.py` and `handlers/utils/cache.py`
+- **RBAC Function Signatures**: Fixed `record_rbac_check` calls across handlers
+- **Modules**: 3,001 Python files
+- **Tests**: 130,778 collected across 2,998 test files
+- **Mypy Errors**: 0 (strict mode with --ignore-missing-imports)
+- **Commercial Readiness**: 95% (SMB-ready, enterprise features verified)
+
+### Files Modified
+- `aragora/server/handlers/external_integrations.py` - Fixed RBAC calls (allowed -> granted)
+- `aragora/server/handlers/connectors.py` - Fixed RBAC calls
+- `aragora/server/handlers/shared_inbox/__init__.py` - Added lazy `__getattr__` imports
+- `aragora/server/handlers/utils/cache.py` - NEW: Moved from admin/cache to break import cycle
+
+### Security Hardening
+- **Security Debate API**: Multi-agent debate endpoints for vulnerability analysis (`/api/v1/audit/security/debate`)
+- **Security Audit Scheduling**: Automated security scans with cron expressions and optional debate on critical findings
+- **CI Security Pipeline**: 6-job pipeline - CodeQL, Bandit, Aragora Scanner, dependency audit, RBAC coverage, secret scanning
+- **Secrets Management**: Rotation framework with AWS/Vault/local backends (`scripts/secrets_manager.py`)
+
+### Files Added
+- `aragora/server/handlers/security_debate.py` - Security debate API handler
+- `aragora/scheduler/security_audit_schedule.py` - Scheduled security scans with debate integration
+- `scripts/security_scan.py` - CI-friendly security scanner CLI
+- `scripts/secrets_manager.py` - Secrets rotation management
+- `.github/workflows/security.yml` - CI security pipeline (6 jobs)
+
+### GA Readiness Verification Audit (February 3, 2026)
+
+Independent verification of production readiness found the project is **95% GA-ready**, higher than previously estimated. Key findings:
+
+| Area | Previous Estimate | Verified Status |
+|------|-------------------|-----------------|
+| SSRF Protection | HIGH-severity gap | Already remediated at all 3 locations (`validate_webhook_url()` in external_integrations.py) |
+| OAuth Provider Tests | 0% coverage | 164 tests passing across OIDC, Google, GitHub, Discord, Slack, Apple providers |
+| Billing/Payments Tests | 0% coverage | 295 tests passing (billing core, costs, payments handlers) |
+| OpenAPI Specification | Not started | 2,189 endpoints documented, 64 endpoint modules, 397 `@api_endpoint` decorators, full CI/CD |
+| Self-Hosted Deployment | Missing production setup | Docker Compose + .env.example comprehensive (193 + 125 lines) |
+| Knowledge Handler Tests | Partial | 97 tests passing (whitespace validation fix applied) |
+
+**Remaining GA Gaps (genuine):**
+- External penetration test (requires third-party vendor)
+- TypeScript SDK parity at ~70% (target: 95%)
+- Slack/Teams OAuth wizard and slash commands
+- Decision receipts cryptographic signing + PDF export
+
+### Files Modified
+- `aragora/server/handlers/knowledge_base/facts.py` - Fixed whitespace-only statement validation
+
+### READMEs Added
+- `aragora/cli/README.md` - CLI module documentation
+- `aragora/config/README.md` - Configuration module documentation
+- `aragora/utils/README.md` - Utilities module documentation
+- `aragora/skills/README.md` - Skills system documentation
+- `aragora/policy/README.md` - Policy engine documentation
+
+---
 
 ## Current Release
 
-### v2.5.0 - Type Safety & SDK Expansion (February 2026)
+Current released version is **v2.5.0**.
 
-**Production Ready** - Aragora 2.5.0 enforces centralized data-dir paths, expands Python SDK coverage with 10+ new resource namespaces, improves CDC → Knowledge Mound integration, and aligns all package versions.
+### v2.5.0 - Type Safety & SDK Expansion (January 2026)
+
+**Production Ready** - Summary below reflects released work. Validate against the repo before publication.
+
+#### Key Highlights
+- **Type safety** - Fixed 10+ mypy type errors across server handlers
+- **TypeScript SDK** - 140 namespaces wired to client (added backups, dashboard, devices, expenses, rlm, threat-intel, unified-inbox)
+- **Bot handler consolidation** - All 8 bot handlers now use BotHandlerMixin
+- **RBAC standardization** - 90%+ of handlers now have permission checks
+- **Feedback handler tests** - 21 new tests for NPS and feedback submission
+- **Lines of Code**: 1,150,000+ LOC
+- **Tests**: 63,400+ across 1,900+ files
+- **0 production blockers**
+
+#### What's New in 2.5.0
+
+**Type Error Fixes** (FIX)
+- **Handler Fixes** (`aragora/server/handlers/`)
+  - Fixed async/await mismatches in explainability handler
+  - Fixed AgentRating field access in Slack handler
+  - Fixed indexed assignment types in composite analytics
+  - Added proper type hints to dashboard health checks
+  - Fixed async call chain in knowledge analytics
+
+**TypeScript SDK Expansion** (FEATURE)
+- **SDK Namespaces** (`sdk/typescript/src/namespaces/`)
+  - Backups namespace for disaster recovery
+  - Dashboard namespace for admin metrics
+  - Devices namespace for smart speaker integration
+  - Expenses namespace for receipt management
+  - RLM namespace for context compression
+  - Threat Intelligence namespace for security monitoring
+  - Unified Inbox namespace for multi-provider email
+
+**Bot Handler Consolidation** (FEATURE)
+- **Bot Handlers** (`aragora/server/handlers/bots/`)
+  - All 8 platforms (Slack, Discord, Telegram, WhatsApp, Teams, Alexa, Google Home, Apple Shortcuts) use BotHandlerMixin
+  - Consistent authentication and status endpoint patterns
+  - Standardized webhook signature verification
+
+**RBAC Standardization** (FEATURE)
+- **Permission Checks** (`aragora/server/handlers/`)
+  - External integrations handler RBAC fix
+  - Feedback handler permission enforcement
+  - 90%+ handler coverage for permission checks
+
+**Testing Improvements** (TEST)
+- **Feedback Handler Tests** (`tests/server/handlers/`)
+  - 21 new tests for NPS submission
+  - General feedback submission tests
+  - Admin summary access tests
+  - RBAC permission enforcement tests
+
+---
+
+## Previous Release
+
+### v2.4.0 - Python SDK Expansion & Knowledge Mound Integration (January 2026)
+
+**Production Ready** - Aragora 2.4.0 expands Python SDK coverage with 10+ new resource namespaces, improves CDC → Knowledge Mound integration, and aligns all package versions.
 
 #### Key Highlights
 - **Python SDK expansion** - Added orgs, tenants, policies, codebase, costs, decisions, onboarding, notifications, gmail, explainability resources
 - **Knowledge Mound integration** - CDC integration coverage with search parameter alignment
 - **Bot client improvements** - Deferred API base validation to runtime initialization
 - **Control plane hardening** - Improved error handling for agent/task retrieval
-- **Package alignment** - All packages aligned to v2.5.0
+- **Package alignment** - All packages aligned to v2.4.0
 - **Lines of Code**: 695,000+ LOC
 - **0 production blockers**
 
-#### What's New in 2.5.0
+#### What's New in 2.4.0
 
 **Python SDK Resource Expansion** (FEATURE)
 - **SDK Resources** (`aragora-py/src/aragora_client/`)
@@ -748,7 +870,7 @@ description: Aragora Project Status
 #### Key Highlights
 - **40,700+ tests** collected and passing (+2,300 new tests)
 - **Knowledge Mound 100% integrated** - All subsystems bidirectionally wired
-- **9 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost
+- **28 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, and 14 more
 - **Cross-debate learning** - Organizational knowledge persists and improves across debates
 - **Semantic search** - Vector-based similarity search in all adapters
 - **SLO alerting** - Adapter performance monitoring with Prometheus metrics
@@ -909,7 +1031,7 @@ description: Aragora Project Status
 
 **Workflow Templates Package** (PRIORITY 4 - COMPLETE)
 - `aragora/workflow/templates/` - Comprehensive template system:
-  - `registry.py` - WORKFLOW_TEMPLATES registry with 15+ templates
+  - `registry.py` - WORKFLOW_TEMPLATES registry with 50+ templates
   - `package.py` - TemplatePackage, TemplateAuthor, TemplateCategory enums
   - `patterns.py` - Pattern-based template factories (hive-mind, map-reduce, review-cycle)
 - Pre-built templates across 6 categories:
@@ -1615,7 +1737,7 @@ else:
 
 **Phase 13**
 - **Token Revocation UI**: "Logout All Devices" button in Settings panel
-- **Type Safety Expansion**: typecheck-core expanded to 9 modules (orchestrator.py, continuum.py)
+- **Type Safety Expansion**: typecheck-core expanded to 9 modules (orchestrator.py, continuum/core.py)
 - **Storage Layer Fixes**: Fixed mypy errors in factory.py and webhook_store.py
 - **Training Export Page**: New /training route for ML training data export
 - **Production Checklist**: Comprehensive 300+ line PRODUCTION_CHECKLIST.md
@@ -1705,13 +1827,13 @@ All stabilization items addressed:
 ### Active Agents (default config, 8 total)
 | Agent | Model | API |
 |-------|-------|-----|
-| `grok` | grok-3 | xAI |
+| `grok` | grok-4-latest | xAI |
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
 | `openai-api` | gpt-5.2 | OpenAI |
-| `deepseek` | deepseek/deepseek-chat-v3-0324 | OpenRouter |
+| `deepseek` | deepseek/deepseek-reasoner | OpenRouter |
 | `mistral-api` | mistral-large-2512 | Mistral |
 | `gemini` | gemini-3-pro-preview | Google |
-| `qwen-max` | qwen/qwen-max | OpenRouter |
+| `qwen-max` | qwen/qwen3-max | OpenRouter |
 | `kimi` | moonshot-v1-8k | Moonshot |
 
 ### Recent Changes (2026-01-27)
@@ -2147,7 +2269,7 @@ All stabilization items addressed:
 | Post-Debate Workflows | Active | `aragora/debate/phases/feedback_phase.py` (automated refinement triggers) |
 | Calibration → Proposals | Active | `aragora/debate/phases/proposal_phase.py` (temperature scaling for proposal confidence) |
 | Learning Efficiency Tracking | Active | `aragora/ranking/elo.py` (learning rate → ELO bonus) |
-| Memory Checkpoint Snapshot | Active | `aragora/memory/continuum.py` (export/restore for debate state) |
+| Memory Checkpoint Snapshot | Active | `aragora/memory/continuum/core.py` (export/restore for debate state) |
 | Knowledge Mound Federation | Active | `aragora/server/handlers/knowledge_base/mound/federation.py` (multi-region sync) |
 
 ### Recently Surfaced (6)
@@ -2306,7 +2428,7 @@ The nomic loop (`scripts/nomic_loop.py`) implements a 6-phase self-improvement c
 - `on_meta_analyzed`, `on_elo_recorded`, `on_claims_extracted`, `on_belief_network_built`
 
 The codebase is **feature-rich with improving exposure**:
-- 64+ API endpoints, ~15% used by frontend
+- 2,000+ API operations across 1,800+ paths, 580+ HTTP handler modules
 - Many sophisticated features now surfaced via new APIs
 - WebSocket-first architecture for real-time, REST for data access
 

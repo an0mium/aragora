@@ -41,6 +41,28 @@ export interface BatchVerificationResult {
 }
 
 /**
+ * Combined verification result for a single receipt.
+ */
+export interface ReceiptVerificationResult {
+  receipt_id: string;
+  signature: {
+    signature_valid: boolean;
+    algorithm?: string;
+    key_id?: string;
+    signed_at?: number | string;
+    verification_timestamp?: string;
+    error?: string;
+  };
+  integrity: {
+    integrity_valid: boolean;
+    stored_checksum?: string;
+    computed_checksum?: string;
+    verified_at?: string;
+    error?: string;
+  };
+}
+
+/**
  * Receipt filters for querying and stats.
  */
 export interface ReceiptFilters {
@@ -57,6 +79,7 @@ interface ReceiptsClientInterface {
   listDecisionReceipts(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }>;
   getDecisionReceipt(receiptId: string): Promise<DecisionReceipt>;
   verifyDecisionReceipt(receiptId: string): Promise<{ valid: boolean; hash: string; verified_at: string }>;
+  verifyDecisionReceiptFull(receiptId: string): Promise<ReceiptVerificationResult>;
   verifyDecisionReceiptsBatch(receiptIds: string[]): Promise<BatchVerificationResult>;
   getReceiptStats(filters?: ReceiptFilters): Promise<ReceiptStats>;
   exportReceiptPdf(receiptId: string): Promise<Blob>;
@@ -93,6 +116,12 @@ interface ReceiptsClientInterface {
  * const { valid, hash } = await client.receipts.verify('receipt-123');
  * if (valid) {
  *   console.log('Receipt integrity verified:', hash);
+ * }
+ *
+ * // Verify receipt integrity + signature
+ * const verification = await client.receipts.verifyFull('receipt-123');
+ * if (!verification.signature.signature_valid) {
+ *   console.error('Signature invalid:', verification.signature.error);
  * }
  *
  * // Export as PDF for compliance documentation
@@ -143,6 +172,16 @@ export class ReceiptsAPI {
    */
   async verify(receiptId: string): Promise<{ valid: boolean; hash: string; verified_at: string }> {
     return this.client.verifyDecisionReceipt(receiptId);
+  }
+
+  /**
+   * Verify a receipt's integrity and signature in one call.
+   *
+   * Uses the combined verification endpoint and returns both
+   * signature and checksum validation details.
+   */
+  async verifyFull(receiptId: string): Promise<ReceiptVerificationResult> {
+    return this.client.verifyDecisionReceiptFull(receiptId);
   }
 
   /**

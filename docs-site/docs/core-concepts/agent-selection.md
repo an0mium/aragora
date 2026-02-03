@@ -19,18 +19,18 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 | `openai-api` | OpenAI | gpt-5.2 | General tasks, creativity | $$ |
 | `gemini` | Google | gemini-3-pro-preview | Long context, analysis | $ |
 | `mistral-api` | Mistral | mistral-large-2512 | European compliance, multilingual | $$ |
-| `grok` | xAI | grok-3 | Real-time knowledge | $$ |
+| `grok` | xAI | grok-4-latest | Real-time knowledge | $$ |
 
 ### OpenRouter Providers (Fallback/Alternative)
 
 | Agent ID | Model | Best For | Cost |
 |----------|-------|----------|------|
 | `openrouter` | model parameter (default: deepseek/deepseek-chat-v3-0324) | Fallback when primary fails | Varies |
-| `deepseek` | deepseek/deepseek-chat-v3-0324 | Code, math, reasoning | $ |
+| `deepseek` | deepseek/deepseek-reasoner | Code, math, reasoning | $ |
 | `deepseek-r1` | deepseek/deepseek-r1 | Chain-of-thought reasoning | $ |
 | `mistral` | mistralai/mistral-large-2411 | Fast, high-quality reasoning | $$ |
-| `qwen` | qwen/qwen-2.5-coder-32b-instruct | Multilingual, code | $ |
-| `qwen-max` | qwen/qwen-max | Flagship reasoning | $$ |
+| `qwen` | qwen/qwen3-max | Multilingual, code | $ |
+| `qwen-max` | qwen/qwen3-max | Flagship reasoning | $$ |
 | `llama` | meta-llama/llama-3.3-70b-instruct | General, open weights | $ |
 | `yi` | 01-ai/yi-large | Chinese/English | $ |
 

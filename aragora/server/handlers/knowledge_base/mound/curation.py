@@ -52,8 +52,8 @@ class CurationOperationsMixin:
             read_func = getattr(base_module, "read_json_body", None)
             if callable(read_func):
                 return read_func(handler)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to resolve patched read_json_body: %s", e)
         return self.read_json_body(handler)
 
     def _get_mound(self) -> Optional["KnowledgeMound"]:

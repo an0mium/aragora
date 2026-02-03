@@ -71,8 +71,8 @@ def _clear_devops_components() -> None:
     clear_connector_instances()
     try:
         get_devops_circuit_breaker().reset()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to reset devops circuit breaker: %s", e)
 
 
 def _split_csv(value: str | None) -> list[str]:

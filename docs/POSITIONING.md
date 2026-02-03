@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-**Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.** It orchestrates 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
+**Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.** It orchestrates 30+ agent types to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
 > "Aragora: Control plane for multi-agent vetted decisionmaking across org knowledge and channels."
 
@@ -191,7 +191,7 @@ BEFORE ARAGORA                          AFTER ARAGORA
 ### vs. LLM Chat (ChatGPT/Claude)
 | Dimension | Single LLM | Aragora |
 |-----------|-----------|---------|
-| Perspective | One model | 15+ heterogeneous models |
+| Perspective | One model | 30+ heterogeneous agent types |
 | Rigor | Prompt-dependent | Structured adversarial protocol |
 | Audit trail | Copy/paste | Cryptographic receipt |
 | Regulatory | DIY | 8 pre-built personas |

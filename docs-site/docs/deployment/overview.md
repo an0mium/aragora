@@ -711,3 +711,143 @@ kubectl -n aragora cp aragora-0:/tmp/backup.db ./aragora-backup.db
 # Trigger RDB snapshot
 kubectl -n aragora exec aragora-redis-0 -- redis-cli BGSAVE
 ```
+
+## Pod Security Standards (PSS) Enforcement
+
+Aragora enforces Kubernetes Pod Security Standards at the **restricted** level for maximum security hardening.
+
+### Namespace Configuration
+
+The aragora namespace (`deploy/k8s/namespace.yaml`) enforces PSS with the following labels:
+
+```yaml
+metadata:
+  labels:
+    # Enforce restricted policy - pods violating this will be rejected
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    # Audit restricted violations (logged but not rejected)
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    # Warn about restricted violations
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+```
+
+### Security Context Requirements
+
+All pods in the aragora namespace must comply with the restricted profile:
+
+#### Pod-Level Security Context
+
+All deployments, statefulsets, jobs, and cronjobs include:
+
+```yaml
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000      # Non-root user (varies by workload)
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault  # Required for restricted profile
+```
+
+#### Container-Level Security Context
+
+All containers include:
+
+```yaml
+securityContext:
+  allowPrivilegeEscalation: false  # Required for restricted profile
+  readOnlyRootFilesystem: true     # Where possible
+  capabilities:
+    drop:
+      - ALL                        # Required for restricted profile
+```
+
+### Workload-Specific Notes
+
+| Workload | UID | readOnlyRootFilesystem | Notes |
+|----------|-----|------------------------|-------|
+| aragora (main) | 1000 | true | Uses emptyDir for /tmp and /app/logs |
+| aragora-backend | 1000 | true | Uses emptyDir for /tmp and /app/logs |
+| aragora-frontend | 1001 | true | Uses emptyDir for /tmp and /.next/cache |
+| aragora-redis | 999 | true | Uses volumeClaimTemplate for /data |
+| postgres | 70 | false | PostgreSQL requires writable /var/run/postgresql |
+| migration jobs | 1000 | false | Migration may need temp file writes |
+| secrets-rotation | 1000 | true | Read-only rotation job |
+
+### Volume Mounts for Read-Only Root Filesystems
+
+When `readOnlyRootFilesystem: true`, applications need writable directories via emptyDir volumes:
+
+```yaml
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: cache
+    mountPath: /app/.cache
+volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: cache
+    emptyDir: {}
+```
+
+### Verifying PSS Compliance
+
+```bash
+# Check namespace labels
+kubectl get namespace aragora --show-labels
+
+# Dry-run a pod to check compliance
+kubectl run test --image=nginx --dry-run=server -n aragora
+
+# Check for PSS violations in audit logs
+kubectl logs -n kube-system -l component=kube-apiserver | grep "pod-security"
+
+# List pods with their security contexts
+kubectl get pods -n aragora -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.securityContext}{"\n"}\{end\}'
+```
+
+### Troubleshooting PSS Violations
+
+**Error: "pods violate PodSecurity 'restricted'"**
+
+1. Check the specific violation in the error message
+2. Common fixes:
+   - Add `seccompProfile.type: RuntimeDefault` to pod spec
+   - Add `allowPrivilegeEscalation: false` to container spec
+   - Add `capabilities.drop: ["ALL"]` to container spec
+   - Set `runAsNonRoot: true` in pod spec
+
+**Error: "container has runAsNonRoot and image will run as root"**
+
+1. Specify explicit `runAsUser` in the pod or container spec
+2. Or rebuild the container image to run as non-root
+
+### Migrating from Baseline to Restricted
+
+If migrating from baseline to restricted PSS:
+
+1. First enable audit/warn only:
+   ```yaml
+   pod-security.kubernetes.io/enforce: baseline
+   pod-security.kubernetes.io/audit: restricted
+   pod-security.kubernetes.io/warn: restricted
+   ```
+
+2. Review warnings in API server audit logs
+3. Update workloads to comply with restricted
+4. Enable restricted enforcement:
+   ```yaml
+   pod-security.kubernetes.io/enforce: restricted
+   ```
+
+### Reference
+
+- [Kubernetes Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
+- [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/)

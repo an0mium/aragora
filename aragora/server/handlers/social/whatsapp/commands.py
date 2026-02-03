@@ -6,6 +6,8 @@ Handles:
 - status - Get system status
 - agents - List available agents
 - debate <topic> - Start a multi-agent debate
+- plan <topic> - Debate with an implementation plan
+- implement <topic> - Debate with plan + context snapshot
 - gauntlet <statement> - Run adversarial validation
 - search <query> - Search past debates
 - recent - Show recent debates
@@ -56,12 +58,16 @@ def command_help() -> str:
         "*status* - Get system status\n"
         "*agents* - List available agents\n"
         "*debate <topic>* - Start a multi-agent debate\n"
+        "*plan <topic>* - Debate with an implementation plan\n"
+        "*implement <topic>* - Debate with plan + context snapshot\n"
         "*gauntlet <statement>* - Run adversarial stress-test\n"
         "*search <query>* - Search past debates\n"
         "*recent* - Show recent debates\n"
         "*receipt <id>* - View decision receipt\n\n"
         "*Examples:*\n"
         "debate Should AI be regulated?\n"
+        "plan Improve our on-call process\n"
+        "implement Automate weekly incident reporting\n"
         "gauntlet We should migrate to microservices\n"
         "search machine learning\n"
         "receipt abc123"
@@ -112,6 +118,7 @@ def command_debate(
     from_number: str,
     profile_name: str,
     topic: str,
+    decision_integrity: dict[str, Any] | bool | None = None,
 ) -> None:
     """Handle debate command.
 
@@ -170,8 +177,16 @@ def command_debate(
     )
 
     # Run debate asynchronously
+    ctx = getattr(handler_instance, "ctx", {}) or {}
     _config.create_tracked_task(
-        run_debate_async(from_number, profile_name, topic),
+        run_debate_async(
+            from_number,
+            profile_name,
+            topic,
+            decision_integrity=decision_integrity,
+            document_store=ctx.get("document_store"),
+            evidence_store=ctx.get("evidence_store"),
+        ),
         name=f"whatsapp-debate-{topic[:30]}",
     )
 
@@ -180,6 +195,9 @@ async def run_debate_async(
     from_number: str,
     profile_name: str,
     topic: str,
+    decision_integrity: dict[str, Any] | bool | None = None,
+    document_store: Any | None = None,
+    evidence_store: Any | None = None,
 ) -> None:
     """Run debate and send result."""
     record_debate_started("whatsapp")
@@ -338,6 +356,20 @@ async def run_debate_async(
 
         # Record successful debate completion
         record_debate_completed("whatsapp", result.consensus_reached)
+
+        # Optionally emit decision integrity package
+        from aragora.server.decision_integrity_utils import (
+            maybe_emit_decision_integrity,
+        )
+
+        await maybe_emit_decision_integrity(
+            result=result,
+            debate_id=debate_id or getattr(result, "debate_id", None),
+            arena=arena,
+            decision_integrity=decision_integrity,
+            document_store=document_store,
+            evidence_store=evidence_store,
+        )
 
     except Exception as e:
         logger.error(f"WhatsApp debate failed: {e}", exc_info=True)

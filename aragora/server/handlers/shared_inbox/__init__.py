@@ -81,9 +81,11 @@ from aragora.server.handlers.shared_inbox.rules_engine import (
     evaluate_rule_for_test,
 )
 
-# Import handlers
-from aragora.server.handlers.shared_inbox.handler import (
-    SharedInboxHandler,
+# Import handler class
+from aragora.server.handlers.shared_inbox.handler import SharedInboxHandler
+
+# Import inbox handler functions
+from aragora.server.handlers.shared_inbox.inbox_handlers import (
     handle_create_shared_inbox,
     handle_list_shared_inboxes,
     handle_get_shared_inbox,
@@ -92,6 +94,10 @@ from aragora.server.handlers.shared_inbox.handler import (
     handle_update_message_status,
     handle_add_message_tag,
     handle_add_message_to_inbox,
+)
+
+# Import rule handler functions
+from aragora.server.handlers.shared_inbox.rule_handlers import (
     handle_create_routing_rule,
     handle_list_routing_rules,
     handle_update_routing_rule,

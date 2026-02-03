@@ -67,6 +67,8 @@ from aragora.mcp.tools_module.knowledge import (
     store_knowledge_tool,
     get_knowledge_stats_tool,
     get_decision_receipt_tool,
+    verify_decision_receipt_tool,
+    build_decision_integrity_tool,
 )
 from aragora.mcp.tools_module.workflow import (
     run_workflow_tool,
@@ -182,6 +184,8 @@ __all__ = [
     "store_knowledge_tool",
     "get_knowledge_stats_tool",
     "get_decision_receipt_tool",
+    "verify_decision_receipt_tool",
+    "build_decision_integrity_tool",
     # Workflow tools
     "run_workflow_tool",
     "get_workflow_status_tool",

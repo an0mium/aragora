@@ -11,6 +11,8 @@ Contains implementations for individual slash commands:
 - recent: Show recent debates
 - gauntlet: Run a gauntlet challenge
 - debate: Start a debate
+- plan: Debate with an implementation plan
+- implement: Debate with plan + context snapshot
 
 Mixins:
 

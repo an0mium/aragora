@@ -1135,6 +1135,29 @@ class HookHandlerRegistry:
                 # Store it
                 store_plan(plan)
 
+                # Schedule async KM enrichment (best-effort, non-blocking)
+                import asyncio
+
+                async def _enrich_plan_async() -> None:
+                    """Best-effort async enrichment of plan with historical KM data."""
+                    try:
+                        if plan.risk_register:
+                            await DecisionPlanFactory._enrich_risks_from_history(
+                                plan.risk_register,
+                                result.task,
+                                knowledge_mound=None,  # Use global KM
+                            )
+                            logger.debug("Enriched plan %s with KM historical data", plan.id)
+                    except Exception as enrich_err:
+                        logger.debug("Plan KM enrichment failed: %s", enrich_err)
+
+                try:
+                    asyncio.get_running_loop()  # Check if loop exists
+                    asyncio.create_task(_enrich_plan_async())
+                except RuntimeError:
+                    # No running event loop - skip enrichment
+                    logger.debug("No event loop for plan enrichment")
+
                 logger.info(
                     "Auto-created decision plan %s from debate (confidence: %s, status: %s)",
                     plan.id,

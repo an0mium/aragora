@@ -13,8 +13,10 @@ Environment Variables:
 Telegram Bot Commands:
 - /start - Welcome message
 - /help - Show available commands
-- /debate <topic> - Start a multi-agent debate
-- /gauntlet <statement> - Run adversarial validation
+ - /debate <topic> - Start a multi-agent debate
+ - /plan <topic> - Debate with an implementation plan
+ - /implement <topic> - Debate with plan + context snapshot
+ - /gauntlet <statement> - Run adversarial validation
 - /status - Get system status
 - /agents - List available agents
 

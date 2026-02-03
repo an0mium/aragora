@@ -1162,7 +1162,7 @@ class TestGlobalSingleton:
         reset_tier_manager()
 
         # Mock the default db path
-        monkeypatch.setattr("aragora.memory.continuum.get_db_path", lambda _: temp_db_path)
+        monkeypatch.setattr("aragora.memory.continuum.core.get_db_path", lambda _: temp_db_path)
 
         cms1 = get_continuum_memory()
         cms2 = get_continuum_memory()
@@ -1177,7 +1177,7 @@ class TestGlobalSingleton:
         reset_continuum_memory()
         reset_tier_manager()
 
-        monkeypatch.setattr("aragora.memory.continuum.get_db_path", lambda _: temp_db_path)
+        monkeypatch.setattr("aragora.memory.continuum.core.get_db_path", lambda _: temp_db_path)
 
         cms1 = get_continuum_memory()
         reset_continuum_memory()

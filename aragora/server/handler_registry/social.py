@@ -107,7 +107,7 @@ ChannelHealthHandler = _safe_import(
 UnifiedInboxHandler = _safe_import("aragora.server.handlers.features", "UnifiedInboxHandler")
 InboxCommandHandler = _safe_import("aragora.server.handlers.inbox_command", "InboxCommandHandler")
 SharedInboxHandler = _safe_import(
-    "aragora.server.handlers._shared_inbox_handler", "SharedInboxHandler"
+    "aragora.server.handlers.shared_inbox.handler", "SharedInboxHandler"
 )
 
 # =============================================================================
@@ -159,7 +159,7 @@ SOCIAL_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Inbox
     ("_unified_inbox_handler", UnifiedInboxHandler),
     ("_inbox_command_handler", InboxCommandHandler),
-    # SharedInboxHandler omitted - circular import prevents loading
+    ("_shared_inbox_handler", SharedInboxHandler),
 ]
 
 __all__ = [

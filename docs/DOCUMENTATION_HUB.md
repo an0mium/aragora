@@ -44,7 +44,7 @@ The core multi-agent debate orchestration system.
 ```
 ARCHITECTURE.md          # Overall system design
     └── DEBATE_INTERNALS.md  # How debates work
-        └── CONSENSUS.md     # Consensus mechanisms
+        └── algorithms/CONSENSUS.md     # Consensus mechanisms
 ```
 
 ### Memory Systems
@@ -57,11 +57,11 @@ MEMORY.md                # Overview of memory architecture
 └── MEMORY_ANALYTICS.md  # Memory usage metrics
 ```
 
-**Key Concepts:**
-- **Fast tier** (1 min TTL): Immediate context within a debate
-- **Medium tier** (1 hour): Session-level memory
-- **Slow tier** (1 day): Cross-session patterns
-- **Glacial tier** (1 week): Long-term institutional knowledge
+**Key Concepts (half-life):**
+- **Fast tier** (1 hour): Immediate context within a debate
+- **Medium tier** (24 hours): Session-level memory
+- **Slow tier** (7 days): Cross-session patterns
+- **Glacial tier** (30 days): Long-term institutional knowledge
 
 ### Knowledge Mound
 Centralized knowledge storage with validation and retrieval.
@@ -72,7 +72,8 @@ KNOWLEDGE_MOUND.md            # Architecture and concepts
 ```
 
 **Key Features:**
-- 14 adapters (Continuum, Consensus, Evidence, ELO, etc.)
+- 28 registered adapters (Continuum, Consensus, Evidence, ELO, etc.)
+- Additional experimental modules (extraction, nomic_cycle, openclaw, ranking)
 - Semantic search with validation feedback
 - RBAC-governed access
 - Contradiction detection

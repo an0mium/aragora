@@ -249,6 +249,13 @@ class OrchestrationHandler(SecureHandler):
 
         return None
 
+    ROUTES = [
+        "/api/v1/orchestration/deliberate",
+        "/api/v1/orchestration/deliberate/sync",
+        "/api/v1/orchestration/status/*",
+        "/api/v1/orchestration/templates",
+    ]
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/orchestration/")

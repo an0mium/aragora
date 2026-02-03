@@ -1,7 +1,7 @@
 """
 Slack slash command implementations.
 
-Handles all /aragora slash commands: help, status, debate, gauntlet, ask,
+Handles all /aragora slash commands: help, status, debate, plan, implement, gauntlet, ask,
 search, leaderboard, recent, agents.
 """
 
@@ -50,6 +50,8 @@ class CommandsMixin(BlocksMixin):
 
         Commands:
         - /aragora debate "topic" - Start a debate on a topic
+        - /aragora plan "topic" - Debate with an implementation plan
+        - /aragora implement "topic" - Debate with plan + context snapshot
         - /aragora status - Get system status
         - /aragora help - Show available commands
         """
@@ -142,6 +144,43 @@ class CommandsMixin(BlocksMixin):
                     result = self._command_debate(
                         args, user_id, channel_id, response_url, workspace, team_id
                     )
+                elif subcommand == "plan":
+                    decision_integrity = {
+                        "include_receipt": True,
+                        "include_plan": True,
+                        "include_context": False,
+                        "plan_strategy": "single_task",
+                        "notify_origin": True,
+                    }
+                    result = self._command_debate(
+                        args,
+                        user_id,
+                        channel_id,
+                        response_url,
+                        workspace,
+                        team_id,
+                        decision_integrity=decision_integrity,
+                        mode_label="plan",
+                    )
+                elif subcommand == "implement":
+                    decision_integrity = {
+                        "include_receipt": True,
+                        "include_plan": True,
+                        "include_context": True,
+                        "plan_strategy": "single_task",
+                        "notify_origin": True,
+                    }
+                    result = self._command_debate(
+                        args,
+                        user_id,
+                        channel_id,
+                        response_url,
+                        workspace,
+                        team_id,
+                        decision_integrity=decision_integrity,
+                        mode_label="implementation plan",
+                        command_label="implement",
+                    )
                 elif subcommand == "gauntlet":
                     result = self._command_gauntlet(
                         args, user_id, channel_id, response_url, workspace, team_id
@@ -208,6 +247,8 @@ class CommandsMixin(BlocksMixin):
 
 *Core Commands:*
 `/aragora debate "topic"` - Start a multi-agent debate on a topic
+`/aragora plan "topic"` - Debate with an implementation plan
+`/aragora implement "topic"` - Debate with plan + context snapshot
 `/aragora ask "question"` - Quick Q&A without full debate
 `/aragora gauntlet "statement"` - Run adversarial stress-test validation
 
@@ -1021,6 +1062,9 @@ class CommandsMixin(BlocksMixin):
         response_url: str,
         workspace: Any | None = None,
         team_id: str | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
+        mode_label: str = "debate",
+        command_label: str | None = None,
     ) -> HandlerResult:
         """Start a debate on a topic.
 
@@ -1033,8 +1077,9 @@ class CommandsMixin(BlocksMixin):
             team_id: Slack team/workspace ID
         """
         if not args:
+            command_label = command_label or mode_label
             return self._slack_response(
-                'Please provide a topic. Example: `/aragora debate "Should AI be regulated?"`',
+                f'Please provide a topic. Example: `/aragora {command_label} "Should AI be regulated?"`',
                 response_type="ephemeral",
             )
 
@@ -1061,7 +1106,7 @@ class CommandsMixin(BlocksMixin):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*Starting debate on:*\n_{topic}_",
+                    "text": f"*Starting {mode_label} on:*\n_{topic}_",
                 },
             },
             {
@@ -1078,7 +1123,14 @@ class CommandsMixin(BlocksMixin):
         # Queue the debate creation asynchronously
         if response_url:
             create_tracked_task(
-                self._create_debate_async(topic, response_url, user_id, channel_id, team_id),
+                self._create_debate_async(
+                    topic,
+                    response_url,
+                    user_id,
+                    channel_id,
+                    team_id,
+                    decision_integrity=decision_integrity,
+                ),
                 name=f"slack-debate-{topic[:30]}",
             )
 
@@ -1095,6 +1147,7 @@ class CommandsMixin(BlocksMixin):
         user_id: str,
         channel_id: str,
         workspace_id: str | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> None:
         """Create debate asynchronously with thread-based progress updates.
 
@@ -1326,6 +1379,24 @@ class CommandsMixin(BlocksMixin):
                 mark_result_sent(debate_id)
             except (ImportError, AttributeError):
                 pass
+
+            # Optionally emit decision integrity package
+            from aragora.server.decision_integrity_utils import (
+                maybe_emit_decision_integrity,
+            )
+
+            ctx = getattr(self, "ctx", {}) or {}
+            document_store = ctx.get("document_store")
+            evidence_store = ctx.get("evidence_store")
+
+            await maybe_emit_decision_integrity(
+                result=result,
+                debate_id=debate_id,
+                arena=arena,
+                decision_integrity=decision_integrity,
+                document_store=document_store,
+                evidence_store=evidence_store,
+            )
 
         except Exception as e:
             logger.error(f"Async debate creation failed: {e}", exc_info=True)

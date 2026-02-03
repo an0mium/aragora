@@ -97,6 +97,12 @@ The dashboard shows:
 - Consensus visualization
 - Historical debates
 
+### Device Onboarding (OpenClaw Pattern)
+
+For device-based deployments (gateway + device registry), onboarding uses
+capability-driven steps (pairing, voice, display, automation permissions)
+to configure the device before it starts receiving routed tasks.
+
 ## Understanding Results
 
 ### Consensus Levels

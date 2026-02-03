@@ -75,14 +75,14 @@ def get_embedding_provider() -> EmbeddingProvider:
     Returns:
         Best available EmbeddingProvider instance
     """
-    import os
+    from aragora.config.secrets import get_secret
 
     # Try OpenAI
-    if os.getenv("OPENAI_API_KEY"):
+    if get_secret("OPENAI_API_KEY"):
         return OpenAIEmbedding()
 
     # Try Gemini
-    if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+    if get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY"):
         return GeminiEmbedding()
 
     # Try Ollama (local)

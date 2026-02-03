@@ -22,7 +22,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 25+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 12+ | Stable |
 
-**Total**: 180+ features | 2,900+ Python modules | 125,000+ tests | 500+ API endpoints
+**Total**: 180+ features | 3,000+ Python modules | 130,000+ tests | 2,000+ API operations
 
 ---
 
@@ -76,7 +76,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 
 ## 2. Agent System
 
-### Supported Providers (15+ Models)
+### Supported Providers (30+ agent types)
 
 | Provider | Type | Models | Key Files |
 |----------|------|--------|-----------|
@@ -118,7 +118,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Continuum Memory** | Stable | Multi-tier memory (fast/medium/slow/glacial) | `aragora/memory/continuum.py` | |
+| **Continuum Memory** | Stable | Multi-tier memory (fast/medium/slow/glacial) | `aragora/memory/continuum/core.py` | |
 | **Consensus Memory** | Stable | Historical debate outcome storage | `aragora/memory/consensus.py` | |
 | **Memory Coordinator** | Stable | Atomic cross-system writes via `enable_coordinated_writes` | `aragora/memory/coordinator.py` | |
 | **Cross-Debate Memory** | Stable | Institutional knowledge injection via `enable_cross_debate_memory` | `aragora/memory/cross_debate_rlm.py` | |
@@ -426,7 +426,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Unified Server** | Stable | 500+ API endpoints | `aragora/server/unified_server.py` | [API_REFERENCE.md](API_REFERENCE.md) |
+| **Unified Server** | Stable | 2,000+ API operations | `aragora/server/unified_server.py` | [API_REFERENCE.md](API_REFERENCE.md) |
 | **Handler Registry** | Stable | O(1) route lookup with LRU caching | `aragora/server/handler_registry.py` | |
 | **GraphQL API** | Stable | Schema for debates, agents, memory | `aragora/server/graphql/` | |
 | **WebSocket Streaming** | Stable | 26 stream modules for real-time events | `aragora/server/stream/` | |
@@ -455,7 +455,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](WORKFLOWS.md) |
 | **Workflow Nodes** | Stable | Reusable node types | `aragora/workflow/nodes/` | |
 | **Workflow Patterns** | Stable | Hive-mind, map-reduce, review-cycle factories | `aragora/workflow/patterns/` | |
-| **Workflow Templates** | Stable | 15+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
+| **Workflow Templates** | Stable | 50+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
 | **Post-Debate Workflows** | Stable | Automated processing via `enable_post_debate_workflow` | `aragora/workflow/triggers.py` | |
 
 ### Gauntlet (Compliance Testing)

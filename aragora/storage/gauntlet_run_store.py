@@ -25,18 +25,22 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sqlite3
 import threading
-import time
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
-from aragora.config import resolve_db_path
+
+from aragora.storage.generic_store import (
+    GenericInMemoryStore,
+    GenericPostgresStore,
+    GenericSQLiteStore,
+    GenericStoreBackend,
+)
 
 if TYPE_CHECKING:
-    from asyncpg import Pool
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -149,114 +153,54 @@ class GauntletRunItem:
         return cls.from_dict(json.loads(json_str))
 
 
-class GauntletRunStoreBackend(ABC):
+class GauntletRunStoreBackend(GenericStoreBackend):
     """Abstract base class for gauntlet run storage backends."""
-
-    @abstractmethod
-    async def get(self, run_id: str) -> dict[str, Any] | None:
-        """Get run data by ID."""
-        pass
-
-    @abstractmethod
-    async def save(self, data: dict[str, Any]) -> None:
-        """Save run data."""
-        pass
-
-    @abstractmethod
-    async def delete(self, run_id: str) -> bool:
-        """Delete run data."""
-        pass
-
-    @abstractmethod
-    async def list_all(self) -> list[dict[str, Any]]:
-        """List all runs."""
-        pass
 
     @abstractmethod
     async def list_by_status(self, status: str) -> list[dict[str, Any]]:
         """List runs by status."""
-        pass
+        ...
 
     @abstractmethod
     async def list_by_template(self, template_id: str) -> list[dict[str, Any]]:
         """List runs by template."""
-        pass
+        ...
 
     @abstractmethod
     async def list_active(self) -> list[dict[str, Any]]:
         """List active (pending/running) runs."""
-        pass
+        ...
 
     @abstractmethod
     async def update_status(
         self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
         """Update run status and optionally set result."""
-        pass
-
-    @abstractmethod
-    async def close(self) -> None:
-        """Close any resources."""
-        pass
+        ...
 
 
-class InMemoryGauntletRunStore(GauntletRunStoreBackend):
+class InMemoryGauntletRunStore(GenericInMemoryStore, GauntletRunStoreBackend):
     """
     In-memory gauntlet run store for testing.
 
     Data is lost on restart.
     """
 
-    def __init__(self) -> None:
-        """Initialize in-memory store."""
-        self._data: dict[str, dict[str, Any]] = {}
-        self._lock = threading.RLock()
-
-    async def get(self, run_id: str) -> dict[str, Any] | None:
-        """Get run data by ID."""
-        with self._lock:
-            return self._data.get(run_id)
-
-    async def save(self, data: dict[str, Any]) -> None:
-        """Save run data."""
-        run_id = data.get("run_id")
-        if not run_id:
-            raise ValueError("run_id is required")
-        with self._lock:
-            self._data[run_id] = data
-
-    async def delete(self, run_id: str) -> bool:
-        """Delete run data."""
-        with self._lock:
-            if run_id in self._data:
-                del self._data[run_id]
-                return True
-            return False
-
-    async def list_all(self) -> list[dict[str, Any]]:
-        """List all runs."""
-        with self._lock:
-            return list(self._data.values())
+    PRIMARY_KEY = "run_id"
 
     async def list_by_status(self, status: str) -> list[dict[str, Any]]:
-        """List runs by status."""
-        with self._lock:
-            return [r for r in self._data.values() if r.get("status") == status]
+        return self._filter_by("status", status)
 
     async def list_by_template(self, template_id: str) -> list[dict[str, Any]]:
-        """List runs by template."""
-        with self._lock:
-            return [r for r in self._data.values() if r.get("template_id") == template_id]
+        return self._filter_by("template_id", template_id)
 
     async def list_active(self) -> list[dict[str, Any]]:
-        """List active (pending/running) runs."""
         with self._lock:
             return [r for r in self._data.values() if r.get("status") in ("pending", "running")]
 
     async def update_status(
         self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
-        """Update run status and optionally set result."""
         with self._lock:
             if run_id not in self._data:
                 return False
@@ -270,241 +214,89 @@ class InMemoryGauntletRunStore(GauntletRunStoreBackend):
                 self._data[run_id]["result_data"] = result_data
             return True
 
-    async def close(self) -> None:
-        """No-op for in-memory store."""
-        pass
 
-
-class SQLiteGauntletRunStore(GauntletRunStoreBackend):
+class SQLiteGauntletRunStore(GenericSQLiteStore, GauntletRunStoreBackend):
     """
     SQLite-backed gauntlet run store.
 
     Suitable for single-instance deployments.
     """
 
-    def __init__(self, db_path: Path | None = None) -> None:
-        """
-        Initialize SQLite store.
+    TABLE_NAME = "gauntlet_runs"
+    PRIMARY_KEY = "run_id"
+    SCHEMA_SQL = """
+        CREATE TABLE IF NOT EXISTS gauntlet_runs (
+            run_id TEXT PRIMARY KEY,
+            template_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            triggered_by TEXT,
+            workspace_id TEXT,
+            started_at TEXT,
+            completed_at TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            data_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_gauntlet_run_status ON gauntlet_runs(status);
+        CREATE INDEX IF NOT EXISTS idx_gauntlet_run_template ON gauntlet_runs(template_id);
+        CREATE INDEX IF NOT EXISTS idx_gauntlet_run_workspace ON gauntlet_runs(workspace_id);
+    """
+    INDEX_COLUMNS = {
+        "template_id",
+        "status",
+        "triggered_by",
+        "workspace_id",
+        "started_at",
+        "completed_at",
+    }
 
-        Args:
-            db_path: Path to SQLite database. Defaults to
-                     $ARAGORA_DATA_DIR/gauntlet_runs.db
-        """
-        if db_path is None:
-            db_path = Path("gauntlet_runs.db")
-
-        self._db_path = Path(resolve_db_path(db_path))
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.RLock()
-        self._init_db()
-
-    def _init_db(self) -> None:
-        """Initialize database schema."""
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS gauntlet_runs (
-                        run_id TEXT PRIMARY KEY,
-                        template_id TEXT NOT NULL,
-                        status TEXT NOT NULL DEFAULT 'pending',
-                        triggered_by TEXT,
-                        workspace_id TEXT,
-                        started_at TEXT,
-                        completed_at TEXT,
-                        created_at REAL NOT NULL,
-                        updated_at REAL NOT NULL,
-                        data_json TEXT NOT NULL
-                    )
-                    """)
-                cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_gauntlet_run_status
-                    ON gauntlet_runs(status)
-                    """)
-                cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_gauntlet_run_template
-                    ON gauntlet_runs(template_id)
-                    """)
-                cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_gauntlet_run_workspace
-                    ON gauntlet_runs(workspace_id)
-                    """)
-                conn.commit()
-            finally:
-                conn.close()
-
-    async def get(self, run_id: str) -> dict[str, Any] | None:
-        """Get run data by ID."""
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT data_json FROM gauntlet_runs WHERE run_id = ?",
-                    (run_id,),
-                )
-                row = cursor.fetchone()
-                if row:
-                    return json.loads(row[0])
-                return None
-            finally:
-                conn.close()
-
-    async def save(self, data: dict[str, Any]) -> None:
-        """Save run data."""
-        run_id = data.get("run_id")
-        if not run_id:
-            raise ValueError("run_id is required")
-
-        now = time.time()
-        data_json = json.dumps(data)
-
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO gauntlet_runs
-                    (run_id, template_id, status, triggered_by, workspace_id,
-                     started_at, completed_at, created_at, updated_at, data_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        run_id,
-                        data.get("template_id", ""),
-                        data.get("status", "pending"),
-                        data.get("triggered_by"),
-                        data.get("workspace_id"),
-                        data.get("started_at"),
-                        data.get("completed_at"),
-                        now,
-                        now,
-                        data_json,
-                    ),
-                )
-                conn.commit()
-            finally:
-                conn.close()
-
-    async def delete(self, run_id: str) -> bool:
-        """Delete run data."""
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "DELETE FROM gauntlet_runs WHERE run_id = ?",
-                    (run_id,),
-                )
-                conn.commit()
-                return cursor.rowcount > 0
-            finally:
-                conn.close()
-
-    async def list_all(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
-        """List all runs with pagination.
-
-        Args:
-            limit: Maximum number of runs to return (default 100)
-            offset: Number of runs to skip (default 0)
-        """
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                    (limit, offset),
-                )
-                return _batch_deserialize_json(cursor.fetchall())
-            finally:
-                conn.close()
+    async def list_all(self, limit: int = 0, offset: int = 0) -> list[dict[str, Any]]:  # type: ignore[override]
+        """List all runs with optional pagination."""
+        if limit > 0:
+            return self._query_with_sql(
+                "1=1", order_by=f"created_at DESC LIMIT {limit} OFFSET {offset}"
+            )
+        return self._query_with_sql("1=1")
 
     async def list_by_status(
-        self, status: str, limit: int = 100, offset: int = 0
+        self, status: str, limit: int = 0, offset: int = 0
     ) -> list[dict[str, Any]]:
-        """List runs by status with pagination.
-
-        Args:
-            status: Run status to filter by
-            limit: Maximum number of runs to return (default 100)
-            offset: Number of runs to skip (default 0)
-        """
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT data_json FROM gauntlet_runs WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                    (status, limit, offset),
-                )
-                return _batch_deserialize_json(cursor.fetchall())
-            finally:
-                conn.close()
+        """List runs by status with optional pagination."""
+        if limit > 0:
+            return self._query_with_sql(
+                "status = ?",
+                (status,),
+                order_by=f"created_at DESC LIMIT {limit} OFFSET {offset}",
+            )
+        return self._query_by_column("status", status)
 
     async def list_by_template(
-        self, template_id: str, limit: int = 100, offset: int = 0
+        self, template_id: str, limit: int = 0, offset: int = 0
     ) -> list[dict[str, Any]]:
-        """List runs by template with pagination.
+        """List runs by template with optional pagination."""
+        if limit > 0:
+            return self._query_with_sql(
+                "template_id = ?",
+                (template_id,),
+                order_by=f"created_at DESC LIMIT {limit} OFFSET {offset}",
+            )
+        return self._query_by_column("template_id", template_id)
 
-        Args:
-            template_id: Template ID to filter by
-            limit: Maximum number of runs to return (default 100)
-            offset: Number of runs to skip (default 0)
-        """
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT data_json FROM gauntlet_runs WHERE template_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                    (template_id, limit, offset),
-                )
-                return _batch_deserialize_json(cursor.fetchall())
-            finally:
-                conn.close()
-
-    async def list_active(self, limit: int = 50) -> list[dict[str, Any]]:
-        """List active (pending/running) runs.
-
-        Args:
-            limit: Maximum number of runs to return (default 50)
-        """
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    SELECT data_json FROM gauntlet_runs
-                    WHERE status IN ('pending', 'running')
-                    ORDER BY created_at DESC
-                    LIMIT ?
-                    """,
-                    (limit,),
-                )
-                return _batch_deserialize_json(cursor.fetchall())
-            finally:
-                conn.close()
+    async def list_active(self, limit: int = 0) -> list[dict[str, Any]]:
+        """List active (pending/running) runs with optional limit."""
+        if limit > 0:
+            return self._query_with_sql(
+                "status IN ('pending', 'running')",
+                order_by=f"created_at DESC LIMIT {limit}",
+            )
+        return self._query_with_sql("status IN ('pending', 'running')")
 
     async def get_queue_analytics(self) -> dict[str, Any]:
-        """Get queue analytics using window functions.
-
-        Returns comprehensive queue statistics in a single query, including:
-        - Position of each pending/running job in queue
-        - Counts by status
-        - Running totals
-
-        Returns:
-            Dictionary with queue analytics
-        """
+        """Get queue analytics using window functions."""
         with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
+            conn = self._connect()
             try:
                 cursor = conn.cursor()
-                # Use window functions for comprehensive analytics
                 cursor.execute("""
                     SELECT
                         run_id,
@@ -533,9 +325,8 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                         "queue": [],
                     }
 
-                # Process results
                 queue = []
-                status_counts = {}
+                status_counts: dict[str, int] = {}
                 for row in rows:
                     run_id, template_id, status, created_at, position, status_count, total = row
                     queue.append(
@@ -561,55 +352,29 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
     async def update_status(
         self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
-        """Update run status and optionally set result."""
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                # Get current data
-                cursor.execute(
-                    "SELECT data_json FROM gauntlet_runs WHERE run_id = ?",
-                    (run_id,),
-                )
-                row = cursor.fetchone()
-                if not row:
-                    return False
+        updates: dict[str, Any] = {
+            "status": status,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if status == "running":
+            # Only set started_at if not already set - need to check current data
+            existing = await self.get(run_id)
+            if not existing:
+                return False
+            if not existing.get("started_at"):
+                updates["started_at"] = datetime.now(timezone.utc).isoformat()
+        if status in ("completed", "failed", "cancelled"):
+            updates["completed_at"] = datetime.now(timezone.utc).isoformat()
+        if result_data is not None:
+            updates["result_data"] = result_data
 
-                data = json.loads(row[0])
-                data["status"] = status
-                data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-                if status == "running" and not data.get("started_at"):
-                    data["started_at"] = datetime.now(timezone.utc).isoformat()
-                if status in ("completed", "failed", "cancelled"):
-                    data["completed_at"] = datetime.now(timezone.utc).isoformat()
-                if result_data is not None:
-                    data["result_data"] = result_data
-
-                cursor.execute(
-                    """
-                    UPDATE gauntlet_runs
-                    SET status = ?, started_at = ?, completed_at = ?,
-                        updated_at = ?, data_json = ?
-                    WHERE run_id = ?
-                    """,
-                    (
-                        status,
-                        data.get("started_at"),
-                        data.get("completed_at"),
-                        time.time(),
-                        json.dumps(data),
-                        run_id,
-                    ),
-                )
-                conn.commit()
-                return cursor.rowcount > 0
-            finally:
-                conn.close()
-
-    async def close(self) -> None:
-        """No-op for SQLite (connections are per-operation)."""
-        pass
+        return self._update_json_field(
+            run_id,
+            updates,
+            extra_column_updates={
+                k: v for k, v in updates.items() if k in ("status", "started_at", "completed_at")
+            },
+        )
 
 
 class RedisGauntletRunStore(GauntletRunStoreBackend):
@@ -629,19 +394,11 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
         fallback_db_path: Path | None = None,
         redis_url: str | None = None,
     ) -> None:
-        """
-        Initialize Redis store with SQLite fallback.
-
-        Args:
-            fallback_db_path: Path for SQLite fallback database
-            redis_url: Redis connection URL (defaults to ARAGORA_REDIS_URL env var)
-        """
         self._redis_url = redis_url or os.getenv("ARAGORA_REDIS_URL", "")
         self._redis_client: Any = None
         self._fallback = SQLiteGauntletRunStore(fallback_db_path)
         self._using_fallback = False
         self._lock = threading.RLock()
-
         self._connect_redis()
 
     def _connect_redis(self) -> None:
@@ -664,10 +421,8 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             self._redis_client = None
 
     async def get(self, run_id: str) -> dict[str, Any] | None:
-        """Get run data by ID."""
         if self._using_fallback:
             return await self._fallback.get(run_id)
-
         try:
             data = self._redis_client.get(f"{self.REDIS_PREFIX}{run_id}")
             if data:
@@ -678,12 +433,10 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return await self._fallback.get(run_id)
 
     async def save(self, data: dict[str, Any]) -> None:
-        """Save run data."""
         run_id = data.get("run_id")
         if not run_id:
             raise ValueError("run_id is required")
 
-        # Always save to SQLite fallback for durability
         await self._fallback.save(data)
 
         if self._using_fallback:
@@ -692,52 +445,37 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
         try:
             data_json = json.dumps(data)
             pipe = self._redis_client.pipeline()
-
-            # Save main data
             pipe.set(f"{self.REDIS_PREFIX}{run_id}", data_json)
-
-            # Update status index
             status = data.get("status", "pending")
             pipe.sadd(f"{self.REDIS_INDEX_STATUS}{status}", run_id)
-
-            # Update template index
             template_id = data.get("template_id")
             if template_id:
                 pipe.sadd(f"{self.REDIS_INDEX_TEMPLATE}{template_id}", run_id)
-
             pipe.execute()
         except Exception as e:
             logger.warning(f"Redis save failed (SQLite fallback used): {e}")
 
     async def delete(self, run_id: str) -> bool:
-        """Delete run data."""
         result = await self._fallback.delete(run_id)
 
         if self._using_fallback:
             return result
 
         try:
-            # Get current data to clean up indexes
             data = self._redis_client.get(f"{self.REDIS_PREFIX}{run_id}")
             if data:
                 run_data = json.loads(data)
                 pipe = self._redis_client.pipeline()
-
-                # Remove from status index
                 if run_data.get("status"):
                     pipe.srem(
                         f"{self.REDIS_INDEX_STATUS}{run_data['status']}",
                         run_id,
                     )
-
-                # Remove from template index
                 if run_data.get("template_id"):
                     pipe.srem(
                         f"{self.REDIS_INDEX_TEMPLATE}{run_data['template_id']}",
                         run_id,
                     )
-
-                # Delete main data
                 pipe.delete(f"{self.REDIS_PREFIX}{run_id}")
                 pipe.execute()
                 return True
@@ -747,7 +485,6 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return result
 
     async def list_all(self) -> list[dict[str, Any]]:
-        """List all runs."""
         if self._using_fallback:
             return await self._fallback.list_all()
 
@@ -764,7 +501,6 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                     data_keys = [k for k in keys if b":idx:" not in k and b"idx:" not in k]
                     if data_keys:
                         values = self._redis_client.mget(data_keys)
-                        # Batch deserialize: filter None values and parse
                         valid_values = [v for v in values if v]
                         if valid_values:
                             results.extend(_batch_deserialize_json([(v,) for v in valid_values]))
@@ -774,7 +510,6 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return await self._fallback.list_all()
 
     async def list_by_status(self, status: str) -> list[dict[str, Any]]:
-        """List runs by status."""
         if self._using_fallback:
             return await self._fallback.list_by_status(status)
 
@@ -782,10 +517,8 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             run_ids = self._redis_client.smembers(f"{self.REDIS_INDEX_STATUS}{status}")
             if not run_ids:
                 return []
-
             keys = [f"{self.REDIS_PREFIX}{rid.decode()}" for rid in run_ids]
             values = self._redis_client.mget(keys)
-            # Batch deserialize: filter None values and parse
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
         except Exception as e:
@@ -793,7 +526,6 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return await self._fallback.list_by_status(status)
 
     async def list_by_template(self, template_id: str) -> list[dict[str, Any]]:
-        """List runs by template."""
         if self._using_fallback:
             return await self._fallback.list_by_template(template_id)
 
@@ -801,10 +533,8 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             run_ids = self._redis_client.smembers(f"{self.REDIS_INDEX_TEMPLATE}{template_id}")
             if not run_ids:
                 return []
-
             keys = [f"{self.REDIS_PREFIX}{rid.decode()}" for rid in run_ids]
             values = self._redis_client.mget(keys)
-            # Batch deserialize: filter None values and parse
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
         except Exception as e:
@@ -812,7 +542,6 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return await self._fallback.list_by_template(template_id)
 
     async def list_active(self) -> list[dict[str, Any]]:
-        """List active (pending/running) runs."""
         if self._using_fallback:
             return await self._fallback.list_active()
 
@@ -827,15 +556,12 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
     async def update_status(
         self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
-        """Update run status and optionally set result."""
-        # Update SQLite fallback
         result = await self._fallback.update_status(run_id, status, result_data)
 
         if self._using_fallback:
             return result
 
         try:
-            # Get current data
             data_bytes = self._redis_client.get(f"{self.REDIS_PREFIX}{run_id}")
             if not data_bytes:
                 return result
@@ -854,15 +580,10 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 data["result_data"] = result_data
 
             pipe = self._redis_client.pipeline()
-
-            # Update main data
             pipe.set(f"{self.REDIS_PREFIX}{run_id}", json.dumps(data))
-
-            # Update status indexes
             if old_status and old_status != status:
                 pipe.srem(f"{self.REDIS_INDEX_STATUS}{old_status}", run_id)
             pipe.sadd(f"{self.REDIS_INDEX_STATUS}{status}", run_id)
-
             pipe.execute()
             return True
         except Exception as e:
@@ -870,7 +591,6 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return result
 
     async def close(self) -> None:
-        """Close connections."""
         await self._fallback.close()
         if self._redis_client:
             try:
@@ -881,7 +601,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 logger.debug(f"Redis close failed: {e}")
 
 
-class PostgresGauntletRunStore(GauntletRunStoreBackend):
+class PostgresGauntletRunStore(GenericPostgresStore, GauntletRunStoreBackend):
     """
     PostgreSQL-backed gauntlet run store.
 
@@ -889,10 +609,9 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
     with horizontal scaling and concurrent writes.
     """
 
-    SCHEMA_NAME = "gauntlet_runs"
-    SCHEMA_VERSION = 1
-
-    INITIAL_SCHEMA = """
+    TABLE_NAME = "gauntlet_runs"
+    PRIMARY_KEY = "run_id"
+    SCHEMA_SQL = """
         CREATE TABLE IF NOT EXISTS gauntlet_runs (
             run_id TEXT PRIMARY KEY,
             template_id TEXT NOT NULL,
@@ -909,211 +628,92 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
         CREATE INDEX IF NOT EXISTS idx_gauntlet_run_template ON gauntlet_runs(template_id);
         CREATE INDEX IF NOT EXISTS idx_gauntlet_run_workspace ON gauntlet_runs(workspace_id);
     """
-
-    def __init__(self, pool: "Pool") -> None:
-        self._pool = pool
-        self._initialized = False
-        logger.info("PostgresGauntletRunStore initialized")
-
-    async def initialize(self) -> None:
-        """Initialize database schema."""
-        if self._initialized:
-            return
-
-        async with self._pool.acquire() as conn:
-            await conn.execute(self.INITIAL_SCHEMA)
-
-        self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
-
-    async def get(self, run_id: str) -> dict[str, Any] | None:
-        """Get run data by ID."""
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT data_json FROM gauntlet_runs WHERE run_id = $1",
-                run_id,
-            )
-            if row:
-                data = row["data_json"]
-                return json.loads(data) if isinstance(data, str) else data
-            return None
-
-    def get_sync(self, run_id: str) -> dict[str, Any] | None:
-        """Get run data by ID (sync wrapper)."""
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.get(run_id))
-
-    async def save(self, data: dict[str, Any]) -> None:
-        """Save run data."""
-        run_id = data.get("run_id")
-        if not run_id:
-            raise ValueError("run_id is required")
-
-        now = time.time()
-        data_json = json.dumps(data)
-
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                """INSERT INTO gauntlet_runs
-                   (run_id, template_id, status, triggered_by, workspace_id,
-                    started_at, completed_at, created_at, updated_at, data_json)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8), to_timestamp($9), $10)
-                   ON CONFLICT (run_id) DO UPDATE SET
-                       template_id = EXCLUDED.template_id,
-                       status = EXCLUDED.status,
-                       triggered_by = EXCLUDED.triggered_by,
-                       workspace_id = EXCLUDED.workspace_id,
-                       started_at = EXCLUDED.started_at,
-                       completed_at = EXCLUDED.completed_at,
-                       updated_at = EXCLUDED.updated_at,
-                       data_json = EXCLUDED.data_json""",
-                run_id,
-                data.get("template_id", ""),
-                data.get("status", "pending"),
-                data.get("triggered_by"),
-                data.get("workspace_id"),
-                data.get("started_at"),
-                data.get("completed_at"),
-                now,
-                now,
-                data_json,
-            )
-
-    def save_sync(self, data: dict[str, Any]) -> None:
-        """Save run data (sync wrapper)."""
-        from aragora.utils.async_utils import run_async
-
-        run_async(self.save(data))
-
-    async def delete(self, run_id: str) -> bool:
-        """Delete run data."""
-        async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM gauntlet_runs WHERE run_id = $1",
-                run_id,
-            )
-            return result != "DELETE 0"
-
-    def delete_sync(self, run_id: str) -> bool:
-        """Delete run data (sync wrapper)."""
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.delete(run_id))
-
-    async def list_all(self) -> list[dict[str, Any]]:
-        """List all runs."""
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC")
-            # Convert asyncpg Record rows to tuples for batch deserialize
-            return _batch_deserialize_json([(row["data_json"],) for row in rows])
-
-    def list_all_sync(self) -> list[dict[str, Any]]:
-        """List all runs (sync wrapper)."""
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_all())
+    INDEX_COLUMNS = {
+        "template_id",
+        "status",
+        "triggered_by",
+        "workspace_id",
+        "started_at",
+        "completed_at",
+    }
 
     async def list_by_status(self, status: str) -> list[dict[str, Any]]:
-        """List runs by status."""
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT data_json FROM gauntlet_runs WHERE status = $1 ORDER BY created_at DESC",
-                status,
-            )
-            # Convert asyncpg Record rows to tuples for batch deserialize
-            return _batch_deserialize_json([(row["data_json"],) for row in rows])
-
-    def list_by_status_sync(self, status: str) -> list[dict[str, Any]]:
-        """List runs by status (sync wrapper)."""
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_by_status(status))
+        return await self._query_by_column("status", status)
 
     async def list_by_template(self, template_id: str) -> list[dict[str, Any]]:
-        """List runs by template."""
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT data_json FROM gauntlet_runs WHERE template_id = $1 ORDER BY created_at DESC",
-                template_id,
-            )
-            # Convert asyncpg Record rows to tuples for batch deserialize
-            return _batch_deserialize_json([(row["data_json"],) for row in rows])
-
-    def list_by_template_sync(self, template_id: str) -> list[dict[str, Any]]:
-        """List runs by template (sync wrapper)."""
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_by_template(template_id))
+        return await self._query_by_column("template_id", template_id)
 
     async def list_active(self) -> list[dict[str, Any]]:
-        """List active (pending/running) runs."""
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("""SELECT data_json FROM gauntlet_runs
-                   WHERE status IN ('pending', 'running')
-                   ORDER BY created_at DESC""")
-            # Convert asyncpg Record rows to tuples for batch deserialize
-            return _batch_deserialize_json([(row["data_json"],) for row in rows])
-
-    def list_active_sync(self) -> list[dict[str, Any]]:
-        """List active runs (sync wrapper)."""
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_active())
+        return await self._query_with_sql("status IN ('pending', 'running')")
 
     async def update_status(
         self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
-        """Update run status and optionally set result."""
-        async with self._pool.acquire() as conn:
-            # Get current data
-            row = await conn.fetchrow(
-                "SELECT data_json FROM gauntlet_runs WHERE run_id = $1",
-                run_id,
-            )
-            if not row:
+        updates: dict[str, Any] = {
+            "status": status,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if status == "running":
+            existing = await self.get(run_id)
+            if not existing:
                 return False
+            if not existing.get("started_at"):
+                updates["started_at"] = datetime.now(timezone.utc).isoformat()
+        if status in ("completed", "failed", "cancelled"):
+            updates["completed_at"] = datetime.now(timezone.utc).isoformat()
+        if result_data is not None:
+            updates["result_data"] = result_data
 
-            data = row["data_json"]
-            if isinstance(data, str):
-                data = json.loads(data)
+        return await self._update_json_field(
+            run_id,
+            updates,
+            extra_column_updates={
+                k: v for k, v in updates.items() if k in ("status", "started_at", "completed_at")
+            },
+        )
 
-            data["status"] = status
-            data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    # Backward-compatible sync wrappers
+    def get_sync(self, run_id: str) -> dict[str, Any] | None:
+        from aragora.utils.async_utils import run_async
 
-            if status == "running" and not data.get("started_at"):
-                data["started_at"] = datetime.now(timezone.utc).isoformat()
-            if status in ("completed", "failed", "cancelled"):
-                data["completed_at"] = datetime.now(timezone.utc).isoformat()
-            if result_data is not None:
-                data["result_data"] = result_data
+        return run_async(self.get(run_id))
 
-            now = time.time()
-            await conn.execute(
-                """UPDATE gauntlet_runs
-                   SET status = $1, started_at = $2, completed_at = $3,
-                       updated_at = to_timestamp($4), data_json = $5
-                   WHERE run_id = $6""",
-                status,
-                data.get("started_at"),
-                data.get("completed_at"),
-                now,
-                json.dumps(data),
-                run_id,
-            )
-            return True
+    def save_sync(self, data: dict[str, Any]) -> None:
+        from aragora.utils.async_utils import run_async
+
+        run_async(self.save(data))
+
+    def delete_sync(self, run_id: str) -> bool:
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.delete(run_id))
+
+    def list_all_sync(self) -> list[dict[str, Any]]:
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_all())
+
+    def list_by_status_sync(self, status: str) -> list[dict[str, Any]]:
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_by_status(status))
+
+    def list_by_template_sync(self, template_id: str) -> list[dict[str, Any]]:
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_by_template(template_id))
+
+    def list_active_sync(self) -> list[dict[str, Any]]:
+        from aragora.utils.async_utils import run_async
+
+        return run_async(self.list_active())
 
     def update_status_sync(
         self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
-        """Update run status (sync wrapper)."""
         from aragora.utils.async_utils import run_async
 
         return run_async(self.update_status(run_id, status, result_data))
-
-    async def close(self) -> None:
-        """Close is a no-op for pool-based stores (pool managed externally)."""
-        pass
 
 
 def get_gauntlet_run_store() -> GauntletRunStoreBackend:
@@ -1124,13 +724,7 @@ def get_gauntlet_run_store() -> GauntletRunStoreBackend:
     - ARAGORA_GAUNTLET_STORE_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
     - ARAGORA_DB_BACKEND: fallback if ARAGORA_GAUNTLET_STORE_BACKEND not set
 
-    Options:
-    - "memory": InMemoryGauntletRunStore (for testing)
-    - "sqlite": SQLiteGauntletRunStore (single-instance)
-    - "postgres", "postgresql", or "supabase": PostgresGauntletRunStore (multi-instance)
-    - "redis": RedisGauntletRunStore (multi-instance)
-
-    Uses unified Supabase → PostgreSQL → SQLite preference order.
+    Uses unified Supabase -> PostgreSQL -> SQLite preference order.
     """
     global _gauntlet_run_store
 
@@ -1138,19 +732,16 @@ def get_gauntlet_run_store() -> GauntletRunStoreBackend:
         if _gauntlet_run_store is not None:
             return _gauntlet_run_store
 
-        # Check store-specific backend first, then global database backend
         backend = os.getenv("ARAGORA_GAUNTLET_STORE_BACKEND")
         if not backend:
             backend = os.getenv("ARAGORA_DB_BACKEND", "auto")
         backend = backend.lower()
 
-        # Redis is handled specially (uses SQLite fallback internally)
         if backend == "redis":
             _gauntlet_run_store = RedisGauntletRunStore()
             logger.info("Using Redis gauntlet run store")
             return _gauntlet_run_store
 
-        # Use unified factory for memory/sqlite/postgres/supabase
         from aragora.storage.connection_factory import create_persistent_store
 
         _gauntlet_run_store = create_persistent_store(

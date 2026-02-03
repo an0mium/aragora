@@ -9,6 +9,7 @@ Tests the complete flow:
 5. Verify integrity and signatures
 """
 
+import json
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, AsyncMock
@@ -144,6 +145,26 @@ class TestReceiptsHandler:
         store.get = MagicMock(return_value=mock_receipt)
         store.get_by_gauntlet = MagicMock(return_value=None)
         store.verify = MagicMock(return_value={"valid": True, "checksum_match": True})
+        store.verify_signature = MagicMock(
+            return_value=MagicMock(
+                error=None,
+                to_dict=MagicMock(
+                    return_value={
+                        "receipt_id": "rcpt_001",
+                        "signature_valid": True,
+                        "algorithm": "HMAC-SHA256",
+                        "key_id": "test-key",
+                    }
+                ),
+            )
+        )
+        store.verify_integrity = MagicMock(
+            return_value={
+                "receipt_id": "rcpt_001",
+                "integrity_valid": True,
+                "stored_checksum": "sha256:abc",
+            }
+        )
         # Also keep the async versions in case some code uses them
         store.list_receipts = AsyncMock(
             return_value={
@@ -191,6 +212,24 @@ class TestReceiptsHandler:
 
             assert result is not None
             assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_combined_endpoint(self, receipts_handler, mock_store):
+        """Test verifying receipt signature + integrity via HTTP."""
+        with patch.object(receipts_handler, "_get_store", return_value=mock_store):
+            result = await receipts_handler.handle(
+                method="GET",
+                path="/api/v2/receipts/rcpt_001/verify",
+            )
+
+            assert result is not None
+            assert result.status_code == 200
+            body = result.body
+            if isinstance(body, bytes):
+                body = body.decode()
+            data = {} if body is None else json.loads(body)
+            assert data["signature"]["signature_valid"] is True
+            assert data["integrity"]["integrity_valid"] is True
 
 
 class TestReceiptExport:

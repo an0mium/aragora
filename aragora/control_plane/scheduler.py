@@ -845,8 +845,8 @@ class TaskScheduler:
                 side_effect = getattr(self._redis.get, "side_effect", None)
                 if isinstance(side_effect, list):
                     self._redis.get.side_effect = iter(side_effect)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Mock side_effect normalization skipped: %s", e)
             data = await self._redis.get(key)
             if data:
                 return Task.from_dict(json.loads(data))

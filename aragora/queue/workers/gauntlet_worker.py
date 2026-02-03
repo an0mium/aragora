@@ -74,7 +74,7 @@ class GauntletWorker:
     async def start(self) -> None:
         """Start the worker processing loop."""
         self._running = True
-        logger.info(f"[{self.worker_id}] Starting gauntlet worker")
+        logger.info("[%s] Starting gauntlet worker", self.worker_id)
 
         cancelled_exc: asyncio.CancelledError | None = None
         while self._running:
@@ -100,21 +100,21 @@ class GauntletWorker:
                         name=f"gauntlet-{job.id}",
                     )
                     self._active_jobs[job.id] = task
-                    logger.info(f"[{self.worker_id}] Started processing job {job.id}")
+                    logger.info("[%s] Started processing job %s", self.worker_id, job.id)
                 else:
                     # No jobs available, wait before polling again
                     await asyncio.sleep(self.poll_interval)
 
             except asyncio.CancelledError as exc:
-                logger.info(f"[{self.worker_id}] Worker cancelled")
+                logger.info("[%s] Worker cancelled", self.worker_id)
                 cancelled_exc = exc
                 self._running = False
                 break
             except RuntimeError as e:
                 if "Event loop is closed" in str(e):
-                    logger.info(f"[{self.worker_id}] Event loop closed, exiting worker")
+                    logger.info("[%s] Event loop closed, exiting worker", self.worker_id)
                     break
-                logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
+                logger.error("[%s] Worker error: %s", self.worker_id, e, exc_info=True)
                 await asyncio.sleep(self.poll_interval)
             except Exception as e:
                 # Check for pool/connection closure errors that indicate shutdown
@@ -124,24 +124,24 @@ class GauntletWorker:
                     for phrase in ("pool is closed", "connection is closed", "event loop is closed")
                 ):
                     logger.info(
-                        f"[{self.worker_id}] Database connection unavailable, exiting worker"
+                        "[%s] Database connection unavailable, exiting worker", self.worker_id
                     )
                     break
-                logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
+                logger.error("[%s] Worker error: %s", self.worker_id, e, exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 
         # Wait for active jobs to complete on shutdown
         if self._active_jobs:
-            logger.info(f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs")
+            logger.info("[%s] Waiting for %s active jobs", self.worker_id, len(self._active_jobs))
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
-        logger.info(f"[{self.worker_id}] Worker stopped")
+        logger.info("[%s] Worker stopped", self.worker_id)
         if cancelled_exc is not None:
             raise cancelled_exc
 
     async def stop(self) -> None:
         """Stop the worker gracefully."""
-        logger.info(f"[{self.worker_id}] Stopping worker")
+        logger.info("[%s] Stopping worker", self.worker_id)
         self._running = False
 
     def _cleanup_completed_tasks(self) -> None:
@@ -150,7 +150,7 @@ class GauntletWorker:
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
             if not task.cancelled() and task.exception():
-                logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
+                logger.warning("[%s] Job %s failed: %s", self.worker_id, job_id, task.exception())
 
     async def _process_job(self, job: QueuedJob) -> None:
         """Process a single gauntlet job."""
@@ -158,7 +158,7 @@ class GauntletWorker:
         gauntlet_id = job.payload.get("gauntlet_id", job.id)
 
         try:
-            logger.info(f"[{self.worker_id}] Processing gauntlet {gauntlet_id}")
+            logger.info("[%s] Processing gauntlet %s", self.worker_id, gauntlet_id)
 
             # Execute the gauntlet
             result = await self._execute_gauntlet(job)
@@ -174,11 +174,16 @@ class GauntletWorker:
                 },
             )
 
-            logger.info(f"[{self.worker_id}] Completed gauntlet {gauntlet_id} in {duration:.1f}s")
+            logger.info(
+                "[%s] Completed gauntlet %s in %.1fs", self.worker_id, gauntlet_id, duration
+            )
 
         except Exception as e:
             logger.error(
-                f"[{self.worker_id}] Gauntlet {gauntlet_id} failed: {e}",
+                "[%s] Gauntlet %s failed: %s",
+                self.worker_id,
+                gauntlet_id,
+                e,
                 exc_info=True,
             )
 
@@ -192,8 +197,11 @@ class GauntletWorker:
 
             if should_retry:
                 logger.info(
-                    f"[{self.worker_id}] Gauntlet {gauntlet_id} will retry "
-                    f"(attempt {job.attempts}/{job.max_attempts})"
+                    "[%s] Gauntlet %s will retry (attempt %s/%s)",
+                    self.worker_id,
+                    gauntlet_id,
+                    job.attempts,
+                    job.max_attempts,
                 )
 
     async def _execute_gauntlet(self, job: QueuedJob) -> dict:
@@ -242,7 +250,7 @@ class GauntletWorker:
         try:
             storage.update_inflight_status(gauntlet_id, "running")
         except Exception as e:
-            logger.debug(f"Failed to update inflight status: {e}")
+            logger.debug("Failed to update inflight status: %s", e)
 
         # Create agents
         agent_instances = []
@@ -257,7 +265,7 @@ class GauntletWorker:
                 )
                 agent_instances.append(agent)
             except (ImportError, ValueError, RuntimeError) as e:
-                logger.warning(f"Could not create agent {agent_type}: {e}")
+                logger.warning("Could not create agent %s: %s", agent_type, e)
 
         if not agent_instances:
             raise RuntimeError("No agents could be created")
@@ -344,9 +352,32 @@ class GauntletWorker:
         try:
             storage.save(result)
             storage.delete_inflight(gauntlet_id)
-            logger.info(f"Gauntlet {gauntlet_id} persisted to storage")
+            logger.info("Gauntlet %s persisted to storage", gauntlet_id)
         except Exception as e:
-            logger.warning(f"Failed to persist gauntlet {gauntlet_id}: {e}")
+            logger.warning("Failed to persist gauntlet %s: %s", gauntlet_id, e)
+
+        # Feed gauntlet results back to ELO rankings
+        try:
+            from aragora.ranking.elo import EloSystem
+
+            elo_system = EloSystem()
+            for agent_name in agents:
+                elo_system.record_redteam_result(
+                    agent_name=agent_name,
+                    robustness_score=result.robustness_score,
+                    successful_attacks=len(result.critical_findings) + len(result.high_findings),
+                    total_attacks=result.total_findings or 1,
+                    critical_vulnerabilities=len(result.critical_findings),
+                    session_id=gauntlet_id,
+                )
+            logger.info(
+                "Gauntlet %s ELO updated for %s agents (robustness=%.2f)",
+                gauntlet_id,
+                len(agents),
+                result.robustness_score,
+            )
+        except Exception as e:
+            logger.warning("Failed to update ELO from gauntlet %s: %s", gauntlet_id, e)
 
         return {
             "gauntlet_id": gauntlet_id,
@@ -405,7 +436,7 @@ async def enqueue_gauntlet_job(
     store = get_job_store()
     await store.enqueue(job)
 
-    logger.info(f"Enqueued gauntlet job: {gauntlet_id}")
+    logger.info("Enqueued gauntlet job: %s", gauntlet_id)
     return job
 
 
@@ -429,7 +460,7 @@ async def recover_interrupted_gauntlets() -> int:
         # First, recover any stale jobs in the job queue itself
         stale_recovered = await store.recover_stale_jobs(stale_threshold_seconds=300.0)
         if stale_recovered:
-            logger.info(f"Recovered {stale_recovered} stale jobs from queue")
+            logger.info("Recovered %s stale jobs from queue", stale_recovered)
             recovered += stale_recovered
 
         # Also check gauntlet inflight table for runs not in job queue
@@ -466,9 +497,9 @@ async def recover_interrupted_gauntlets() -> int:
                     priority=5,  # Higher priority for recovered jobs
                 )
                 recovered += 1
-                logger.info(f"Re-enqueued interrupted gauntlet: {run.gauntlet_id}")
+                logger.info("Re-enqueued interrupted gauntlet: %s", run.gauntlet_id)
             except (json.JSONDecodeError, KeyError) as e:
-                logger.warning(f"Failed to re-enqueue {run.gauntlet_id}: {e}")
+                logger.warning("Failed to re-enqueue %s: %s", run.gauntlet_id, e)
                 storage.update_inflight_status(
                     run.gauntlet_id,
                     "interrupted",
@@ -476,9 +507,9 @@ async def recover_interrupted_gauntlets() -> int:
                 )
 
     except Exception as e:
-        logger.error(f"Error recovering gauntlet jobs: {e}", exc_info=True)
+        logger.error("Error recovering gauntlet jobs: %s", e, exc_info=True)
 
     if recovered:
-        logger.info(f"Recovered {recovered} interrupted gauntlet jobs")
+        logger.info("Recovered %s interrupted gauntlet jobs", recovered)
 
     return recovered

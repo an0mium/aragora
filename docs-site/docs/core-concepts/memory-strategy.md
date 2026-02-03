@@ -47,7 +47,7 @@ Aragora implements a tiered memory architecture inspired by the HOPE (Hierarchic
 
 ### ContinuumMemory
 
-**Module:** `aragora/memory/continuum.py`
+**Module:** `aragora/memory/continuum/core.py`
 
 The primary multi-tier memory system for storing and retrieving debate-related memories.
 

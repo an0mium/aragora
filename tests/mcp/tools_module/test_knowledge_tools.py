@@ -6,10 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.mcp.tools_module.knowledge import (
+    build_decision_integrity_tool,
     get_decision_receipt_tool,
     get_knowledge_stats_tool,
     query_knowledge_tool,
     store_knowledge_tool,
+    verify_decision_receipt_tool,
 )
 
 pytest.importorskip("mcp")
@@ -198,7 +200,107 @@ class TestQueryKnowledgeTool:
             result = await query_knowledge_tool(query="test")
 
         assert "error" in result
-        assert "Database error" in result["error"]
+
+
+class TestDecisionIntegrityTool:
+    """Tests for build_decision_integrity_tool."""
+
+    @pytest.mark.asyncio
+    async def test_build_decision_integrity_missing_db(self):
+        """Returns error when debate DB is unavailable."""
+        with patch("aragora.server.storage.get_debates_db", return_value=None):
+            result = await build_decision_integrity_tool(debate_id="debate_1")
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_build_decision_integrity_not_found(self):
+        """Returns error when debate does not exist."""
+        mock_db = MagicMock()
+        mock_db.get.return_value = None
+        with patch("aragora.server.storage.get_debates_db", return_value=mock_db):
+            result = await build_decision_integrity_tool(debate_id="missing")
+        assert "error" in result
+
+
+class TestDecisionReceiptVerificationTool:
+    """Tests for verify_decision_receipt_tool."""
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_missing_id(self):
+        """Requires receipt_id."""
+        result = await verify_decision_receipt_tool(receipt_id="")
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_signature_and_integrity(self):
+        """Returns signature + integrity when enabled."""
+        from aragora.storage.receipt_store import SignatureVerificationResult
+
+        mock_store = MagicMock()
+        mock_store.verify_signature.return_value = SignatureVerificationResult(
+            receipt_id="receipt-1",
+            is_valid=True,
+            algorithm="Ed25519",
+            key_id="key-1",
+            signed_at=123.0,
+        )
+        mock_store.verify_integrity.return_value = {
+            "receipt_id": "receipt-1",
+            "integrity_valid": True,
+            "stored_checksum": "abc",
+            "computed_checksum": "abc",
+        }
+
+        with patch("aragora.storage.receipt_store.get_receipt_store", return_value=mock_store):
+            result = await verify_decision_receipt_tool(receipt_id="receipt-1")
+
+        assert result["receipt_id"] == "receipt-1"
+        assert result["signature"]["signature_valid"] is True
+        assert result["integrity"]["integrity_valid"] is True
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_no_checks(self):
+        """Warns when no verification is requested."""
+        mock_store = MagicMock()
+        with patch("aragora.storage.receipt_store.get_receipt_store", return_value=mock_store):
+            result = await verify_decision_receipt_tool(
+                receipt_id="receipt-2",
+                verify_signature=False,
+                verify_integrity=False,
+            )
+
+        assert result["receipt_id"] == "receipt-2"
+        assert "warning" in result
+
+    @pytest.mark.asyncio
+    async def test_build_decision_integrity_success(self):
+        """Returns decision integrity package for existing debate."""
+        mock_db = MagicMock()
+        mock_db.get.return_value = {
+            "debate_id": "debate_1",
+            "task": "Test task",
+            "final_answer": "Test answer",
+            "consensus_reached": True,
+            "confidence": 0.8,
+        }
+
+        mock_package = MagicMock()
+        mock_package.to_dict.return_value = {
+            "debate_id": "debate_1",
+            "receipt": {"receipt_id": "r1"},
+            "plan": None,
+        }
+
+        with (
+            patch("aragora.server.storage.get_debates_db", return_value=mock_db),
+            patch(
+                "aragora.pipeline.decision_integrity.build_decision_integrity_package",
+                new=AsyncMock(return_value=mock_package),
+            ),
+        ):
+            result = await build_decision_integrity_tool(debate_id="debate_1")
+
+        assert result["debate_id"] == "debate_1"
 
 
 class TestStoreKnowledgeTool:

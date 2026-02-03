@@ -165,6 +165,10 @@ class CrossDebateConfig:
     persist_to_disk: bool = True
     storage_path: Path | None = None
 
+    # Knowledge Mound integration (enriches context with KM-sourced insights)
+    enable_km_integration: bool = False
+    km_max_results: int = 5
+
     def __post_init__(self) -> None:
         """Validate config and set defaults."""
         import logging
@@ -219,6 +223,7 @@ class CrossDebateMemory:
         self._entries: dict[str, DebateMemoryEntry] = {}
         self._compressor: Any = None
         self._rlm: Any = None  # Official RLM instance (preferred over compression)
+        self._km_debate_adapter: Any = None  # DebateAdapter for KM integration
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -281,6 +286,80 @@ class CrossDebateMemory:
             else:
                 logger.warning("RLM factory not available for cross-debate memory")
         return self._compressor
+
+    def _get_km_debate_adapter(self) -> Any:
+        """Lazy-load Knowledge Mound DebateAdapter for enriched context.
+
+        Returns:
+            DebateAdapter instance or None if not available.
+        """
+        if self._km_debate_adapter is not None:
+            return self._km_debate_adapter
+
+        if not self.config.enable_km_integration:
+            return None
+
+        try:
+            from aragora.knowledge.mound.adapters.debate_adapter import DebateAdapter
+
+            self._km_debate_adapter = DebateAdapter()
+            logger.info(
+                "[CrossDebateMemory] Knowledge Mound DebateAdapter initialized "
+                "for enriched cross-debate context"
+            )
+        except ImportError:
+            logger.debug("DebateAdapter not available - KM integration disabled")
+        except (RuntimeError, TypeError, AttributeError) as e:
+            logger.warning(f"Failed to initialize KM DebateAdapter: {e}")
+
+        return self._km_debate_adapter
+
+    async def _query_km_debates(
+        self,
+        topic: str,
+        domain: str | None = None,
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Query Knowledge Mound for relevant past debates.
+
+        Args:
+            topic: Topic/task to search for
+            domain: Optional domain filter
+            limit: Maximum results to return
+
+        Returns:
+            List of debate summaries from Knowledge Mound
+        """
+        adapter = self._get_km_debate_adapter()
+        if adapter is None:
+            return []
+
+        try:
+            results = adapter.search_by_topic(
+                topic=topic,
+                limit=limit,
+            )
+            # Filter by domain if specified
+            if domain:
+                results = [r for r in results if r.get("domain") == domain]
+
+            km_summaries = []
+            for result in results[:limit]:
+                km_summaries.append(
+                    {
+                        "debate_id": result.get("debate_id", ""),
+                        "topic": result.get("topic", ""),
+                        "consensus_reached": result.get("consensus_reached", False),
+                        "conclusion": result.get("conclusion", ""),
+                        "key_insights": result.get("key_insights", []),
+                        "confidence": result.get("confidence", 0.5),
+                        "source": "knowledge_mound",
+                    }
+                )
+            return km_summaries
+        except (RuntimeError, TypeError, AttributeError, KeyError) as e:
+            logger.warning(f"KM debate query failed: {e}")
+            return []
 
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count."""
@@ -634,6 +713,18 @@ class CrossDebateMemory:
                         entry.access_count += 1
                         entry.last_accessed = now
 
+        # Optionally enrich with Knowledge Mound insights
+        if self.config.enable_km_integration:
+            km_results = await self._query_km_debates(
+                topic=task,
+                domain=domain,
+                limit=self.config.km_max_results,
+            )
+            if km_results:
+                km_section = self._format_km_results(km_results, max_tokens - tokens_used)
+                if km_section:
+                    parts.append(km_section)
+
         return "\n\n---\n\n".join(parts)
 
     async def query_past_debates(
@@ -799,6 +890,54 @@ Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
 
         result = "\n".join(parts)
         return result[:max_chars]
+
+    def _format_km_results(
+        self,
+        km_results: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> str:
+        """Format Knowledge Mound results for context injection.
+
+        Args:
+            km_results: Results from _query_km_debates
+            max_tokens: Token budget for this section
+
+        Returns:
+            Formatted string with KM insights
+        """
+        if not km_results or max_tokens <= 0:
+            return ""
+
+        max_chars = max_tokens * 4
+        parts = ["## Knowledge Mound Insights"]
+
+        for result in km_results:
+            if len("\n".join(parts)) >= max_chars:
+                break
+
+            entry_parts = [
+                f"\n### {result.get('topic', 'Unknown Topic')[:80]}",
+            ]
+
+            if result.get("consensus_reached"):
+                entry_parts.append("  Consensus: Yes")
+            else:
+                entry_parts.append("  Consensus: No")
+
+            conclusion = result.get("conclusion", "")
+            if conclusion:
+                entry_parts.append(f"  Conclusion: {conclusion[:200]}")
+
+            insights = result.get("key_insights", [])
+            if insights:
+                entry_parts.append("  Insights:")
+                for insight in insights[:2]:
+                    entry_parts.append(f"    - {insight[:100]}")
+
+            parts.extend(entry_parts)
+
+        formatted = "\n".join(parts)
+        return formatted[:max_chars]
 
     async def _manage_memory_limits(self) -> None:
         """Manage memory limits and tier transitions."""

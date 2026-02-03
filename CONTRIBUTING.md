@@ -165,7 +165,7 @@ Aragora is a **control plane for multi-agent robust decisionmaking**. Here's how
 |-----------|----------|---------|
 | **Arena** | `aragora/debate/orchestrator.py` | Multi-agent debate orchestration with phases, consensus, and convergence |
 | **Agents** | `aragora/agents/` | 15+ AI model integrations (Claude, GPT, Gemini, Mistral, etc.) |
-| **Memory** | `aragora/memory/continuum.py` | 4-tier memory system (fast/medium/slow/glacial) |
+| **Memory** | `aragora/memory/continuum/core.py` | 4-tier memory system (fast/medium/slow/glacial) |
 | **Knowledge Mound** | `aragora/knowledge/mound/` | Organizational knowledge with semantic search |
 | **Server** | `aragora/server/` | HTTP/WebSocket API with 70+ handlers |
 | **Control Plane** | `aragora/control_plane/` | Agent registry, scheduling, policy governance |

@@ -163,6 +163,22 @@ from .obsidian_adapter import (
     ObsidianAdapter,
     ObsidianSyncConfig,
 )
+from .debate_adapter import (
+    DebateAdapter,
+    DebateSearchResult,
+    DebateOutcome,
+)
+from .workflow_adapter import (
+    WorkflowAdapter,
+    WorkflowSearchResult,
+    WorkflowOutcome,
+)
+from .compliance_adapter import (
+    ComplianceAdapter,
+    ComplianceSearchResult,
+    CheckOutcome,
+    ViolationOutcome,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -297,4 +313,17 @@ __all__ = [
     "InterventionRecord",
     "ObsidianAdapter",
     "ObsidianSyncConfig",
+    # Debate adapter (Debate outcomes → Knowledge Mound)
+    "DebateAdapter",
+    "DebateSearchResult",
+    "DebateOutcome",
+    # Workflow adapter (Workflow executions → Knowledge Mound)
+    "WorkflowAdapter",
+    "WorkflowSearchResult",
+    "WorkflowOutcome",
+    # Compliance adapter (Compliance results → Knowledge Mound)
+    "ComplianceAdapter",
+    "ComplianceSearchResult",
+    "CheckOutcome",
+    "ViolationOutcome",
 ]

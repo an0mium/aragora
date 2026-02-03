@@ -326,8 +326,23 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
             if command == "help":
                 self._send_help(from_number)
-            elif command == "debate":
-                self._start_debate(from_number, contact_name, args, attachments)
+            elif command in ("debate", "plan", "implement"):
+                decision_integrity = None
+                if command in ("plan", "implement"):
+                    decision_integrity = {
+                        "include_receipt": True,
+                        "include_plan": True,
+                        "include_context": command == "implement",
+                        "plan_strategy": "single_task",
+                        "notify_origin": True,
+                    }
+                self._start_debate(
+                    from_number,
+                    contact_name,
+                    args,
+                    attachments,
+                    decision_integrity=decision_integrity,
+                )
             elif command == "status":
                 self._send_status(from_number)
             else:
@@ -521,6 +536,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             "Just send me a question and I'll start a multi-agent vetted decisionmaking!\n\n"
             "Commands:\n"
             "/debate <question> - Start a debate\n"
+            "/plan <question> - Debate + implementation plan\n"
+            "/implement <question> - Debate + plan with context snapshot\n"
             "/status - Check system status\n"
             "/help - Show help",
         )
@@ -531,6 +548,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             to_number,
             "Aragora Commands:\n\n"
             "/debate <question> - Start a multi-agent debate\n"
+            "/plan <question> - Debate + implementation plan\n"
+            "/implement <question> - Debate + plan with context snapshot\n"
             "/status - Check Aragora system status\n"
             "/help - Show this message\n\n"
             "Or just send me any question to start a debate!\n\n"
@@ -560,6 +579,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         contact_name: str,
         topic: str,
         attachments: list[dict[str, Any]] | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> None:
         """Start a debate on the given topic."""
         # RBAC: check debate creation permission
@@ -579,7 +599,13 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             return
 
         # Start debate via queue system
-        debate_id = self._start_debate_async(to_number, contact_name, topic, attachments)
+        debate_id = self._start_debate_async(
+            to_number,
+            contact_name,
+            topic,
+            attachments,
+            decision_integrity=decision_integrity,
+        )
 
         self._send_message(
             to_number,
@@ -596,6 +622,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         contact_name: str,
         topic: str,
         attachments: list[dict[str, Any]] | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> str:
         """Start a debate asynchronously via the DecisionRouter.
 
@@ -629,6 +656,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         # Try DecisionRouter first (preferred)
         try:
             from aragora.core.decision import (
+                DecisionConfig,
                 DecisionRequest,
                 DecisionType,
                 InputSource,
@@ -638,25 +666,37 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             )
 
             async def route_via_decision_router():
-                request = DecisionRequest(
-                    content=topic,
-                    decision_type=DecisionType.DEBATE,
-                    source=InputSource.WHATSAPP,
-                    response_channels=[
+                config = None
+                di_config = decision_integrity
+                if di_config is not None:
+                    if isinstance(di_config, bool):
+                        di_config = {} if di_config else None
+                    if isinstance(di_config, dict):
+                        config = DecisionConfig(decision_integrity=di_config)
+
+                request_kwargs = {
+                    "content": topic,
+                    "decision_type": DecisionType.DEBATE,
+                    "source": InputSource.WHATSAPP,
+                    "response_channels": [
                         ResponseChannel(
                             platform="whatsapp",
                             channel_id=to_number,
                             user_id=to_number,
                         )
                     ],
-                    context=RequestContext(
+                    "context": RequestContext(
                         user_id=f"whatsapp:{to_number}",
                         metadata={"contact_name": contact_name},
                     ),
-                    attachments=attachments or [],
-                )
+                    "attachments": attachments or [],
+                }
+                if config is not None:
+                    request_kwargs["config"] = config
 
-                # Route through DecisionRouter (handles origin registration, deduplication, caching)
+                request = DecisionRequest(**request_kwargs)
+
+                # Route through DecisionRouter (handles deduplication, caching)
                 router = get_decision_router()
                 result = await router.route(request)
                 if result and result.debate_id:

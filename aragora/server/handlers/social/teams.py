@@ -232,6 +232,8 @@ class TeamsIntegrationHandler(BaseHandler):
 
         Commands:
         - debate <topic>  - Start a new debate
+        - plan <topic>    - Debate with an implementation plan
+        - implement <topic> - Debate with plan + context snapshot
         - status          - Show active debate status
         - help            - Show available commands
         - cancel          - Cancel active debate
@@ -268,6 +270,38 @@ class TeamsIntegrationHandler(BaseHandler):
                     conversation=conversation,
                     service_url=service_url,
                     user=from_user,
+                )
+            if command == "plan":
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": True,
+                    "include_context": False,
+                    "plan_strategy": "single_task",
+                    "notify_origin": True,
+                }
+                return await self._start_debate(
+                    topic=args.strip(),
+                    conversation=conversation,
+                    service_url=service_url,
+                    user=from_user,
+                    decision_integrity=decision_integrity,
+                    mode_label="plan",
+                )
+            if command == "implement":
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": True,
+                    "include_context": True,
+                    "plan_strategy": "single_task",
+                    "notify_origin": True,
+                }
+                return await self._start_debate(
+                    topic=args.strip(),
+                    conversation=conversation,
+                    service_url=service_url,
+                    user=from_user,
+                    decision_integrity=decision_integrity,
+                    mode_label="implementation plan",
                 )
             elif command == "status":
                 return self._get_debate_status(conversation)
@@ -364,6 +398,8 @@ class TeamsIntegrationHandler(BaseHandler):
         conversation: dict[str, Any],
         service_url: str,
         user: dict[str, Any],
+        decision_integrity: dict[str, Any] | bool | None = None,
+        mode_label: str = "debate",
     ) -> HandlerResult:
         """Start a new debate in the conversation."""
         if not topic:
@@ -390,7 +426,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         ack_result = await connector.send_message(
             channel_id=conv_id,
-            text=f"Starting debate on: {topic}",
+            text=f"Starting {mode_label} on: {topic}",
             blocks=ack_blocks,
             service_url=service_url,
         )
@@ -409,7 +445,13 @@ class TeamsIntegrationHandler(BaseHandler):
 
         # Start debate asynchronously
         create_tracked_task(
-            self._run_debate_async(conv_id, topic, service_url, ack_result.message_id),
+            self._run_debate_async(
+                conv_id,
+                topic,
+                service_url,
+                ack_result.message_id,
+                decision_integrity=decision_integrity,
+            ),
             f"teams_debate_{conv_id}",
         )
 
@@ -428,6 +470,7 @@ class TeamsIntegrationHandler(BaseHandler):
         topic: str,
         service_url: str,
         thread_ts: str | None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> None:
         """Run a debate asynchronously and post updates."""
         import uuid
@@ -535,6 +578,24 @@ class TeamsIntegrationHandler(BaseHandler):
                 mark_result_sent(debate_id)
             except Exception as e:
                 logger.debug("Could not mark result sent for debate %s: %s", debate_id, e)
+
+            # Optionally emit decision integrity package
+            from aragora.server.decision_integrity_utils import (
+                maybe_emit_decision_integrity,
+            )
+
+            ctx = getattr(self, "ctx", {}) or {}
+            document_store = ctx.get("document_store")
+            evidence_store = ctx.get("evidence_store")
+
+            await maybe_emit_decision_integrity(
+                result=result,
+                debate_id=debate_id,
+                arena=arena,
+                decision_integrity=decision_integrity,
+                document_store=document_store,
+                evidence_store=evidence_store,
+            )
 
         except Exception as e:
             logger.exception(f"Teams debate error: {e}")
@@ -1064,6 +1125,14 @@ class TeamsIntegrationHandler(BaseHandler):
                     {
                         "title": "@aragora debate <topic>",
                         "value": "Start a new multi-agent debate on the topic",
+                    },
+                    {
+                        "title": "@aragora plan <topic>",
+                        "value": "Debate with an implementation plan",
+                    },
+                    {
+                        "title": "@aragora implement <topic>",
+                        "value": "Debate with plan + context snapshot",
                     },
                     {"title": "@aragora status", "value": "Check status of active debate"},
                     {"title": "@aragora cancel", "value": "Cancel the active debate"},

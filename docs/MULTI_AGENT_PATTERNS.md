@@ -423,7 +423,7 @@ Uses RLM (Recursive Language Models) when available for programmatic context exa
 
 ### Continuum Memory (4-Tier Learning)
 
-Based on Google Research's Nested Learning paradigm (`aragora/memory/continuum.py`):
+Based on Google Research's Nested Learning paradigm (`aragora/memory/continuum/core.py`):
 
 | Tier | Half-Life | Update Frequency | Purpose |
 |------|-----------|------------------|---------|

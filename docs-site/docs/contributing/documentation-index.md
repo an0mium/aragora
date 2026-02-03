@@ -18,9 +18,13 @@ Use this index for fast navigation. For a fuller map, see
 
 | Need | Document |
 |------|----------|
+| Extended reference | [EXTENDED_README.md](EXTENDED_README.md) |
+| Feature discovery | [FEATURE_DISCOVERY.md](FEATURE_DISCOVERY.md) |
+| Project status | [STATUS.md](./status) |
 | First-time setup | [GETTING_STARTED.md](../getting-started/overview) |
 | Control plane overview | [CONTROL_PLANE.md](../enterprise/control-plane-overview) |
 | Control plane operations | [CONTROL_PLANE_GUIDE.md](../enterprise/control-plane) |
+| Capability matrix | [CAPABILITY_MATRIX.md](CAPABILITY_MATRIX.md) |
 | API reference | [API_REFERENCE.md](../api/reference) |
 | Admin API reference | [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md) |
 | API examples | [API_EXAMPLES.md](../api/examples) |
@@ -107,7 +111,9 @@ Use this index for fast navigation. For a fuller map, see
 - Handler reference: [HANDLERS.md](./handlers)
 - Handler development: [HANDLER_DEVELOPMENT.md](./handler-development)
 - Testing: [TESTING.md](./testing)
+- Breaking changes: [BREAKING_CHANGES.md](BREAKING_CHANGES.md)
 - Deprecation policy: [DEPRECATION_POLICY.md](./deprecation)
+- Parity backlog: [PARITY_BACKLOG.md](PARITY_BACKLOG.md)
 
 ## Coding & Review
 
@@ -121,5 +127,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 267 (includes deprecated)
-- Last updated: 2026-01-27
+- Markdown files under `docs/`: 435 (includes deprecated)
+- Last updated: 2026-02-03

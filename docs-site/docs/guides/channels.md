@@ -385,7 +385,7 @@ await send_voice_message(channel, audio)
 
 ### Gmail Integration
 
-**Location:** `aragora/connectors/enterprise/communication/gmail.py`
+**Location:** `aragora/connectors/enterprise/communication/gmail/`
 
 ```python
 from aragora.connectors.enterprise.communication import GmailConnector

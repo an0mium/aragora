@@ -27,10 +27,10 @@ The active, production frontend lives in `aragora/live/` (Next.js App Router).
 This is the canonical UI for new feature work and is what powers aragora.ai.
 
 Other frontend-related directories in the repo:
-- `aragora-js/`: TypeScript SDK for API consumers (not a UI).
+- `sdk/typescript/`: TypeScript SDK for API consumers (not a UI).
 - `frontend/`: legacy prototype with a single hook file; not wired to builds or deployments.
 
-SDK docs: see `aragora-js/README.md`. All frontend feature work should happen in `aragora/live/`.
+SDK docs: see `sdk/typescript/README.md`. All frontend feature work should happen in `aragora/live/`.
 Route map: see [FRONTEND_ROUTES](./frontend-routes) for the full UI surface.
 
 ---

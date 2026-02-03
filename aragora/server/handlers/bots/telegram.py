@@ -413,8 +413,23 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             return self._cmd_start(chat_id, user_id)
         elif command == "help":
             return self._cmd_help(chat_id)
-        elif command == "debate":
-            return self._cmd_debate(chat_id, user_id, args, self._extract_attachments(message))
+        elif command in ("debate", "plan", "implement"):
+            decision_integrity = None
+            if command in ("plan", "implement"):
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": True,
+                    "include_context": command == "implement",
+                    "plan_strategy": "single_task",
+                    "notify_origin": True,
+                }
+            return self._cmd_debate(
+                chat_id,
+                user_id,
+                args,
+                self._extract_attachments(message),
+                decision_integrity=decision_integrity,
+            )
         elif command == "status":
             return self._cmd_status(chat_id)
         elif command in ("aragora", "ask"):
@@ -537,6 +552,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             "to debate and deliver defensible decisions.\n\n"
             "Commands:\n"
             "/debate <question> - Start a multi-agent vetted decisionmaking\n"
+            "/plan <question> - Debate + implementation plan\n"
+            "/implement <question> - Debate + plan with context snapshot\n"
             "/status - Check system status\n"
             "/help - Show this help\n\n"
             "Or just send me a question and I'll deliberate!",
@@ -550,6 +567,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             "Aragora Commands:\n\n"
             "/debate <question> - Start a multi-agent debate\n"
             "/ask <question> - Alias for /debate\n"
+            "/plan <question> - Debate + implementation plan\n"
+            "/implement <question> - Debate + plan with context snapshot\n"
             "/status - Check Aragora system status\n"
             "/help - Show this message\n\n"
             "Example:\n"
@@ -563,6 +582,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         user_id: int,
         topic: str,
         attachments: list[dict[str, Any]] | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> HandlerResult:
         """Handle /debate command."""
         # RBAC: check debate creation permission
@@ -581,7 +601,13 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             return json_response({"ok": True})
 
         # Start debate via queue system
-        debate_id = self._start_debate_async(chat_id, user_id, topic, attachments)
+        debate_id = self._start_debate_async(
+            chat_id,
+            user_id,
+            topic,
+            attachments,
+            decision_integrity=decision_integrity,
+        )
 
         self._send_message(
             chat_id,
@@ -599,6 +625,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         user_id: int,
         topic: str,
         attachments: list[dict[str, Any]] | None = None,
+        decision_integrity: dict[str, Any] | bool | None = None,
     ) -> str:
         """Start a debate asynchronously via the DecisionRouter.
 
@@ -606,7 +633,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         - Deduplication (prevents duplicate debates for same topic/user)
         - Caching (returns cached results if available)
         - Metrics and logging
-        - Origin registration for result routing
+        - Consistent routing across channels
         """
         import asyncio
         import uuid
@@ -618,6 +645,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         async def route_debate():
             try:
                 from aragora.core import (
+                    DecisionConfig,
                     DecisionRequest,
                     DecisionType,
                     InputSource,
@@ -639,19 +667,60 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                     session_id=f"telegram:{chat_id}",
                 )
 
-                # Create decision request
-                request = DecisionRequest(
-                    content=topic,
-                    decision_type=DecisionType.DEBATE,
-                    source=InputSource.TELEGRAM,
-                    response_channels=[response_channel],
-                    context=context,
-                    attachments=attachments or [],
-                )
+                config = None
+                di_config = decision_integrity
+                if di_config is not None:
+                    if isinstance(di_config, bool):
+                        di_config = {} if di_config else None
+                    if isinstance(di_config, dict):
+                        config = DecisionConfig(decision_integrity=di_config)
 
-                # Route through DecisionRouter (handles origin registration, deduplication, caching)
+                request_kwargs = {
+                    "content": topic,
+                    "decision_type": DecisionType.DEBATE,
+                    "source": InputSource.TELEGRAM,
+                    "response_channels": [response_channel],
+                    "context": context,
+                    "attachments": attachments or [],
+                    "request_id": debate_id,
+                }
+                if config is not None:
+                    request_kwargs["config"] = config
+
+                # Create decision request
+                request = DecisionRequest(**request_kwargs)
+
+                # Register origin for result routing (best-effort)
+                try:
+                    from aragora.server.debate_origin import register_debate_origin
+
+                    register_debate_origin(
+                        debate_id=request.request_id,
+                        platform="telegram",
+                        channel_id=str(chat_id),
+                        user_id=str(user_id),
+                        metadata={"username": str(user_id), "topic": topic},
+                    )
+                except Exception as exc:
+                    logger.debug("Failed to register Telegram debate origin: %s", exc)
+
+                # Route through DecisionRouter (handles deduplication, caching)
                 router = get_decision_router()
                 result = await router.route(request)
+
+                if result.request_id and result.request_id != request.request_id:
+                    try:
+                        from aragora.server.debate_origin import register_debate_origin
+
+                        register_debate_origin(
+                            debate_id=result.request_id,
+                            platform="telegram",
+                            channel_id=str(chat_id),
+                            user_id=str(user_id),
+                            metadata={"username": str(user_id), "topic": topic},
+                        )
+                    except Exception as exc:
+                        logger.debug("Failed to register dedup Telegram origin: %s", exc)
 
                 if result.debate_id:
                     logger.info(f"DecisionRouter started debate {result.debate_id} from Telegram")

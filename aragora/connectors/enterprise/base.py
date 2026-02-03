@@ -543,8 +543,8 @@ class EnterpriseConnector(BaseConnector):
                     side_effect = getattr(ingest, "side_effect", None)
                     if isinstance(side_effect, list):
                         ingest.side_effect = iter(side_effect)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Mock side_effect normalization skipped: %s", e)
 
             async for item in self.sync_items(state, batch_size):
                 if self._cancel_requested:

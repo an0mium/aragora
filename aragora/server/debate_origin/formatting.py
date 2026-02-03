@@ -19,6 +19,86 @@ def _format_result_message(
     html: bool = False,
 ) -> str:
     """Format debate result as a message."""
+    event_type = result.get("event")
+    if (
+        event_type
+        in {
+            "decision_integrity",
+            "decision_plan",
+        }
+        or "package" in result
+    ):
+        package = result.get("package") or result.get("decision_integrity") or {}
+        receipt = package.get("receipt") or {}
+        plan = package.get("plan") or {}
+        context_snapshot = package.get("context_snapshot") or {}
+        debate_id = (
+            package.get("debate_id") or result.get("debate_id") or origin.debate_id or "unknown"
+        )
+        topic = package.get("task") or origin.metadata.get("topic", "Unknown topic")
+        tasks = plan.get("tasks") or []
+        task_count = len(tasks)
+
+        receipt_verdict = receipt.get("verdict")
+        receipt_confidence = receipt.get("confidence")
+        risk_summary = receipt.get("risk_summary") or {}
+        critical = risk_summary.get("critical")
+        high = risk_summary.get("high")
+
+        lines: list[str] = []
+        title = (
+            "Decision Plan Ready"
+            if event_type == "decision_plan"
+            else "Decision Integrity Package Ready"
+        )
+        lines.append(f"**{title}**")
+        lines.append("")
+        lines.append(f"**Topic:** {str(topic)[:200]}")
+        lines.append(f"**Debate:** `{str(debate_id)[:12]}...`")
+
+        if receipt_verdict:
+            verdict_line = f"**Receipt:** {receipt_verdict}"
+            if isinstance(receipt_confidence, (int, float)):
+                verdict_line += f" ({receipt_confidence:.0%})"
+            if critical is not None or high is not None:
+                verdict_line += f" | critical: {critical or 0}, high: {high or 0}"
+            lines.append(verdict_line)
+
+        if task_count:
+            lines.append(f"**Plan:** {task_count} tasks")
+            for task in tasks[:3]:
+                desc = str(task.get("description", "")).strip()
+                if desc:
+                    lines.append(f"- {desc[:160]}")
+            if task_count > 3:
+                lines.append(f"- ...and {task_count - 3} more")
+
+        total_tokens = context_snapshot.get("total_context_tokens")
+        if isinstance(total_tokens, int) and total_tokens > 0:
+            lines.append(f"**Context snapshot:** ~{total_tokens} tokens")
+
+        message = "\n".join(lines)
+        if html:
+            return message.replace("\n", "<br>")
+        return message
+
+    if event_type in {"execution_progress", "execution_complete"}:
+        progress = result.get("progress") or result.get("summary") or {}
+        pct = progress.get("progress_pct", 0.0)
+        completed = progress.get("completed_tasks", 0)
+        failed = progress.get("failed_tasks", 0)
+        total = progress.get("total_tasks", 0)
+        title = "Execution Progress" if event_type == "execution_progress" else "Execution Complete"
+        if html:
+            return (
+                f"<strong>{title}</strong><br>"
+                f"Tasks: {completed}/{total} (failed: {failed})<br>"
+                f"Progress: {pct}%"
+            )
+        if markdown:
+            return f"**{title}**\n\nTasks: {completed}/{total} (failed: {failed})\nProgress: {pct}%"
+        return f"{title}\nTasks: {completed}/{total} (failed: {failed})\nProgress: {pct}%"
+
     consensus = result.get("consensus_reached", False)
     answer = result.get("final_answer", "No conclusion reached.")
     confidence = result.get("confidence", 0)

@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.openclaw._base import OpenClawMixinBase, _has_permission
 from aragora.server.handlers.openclaw.models import CredentialType
 from aragora.server.handlers.openclaw.store import _get_store
 from aragora.server.handlers.openclaw.validation import (
@@ -31,10 +32,7 @@ from aragora.server.handlers.openclaw.validation import (
     validate_credential_secret,
     validate_metadata,
 )
-from aragora.server.handlers.utils.decorators import (
-    has_permission,
-    require_permission,
-)
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import (
     auth_rate_limit,
     rate_limit,
@@ -45,20 +43,6 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
-
-def _has_permission(role: Any, permission: str) -> bool:
-    """Resolve permission checks via the compatibility shim when patched."""
-    try:
-        import sys
-
-        gateway_module = sys.modules.get("aragora.server.handlers.openclaw_gateway")
-        override = getattr(gateway_module, "has_permission", None) if gateway_module else None
-        if override is not None and override is not has_permission:
-            return override(role, permission)
-    except Exception:
-        pass
-    return has_permission(role, permission)
 
 
 # =============================================================================
@@ -155,8 +139,8 @@ def _get_credential_rotation_limiter() -> CredentialRotationRateLimiter:
         )
         if override is not None and override is not _get_credential_rotation_limiter:
             return override()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to resolve credential rotation limiter override: %s", e)
 
     global _credential_rotation_limiter
     if _credential_rotation_limiter is None:
@@ -169,7 +153,7 @@ def _get_credential_rotation_limiter() -> CredentialRotationRateLimiter:
 # =============================================================================
 
 
-class CredentialHandlerMixin:
+class CredentialHandlerMixin(OpenClawMixinBase):
     """Mixin class providing credential management handler methods.
 
     This mixin is intended to be used with OpenClawGatewayHandler.
@@ -178,19 +162,6 @@ class CredentialHandlerMixin:
     - _get_tenant_id(handler) -> str | None
     - get_current_user(handler) -> User | None
     """
-
-    # Method stubs for type checking - must be provided by parent class
-    def _get_user_id(self, handler: Any) -> str:
-        """Get user ID from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
-
-    def _get_tenant_id(self, handler: Any) -> str | None:
-        """Get tenant ID from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
-
-    def get_current_user(self, handler: Any) -> Any:
-        """Get current user from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
 
     @require_permission("gateway:credentials.read")
     @rate_limit(requests_per_minute=60, limiter_name="openclaw_gateway_list_creds")

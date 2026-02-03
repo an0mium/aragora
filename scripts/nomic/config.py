@@ -57,6 +57,50 @@ NOMIC_CALIBRATION_ENABLED = os.environ.get("NOMIC_CALIBRATION_ENABLED", "1") == 
 NOMIC_OUTCOME_TRACKING = os.environ.get("NOMIC_OUTCOME_TRACKING", "1") == "1"
 
 
+# =============================================================================
+# TESTFIXER FLAGS - Automated test repair loop integration
+# =============================================================================
+
+# Enable TestFixer integration in the nomic loop (default OFF)
+NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "0") == "1"
+
+# Test command to run inside TestFixer
+NOMIC_TESTFIXER_TEST_COMMAND = os.environ.get(
+    "NOMIC_TESTFIXER_TEST_COMMAND", "pytest tests/ -q --maxfail=1"
+)
+
+# Per-test run timeout (seconds)
+NOMIC_TESTFIXER_TEST_TIMEOUT = int(os.environ.get("NOMIC_TESTFIXER_TEST_TIMEOUT", "600"))
+
+# Max iterations for the TestFixer loop
+NOMIC_TESTFIXER_MAX_ITERATIONS = int(os.environ.get("NOMIC_TESTFIXER_MAX_ITERATIONS", "5"))
+
+# Max repeated same failure before stopping
+NOMIC_TESTFIXER_MAX_SAME_FAILURE = int(os.environ.get("NOMIC_TESTFIXER_MAX_SAME_FAILURE", "3"))
+
+# Confidence thresholds
+NOMIC_TESTFIXER_MIN_CONFIDENCE = float(os.environ.get("NOMIC_TESTFIXER_MIN_CONFIDENCE", "0.5"))
+NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE = float(
+    os.environ.get("NOMIC_TESTFIXER_MIN_AUTO_CONFIDENCE", "0.7")
+)
+
+# Require consensus across generators
+NOMIC_TESTFIXER_REQUIRE_CONSENSUS = os.environ.get("NOMIC_TESTFIXER_REQUIRE_CONSENSUS", "0") == "1"
+
+# Require manual approval before applying fixes
+NOMIC_TESTFIXER_REQUIRE_APPROVAL = os.environ.get("NOMIC_TESTFIXER_REQUIRE_APPROVAL", "0") == "1"
+
+# Revert failed fixes
+NOMIC_TESTFIXER_REVERT_ON_FAILURE = os.environ.get("NOMIC_TESTFIXER_REVERT_ON_FAILURE", "1") == "1"
+
+# Stop on first successful fix
+NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS = (
+    os.environ.get("NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS", "0") == "1"
+)
+
+# Agents to use for fix generation (comma-separated)
+NOMIC_TESTFIXER_AGENTS = os.environ.get("NOMIC_TESTFIXER_AGENTS", "")
+
 # Default backup directory name
 DEFAULT_BACKUP_DIR = ".nomic_backups"
 

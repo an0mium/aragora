@@ -6533,6 +6533,47 @@ export class AragoraClient {
   }
 
   /**
+   * Verify a decision receipt's integrity and signature.
+   */
+  async verifyDecisionReceiptFull(receiptId: string): Promise<{
+    receipt_id: string;
+    signature: {
+      signature_valid: boolean;
+      algorithm?: string;
+      key_id?: string;
+      signed_at?: number | string;
+      verification_timestamp?: string;
+      error?: string;
+    };
+    integrity: {
+      integrity_valid: boolean;
+      stored_checksum?: string;
+      computed_checksum?: string;
+      verified_at?: string;
+      error?: string;
+    };
+  }> {
+    return this.request<{
+      receipt_id: string;
+      signature: {
+        signature_valid: boolean;
+        algorithm?: string;
+        key_id?: string;
+        signed_at?: number | string;
+        verification_timestamp?: string;
+        error?: string;
+      };
+      integrity: {
+        integrity_valid: boolean;
+        stored_checksum?: string;
+        computed_checksum?: string;
+        verified_at?: string;
+        error?: string;
+      };
+    }>('GET', `/api/v2/receipts/${encodeURIComponent(receiptId)}/verify`);
+  }
+
+  /**
    * Verify multiple decision receipts in batch.
    */
   async verifyDecisionReceiptsBatch(receiptIds: string[]): Promise<{

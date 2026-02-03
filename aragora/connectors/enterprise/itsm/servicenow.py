@@ -376,8 +376,8 @@ class ServiceNowConnector(EnterpriseConnector):
                 side_effect = getattr(self._api_request, "side_effect", None)
                 if isinstance(side_effect, list):
                     self._api_request.side_effect = iter(side_effect)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Mock side_effect normalization skipped: %s", e)
 
         return await self._api_request(f"/table/{table}", params=params)
 

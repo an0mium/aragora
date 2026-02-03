@@ -21,6 +21,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.openclaw._base import OpenClawMixinBase
 from aragora.server.handlers.openclaw.store import _get_store
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-class PolicyHandlerMixin:
+class PolicyHandlerMixin(OpenClawMixinBase):
     """Mixin class providing policy and admin handler methods.
 
     This mixin is intended to be used with OpenClawGatewayHandler.
@@ -46,19 +47,6 @@ class PolicyHandlerMixin:
     - _get_tenant_id(handler) -> str | None
     - get_current_user(handler) -> User | None
     """
-
-    # Method stubs for type checking - must be provided by parent class
-    def _get_user_id(self, handler: Any) -> str:
-        """Get user ID from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
-
-    def _get_tenant_id(self, handler: Any) -> str | None:
-        """Get tenant ID from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
-
-    def get_current_user(self, handler: Any) -> Any:
-        """Get current user from handler. Must be overridden by parent class."""
-        raise NotImplementedError("Must be provided by parent class")
 
     # =========================================================================
     # Policy Rule Handlers

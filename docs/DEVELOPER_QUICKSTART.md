@@ -12,7 +12,7 @@ aragora/
 │   ├── phases/            # Modular phase executors
 │   └── context.py         # Shared debate state
 ├── memory/           # Memory systems
-│   ├── continuum.py       # Multi-tier memory (fast/medium/slow/glacial)
+│   ├── continuum/         # Multi-tier memory (fast/medium/slow/glacial)
 │   ├── consensus.py       # Topic consensus tracking
 │   └── postgres_*.py      # PostgreSQL implementations
 ├── ranking/          # ELO rating system

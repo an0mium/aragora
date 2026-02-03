@@ -598,6 +598,26 @@ class FeaturesHandler(BaseHandler):
         "/api/features/{feature_id}": "_get_feature_status",
     }
 
+    # List-form routes for SDK audit visibility (versioned + unversioned)
+    ROUTE_LIST = [
+        "/api/v1/features",
+        "/api/v1/features/all",
+        "/api/v1/features/available",
+        "/api/v1/features/config",
+        "/api/v1/features/discover",
+        "/api/v1/features/endpoints",
+        "/api/v1/features/handlers",
+        "/api/v1/features/*",
+        "/api/features",
+        "/api/features/all",
+        "/api/features/available",
+        "/api/features/config",
+        "/api/features/discover",
+        "/api/features/endpoints",
+        "/api/features/handlers",
+        "/api/features/*",
+    ]
+
     # Default feature preferences (all toggleable features)
     DEFAULT_PREFERENCES = {
         "calibration": True,  # Agent calibration tracking

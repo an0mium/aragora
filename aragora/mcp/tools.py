@@ -58,6 +58,8 @@ from aragora.mcp.tools_module import (
     store_knowledge_tool,
     get_knowledge_stats_tool,
     get_decision_receipt_tool,
+    verify_decision_receipt_tool,
+    build_decision_integrity_tool,
     # Workflow tools
     run_workflow_tool,
     get_workflow_status_tool,
@@ -484,6 +486,28 @@ TOOLS_METADATA = [
             "include_evidence": {"type": "boolean", "default": True},
         },
     },
+    {
+        "name": "verify_decision_receipt",
+        "description": "Verify a decision receipt's signature and integrity",
+        "function": verify_decision_receipt_tool,
+        "parameters": {
+            "receipt_id": {"type": "string", "required": True},
+            "verify_signature": {"type": "boolean", "default": True},
+            "verify_integrity": {"type": "boolean", "default": True},
+        },
+    },
+    {
+        "name": "build_decision_integrity",
+        "description": "Build a decision integrity package (receipt + plan + context)",
+        "function": build_decision_integrity_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "required": True},
+            "include_receipt": {"type": "boolean", "default": True},
+            "include_plan": {"type": "boolean", "default": True},
+            "include_context": {"type": "boolean", "default": False},
+            "plan_strategy": {"type": "string", "default": "single_task"},
+        },
+    },
     # Workflow tools
     {
         "name": "run_workflow",
@@ -775,6 +799,8 @@ __all__ = [
     "store_knowledge_tool",
     "get_knowledge_stats_tool",
     "get_decision_receipt_tool",
+    "verify_decision_receipt_tool",
+    "build_decision_integrity_tool",
     # Workflow tools
     "run_workflow_tool",
     "get_workflow_status_tool",

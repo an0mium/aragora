@@ -378,6 +378,69 @@ class CurriculumAwareFeedbackLoop:
         """Get the active curriculum for a subtask, if any."""
         return self._active_curricula.get(subtask_id)
 
+    def get_curriculum_summary(self) -> dict[str, Any]:
+        """Get a summary of curriculum learning for this session.
+
+        Returns a dict suitable for inclusion in NomicCycleOutcome's
+        curriculum_outcome field for cross-cycle persistence.
+
+        Returns:
+            Dict with curriculum learning metrics and details
+        """
+        # Count curricula and stones
+        curricula_created = (
+            len(self._planner._curricula) if hasattr(self._planner, "_curricula") else 0
+        )
+        stones_attempted = 0
+        stones_succeeded = 0
+        skill_gaps: list[str] = []
+        skills_improved: list[str] = []
+        curriculum_results: dict[str, dict[str, Any]] = {}
+
+        # Aggregate results from all stone results
+        for subtask_id, results in self._stone_results.items():
+            curriculum = self._active_curricula.get(subtask_id)
+            curriculum_id = curriculum.id if curriculum else subtask_id
+
+            for result in results:
+                stones_attempted += 1
+                if result.success:
+                    stones_succeeded += 1
+
+            if results:
+                curriculum_results[curriculum_id] = {
+                    "stones_attempted": len(results),
+                    "stones_succeeded": sum(1 for r in results if r.success),
+                    "avg_score": (
+                        sum(r.completion_score for r in results) / len(results) if results else 0.0
+                    ),
+                }
+
+        # Extract skill gaps from iteration counts (high iteration = skill gap)
+        for subtask_id, count in self._iteration_counts.items():
+            if count >= self.config.min_failures_for_curriculum:
+                # This subtask had enough failures to indicate a gap
+                curriculum = self._active_curricula.get(subtask_id)
+                if curriculum:
+                    skill_gaps.append(curriculum.target_task[:100])
+
+        # Skills improved are tasks that completed after curriculum
+        for subtask_id in self._stone_results:
+            results = self._stone_results[subtask_id]
+            if results and sum(1 for r in results if r.success) > 0:
+                curriculum = self._active_curricula.get(subtask_id)
+                if curriculum:
+                    skills_improved.append(curriculum.target_task[:100])
+
+        return {
+            "curricula_created": curricula_created,
+            "stones_attempted": stones_attempted,
+            "stones_succeeded": stones_succeeded,
+            "skill_gaps": skill_gaps,
+            "skills_improved": skills_improved,
+            "curriculum_results": curriculum_results,
+        }
+
 
 def integrate_curriculum_with_orchestrator(
     orchestrator: "AutonomousOrchestrator",

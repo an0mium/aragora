@@ -261,6 +261,39 @@ tier_stats = client.memory.tier_stats("fast", days=7)
 snapshot = client.memory.snapshot()
 ```
 
+### Knowledge Base
+
+Manage facts and run semantic queries against the knowledge base.
+
+```python
+# Semantic search over knowledge chunks
+results = client.knowledge.search("password reset policies", limit=5)
+for item in results["results"]:
+    print(item["content"][:80])
+
+# Create a fact
+fact = client.knowledge.create_fact(
+    statement="All customer data is encrypted at rest",
+    workspace_id="default",
+    confidence=0.85,
+    topics=["security", "compliance"],
+)
+
+# Verify and fetch contradictions
+client.knowledge.verify_fact(fact["id"])
+contradictions = client.knowledge.list_contradictions(fact["id"])
+```
+
+### Consensus Memory
+
+Inspect settled topics, dissents, and consensus stats.
+
+```python
+similar = client.consensus.get_similar_debates("rate limiting", limit=5)
+stats = client.consensus.get_stats()
+warnings = client.consensus.get_risk_warnings(limit=5)
+```
+
 ### Agents
 
 Discover available agents and their capabilities.
@@ -320,6 +353,78 @@ summary = client.explainability.get_summary(debate_id, format="markdown")
 batch = client.explainability.create_batch([debate_id], include_evidence=True)
 status = client.explainability.get_batch_status(batch.batch_id)
 ```
+
+### Batch Operations
+
+Submit and track debate batches.
+
+```python
+batch = client.batch.submit_debates(
+    [
+        {"question": "Evaluate rate limiting options", "agents": "openai-api,anthropic-api"},
+        {"question": "Design a cache invalidation strategy", "rounds": 2},
+    ],
+    callback_url="https://example.com/webhooks/batch",
+)
+
+status = client.batch.get_status(batch["batch_id"])
+batches = client.batch.list(status="processing", limit=25)
+```
+
+### Routing
+
+Request routing recommendations and manage rules.
+
+```python
+recommendations = client.routing.select_team(
+    "Assess SOC2 audit readiness",
+    team_size=4,
+    required_skills=["security", "compliance"],
+)
+
+auto = client.routing.auto_route("Summarize customer feedback")
+domain = client.routing.detect_domain("Create a phishing training plan")
+
+rules = client.routing.list_rules(active_only=True)
+rule = client.routing.create_rule(
+    name="SOC2 escalation",
+    conditions=[{"field": "risk_level", "operator": "gte", "value": "high"}],
+    actions=[{"type": "notify", "channel": "slack"}],
+    priority=10,
+)
+```
+
+### Critiques & Reputation
+
+Inspect critique patterns and agent reputation data.
+
+```python
+patterns = client.critiques.list_patterns(limit=5)
+reputations = client.critiques.list_reputations()
+agent_rep = client.critiques.get_agent_reputation("claude")
+```
+
+### Additional Namespaces
+
+The SDK exposes additional namespaces for platform and admin features. For
+endpoint details, see API_REFERENCE.md.
+
+- `client.a2a` - Agent-to-agent protocol
+- `client.advertising` - Advertising platform integrations
+- `client.cross_pollination` - Cross-pollination stats and subscriptions
+- `client.bots` - Bot integration webhooks (Teams, Discord, Telegram, Zoom)
+- `client.dashboard` - Dashboard overview and quick actions
+- `client.deliberations` - Active deliberations and stats
+- `client.devices` - Device registration and notifications
+- `client.feedback` - NPS surveys and product feedback
+- `client.gmail` - Gmail message operations
+- `client.metrics` - Operational metrics and Prometheus export
+- `client.plugins` - Plugin management and marketplace
+- `client.privacy` - GDPR/CCPA export and privacy preferences
+- `client.queue` - Background job queue management
+- `client.system` - Admin history, maintenance, and circuit breakers
+- `client.threat_intel` - Threat intelligence scanning
+- `client.unified_inbox` - Unified inbox routing and actions
 
 ### Organizations
 

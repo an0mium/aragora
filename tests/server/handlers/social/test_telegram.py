@@ -546,11 +546,15 @@ class TestCommands:
         assert "testuser" in response
         assert "/help" in response
         assert "/debate" in response
+        assert "/plan" in response
+        assert "/implement" in response
 
     def test_command_help(self, handler):
         """Test /help command."""
         response = handler._command_help()
         assert "/debate" in response
+        assert "/plan" in response
+        assert "/implement" in response
         assert "/gauntlet" in response
         assert "/status" in response
         assert "/agents" in response
@@ -633,6 +637,23 @@ class TestCommands:
             with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
                 handler._handle_command(123, 456, "user", "/HELP")
                 mock_help.assert_called_once()
+
+    def test_handle_command_plan(self, handler):
+        """Test /plan command routes to debate with decision integrity."""
+        with patch.object(handler, "_command_debate", return_value={"ok": True}) as mock_cmd:
+            handler._handle_command(123, 456, "user", "/plan Improve onboarding")
+        assert mock_cmd.call_args is not None
+        kwargs = mock_cmd.call_args.kwargs
+        assert kwargs["decision_integrity"]["include_plan"] is True
+        assert kwargs["mode_label"] == "plan"
+
+    def test_handle_command_implement(self, handler):
+        """Test /implement command routes to debate with context snapshot."""
+        with patch.object(handler, "_command_debate", return_value={"ok": True}) as mock_cmd:
+            handler._handle_command(123, 456, "user", "/implement Automate reporting")
+        kwargs = mock_cmd.call_args.kwargs
+        assert kwargs["decision_integrity"]["include_context"] is True
+        assert kwargs["mode_label"] == "implementation plan"
 
 
 # ===========================================================================

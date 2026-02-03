@@ -53,9 +53,11 @@ DecisionType: Any
 InputSource: Any
 ResponseChannel: Any
 RequestContext: Any
+DecisionConfig: Any
 get_decision_router: Any
 try:
     from aragora.core.decision import (
+        DecisionConfig,
         DecisionRequest,
         DecisionRouter,
         DecisionType,
@@ -74,6 +76,7 @@ except ImportError:
     InputSource = None
     ResponseChannel = None
     RequestContext = None
+    DecisionConfig = None
     get_decision_router = None
 
 logger = logging.getLogger(__name__)
@@ -682,15 +685,34 @@ class ChatWebhookRouter:
         if event.message and event.message.attachments:
             attachments = event.message.attachments
 
+        decision_integrity = None
+        options = getattr(command, "options", None) if command else None
+        if isinstance(options, dict):
+            decision_integrity = options.get("decision_integrity")
+        event_meta = getattr(event, "metadata", None)
+        if decision_integrity is None and isinstance(event_meta, dict):
+            decision_integrity = event_meta.get("decision_integrity")
+        config = None
+        if decision_integrity is not None and DecisionConfig is not None:
+            if isinstance(decision_integrity, bool):
+                decision_integrity = {} if decision_integrity else {}
+            elif not isinstance(decision_integrity, dict):
+                decision_integrity = {}
+            config = DecisionConfig(decision_integrity=decision_integrity or {})
+
+        request_kwargs = {
+            "content": content,
+            "decision_type": decision_type,
+            "source": self._get_input_source(event.platform),
+            "response_channels": [response_channel],
+            "context": context,
+            "attachments": attachments,
+        }
+        if config is not None:
+            request_kwargs["config"] = config
+
         # Create decision request
-        request = DecisionRequest(
-            content=content,
-            decision_type=decision_type,
-            source=self._get_input_source(event.platform),
-            response_channels=[response_channel],
-            context=context,
-            attachments=attachments,
-        )
+        request = DecisionRequest(**request_kwargs)
 
         # Route through DecisionRouter
         result = await self._decision_router.route(request)

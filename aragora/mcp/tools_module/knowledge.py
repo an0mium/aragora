@@ -6,6 +6,7 @@ Provides tools for querying and managing the Knowledge Mound:
 - store_knowledge: Add new knowledge nodes
 - get_knowledge_stats: Get knowledge base statistics
 - get_decision_receipt: Get a formal decision receipt
+- verify_decision_receipt: Verify receipt signature and integrity
 """
 
 from __future__ import annotations
@@ -335,6 +336,106 @@ async def get_decision_receipt_tool(
         return {"error": f"Receipt generation failed: {str(e)}"}
 
 
+async def verify_decision_receipt_tool(
+    receipt_id: str,
+    verify_signature: bool = True,
+    verify_integrity: bool = True,
+) -> dict[str, Any]:
+    """
+    Verify a decision receipt's signature and integrity checksum.
+
+    Args:
+        receipt_id: Receipt ID to verify
+        verify_signature: Whether to verify cryptographic signature
+        verify_integrity: Whether to verify checksum integrity
+
+    Returns:
+        Dict with verification results
+    """
+    if not receipt_id:
+        return {"error": "receipt_id is required"}
+
+    try:
+        from aragora.storage.receipt_store import get_receipt_store
+
+        store = get_receipt_store()
+        if not store:
+            return {"error": "Receipt store not available"}
+
+        result: dict[str, Any] = {"receipt_id": receipt_id}
+
+        if verify_signature:
+            signature_result = store.verify_signature(receipt_id)
+            result["signature"] = (
+                signature_result.to_dict()
+                if hasattr(signature_result, "to_dict")
+                else signature_result
+            )
+
+        if verify_integrity:
+            result["integrity"] = store.verify_integrity(receipt_id)
+
+        if not verify_signature and not verify_integrity:
+            result["warning"] = "No verification requested"
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Receipt verification failed: {e}")
+        return {"error": f"Receipt verification failed: {str(e)}"}
+
+
+async def build_decision_integrity_tool(
+    debate_id: str,
+    include_receipt: bool = True,
+    include_plan: bool = True,
+    include_context: bool = False,
+    plan_strategy: str = "single_task",
+) -> dict[str, Any]:
+    """
+    Build a Decision Integrity package for a completed debate.
+
+    This bundles:
+    - Decision receipt (audit trail)
+    - Implementation plan (task breakdown)
+    - Optional context snapshot (memory/knowledge state)
+
+    Args:
+        debate_id: ID of the debate
+        include_receipt: Include decision receipt
+        include_plan: Include implementation plan
+        include_context: Include context snapshot
+        plan_strategy: "single_task" (default) or "gemini" (best-effort)
+
+    Returns:
+        Dict with the Decision Integrity package
+    """
+    try:
+        from aragora.server.storage import get_debates_db
+        from aragora.pipeline.decision_integrity import build_decision_integrity_package
+
+        db = get_debates_db()
+        if not db:
+            return {"error": "Debates database not available"}
+
+        debate = db.get(debate_id)
+        if not debate:
+            return {"error": f"Debate {debate_id} not found"}
+
+        package = await build_decision_integrity_package(
+            debate,
+            include_receipt=include_receipt,
+            include_plan=include_plan,
+            include_context=include_context,
+            plan_strategy=plan_strategy,
+        )
+        return package.to_dict()
+
+    except Exception as e:
+        logger.error(f"Failed to build decision integrity package: {e}")
+        return {"error": f"Decision integrity build failed: {str(e)}"}
+
+
 def _format_receipt_markdown(receipt: dict[str, Any]) -> str:
     """Format a decision receipt as markdown."""
     md = f"""# Decision Receipt
@@ -378,4 +479,6 @@ __all__ = [
     "store_knowledge_tool",
     "get_knowledge_stats_tool",
     "get_decision_receipt_tool",
+    "verify_decision_receipt_tool",
+    "build_decision_integrity_tool",
 ]

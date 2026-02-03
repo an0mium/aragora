@@ -29,7 +29,7 @@ Context for Claude Code when working with the Aragora codebase.
 | Integrations | `aragora/integrations/` | `slack.py`, `email.py`, `discord.py`, `teams.py`, `zapier.py`, `langchain/` |
 | Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `mound/resilience.py` |
 | MCP | `aragora/mcp/` | `server.py`, `tools.py`, `tools_module/` |
-| Memory | `aragora/memory/` | `continuum.py`, `consensus.py`, `coordinator.py` |
+| Memory | `aragora/memory/` | `continuum/`, `consensus.py`, `coordinator.py` |
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py`, `self_develop.py` |
 | Nomic Stores | `aragora/nomic/stores/` | `bead_store.py`, `convoy_store.py`, `paths.py` |
 | Notifications | `aragora/notifications/` | `service.py` |
@@ -79,11 +79,11 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 ## Project Overview
 
-Aragora is the **Decision Integrity Platform** -- orchestrating 15+ AI models to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel. It implements self-improvement through the **Nomic Loop** -- an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
+Aragora is the **Decision Integrity Platform** -- orchestrating 30+ agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel. It implements self-improvement through the **Nomic Loop** -- an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 3,000+ Python modules | 130,700+ tests | 2,990+ test files | 210+ debate modules | 580+ HTTP handlers + 26 WebSocket streams | 25 KM adapters | 140 SDK namespaces
+**Codebase Scale:** 3,000+ Python modules | 130,000+ tests | 3,000+ test files | 210+ debate modules | 2,000+ API operations across 1,800+ paths | 28 KM adapters | 140 SDK namespaces
 
 ## Architecture
 
@@ -109,13 +109,13 @@ aragora/
 │   ├── fallback.py         # OpenRouter fallback on quota errors
 │   └── airlock.py          # AirlockProxy for agent resilience
 ├── memory/           # Learning and persistence
-│   ├── continuum.py        # Multi-tier memory (fast/medium/slow/glacial)
+│   ├── continuum/          # Multi-tier memory (fast/medium/slow/glacial)
 │   ├── consensus.py        # Historical debate outcomes
 │   └── coordinator.py      # Atomic cross-system memory writes
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
-│       └── adapters/       # KM adapters (25 registered)
+│       └── adapters/       # KM adapters (28 registered)
 │           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
 │   ├── chat/               # Telegram, WhatsApp connectors
@@ -124,12 +124,12 @@ aragora/
 │           ├── kafka.py    # Apache Kafka consumer
 │           └── rabbitmq.py # RabbitMQ consumer/publisher
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (461 API endpoints)
+│   ├── unified_server.py   # Main server (2,000+ API operations)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
-│   ├── handlers/           # HTTP endpoint handlers (461 modules)
+│   ├── handlers/           # HTTP endpoint handlers (580+ modules)
 │   │   └── social/         # Chat platform handlers (Telegram, WhatsApp)
-│   └── stream/             # WebSocket streaming (26 modules)
+│   └── stream/             # WebSocket streaming (190+ event types)
 │       ├── tts_integration.py  # TTS for voice/chat
 │       └── voice_stream.py     # Voice session management
 ├── ranking/          # Agent skill tracking
@@ -362,7 +362,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Adapter factory - auto-create KM adapters from Arena subsystems
 - TTS integration - voice synthesis for debates and chat channels
 - Decision Explainability - natural language explanations, factor decomposition, counterfactuals
-- Workflow Templates - 15+ pre-built templates across 6 categories, pattern factories
+- Workflow Templates - 50+ pre-built templates across 6 categories, pattern factories
 - Gauntlet Receipts - cryptographic audit trails with SHA-256 hashing
 - Gauntlet Defense - proposer_agent param enables attack/defend cycles
 - KM Resilience - ResilientPostgresStore with retry, health monitoring, cache invalidation

@@ -172,6 +172,7 @@ if TYPE_CHECKING:
     from .computer_use_handler import ComputerUseHandler
     from .consensus import ConsensusHandler
     from .control_plane import ControlPlaneHandler
+    from .billing.cost_dashboard import CostDashboardHandler
     from .costs import CostHandler
     from .critique import CritiqueHandler
     from .cross_pollination import (
@@ -434,6 +435,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "TournamentHandler": Stability.STABLE,
     "DecisionHandler": Stability.STABLE,
     "ControlPlaneHandler": Stability.STABLE,
+    "CostDashboardHandler": Stability.STABLE,
     "CostHandler": Stability.STABLE,
     "CritiqueHandler": Stability.STABLE,
     "RelationshipHandler": Stability.STABLE,
@@ -684,6 +686,7 @@ __all__ = [
     "DecisionExplainHandler",
     "DecisionPipelineHandler",
     "DecisionHandler",
+    "CostDashboardHandler",
     "CostHandler",
     "CritiqueHandler",
     "GenesisHandler",

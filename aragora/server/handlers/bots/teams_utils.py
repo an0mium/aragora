@@ -340,6 +340,7 @@ async def _start_teams_debate(
     service_url: str,
     thread_id: str | None = None,
     attachments: list[dict[str, Any]] | None = None,
+    decision_integrity: dict[str, Any] | bool | None = None,
 ) -> str:
     """Start a debate from Teams via DecisionRouter.
 
@@ -352,6 +353,7 @@ async def _start_teams_debate(
 
     try:
         from aragora.core import (
+            DecisionConfig,
             DecisionRequest,
             DecisionType,
             InputSource,
@@ -375,19 +377,67 @@ async def _start_teams_debate(
             session_id=f"teams:{conversation_id}",
         )
 
+        config = None
+        if decision_integrity is not None:
+            if isinstance(decision_integrity, bool):
+                decision_integrity = {} if decision_integrity else None
+            if isinstance(decision_integrity, dict):
+                config = DecisionConfig(decision_integrity=decision_integrity)
+
+        request_kwargs = {
+            "content": topic,
+            "decision_type": DecisionType.DEBATE,
+            "source": InputSource.TEAMS,
+            "response_channels": [response_channel],
+            "context": context,
+            "attachments": attachments or [],
+            "request_id": debate_id,
+        }
+        if config is not None:
+            request_kwargs["config"] = config
+
         # Create decision request
-        request = DecisionRequest(
-            content=topic,
-            decision_type=DecisionType.DEBATE,
-            source=InputSource.TEAMS,
-            response_channels=[response_channel],
-            context=context,
-            attachments=attachments or [],
-        )
+        request = DecisionRequest(**request_kwargs)
+
+        # Register origin for result routing (best-effort)
+        try:
+            from aragora.server.debate_origin import register_debate_origin
+
+            register_debate_origin(
+                debate_id=request.request_id,
+                platform="teams",
+                channel_id=conversation_id,
+                user_id=user_id,
+                thread_id=thread_id,
+                metadata={
+                    "topic": topic,
+                    "service_url": service_url,
+                },
+            )
+        except Exception as exc:
+            logger.debug("Failed to register Teams debate origin: %s", exc)
 
         # Route through DecisionRouter
         router = get_decision_router()
         result = await router.route(request)
+
+        if result.request_id and result.request_id != request.request_id:
+            try:
+                from aragora.server.debate_origin import register_debate_origin
+
+                register_debate_origin(
+                    debate_id=result.request_id,
+                    platform="teams",
+                    channel_id=conversation_id,
+                    user_id=user_id,
+                    thread_id=thread_id,
+                    metadata={
+                        "topic": topic,
+                        "service_url": service_url,
+                    },
+                )
+            except Exception as exc:
+                logger.debug("Failed to register dedup Teams origin: %s", exc)
 
         if result.request_id:
             logger.info(f"DecisionRouter started debate {result.request_id} from Teams")

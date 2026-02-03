@@ -11,16 +11,17 @@ Pre-built automation recipes connecting Obsidian, Aragora, and Linear.
 Complete thought-to-action automation:
 
 ```
-Obsidian Note (#ready) → Aragora Debate → Linear Issue → Receipt → Slack
+Obsidian Note (#ready) → Aragora Debate → Decision Integrity → Linear Issue → Obsidian → Slack
 ```
 
 #### What it does
 
 1. **Watches** Obsidian vault for notes tagged `#ready`
 2. **Launches** multi-agent debate via Aragora API
-3. **Creates** Linear issue from decision
-4. **Writes** cryptographic receipt back to Obsidian
-5. **Notifies** team via Slack
+3. **Builds** decision integrity package (receipt + plan)
+4. **Creates** Linear issue from decision
+5. **Writes** decision integrity note back to Obsidian
+6. **Notifies** team via Slack
 
 #### Setup
 
@@ -68,7 +69,7 @@ Context and considerations here... #ready
 The workflow will:
 - Remove `#ready` tag and add `#processed`
 - Add `aragora_id` and `linear_issue` to frontmatter
-- Create `decisions/2026-02-03-API-Design-Decision-receipt.md`
+- Create `decisions/2026-02-03-API-Design-Decision-integrity.md`
 
 ---
 
@@ -80,7 +81,7 @@ The workflow will:
 |----------|--------|-------------|
 | `/api/v2/debates` | POST | Launch debate |
 | `/api/v2/debates/{id}` | GET | Get status |
-| `/api/v2/debates/{id}/receipt` | GET | Get receipt |
+| `/api/v1/debates/{id}/decision-integrity` | POST | Build receipt + plan |
 | `/api/v2/gauntlet/run` | POST | Stress test |
 | `/api/v2/knowledge/search` | GET | Search knowledge |
 

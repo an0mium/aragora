@@ -19,7 +19,7 @@ aragora/insights/store.py           - InsightStore
 aragora/ranking/elo.py              - EloDatabase
 aragora/memory/store.py             - CritiqueStore
 aragora/memory/streams.py           - MemoryStreamStore
-aragora/memory/continuum.py         - ContinuumMemory
+aragora/memory/continuum/core.py         - ContinuumMemory
 aragora/memory/consensus.py         - ConsensusMemory
 aragora/learning/meta.py            - MetaLearningStore
 aragora/runtime/metadata.py         - MetadataStore

@@ -38,7 +38,7 @@ Version baseline: v2.5.0 (see `pyproject.toml` and `aragora/__version__.py`).
 | --- | --- | --- | --- | --- |
 | Knowledge Mound ingestion and retrieval | stable | `aragora/knowledge/`, `aragora/knowledge/mound/` | `tests/knowledge/` | Unified knowledge store |
 | CritiqueStore (pattern learning) | stable | `aragora/memory/store.py` | `tests/memory/` | SQLite-backed patterns |
-| Continuum memory tiers | stable | `aragora/memory/continuum.py` | `tests/memory/` | Fast/medium/slow/glacial |
+| Continuum memory tiers | stable | `aragora/memory/continuum/core.py` | `tests/memory/` | Fast/medium/slow/glacial |
 | Semantic retrieval / embeddings | stable | `aragora/memory/embeddings.py`, `aragora/knowledge/embeddings.py` | `tests/memory/`, `tests/ml/` | Vector retrieval |
 | Evidence collection and attribution | experimental | `aragora/evidence/`, `aragora/reasoning/citations.py` | `tests/evidence/`, `tests/reasoning/` | Provenance + citations |
 | Claims and belief networks | experimental | `aragora/reasoning/claims.py`, `aragora/reasoning/belief.py` | `tests/reasoning/` | Structured claims |

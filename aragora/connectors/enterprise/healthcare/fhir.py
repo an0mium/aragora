@@ -823,8 +823,8 @@ class FHIRConnector(EnterpriseConnector):
 
                         if isinstance(client, AsyncMock):
                             use_context = False
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Mock detection skipped: %s", e)
 
                     if use_context:
                         async with client as session:

@@ -86,6 +86,22 @@ class OrganizationsHandler(SecureHandler):
     # Resource type for audit logging
     RESOURCE_TYPE = "organization"
 
+    # Static ROUTES for SDK audit visibility (actual matching uses regex patterns below)
+    ROUTES = [
+        "/api/v1/org/*",
+        "/api/v1/org/*/members",
+        "/api/v1/org/*/members/*",
+        "/api/v1/org/*/invite",
+        "/api/v1/org/*/invitations",
+        "/api/v1/org/*/invitations/*",
+        "/api/v1/org/*/members/*/role",
+        "/api/v1/user/organizations",
+        "/api/v1/user/organizations/switch",
+        "/api/v1/user/organizations/default",
+        "/api/v1/invitations/pending",
+        "/api/v1/invitations/*/accept",
+    ]
+
     # Route patterns (support /api/* and /api/v1/*)
     ORG_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)$")
     MEMBERS_PATTERN = re.compile(r"^/api(?:/v1)?/org/([a-zA-Z0-9_-]+)/members$")

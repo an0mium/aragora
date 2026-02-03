@@ -940,3 +940,163 @@ class TestCrossDebateMemoryRLMFallback:
         await memory.initialize()
         result = await memory.query_past_debates("test query")
         assert result is not None
+
+
+class TestCrossDebateMemoryKMIntegration:
+    """Tests for Knowledge Mound integration."""
+
+    def test_km_integration_disabled_by_default(self):
+        """Test KM integration is disabled by default."""
+        from aragora.memory.cross_debate_rlm import CrossDebateConfig
+
+        config = CrossDebateConfig(persist_to_disk=False)
+        assert config.enable_km_integration is False
+        assert config.km_max_results == 5
+
+    def test_km_integration_config(self):
+        """Test KM integration can be enabled via config."""
+        from aragora.memory.cross_debate_rlm import CrossDebateConfig
+
+        config = CrossDebateConfig(
+            persist_to_disk=False,
+            enable_km_integration=True,
+            km_max_results=10,
+        )
+        assert config.enable_km_integration is True
+        assert config.km_max_results == 10
+
+    def test_get_km_adapter_returns_none_when_disabled(self):
+        """Test _get_km_debate_adapter returns None when disabled."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(
+            persist_to_disk=False,
+            enable_km_integration=False,
+        )
+        memory = CrossDebateMemory(config)
+
+        adapter = memory._get_km_debate_adapter()
+        assert adapter is None
+
+    @pytest.mark.asyncio
+    async def test_query_km_debates_empty_when_disabled(self):
+        """Test _query_km_debates returns empty when KM disabled."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(
+            persist_to_disk=False,
+            enable_km_integration=False,
+        )
+        memory = CrossDebateMemory(config)
+
+        results = await memory._query_km_debates("test topic")
+        assert results == []
+
+    def test_format_km_results_empty_input(self):
+        """Test _format_km_results with empty input."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        result = memory._format_km_results([], max_tokens=1000)
+        assert result == ""
+
+    def test_format_km_results_with_data(self):
+        """Test _format_km_results formats correctly."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        km_results = [
+            {
+                "debate_id": "db_123",
+                "topic": "API Design Best Practices",
+                "consensus_reached": True,
+                "conclusion": "Use RESTful conventions",
+                "key_insights": ["Keep endpoints simple", "Use proper status codes"],
+                "confidence": 0.9,
+                "source": "knowledge_mound",
+            },
+        ]
+
+        result = memory._format_km_results(km_results, max_tokens=1000)
+
+        assert "Knowledge Mound Insights" in result
+        assert "API Design Best Practices" in result
+        assert "Consensus: Yes" in result
+        assert "RESTful conventions" in result
+        assert "Keep endpoints simple" in result
+
+    def test_format_km_results_respects_token_limit(self):
+        """Test _format_km_results respects token budget."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        km_results = [
+            {
+                "topic": "Very long topic " * 50,
+                "consensus_reached": True,
+                "conclusion": "Very long conclusion " * 50,
+                "key_insights": ["Long insight " * 20],
+            },
+        ]
+
+        result = memory._format_km_results(km_results, max_tokens=50)
+
+        # Should be truncated to ~200 chars (50 tokens * 4)
+        assert len(result) <= 200
+
+    @pytest.mark.asyncio
+    async def test_get_relevant_context_with_km_integration(self):
+        """Test get_relevant_context includes KM results when enabled."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(
+            persist_to_disk=False,
+            enable_km_integration=True,
+            km_max_results=3,
+        )
+        memory = CrossDebateMemory(config)
+
+        # Mock the KM query to return test data
+        mock_results = [
+            {
+                "topic": "Past API Discussion",
+                "consensus_reached": True,
+                "conclusion": "APIs should be versioned",
+                "key_insights": ["Version in URL path"],
+            },
+        ]
+
+        with patch.object(memory, "_query_km_debates", return_value=mock_results) as mock_query:
+            await memory.initialize()
+            context = await memory.get_relevant_context(
+                task="Design API versioning",
+                max_tokens=2000,
+            )
+
+            mock_query.assert_called_once()
+            assert "Knowledge Mound Insights" in context
+            assert "Past API Discussion" in context

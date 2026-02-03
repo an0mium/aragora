@@ -5,7 +5,7 @@
 Aragora is the **control plane for multi-agent vetted decisionmaking across organizational knowledge and channels** - a system designed to:
 
 1. **Ingest broadly**: Accept inputs from any source - 25+ document formats, databases, APIs, chat platforms, voice, real-time data feeds
-2. **Vet deeply**: Orchestrate 15+ AI models in structured debate to reach well-reasoned conclusions with full audit trails
+2. **Vet deeply**: Orchestrate 30+ agent types in structured debate to reach well-reasoned conclusions with full audit trails
 3. **Deliver anywhere**: Route outputs through multiple channels - Slack, Teams, Discord, Telegram, WhatsApp, voice, webhooks
 
 Unlike chatbots, Aragora builds institutional memory that compounds over time. The control plane architecture orchestrates knowledge and communication channels across your organization.
@@ -48,12 +48,12 @@ Unlike chatbots, Aragora builds institutional memory that compounds over time. T
 
 ---
 
-## Current Capabilities (v2.0.x)
+## Current Capabilities (v2.5.x)
 
 ### Input Channels
 | Channel | Status | Notes |
 |---------|--------|-------|
-| REST API | Stable | 275+ endpoints |
+| REST API | Stable | 2,000+ API operations |
 | WebSocket | Stable | Real-time streaming |
 | Slack | Stable | Commands + webhooks |
 | Discord | Stable | Bot integration |

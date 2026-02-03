@@ -166,13 +166,13 @@ def api_request(url, **kwargs):
 ```javascript
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, options);
-  
+
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '30');
     await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
     return apiRequest(url, options);  // Retry
   }
-  
+
   return response;
 }
 ```
@@ -235,6 +235,109 @@ The following are exempt from rate limiting:
 3. Internal service-to-service calls (via service mesh)
 4. Whitelisted IP addresses (configurable)
 
+## Distributed Rate Limiting
+
+### Architecture
+
+In production deployments with multiple server instances, rate limits are coordinated via Redis:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Server 1   │     │  Server 2   │     │  Server 3   │
+│  Instance   │     │  Instance   │     │  Instance   │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       └───────────────────┼───────────────────┘
+                           │
+                    ┌──────┴──────┐
+                    │   Redis     │
+                    │  Cluster    │
+                    └─────────────┘
+```
+
+### Usage
+
+```python
+from aragora.server.middleware.rate_limit.distributed import (
+    get_distributed_limiter,
+    configure_distributed_endpoint,
+)
+
+# Get the global limiter
+limiter = get_distributed_limiter()
+
+# Configure an endpoint
+configure_distributed_endpoint(
+    endpoint="/api/debates",
+    requests_per_minute=60,
+    burst_size=120,
+)
+
+# Check rate limit
+result = limiter.allow(
+    client_ip="192.168.1.1",
+    endpoint="/api/debates",
+    tenant_id="tenant-123",
+)
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ARAGORA_RATE_LIMIT_STRICT` | Require Redis (fail-closed mode) | false |
+| `REDIS_URL` / `ARAGORA_REDIS_URL` | Redis connection URL | None |
+| `ARAGORA_REDIS_MODE` | Redis mode: `standalone`, `sentinel`, `cluster` | standalone |
+| `ARAGORA_INSTANCE_ID` | Unique server instance identifier | Auto-generated |
+
+### Strict Mode
+
+When `ARAGORA_RATE_LIMIT_STRICT=true`:
+
+- **Production**: Raises error if Redis unavailable (fail-closed)
+- **Development**: Logs warning and falls back to in-memory
+
+### Circuit Breaker
+
+The circuit breaker protects against Redis failures:
+
+```
+States: CLOSED → OPEN → HALF_OPEN → CLOSED
+         ↑        │         │
+         │        └─────────┘ (failure)
+         └────────────────────(success)
+```
+
+When the circuit is open, requests fall back to in-memory rate limiting to maintain service availability.
+
+### Specialized Limiters
+
+| Limiter | Use Case | Default Rate |
+|---------|----------|--------------|
+| `TenantRateLimiter` | Per-tenant API limits | 1000/min |
+| `TierRateLimiter` | Subscription tier-based limits | Varies |
+| `UserRateLimiter` | Per-user rate limiting | 60/min |
+| `PlatformRateLimiter` | Third-party platform limits | 30/min |
+| `OAuthRateLimiter` | OAuth endpoint protection | 10/min |
+
+### Stats Endpoint
+
+```bash
+curl http://localhost:8080/api/v1/admin/rate-limits/stats
+```
+
+Returns:
+```json
+{
+  "instance_id": "server-1",
+  "backend": "redis",
+  "strict_mode": true,
+  "total_requests": 150000,
+  "redis_requests": 149500,
+  "fallback_requests": 500
+}
+```
+
 ## Troubleshooting
 
 ### Sudden Rate Limit Issues
@@ -244,6 +347,18 @@ The following are exempt from rate limiting:
 3. Check for WebSocket reconnection storms
 4. Verify clock synchronization
 
+### Distributed Rate Limiting Issues
+
+**Rate limits not shared across instances**
+- Verify Redis connectivity: `redis-cli ping`
+- Check `REDIS_URL` is set correctly
+- Confirm `backend` is "redis" in stats
+
+**Circuit breaker stuck open**
+- Check Redis health
+- Review error logs for connection issues
+- Monitor `rate_limit_circuit_breaker_state` metric
+
 ### Capacity Planning
 
 | Tier | Users | Expected RPS | Redis Memory |
@@ -251,3 +366,13 @@ The following are exempt from rate limiting:
 | 100 anonymous | - | 100 | 10 MB |
 | 1000 authenticated | - | 1000 | 100 MB |
 | 100 premium | - | 10000 | 100 MB |
+
+## Testing
+
+```bash
+# Unit tests
+pytest tests/server/middleware/rate_limit/ -v
+
+# Integration tests (requires Redis)
+pytest tests/server/middleware/rate_limit/test_distributed_integration.py -v --integration
+```

@@ -106,9 +106,10 @@ class AgentFileFilter:
         if "gemini" in self.model.lower():
             try:
                 import google.generativeai as genai
-                import os
 
-                api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+                from aragora.config.secrets import get_secret
+
+                api_key = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
                 if not api_key:
                     raise ValueError(
                         "GEMINI_API_KEY or GOOGLE_API_KEY environment variable required"
@@ -123,9 +124,10 @@ class AgentFileFilter:
         elif "claude" in self.model.lower():
             try:
                 import anthropic
-                import os
 
-                api_key = os.environ.get("ANTHROPIC_API_KEY")
+                from aragora.config.secrets import get_secret
+
+                api_key = get_secret("ANTHROPIC_API_KEY")
                 if not api_key:
                     raise ValueError("ANTHROPIC_API_KEY environment variable required")
 
@@ -137,9 +139,10 @@ class AgentFileFilter:
         elif "gpt" in self.model.lower() or "openai" in self.model.lower():
             try:
                 from openai import OpenAI
-                import os
 
-                api_key = os.environ.get("OPENAI_API_KEY")
+                from aragora.config.secrets import get_secret
+
+                api_key = get_secret("OPENAI_API_KEY")
                 if not api_key:
                     raise ValueError("OPENAI_API_KEY environment variable required")
 

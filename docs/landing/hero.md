@@ -6,7 +6,7 @@
 **Control plane for multi-agent vetted decisionmaking across organizational knowledge**
 
 ### Subheadline
-Orchestrate 15+ AI models to debate your documents, data, and APIs, then deliver
+Orchestrate 30+ agent types to debate your documents, data, and APIs, then deliver
 **defensible decisions** to Slack, Teams, email, or voice. Built for teams where
 "the AI said so" is not enough.
 
@@ -53,7 +53,7 @@ to fix 6 months later. It paid for itself in one session."
 
 | | Manual Review | Single-LLM Tools | **Aragora** |
 |---|---|---|---|
-| Perspectives | 3-5 humans | 1 AI | **15+ AIs** |
+| Perspectives | 3-5 humans | 1 AI | **30+ agent types** |
 | Time | 2-4 weeks | Hours | **Minutes** |
 | Delivery | Docs only | Chat UI | **Any channel** |
 | Verification | None | None | **Receipts + evidence** |

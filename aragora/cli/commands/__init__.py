@@ -48,6 +48,7 @@ from aragora.cli.commands.delegated import (
     cmd_marketplace,
     cmd_control_plane,
 )
+from aragora.cli.commands.testfix import cmd_testfix
 
 __all__ = [
     # debate
@@ -90,4 +91,5 @@ __all__ = [
     "cmd_mcp_server",
     "cmd_marketplace",
     "cmd_control_plane",
+    "cmd_testfix",
 ]

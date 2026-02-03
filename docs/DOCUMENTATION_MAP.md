@@ -149,9 +149,10 @@ replacement docs. See [deprecated/README.md](deprecated/README.md).
 
 ## Inventory & Maintenance
 
-- Markdown files under `docs/`: 266 (includes deprecated)
+- Markdown files under `docs/`: 435 (includes deprecated)
+- Markdown files under `docs/` (non-deprecated): 425
 - Sync to docs-site: `node docs-site/scripts/sync-docs.js`
 - API endpoint list: `python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md`
 - OpenAPI export: `python scripts/export_openapi.py --output-dir docs/api`
 
-Last updated: 2026-01-27
+Last updated: 2026-02-03

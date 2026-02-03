@@ -210,8 +210,8 @@ class CredentialVault:
                         "will be re-encrypted with PBKDF2 on next write"
                     )
                     return decrypted
-                except Exception:
-                    pass
+                except Exception as legacy_exc:
+                    logger.warning("Legacy key decryption also failed: %s", legacy_exc)
             return None
 
     def store(

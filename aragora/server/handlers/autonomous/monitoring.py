@@ -346,6 +346,15 @@ class MonitoringHandler:
     - Comprehensive input validation
     """
 
+    ROUTES = [
+        "/api/v1/autonomous/monitoring/record",
+        "/api/v1/autonomous/monitoring/trends",
+        "/api/v1/autonomous/monitoring/trends/*",
+        "/api/v1/autonomous/monitoring/anomalies",
+        "/api/v1/autonomous/monitoring/baseline/*",
+        "/api/v1/autonomous/monitoring/circuit-breaker",
+    ]
+
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}

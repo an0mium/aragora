@@ -352,16 +352,13 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         except OSError as e:
             return CommandResult.fail(f"Health check failed: {str(e)}")
 
-    @registry.command(
-        "debate",
-        description="Start a multi-agent debate",
-        usage="debate <topic>",
-        requires_args=True,
-        min_args=1,
-        cooldown=30,  # 30 second cooldown to prevent spam
-    )
-    async def cmd_debate(ctx: CommandContext) -> CommandResult:
-        """Start a multi-agent debate on a topic via DecisionRouter."""
+    async def _run_debate(
+        ctx: CommandContext,
+        *,
+        decision_integrity: dict[str, Any] | None = None,
+        require_integrity: bool = False,
+        mode_label: str = "Debate",
+    ) -> CommandResult:
         topic = ctx.raw_args
         if not topic:
             return CommandResult.fail("Please provide a debate topic.")
@@ -374,6 +371,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         # Try to use DecisionRouter for unified routing with deduplication
         try:
             from aragora.core import (
+                DecisionConfig,
                 DecisionRequest,
                 DecisionType,
                 InputSource,
@@ -404,16 +402,61 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                 session_id=f"{ctx.platform.value}:{ctx.channel_id}",
             )
 
-            request = DecisionRequest(
-                content=topic,
-                decision_type=DecisionType.DEBATE,
-                source=source,
-                response_channels=[response_channel],
-                context=request_context,
-            )
+            config = None
+            if decision_integrity is not None:
+                config = DecisionConfig(decision_integrity=decision_integrity)
+
+            request_kwargs = {
+                "content": topic,
+                "decision_type": DecisionType.DEBATE,
+                "source": source,
+                "response_channels": [response_channel],
+                "context": request_context,
+                "attachments": ctx.message.attachments or [],
+            }
+            if config is not None:
+                request_kwargs["config"] = config
+
+            request = DecisionRequest(**request_kwargs)
+
+            # Register debate origin for routing (best-effort)
+            try:
+                from aragora.server.debate_origin import register_debate_origin
+
+                register_debate_origin(
+                    debate_id=request.request_id,
+                    platform=ctx.platform.value,
+                    channel_id=ctx.channel_id,
+                    user_id=ctx.user_id,
+                    thread_id=ctx.thread_id,
+                    metadata={
+                        "topic": topic,
+                        "source": ctx.platform.value,
+                    },
+                )
+            except Exception as exc:
+                logger.debug("Failed to register debate origin: %s", exc)
 
             router = get_decision_router()
             result = await router.route(request)
+
+            if result.request_id and result.request_id != request.request_id:
+                try:
+                    from aragora.server.debate_origin import register_debate_origin
+
+                    register_debate_origin(
+                        debate_id=result.request_id,
+                        platform=ctx.platform.value,
+                        channel_id=ctx.channel_id,
+                        user_id=ctx.user_id,
+                        thread_id=ctx.thread_id,
+                        metadata={
+                            "topic": topic,
+                            "source": ctx.platform.value,
+                        },
+                    )
+                except Exception as exc:
+                    logger.debug("Failed to register dedup debate origin: %s", exc)
 
             # Extract debate_id from debate_result if available
             debate_id = ""
@@ -422,18 +465,23 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
 
             if debate_id:
                 return CommandResult.ok(
-                    f"Debate started on: **{topic}**\n"
+                    f"{mode_label} started on: **{topic}**\n"
                     f"Debate ID: `{debate_id}`\n"
                     f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
                     data={"debate_id": debate_id},
                 )
-            else:
-                return CommandResult.fail(result.error or "Failed to start debate via router")
+            return CommandResult.fail(result.error or "Failed to start debate via router")
 
         except ImportError:
             logger.debug("DecisionRouter not available, falling back to HTTP")
+            if require_integrity:
+                return CommandResult.fail(
+                    "Decision integrity is unavailable without DecisionRouter."
+                )
         except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"DecisionRouter failed, falling back to HTTP: {e}")
+            if require_integrity:
+                return CommandResult.fail("Decision integrity failed to start.")
 
         # Fallback to HTTP API if DecisionRouter unavailable
         from aragora.server.http_client_pool import get_http_pool
@@ -463,19 +511,76 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                 if resp.status_code == 200 and data.get("success"):
                     debate_id = data.get("debate_id")
                     return CommandResult.ok(
-                        f"Debate started on: **{topic}**\n"
+                        f"{mode_label} started on: **{topic}**\n"
                         f"Debate ID: `{debate_id}`\n"
                         f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
                         data={"debate_id": debate_id},
                     )
-                else:
-                    error = data.get("error", "Unknown error")
-                    return CommandResult.fail(f"Failed to start debate: {error}")
+                error = data.get("error", "Unknown error")
+                return CommandResult.fail(f"Failed to start debate: {error}")
 
         except asyncio.TimeoutError:
             return CommandResult.fail("Request timed out. Please try again.")
         except OSError as e:
             return CommandResult.fail(f"Failed to start debate: {str(e)}")
+
+    @registry.command(
+        "debate",
+        description="Start a multi-agent debate",
+        usage="debate <topic>",
+        requires_args=True,
+        min_args=1,
+        cooldown=30,  # 30 second cooldown to prevent spam
+    )
+    async def cmd_debate(ctx: CommandContext) -> CommandResult:
+        """Start a multi-agent debate on a topic via DecisionRouter."""
+        return await _run_debate(ctx)
+
+    @registry.command(
+        "plan",
+        description="Debate with an implementation plan",
+        usage="plan <topic>",
+        requires_args=True,
+        min_args=1,
+        cooldown=30,
+    )
+    async def cmd_plan(ctx: CommandContext) -> CommandResult:
+        """Start a debate and generate an implementation plan."""
+        return await _run_debate(
+            ctx,
+            decision_integrity={
+                "include_receipt": True,
+                "include_plan": True,
+                "include_context": False,
+                "plan_strategy": "single_task",
+                "notify_origin": True,
+            },
+            require_integrity=True,
+            mode_label="Decision plan",
+        )
+
+    @registry.command(
+        "implement",
+        description="Debate with an implementation plan + context snapshot",
+        usage="implement <topic>",
+        requires_args=True,
+        min_args=1,
+        cooldown=30,
+    )
+    async def cmd_implement(ctx: CommandContext) -> CommandResult:
+        """Start a debate and generate an implementation plan with context snapshot."""
+        return await _run_debate(
+            ctx,
+            decision_integrity={
+                "include_receipt": True,
+                "include_plan": True,
+                "include_context": True,
+                "plan_strategy": "single_task",
+                "notify_origin": True,
+            },
+            require_integrity=True,
+            mode_label="Implementation plan",
+        )
 
     @registry.command(
         "gauntlet",

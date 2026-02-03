@@ -627,9 +627,12 @@ class DebateRoundsPhase:
         async def generate_critique(critic, proposal_agent, proposal):
             """Generate critique and return (critic, proposal_agent, result_or_error)."""
             logger.debug("critique_generating critic=%s target=%s", critic.name, proposal_agent)
+            # Track timing for governor feedback
+            start_time = time.perf_counter()
+            governor = get_complexity_governor()
             # Use complexity-scaled timeout from governor
             base_timeout = getattr(critic, "timeout", AGENT_TIMEOUT_SECONDS)
-            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
+            timeout = governor.get_scaled_timeout(float(base_timeout))
             # Use task context to distinguish concurrent streaming from same agent
             task_id = f"{critic.name}:critique:{proposal_agent}"
             try:
@@ -654,8 +657,18 @@ class DebateRoundsPhase:
                             ctx.context_messages,
                             target_agent=proposal_agent,
                         )
+                # Record success to governor
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                governor.record_agent_response(critic.name, latency_ms, success=True)
                 return (critic, proposal_agent, crit_result)
+            except asyncio.TimeoutError as e:
+                # Record timeout to governor
+                governor.record_agent_timeout(critic.name, timeout)
+                return (critic, proposal_agent, e)
             except Exception as e:
+                # Record failure to governor
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                governor.record_agent_response(critic.name, latency_ms, success=False)
                 return (critic, proposal_agent, e)
 
         # Create critique tasks based on topology with bounded concurrency
@@ -857,22 +870,41 @@ class DebateRoundsPhase:
 
         async def generate_revision_bounded(agent, revision_prompt):
             """Wrap revision generation with semaphore for bounded concurrency."""
+            # Track timing for governor feedback
+            start_time = time.perf_counter()
+            governor = get_complexity_governor()
             base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
-            timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
+            timeout = governor.get_scaled_timeout(float(base_timeout))
             # Use task context to distinguish concurrent streaming from same agent
             task_id = f"{agent.name}:revision:{round_num}"
-            async with revision_semaphore:
-                with streaming_task_context(task_id):
-                    if self._with_timeout:
-                        return await self._with_timeout(
-                            self._generate_with_agent(agent, revision_prompt, ctx.context_messages),
-                            agent.name,
-                            timeout_seconds=timeout,
-                        )
-                    else:
-                        return await self._generate_with_agent(
-                            agent, revision_prompt, ctx.context_messages
-                        )
+            try:
+                async with revision_semaphore:
+                    with streaming_task_context(task_id):
+                        if self._with_timeout:
+                            result = await self._with_timeout(
+                                self._generate_with_agent(
+                                    agent, revision_prompt, ctx.context_messages
+                                ),
+                                agent.name,
+                                timeout_seconds=timeout,
+                            )
+                        else:
+                            result = await self._generate_with_agent(
+                                agent, revision_prompt, ctx.context_messages
+                            )
+                # Record success to governor
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                governor.record_agent_response(agent.name, latency_ms, success=True)
+                return result
+            except asyncio.TimeoutError:
+                # Record timeout to governor
+                governor.record_agent_timeout(agent.name, timeout)
+                raise
+            except Exception:
+                # Record failure to governor
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                governor.record_agent_response(agent.name, latency_ms, success=False)
+                raise
 
         revision_tasks = []
         revision_agents = []

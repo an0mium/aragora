@@ -20,6 +20,7 @@ import type {
   WebSocketEvent,
 } from '../types';
 import type { StreamOptions } from '../websocket';
+import { AsyncPaginator } from '../pagination';
 
 /**
  * Debate impasse analysis result
@@ -70,6 +71,175 @@ export interface TricksterStatus {
     severity: number;
   }>;
   recommendation: string | null;
+}
+
+/**
+ * Overall debate health status
+ */
+export interface DebateHealthStatus {
+  active_count: number;
+  stuck_count: number;
+  healthy_count: number;
+  stuck_debates: Array<{
+    debate_id: string;
+    task: string;
+    stuck_since: string;
+    stuck_since_round: number;
+  }>;
+  last_updated: string;
+}
+
+/**
+ * Health detail for a specific debate
+ */
+export interface DebateHealthDetail {
+  debate_id: string;
+  status: 'healthy' | 'stuck' | 'stalled' | 'completed';
+  stuck_since_round: number | null;
+  current_round: number;
+  last_activity: string;
+  agents_active: string[];
+  recommendations: string[];
+}
+
+/**
+ * Debate filter options
+ */
+export interface DebateFilters {
+  status?: string;
+  domain?: string;
+  agents?: string[];
+  minRounds?: number;
+  maxRounds?: number;
+  consensusReached?: boolean;
+  since?: string;
+  until?: string;
+  orderBy?: string;
+  orderDir?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Debate statistics
+ */
+export interface DebateStatistics {
+  total_debates: number;
+  completed_debates: number;
+  consensus_rate: number;
+  avg_rounds: number;
+  avg_duration_seconds: number;
+  by_status: Record<string, number>;
+  by_domain: Record<string, number>;
+  period: string;
+}
+
+/**
+ * Agent performance statistics
+ */
+export interface DebateAgentStatistics {
+  agents: Array<{
+    name: string;
+    debates_participated: number;
+    win_rate: number;
+    avg_quality_score: number;
+    consensus_contribution: number;
+  }>;
+  period: string;
+}
+
+/**
+ * Consensus analytics
+ */
+export interface ConsensusAnalytics {
+  reached_count: number;
+  total_debates: number;
+  avg_confidence: number;
+  avg_rounds_to_consensus: number;
+  by_domain: Record<string, { reached: number; total: number }>;
+  period: string;
+}
+
+/**
+ * Topic trends in debates
+ */
+export interface TopicTrends {
+  topics: Array<{
+    name: string;
+    count: number;
+    velocity: number;
+    trend: 'rising' | 'stable' | 'declining';
+  }>;
+  period: string;
+}
+
+/**
+ * Batch export result
+ */
+export interface BatchExportResult {
+  batch_id: string;
+  count: number;
+  format: string;
+  download_url: string;
+  expires_at: string;
+}
+
+/**
+ * Batch operation results
+ */
+export interface BatchResults {
+  batch_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  total_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  debates: Array<{
+    debate_id: string;
+    status: 'success' | 'failed' | 'pending';
+    error?: string;
+  }>;
+}
+
+/**
+ * Debate comparison result
+ */
+export interface DebateComparison {
+  debate_ids: string[];
+  similarity_score: number;
+  common_themes: string[];
+  divergent_points: Array<{
+    topic: string;
+    positions: Record<string, string>;
+  }>;
+  consensus_alignment: number;
+}
+
+/**
+ * Argument quality analysis
+ */
+export interface ArgumentQualityAnalysis {
+  debate_id: string;
+  overall_score: number;
+  by_agent: Array<{
+    name: string;
+    quality_score: number;
+    evidence_usage: number;
+    logical_consistency: number;
+    engagement_quality: number;
+  }>;
+  recommendations: string[];
+}
+
+/**
+ * Debate note
+ */
+export interface DebateNote {
+  note_id: string;
+  debate_id: string;
+  content: string;
+  author: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -1629,15 +1799,23 @@ export class DebatesAPI {
     domain?: string;
     since?: string;
     until?: string;
-  }): ListAllPaginator {
+  }): AsyncPaginator<Debate> {
     const { status, domain, since, until, pageSize = 20 } = options ?? {};
-    const params: Record<string, unknown> = {};
-    if (status) params.status = status;
-    if (domain) params.domain = domain;
-    if (since) params.since = since;
-    if (until) params.until = until;
 
-    return new ListAllPaginator(this.client, '/api/v1/debates', params, pageSize);
+    // Use fromFetch to create a paginator that works with our interface
+    const fetchPage = async (params: Record<string, unknown>): Promise<{ data: Debate[] }> => {
+      const result = await this.client.listDebates({
+        status: (status ?? params.status) as string | undefined,
+        limit: (params.limit ?? pageSize) as number | undefined,
+        offset: params.offset as number | undefined,
+      });
+      return { data: result.debates };
+    };
+
+    return AsyncPaginator.fromFetch<Debate>(fetchPage, {
+      pageSize,
+      params: { status, domain, since, until },
+    });
   }
 
   // ===========================================================================

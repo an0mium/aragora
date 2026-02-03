@@ -100,29 +100,49 @@ class SLOHandler(BaseHandler):
         "/api/slos/availability",
         "/api/slos/latency",
         "/api/slos/debate-success",
+        # SDK v2 aliases (singular /api/slo/)
+        "/api/slo/status",
+        "/api/v2/slo/status",
     ]
 
     # Individual SLO names for dynamic routing
     SLO_NAMES = {"availability", "latency", "latency_p99", "debate_success", "debate-success"}
 
+    # Sub-routes for individual SLOs (/api/slo/{name}/error-budget, etc.)
+    SLO_SUB_ROUTES = {"error-budget", "violations", "compliant", "alerts"}
+
+    @staticmethod
+    def _normalize_slo_path(path: str) -> str:
+        """Normalize /api/slo/ to /api/slos/ for consistent routing."""
+        path = strip_version_prefix(path)
+        # Normalize singular /api/slo/ to plural /api/slos/
+        if path.startswith("/api/slo/"):
+            path = "/api/slos/" + path[len("/api/slo/") :]
+        return path
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        path = strip_version_prefix(path)
+        path = self._normalize_slo_path(path)
 
         if path in self.ROUTES:
             return True
 
         # Handle dynamic /api/slos/{slo_name} routes
         if path.startswith("/api/slos/"):
-            slo_name = path.split("/")[-1]
-            return slo_name in self.SLO_NAMES
+            parts = path.rstrip("/").split("/")
+            # /api/slos/{slo_name}
+            if len(parts) == 4:
+                return parts[3] in self.SLO_NAMES
+            # /api/slos/{slo_name}/{sub_route}
+            if len(parts) == 5:
+                return parts[3] in self.SLO_NAMES and parts[4] in self.SLO_SUB_ROUTES
 
         return False
 
     @require_permission("slo:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route SLO requests to appropriate methods."""
-        path = strip_version_prefix(path)
+        path = self._normalize_slo_path(path)
 
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -148,12 +168,19 @@ class SLOHandler(BaseHandler):
             elif path == "/api/slos/debate-success":
                 return self._handle_slo_detail("debate_success")
             elif path.startswith("/api/slos/"):
-                slo_name = path.split("/")[-1]
+                parts = path.rstrip("/").split("/")
+                slo_name = parts[3] if len(parts) >= 4 else ""
                 # Normalize name
                 if slo_name == "latency":
                     slo_name = "latency_p99"
                 elif slo_name == "debate-success":
                     slo_name = "debate_success"
+
+                # Handle sub-routes: /api/slos/{name}/{sub}
+                if len(parts) == 5:
+                    sub_route = parts[4]
+                    return self._handle_slo_sub_route(slo_name, sub_route)
+
                 return self._handle_slo_detail(slo_name)
             else:
                 return error_response(f"Unknown SLO endpoint: {path}", 404, code="UNKNOWN_ENDPOINT")
@@ -308,6 +335,73 @@ class SLOHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Failed to get targets: {e}")
             return error_response(f"Failed to get targets: {str(e)}", 500, code="TARGETS_ERROR")
+
+    def _handle_slo_sub_route(self, slo_name: str, sub_route: str) -> HandlerResult:
+        """Handle per-SLO sub-routes: /api/slos/{name}/{sub}."""
+        try:
+            if slo_name == "availability":
+                result = check_availability_slo()
+            elif slo_name == "latency_p99":
+                result = check_latency_slo()
+            elif slo_name == "debate_success":
+                result = check_debate_success_slo()
+            else:
+                return error_response(f"Unknown SLO: {slo_name}", 404, code="UNKNOWN_SLO")
+
+            if sub_route == "error-budget":
+                return json_response(
+                    {
+                        "slo_name": result.name,
+                        "error_budget_total": 100.0,
+                        "error_budget_remaining": result.error_budget_remaining,
+                        "error_budget_consumed": 100.0 - result.error_budget_remaining,
+                        "burn_rate": result.burn_rate,
+                        "projected_exhaustion": self._calculate_exhaustion_time(result),
+                    }
+                )
+            elif sub_route == "violations":
+                status = get_slo_status()
+                alerts = check_alerts(status)
+                violations = [
+                    {
+                        "severity": a.severity,
+                        "message": a.message,
+                        "detected_at": r.window_end.isoformat(),
+                    }
+                    for a, r in alerts
+                    if a.slo_name == result.name
+                ]
+                return json_response({"slo_name": result.name, "violations": violations})
+            elif sub_route == "compliant":
+                return json_response(
+                    {
+                        "slo_name": result.name,
+                        "compliant": result.compliant,
+                        "current": result.current,
+                        "target": result.target,
+                    }
+                )
+            elif sub_route == "alerts":
+                status = get_slo_status()
+                alerts = check_alerts(status)
+                slo_alerts = [
+                    {
+                        "severity": a.severity,
+                        "message": a.message,
+                        "burn_rate": r.burn_rate,
+                    }
+                    for a, r in alerts
+                    if a.slo_name == result.name
+                ]
+                return json_response({"slo_name": result.name, "alerts": slo_alerts})
+            else:
+                return error_response(
+                    f"Unknown sub-route: {sub_route}", 404, code="UNKNOWN_ENDPOINT"
+                )
+
+        except Exception as e:
+            logger.exception(f"Failed to get SLO sub-route {slo_name}/{sub_route}: {e}")
+            return error_response(f"Failed: {str(e)}", 500, code="SLO_SUB_ROUTE_ERROR")
 
     def _calculate_exhaustion_time(self, result: Any) -> str | None:
         """Calculate projected error budget exhaustion time.

@@ -201,8 +201,8 @@ class SECConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Mock side_effect normalization skipped: %s", e)
                 # SEC provides a JSON file mapping tickers to CIKs
                 response = await client.get(
                     "https://www.sec.gov/files/company_tickers.json",
@@ -246,8 +246,8 @@ class SECConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Mock side_effect normalization skipped: %s", e)
                 response = await client.get(url, headers=self._get_headers())
 
                 if response.status_code == 404:
@@ -296,8 +296,8 @@ class SECConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Mock side_effect normalization skipped: %s", e)
                 response = await client.get(
                     EDGAR_FULLTEXT_URL,
                     params=params,

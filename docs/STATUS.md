@@ -1026,7 +1026,7 @@ Current released version is **v2.5.0**.
 
 **Workflow Templates Package** (PRIORITY 4 - COMPLETE)
 - `aragora/workflow/templates/` - Comprehensive template system:
-  - `registry.py` - WORKFLOW_TEMPLATES registry with 15+ templates
+  - `registry.py` - WORKFLOW_TEMPLATES registry with 50+ templates
   - `package.py` - TemplatePackage, TemplateAuthor, TemplateCategory enums
   - `patterns.py` - Pattern-based template factories (hive-mind, map-reduce, review-cycle)
 - Pre-built templates across 6 categories:
@@ -1732,7 +1732,7 @@ else:
 
 **Phase 13**
 - **Token Revocation UI**: "Logout All Devices" button in Settings panel
-- **Type Safety Expansion**: typecheck-core expanded to 9 modules (orchestrator.py, continuum.py)
+- **Type Safety Expansion**: typecheck-core expanded to 9 modules (orchestrator.py, continuum/core.py)
 - **Storage Layer Fixes**: Fixed mypy errors in factory.py and webhook_store.py
 - **Training Export Page**: New /training route for ML training data export
 - **Production Checklist**: Comprehensive 300+ line PRODUCTION_CHECKLIST.md
@@ -2264,7 +2264,7 @@ All stabilization items addressed:
 | Post-Debate Workflows | Active | `aragora/debate/phases/feedback_phase.py` (automated refinement triggers) |
 | Calibration → Proposals | Active | `aragora/debate/phases/proposal_phase.py` (temperature scaling for proposal confidence) |
 | Learning Efficiency Tracking | Active | `aragora/ranking/elo.py` (learning rate → ELO bonus) |
-| Memory Checkpoint Snapshot | Active | `aragora/memory/continuum.py` (export/restore for debate state) |
+| Memory Checkpoint Snapshot | Active | `aragora/memory/continuum/core.py` (export/restore for debate state) |
 | Knowledge Mound Federation | Active | `aragora/server/handlers/knowledge_base/mound/federation.py` (multi-region sync) |
 
 ### Recently Surfaced (6)
@@ -2423,7 +2423,7 @@ The nomic loop (`scripts/nomic_loop.py`) implements a 6-phase self-improvement c
 - `on_meta_analyzed`, `on_elo_recorded`, `on_claims_extracted`, `on_belief_network_built`
 
 The codebase is **feature-rich with improving exposure**:
-- 2,189+ API endpoints documented via OpenAPI, 461 HTTP handlers
+- 2,000+ API operations across 1,800+ paths, 580+ HTTP handler modules
 - Many sophisticated features now surfaced via new APIs
 - WebSocket-first architecture for real-time, REST for data access
 

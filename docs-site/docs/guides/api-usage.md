@@ -124,7 +124,7 @@ The following files contain `SELECT *` queries that should be optimized to selec
 4. `aragora/persistence/repositories/memory.py:339,443` - Memory queries
 
 ### Lower Priority (Domain Logic)
-1. `aragora/storage/user_store.py` - Multiple user/org queries
+1. `aragora/storage/user_store/sqlite_store.py` - Multiple user/org queries
 2. `aragora/agents/positions.py:279,353` - Position tracking
 3. `aragora/agents/relationships.py:163,253,283` - Agent relationships
 4. `aragora/genesis/*.py` - Genesis breeding/genome queries

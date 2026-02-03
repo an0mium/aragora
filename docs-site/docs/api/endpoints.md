@@ -11,26 +11,26 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 
 - [A2A](#a2a)
 - [Accounting](#accounting)
-- [Analytics](#analytics)
-- [Analytics Dashboard](#analytics-dashboard)
 - [AnalyticsMetrics](#analyticsmetrics)
+- [AnalyticsPerformance](#analyticsperformance)
 - [Ap Automation](#ap-automation)
 - [Ar Automation](#ar-automation)
 - [Audit Export](#audit-export)
 - [Audit Trail](#audit-trail)
 - [Auditing](#auditing)
+- [Autonomous Learning](#autonomous-learning)
 - [Backup Handler](#backup-handler)
 - [Belief](#belief)
 - [Bindings](#bindings)
 - [Breakpoints](#breakpoints)
 - [Budgets](#budgets)
 - [Checkpoints](#checkpoints)
+- [Cloud Storage](#cloud-storage)
 - [Code Review](#code-review)
-- [Compliance Handler](#compliance-handler)
+- [Compliance](#compliance)
 - [Composite](#composite)
+- [ComputerUse](#computeruse)
 - [Consensus](#consensus)
-- [Control Plane](#control-plane)
-- [Costs](#costs)
 - [Critique](#critique)
 - [Cross Pollination](#cross-pollination)
 - [Dashboard](#dashboard)
@@ -40,49 +40,58 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Devices](#devices)
 - [Docs](#docs)
 - [Dr Handler](#dr-handler)
-- [Email](#email)
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
 - [EndpointAnalytics](#endpointanalytics)
+- [ERC8004](#erc8004)
 - [Evaluation](#evaluation)
 - [Expenses](#expenses)
 - [Explainability](#explainability)
+- [External Agents](#external-agents)
 - [External Integrations](#external-integrations)
 - [Feedback](#feedback)
 - [Gallery](#gallery)
 - [Gastown Dashboard](#gastown-dashboard)
-- [Gauntlet](#gauntlet)
+- [GatewayAgents](#gatewayagents)
+- [GatewayConfig](#gatewayconfig)
+- [GatewayCredentials](#gatewaycredentials)
+- [Gateway](#gateway)
+- [GatewayHealth](#gatewayhealth)
 - [Genesis](#genesis)
+- [HybridDebate](#hybriddebate)
 - [Inbox Command](#inbox-command)
-- [Integrations](#integrations)
+- [Integration Management](#integration-management)
 - [Introspection](#introspection)
 - [Invoices](#invoices)
 - [KnowledgeChat](#knowledgechat)
 - [Laboratory](#laboratory)
+- [Marketplace](#marketplace)
 - [Metrics](#metrics)
+- [Metrics Endpoint](#metrics-endpoint)
 - [Ml](#ml)
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
-- [Orchestration](#orchestration)
 - [Organizations](#organizations)
 - [Partner](#partner)
-- [Payments](#payments)
 - [Persona](#persona)
 - [Policy](#policy)
 - [Privacy](#privacy)
 - [Queue](#queue)
+- [RBAC](#rbac)
 - [Receipts](#receipts)
 - [Replays](#replays)
 - [Repository](#repository)
 - [Reviews](#reviews)
 - [RLMContext](#rlmcontext)
+- [SCIM](#scim)
 - [Selection](#selection)
-- [Shared Inbox](#shared-inbox)
 - [Skill Marketplace](#skill-marketplace)
 - [Skills](#skills)
+- [Slack](#slack)
 - [Slo](#slo)
+- [SMESuccessDashboard](#smesuccessdashboard)
 - [SMEUsageDashboard](#smeusagedashboard)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
@@ -94,12 +103,10 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Verticals](#verticals)
 - [Webhook](#webhook)
 - [Workflow Templates](#workflow-templates)
-- [Workflow](#workflow)
-- [Workspace](#workspace)
+- [Workspace Module](#workspace-module)
 - [Intelligence](#intelligence)
 - [Metrics](#metrics)
 - [Quick Scan](#quick-scan)
-- [Security](#security)
 - [Audit Bridge](#audit-bridge)
 - [Pr Review](#pr-review)
 
@@ -205,82 +212,6 @@ Generate journal entry
 
 ---
 
-## Analytics
-
-Analytics and metrics endpoint handlers.
-
-### `GET` `/api/analytics/disagreements`
-
-Get disagreement statistics
-
-### `GET` `/api/analytics/role-rotation`
-
-Get role rotation statistics
-
-### `GET` `/api/analytics/early-stops`
-
-Get early stopping statistics
-
-### `GET` `/api/ranking/stats`
-
-Get ranking statistics
-
-### `GET` `/api/memory/stats`
-
-Get memory statistics
-
----
-
-## Analytics Dashboard
-
-Analytics Dashboard endpoint handlers.
-
-### `GET` `/api/analytics/summary`
-
-Dashboard summary
-
-### `GET` `/api/analytics/trends/findings`
-
-Finding trends over time
-
-### `GET` `/api/analytics/remediation`
-
-Remediation metrics
-
-### `GET` `/api/analytics/agents`
-
-Agent performance metrics
-
-### `GET` `/api/analytics/cost`
-
-Cost analysis
-
-### `GET` `/api/analytics/compliance`
-
-Compliance scorecard
-
-### `GET` `/api/analytics/heatmap`
-
-Risk heatmap data
-
-### `GET` `/api/analytics/flips/summary`
-
-Flip detection summary
-
-### `GET` `/api/analytics/flips/recent`
-
-Recent flip events
-
-### `GET` `/api/analytics/flips/consistency`
-
-Agent consistency scores
-
-### `GET` `/api/analytics/flips/trends`
-
-Flip trends over time
-
----
-
 ## AnalyticsMetrics
 
 Handler for analytics metrics dashboard endpoints.
@@ -324,6 +255,30 @@ Get cost breakdown by provider and model
 ### `GET` `/api/analytics/usage/active_users` 🔒
 
 Get active user counts
+
+---
+
+## AnalyticsPerformance
+
+Handler for analytics performance endpoints.
+
+### `GET` `/api/analytics/agents/performance` 🔒
+
+Get aggregate agent performance metrics
+
+### `GET` `/api/analytics/debates/summary` 🔒
+
+Get debate summary statistics
+
+### `GET` `/api/analytics/trends`
+
+Calculate trend analysis from data points
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `data_points` | string | List of period data points |
 
 ---
 
@@ -482,6 +437,68 @@ Run deep audit on a task
 ### `POST` `/api/debates/:id/red-team`
 
 Run red team analysis on a debate
+
+---
+
+## Autonomous Learning
+
+Autonomous Learning Handler for Aragora.
+
+### `GET` `/api/v2/learning/sessions`
+
+List training sessions
+
+### `POST` `/api/v2/learning/sessions`
+
+Start new training session
+
+### `GET` `/api/v2/learning/sessions/:session_id`
+
+Get session details
+
+### `POST` `/api/v2/learning/sessions/:session_id/stop`
+
+Stop training session
+
+### `GET` `/api/v2/learning/metrics`
+
+Get learning metrics
+
+### `GET` `/api/v2/learning/metrics/:metric_type`
+
+Get specific metric
+
+### `POST` `/api/v2/learning/feedback`
+
+Submit learning feedback
+
+### `GET` `/api/v2/learning/patterns`
+
+List detected patterns
+
+### `POST` `/api/v2/learning/patterns/:pattern_id/validate`
+
+Validate a pattern
+
+### `GET` `/api/v2/learning/knowledge`
+
+Get extracted knowledge
+
+### `POST` `/api/v2/learning/knowledge/extract`
+
+Trigger knowledge extraction
+
+### `GET` `/api/v2/learning/recommendations`
+
+Get learning recommendations
+
+### `GET` `/api/v2/learning/performance`
+
+Get model performance stats
+
+### `POST` `/api/v2/learning/calibrate`
+
+Trigger calibration
 
 ---
 
@@ -705,6 +722,52 @@ Pause debate and create checkpoint
 
 ---
 
+## Cloud Storage
+
+Cloud Storage Handler for Aragora.
+
+### `GET` `/api/v2/storage/files`
+
+List files with filtering
+
+### `POST` `/api/v2/storage/files`
+
+Upload a file
+
+### `GET` `/api/v2/storage/files/:file_id`
+
+Get file metadata
+
+### `GET` `/api/v2/storage/files/:file_id/download`
+
+Download file
+
+### `DELETE` `/api/v2/storage/files/:file_id`
+
+Delete a file
+
+### `POST` `/api/v2/storage/files/:file_id/presign`
+
+Generate presigned URL
+
+### `GET` `/api/v2/storage/quota`
+
+Get storage quota usage
+
+### `GET` `/api/v2/storage/buckets`
+
+List available buckets
+
+### `POST` `/api/v2/storage/buckets`
+
+Create a bucket
+
+### `DELETE` `/api/v2/storage/buckets/:bucket_id`
+
+Delete a bucket
+
+---
+
 ## Code Review
 
 HTTP API Handlers for Code Review.
@@ -731,51 +794,73 @@ Get review history
 
 ---
 
-## Compliance Handler
+## Compliance
 
-Compliance HTTP Handlers for Aragora.
+HTTP handler for compliance and audit operations.
 
-### `GET` `/api/v2/compliance/soc2-report`
+### `GET` `/api/v2/compliance`
 
-Generate SOC 2 compliance summary
+GET /api/v2/compliance
 
-### `GET` `/api/v2/compliance/gdpr-export`
+### `GET` `/api/v2/compliance/*`
 
-Export user data for GDPR
-
-### `POST` `/api/v2/compliance/gdpr/right-to-be-forgotten`
-
-Execute GDPR right to erasure
-
-### `POST` `/api/v2/compliance/audit-verify`
-
-Verify audit trail integrity
-
-### `GET` `/api/v2/compliance/audit-events`
-
-Export audit events (Elasticsearch/SIEM)
-
-### `GET` `/api/v2/compliance/status`
-
-Overall compliance status
+GET /api/v2/compliance/*
 
 ---
 
 ## Composite
 
-Handler for composite API endpoints that aggregate multiple data sources.
+Composite API handlers that aggregate data from multiple subsystems.
 
-### `GET` `/api/v1/debates/*/full-context`
+### `GET` `/api/v1/debates/\{id\}/full-context`
 
-GET /api/v1/debates/*/full-context
+Memory + Knowledge + Belief context
 
-### `GET` `/api/v1/agents/*/reliability`
+### `GET` `/api/v1/agents/\{id\}/reliability`
 
-Calculate overall reliability score (0-1)
+Circuit breaker + Airlock metrics
 
-### `GET` `/api/v1/debates/*/compression-analysis`
+### `GET` `/api/v1/debates/\{id\}/compression-analysis`
 
-GET /api/v1/debates/*/compression-analysis
+RLM compression metrics
+
+---
+
+## ComputerUse
+
+HTTP request handler for computer use API endpoints.
+
+### `GET` `/api/v1/computer-use/tasks` 🔒
+
+Handle POST /api/v1/computer-use/tasks/\{id\}/cancel
+
+### `GET` `/api/v1/computer-use/tasks/*`
+
+GET /api/v1/computer-use/tasks/*
+
+### `GET` `/api/v1/computer-use/actions` 🔒
+
+Handle GET /api/v1/computer-use/actions/stats
+
+### `GET` `/api/v1/computer-use/actions/*`
+
+GET /api/v1/computer-use/actions/*
+
+### `GET` `/api/v1/computer-use/policies` 🔒
+
+Handle POST /api/v1/computer-use/policies
+
+### `GET` `/api/v1/computer-use/policies/*`
+
+GET /api/v1/computer-use/policies/*
+
+### `GET` `/api/v1/computer-use/approvals` 🔒
+
+Handle POST /api/v1/computer-use/approvals/\{id\}/approve
+
+### `GET` `/api/v1/computer-use/approvals/*`
+
+GET /api/v1/computer-use/approvals/*
 
 ---
 
@@ -810,58 +895,6 @@ Get risk warnings and edge cases
 ### `GET` `/api/consensus/domain/:domain`
 
 Get domain-specific history
-
----
-
-## Control Plane
-
-Control Plane HTTP Handlers for Aragora.
-
-### `GET` `/api/control-plane/agents`
-
-List registered agents (also /api/v1/control-plane/agents)
-
-### `POST` `/api/control-plane/agents`
-
-Register an agent (also /api/v1/control-plane/agents)
-
-### `GET` `/api/control-plane/agents/:id`
-
-Get agent info (also /api/v1/control-plane/agents/:id)
-
-### `DELETE` `/api/control-plane/agents/:id`
-
-Unregister agent (also /api/v1/control-plane/agents/:id)
-
-### `POST` `/api/control-plane/agents/:id/heartbeat`
-
-Send heartbeat
-
----
-
-## Costs
-
-Cost Visibility API Handler.
-
-### `GET` `/api/costs`
-
-Get cost dashboard data
-
-### `GET` `/api/costs/breakdown`
-
-Get detailed cost breakdown
-
-### `GET` `/api/costs/timeline`
-
-Get usage timeline
-
-### `GET` `/api/costs/alerts`
-
-Get budget alerts
-
-### `POST` `/api/costs/budget`
-
-Set budget limits
 
 ---
 
@@ -1087,48 +1120,6 @@ Validate DR configuration
 
 ---
 
-## Email
-
-HTTP API Handlers for Email Prioritization.
-
-### `POST` `/api/email/prioritize`
-
-Score a single email
-
-### `POST` `/api/email/rank-inbox`
-
-Rank multiple emails
-
-### `POST` `/api/email/feedback`
-
-Record user action for learning
-
-### `GET` `/api/email/context/:email_address`
-
-Get cross-channel context
-
-### `POST` `/api/email/gmail/oauth/url`
-
-Get Gmail OAuth URL
-
-### `POST` `/api/email/gmail/oauth/callback`
-
-Handle OAuth callback
-
-### `GET` `/api/email/inbox`
-
-Fetch and rank inbox
-
-### `GET` `/api/email/config`
-
-Get prioritization config
-
-### `PUT` `/api/email/config`
-
-Update prioritization config
-
----
-
 ## EmailDebate
 
 Handler for email vetted decisionmaking API endpoints.
@@ -1212,6 +1203,32 @@ GET /api/analytics/endpoints/errors - Top N endpoints by error rate
 ### `GET` `/api/analytics/endpoints/health`
 
 GET /api/analytics/endpoints/health - Overall API health summary
+
+---
+
+## ERC8004
+
+Handler for ERC-8004 blockchain API endpoints.
+
+### `GET` `/api/v1/blockchain/config`
+
+GET /api/v1/blockchain/config
+
+### `GET` `/api/v1/blockchain/health`
+
+GET /api/v1/blockchain/health
+
+### `GET` `/api/v1/blockchain/sync`
+
+GET /api/v1/blockchain/sync
+
+### `GET` `/api/v1/blockchain/agents`
+
+GET /api/v1/blockchain/agents
+
+### `GET` `/api/v1/blockchain/agents/*`
+
+GET /api/v1/blockchain/agents/*
 
 ---
 
@@ -1349,6 +1366,32 @@ GET /api/v1/explain/*
 
 ---
 
+## External Agents
+
+External Agent Gateway endpoint handlers.
+
+### `POST` `/api/external-agents/tasks`
+
+Submit task to external agent
+
+### `GET` `/api/external-agents/tasks/\{id\}`
+
+Get task status/result
+
+### `DELETE` `/api/external-agents/tasks/\{id\}`
+
+Cancel task
+
+### `GET` `/api/external-agents/adapters`
+
+List registered adapters
+
+### `GET` `/api/external-agents/health`
+
+Health check all adapters
+
+---
+
 ## External Integrations
 
 External Integrations API Handler.
@@ -1433,15 +1476,19 @@ User Feedback Collection Handler.
 
 ### `POST` `/api/v1/feedback/nps`
 
-Submit NPS score
+Submit NPS score (requires feedback.write)
 
 ### `POST` `/api/v1/feedback/general`
 
-Submit general feedback
+Submit general feedback (requires feedback.write)
+
+### `GET` `/api/v1/feedback/nps/summary`
+
+Get NPS summary (requires feedback.update - admin)
 
 ### `GET` `/api/v1/feedback/prompts`
 
-Get active feedback prompts
+Get active feedback prompts (requires feedback.read)
 
 ---
 
@@ -1489,37 +1536,93 @@ Get throughput metrics
 
 ---
 
-## Gauntlet
+## GatewayAgents
 
-Gauntlet endpoint handlers for adversarial stress-testing.
+HTTP request handler for external agent registration endpoints.
 
-### `POST` `/api/gauntlet/run`
+### `GET` `/api/v1/gateway/agents`
 
-Start a gauntlet stress-test
+Extract agent name from path like /api/v1/gateway/agents/\{name\}
 
-### `GET` `/api/gauntlet/\{id\}`
+### `GET` `/api/v1/gateway/agents/*`
 
-Get gauntlet status/results
+GET /api/v1/gateway/agents/*
 
-### `GET` `/api/gauntlet/\{id\}/receipt`
+---
 
-Get decision receipt
+## GatewayConfig
 
-### `GET` `/api/gauntlet/\{id\}/heatmap`
+HTTP handler for gateway configuration endpoints.
 
-Get risk heatmap
+### `GET` `/api/v1/gateway/config` 🔒
 
-### `GET` `/api/gauntlet/personas`
+Handle GET /api/v1/gateway/config
 
-List available personas
+### `GET` `/api/v1/gateway/config/defaults` 🔒
 
-### `GET` `/api/gauntlet/results`
+Handle GET /api/v1/gateway/config/defaults
 
-List recent results with pagination
+---
 
-### `GET` `/api/gauntlet/\{id\}/compare/\{id2\}`
+## GatewayCredentials
 
-Compare two gauntlet runs
+HTTP request handler for gateway credential management endpoints.
+
+### `GET` `/api/v1/gateway/credentials`
+
+Extract credential ID from path like /api/v1/gateway/credentials/\{id\}
+
+### `GET` `/api/v1/gateway/credentials/*`
+
+GET /api/v1/gateway/credentials/*
+
+---
+
+## Gateway
+
+HTTP request handler for gateway API endpoints.
+
+### `GET` `/api/v1/gateway/devices` 🔒
+
+Handle GET /api/v1/gateway/devices/\{id\}
+
+### `GET` `/api/v1/gateway/devices/*`
+
+GET /api/v1/gateway/devices/*
+
+### `GET` `/api/v1/gateway/channels` 🔒
+
+Handle GET /api/v1/gateway/channels
+
+### `GET` `/api/v1/gateway/routing` 🔒
+
+Handle GET /api/v1/gateway/routing/rules
+
+### `GET` `/api/v1/gateway/routing/*`
+
+GET /api/v1/gateway/routing/*
+
+### `GET` `/api/v1/gateway/messages` 🔒
+
+Handle POST /api/v1/gateway/messages/route
+
+### `GET` `/api/v1/gateway/messages/*`
+
+GET /api/v1/gateway/messages/*
+
+---
+
+## GatewayHealth
+
+HTTP handler for gateway health endpoints.
+
+### `GET` `/api/v1/gateway/health` 🔒
+
+Handle GET /api/v1/gateway/agents/\{name\}/health
+
+### `GET` `/api/v1/gateway/agents/*/health` 🔒
+
+Handle GET /api/v1/gateway/agents/\{name\}/health
 
 ---
 
@@ -1557,6 +1660,20 @@ Get single genome details
 
 ---
 
+## HybridDebate
+
+HTTP request handler for hybrid debate API endpoints.
+
+### `GET` `/api/v1/debates/hybrid` 🔒
+
+Handle POST /api/v1/debates/hybrid
+
+### `GET` `/api/v1/debates/hybrid/*`
+
+GET /api/v1/debates/hybrid/*
+
+---
+
 ## Inbox Command
 
 Inbox Command Center API Handler.
@@ -1587,7 +1704,7 @@ Trigger AI re-prioritization
 
 ---
 
-## Integrations
+## Integration Management
 
 Integration Management HTTP Handlers for Aragora.
 
@@ -1733,6 +1850,56 @@ Suggest beneficial trait transfers
 
 ---
 
+## Marketplace
+
+Marketplace API Handlers.
+
+### `GET` `/api/v1/marketplace/templates`
+
+List all templates
+
+### `GET` `/api/v1/marketplace/templates/\{id\}`
+
+Get template details
+
+### `POST` `/api/v1/marketplace/templates`
+
+Create a template
+
+### `DELETE` `/api/v1/marketplace/templates/\{id\}`
+
+Delete a template
+
+### `POST` `/api/v1/marketplace/templates/\{id\}/ratings`
+
+Rate a template
+
+### `GET` `/api/v1/marketplace/templates/\{id\}/ratings`
+
+Get template ratings
+
+### `POST` `/api/v1/marketplace/templates/\{id\}/star`
+
+Star a template
+
+### `GET` `/api/v1/marketplace/categories`
+
+List categories
+
+### `GET` `/api/v1/marketplace/templates/\{id\}/export`
+
+Export template
+
+### `POST` `/api/v1/marketplace/templates/import`
+
+Import a template
+
+### `GET` `/api/v1/marketplace/status`
+
+Health and circuit breaker status
+
+---
+
 ## Metrics
 
 Handler for operational metrics endpoints.
@@ -1774,6 +1941,24 @@ Get debate performance statistics
 ### `GET` `/metrics`
 
 Get comprehensive operational metrics
+
+---
+
+## Metrics Endpoint
+
+Unified Prometheus metrics endpoint.
+
+### `GET` `/metrics`
+
+Full Prometheus-format metrics export
+
+### `GET` `/api/v1/metrics/prometheus`
+
+Same as /metrics with API versioning
+
+### `GET` `/api/v1/metrics/prometheus/summary`
+
+Aggregated metrics summary
 
 ---
 
@@ -1931,28 +2116,6 @@ Get onboarding funnel analytics
 
 ---
 
-## Orchestration
-
-Unified Orchestration Handler for Aragora Control Plane.
-
-### `POST` `/api/v1/orchestration/deliberate`
-
-Unified vetted decisionmaking endpoint
-
-### `GET` `/api/v1/orchestration/status/:id`
-
-Get vetted decisionmaking status
-
-### `GET` `/api/v1/orchestration/templates`
-
-List available templates
-
-### `POST` `/api/v1/orchestration/deliberate/sync`
-
-Synchronous vetted decisionmaking
-
----
-
 ## Organizations
 
 Organization Management Handlers.
@@ -2035,6 +2198,10 @@ Create API key
 
 List API keys
 
+### `POST` `/api/partners/keys/\{key_id\}/rotate`
+
+Rotate API key
+
 ### `DELETE` `/api/partners/keys/\{key_id\}`
 
 Revoke API key
@@ -2050,76 +2217,6 @@ Configure webhook
 ### `GET` `/api/partners/limits`
 
 Get rate limits
-
----
-
-## Payments
-
-Payment processing handlers for Stripe and Authorize.net.
-
-### `POST` `/api/payments/charge`
-
-Process a payment
-
-### `POST` `/api/payments/authorize`
-
-Authorize a payment (capture later)
-
-### `POST` `/api/payments/capture`
-
-Capture an authorized payment
-
-### `POST` `/api/payments/refund`
-
-Refund a payment
-
-### `POST` `/api/payments/void`
-
-Void a transaction
-
-### `GET` `/api/payments/transaction/\{id\}`
-
-Get transaction details
-
-### `POST` `/api/payments/customer`
-
-Create customer profile
-
-### `GET` `/api/payments/customer/\{id\}`
-
-Get customer profile
-
-### `PUT` `/api/payments/customer/\{id\}`
-
-Update customer profile
-
-### `DELETE` `/api/payments/customer/\{id\}`
-
-Delete customer profile
-
-### `POST` `/api/payments/subscription`
-
-Create subscription
-
-### `GET` `/api/payments/subscription/\{id\}`
-
-Get subscription
-
-### `PUT` `/api/payments/subscription/\{id\}`
-
-Update subscription
-
-### `DELETE` `/api/payments/subscription/\{id\}`
-
-Cancel subscription
-
-### `POST` `/api/payments/webhook/stripe`
-
-Stripe webhook endpoint
-
-### `POST` `/api/payments/webhook/authnet`
-
-Authorize.net webhook endpoint
 
 ---
 
@@ -2267,6 +2364,40 @@ Worker status
 
 ---
 
+## RBAC
+
+HTTP handler for RBAC management endpoints.
+
+### `GET` `/api/v1/rbac/permissions` 🔒
+
+List all system permissions with optional filtering
+
+### `GET` `/api/v1/rbac/permissions/*`
+
+GET /api/v1/rbac/permissions/*
+
+### `GET` `/api/v1/rbac/roles` 🔒
+
+List all roles (system and custom)
+
+### `GET` `/api/v1/rbac/roles/*`
+
+GET /api/v1/rbac/roles/*
+
+### `GET` `/api/v1/rbac/assignments` 🔒
+
+List role assignments with optional filtering
+
+### `GET` `/api/v1/rbac/assignments/*`
+
+GET /api/v1/rbac/assignments/*
+
+### `GET` `/api/v1/rbac/check` 🔒
+
+Check if a user has a specific permission
+
+---
+
 ## Receipts
 
 Decision Receipt HTTP Handlers for Aragora.
@@ -2299,9 +2430,25 @@ Verify cryptographic signature
 
 Batch signature verification
 
+### `POST` `/api/v2/receipts/sign-batch`
+
+Batch signing
+
+### `POST` `/api/v2/receipts/batch-export`
+
+Batch export to ZIP
+
 ### `GET` `/api/v2/receipts/stats`
 
 Receipt statistics
+
+### `POST` `/api/v2/receipts/:receipt_id/share`
+
+Create shareable link
+
+### `GET` `/api/v2/receipts/share/:token`
+
+Access receipt via share token
 
 ---
 
@@ -2403,6 +2550,32 @@ GET /api/v1/rlm/stream
 
 GET /api/v1/rlm/stream/modes
 
+### `GET` `/api/v1/rlm/codebase/health`
+
+GET /api/v1/rlm/codebase/health
+
+---
+
+## SCIM
+
+HTTP request handler for SCIM 2.0 provisioning endpoints.
+
+### `GET` `/scim/v2/Users`
+
+Extract resource ID from path like /scim/v2/Users/\{id\}
+
+### `GET` `/scim/v2/Users/*`
+
+GET /scim/v2/Users/*
+
+### `GET` `/scim/v2/Groups`
+
+GET /scim/v2/Groups
+
+### `GET` `/scim/v2/Groups/*`
+
+GET /scim/v2/Groups/*
+
 ---
 
 ## Selection
@@ -2425,59 +2598,9 @@ Get information about a specific scorer
 
 Get information about a specific team selector
 
----
+### `GET` `/api/v1/team-selection`
 
-## Shared Inbox
-
-HTTP API Handlers for Shared Inbox Management.
-
-### `POST` `/api/v1/inbox/shared`
-
-Create shared inbox
-
-### `GET` `/api/v1/inbox/shared`
-
-List shared inboxes
-
-### `GET` `/api/v1/inbox/shared/:id`
-
-Get shared inbox details
-
-### `GET` `/api/v1/inbox/shared/:id/messages`
-
-Get messages in inbox
-
-### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/assign`
-
-Assign message
-
-### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/status`
-
-Update status
-
-### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/tag`
-
-Add tag
-
-### `POST` `/api/v1/inbox/routing/rules`
-
-Create routing rule
-
-### `GET` `/api/v1/inbox/routing/rules`
-
-List routing rules
-
-### `PATCH` `/api/v1/inbox/routing/rules/:id`
-
-Update routing rule
-
-### `DELETE` `/api/v1/inbox/routing/rules/:id`
-
-Delete routing rule
-
-### `POST` `/api/v1/inbox/routing/rules/:id/test`
-
-Test routing rule
+GET /api/v1/team-selection
 
 ---
 
@@ -2549,6 +2672,34 @@ Get skill execution metrics
 
 ---
 
+## Slack
+
+Handler for Slack bot integration endpoints.
+
+### `GET` `/api/v1/bots/slack/status`
+
+Build the status response JSON
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `extra_status` | string | Additional fields to include. |
+
+### `GET` `/api/v1/bots/slack/events`
+
+GET /api/v1/bots/slack/events
+
+### `GET` `/api/v1/bots/slack/interactions`
+
+GET /api/v1/bots/slack/interactions
+
+### `GET` `/api/v1/bots/slack/commands`
+
+GET /api/v1/bots/slack/commands
+
+---
+
 ## Slo
 
 SLO (Service Level Objective) endpoint handlers.
@@ -2569,9 +2720,43 @@ Error budget timeline
 
 Recent SLO violations
 
+### `GET` `/api/slos/targets`
+
+Configured SLO targets
+
 ### `GET` `/api/v1/slos/status`
 
 Versioned endpoint
+
+---
+
+## SMESuccessDashboard
+
+Handler for SME success dashboard endpoints.
+
+### `GET` `/api/v1/sme/success`
+
+Calculate core success metrics for an organization
+
+### `GET` `/api/v1/sme/success/cfo` 🔒
+
+Get CFO-focused success view
+
+### `GET` `/api/v1/sme/success/pm` 🔒
+
+Get PM-focused success view
+
+### `GET` `/api/v1/sme/success/hr` 🔒
+
+Get HR-focused success view
+
+### `GET` `/api/v1/sme/success/milestones` 🔒
+
+Get achievement milestones and gamification status
+
+### `GET` `/api/v1/sme/success/insights` 🔒
+
+Get actionable insights and recommendations
 
 ---
 
@@ -2925,41 +3110,7 @@ Execute a template
 
 ---
 
-## Workflow
-
-HTTP request handler for workflow API endpoints.
-
-### `GET` `/api/v1/workflows`
-
-Handle GET /api/workflows
-
-### `GET` `/api/v1/workflows/*`
-
-GET /api/v1/workflows/*
-
-### `GET` `/api/v1/workflow-templates`
-
-GET /api/v1/workflow-templates
-
-### `GET` `/api/v1/workflow-approvals`
-
-GET /api/v1/workflow-approvals
-
-### `GET` `/api/v1/workflow-approvals/*`
-
-GET /api/v1/workflow-approvals/*
-
-### `GET` `/api/v1/workflow-executions`
-
-GET /api/v1/workflow-executions
-
-### `GET` `/api/v1/workflow-executions/*`
-
-GET /api/v1/workflow-executions/*
-
----
-
-## Workspace
+## Workspace Module
 
 Workspace Handler - Enterprise Privacy and Data Isolation APIs.
 
@@ -3104,32 +3255,6 @@ Run quick security scan
 ### `GET` `/api/codebase/quick-scan/\{scan_id\}`
 
 Get scan result
-
----
-
-## Security
-
-HTTP API Handlers for Codebase Security Analysis.
-
-### `POST` `/api/v1/codebase/\{repo\}/scan`
-
-Trigger security scan
-
-### `GET` `/api/v1/codebase/\{repo\}/scan/latest`
-
-Get latest scan result
-
-### `GET` `/api/v1/codebase/\{repo\}/scan/\{scan_id\}`
-
-Get specific scan result
-
-### `GET` `/api/v1/codebase/\{repo\}/vulnerabilities`
-
-List all vulnerabilities
-
-### `GET` `/api/v1/cve/\{cve_id\}`
-
-Get CVE details
 
 ---
 

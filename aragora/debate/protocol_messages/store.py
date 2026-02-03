@@ -166,8 +166,8 @@ class ConnectionPool:
             # Pool full (shouldn't happen), close the extra connection
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to close excess connection: %s", e)
 
     def close_all(self) -> None:
         """Close all connections in the pool."""
@@ -179,8 +179,8 @@ class ConnectionPool:
                 conn = self._pool.get_nowait()
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed to close pooled connection during cleanup: %s", e)
             except queue.Empty:
                 break
 

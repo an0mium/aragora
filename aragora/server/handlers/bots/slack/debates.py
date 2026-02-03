@@ -22,6 +22,7 @@ async def start_slack_debate(
     response_url: str = "",
     thread_ts: str | None = None,
     attachments: list[dict[str, Any]] | None = None,
+    decision_integrity: dict[str, Any] | bool | None = None,
 ) -> str:
     """Start a debate from Slack via DecisionRouter.
 
@@ -36,6 +37,7 @@ async def start_slack_debate(
 
     try:
         from aragora.core import (
+            DecisionConfig,
             DecisionRequest,
             DecisionType,
             InputSource,
@@ -59,15 +61,44 @@ async def start_slack_debate(
             session_id=f"slack:{channel_id}",
         )
 
+        config = None
+        if decision_integrity is not None:
+            if isinstance(decision_integrity, bool):
+                decision_integrity = {} if decision_integrity else None
+            if isinstance(decision_integrity, dict):
+                config = DecisionConfig(decision_integrity=decision_integrity)
+
+        request_kwargs = {
+            "content": topic,
+            "decision_type": DecisionType.DEBATE,
+            "source": InputSource.SLACK,
+            "response_channels": [response_channel],
+            "context": context,
+            "attachments": attachments or [],
+        }
+        if config is not None:
+            request_kwargs["config"] = config
+
         # Create decision request
-        request = DecisionRequest(
-            content=topic,
-            decision_type=DecisionType.DEBATE,
-            source=InputSource.SLACK,
-            response_channels=[response_channel],
-            context=context,
-            attachments=attachments or [],
-        )
+        request = DecisionRequest(**request_kwargs)
+
+        # Register origin for result routing (best-effort)
+        try:
+            from aragora.server.debate_origin import register_debate_origin
+
+            register_debate_origin(
+                debate_id=request.request_id,
+                platform="slack",
+                channel_id=channel_id,
+                user_id=user_id,
+                thread_id=thread_ts,
+                metadata={
+                    "topic": topic,
+                    "response_url": response_url,
+                },
+            )
+        except Exception as exc:
+            logger.debug("Failed to register Slack debate origin: %s", exc)
 
         # Route through DecisionRouter in the background to keep Slack responsive.
         router = get_decision_router()
@@ -100,6 +131,22 @@ async def start_slack_debate(
                 state = _active_debates.pop(request.request_id, None)
                 if state is not None:
                     _active_debates[result.request_id] = state
+                try:
+                    from aragora.server.debate_origin import register_debate_origin
+
+                    register_debate_origin(
+                        debate_id=result.request_id,
+                        platform="slack",
+                        channel_id=channel_id,
+                        user_id=user_id,
+                        thread_id=thread_ts,
+                        metadata={
+                            "topic": topic,
+                            "response_url": response_url,
+                        },
+                    )
+                except Exception as exc:
+                    logger.debug("Failed to register dedup Slack origin: %s", exc)
             logger.info("DecisionRouter started debate %s from Slack", result.request_id)
 
         task.add_done_callback(_route_done)

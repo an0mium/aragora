@@ -62,20 +62,93 @@ Aragora provides comprehensive observability through:
 
 ### Configuration
 
-Set environment variables to enable tracing:
+Aragora supports both standard OpenTelemetry environment variables and Aragora-specific ones.
+Standard OTEL_* variables take precedence when both are set.
+
+#### Standard OpenTelemetry Variables (Recommended)
 
 ```bash
-# Enable tracing
-export OTEL_ENABLED=true
-
-# OTLP collector endpoint (Jaeger, Zipkin, etc.)
+# OTLP collector endpoint - setting this auto-enables tracing
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 
 # Service name in traces
 export OTEL_SERVICE_NAME=aragora
 
-# Sample rate (0.0-1.0, 1.0 = 100%)
+# Sampler type (controls which traces are recorded)
+# Options: always_on, always_off, traceidratio,
+#          parentbased_always_on, parentbased_always_off, parentbased_traceidratio
+export OTEL_TRACES_SAMPLER=parentbased_traceidratio
+
+# Sampler argument (e.g., ratio for traceidratio samplers)
+# 0.1 = 10% of traces, 1.0 = 100% of traces
+export OTEL_TRACES_SAMPLER_ARG=1.0
+
+# Context propagation format (default: tracecontext,baggage)
+export OTEL_PROPAGATORS=tracecontext,baggage
+
+# Additional resource attributes (optional)
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,service.version=2.5.0
+```
+
+#### Legacy/Compatibility Variables
+
+```bash
+# Enable tracing (auto-enabled when OTEL_EXPORTER_OTLP_ENDPOINT is set)
+export OTEL_ENABLED=true
+
+# Sample rate (use OTEL_TRACES_SAMPLER_ARG instead)
 export OTEL_SAMPLE_RATE=1.0
+```
+
+#### Aragora-Specific Variables (Fallback)
+
+These are used when standard OTEL_* variables are not set:
+
+```bash
+# Exporter type: none, jaeger, zipkin, otlp_grpc, otlp_http, datadog
+export ARAGORA_OTLP_EXPORTER=otlp_grpc
+
+# Collector endpoint
+export ARAGORA_OTLP_ENDPOINT=http://localhost:4317
+
+# Service identification
+export ARAGORA_SERVICE_NAME=aragora
+export ARAGORA_SERVICE_VERSION=1.0.0
+export ARAGORA_ENVIRONMENT=production
+
+# Sampling (use OTEL_TRACES_SAMPLER_ARG instead)
+export ARAGORA_TRACE_SAMPLE_RATE=1.0
+
+# Advanced settings
+export ARAGORA_OTLP_BATCH_SIZE=512
+export ARAGORA_OTLP_EXPORT_TIMEOUT_MS=30000
+export ARAGORA_OTLP_INSECURE=false
+
+# Headers for authenticated endpoints (JSON format)
+export ARAGORA_OTLP_HEADERS='{"Authorization": "Bearer token"}'
+
+# Datadog-specific
+export DATADOG_API_KEY=your-api-key
+```
+
+### Sampling Strategies
+
+Choose a sampling strategy based on your needs:
+
+| Strategy | Env Variable Value | Use Case |
+|----------|-------------------|----------|
+| Always On | `always_on` | Development, debugging |
+| Always Off | `always_off` | Disabled tracing |
+| Trace ID Ratio | `traceidratio` | Fixed percentage sampling |
+| Parent-Based Always On | `parentbased_always_on` | Follow parent decision, sample if root |
+| Parent-Based Always Off | `parentbased_always_off` | Follow parent decision, don't sample if root |
+| Parent-Based Trace ID Ratio | `parentbased_traceidratio` | **Recommended for production** |
+
+**Production Recommendation:**
+```bash
+# Sample 10% of traces, but follow parent's decision for child spans
+export OTEL_TRACES_SAMPLER=parentbased_traceidratio
+export OTEL_TRACES_SAMPLER_ARG=0.1
 ```
 
 ### Usage
@@ -377,20 +450,31 @@ spec:
 ### Environment Variables
 
 ```yaml
-# Kubernetes deployment
+# Kubernetes deployment - using standard OTEL variables
 env:
-  - name: OTEL_ENABLED
-    value: "true"
+  # OpenTelemetry tracing (standard variables)
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: "http://jaeger-collector.observability:4317"
   - name: OTEL_SERVICE_NAME
     value: "aragora"
-  - name: OTEL_SAMPLE_RATE
+  - name: OTEL_TRACES_SAMPLER
+    value: "parentbased_traceidratio"
+  - name: OTEL_TRACES_SAMPLER_ARG
     value: "0.1"  # 10% sampling in production
+  - name: OTEL_PROPAGATORS
+    value: "tracecontext,baggage"
+  # Prometheus metrics
   - name: METRICS_ENABLED
     value: "true"
   - name: METRICS_PORT
     value: "9090"
+  # Service metadata
+  - name: ARAGORA_SERVICE_VERSION
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.labels['app.kubernetes.io/version']
+  - name: ARAGORA_ENVIRONMENT
+    value: "production"
 ```
 
 ---

@@ -71,7 +71,9 @@ class BeliefHandler(BaseHandler):
         "/api/belief-network/*/export",
         "/api/provenance/*/claims/*/support",
         "/api/debate/*/graph-stats",
-        # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
+        # Versioned aliases for SDK parity
+        "/api/v1/belief-network/*/graph",
+        "/api/v1/belief-network/*/export",
     ]
 
     def __init__(self, server_context: dict[str, Any]):
