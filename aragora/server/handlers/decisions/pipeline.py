@@ -425,15 +425,30 @@ class DecisionPipelineHandler(SecureHandler):
         import asyncio
 
         from aragora.pipeline.executor import PlanExecutor, get_plan
+        from aragora.rbac.models import AuthorizationContext
 
         plan = get_plan(plan_id)
         if not plan:
             return error_response("Plan not found", 404)
 
+        # Build authorization context from user for defense-in-depth permission checks
+        # Note: handler-level permission check already passed (DECISION_MANAGE_PERMISSION)
+        auth_context = AuthorizationContext(
+            user_id=getattr(user, "user_id", None) or "unknown",
+            user_email=getattr(user, "email", None),
+            org_id=getattr(user, "org_id", None),
+            roles=set([getattr(user, "role", "member")]),
+            permissions=set([DECISION_MANAGE_PERMISSION, "decisions:execute"]),
+        )
+
         executor = PlanExecutor()
 
         try:
-            outcome = asyncio.get_event_loop().run_until_complete(executor.execute(plan))
+            outcome = asyncio.get_event_loop().run_until_complete(
+                executor.execute(plan, auth_context=auth_context)
+            )
+        except PermissionError as e:
+            return error_response(str(e), 403)
         except ValueError as e:
             return error_response(str(e), 409)
 

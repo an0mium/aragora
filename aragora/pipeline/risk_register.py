@@ -74,6 +74,11 @@ class Risk:
     related_critique_ids: list[str] = field(default_factory=list)
     related_claim_ids: list[str] = field(default_factory=list)
 
+    # Historical context from Knowledge Mound
+    historical_occurrences: int = 0  # Times similar risks appeared in past plans
+    historical_success_rate: float | None = None  # Success rate when risk present (0-1)
+    related_plan_ids: list[str] = field(default_factory=list)  # Related historical plans
+
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     @property
@@ -82,7 +87,7 @@ class Risk:
         return self.impact * self.likelihood
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "id": self.id,
             "title": self.title,
             "description": self.description,
@@ -98,6 +103,12 @@ class Risk:
             "related_claim_ids": self.related_claim_ids,
             "created_at": self.created_at,
         }
+        # Include historical context if present
+        if self.historical_occurrences > 0:
+            result["historical_occurrences"] = self.historical_occurrences
+            result["historical_success_rate"] = self.historical_success_rate
+            result["related_plan_ids"] = self.related_plan_ids
+        return result
 
 
 @dataclass

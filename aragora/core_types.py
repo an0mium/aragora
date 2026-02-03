@@ -328,6 +328,9 @@ class DebateResult:
     # Multi-language translations - maps language code to translated final_answer
     # Example: {"es": "Spanish translation...", "fr": "French translation..."}
     translations: dict[str, str] = field(default_factory=dict)
+    # Partial consensus - tracks which sub-questions/topics reached agreement
+    # when overall consensus wasn't achieved. Enables plans to proceed with agreed portions.
+    partial_consensus: Any | None = None  # PartialConsensus from aragora.debate.consensus
 
     def __post_init__(self) -> None:
         if self.debate_id:
@@ -376,6 +379,12 @@ class DebateResult:
         # Include translations if present
         if self.translations:
             result["translations"] = dict(self.translations)
+        # Include partial consensus if present
+        if self.partial_consensus is not None:
+            if hasattr(self.partial_consensus, "to_dict"):
+                result["partial_consensus"] = self.partial_consensus.to_dict()
+            else:
+                result["partial_consensus"] = self.partial_consensus
         return result
 
     @classmethod

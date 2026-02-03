@@ -1251,6 +1251,239 @@ class DecisionPlanFactory:
 
         return ImplementPlan(design_hash=design_hash, tasks=tasks)
 
+    @staticmethod
+    async def from_debate_result_async(
+        result: DebateResult,
+        *,
+        knowledge_mound: Any | None = None,
+        budget_limit_usd: float | None = None,
+        approval_mode: ApprovalMode = ApprovalMode.RISK_BASED,
+        max_auto_risk: RiskLevel = RiskLevel.LOW,
+        repo_path: Path | None = None,
+        metadata: dict[str, Any] | None = None,
+        implement_plan: ImplementPlan | None = None,
+        enrich_from_history: bool = True,
+    ) -> DecisionPlan:
+        """Async version of from_debate_result with Knowledge Mound enrichment.
+
+        This extended factory method queries the Knowledge Mound for historical
+        decisions similar to the current task, enriching the risk register with
+        data about past outcomes.
+
+        Args:
+            result: The completed DebateResult from Arena.run().
+            knowledge_mound: Optional KM instance for historical queries.
+            budget_limit_usd: Optional budget cap for the full plan.
+            approval_mode: How human approval is determined.
+            max_auto_risk: Max risk level for auto-execution.
+            repo_path: Repository root for implementation planning.
+            metadata: Additional metadata to attach.
+            implement_plan: Optional pre-built implementation plan to reuse.
+            enrich_from_history: Whether to query KM for historical context.
+
+        Returns:
+            A DecisionPlan enriched with historical risk data.
+        """
+        # Start with synchronous creation
+        plan = DecisionPlanFactory.from_debate_result(
+            result,
+            budget_limit_usd=budget_limit_usd,
+            approval_mode=approval_mode,
+            max_auto_risk=max_auto_risk,
+            repo_path=repo_path,
+            metadata=metadata,
+            implement_plan=implement_plan,
+        )
+
+        # Enrich risks with historical data from Knowledge Mound
+        if enrich_from_history and plan.risk_register:
+            await DecisionPlanFactory._enrich_risks_from_history(
+                plan.risk_register, result.task, knowledge_mound
+            )
+
+        return plan
+
+    @staticmethod
+    async def _enrich_risks_from_history(
+        register: RiskRegister,
+        task: str,
+        knowledge_mound: Any | None = None,
+    ) -> None:
+        """Enrich risk register with historical data from Knowledge Mound.
+
+        Queries KM for similar past decisions and their outcomes, updating
+        each risk with historical context (how often similar risks appeared,
+        what the success rates were, etc.).
+
+        Args:
+            register: The risk register to enrich
+            task: The task description for similarity search
+            knowledge_mound: Optional KM instance (uses global if not provided)
+        """
+        try:
+            from aragora.knowledge.mound.adapters.decision_plan_adapter import (
+                get_decision_plan_adapter,
+            )
+
+            adapter = get_decision_plan_adapter(knowledge_mound)
+
+            # Query for similar historical plans
+            similar_plans = await adapter.query_similar_plans(task, limit=10)
+            if not similar_plans:
+                return
+
+            # Aggregate historical data
+            total_plans = len(similar_plans)
+            successful_plans = sum(1 for p in similar_plans if p.get("success", False))
+            failed_plans = total_plans - successful_plans
+            overall_success_rate = successful_plans / total_plans if total_plans > 0 else None
+
+            # For each risk, try to find similar patterns in historical plans
+            for risk in register.risks:
+                # Find plans where similar issues appeared (keyword matching)
+                risk_keywords = _extract_keywords(risk.title + " " + risk.description)
+                matching_plans: list[dict[str, Any]] = []
+
+                for plan_data in similar_plans:
+                    content = plan_data.get("content", "")
+                    plan_task = plan_data.get("task", "")
+
+                    # Check if risk keywords appear in historical plan
+                    if any(kw.lower() in (content + plan_task).lower() for kw in risk_keywords):
+                        matching_plans.append(plan_data)
+
+                if matching_plans:
+                    # Update risk with historical data
+                    risk.historical_occurrences = len(matching_plans)
+                    matching_successes = sum(1 for p in matching_plans if p.get("success", False))
+                    risk.historical_success_rate = (
+                        matching_successes / len(matching_plans) if matching_plans else None
+                    )
+                    risk.related_plan_ids = [
+                        p.get("plan_id", "") for p in matching_plans if p.get("plan_id")
+                    ][:5]
+
+                    # Adjust likelihood based on historical failure rate
+                    if risk.historical_success_rate is not None:
+                        failure_rate = 1.0 - risk.historical_success_rate
+                        # Blend historical failure rate with original estimate
+                        risk.likelihood = (risk.likelihood + failure_rate) / 2
+
+            # Add a meta-risk if overall success rate is low
+            if overall_success_rate is not None and overall_success_rate < 0.7:
+                from aragora.pipeline.risk_register import Risk, RiskCategory, RiskLevel
+
+                register.add_risk(
+                    Risk(
+                        id=f"risk-history-{register.debate_id[:8]}",
+                        title="Historical pattern: Similar tasks had low success",
+                        description=(
+                            f"Analysis of {total_plans} similar historical decisions shows "
+                            f"{overall_success_rate:.0%} success rate. "
+                            f"{failed_plans} similar tasks failed previously."
+                        ),
+                        level=RiskLevel.HIGH if overall_success_rate < 0.5 else RiskLevel.MEDIUM,
+                        category=RiskCategory.UNKNOWN,
+                        source="knowledge_mound",
+                        impact=0.7,
+                        likelihood=1.0 - overall_success_rate,
+                        historical_occurrences=total_plans,
+                        historical_success_rate=overall_success_rate,
+                    )
+                )
+
+        except ImportError as e:
+            # KM adapter not available, skip enrichment
+            import logging
+
+            logging.getLogger(__name__).debug("KM enrichment unavailable: %s", e)
+        except (OSError, RuntimeError, ValueError) as e:
+            import logging
+
+            logging.getLogger(__name__).warning("Historical enrichment failed: %s", e)
+
+
+def _extract_keywords(text: str) -> list[str]:
+    """Extract meaningful keywords from text for matching."""
+    import re
+
+    # Remove common words and extract meaningful tokens
+    stop_words = {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "under",
+        "and",
+        "or",
+        "but",
+        "if",
+        "because",
+        "until",
+        "while",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "not",
+        "no",
+        "yes",
+    }
+
+    # Tokenize and filter
+    tokens = re.findall(r"\b[a-z]+\b", text.lower())
+    keywords = [t for t in tokens if t not in stop_words and len(t) > 3]
+
+    # Return unique keywords (preserve order)
+    seen: set[str] = set()
+    unique = []
+    for kw in keywords:
+        if kw not in seen:
+            seen.add(kw)
+            unique.append(kw)
+    return unique[:10]  # Limit to 10 keywords
+
 
 def _categorize_issue(issue: str) -> RiskCategory:
     """Categorize a risk issue by keywords."""

@@ -240,6 +240,32 @@ class DecisionConfig:
         )
 
 
+def normalize_document_ids(value: Any, max_items: int = 50) -> list[str]:
+    """Normalize document ID input to a clean list of strings."""
+    if not value:
+        return []
+    if isinstance(value, str):
+        candidates = [value]
+    elif isinstance(value, list):
+        candidates = value
+    else:
+        return []
+
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for item in candidates:
+        if not isinstance(item, str):
+            continue
+        doc_id = item.strip()
+        if not doc_id or doc_id in seen:
+            continue
+        seen.add(doc_id)
+        normalized.append(doc_id)
+        if len(normalized) >= max_items:
+            break
+    return normalized
+
+
 @dataclass
 class DecisionRequest:
     """
@@ -270,6 +296,7 @@ class DecisionRequest:
     # Additional input data
     attachments: list[dict[str, Any]] = field(default_factory=list)
     evidence: list[dict[str, Any]] = field(default_factory=list)
+    documents: list[str] = field(default_factory=list)
 
     # Request ID
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -287,6 +314,9 @@ class DecisionRequest:
         # Auto-detect decision type if needed
         if self.decision_type == DecisionType.AUTO:
             self.decision_type = self._detect_decision_type()
+
+        # Normalize document IDs
+        self.documents = normalize_document_ids(self.documents)
 
     def _detect_decision_type(self) -> DecisionType:
         """Auto-detect the appropriate decision type based on content."""
@@ -322,6 +352,7 @@ class DecisionRequest:
             "priority": self.priority.value,
             "attachments": self.attachments,
             "evidence": self.evidence,
+            "documents": list(self.documents),
         }
 
     @classmethod
@@ -340,6 +371,9 @@ class DecisionRequest:
             priority=Priority(data.get("priority", "normal")),
             attachments=data.get("attachments", []),
             evidence=data.get("evidence", []),
+            documents=normalize_document_ids(
+                data.get("documents") or data.get("document_ids") or []
+            ),
         )
 
     @classmethod
@@ -353,6 +387,9 @@ class DecisionRequest:
         **kwargs,
     ) -> "DecisionRequest":
         """Create from a chat platform message."""
+        documents = normalize_document_ids(
+            kwargs.pop("documents", None) or kwargs.pop("document_ids", None) or []
+        )
         source = InputSource(platform.lower())
 
         response_channel = ResponseChannel(
@@ -372,6 +409,7 @@ class DecisionRequest:
             source=source,
             response_channels=[response_channel],
             context=context,
+            documents=documents,
         )
 
     @classmethod
@@ -391,6 +429,9 @@ class DecisionRequest:
             request = cls.from_dict(body)
         else:
             # Legacy format: {question, agents, rounds, consensus, ...}
+            documents = normalize_document_ids(
+                body.get("documents") or body.get("document_ids") or []
+            )
             request = cls(
                 content=body.get("question") or body.get("task") or body.get("input_text", ""),
                 decision_type=DecisionType(body.get("decision_type", "debate")),
@@ -401,6 +442,7 @@ class DecisionRequest:
                     consensus=body.get("consensus", _DEFAULT_DECISION_CONSENSUS),
                     timeout_seconds=body.get("timeout", 300),
                 ),
+                documents=documents,
             )
 
         if correlation_id:

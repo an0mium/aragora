@@ -46,6 +46,14 @@ from aragora.cli.commands.delegated import (
     cmd_marketplace,
     cmd_control_plane,
 )
+from aragora.cli.commands.decide import (
+    cmd_decide,
+    cmd_plans,
+    cmd_plans_show,
+    cmd_plans_approve,
+    cmd_plans_reject,
+    cmd_plans_execute,
+)
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
@@ -115,6 +123,8 @@ Examples:
     _add_mcp_parser(subparsers)
     _add_marketplace_parser(subparsers)
     _add_control_plane_parser(subparsers)
+    _add_decide_parser(subparsers)
+    _add_plans_parser(subparsers)
 
     return parser
 
@@ -760,3 +770,148 @@ Subcommands:
         help=f"API server URL (default: {DEFAULT_API_URL})",
     )
     cp_parser.set_defaults(func=cmd_control_plane)
+
+
+def _add_decide_parser(subparsers) -> None:
+    """Add the 'decide' subcommand parser for the full gold path pipeline."""
+    decide_parser = subparsers.add_parser(
+        "decide",
+        help="Run full decision pipeline: debate → plan → execute",
+        description="""
+Run the full decision pipeline (gold path):
+
+  1. Debate: Multi-agent debate on the task
+  2. Plan: Create decision plan from debate outcome
+  3. Approve: Get approval (or auto-approve)
+  4. Execute: Run the plan tasks
+  5. Verify: Check execution results
+  6. Learn: Store lessons in Knowledge Mound
+
+Examples:
+  aragora decide "Design a rate limiter" --agents grok,anthropic-api,openai-api
+  aragora decide "Implement auth" --auto-approve --budget-limit 10.00
+  aragora decide "Refactor database" --dry-run  # Create plan but don't execute
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    decide_parser.add_argument("task", help="The task/question to decide on")
+    decide_parser.add_argument(
+        "--agents",
+        "-a",
+        default=DEFAULT_AGENTS,
+        help="Comma-separated agents for debate",
+    )
+    decide_parser.add_argument(
+        "--rounds",
+        "-r",
+        type=int,
+        default=DEFAULT_ROUNDS,
+        help=f"Number of debate rounds (default: {DEFAULT_ROUNDS})",
+    )
+    decide_parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help="Automatically approve plans (skip approval step)",
+    )
+    decide_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Create plan but don't execute",
+    )
+    decide_parser.add_argument(
+        "--budget-limit",
+        type=float,
+        help="Maximum budget for plan execution in USD",
+    )
+    decide_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print detailed progress",
+    )
+    decide_parser.set_defaults(func=cmd_decide)
+
+
+def _add_plans_parser(subparsers) -> None:
+    """Add the 'plans' subcommand parser for decision plan management."""
+    plans_parser = subparsers.add_parser(
+        "plans",
+        help="Manage decision plans",
+        description="""
+Manage decision plans created by the 'decide' command or API.
+
+Subcommands:
+  list              - List all plans (default)
+  show <id>         - Show plan details
+  approve <id>      - Approve a pending plan
+  reject <id>       - Reject a pending plan
+  execute <id>      - Execute an approved plan
+
+Examples:
+  aragora plans                          # List plans
+  aragora plans list --status pending    # List pending plans
+  aragora plans show abc123              # Show plan details
+  aragora plans approve abc123           # Approve plan
+  aragora plans execute abc123           # Execute plan
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    plans_subparsers = plans_parser.add_subparsers(dest="plans_action")
+
+    # plans list
+    list_parser = plans_subparsers.add_parser("list", help="List decision plans")
+    list_parser.add_argument(
+        "--status",
+        "-s",
+        choices=[
+            "created",
+            "awaiting_approval",
+            "approved",
+            "rejected",
+            "executing",
+            "completed",
+            "failed",
+        ],
+        help="Filter by status",
+    )
+    list_parser.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=20,
+        help="Maximum plans to show (default: 20)",
+    )
+    list_parser.set_defaults(func=cmd_plans)
+
+    # plans show
+    show_parser = plans_subparsers.add_parser("show", help="Show plan details")
+    show_parser.add_argument("plan_id", help="Plan ID (full or prefix)")
+    show_parser.set_defaults(func=cmd_plans_show)
+
+    # plans approve
+    approve_parser = plans_subparsers.add_parser("approve", help="Approve a plan")
+    approve_parser.add_argument("plan_id", help="Plan ID to approve")
+    approve_parser.add_argument(
+        "--reason",
+        "-r",
+        help="Reason for approval",
+    )
+    approve_parser.set_defaults(func=cmd_plans_approve)
+
+    # plans reject
+    reject_parser = plans_subparsers.add_parser("reject", help="Reject a plan")
+    reject_parser.add_argument("plan_id", help="Plan ID to reject")
+    reject_parser.add_argument(
+        "--reason",
+        "-r",
+        help="Reason for rejection",
+    )
+    reject_parser.set_defaults(func=cmd_plans_reject)
+
+    # plans execute
+    execute_parser = plans_subparsers.add_parser("execute", help="Execute a plan")
+    execute_parser.add_argument("plan_id", help="Plan ID to execute")
+    execute_parser.set_defaults(func=cmd_plans_execute)
+
+    # Default behavior when just 'aragora plans' is called
+    plans_parser.set_defaults(func=cmd_plans)

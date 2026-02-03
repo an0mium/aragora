@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.pipeline.decision_plan import (
     DecisionPlan,
@@ -28,7 +28,13 @@ from aragora.pipeline.decision_plan import (
     record_plan_outcome,
 )
 
+if TYPE_CHECKING:
+    from aragora.rbac.models import AuthorizationContext
+
 logger = logging.getLogger(__name__)
+
+# Permission required to execute plans
+PLAN_EXECUTE_PERMISSION = "decisions:execute"
 
 # ---------------------------------------------------------------------------
 # In-memory plan store (upgrade to persistent storage later)
@@ -125,18 +131,43 @@ class PlanExecutor:
         plan: DecisionPlan,
         *,
         parallel_execution: bool | None = None,
+        auth_context: AuthorizationContext | None = None,
     ) -> PlanOutcome:
         """Execute a DecisionPlan and return the outcome.
 
         Args:
             plan: An approved DecisionPlan.
+            parallel_execution: Whether to execute tasks in parallel.
+            auth_context: Authorization context for the requesting user.
+                If provided, permission checks are enforced.
+                If None, execution proceeds (for internal/system calls).
 
         Returns:
             PlanOutcome with execution results.
 
         Raises:
             ValueError: If the plan is not in an executable state.
+            PermissionError: If auth_context is provided but lacks required permissions.
         """
+        # Authorization check: if auth_context provided, verify permission
+        if auth_context is not None:
+            if not auth_context.has_permission(PLAN_EXECUTE_PERMISSION):
+                logger.warning(
+                    "Plan execution denied: user %s lacks permission %s for plan %s",
+                    auth_context.user_id,
+                    PLAN_EXECUTE_PERMISSION,
+                    plan.id,
+                )
+                raise PermissionError(
+                    f"User {auth_context.user_id} lacks permission '{PLAN_EXECUTE_PERMISSION}' "
+                    f"to execute plan {plan.id}"
+                )
+            logger.info(
+                "Plan execution authorized: user %s executing plan %s",
+                auth_context.user_id,
+                plan.id,
+            )
+
         if plan.status == PlanStatus.REJECTED:
             raise ValueError(f"Plan {plan.id} was rejected and cannot be executed")
         if plan.status == PlanStatus.EXECUTING:
@@ -195,6 +226,12 @@ class PlanExecutor:
                 logger.info("Generated receipt %s for plan %s", receipt.receipt_id, plan.id)
         except Exception as e:
             logger.debug("Receipt generation failed (non-critical): %s", e)
+
+        # Ingest to Knowledge Mound via adapter (best-effort)
+        try:
+            await self._ingest_to_km(plan, outcome)
+        except Exception as e:
+            logger.debug("KM ingestion failed (non-critical): %s", e)
 
         # Update store with final state
         store_plan(plan)
@@ -330,3 +367,34 @@ class PlanExecutor:
         except ImportError:
             logger.debug("Receipt generation not available (gauntlet not installed)")
             return None
+
+    async def _ingest_to_km(
+        self,
+        plan: DecisionPlan,
+        outcome: PlanOutcome,
+    ) -> None:
+        """Ingest plan outcome to Knowledge Mound via adapter.
+
+        Args:
+            plan: The executed DecisionPlan
+            outcome: The execution outcome
+        """
+        try:
+            from aragora.knowledge.mound.adapters.decision_plan_adapter import (
+                get_decision_plan_adapter,
+            )
+
+            adapter = get_decision_plan_adapter(self._knowledge_mound)
+            result = await adapter.ingest_plan_outcome(plan, outcome)
+
+            if result.success:
+                logger.debug(
+                    "Ingested plan %s to KM: %d items, %d lessons",
+                    plan.id,
+                    result.items_ingested,
+                    result.lessons_ingested,
+                )
+            elif result.errors:
+                logger.debug("KM ingestion had errors: %s", result.errors)
+        except ImportError:
+            logger.debug("DecisionPlanAdapter not available")
