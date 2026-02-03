@@ -14,6 +14,7 @@ Run up to 3-4 agents in parallel, each on a different track:
 | Agent 2 | Developer | SDKs and documentation | "Work on Developer track issues" |
 | Agent 3 | Self-Hosted | Deployment and ops | "Work on Self-Hosted track issues" |
 | Agent 4 | QA | Tests and CI | "Work on QA track issues" |
+| Agent 5 | Security | Vulnerability scanning | "Work on Security track issues" |
 
 ---
 
@@ -151,6 +152,49 @@ Stay within these folders:
 - .github/workflows/ (CI config)
 
 Don't modify: aragora/debate/, aragora/server/ (except adding tests)
+```
+
+---
+
+### Security Track (Security Hardening)
+
+**Goal:** Identify and fix security vulnerabilities, harden production
+
+**Priority Areas:**
+1. **Authentication & Authorization** - OAuth, JWT, RBAC
+   - Files: `aragora/auth/`, `aragora/rbac/`, `aragora/server/handlers/_oauth/`
+   - Needs: Token validation, session management, permission checks
+
+2. **Vulnerability Scanning** - OWASP top 10, secrets detection
+   - Files: `aragora/audit/security_scanner.py`, `aragora/audit/bug_detector.py`
+   - Needs: Run scans, fix critical/high findings
+
+3. **Secrets Management** - No hardcoded credentials, rotation
+   - Files: `aragora/security/`, `.env.*.example`
+   - Needs: Encryption at rest, key rotation, secrets manager integration
+
+4. **Input Validation** - SQL injection, XSS, SSRF protection
+   - Files: `aragora/security/ssrf_protection.py`, handlers with user input
+   - Needs: Parameterized queries, input sanitization
+
+**Starter prompt:**
+```
+Work on the Security track for Aragora. Focus on vulnerability
+scanning and hardening.
+
+Priority: Run security scanner, address critical findings
+
+Stay within these folders:
+- aragora/security/ (encryption, key rotation)
+- aragora/audit/ (security scanner, bug detector)
+- aragora/auth/ (authentication)
+- aragora/rbac/ (authorization)
+
+Scripts available:
+- python scripts/security_audit.py --fail-on-critical
+- python scripts/security_checklist.py --ci
+
+Don't modify: core debate engine without approval
 ```
 
 ---

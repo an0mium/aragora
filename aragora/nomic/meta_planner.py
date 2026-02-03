@@ -41,6 +41,7 @@ class Track(Enum):
     SELF_HOSTED = "self_hosted"
     QA = "qa"
     CORE = "core"
+    SECURITY = "security"
 
 
 @dataclass
@@ -282,6 +283,7 @@ Track descriptions:
 - Self-Hosted: Docker, deployment, backup/restore
 - QA: Tests, CI/CD, code quality
 - Core: Debate engine, agents, memory (requires approval)
+- Security: Vulnerability scanning, auth hardening, secrets, OWASP compliance
 
 CONSTRAINTS:
 {chr(10).join(f"- {c}" for c in constraints) if constraints else "- None specified"}
@@ -435,6 +437,17 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             Track.SELF_HOSTED: ["docker", "deploy", "backup", "ops", "kubernetes"],
             Track.QA: ["test", "ci", "coverage", "quality", "e2e", "playwright"],
             Track.CORE: ["debate", "agent", "consensus", "arena", "memory"],
+            Track.SECURITY: [
+                "security",
+                "auth",
+                "vuln",
+                "secret",
+                "owasp",
+                "encrypt",
+                "csrf",
+                "xss",
+                "injection",
+            ],
         }
 
         for track, keywords in track_keywords.items():
@@ -477,6 +490,21 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                         rationale="Ensures reliability for SME users",
                         estimated_impact="medium",
                         priority=2,
+                    )
+                )
+
+        # Security-focused objectives
+        if any(kw in obj_lower for kw in ["security", "harden", "vuln", "audit"]):
+            if Track.SECURITY in available_tracks:
+                goals.append(
+                    PrioritizedGoal(
+                        id=f"goal_{len(goals)}",
+                        track=Track.SECURITY,
+                        description="Run security scanner and address critical findings",
+                        rationale="Security hardening is critical for production",
+                        estimated_impact="high",
+                        priority=1,
+                        focus_areas=["auth", "secrets", "input validation"],
                     )
                 )
 

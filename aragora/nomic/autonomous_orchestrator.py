@@ -57,6 +57,7 @@ class Track(Enum):
     SELF_HOSTED = "self_hosted"  # Docker, deployment, ops
     QA = "qa"  # Tests, CI/CD
     CORE = "core"  # Core debate engine (requires approval)
+    SECURITY = "security"  # Vulnerability scanning, auth hardening, OWASP
 
 
 # Agents that have dedicated agentic coding harnesses (can edit files autonomously)
@@ -123,6 +124,13 @@ DEFAULT_TRACK_CONFIGS: dict[Track, TrackConfig] = {
         protected_folders=[],  # Can modify core, but requires approval
         agent_types=["claude"],  # Only Claude for core changes
         max_concurrent_tasks=1,
+    ),
+    Track.SECURITY: TrackConfig(
+        name="Security",
+        folders=["aragora/security/", "aragora/audit/", "aragora/auth/", "aragora/rbac/"],
+        protected_folders=["aragora/debate/"],  # Don't modify core debate
+        agent_types=["claude"],  # Claude for security audits
+        max_concurrent_tasks=2,
     ),
 }
 
@@ -199,6 +207,17 @@ class AgentRouter:
             ],
             Track.QA: ["test", "e2e", "ci", "coverage", "quality", "playwright"],
             Track.CORE: ["debate", "consensus", "arena", "agent", "memory"],
+            Track.SECURITY: [
+                "security",
+                "vuln",
+                "auth",
+                "encrypt",
+                "secret",
+                "owasp",
+                "xss",
+                "csrf",
+                "injection",
+            ],
         }
 
         for track, keywords in patterns.items():
@@ -829,7 +848,7 @@ class AutonomousOrchestrator:
         Execute work for a specific track.
 
         Args:
-            track: Track name (sme, developer, self_hosted, qa)
+            track: Track name (sme, developer, self_hosted, qa, core, security)
             focus_areas: Optional list of focus areas within the track
             max_cycles: Maximum cycles per subtask
 
