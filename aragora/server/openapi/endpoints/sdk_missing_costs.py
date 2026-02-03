@@ -152,8 +152,8 @@ SDK_MISSING_COSTS_ENDPOINTS: dict = {
     "/api/costs/recommendations/{id}": {
         "get": {
             "tags": ["Costs"],
-            "summary": "GET {id}",
-            "operationId": "getCostsRecommendations",
+            "summary": "GET recommendation by ID",
+            "operationId": "getCostsRecommendationById",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
@@ -419,8 +419,8 @@ SDK_MISSING_COSTS_ENDPOINTS: dict = {
     "/api/v1/accounting/ap/invoices/{id}": {
         "get": {
             "tags": ["Accounting"],
-            "summary": "GET {id}",
-            "operationId": "getApInvoices",
+            "summary": "GET AP invoice by ID",
+            "operationId": "getApInvoiceById",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
@@ -520,8 +520,8 @@ SDK_MISSING_COSTS_ENDPOINTS: dict = {
     "/api/v1/accounting/ar/invoices/{id}": {
         "get": {
             "tags": ["Accounting"],
-            "summary": "GET {id}",
-            "operationId": "getArInvoices",
+            "summary": "GET AR invoice by ID",
+            "operationId": "getArInvoiceById",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
@@ -533,8 +533,8 @@ SDK_MISSING_COSTS_ENDPOINTS: dict = {
     "/api/v1/accounting/ar/invoices/{id}/payment": {
         "post": {
             "tags": ["Accounting"],
-            "summary": "POST payment",
-            "operationId": "postInvoicesPayment",
+            "summary": "POST AR invoice payment",
+            "operationId": "postArInvoicePayment",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],

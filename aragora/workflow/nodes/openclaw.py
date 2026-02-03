@@ -27,6 +27,8 @@ VALID_ACTION_TYPES = frozenset(
         "browser",
         "screenshot",
         "api",
+        "keyboard",
+        "mouse",
     }
 )
 
@@ -40,6 +42,9 @@ class OpenClawActionConfig:
     command: str = ""
     path: str = ""
     content: str = ""
+    text: str = ""
+    x: float | None = None
+    y: float | None = None
     url: str = ""
     params: dict[str, Any] = field(default_factory=dict)
     timeout_seconds: float = 60.0
@@ -52,11 +57,14 @@ class OpenClawActionStep(BaseStep):
     Execute an action through the OpenClaw Enterprise Gateway.
 
     Config options:
-        action_type: str - Action type (shell, file_read, file_write, file_delete, browser, screenshot, api)
+        action_type: str - Action type (shell, file_read, file_write, file_delete, browser, screenshot, api, keyboard, mouse)
         session_id: str - Session ID (or use {step.session_step.session_id} template)
         command: str - Shell command (for action_type=shell)
         path: str - File path (for file actions)
         content: str - File content (for action_type=file_write)
+        text: str - Keyboard input text (for action_type=keyboard)
+        x: float - Mouse X coordinate (for action_type=mouse)
+        y: float - Mouse Y coordinate (for action_type=mouse)
         url: str - URL (for action_type=browser/screenshot)
         params: dict - Additional action parameters
         timeout_seconds: float - Action timeout (default 60)
@@ -85,6 +93,9 @@ class OpenClawActionStep(BaseStep):
             command=cfg.get("command", ""),
             path=cfg.get("path", ""),
             content=cfg.get("content", ""),
+            text=cfg.get("text", ""),
+            x=cfg.get("x"),
+            y=cfg.get("y"),
             url=cfg.get("url", ""),
             params=cfg.get("params", {}),
             timeout_seconds=cfg.get("timeout_seconds", 60.0),
@@ -110,9 +121,22 @@ class OpenClawActionStep(BaseStep):
             logger.error(f"File action '{cfg.action_type}' requires 'path' config")
             return False
 
-        if cfg.action_type in ("browser", "screenshot") and not cfg.url:
-            logger.error(f"Browser action '{cfg.action_type}' requires 'url' config")
+        if cfg.action_type == "browser" and not cfg.url:
+            logger.error("Browser action requires 'url' config")
             return False
+
+        if cfg.action_type == "keyboard":
+            has_text = bool(cfg.text or cfg.content or cfg.params.get("text"))
+            if not has_text:
+                logger.error("Keyboard action requires 'text' config")
+                return False
+
+        if cfg.action_type == "mouse":
+            x_val = cfg.x if cfg.x is not None else cfg.params.get("x")
+            y_val = cfg.y if cfg.y is not None else cfg.params.get("y")
+            if x_val is None or y_val is None:
+                logger.error("Mouse action requires 'x' and 'y' config")
+                return False
 
         return True
 
@@ -127,6 +151,9 @@ class OpenClawActionStep(BaseStep):
         command = self._resolve(config.get("command", cfg.command), context)
         path = self._resolve(config.get("path", cfg.path), context)
         content = self._resolve(config.get("content", cfg.content), context)
+        text = self._resolve(config.get("text", cfg.text), context)
+        x = config.get("x", cfg.x)
+        y = config.get("y", cfg.y)
         url = self._resolve(config.get("url", cfg.url), context)
         params = config.get("params", cfg.params)
 
@@ -137,32 +164,33 @@ class OpenClawActionStep(BaseStep):
                 "action_type": action_type,
             }
 
-        # Build action payload
-        payload: dict[str, Any] = {
-            "session_id": session_id,
-            "action_type": action_type,
-            "input": {},
-            "metadata": {
-                "workflow_id": context.workflow_id,
-                "step_name": self.name,
-            },
+        # Build action payload for proxy
+        metadata = {
+            "workflow_id": context.workflow_id,
+            "step_name": self.name,
         }
-
-        if action_type == "shell":
-            payload["input"]["command"] = command
-        elif action_type in ("file_read", "file_delete"):
-            payload["input"]["path"] = path
-        elif action_type == "file_write":
-            payload["input"]["path"] = path
-            payload["input"]["content"] = content
-        elif action_type in ("browser", "screenshot"):
-            payload["input"]["url"] = url
-        elif action_type == "api":
-            payload["input"].update(params)
+        if params:
+            metadata.update(params)
+        if action_type == "file_write":
+            metadata.setdefault("content", content)
+        if action_type == "keyboard":
+            metadata.setdefault("text", text or content)
+        if action_type == "mouse":
+            if x is not None:
+                metadata.setdefault("x", x)
+            if y is not None:
+                metadata.setdefault("y", y)
 
         try:
             proxy = await self._get_proxy()
-            result = await proxy.execute_action(**payload)
+            result = await proxy.execute_action(
+                session_id=session_id,
+                action_type=action_type,
+                path=path if action_type.startswith("file") else None,
+                command=command if action_type == "shell" else None,
+                url=url if action_type in ("browser", "screenshot", "api") else None,
+                metadata=metadata,
+            )
 
             if hasattr(result, "to_dict"):
                 result_data = result.to_dict()

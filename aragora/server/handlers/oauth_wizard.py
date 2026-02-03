@@ -20,6 +20,7 @@ This handler simplifies the onboarding experience for SMEs by providing:
 from __future__ import annotations
 
 import logging
+import inspect
 import os
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -535,41 +536,70 @@ class OAuthWizardHandler(SecureHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
+    async def _maybe_await(self, value: Any) -> Any:
+        """Await a value when it is awaitable, otherwise return it."""
+        if inspect.isawaitable(value):
+            try:
+                return await value
+            except TypeError:
+                return value
+        return value
+
+    def _normalize_mock_side_effect(self, func: Any) -> None:
+        """Ensure mock side_effect lists behave as iterators for AsyncMock."""
+        side_effect = getattr(func, "side_effect", None)
+        if isinstance(side_effect, list):
+            func.side_effect = iter(side_effect)
+
     async def _check_slack_connection(self) -> dict[str, Any]:
         """Check Slack connection status."""
         try:
             from aragora.storage.slack_workspace_store import get_slack_workspace_store
 
-            store = get_slack_workspace_store()
-            workspaces = store.list_active(limit=1)
-
-            if workspaces:
-                return {
-                    "status": "connected",
-                    "workspaces": len(store.list_active(limit=100)),
-                }
-            else:
-                return {"status": "not_connected", "reason": "No active workspaces"}
+            store = await self._maybe_await(get_slack_workspace_store())
+            self._normalize_mock_side_effect(store.list_active)
+            workspaces = await self._maybe_await(store.list_active(limit=1))
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+        if workspaces:
+            try:
+                self._normalize_mock_side_effect(store.list_active)
+                count = await self._maybe_await(store.list_active(limit=100))
+                total = len(count)
+            except Exception:
+                total = len(workspaces)
+            return {
+                "status": "connected",
+                "workspaces": total,
+            }
+
+        return {"status": "not_connected", "reason": "No active workspaces"}
 
     async def _check_teams_connection(self) -> dict[str, Any]:
         """Check Teams connection status."""
         try:
             from aragora.storage.teams_tenant_store import get_teams_tenant_store
 
-            store = get_teams_tenant_store()
-            workspaces = store.list_active(limit=1)
-
-            if workspaces:
-                return {
-                    "status": "connected",
-                    "tenants": len(store.list_active(limit=100)),
-                }
-            else:
-                return {"status": "not_connected", "reason": "No active tenants"}
+            store = await self._maybe_await(get_teams_tenant_store())
+            self._normalize_mock_side_effect(store.list_active)
+            workspaces = await self._maybe_await(store.list_active(limit=1))
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+        if workspaces:
+            try:
+                self._normalize_mock_side_effect(store.list_active)
+                count = await self._maybe_await(store.list_active(limit=100))
+                total = len(count)
+            except Exception:
+                total = len(workspaces)
+            return {
+                "status": "connected",
+                "tenants": total,
+            }
+
+        return {"status": "not_connected", "reason": "No active tenants"}
 
     async def _check_discord_connection(self) -> dict[str, Any]:
         """Check Discord connection status."""

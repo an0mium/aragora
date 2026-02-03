@@ -102,6 +102,38 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         logger.debug(f"User store not available: {e}")
         ctx["user_store"] = None
 
+    # Initialize ContinuumMemory (institutional memory)
+    try:
+        from aragora.memory.continuum import get_continuum_memory
+
+        db_path = nomic_dir / "continuum_memory.db" if nomic_dir else None
+        ctx["continuum_memory"] = get_continuum_memory(db_path=str(db_path) if db_path else None)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.debug(f"ContinuumMemory not available: {e}")
+        ctx["continuum_memory"] = None
+
+    # Initialize CrossDebateMemory (institutional context)
+    try:
+        from aragora.memory.cross_debate_rlm import CrossDebateConfig, CrossDebateMemory
+
+        config = CrossDebateConfig()
+        if nomic_dir:
+            config.storage_path = nomic_dir / "cross_debate_memory.json"
+        ctx["cross_debate_memory"] = CrossDebateMemory(config)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.debug(f"CrossDebateMemory not available: {e}")
+        ctx["cross_debate_memory"] = None
+
+    # Initialize Knowledge Mound (organizational memory)
+    try:
+        from aragora.knowledge.mound import get_knowledge_mound
+
+        workspace_id = os.environ.get("KM_WORKSPACE_ID", "default")
+        ctx["knowledge_mound"] = get_knowledge_mound(workspace_id=workspace_id)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.debug(f"Knowledge Mound not available: {e}")
+        ctx["knowledge_mound"] = None
+
     # Initialize RBAC checker
     try:
         from aragora.rbac.checker import get_permission_checker

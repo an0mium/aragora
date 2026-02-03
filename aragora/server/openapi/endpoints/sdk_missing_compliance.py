@@ -158,8 +158,8 @@ SDK_MISSING_COMPLIANCE_ENDPOINTS: dict = {
     "/api/policies/{id}/violations": {
         "get": {
             "tags": ["Policies"],
-            "summary": "GET violations",
-            "operationId": "getPoliciesViolations",
+            "summary": "GET violations for policy",
+            "operationId": "getPolicyViolationsById",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],

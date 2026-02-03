@@ -710,6 +710,36 @@ class UnifiedServer:
         UnifiedHandler.consensus_memory = registry.consensus_memory
         UnifiedHandler.dissent_retriever = registry.dissent_retriever
         UnifiedHandler.moment_detector = registry.moment_detector
+        UnifiedHandler.continuum_memory = registry.continuum_memory
+
+        # Cross-debate memory (institutional context)
+        try:
+            from aragora.memory.cross_debate_rlm import CrossDebateConfig, CrossDebateMemory
+
+            config = CrossDebateConfig()
+            if nomic_dir:
+                config.storage_path = nomic_dir / "cross_debate_memory.json"
+            UnifiedHandler.cross_debate_memory = CrossDebateMemory(config)
+        except ImportError as e:
+            logger.debug("[init] CrossDebateMemory unavailable: %s", e)
+            UnifiedHandler.cross_debate_memory = None
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.warning("[init] CrossDebateMemory initialization failed: %s", e)
+            UnifiedHandler.cross_debate_memory = None
+
+        # Knowledge Mound (organizational memory)
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+            import os
+
+            workspace_id = os.environ.get("KM_WORKSPACE_ID", "default")
+            UnifiedHandler.knowledge_mound = get_knowledge_mound(workspace_id=workspace_id)
+        except ImportError as e:
+            logger.debug("[init] Knowledge Mound unavailable: %s", e)
+            UnifiedHandler.knowledge_mound = None
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.warning("[init] Knowledge Mound initialization failed: %s", e)
+            UnifiedHandler.knowledge_mound = None
 
         # Non-database stores and connectors (not yet in registry)
         stores = init_handler_stores(nomic_dir)

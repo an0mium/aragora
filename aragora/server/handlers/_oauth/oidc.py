@@ -12,7 +12,8 @@ import json
 import logging
 from typing import Any, Coroutine
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
+import urllib.request as urllib_request
 
 import httpx
 
@@ -147,7 +148,7 @@ class OIDCOAuthMixin:
         except RuntimeError:
             try:
                 req = Request(discovery_url)
-                with urlopen(req) as response:
+                with urllib_request.urlopen(req) as response:
                     body = response.read()
                 return json.loads(body.decode("utf-8")) if body else {}
             except Exception as e:
@@ -189,7 +190,7 @@ class OIDCOAuthMixin:
                 data=encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            with urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:
                 body = response.read()
             return json.loads(body.decode("utf-8")) if body else {}
 
@@ -252,7 +253,7 @@ class OIDCOAuthMixin:
                         userinfo_endpoint,
                         headers={"Authorization": f"Bearer {access_token}"},
                     )
-                    with urlopen(req) as response:
+                    with urllib_request.urlopen(req) as response:
                         body = response.read()
                     user_data = json.loads(body.decode("utf-8")) if body else {}
                 except Exception as e:

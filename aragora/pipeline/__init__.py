@@ -11,8 +11,10 @@ Transforms debate outcomes into actionable development artifacts:
 """
 
 from aragora.pipeline.decision_integrity import (
+    ContextSnapshot,
     DecisionIntegrityPackage,
     build_decision_integrity_package,
+    capture_context_snapshot,
 )
 from aragora.pipeline.decision_plan import (
     ApprovalMode,
@@ -24,6 +26,7 @@ from aragora.pipeline.decision_plan import (
     PlanStatus,
     record_plan_outcome,
 )
+from aragora.pipeline.execution_notifier import ExecutionNotifier, ExecutionProgress
 from aragora.pipeline.executor import PlanExecutor, get_plan, list_plans, store_plan
 from aragora.pipeline.pr_generator import DecisionMemo, PatchPlan, PRGenerator
 from aragora.pipeline.risk_register import Risk, RiskRegister
@@ -48,14 +51,19 @@ __all__ = [
     "ApprovalRecord",
     "BudgetAllocation",
     "record_plan_outcome",
+    # Execution notifications
+    "ExecutionNotifier",
+    "ExecutionProgress",
     # Executor
     "PlanExecutor",
     "get_plan",
     "list_plans",
     "store_plan",
-    # Legacy artifacts
+    # Decision integrity
+    "ContextSnapshot",
     "DecisionIntegrityPackage",
     "build_decision_integrity_package",
+    "capture_context_snapshot",
     "PRGenerator",
     "DecisionMemo",
     "PatchPlan",

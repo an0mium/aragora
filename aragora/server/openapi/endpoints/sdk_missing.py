@@ -35,13 +35,13 @@ SDK_MISSING_ENDPOINTS.update(SDK_MISSING_INTEGRATION_ENDPOINTS)
 
 # Additional endpoints that don't fit into the main categories
 _OTHER_ENDPOINTS: dict = {
-    "/api/agent/{id}/persona": {
+    "/api/agent/{name}/persona": {
         "delete": {
             "tags": ["Agent"],
             "summary": "DELETE persona",
             "operationId": "deleteAgentPersona",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
             "responses": {
                 "200": _ok_response("Success", {"success": {"type": "boolean"}}),
@@ -53,7 +53,7 @@ _OTHER_ENDPOINTS: dict = {
             "summary": "PUT persona",
             "operationId": "putAgentPersona",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
@@ -632,7 +632,7 @@ _OTHER_ENDPOINTS: dict = {
     },
     "/scim/v2/Groups": {
         "get": {
-            "tags": ["Scim"],
+            "tags": ["SCIM"],
             "summary": "GET Groups",
             "operationId": "getV2Groups",
             "responses": {
@@ -642,7 +642,7 @@ _OTHER_ENDPOINTS: dict = {
     },
     "/scim/v2/Users": {
         "get": {
-            "tags": ["Scim"],
+            "tags": ["SCIM"],
             "summary": "GET Users",
             "operationId": "getV2Users",
             "responses": {
@@ -886,6 +886,9 @@ _ADDITIONAL_METHODS: dict = {
     },
     "/api/v1/personas": {
         "get": _method_stub("Personas", "GET", "List personas", op_id="listPersonasV1"),
+        "post": _method_stub(
+            "Personas", "POST", "Create persona", op_id="createPersonaV1", has_body=True
+        ),
     },
     "/api/v1/policies/{id}/toggle": {
         "get": _method_stub(
@@ -1099,7 +1102,7 @@ _ADDITIONAL_METHODS: dict = {
             has_body=True,
         ),
     },
-    "/api/agent/{id}/persona": {
+    "/api/agent/{name}/persona": {
         "get": _method_stub(
             "Agent", "GET", "Get agent persona", op_id="getAgentPersona", has_path_param=True
         ),
@@ -1111,10 +1114,10 @@ _ADDITIONAL_METHODS: dict = {
         ),
     },
     "/scim/v2/Groups": {
-        "post": _method_stub("Scim", "POST", "Create group", op_id="postScimGroups", has_body=True),
+        "post": _method_stub("SCIM", "POST", "Create group", op_id="postScimGroups", has_body=True),
     },
     "/scim/v2/Users": {
-        "post": _method_stub("Scim", "POST", "Create user", op_id="postScimUsers", has_body=True),
+        "post": _method_stub("SCIM", "POST", "Create user", op_id="postScimUsers", has_body=True),
     },
     "/api/integrations/teams/install": {
         "get": _method_stub("Teams", "GET", "Get Teams install link", op_id="getTeamsInstall"),
@@ -1139,10 +1142,14 @@ _ADDITIONAL_METHODS: dict = {
     },
     "/api/workspaces/{id}": {
         "delete": _method_stub(
-            "Workspace", "DELETE", "Delete workspace", op_id="deleteWorkspace", has_path_param=True
+            "Workspace",
+            "DELETE",
+            "Delete workspace",
+            op_id="deleteWorkspaceById",
+            has_path_param=True,
         ),
         "get": _method_stub(
-            "Workspace", "GET", "Get workspace", op_id="getWorkspace", has_path_param=True
+            "Workspace", "GET", "Get workspace", op_id="getWorkspaceById", has_path_param=True
         ),
     },
     "/api/workspaces/{id}/members": {

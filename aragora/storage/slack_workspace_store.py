@@ -775,7 +775,11 @@ class SlackWorkspaceStore:
                 except Exception as e:
                     logger.error("Error loading workspace %s: %s", row["workspace_id"], e)
 
-            logger.debug("Found %s workspaces with tokens expiring in %sh", len(workspaces), hours)
+            logger.debug(
+                "Found %s workspaces with tokens expiring in %sh",
+                len(workspaces),
+                hours,
+            )
             return workspaces
 
         except sqlite3.Error as e:

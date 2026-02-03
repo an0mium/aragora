@@ -97,34 +97,31 @@ from .action_filter import (
     FilterDecision,
     RiskLevel,
 )
-from .adapter import (
-    # New adapter
-    OpenClawAdapter,
-    # Legacy adapter (backward compatible)
-    OpenClawGatewayAdapter,
-    # Enums
-    ActionStatus,
-    OpenClawActionType,
-    OpenClawChannel,
-    SessionState,
-    # Core dataclasses
-    ActionResult,
-    ChannelMapping,
-    OpenClawAction,
-    OpenClawMessage,
-    OpenClawSession,
-    # Legacy dataclasses
-    DeviceHandle,
-    DeviceRegistration,
-    GatewayResult,
-    PluginInstallRequest,
-    # Formatters
+from .adapter import OpenClawAdapter
+from .formatters import (
     ChannelFormatter,
     DiscordFormatter,
     SlackFormatter,
     TelegramFormatter,
     WhatsAppFormatter,
-    # Protocol interfaces
+)
+from .gateway_adapter import OpenClawGatewayAdapter
+from .models import (
+    ActionResult,
+    ActionStatus,
+    ChannelMapping,
+    DeviceHandle,
+    DeviceRegistration,
+    GatewayResult,
+    OpenClawAction,
+    OpenClawActionType,
+    OpenClawChannel,
+    OpenClawMessage,
+    OpenClawSession,
+    PluginInstallRequest,
+    SessionState,
+)
+from .protocols import (
     ApprovalGateProtocol,
     AuditLoggerProtocol,
     RBACCheckerProtocol,

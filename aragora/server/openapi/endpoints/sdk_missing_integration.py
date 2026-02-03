@@ -254,8 +254,8 @@ SDK_MISSING_INTEGRATION_ENDPOINTS: dict = {
     "/api/v1/connectors/{id}/syncs/{id}": {
         "get": {
             "tags": ["Connectors"],
-            "summary": "GET {id}",
-            "operationId": "getConnectorsSyncs",
+            "summary": "GET sync by ID",
+            "operationId": "getConnectorSyncById",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
                 {"name": "id2", "in": "path", "required": True, "schema": {"type": "string"}},
@@ -354,8 +354,8 @@ SDK_MISSING_INTEGRATION_ENDPOINTS: dict = {
     "/api/v1/webhooks/{id}/deliveries/{id}": {
         "get": {
             "tags": ["Webhooks"],
-            "summary": "GET {id}",
-            "operationId": "getWebhooksDeliveries",
+            "summary": "GET delivery by ID",
+            "operationId": "getWebhookDeliveryById",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
                 {"name": "id2", "in": "path", "required": True, "schema": {"type": "string"}},

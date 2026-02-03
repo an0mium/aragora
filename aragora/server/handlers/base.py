@@ -63,7 +63,9 @@ if TYPE_CHECKING:
     from aragora.evidence.collector import EvidenceCollector
     from aragora.evidence.store import EvidenceStore
     from aragora.insights.moment_detector import MomentDetector
+    from aragora.knowledge.mound import KnowledgeMound
     from aragora.memory.continuum import ContinuumMemory
+    from aragora.memory.cross_debate_rlm import CrossDebateMemory
     from aragora.memory.store import CritiqueStore
     from aragora.ranking.elo import EloSystem
     from aragora.server.storage import DebateStorage
@@ -120,7 +122,9 @@ class ServerContext(TypedDict, total=False):
 
     # Memory Systems
     continuum_memory: "ContinuumMemory"
+    cross_debate_memory: "CrossDebateMemory"
     critique_store: "CritiqueStore"
+    knowledge_mound: "KnowledgeMound"
 
     # Analytics & Monitoring
     calibration_tracker: "CalibrationTracker"

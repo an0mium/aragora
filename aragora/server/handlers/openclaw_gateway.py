@@ -54,6 +54,8 @@ from aragora.server.handlers.openclaw import (
     validate_metadata,
     validate_session_config,
 )
+from aragora.server.handlers.utils.decorators import has_permission, require_permission
+from aragora.server.handlers.utils.rate_limit import auth_rate_limit, rate_limit
 
 __all__ = [
     "OpenClawGatewayHandler",
@@ -94,4 +96,10 @@ __all__ = [
     # Rate limiting (for testing)
     "CredentialRotationRateLimiter",
     "_get_credential_rotation_limiter",
+    # RBAC decorator (for testing)
+    "require_permission",
+    "has_permission",
+    # Rate limiting decorator (for testing)
+    "auth_rate_limit",
+    "rate_limit",
 ]

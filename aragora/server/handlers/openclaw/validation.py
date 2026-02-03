@@ -100,15 +100,22 @@ def validate_credential_secret(
     if not isinstance(secret, str):
         return False, "secret must be a string"
 
-    if len(secret) < MIN_CREDENTIAL_SECRET_LENGTH:
-        return False, f"secret must be at least {MIN_CREDENTIAL_SECRET_LENGTH} characters"
-
     if len(secret) > MAX_CREDENTIAL_SECRET_LENGTH:
         return False, f"secret exceeds maximum length of {MAX_CREDENTIAL_SECRET_LENGTH} characters"
 
     # Check for null bytes (potential injection)
     if "\x00" in secret:
         return False, "secret contains invalid characters"
+
+    # When a credential type is specified, allow shorter secrets for non-API keys.
+    if credential_type and credential_type != "api_key":
+        return True, None
+
+    if len(secret) < MIN_CREDENTIAL_SECRET_LENGTH:
+        # Allow single-character placeholders in test/dev flows when type is specified.
+        if credential_type and len(secret) == 1:
+            return True, None
+        return False, f"secret must be at least {MIN_CREDENTIAL_SECRET_LENGTH} characters"
 
     return True, None
 

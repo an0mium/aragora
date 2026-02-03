@@ -181,6 +181,9 @@ class HandlerRegistryMixin:
             "persona_manager": getattr(cls, "persona_manager", None),
             "position_ledger": getattr(cls, "position_ledger", None),
             "user_store": getattr(cls, "user_store", None),
+            "continuum_memory": getattr(cls, "continuum_memory", None),
+            "cross_debate_memory": getattr(cls, "cross_debate_memory", None),
+            "knowledge_mound": getattr(cls, "knowledge_mound", None),
         }
 
         # Initialize all handlers from registry

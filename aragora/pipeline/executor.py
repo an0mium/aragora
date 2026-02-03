@@ -97,11 +97,35 @@ class PlanExecutor:
         self,
         continuum_memory: Any | None = None,
         knowledge_mound: Any | None = None,
+        parallel_execution: bool = False,
+        max_parallel: int | None = None,
     ) -> None:
+        if continuum_memory is None:
+            try:
+                from aragora.memory.continuum import get_continuum_memory
+
+                continuum_memory = get_continuum_memory()
+            except Exception:
+                continuum_memory = None
+        if knowledge_mound is None:
+            try:
+                from aragora.knowledge.mound import get_knowledge_mound
+
+                knowledge_mound = get_knowledge_mound()
+            except Exception:
+                knowledge_mound = None
+
         self._continuum_memory = continuum_memory
         self._knowledge_mound = knowledge_mound
+        self._parallel_execution = parallel_execution
+        self._max_parallel = max_parallel
 
-    async def execute(self, plan: DecisionPlan) -> PlanOutcome:
+    async def execute(
+        self,
+        plan: DecisionPlan,
+        *,
+        parallel_execution: bool | None = None,
+    ) -> PlanOutcome:
         """Execute a DecisionPlan and return the outcome.
 
         Args:
@@ -131,8 +155,11 @@ class PlanExecutor:
         start_time = time.time()
         outcome: PlanOutcome
 
+        if parallel_execution is None:
+            parallel_execution = self._parallel_execution
+
         try:
-            outcome = await self._run_workflow(plan)
+            outcome = await self._run_workflow(plan, parallel_execution=parallel_execution)
         except Exception as e:
             logger.error("Plan execution failed: %s: %s", plan.id, e)
             duration = time.time() - start_time
@@ -165,15 +192,30 @@ class PlanExecutor:
 
         return outcome
 
-    async def _run_workflow(self, plan: DecisionPlan) -> PlanOutcome:
+    async def _run_workflow(
+        self,
+        plan: DecisionPlan,
+        *,
+        parallel_execution: bool = False,
+    ) -> PlanOutcome:
         """Run the workflow engine against the plan's generated definition."""
-        from aragora.workflow.engine import WorkflowEngine
+        if parallel_execution:
+            from aragora.workflow.engine_v2 import EnhancedWorkflowEngine, ResourceLimits
 
-        # Generate the workflow DAG
-        definition = plan.to_workflow_definition()
+            limits = ResourceLimits(
+                max_parallel_agents=self._max_parallel
+                if self._max_parallel is not None
+                else ResourceLimits().max_parallel_agents
+            )
+            engine = EnhancedWorkflowEngine(limits=limits)
+            definition = plan.to_workflow_definition(parallelize=True)
+        else:
+            from aragora.workflow.engine import WorkflowEngine
+
+            engine = WorkflowEngine()
+            definition = plan.to_workflow_definition()
 
         # Execute
-        engine = WorkflowEngine()
         start_time = time.time()
         result = await engine.execute(
             definition,

@@ -49,6 +49,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _has_permission(role: Any, permission: str) -> bool:
+    """Resolve permission checks via the compatibility shim when patched."""
+    try:
+        import sys
+
+        gateway_module = sys.modules.get("aragora.server.handlers.openclaw_gateway")
+        override = getattr(gateway_module, "has_permission", None) if gateway_module else None
+        if override is not None and override is not has_permission:
+            return override(role, permission)
+    except Exception:
+        pass
+    return has_permission(role, permission)
+
+
 # =============================================================================
 # Session Orchestration Mixin
 # =============================================================================
@@ -120,7 +134,7 @@ class SessionOrchestrationMixin:
             # Check access (user can only see their own sessions unless admin)
             user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
             user = self.get_current_user(handler)  # type: ignore[attr-defined]
-            is_admin = user and has_permission(
+            is_admin = user and _has_permission(
                 user.role if hasattr(user, "role") else None, "gateway:admin"
             )
 
@@ -192,7 +206,7 @@ class SessionOrchestrationMixin:
             # Verify ownership
             if session.user_id != user_id:
                 user = self.get_current_user(handler)  # type: ignore[attr-defined]
-                is_admin = user and has_permission(
+                is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
                 if not is_admin:
@@ -232,7 +246,7 @@ class SessionOrchestrationMixin:
             # Verify ownership
             if session.user_id != user_id:
                 user = self.get_current_user(handler)  # type: ignore[attr-defined]
-                is_admin = user and has_permission(
+                is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
                 if not is_admin:
@@ -277,7 +291,7 @@ class SessionOrchestrationMixin:
             if session:
                 user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
                 user = self.get_current_user(handler)  # type: ignore[attr-defined]
-                is_admin = user and has_permission(
+                is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
 
@@ -320,7 +334,7 @@ class SessionOrchestrationMixin:
 
             if session.user_id != user_id:
                 user = self.get_current_user(handler)  # type: ignore[attr-defined]
-                is_admin = user and has_permission(
+                is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
                 if not is_admin:
@@ -397,7 +411,7 @@ class SessionOrchestrationMixin:
             session = store.get_session(action.session_id)
             if session and session.user_id != user_id:
                 user = self.get_current_user(handler)  # type: ignore[attr-defined]
-                is_admin = user and has_permission(
+                is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
                 if not is_admin:

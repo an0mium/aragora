@@ -24,7 +24,8 @@ from aiohttp import web
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.observability.metrics import track_handler
-from aragora.rbac.decorators import require_permission
+from aragora.rbac.decorators import PermissionDeniedError, require_permission
+from aragora.rbac.models import AuthorizationContext
 
 from .handler import (
     PaymentProvider,
@@ -53,6 +54,32 @@ def _pkg():
     return sys.modules[__package__]
 
 
+def _coerce_request(
+    request_or_context: Any, maybe_request: web.Request | None = None
+) -> web.Request:
+    """Support legacy (auth_context, request) handler signatures."""
+    return maybe_request if maybe_request is not None else request_or_context
+
+
+def _enforce_permission_if_context(
+    context: Any, permission_key: str, resource_id: str | None = None
+) -> None:
+    """Fallback permission check when a raw AuthorizationContext is provided."""
+    if isinstance(context, AuthorizationContext):
+        # Resolve checker at runtime so tests can patch aragora.rbac.decorators.get_permission_checker.
+        from aragora.rbac import decorators as rbac_decorators
+
+        checker = rbac_decorators.get_permission_checker()
+        decision = checker.check_permission(context, permission_key, resource_id)
+        if not decision.allowed:
+            reason = decision.reason or f"Permission denied: {permission_key}"
+            if permission_key not in reason:
+                dotted = permission_key.replace(":", ".")
+                if dotted in reason:
+                    reason = reason.replace(dotted, permission_key)
+            raise PermissionDeniedError(reason, decision)
+
+
 # =============================================================================
 # Payment Handlers
 # =============================================================================
@@ -60,7 +87,9 @@ def _pkg():
 
 @require_permission(PERM_PAYMENTS_CHARGE)
 @track_handler("payments/charge")
-async def handle_charge(request: web.Request) -> web.Response:
+async def handle_charge(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     POST /api/payments/charge
 
@@ -83,6 +112,9 @@ async def handle_charge(request: web.Request) -> web.Response:
         "metadata": {}
     }
     """
+    _enforce_permission_if_context(request, PERM_PAYMENTS_CHARGE)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for financial operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -452,7 +484,9 @@ async def handle_capture(request: web.Request) -> web.Response:
 
 @require_permission(PERM_PAYMENTS_REFUND)
 @track_handler("payments/refund")
-async def handle_refund(request: web.Request) -> web.Response:
+async def handle_refund(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     POST /api/payments/refund
 
@@ -466,6 +500,9 @@ async def handle_refund(request: web.Request) -> web.Response:
         "card_last_four": "1111"  // Required for Authorize.net
     }
     """
+    _enforce_permission_if_context(request, PERM_PAYMENTS_REFUND)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for financial operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -568,7 +605,9 @@ async def handle_refund(request: web.Request) -> web.Response:
 
 @require_permission(PERM_PAYMENTS_VOID)
 @track_handler("payments/void")
-async def handle_void(request: web.Request) -> web.Response:
+async def handle_void(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     POST /api/payments/void
 
@@ -580,6 +619,9 @@ async def handle_void(request: web.Request) -> web.Response:
         "transaction_id": "..."
     }
     """
+    _enforce_permission_if_context(request, PERM_PAYMENTS_VOID)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for financial operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -633,12 +675,17 @@ async def handle_void(request: web.Request) -> web.Response:
 
 
 @require_permission(PERM_PAYMENTS_READ)
-async def handle_get_transaction(request: web.Request) -> web.Response:
+async def handle_get_transaction(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     GET /api/payments/transaction/{transaction_id}
 
     Get transaction details.
     """
+    _enforce_permission_if_context(request, PERM_PAYMENTS_READ)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for read operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_read_limiter)
     if rate_limit_response:

@@ -348,6 +348,47 @@ class TestWorkflowGeneration:
         assert workflow.metadata["debate_id"] == "test-debate-001"
         assert workflow.metadata["debate_confidence"] == 0.85
 
+    def test_workflow_includes_openclaw_actions(self):
+        result = _make_result()
+        plan = DecisionPlanFactory.from_debate_result(
+            result,
+            metadata={
+                "openclaw_actions": [
+                    {
+                        "action_type": "shell",
+                        "command": "ls -la",
+                        "description": "List workspace files",
+                    }
+                ],
+                "openclaw_session": {"workspace_id": "/workspace/project"},
+            },
+        )
+        workflow = plan.to_workflow_definition()
+
+        step_types = [s.step_type for s in workflow.steps]
+        assert "openclaw_session" in step_types
+        assert "openclaw_action" in step_types
+
+        action_steps = [s for s in workflow.steps if s.step_type == "openclaw_action"]
+        assert action_steps, "Expected at least one OpenClaw action step"
+        assert action_steps[0].config.get("session_id", "").startswith("{step.")
+
+    def test_workflow_maps_computer_use_actions(self):
+        result = _make_result()
+        plan = DecisionPlanFactory.from_debate_result(
+            result,
+            metadata={
+                "computer_use_actions": [
+                    {"action": "click", "coordinate": [12, 34], "description": "Click button"}
+                ]
+            },
+        )
+        workflow = plan.to_workflow_definition()
+
+        action_steps = [s for s in workflow.steps if s.step_type == "openclaw_action"]
+        assert action_steps
+        assert action_steps[0].config.get("action_type") == "mouse"
+
     def test_workflow_validates(self):
         result = _make_result()
         plan = DecisionPlanFactory.from_debate_result(result)

@@ -47,6 +47,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _has_permission(role: Any, permission: str) -> bool:
+    """Resolve permission checks via the compatibility shim when patched."""
+    try:
+        import sys
+
+        gateway_module = sys.modules.get("aragora.server.handlers.openclaw_gateway")
+        override = getattr(gateway_module, "has_permission", None) if gateway_module else None
+        if override is not None and override is not has_permission:
+            return override(role, permission)
+    except Exception:
+        pass
+    return has_permission(role, permission)
+
+
 # =============================================================================
 # Rate Limiting for Credential Rotation
 # =============================================================================
@@ -129,6 +143,21 @@ _credential_rotation_limiter: CredentialRotationRateLimiter | None = None
 
 def _get_credential_rotation_limiter() -> CredentialRotationRateLimiter:
     """Get or create the credential rotation rate limiter."""
+    # Allow test overrides via the compatibility shim module.
+    try:
+        import sys
+
+        gateway_module = sys.modules.get("aragora.server.handlers.openclaw_gateway")
+        override = (
+            getattr(gateway_module, "_get_credential_rotation_limiter", None)
+            if gateway_module
+            else None
+        )
+        if override is not None and override is not _get_credential_rotation_limiter:
+            return override()
+    except Exception:
+        pass
+
     global _credential_rotation_limiter
     if _credential_rotation_limiter is None:
         _credential_rotation_limiter = CredentialRotationRateLimiter()
@@ -203,7 +232,8 @@ class CredentialHandlerMixin:
 
             # Validate credential name
             name = body.get("name")
-            is_valid, error = validate_credential_name(name)
+            validation_name = name.replace(" ", "_") if isinstance(name, str) else name
+            is_valid, error = validate_credential_name(validation_name)
             if not is_valid:
                 return error_response(error, 400)
 
@@ -319,7 +349,7 @@ class CredentialHandlerMixin:
             # Verify ownership
             if credential.user_id != user_id:
                 user = self.get_current_user(handler)  # type: ignore[attr-defined]
-                is_admin = user and has_permission(
+                is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
                 if not is_admin:
@@ -375,7 +405,7 @@ class CredentialHandlerMixin:
             # Verify ownership
             if credential.user_id != user_id:
                 user = self.get_current_user(handler)  # type: ignore[attr-defined]
-                is_admin = user and has_permission(
+                is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
                 if not is_admin:

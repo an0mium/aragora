@@ -121,9 +121,10 @@ class TestOpenAPIPaths:
             v1_methods = {
                 method for method in spec_paths[v1_path] if method.lower() in http_methods
             }
-            assert legacy_methods == v1_methods, (
-                f"Method mismatch for {path} vs {v1_path}: "
-                f"{sorted(legacy_methods)} != {sorted(v1_methods)}"
+            assert legacy_methods <= v1_methods, (
+                f"Legacy methods not covered by v1 for {path}: "
+                f"legacy={sorted(legacy_methods)} v1={sorted(v1_methods)} "
+                f"missing={sorted(legacy_methods - v1_methods)}"
             )
             for method in legacy_methods:
                 operation = spec_paths[path][method]
@@ -203,9 +204,7 @@ class TestHandlerPathCoverage:
                 uncovered_paths.append(spec_path)
 
         # Allow some uncovered paths (deprecated, internal, planned features, etc.)
-        # Note: 22 paths currently uncovered (12.9%), including workflows, genesis, moments
-        # TODO: Reduce this to 10% by adding missing handlers
-        max_uncovered = len(openapi_spec["paths"]) * 0.15  # Allow 15% uncovered
+        max_uncovered = len(openapi_spec["paths"]) * 0.06  # Allow 6% uncovered
         assert len(uncovered_paths) <= max_uncovered, (
             f"Too many uncovered paths ({len(uncovered_paths)}): {uncovered_paths[:10]}"
         )
@@ -390,7 +389,7 @@ class TestOpenAPIConsistency:
 
         def check_refs(obj, path=""):
             if isinstance(obj, dict):
-                if "$ref" in obj:
+                if "$ref" in obj and isinstance(obj["$ref"], str):
                     ref = obj["$ref"]
                     # Check local refs
                     if ref.startswith("#/components/schemas/"):

@@ -338,6 +338,17 @@ _store: OpenClawGatewayStore | None = None
 
 def _get_store() -> OpenClawGatewayStore:
     """Get or create the global store instance."""
+    # Allow test overrides via the compatibility shim module.
+    try:
+        import sys
+
+        gateway_module = sys.modules.get("aragora.server.handlers.openclaw_gateway")
+        override = getattr(gateway_module, "_get_store", None) if gateway_module else None
+        if override is not None and override is not _get_store:
+            return override()
+    except Exception:
+        pass
+
     global _store
     if _store is None:
         _store = OpenClawGatewayStore()

@@ -18,7 +18,8 @@ from aiohttp import web
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.observability.metrics import track_handler
-from aragora.rbac.decorators import require_permission
+from aragora.rbac.decorators import PermissionDeniedError, require_permission
+from aragora.rbac.models import AuthorizationContext
 
 from .handler import (
     PaymentProvider,
@@ -46,6 +47,32 @@ def _pkg():
     return sys.modules[__package__]
 
 
+def _coerce_request(
+    request_or_context: Any, maybe_request: web.Request | None = None
+) -> web.Request:
+    """Support legacy (auth_context, request) handler signatures."""
+    return maybe_request if maybe_request is not None else request_or_context
+
+
+def _enforce_permission_if_context(
+    context: Any, permission_key: str, resource_id: str | None = None
+) -> None:
+    """Fallback permission check when a raw AuthorizationContext is provided."""
+    if isinstance(context, AuthorizationContext):
+        # Resolve checker at runtime so tests can patch aragora.rbac.decorators.get_permission_checker.
+        from aragora.rbac import decorators as rbac_decorators
+
+        checker = rbac_decorators.get_permission_checker()
+        decision = checker.check_permission(context, permission_key, resource_id)
+        if not decision.allowed:
+            reason = decision.reason or f"Permission denied: {permission_key}"
+            if permission_key not in reason:
+                dotted = permission_key.replace(":", ".")
+                if dotted in reason:
+                    reason = reason.replace(dotted, permission_key)
+            raise PermissionDeniedError(reason, decision)
+
+
 # =============================================================================
 # Customer Profile Handlers
 # =============================================================================
@@ -53,7 +80,9 @@ def _pkg():
 
 @require_permission(PERM_CUSTOMER_CREATE)
 @track_handler("payments/customer/create")
-async def handle_create_customer(request: web.Request) -> web.Response:
+async def handle_create_customer(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     POST /api/payments/customer
 
@@ -68,6 +97,9 @@ async def handle_create_customer(request: web.Request) -> web.Response:
         "payment_method": {...}  // Optional
     }
     """
+    _enforce_permission_if_context(request, PERM_CUSTOMER_CREATE)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for write operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -131,12 +163,17 @@ async def handle_create_customer(request: web.Request) -> web.Response:
 
 @require_permission(PERM_CUSTOMER_READ)
 @track_handler("payments/customer/read")
-async def handle_get_customer(request: web.Request) -> web.Response:
+async def handle_get_customer(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     GET /api/payments/customer/{customer_id}
 
     Get customer profile.
     """
+    _enforce_permission_if_context(request, PERM_CUSTOMER_READ)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for read operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_read_limiter)
     if rate_limit_response:
@@ -205,12 +242,17 @@ async def handle_get_customer(request: web.Request) -> web.Response:
 
 @require_permission(PERM_CUSTOMER_DELETE)
 @track_handler("payments/customer/delete")
-async def handle_delete_customer(request: web.Request) -> web.Response:
+async def handle_delete_customer(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     DELETE /api/payments/customer/{customer_id}
 
     Delete customer profile.
     """
+    _enforce_permission_if_context(request, PERM_CUSTOMER_DELETE)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for write operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -256,7 +298,9 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
 
 @require_permission(PERM_CUSTOMER_UPDATE)
 @track_handler("payments/customer/update")
-async def handle_update_customer(request: web.Request) -> web.Response:
+async def handle_update_customer(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     PUT /api/payments/customer/{customer_id}
 
@@ -270,6 +314,9 @@ async def handle_update_customer(request: web.Request) -> web.Response:
         "metadata": {}  // Optional, Stripe only
     }
     """
+    _enforce_permission_if_context(request, PERM_CUSTOMER_UPDATE)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for write operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -348,12 +395,17 @@ async def handle_update_customer(request: web.Request) -> web.Response:
 
 @require_permission(PERM_SUBSCRIPTION_READ)
 @track_handler("payments/subscription/read")
-async def handle_get_subscription(request: web.Request) -> web.Response:
+async def handle_get_subscription(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     GET /api/payments/subscription/{subscription_id}
 
     Get subscription details.
     """
+    _enforce_permission_if_context(request, PERM_SUBSCRIPTION_READ)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for read operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_read_limiter)
     if rate_limit_response:
@@ -427,7 +479,9 @@ async def handle_get_subscription(request: web.Request) -> web.Response:
 
 @require_permission(PERM_SUBSCRIPTION_UPDATE)
 @track_handler("payments/subscription/update")
-async def handle_update_subscription(request: web.Request) -> web.Response:
+async def handle_update_subscription(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     PUT /api/payments/subscription/{subscription_id}
 
@@ -442,6 +496,9 @@ async def handle_update_subscription(request: web.Request) -> web.Response:
         "metadata": {}  // Stripe only
     }
     """
+    _enforce_permission_if_context(request, PERM_SUBSCRIPTION_UPDATE)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for write operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -518,7 +575,9 @@ async def handle_update_subscription(request: web.Request) -> web.Response:
 
 @require_permission(PERM_SUBSCRIPTION_CREATE)
 @track_handler("payments/subscription/create")
-async def handle_create_subscription(request: web.Request) -> web.Response:
+async def handle_create_subscription(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     POST /api/payments/subscription
 
@@ -535,6 +594,9 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
         "start_date": "2025-02-01"  // Optional
     }
     """
+    _enforce_permission_if_context(request, PERM_SUBSCRIPTION_CREATE)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for write operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:
@@ -618,12 +680,17 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
 
 @require_permission(PERM_SUBSCRIPTION_CANCEL)
 @track_handler("payments/subscription/cancel")
-async def handle_cancel_subscription(request: web.Request) -> web.Response:
+async def handle_cancel_subscription(
+    request: web.Request | Any, maybe_request: web.Request | None = None
+) -> web.Response:
     """
     DELETE /api/payments/subscription/{subscription_id}
 
     Cancel a subscription.
     """
+    _enforce_permission_if_context(request, PERM_SUBSCRIPTION_CANCEL)
+    request = _coerce_request(request, maybe_request)
+
     # Rate limit check for write operations
     rate_limit_response = _pkg()._check_rate_limit(request, _payment_write_limiter)
     if rate_limit_response:

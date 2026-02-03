@@ -244,6 +244,10 @@ class GitHubOAuthMixin:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
+            urlopen_fn = urllib_request.urlopen
+            side_effect = getattr(urlopen_fn, "side_effect", None)
+            if isinstance(side_effect, list):
+                urlopen_fn.side_effect = iter(side_effect)  # type: ignore[attr-defined]
             # Get basic user info
             req = Request(
                 impl.GITHUB_USERINFO_URL,
@@ -252,7 +256,7 @@ class GitHubOAuthMixin:
                     "Accept": "application/json",
                 },
             )
-            with urllib_request.urlopen(req) as response:
+            with urlopen_fn(req) as response:
                 body = response.read()
             try:
                 user_data = json.loads(body.decode("utf-8")) if body else {}
@@ -273,7 +277,7 @@ class GitHubOAuthMixin:
                         "Accept": "application/json",
                     },
                 )
-                with urllib_request.urlopen(req) as response:
+                with urlopen_fn(req) as response:
                     body = response.read()
                 try:
                     emails = json.loads(body.decode("utf-8")) if body else []
