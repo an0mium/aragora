@@ -50,6 +50,40 @@ class _DebateExecutionState:
     debate_start_time: float = 0.0
 
 
+async def _populate_result_cost(
+    result: DebateResult,
+    debate_id: str,
+    extensions: Any,
+) -> None:
+    """Populate DebateResult cost fields from cost tracker data.
+
+    Called after extensions.on_debate_complete() to ensure the result
+    object carries accurate cost information for downstream consumers
+    (DecisionPlanFactory, budget coordinator, etc.).
+    """
+    try:
+        # Aggregate per-agent costs from cost tracker
+        cost_tracker = getattr(extensions, "cost_tracker", None)
+        if cost_tracker is not None:
+            debate_costs = await cost_tracker.get_debate_cost(debate_id)
+            if debate_costs:
+                total = float(debate_costs.get("total_cost_usd", 0))
+                if total > 0:
+                    result.total_cost_usd = total
+
+                cost_by_agent = debate_costs.get("cost_by_agent", {})
+                if cost_by_agent:
+                    result.per_agent_cost = {str(k): float(v) for k, v in cost_by_agent.items()}
+
+        # Carry budget limit through to result
+        budget_limit = getattr(extensions, "debate_budget_limit_usd", None)
+        if budget_limit is not None:
+            result.budget_limit_usd = budget_limit
+
+    except Exception as e:
+        logger.debug(f"cost_population_failed (non-critical): {e}")
+
+
 async def initialize_debate_context(
     arena: "Arena",
     correlation_id: str,
@@ -185,6 +219,9 @@ async def setup_debate_infrastructure(
 
     # Check budget before starting debate (may raise BudgetExceededError)
     arena._budget_coordinator.check_budget_before_debate(state.debate_id)
+
+    # Initialize per-debate budget tracking in extensions
+    arena.extensions.setup_debate_budget(state.debate_id)
 
     # Initialize GUPP hook tracking for crash recovery
     if getattr(arena.protocol, "enable_hook_tracking", False):
@@ -349,6 +386,10 @@ async def handle_debate_completion(
 
     # Trigger extensions (billing, training export)
     arena.extensions.on_debate_complete(ctx, ctx.result, arena.agents)
+
+    # Populate DebateResult cost fields from cost tracker
+    if ctx.result:
+        await _populate_result_cost(ctx.result, state.debate_id, arena.extensions)
 
     # Record debate cost against organization budget
     if ctx.result:

@@ -214,7 +214,7 @@ class TeamsTenantStore:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token encryption failed: {e}")
+            logger.error("Token encryption failed: %s", e)
             return token
 
     def _decrypt_token(self, encrypted: str) -> str:
@@ -237,7 +237,7 @@ class TeamsTenantStore:
         except ImportError:
             return encrypted
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token decryption failed: {e}")
+            logger.error("Token decryption failed: %s", e)
             return encrypted
 
     def save(self, tenant: TeamsTenant) -> bool:
@@ -279,11 +279,11 @@ class TeamsTenantStore:
                 ),
             )
             conn.commit()
-            logger.info(f"Saved Teams tenant: {tenant.tenant_id}")
+            logger.info("Saved Teams tenant: %s", tenant.tenant_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to save tenant: {e}")
+            logger.error("Failed to save tenant: %s", e)
             return False
 
     def get(self, tenant_id: str) -> TeamsTenant | None:
@@ -313,7 +313,7 @@ class TeamsTenantStore:
             return None
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get tenant {tenant_id}: {e}")
+            logger.error("Failed to get tenant %s: %s", tenant_id, e)
             return None
 
     def get_by_org(self, aragora_org_id: str) -> list[TeamsTenant]:
@@ -347,7 +347,7 @@ class TeamsTenantStore:
             return tenants
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get tenants for org {aragora_org_id}: {e}")
+            logger.error("Failed to get tenants for org %s: %s", aragora_org_id, e)
             return []
 
     def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsTenant]:
@@ -383,7 +383,7 @@ class TeamsTenantStore:
             return tenants
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list tenants: {e}")
+            logger.error("Failed to list tenants: %s", e)
             return []
 
     def list_expiring(self, within_seconds: int = 3600) -> list[TeamsTenant]:
@@ -420,7 +420,7 @@ class TeamsTenantStore:
             return tenants
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list expiring tenants: {e}")
+            logger.error("Failed to list expiring tenants: %s", e)
             return []
 
     def update_tokens(

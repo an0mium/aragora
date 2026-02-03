@@ -65,7 +65,7 @@ def _check_read_permission(auth_ctx: object) -> None:
     perms = getattr(auth_ctx, "permissions", set()) or set()
     if perms and not _is_admin(auth_ctx):
         checker = get_permission_checker()
-        decision = checker.check_permission(auth_ctx, DECISION_READ_PERMISSION)
+        decision = checker.check_permission(auth_ctx, DECISION_READ_PERMISSION)  # type: ignore[arg-type]
         if not decision.allowed:
             raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -75,7 +75,7 @@ def _check_manage_permission(auth_ctx: object) -> None:
     perms = getattr(auth_ctx, "permissions", set()) or set()
     if perms and not _is_admin(auth_ctx):
         checker = get_permission_checker()
-        decision = checker.check_permission(auth_ctx, DECISION_MANAGE_PERMISSION)
+        decision = checker.check_permission(auth_ctx, DECISION_MANAGE_PERMISSION)  # type: ignore[arg-type]
         if not decision.allowed:
             raise ForbiddenError(f"Permission denied: {decision.reason}")
 

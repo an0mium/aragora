@@ -13,7 +13,8 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Coroutine
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
+import urllib.request as urllib_request
 
 import httpx
 
@@ -297,10 +298,12 @@ class GoogleOAuthMixin:
                 data=encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            with urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:
                 body = response.read()
+            if not body:
+                raise ValueError("Empty response from Google token endpoint")
             try:
-                return json.loads(body.decode("utf-8")) if body else {}
+                return json.loads(body.decode("utf-8"))
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON from Google token endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e
@@ -312,6 +315,8 @@ class GoogleOAuthMixin:
                     data=data,
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )
+                if not response.content:
+                    raise ValueError("Empty response from Google token endpoint")
                 try:
                     return response.json()
                 except json.JSONDecodeError as e:
@@ -332,7 +337,7 @@ class GoogleOAuthMixin:
                 impl.GOOGLE_USERINFO_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
             )
-            with urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:
                 body = response.read()
             try:
                 data = json.loads(body.decode("utf-8")) if body else {}

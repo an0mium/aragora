@@ -725,9 +725,9 @@ class SubsystemRegistry:
                 unavailable.append(name)
 
         if available:
-            logger.info(f"[init] Available: {', '.join(available)}")
+            logger.info("[init] Available: %s", ", ".join(available))
         if unavailable:
-            logger.debug(f"[init] Unavailable: {', '.join(unavailable)}")
+            logger.debug("[init] Unavailable: %s", ", ".join(unavailable))
 
 
 # Global registry instance
@@ -832,11 +832,11 @@ async def prewarm_caches(
                 return len(leaderboard)
 
             result["leaderboard_entries"] = await loop.run_in_executor(None, _fetch_leaderboard)
-            logger.debug(f"[prewarm] Cached {result['leaderboard_entries']} leaderboard entries")
+            logger.debug("[prewarm] Cached %s leaderboard entries", result["leaderboard_entries"])
 
         except (OSError, sqlite3.Error, KeyError, AttributeError) as e:
             # Cache or storage errors during prewarm - non-critical, cache will populate on demand
-            logger.debug(f"[prewarm] Leaderboard cache failed: {e}")
+            logger.debug("[prewarm] Leaderboard cache failed: %s", e)
 
     # Pre-warm agent profiles
     if registry.persona_manager is not None:
@@ -855,11 +855,11 @@ async def prewarm_caches(
                 return len(profiles)
 
             result["agent_profiles"] = await loop.run_in_executor(None, _fetch_profiles)
-            logger.debug(f"[prewarm] Cached {result['agent_profiles']} agent profiles")
+            logger.debug("[prewarm] Cached %s agent profiles", result["agent_profiles"])
 
         except (OSError, sqlite3.Error, KeyError, AttributeError) as e:
             # Cache or storage errors during prewarm - non-critical, cache will populate on demand
-            logger.debug(f"[prewarm] Agent profile cache failed: {e}")
+            logger.debug("[prewarm] Agent profile cache failed: %s", e)
 
     # Pre-warm consensus stats
     if registry.consensus_memory is not None:
@@ -878,7 +878,7 @@ async def prewarm_caches(
 
         except (OSError, sqlite3.Error, KeyError, AttributeError) as e:
             # Cache or storage errors during prewarm - non-critical, cache will populate on demand
-            logger.debug(f"[prewarm] Consensus stats cache failed: {e}")
+            logger.debug("[prewarm] Consensus stats cache failed: %s", e)
 
     total = (
         result["leaderboard_entries"]
@@ -886,7 +886,7 @@ async def prewarm_caches(
         + (1 if result["consensus_stats"] else 0)
     )
     if total > 0:
-        logger.info(f"[prewarm] Pre-warmed {total} cache entries")
+        logger.info("[prewarm] Pre-warmed %s cache entries", total)
 
     return result
 
@@ -930,9 +930,9 @@ def init_handler_stores(nomic_dir: Path) -> dict:
 
         doc_dir = nomic_dir / "documents"
         stores["document_store"] = DocumentStore(doc_dir)
-        logger.info(f"[init] DocumentStore initialized at {doc_dir}")
+        logger.info("[init] DocumentStore initialized at %s", doc_dir)
     except ImportError as e:
-        logger.debug(f"[init] DocumentStore unavailable: {e}")
+        logger.debug("[init] DocumentStore unavailable: %s", e)
 
     # AudioFileStore for broadcast audio
     try:
@@ -940,9 +940,9 @@ def init_handler_stores(nomic_dir: Path) -> dict:
 
         audio_dir = nomic_dir / "audio"
         stores["audio_store"] = AudioFileStore(audio_dir)
-        logger.info(f"[init] AudioFileStore initialized at {audio_dir}")
+        logger.info("[init] AudioFileStore initialized at %s", audio_dir)
     except ImportError as e:
-        logger.debug(f"[init] AudioFileStore unavailable: {e}")
+        logger.debug("[init] AudioFileStore unavailable: %s", e)
 
     # TwitterPosterConnector for social posting
     try:
@@ -955,7 +955,7 @@ def init_handler_stores(nomic_dir: Path) -> dict:
         else:
             logger.debug("[init] TwitterPosterConnector created (credentials not configured)")
     except ImportError as e:
-        logger.debug(f"[init] TwitterPosterConnector unavailable: {e}")
+        logger.debug("[init] TwitterPosterConnector unavailable: %s", e)
 
     # YouTubeUploaderConnector for video uploads
     try:
@@ -968,7 +968,7 @@ def init_handler_stores(nomic_dir: Path) -> dict:
         else:
             logger.debug("[init] YouTubeUploaderConnector created (credentials not configured)")
     except ImportError as e:
-        logger.debug(f"[init] YouTubeUploaderConnector unavailable: {e}")
+        logger.debug("[init] YouTubeUploaderConnector unavailable: %s", e)
 
     # VideoGenerator for YouTube
     try:
@@ -976,9 +976,9 @@ def init_handler_stores(nomic_dir: Path) -> dict:
 
         video_dir = nomic_dir / "videos"
         stores["video_generator"] = VideoGenerator(video_dir)
-        logger.info(f"[init] VideoGenerator initialized at {video_dir}")
+        logger.info("[init] VideoGenerator initialized at %s", video_dir)
     except ImportError as e:
-        logger.debug(f"[init] VideoGenerator unavailable: {e}")
+        logger.debug("[init] VideoGenerator unavailable: %s", e)
 
     # UserStore for user/org persistence
     # Uses PostgreSQL in production for distributed deployments
@@ -995,22 +995,22 @@ def init_handler_stores(nomic_dir: Path) -> dict:
             data_dir=str(nomic_dir),
         )
         store_type = type(stores["user_store"]).__name__
-        logger.info(f"[init] UserStore initialized ({store_type})")
+        logger.info("[init] UserStore initialized (%s)", store_type)
     except ImportError as e:
-        logger.debug(f"[init] UserStore unavailable: {e}")
+        logger.debug("[init] UserStore unavailable: %s", e)
     except (OSError, PermissionError, ConnectionError, RuntimeError) as e:
         # Connection or file system errors - try SQLite fallback
-        logger.error(f"[init] UserStore initialization failed: {e}")
+        logger.error("[init] UserStore initialization failed: %s", e)
         # Try SQLite fallback
         try:
             from aragora.storage import UserStore
 
             user_db_path = nomic_dir / "users.db"
             stores["user_store"] = UserStore(user_db_path)
-            logger.warning(f"[init] UserStore fell back to SQLite at {user_db_path}")
+            logger.warning("[init] UserStore fell back to SQLite at %s", user_db_path)
         except (OSError, PermissionError, sqlite3.Error) as fallback_error:
             # SQLite fallback also failed - server continues without user store
-            logger.error(f"[init] UserStore SQLite fallback failed: {fallback_error}")
+            logger.error("[init] UserStore SQLite fallback failed: %s", fallback_error)
 
     # UsageTracker for billing events
     try:
@@ -1018,9 +1018,9 @@ def init_handler_stores(nomic_dir: Path) -> dict:
 
         usage_db_path = nomic_dir / "usage.db"
         stores["usage_tracker"] = UsageTracker(db_path=usage_db_path)
-        logger.info(f"[init] UsageTracker initialized at {usage_db_path}")
+        logger.info("[init] UsageTracker initialized at %s", usage_db_path)
     except ImportError as e:
-        logger.debug(f"[init] UsageTracker unavailable: {e}")
+        logger.debug("[init] UsageTracker unavailable: %s", e)
 
     return stores
 
@@ -1073,7 +1073,7 @@ async def init_postgres_stores() -> dict[str, bool]:
             logger.info("[init] PostgreSQL connection pool created (standalone)")
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             # Connection errors - cannot proceed with PostgreSQL stores
-            logger.error(f"[init] Failed to create PostgreSQL pool: {e}")
+            logger.error("[init] Failed to create PostgreSQL pool: %s", e)
             return {"_connection": False}
 
     # List of PostgreSQL stores to initialize
@@ -1126,19 +1126,19 @@ async def init_postgres_stores() -> dict[str, bool]:
             store = store_class(pool)
             await store.initialize()
             results[name] = True
-            logger.info(f"[init] PostgreSQL store initialized: {name}")
+            logger.info("[init] PostgreSQL store initialized: %s", name)
         except ImportError as e:
-            logger.warning(f"[init] Could not import {class_name}: {e}")
+            logger.warning("[init] Could not import %s: %s", class_name, e)
             results[name] = False
         except (OSError, ConnectionError, TimeoutError, RuntimeError, AttributeError) as e:
             # Connection, configuration, or schema errors - log and continue with other stores
-            logger.error(f"[init] Failed to initialize {name}: {e}")
+            logger.error("[init] Failed to initialize %s: %s", name, e)
             results[name] = False
 
     # Summary
     succeeded = sum(1 for s in results.values() if s)
     failed = sum(1 for s in results.values() if not s)
-    logger.info(f"[init] PostgreSQL stores: {succeeded} initialized, {failed} failed")
+    logger.info("[init] PostgreSQL stores: %s initialized, %s failed", succeeded, failed)
 
     return results
 
@@ -1203,7 +1203,7 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
             await conn.fetchval("SELECT 1")
     except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
         # Pool connection issues - skip upgrade, continue with existing stores
-        logger.warning(f"[upgrade] Pool health check failed, skipping upgrade: {e}")
+        logger.warning("[upgrade] Pool health check failed, skipping upgrade: %s", e)
         return {}
 
     results: dict[str, str] = {}
@@ -1224,7 +1224,7 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         setattr(UnifiedHandler, "user_store", store)
     except (ImportError, OSError, ConnectionError, RuntimeError, AttributeError) as e:
         # Import, connection, or wiring errors - continue with SQLite store
-        logger.info(f"[upgrade] UserStore upgrade failed: {type(e).__name__}: {e}")
+        logger.info("[upgrade] UserStore upgrade failed: %s: %s", type(e).__name__, e)
         results["user_store"] = "skipped"
 
     # Upgrade additional stores (job queue, governance, inbox).
@@ -1273,15 +1273,15 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
                 setattr(_gov_mod, "_postgres_store", store)
 
             results[name] = "postgres"
-            logger.info(f"[upgrade] {name} upgraded to PostgreSQL")
+            logger.info("[upgrade] %s upgraded to PostgreSQL", name)
         except ImportError:
             results[name] = "skipped"
         except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
             # Connection or wiring errors - continue with existing store
-            logger.info(f"[upgrade] {name} upgrade failed: {type(e).__name__}: {e}")
+            logger.info("[upgrade] %s upgrade failed: %s: %s", name, type(e).__name__, e)
             results[name] = "skipped"
 
     upgraded = sum(1 for v in results.values() if v == "postgres")
     if upgraded:
-        logger.warning(f"[startup] {upgraded} store(s) upgraded to PostgreSQL")
+        logger.warning("[startup] %s store(s) upgraded to PostgreSQL", upgraded)
     return results

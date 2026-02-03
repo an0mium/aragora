@@ -140,6 +140,18 @@ class WorkflowEngine:
         except ImportError as e:
             logger.debug(f"Some Phase 2 step types not available: {e}")
 
+        # Implementation pipeline steps (gold path)
+        try:
+            from aragora.workflow.nodes.implementation import (
+                ImplementationStep,
+                VerificationStep,
+            )
+
+            self._step_types["implementation"] = ImplementationStep
+            self._step_types["verification"] = VerificationStep
+        except ImportError as e:
+            logger.debug(f"Implementation step types not available: {e}")
+
         # OpenClaw Enterprise Gateway steps
         try:
             from aragora.workflow.nodes.openclaw import (

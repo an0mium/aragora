@@ -402,7 +402,7 @@ class DecisionPlan:
                     StepDefinition(
                         id=impl_step_id,
                         name=f"Implement: {task.description[:50]}",
-                        step_type="agent",
+                        step_type="implementation",
                         config={
                             "task_id": task.id,
                             "description": task.description,
@@ -447,7 +447,7 @@ class DecisionPlan:
                 StepDefinition(
                     id=verify_step_id,
                     name="Run Verification",
-                    step_type="task",
+                    step_type="verification",
                     config={
                         "action": "verify",
                         "test_count": len(self.verification_plan.test_cases),

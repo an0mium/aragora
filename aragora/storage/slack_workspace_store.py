@@ -263,7 +263,7 @@ class SlackWorkspaceStore:
                         logger.info("Added token_expires_at column to slack_workspaces")
 
                 except sqlite3.Error as e:
-                    logger.debug(f"Migration check: {e}")
+                    logger.debug("Migration check: %s", e)
 
                 self._initialized = True
 
@@ -322,7 +322,7 @@ class SlackWorkspaceStore:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token encryption failed: {e}")
+            logger.error("Token encryption failed: %s", e)
             return token
 
     def _decrypt_token(self, encrypted: str) -> str:
@@ -357,7 +357,7 @@ class SlackWorkspaceStore:
         except ImportError:
             return encrypted
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token decryption failed: {e}")
+            logger.error("Token decryption failed: %s", e)
             return encrypted
 
     def save(self, workspace: SlackWorkspace) -> bool:
@@ -404,11 +404,11 @@ class SlackWorkspaceStore:
                 ),
             )
             conn.commit()
-            logger.info(f"Saved Slack workspace: {workspace.workspace_id}")
+            logger.info("Saved Slack workspace: %s", workspace.workspace_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to save workspace: {e}")
+            logger.error("Failed to save workspace: %s", e)
             return False
 
     def get(self, workspace_id: str) -> SlackWorkspace | None:
@@ -440,7 +440,7 @@ class SlackWorkspaceStore:
             return None
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get workspace {workspace_id}: {e}")
+            logger.error("Failed to get workspace %s: %s", workspace_id, e)
             return None
 
     def get_by_tenant(self, tenant_id: str) -> list[SlackWorkspace]:
@@ -474,7 +474,7 @@ class SlackWorkspaceStore:
             return workspaces
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get workspaces for tenant {tenant_id}: {e}")
+            logger.error("Failed to get workspaces for tenant %s: %s", tenant_id, e)
             return []
 
     def list_active(self, limit: int = 100, offset: int = 0) -> list[SlackWorkspace]:
@@ -510,7 +510,7 @@ class SlackWorkspaceStore:
             return workspaces
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list workspaces: {e}")
+            logger.error("Failed to list workspaces: %s", e)
             return []
 
     def deactivate(self, workspace_id: str) -> bool:
@@ -529,11 +529,11 @@ class SlackWorkspaceStore:
                 (workspace_id,),
             )
             conn.commit()
-            logger.info(f"Deactivated Slack workspace: {workspace_id}")
+            logger.info("Deactivated Slack workspace: %s", workspace_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to deactivate workspace {workspace_id}: {e}")
+            logger.error("Failed to deactivate workspace %s: %s", workspace_id, e)
             return False
 
     def revoke_token(self, workspace_id: str) -> bool:
@@ -563,11 +563,11 @@ class SlackWorkspaceStore:
                 (workspace_id,),
             )
             conn.commit()
-            logger.info(f"Revoked tokens for Slack workspace: {workspace_id}")
+            logger.info("Revoked tokens for Slack workspace: %s", workspace_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to revoke tokens for workspace {workspace_id}: {e}")
+            logger.error("Failed to revoke tokens for workspace %s: %s", workspace_id, e)
             return False
 
     def delete(self, workspace_id: str) -> bool:
@@ -586,11 +586,11 @@ class SlackWorkspaceStore:
                 (workspace_id,),
             )
             conn.commit()
-            logger.info(f"Deleted Slack workspace: {workspace_id}")
+            logger.info("Deleted Slack workspace: %s", workspace_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to delete workspace {workspace_id}: {e}")
+            logger.error("Failed to delete workspace %s: %s", workspace_id, e)
             return False
 
     def count(self, active_only: bool = True) -> int:
@@ -612,7 +612,7 @@ class SlackWorkspaceStore:
             return cursor.fetchone()[0]
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to count workspaces: {e}")
+            logger.error("Failed to count workspaces: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -635,7 +635,7 @@ class SlackWorkspaceStore:
             }
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get stats: {e}")
+            logger.error("Failed to get stats: %s", e)
             return {"total_workspaces": 0, "active_workspaces": 0}
 
     async def refresh_workspace_token(
