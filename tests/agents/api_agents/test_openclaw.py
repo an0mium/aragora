@@ -433,7 +433,7 @@ class TestOpenClawExecuteTask:
 
         agent = OpenClawAgent()
 
-        with patch.object(agent, "generate", AsyncMock(side_effect=Exception("Network error"))):
+        with patch.object(agent, "generate", AsyncMock(side_effect=RuntimeError("Network error"))):
             result = await agent.execute_task("Test task")
 
         assert result["success"] is False
