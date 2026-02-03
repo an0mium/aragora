@@ -308,6 +308,7 @@ class SyncStore:
         # In-memory cache for fast access
         self._connectors_cache: dict[str, ConnectorConfig] = {}
         self._active_jobs: dict[str, SyncJob] = {}
+        self._sync_history: list[SyncJob] = []
 
     async def initialize(self) -> None:
         """Initialize database connection and create tables."""
@@ -949,6 +950,8 @@ class SyncStore:
                     ),
                 )
                 await self._connection.commit()
+        else:
+            self._sync_history.append(job)
 
         return job
 
@@ -994,6 +997,9 @@ class SyncStore:
                             duration_seconds=row[8],
                         )
                     )
+
+        elif not self._connection:
+            jobs.extend(self._sync_history)
 
         # Include active jobs
         for job in self._active_jobs.values():
