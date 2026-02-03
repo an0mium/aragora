@@ -963,6 +963,53 @@ class TestDecisionRouterRouteMethods:
         # The router should detect this is a workflow request
         assert request.config.workflow_id == "my-workflow"
 
+    @pytest.mark.asyncio
+    async def test_route_to_debate_ingests_attachments(self, tmp_path, monkeypatch):
+        """Attachment text is ingested into DocumentStore and passed as document IDs."""
+        from types import SimpleNamespace
+
+        from aragora.server.documents import DocumentStore
+
+        # Stub agent lookup
+        monkeypatch.setattr(
+            "aragora.agents.get_agents_by_names",
+            lambda _agents=None: [],
+        )
+
+        captured_env = {}
+
+        class DummyArena:
+            def __init__(self, environment, agents, protocol, **_kwargs):
+                captured_env["env"] = environment
+
+            async def run(self):
+                return SimpleNamespace(
+                    final_answer="ok",
+                    consensus_reached=True,
+                    confidence=0.9,
+                    summary=None,
+                )
+
+        store = DocumentStore(tmp_path)
+        router = DecisionRouter(debate_engine=DummyArena, document_store=store)
+
+        request = DecisionRequest(
+            content="Use attachment",
+            decision_type=DecisionType.DEBATE,
+            config=DecisionConfig(rounds=1, agents=[]),
+            attachments=[
+                {"filename": "notes.txt", "content": "hello world"},
+            ],
+        )
+
+        result = await router.route(request)
+
+        assert result.success is True
+        env = captured_env.get("env")
+        assert env is not None
+        assert len(env.documents) == 1
+        assert store.get(env.documents[0]) is not None
+
 
 # ===========================================================================
 # Test: Decision Router - Caching and Deduplication

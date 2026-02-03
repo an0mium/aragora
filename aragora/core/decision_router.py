@@ -620,6 +620,10 @@ class DecisionRouter:
                 from aragora.core.decision_models import normalize_document_ids
 
                 explicit_docs.extend(normalize_document_ids(metadata_docs))
+            # Ingest attachments into DocumentStore where possible
+            attachment_docs = self._ingest_attachments_to_documents(request.attachments)
+            if attachment_docs:
+                explicit_docs.extend(attachment_docs)
             if explicit_docs:
                 seen: set[str] = set()
                 merged: list[str] = []
@@ -628,6 +632,14 @@ class DecisionRouter:
                         seen.add(doc_id)
                         merged.append(doc_id)
                 document_ids = merged
+
+            # Include attachment context (if any) for richer inputs
+            attachment_context = self._format_attachment_context(request.attachments)
+            if attachment_context:
+                if knowledge_context:
+                    knowledge_context = f"{knowledge_context}\n\n{attachment_context}"
+                else:
+                    knowledge_context = attachment_context
 
             env = Environment(
                 task=request.content,
@@ -694,6 +706,114 @@ class DecisionRouter:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Trace span cleanup error: {e}")
+
+    def _ingest_attachments_to_documents(
+        self,
+        attachments: list[dict[str, Any]] | None,
+        max_items: int = 5,
+        max_bytes: int = 2_000_000,
+    ) -> list[str]:
+        """Store supported attachments in DocumentStore and return document IDs."""
+        if not attachments or not self._document_store:
+            return []
+
+        doc_ids: list[str] = []
+        try:
+            from aragora.server.documents import ParsedDocument, parse_document, parse_text
+            import base64
+        except Exception as e:
+            logger.debug("Document ingestion unavailable: %s", e)
+            return []
+
+        for idx, att in enumerate(attachments[:max_items]):
+            if not isinstance(att, dict):
+                continue
+            existing = att.get("document_id") or att.get("doc_id")
+            if isinstance(existing, str) and existing.strip():
+                doc_ids.append(existing.strip())
+                continue
+
+            filename = att.get("filename") or att.get("name") or f"attachment_{idx + 1}.txt"
+            data = att.get("data")
+            content = att.get("content") or att.get("text")
+            encoding = str(att.get("encoding") or "").lower()
+
+            payload: bytes | None = None
+            if isinstance(data, (bytes, bytearray)):
+                payload = bytes(data)
+            elif isinstance(content, (bytes, bytearray)):
+                payload = bytes(content)
+            elif isinstance(data, str):
+                if encoding in {"base64", "b64"}:
+                    try:
+                        payload = base64.b64decode(data, validate=False)
+                    except Exception:
+                        payload = data.encode("utf-8", errors="ignore")
+                else:
+                    payload = data.encode("utf-8", errors="ignore")
+            elif isinstance(content, str):
+                payload = content.encode("utf-8", errors="ignore")
+
+            if not payload:
+                continue
+            if len(payload) > max_bytes:
+                logger.debug("Skipping attachment %s (exceeds %s bytes)", filename, max_bytes)
+                continue
+
+            try:
+                if filename.lower().endswith((".txt", ".md", ".markdown")):
+                    parsed: ParsedDocument = parse_text(payload, filename)
+                else:
+                    parsed = parse_document(payload, filename)
+                doc_id = self._document_store.add(parsed)
+                if doc_id:
+                    doc_ids.append(doc_id)
+            except Exception as e:
+                logger.debug("Failed to ingest attachment %s: %s", filename, e)
+
+        return doc_ids
+
+    def _format_attachment_context(
+        self,
+        attachments: list[dict[str, Any]] | None,
+        max_items: int = 5,
+        max_chars: int = 1200,
+    ) -> str:
+        """Build a compact context block from attachments."""
+        if not attachments:
+            return ""
+
+        parts: list[str] = []
+        for att in attachments[:max_items]:
+            if not isinstance(att, dict):
+                continue
+            att_type = str(att.get("type") or "attachment")
+            name = att.get("filename") or att.get("name") or att.get("title") or att_type
+            url = att.get("url")
+            content = att.get("content") or att.get("text")
+            if content is None:
+                data = att.get("data")
+                if isinstance(data, str):
+                    content = data
+
+            if isinstance(content, (bytes, bytearray)):
+                content = None
+
+            header = f"### {name} ({att_type})"
+            if url:
+                header = f"{header}\nSource: {url}"
+
+            if content:
+                content_str = str(content).strip()
+                if len(content_str) > max_chars:
+                    content_str = content_str[:max_chars] + "..."
+                parts.append(f"{header}\n{content_str}")
+            else:
+                parts.append(f"{header}\n[Attachment content not provided]")
+
+        if not parts:
+            return ""
+        return "## Provided Attachments\n\n" + "\n\n".join(parts)
 
     async def _route_to_workflow(self, request: DecisionRequest) -> DecisionResult:
         """Route to workflow engine."""

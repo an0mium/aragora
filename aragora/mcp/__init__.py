@@ -1,44 +1,24 @@
 """
-Aragora MCP (Model Context Protocol) Server.
+MCP (Model Context Protocol) Server for Aragora.
 
-Exposes Aragora's debate and gauntlet capabilities as MCP tools,
-allowing Claude and other MCP-compatible clients to:
-
-1. Run debates with multiple agents
-2. Execute gauntlet stress-tests
-3. Access debate results as resources
-
-Usage:
-    # Start the MCP server
-    aragora mcp-server
-
-    # Or run directly
-    python -m aragora.mcp.server
-
-Configuration in claude_desktop_config.json:
-    {
-        "mcpServers": {
-            "aragora": {
-                "command": "aragora",
-                "args": ["mcp-server"]
-            }
-        }
-    }
+Exposes Aragora capabilities as MCP tools for integration with
+any MCP-compatible AI agent (Claude Code, Cursor, etc.).
 """
 
-from .server import AragoraMCPServer, run_server
-from .tools import (
-    get_debate_tool,
-    list_agents_tool,
-    run_debate_tool,
-    run_gauntlet_tool,
+from aragora.mcp.server import (
+    AragoraMCPServer,
+    MCPTool,
+    MCPResource,
+    MCPPrompt,
+    MCPCapability,
+    create_mcp_server,
 )
 
 __all__ = [
     "AragoraMCPServer",
-    "run_server",
-    "run_debate_tool",
-    "run_gauntlet_tool",
-    "list_agents_tool",
-    "get_debate_tool",
+    "MCPTool",
+    "MCPResource",
+    "MCPPrompt",
+    "MCPCapability",
+    "create_mcp_server",
 ]

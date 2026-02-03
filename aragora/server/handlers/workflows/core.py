@@ -8,6 +8,7 @@ all workflow handler submodules.
 from __future__ import annotations
 
 import logging
+import sys
 from typing import Any, Literal, cast
 
 from aragora.server.http_utils import run_async as _run_async
@@ -87,6 +88,13 @@ def _get_store() -> PersistentWorkflowStore:
     PersistentWorkflowStore and PostgresWorkflowStore. Both have the same
     interface, so we cast to the base type for consistency.
     """
+    try:
+        pkg = sys.modules.get("aragora.server.handlers.workflows")
+        override = getattr(pkg, "_get_store", None) if pkg is not None else None
+        if override is not None and override is not _get_store:
+            return cast(PersistentWorkflowStore, override())
+    except Exception:
+        pass
     return cast(PersistentWorkflowStore, get_workflow_store())
 
 

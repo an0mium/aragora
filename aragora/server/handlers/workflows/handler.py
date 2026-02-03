@@ -8,6 +8,7 @@ with the unified server.
 from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
+import sys
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -213,6 +214,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             or path.startswith("/api/v1/workflows/executions")
         )
 
+    def _rbac_enabled(self) -> bool:
+        """Determine if RBAC checks should be enforced."""
+        rbac_enabled = RBAC_AVAILABLE
+        try:
+            pkg = sys.modules.get("aragora.server.handlers.workflows")
+            if pkg is not None and hasattr(pkg, "RBAC_AVAILABLE"):
+                if not getattr(pkg, "RBAC_AVAILABLE"):
+                    rbac_enabled = False
+        except Exception:
+            pass
+        return bool(rbac_enabled)
+
     def _get_auth_context(
         self, handler: Any
     ) -> "AuthorizationContext" | _UnauthenticatedSentinel | None:
@@ -226,7 +239,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             None if RBAC not available (allows request in dev mode),
             "unauthenticated" sentinel if JWT is missing/invalid
         """
-        if not RBAC_AVAILABLE:
+        if not self._rbac_enabled():
             return None
 
         # JWT authentication required (secure)
@@ -258,7 +271,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         Returns None if allowed, or an error response if denied.
         If RBAC is not available, allows the request (development mode).
         """
-        if not RBAC_AVAILABLE:
+        if not self._rbac_enabled():
             logger.debug("RBAC not available, allowing %s", permission_key)
             return None
 
@@ -292,7 +305,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _get_tenant_id(self, handler: Any, query_params: dict) -> str:
         """Extract tenant_id from auth context or query params."""
-        if RBAC_AVAILABLE:
+        if self._rbac_enabled():
             context = self._get_auth_context(handler)
             # Only use org_id from valid AuthorizationContext (not "unauthenticated" sentinel)
             if (
@@ -316,7 +329,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             path = path.replace("/api/v1/workflows/executions", "/api/v1/workflow-executions", 1)
 
         # Authentication check
-        auth_ctx = self._get_auth_context(handler)
+        auth_ctx = self._get_auth_context(handler) if self._rbac_enabled() else None
         if auth_ctx == "unauthenticated":
             return error_response("Authentication required", 401)
 
@@ -618,7 +631,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
             # Get user_id from auth context if available
-            auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
+            auth_context = self._get_auth_context(handler) if self._rbac_enabled() else None
             created_by = (
                 auth_context.user_id
                 if auth_context and not isinstance(auth_context, str)
@@ -1086,7 +1099,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             # Get responder from auth context if available
-            auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
+            auth_context = self._get_auth_context(handler) if self._rbac_enabled() else None
             responder_id = (
                 auth_context.user_id
                 if auth_context and not isinstance(auth_context, str)

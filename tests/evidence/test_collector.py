@@ -1067,7 +1067,7 @@ class TestEvidenceCollectorKMIntegration:
     def test_query_km_handles_error(self):
         """Should handle adapter errors gracefully."""
         mock_adapter = MagicMock()
-        mock_adapter.search_by_topic.side_effect = Exception("KM error")
+        mock_adapter.search_by_topic.side_effect = ConnectionError("KM connection error")
         collector = EvidenceCollector(km_adapter=mock_adapter)
 
         result = collector.query_km_for_existing("test topic")

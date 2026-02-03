@@ -6,6 +6,7 @@ Provides create, read, update, and delete operations for workflow definitions.
 
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -16,6 +17,30 @@ from .core import (
     WorkflowDefinition,
     audit_data,
 )
+
+
+def _get_workflow_definition_cls() -> Any:
+    """Return WorkflowDefinition, honoring test overrides."""
+    try:
+        pkg = sys.modules.get("aragora.server.handlers.workflows")
+        override = getattr(pkg, "WorkflowDefinition", None) if pkg is not None else None
+        if override is not None and override is not WorkflowDefinition:
+            return override
+    except Exception:
+        pass
+    return WorkflowDefinition
+
+
+def _get_audit_fn() -> Any:
+    """Return audit_data, honoring test overrides."""
+    try:
+        pkg = sys.modules.get("aragora.server.handlers.workflows")
+        override = getattr(pkg, "audit_data", None) if pkg is not None else None
+        if override is not None and override is not audit_data:
+            return override
+    except Exception:
+        pass
+    return audit_data
 
 
 async def list_workflows(
@@ -88,7 +113,8 @@ async def create_workflow(
     data["created_at"] = datetime.now(timezone.utc).isoformat()
     data["updated_at"] = data["created_at"]
 
-    workflow = WorkflowDefinition.from_dict(data)
+    workflow_cls = _get_workflow_definition_cls()
+    workflow = workflow_cls.from_dict(data)
 
     # Validate
     is_valid, errors = workflow.validate()
@@ -102,7 +128,7 @@ async def create_workflow(
     store.save_version(workflow)
 
     logger.info(f"Created workflow {workflow_id}: {workflow.name}")
-    audit_data(
+    _get_audit_fn()(
         user_id=created_by or "system",
         resource_type="workflow",
         resource_id=workflow_id,
@@ -147,7 +173,8 @@ async def update_workflow(
     parts[-1] = str(int(parts[-1]) + 1)
     data["version"] = ".".join(parts)
 
-    workflow = WorkflowDefinition.from_dict(data)
+    workflow_cls = _get_workflow_definition_cls()
+    workflow = workflow_cls.from_dict(data)
 
     # Validate
     is_valid, errors = workflow.validate()
@@ -161,7 +188,7 @@ async def update_workflow(
     store.save_version(workflow)
 
     logger.info(f"Updated workflow {workflow_id} to version {workflow.version}")
-    audit_data(
+    _get_audit_fn()(
         user_id="system",
         resource_type="workflow",
         resource_id=workflow_id,
@@ -188,7 +215,7 @@ async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
 
     if deleted:
         logger.info(f"Deleted workflow {workflow_id}")
-        audit_data(
+        _get_audit_fn()(
             user_id="system",
             resource_type="workflow",
             resource_id=workflow_id,

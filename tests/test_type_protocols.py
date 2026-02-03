@@ -614,6 +614,26 @@ class ConformingEloSystem:
     def get_ratings_batch(self, agents: list[str]) -> dict[str, Any]:
         return {}
 
+    def update_voting_accuracy(
+        self,
+        agent_name: str,
+        voted_for_consensus: bool,
+        domain: str = "general",
+        debate_id: str | None = None,
+        apply_elo_bonus: bool = True,
+        bonus_k_factor: float = 4.0,
+    ) -> float:
+        return 0.0
+
+    def apply_learning_bonus(
+        self,
+        agent_name: str,
+        domain: str = "general",
+        debate_id: str | None = None,
+        bonus_factor: float = 0.5,
+    ) -> float:
+        return 0.0
+
 
 class EloSystemMissingHistory:
     """Elo system missing get_match_history method."""

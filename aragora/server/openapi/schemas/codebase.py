@@ -350,6 +350,7 @@ CODEBASE_SCHEMAS: dict[str, Any] = {
             "priority": {"type": "string"},
             "attachments": {"type": "array", "items": {"type": "object"}},
             "evidence": {"type": "array", "items": {"type": "object"}},
+            "documents": {"type": "array", "items": {"type": "string"}},
         },
         "required": ["content"],
     },

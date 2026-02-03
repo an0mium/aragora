@@ -443,6 +443,8 @@ class DecisionRequest:
                     timeout_seconds=body.get("timeout", 300),
                 ),
                 documents=documents,
+                attachments=body.get("attachments", []),
+                evidence=body.get("evidence", []),
             )
 
         if correlation_id:
