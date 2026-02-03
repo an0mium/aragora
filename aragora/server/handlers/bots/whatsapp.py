@@ -414,6 +414,14 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
     def _start_debate(self, to_number: str, contact_name: str, topic: str) -> None:
         """Start a debate on the given topic."""
+        # RBAC: check debate creation permission
+        try:
+            self._check_bot_permission("debates:create", user_id=f"whatsapp:{to_number}")
+        except PermissionError as exc:
+            logger.warning("RBAC denied debates:create for whatsapp:%s: %s", to_number, exc)
+            self._send_message(to_number, "Permission denied: you cannot start debates.")
+            return
+
         if not topic.strip():
             self._send_message(
                 to_number,
