@@ -25,6 +25,7 @@ import time
 from typing import Any
 
 from aragora.config import resolve_db_path
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -225,7 +226,7 @@ async def handle_sso_login(
 
     except Exception as e:
         logger.exception("SSO login initiation failed")
-        return error_response(f"SSO login failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "SSO login"), status=500)
 
 
 # NOTE: SSO callback is a public endpoint - IdP redirects here before user
@@ -313,7 +314,7 @@ async def handle_sso_callback(
 
     except Exception as e:
         logger.exception("SSO callback failed")
-        return error_response(f"SSO authentication failed: {str(e)}", status=401)
+        return error_response(safe_error_message(e, "SSO authentication"), status=401)
 
 
 @require_permission("auth:manage_sso")
@@ -370,7 +371,7 @@ async def handle_sso_refresh(
 
     except Exception as e:
         logger.exception("SSO refresh failed")
-        return error_response(f"Token refresh failed: {str(e)}", status=401)
+        return error_response(safe_error_message(e, "token refresh"), status=401)
 
 
 @require_permission("auth:manage_sso")
@@ -418,7 +419,7 @@ async def handle_sso_logout(
 
     except Exception as e:
         logger.exception("SSO logout failed")
-        return error_response(f"Logout failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "logout"), status=500)
 
 
 # =============================================================================
@@ -488,7 +489,7 @@ async def handle_list_providers(
 
     except Exception as e:
         logger.exception("Failed to list providers")
-        return error_response(f"List providers failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "list SSO providers"), status=500)
 
 
 @require_permission("auth:manage_sso")
@@ -556,7 +557,7 @@ async def handle_get_sso_config(
 
     except Exception as e:
         logger.exception("Failed to get SSO config")
-        return error_response(f"Get config failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "get SSO config"), status=500)
 
 
 # =============================================================================

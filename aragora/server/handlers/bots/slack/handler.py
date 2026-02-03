@@ -11,7 +11,12 @@ import logging
 import os
 from typing import Any
 
-from aragora.server.handlers.base import HandlerResult, error_response, json_response
+from aragora.server.handlers.base import (
+    HandlerResult,
+    error_response,
+    json_response,
+    safe_error_message,
+)
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 
@@ -181,7 +186,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                 return asyncio.run(self._get_status_sync(handler))
             except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
                 logger.error(f"Error getting Slack status: {e}")
-                return error_response(f"Error: {str(e)}", 500)
+                return error_response(safe_error_message(e, "Slack handler"), 500)
 
         # Webhook endpoints require POST
         webhook_paths = [
@@ -221,7 +226,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                 return asyncio.run(self.handle_post(normalized_path, query_params, handler))
             except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
                 logger.error(f"Error handling Slack POST: {e}")
-                return error_response(f"Error: {str(e)}", 500)
+                return error_response(safe_error_message(e, "Slack command"), 500)
 
         return None
 

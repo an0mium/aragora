@@ -854,11 +854,21 @@ class DecisionRouter:
             if not definition:
                 raise ValueError(f"Workflow not found: {workflow_id}")
 
+            documents = list(getattr(request, "documents", []) or [])
+            metadata_docs = (request.context.metadata or {}).get("documents") or (
+                request.context.metadata or {}
+            ).get("document_ids")
+            if metadata_docs:
+                from aragora.core.decision_models import normalize_document_ids
+
+                documents.extend(normalize_document_ids(metadata_docs))
             # Execute
             workflow_result = await self._workflow_engine.execute(
                 definition=definition,
                 inputs={
                     "content": request.content,
+                    "documents": documents,
+                    "attachments": request.attachments or [],
                     **request.config.workflow_inputs,
                 },
             )
@@ -1200,11 +1210,22 @@ class DecisionRouter:
 _router: DecisionRouter | None = None
 
 
-def get_decision_router() -> DecisionRouter:
+def get_decision_router(
+    document_store: Any | None = None,
+    evidence_store: Any | None = None,
+) -> DecisionRouter:
     """Get or create the global decision router."""
     global _router
     if _router is None:
-        _router = DecisionRouter()
+        _router = DecisionRouter(
+            document_store=document_store,
+            evidence_store=evidence_store,
+        )
+    else:
+        if document_store and getattr(_router, "_document_store", None) is None:
+            _router._document_store = document_store  # type: ignore[attr-defined]
+        if evidence_store and getattr(_router, "_evidence_store", None) is None:
+            _router._evidence_store = evidence_store  # type: ignore[attr-defined]
     return _router
 
 

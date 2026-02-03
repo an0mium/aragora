@@ -780,12 +780,9 @@ class UnifiedServer:
         - Response delivery across channels
         """
         try:
-            from aragora.core.decision import DecisionRouter
+            from aragora.core.decision import get_decision_router
 
-            UnifiedHandler.decision_router = DecisionRouter(
-                enable_caching=True,
-                enable_deduplication=True,
-                cache_ttl_seconds=3600.0,
+            UnifiedHandler.decision_router = get_decision_router(
                 document_store=getattr(UnifiedHandler, "document_store", None),
                 evidence_store=getattr(UnifiedHandler, "evidence_store", None),
             )

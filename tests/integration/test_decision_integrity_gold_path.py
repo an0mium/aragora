@@ -455,3 +455,404 @@ class TestDecisionPlanFactoryFromImplementPlan:
         assert dp.debate_id == ""
         assert dp.implement_plan is mock_plan
         assert "Implementation plan" in dp.task
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: End-to-End Flow Test
+# ---------------------------------------------------------------------------
+
+
+class TestGoldPathEndToEnd:
+    """True end-to-end test: Debate → Receipt → Plan → Execution → Channel.
+
+    This test class exercises the complete Decision Integrity pipeline
+    by running a real debate (with mock agents) and verifying that all
+    artifacts are generated and the full flow completes successfully.
+    """
+
+    @pytest.fixture
+    def mock_agents(self) -> list[Any]:
+        """Create mock agents for fast debate execution."""
+        from dataclasses import dataclass
+
+        from aragora.core import Agent, Critique, Vote
+
+        @dataclass
+        class GoldPathMockAgent(Agent):
+            """Mock agent for gold path testing."""
+
+            def __init__(self, name: str, response: str):
+                super().__init__(name=name, model="mock", role="proposer")
+                self._response = response
+                self.agent_type = "mock"
+                self.total_input_tokens = 0
+                self.total_output_tokens = 0
+                self.input_tokens = 0
+                self.output_tokens = 0
+                self.total_tokens_in = 0
+                self.total_tokens_out = 0
+                self.metrics = None
+                self.provider = None
+
+            async def generate(self, prompt: str, context: list | None = None) -> str:
+                return self._response
+
+            async def generate_stream(self, prompt: str, context: list | None = None):
+                yield self._response
+
+            async def critique(
+                self,
+                proposal: str,
+                task: str,
+                context: list | None = None,
+                target_agent: str | None = None,
+            ) -> Critique:
+                return Critique(
+                    agent=self.name,
+                    target_agent=target_agent or "unknown",
+                    target_content=proposal[:50] if proposal else "",
+                    issues=[],
+                    suggestions=[],
+                    severity=0.1,
+                    reasoning="Agreement",
+                )
+
+            async def vote(self, proposals: dict, task: str) -> Vote:
+                choice = list(proposals.keys())[0] if proposals else self.name
+                return Vote(
+                    agent=self.name,
+                    choice=choice,
+                    reasoning="I agree with this approach",
+                    confidence=0.9,
+                    continue_debate=False,
+                )
+
+        shared_answer = (
+            "1. Use token bucket algorithm for rate limiting\n"
+            "2. Store counters in Redis for distributed access\n"
+            "3. Implement middleware to intercept requests"
+        )
+
+        return [
+            GoldPathMockAgent("agent-claude", shared_answer),
+            GoldPathMockAgent("agent-gpt", shared_answer),
+            GoldPathMockAgent("agent-gemini", shared_answer),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_full_e2e_flow_debate_to_channel(self, mock_agents):
+        """Complete E2E: debate → receipt → plan → execute → channel delivery."""
+        from aragora.core import Environment
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+
+        # Step 1: Run a minimal debate
+        env = Environment(task="Design a distributed rate limiter for 1M req/sec")
+        protocol = DebateProtocol(
+            rounds=1,
+            consensus="majority",
+            enable_calibration=False,
+            enable_rhetorical_observer=False,
+            enable_trickster=False,
+        )
+
+        arena = Arena(env, mock_agents, protocol)
+        result = await arena.run()
+
+        # Verify debate completed
+        assert result is not None
+        assert result.rounds_completed >= 1
+        assert result.final_answer is not None
+        assert result.debate_id is not None
+
+        # Step 2: Build decision integrity package from debate result
+        debate_dict = {
+            "debate_id": result.debate_id,
+            "task": result.task,
+            "final_answer": result.final_answer,
+            "confidence": result.confidence,
+            "consensus_reached": result.consensus_reached,
+            "rounds_used": result.rounds_used,
+            "rounds_completed": result.rounds_completed,
+            "status": result.status,
+            "agents": result.participants,
+        }
+
+        pkg = await build_decision_integrity_package(
+            debate_dict,
+            include_receipt=True,
+            include_plan=True,
+            include_context=False,  # Skip context for speed
+        )
+
+        # Verify package is complete
+        assert pkg.debate_id == result.debate_id
+        assert pkg.receipt is not None
+        assert pkg.plan is not None
+        assert len(pkg.plan.tasks) >= 1
+
+        # Step 3: Verify receipt has all required audit fields
+        receipt_dict = pkg.receipt.to_dict()
+        assert "receipt_id" in receipt_dict
+        assert "timestamp" in receipt_dict
+        assert "verdict" in receipt_dict
+        assert receipt_dict["verdict"] in ("PASS", "CONDITIONAL", "FAIL")
+
+        # Step 4: Verify plan can be serialized (ready for execution)
+        plan_dict = pkg.plan.to_dict()
+        assert "tasks" in plan_dict
+        assert len(plan_dict["tasks"]) >= 1
+        assert "description" in plan_dict["tasks"][0]
+
+        # Step 5: Simulate execution by verifying plan structure
+        from aragora.pipeline.decision_plan import DecisionPlanFactory, PlanStatus
+
+        decision_plan = DecisionPlanFactory.from_implement_plan(
+            pkg.plan,
+            debate_id=result.debate_id,
+            task=result.task,
+        )
+
+        assert decision_plan.debate_id == result.debate_id
+        assert decision_plan.status == PlanStatus.CREATED
+        assert decision_plan.implement_plan is pkg.plan
+
+        # Step 6: Verify channel routing is wired correctly
+        from aragora.server.result_router import route_result
+
+        # Mock the debate_origin module to verify routing is called
+        with patch(
+            "aragora.server.debate_origin.route_debate_result", new_callable=AsyncMock
+        ) as mock_route:
+            mock_route.return_value = True
+
+            routed = await route_result(result.debate_id, debate_dict)
+            assert routed is True
+            mock_route.assert_called_once_with(result.debate_id, debate_dict)
+
+    @pytest.mark.asyncio
+    async def test_e2e_with_context_snapshot(self, mock_agents):
+        """E2E flow including context snapshot for full auditability."""
+        from aragora.core import Environment
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+
+        # Run debate
+        env = Environment(task="Implement caching strategy for database queries")
+        protocol = DebateProtocol(rounds=1, consensus="majority")
+        arena = Arena(env, mock_agents, protocol)
+        result = await arena.run()
+
+        debate_dict = {
+            "debate_id": result.debate_id,
+            "task": result.task,
+            "final_answer": result.final_answer,
+            "confidence": result.confidence,
+            "consensus_reached": result.consensus_reached,
+            "rounds_used": result.rounds_used,
+            "rounds_completed": result.rounds_completed,
+            "status": result.status,
+            "agents": result.participants,
+        }
+
+        # Build with context snapshot
+        mock_cross_debate = AsyncMock()
+        mock_cross_debate.get_relevant_context.return_value = (
+            "Previous debates recommend Redis for caching."
+        )
+
+        pkg = await build_decision_integrity_package(
+            debate_dict,
+            include_receipt=True,
+            include_plan=True,
+            include_context=True,
+            cross_debate_memory=mock_cross_debate,
+        )
+
+        # Verify full package
+        assert pkg.context_snapshot is not None
+        assert (
+            pkg.context_snapshot.cross_debate_context
+            == "Previous debates recommend Redis for caching."
+        )
+
+        # Verify serialization works for full package
+        full_dict = pkg.to_dict()
+        assert full_dict["context_snapshot"] is not None
+        assert (
+            full_dict["context_snapshot"]["cross_debate_context"]
+            == "Previous debates recommend Redis for caching."
+        )
+
+        # Verify JSON serialization works
+        import json
+
+        json_str = json.dumps(full_dict)
+        assert "cross_debate_context" in json_str
+
+    @pytest.mark.asyncio
+    async def test_e2e_persistence_round_trip(self, mock_agents):
+        """E2E: debate → persist receipt/plan → retrieve and verify."""
+        from aragora.core import Environment
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+
+        # Run debate
+        env = Environment(task="Add retry logic to API client")
+        protocol = DebateProtocol(rounds=1, consensus="majority")
+        arena = Arena(env, mock_agents, protocol)
+        result = await arena.run()
+
+        debate_dict = {
+            "debate_id": result.debate_id,
+            "task": result.task,
+            "final_answer": result.final_answer,
+            "confidence": result.confidence,
+            "consensus_reached": result.consensus_reached,
+            "rounds_used": result.rounds_used,
+            "rounds_completed": result.rounds_completed,
+            "status": result.status,
+            "agents": result.participants,
+        }
+
+        pkg = await build_decision_integrity_package(debate_dict)
+
+        # Mock persistence layer
+        stored_receipts: dict[str, dict] = {}
+        stored_plans: dict[str, Any] = {}
+
+        def mock_save_receipt(receipt_dict: dict) -> str:
+            rid = receipt_dict.get("receipt_id", "test-rcpt")
+            stored_receipts[rid] = receipt_dict
+            return rid
+
+        mock_receipt_store = MagicMock()
+        mock_receipt_store.save = mock_save_receipt
+        mock_receipt_store.get = lambda rid: stored_receipts.get(rid)
+
+        # Persist receipt
+        from aragora.server.handlers.debates.implementation import _persist_receipt
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store", return_value=mock_receipt_store
+        ):
+            receipt_id = _persist_receipt(pkg.receipt, result.debate_id)
+
+        assert receipt_id is not None
+        assert receipt_id in stored_receipts
+
+        # Verify retrieval
+        retrieved = stored_receipts[receipt_id]
+        assert retrieved["debate_id"] == result.debate_id
+        assert "timestamp" in retrieved
+
+    @pytest.mark.asyncio
+    async def test_e2e_budget_enforcement_blocks_execution(self, mock_agents):
+        """E2E: verify budget check blocks execution when over limit."""
+        from aragora.core import Environment
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.server.handlers.debates.implementation import _check_execution_budget
+
+        # Run debate
+        env = Environment(task="Expensive operation that exceeds budget")
+        protocol = DebateProtocol(rounds=1, consensus="majority")
+        arena = Arena(env, mock_agents, protocol)
+        result = await arena.run()
+
+        # Simulate over-budget scenario
+        mock_tracker = MagicMock()
+        mock_tracker.check_debate_budget.return_value = {
+            "allowed": False,
+            "message": "Budget limit of $5.00 exceeded",
+            "current_cost": "5.50",
+            "limit": "5.00",
+        }
+
+        ctx = {"cost_tracker": mock_tracker}
+        allowed, msg = _check_execution_budget(result.debate_id, ctx)
+
+        assert allowed is False
+        assert "exceeded" in msg
+
+        # Verify that under-budget allows execution
+        mock_tracker.check_debate_budget.return_value = {
+            "allowed": True,
+            "current_cost": "1.50",
+            "limit": "5.00",
+            "remaining": "3.50",
+        }
+
+        allowed, msg = _check_execution_budget(result.debate_id, ctx)
+        assert allowed is True
+        assert msg == ""
+
+    @pytest.mark.asyncio
+    async def test_e2e_plan_outcome_routing(self, mock_agents):
+        """E2E: verify plan execution outcomes route to originating channel."""
+        from aragora.core import Environment
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.server.result_router import route_plan_outcome
+
+        # Run debate
+        env = Environment(task="Implement feature X")
+        protocol = DebateProtocol(rounds=1, consensus="majority")
+        arena = Arena(env, mock_agents, protocol)
+        result = await arena.run()
+
+        # Build package
+        debate_dict = {
+            "debate_id": result.debate_id,
+            "task": result.task,
+            "final_answer": result.final_answer,
+            "confidence": result.confidence,
+            "consensus_reached": result.consensus_reached,
+            "rounds_used": result.rounds_used,
+            "rounds_completed": result.rounds_completed,
+            "status": result.status,
+            "agents": result.participants,
+        }
+
+        pkg = await build_decision_integrity_package(debate_dict)
+
+        # Simulate plan execution outcome
+        plan_outcome = {
+            "success": True,
+            "task": result.task[:200],
+            "tasks_completed": 3,
+            "tasks_total": 3,
+            "verification_passed": 2,
+            "verification_total": 2,
+            "receipt_id": pkg.receipt.receipt_id if pkg.receipt else None,
+            "lessons": ["Redis works well for rate limiting"],
+        }
+
+        # Mock origin lookup and routing
+        mock_origin = MagicMock()
+        mock_origin.platform = "slack"
+        mock_origin.channel_id = "C123456"
+
+        with (
+            patch("aragora.server.debate_origin.get_debate_origin", return_value=mock_origin),
+            patch(
+                "aragora.server.debate_origin.router.route_plan_result", new_callable=AsyncMock
+            ) as mock_route,
+        ):
+            mock_route.return_value = True
+
+            routed = await route_plan_outcome(
+                debate_id=result.debate_id,
+                plan_id="plan-001",
+                outcome=plan_outcome,
+            )
+
+            assert routed is True
+            mock_route.assert_called_once()
+
+            # Verify the outcome includes formatted message
+            call_args = mock_route.call_args
+            routed_outcome = call_args[0][1]
+            assert "plan_id" in routed_outcome
+            assert "formatted_message" in routed_outcome
+            assert "Completed Successfully" in routed_outcome["formatted_message"]

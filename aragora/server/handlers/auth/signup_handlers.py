@@ -27,6 +27,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -264,7 +265,7 @@ async def handle_signup(
 
     except Exception as e:
         logger.exception("Signup failed")
-        return error_response(f"Signup failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "signup"), status=500)
 
 
 @rate_limit(rpm=10, limiter_name="auth_verify")
@@ -337,7 +338,7 @@ async def handle_verify_email(
 
     except Exception as e:
         logger.exception("Email verification failed")
-        return error_response(f"Verification failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "email verification"), status=500)
 
 
 @rate_limit(rpm=2, limiter_name="auth_resend")
@@ -387,7 +388,7 @@ async def handle_resend_verification(
 
     except Exception as e:
         logger.exception("Resend verification failed")
-        return error_response(f"Resend failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "resend verification"), status=500)
 
 
 # =============================================================================
@@ -474,7 +475,7 @@ async def handle_setup_organization(
 
     except Exception as e:
         logger.exception("Organization setup failed")
-        return error_response(f"Setup failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "org setup"), status=500)
 
 
 # =============================================================================

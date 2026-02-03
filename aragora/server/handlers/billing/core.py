@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sqlite3
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -575,7 +576,7 @@ class BillingHandler(SecureHandler):
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
-        except Exception as e:
+        except (AttributeError, IOError, OSError) as e:
             logger.warning(f"Failed to log audit event: {e}")
 
     @handle_errors("get audit log")
@@ -683,7 +684,7 @@ class BillingHandler(SecureHandler):
                     params.append(_MAX_EXPORT_ROWS)
                     cursor.execute(query, params)
                     usage_events = cursor.fetchall()
-            except Exception as e:
+            except (sqlite3.Error, OSError, ValueError) as e:
                 logger.error(f"Database error exporting usage data for org {org.id}: {e}")
                 return error_response("Failed to export usage data", 500)
 
@@ -1254,7 +1255,7 @@ class BillingHandler(SecureHandler):
                 try:
                     user_store.reset_org_usage(org.id)
                     logger.info(f"Reset usage for org {org.id} after invoice payment")
-                except Exception as e:
+                except (AttributeError, ValueError, OSError) as e:
                     logger.error(f"Failed to reset usage for org {org.id}: {e}")
 
                 # Mark any active payment failure as recovered
@@ -1262,7 +1263,7 @@ class BillingHandler(SecureHandler):
                     recovery_store = get_recovery_store()
                     if recovery_store.mark_recovered(org.id):
                         logger.info(f"Payment recovered for org {org.id}")
-                except Exception as e:
+                except (AttributeError, ValueError, OSError) as e:
                     logger.error(f"Failed to update recovery status for org {org.id}: {e}")
 
         return json_response({"received": True})
