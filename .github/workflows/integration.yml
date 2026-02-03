@@ -168,6 +168,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create additional databases
+        run: |
+          PGPASSWORD=aragora_test psql -h localhost -U aragora -d aragora_test -c "CREATE DATABASE aragora;" || true
+
       - name: Configure AWS credentials via OIDC
         if: ${{ vars.AWS_CI_ENABLED == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4

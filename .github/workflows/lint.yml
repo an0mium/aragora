@@ -146,8 +146,8 @@ jobs:
             aragora/explainability/decision.py \
             aragora/backup/manager.py \
             aragora/resilience/circuit_breaker.py \
-            aragora/resilience_patterns/retry.py \
-            aragora/resilience_patterns/timeout.py \
+            aragora/resilience/retry.py \
+            aragora/resilience/timeout.py \
             --config-file pyproject.toml \
             --no-error-summary
           echo "Core modules type check passed!"
