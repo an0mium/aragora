@@ -1160,6 +1160,12 @@ def check_permission(
         normalized_resource = legacy_map.get(resource)
         if normalized_resource:
             permission_key = f"{normalized_resource}.{action}"
+        if resource == "retention" and action.startswith("policies."):
+            legacy_action = action.split(".", 1)[-1]
+            if legacy_action in {"read", "view"}:
+                permission_key = "data_retention.read"
+            else:
+                permission_key = "data_retention.update"
     return get_permission_checker().check_permission(context, permission_key, resource_id)
 
 

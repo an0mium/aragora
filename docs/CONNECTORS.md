@@ -17,6 +17,7 @@ Aragora is the **control plane for multi-agent vetted decisionmaking across orga
 | `WebConnector` | Web search | No | 10/min | Live web content |
 | `GitHubConnector` | GitHub API | Optional | 60/hr (5000 w/token) | Issues, PRs, code |
 | `RepositoryCrawler` | Local repo checkout | No | N/A | Codebase indexing, symbols, deps |
+| `ObsidianConnector` | Obsidian vault (local) | No | N/A | Personal knowledge base, design notes |
 | `RedditConnector` | Reddit API | Yes | 60/min | Community sentiment |
 | `TwitterConnector` | Twitter/X API | Yes | Varies | Real-time discourse |
 | `NewsAPIConnector` | NewsAPI | Yes | 1000/day | News articles |
@@ -52,6 +53,10 @@ GITHUB_TOKEN=ghp_your_token
 TWITTER_BEARER_TOKEN=your_bearer_token
 REDDIT_CLIENT_ID=your_client_id
 REDDIT_CLIENT_SECRET=your_client_secret
+# Obsidian (local vault)
+ARAGORA_OBSIDIAN_VAULT_PATH=/Users/you/Documents/ObsidianVault
+ARAGORA_OBSIDIAN_TAGS=#decision,#debate,#aragora
+ARAGORA_OBSIDIAN_IGNORE_FOLDERS=.obsidian,.trash,templates
 ```
 
 Operational platform connectors typically use OAuth credentials passed to the
@@ -156,6 +161,18 @@ connector = SECConnector()
 filings = connector.search("Apple Inc", form_types=["10-K", "10-Q"])
 
 # Available forms: 10-K, 10-Q, 8-K, DEF 14A, S-1, etc.
+```
+
+### ObsidianConnector
+Ingest notes from a local Obsidian vault.
+
+```python
+from aragora.connectors.knowledge import ObsidianConfig, ObsidianConnector
+
+config = ObsidianConfig.from_env()  # or ObsidianConfig(vault_path="~/Vault")
+connector = ObsidianConnector(config)
+
+results = await connector.search("rate limiting", tags=["#decision"])
 ```
 
 ### SQLConnector

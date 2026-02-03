@@ -35,7 +35,7 @@ from .permissions import (
     PERM_ORG_AUDIT,
     PERM_ORG_EXPORT,
     PERM_ORG_INVITE,
-    # API
+    PERM_ORG_DELETE,
     PERM_API_GENERATE_KEY,
     PERM_API_REVOKE_KEY,
     PERM_API_KEY_CREATE,
@@ -299,6 +299,12 @@ ROLE_ADMIN = Role(
         PERM_ORG_AUDIT.key,
         PERM_ORG_EXPORT.key,
         PERM_ORG_INVITE.key,
+        PERM_ORG_DELETE.key,
+        # Workspaces
+        PERM_WORKSPACE_CREATE.key,
+        PERM_WORKSPACE_READ.key,
+        PERM_WORKSPACE_UPDATE.key,
+        PERM_WORKSPACE_DELETE.key,
         # API keys
         PERM_API_GENERATE_KEY.key,
         PERM_API_REVOKE_KEY.key,
@@ -314,6 +320,9 @@ ROLE_ADMIN = Role(
         # Session management
         PERM_SESSION_READ.key,
         PERM_SESSION_REVOKE.key,
+        # Data retention
+        PERM_DATA_RETENTION_READ.key,
+        PERM_DATA_RETENTION_UPDATE.key,
         # All memory
         PERM_MEMORY_READ.key,
         PERM_MEMORY_UPDATE.key,
