@@ -1801,7 +1801,11 @@ class TestSlashCommandDebate:
                 "aragora.server.handlers.social._slack_impl.commands.get_debates_db",
                 return_value=None,
             ),
-            patch.object(handler, "_command_debate", return_value={"ok": True}) as mock_start,
+            patch.object(
+                handler,
+                "_command_debate",
+                return_value=handler._slack_response("ok"),
+            ) as mock_start,
         ):
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
-  "version": "1.0.0",
+  "version": "2.5.0",
   "id": "{{TEAMS_APP_ID}}",
   "packageName": "ai.aragora.teams",
   "developer": {
@@ -42,8 +42,20 @@
               "description": "Start a multi-agent debate on a topic"
             },
             {
+              "title": "plan",
+              "description": "Start a debate with implementation planning"
+            },
+            {
+              "title": "implement",
+              "description": "Start a debate with full implementation context"
+            },
+            {
               "title": "status",
               "description": "Check status of running debates"
+            },
+            {
+              "title": "leaderboard",
+              "description": "Show agent rankings by ELO score"
             },
             {
               "title": "results",
