@@ -53,6 +53,25 @@ class UncertaintyHandler(BaseHandler):
     @require_permission("uncertainty:read")
     @rate_limit(requests_per_minute=60)
     async def handle(
+        self,
+        path: str,
+        query_params: dict[str, Any] | str,
+        handler: Any = None,
+    ) -> HandlerResult | None:
+        """Route requests to appropriate handler method.
+
+        Supports legacy call signature: handle(path, method, handler).
+        """
+        method = "GET"
+        if isinstance(query_params, str):
+            method = query_params.upper()
+            query_params = {}
+
+        if method == "POST":
+            return await self._handle_post(path, query_params, handler)
+        return await self._handle_get(path, query_params, handler)
+
+    async def _handle_get(
         self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
         """Route GET requests to appropriate handler method."""
@@ -86,6 +105,12 @@ class UncertaintyHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
         """Route POST requests to appropriate handler method."""
+        return await self._handle_post(path, query_params, handler)
+
+    async def _handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
+        """Internal POST router for uncertainty endpoints."""
         # POST /api/uncertainty/estimate
         if path == "/api/v1/uncertainty/estimate":
             return await self._estimate_uncertainty(handler)
