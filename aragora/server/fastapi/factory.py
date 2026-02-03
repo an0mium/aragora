@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .middleware.tracing import TracingMiddleware
 from .middleware.validation import RequestValidationMiddleware
 from .middleware.error_handling import setup_exception_handlers
-from .routes import health, debates, decisions
+from .routes import health, debates, decisions, testfixer
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +251,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(debates.router)
     app.include_router(decisions.router)
+    app.include_router(testfixer.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)

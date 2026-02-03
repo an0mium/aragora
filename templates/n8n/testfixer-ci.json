@@ -1,0 +1,353 @@
+{
+  "name": "TestFixer CI Integration",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "CI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "testfixer",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "validate-payload",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.if",
+      "position": [450, 300],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.repo_path }}",
+              "operation": "isNotEmpty"
+            },
+            {
+              "value1": "={{ $json.test_command }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "run-tests",
+      "name": "Run Tests",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [650, 200],
+      "parameters": {
+        "command": "={{ 'cd ' + $json.repo_path + ' && ' + $json.test_command + ' --maxfail=1 2>&1' }}"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "check-test-result",
+      "name": "Tests Passed?",
+      "type": "n8n-nodes-base.if",
+      "position": [850, 200],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.exitCode }}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1050, 100],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'success', message: 'All tests passed' }) }}"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "extract-failure",
+      "name": "Extract Failure",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 300],
+      "parameters": {
+        "jsCode": "// Parse pytest output to extract first failure\nconst output = $input.first().json.stdout || '';\nconst stderr = $input.first().json.stderr || '';\nconst combined = output + '\\n' + stderr;\n\n// Extract failed test info\nconst failedMatch = combined.match(/FAILED\\s+([^\\s:]+)::([^\\s]+)/);\nconst errorMatch = combined.match(/(\\w+Error|\\w+Exception):\\s*(.+?)(?:\\n|$)/);\n\nlet failure = {\n  test_file: '',\n  test_name: '',\n  error_type: 'Unknown',\n  error_message: 'Could not parse failure',\n  stack_trace: combined.slice(-2000)\n};\n\nif (failedMatch) {\n  failure.test_file = failedMatch[1];\n  failure.test_name = failedMatch[2];\n}\n\nif (errorMatch) {\n  failure.error_type = errorMatch[1];\n  failure.error_message = errorMatch[2].trim();\n}\n\nreturn [{\n  json: {\n    ...failure,\n    repo_path: $('CI Webhook').first().json.repo_path,\n    test_command: $('CI Webhook').first().json.test_command,\n    iteration: $('CI Webhook').first().json.iteration || 1,\n    max_iterations: $('CI Webhook').first().json.max_iterations || 10\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "analyze-failure",
+      "name": "Analyze Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1250, 300],
+      "parameters": {
+        "url": "={{ $env.ARAGORA_API_URL || 'http://localhost:8000' }}/api/testfixer/analyze",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "failure",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.1
+    },
+    {
+      "id": "propose-fix",
+      "name": "Propose Fix (Debate)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 300],
+      "parameters": {
+        "url": "={{ $env.ARAGORA_API_URL || 'http://localhost:8000' }}/api/testfixer/propose",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "analysis",
+              "value": "={{ JSON.stringify($json.analysis) }}"
+            },
+            {
+              "name": "repo_path",
+              "value": "={{ $json.repo_path }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.1
+    },
+    {
+      "id": "check-confidence",
+      "name": "Confidence OK?",
+      "type": "n8n-nodes-base.if",
+      "position": [1650, 300],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.proposal.confidence }}",
+              "operation": "largerEqual",
+              "value2": 0.5
+            }
+          ]
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "low-confidence",
+      "name": "Low Confidence Alert",
+      "type": "n8n-nodes-base.slack",
+      "position": [1850, 400],
+      "parameters": {
+        "channel": "={{ $env.SLACK_CHANNEL || '#ci-alerts' }}",
+        "text": "⚠️ TestFixer low confidence\n\nTest: {{ $json.failure.test_name }}\nError: {{ $json.failure.error_type }}\nConfidence: {{ ($json.proposal.confidence * 100).toFixed(0) }}%\n\nManual review recommended.",
+        "otherOptions": {}
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "apply-fix",
+      "name": "Apply Fix",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1850, 200],
+      "parameters": {
+        "url": "={{ $env.ARAGORA_API_URL || 'http://localhost:8000' }}/api/testfixer/apply",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "proposal_id",
+              "value": "={{ $json.proposal.id }}"
+            },
+            {
+              "name": "repo_path",
+              "value": "={{ $json.repo_path }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.1
+    },
+    {
+      "id": "commit-fix",
+      "name": "Commit Fix",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [2050, 200],
+      "parameters": {
+        "command": "={{ 'cd ' + $json.repo_path + ' && git add -A && git commit -m \"fix: Auto-fix ' + $json.proposal.description.replace(/\"/g, '\\\\\"') + '\\n\\nCo-Authored-By: Aragora TestFixer <testfixer@aragora.ai>\"' }}"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "check-iteration",
+      "name": "More Iterations?",
+      "type": "n8n-nodes-base.if",
+      "position": [2250, 200],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.iteration }}",
+              "operation": "smaller",
+              "value2": "={{ $json.max_iterations }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "increment-loop",
+      "name": "Increment & Loop",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2450, 200],
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_URL || 'http://localhost:5678' }}/webhook/testfixer",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "repo_path",
+              "value": "={{ $json.repo_path }}"
+            },
+            {
+              "name": "test_command",
+              "value": "={{ $json.test_command }}"
+            },
+            {
+              "name": "iteration",
+              "value": "={{ $json.iteration + 1 }}"
+            },
+            {
+              "name": "max_iterations",
+              "value": "={{ $json.max_iterations }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.1
+    },
+    {
+      "id": "max-iterations-reached",
+      "name": "Max Iterations Alert",
+      "type": "n8n-nodes-base.slack",
+      "position": [2450, 350],
+      "parameters": {
+        "channel": "={{ $env.SLACK_CHANNEL || '#ci-alerts' }}",
+        "text": "🔴 TestFixer max iterations reached\n\nRepo: {{ $json.repo_path }}\nIterations: {{ $json.iteration }}\nLast failure: {{ $json.failure.test_name }}\n\nManual intervention required.",
+        "otherOptions": {}
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "create-linear-issue",
+      "name": "Create Linear Issue",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2650, 350],
+      "parameters": {
+        "url": "https://api.linear.app/graphql",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "mutation { issueCreate(input: { title: \"TestFixer: Manual fix needed for {{ $json.failure.test_name }}\", description: \"Automated fixing reached max iterations.\\n\\nError: {{ $json.failure.error_type }}\\nMessage: {{ $json.failure.error_message }}\\n\\nLast proposal confidence: {{ ($json.proposal.confidence * 100).toFixed(0) }}%\", teamId: \"{{ $env.LINEAR_TEAM_ID }}\" }) { success issue { id identifier url } } }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.1
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [{"node": "validate-payload", "type": "main", "index": 0}]
+      ]
+    },
+    "validate-payload": {
+      "main": [
+        [{"node": "run-tests", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "run-tests": {
+      "main": [
+        [{"node": "check-test-result", "type": "main", "index": 0}]
+      ]
+    },
+    "check-test-result": {
+      "main": [
+        [{"node": "success-response", "type": "main", "index": 0}],
+        [{"node": "extract-failure", "type": "main", "index": 0}]
+      ]
+    },
+    "extract-failure": {
+      "main": [
+        [{"node": "analyze-failure", "type": "main", "index": 0}]
+      ]
+    },
+    "analyze-failure": {
+      "main": [
+        [{"node": "propose-fix", "type": "main", "index": 0}]
+      ]
+    },
+    "propose-fix": {
+      "main": [
+        [{"node": "check-confidence", "type": "main", "index": 0}]
+      ]
+    },
+    "check-confidence": {
+      "main": [
+        [{"node": "apply-fix", "type": "main", "index": 0}],
+        [{"node": "low-confidence", "type": "main", "index": 0}]
+      ]
+    },
+    "apply-fix": {
+      "main": [
+        [{"node": "commit-fix", "type": "main", "index": 0}]
+      ]
+    },
+    "commit-fix": {
+      "main": [
+        [{"node": "check-iteration", "type": "main", "index": 0}]
+      ]
+    },
+    "check-iteration": {
+      "main": [
+        [{"node": "increment-loop", "type": "main", "index": 0}],
+        [{"node": "max-iterations-reached", "type": "main", "index": 0}]
+      ]
+    },
+    "max-iterations-reached": {
+      "main": [
+        [{"node": "create-linear-issue", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["ci", "testing", "automation", "aragora"],
+  "triggerCount": 0,
+  "updatedAt": "2026-02-03T00:00:00.000Z",
+  "versionId": "1"
+}

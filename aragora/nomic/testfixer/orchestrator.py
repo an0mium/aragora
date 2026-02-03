@@ -1,0 +1,585 @@
+"""
+TestFixerOrchestrator - Main loop for automated test fixing.
+
+Coordinates:
+1. Running tests
+2. Analyzing failures
+3. Proposing and debating fixes
+4. Applying fixes and retesting
+5. Learning from results
+
+Continues until tests pass or maximum iterations reached.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Awaitable
+
+from aragora.nomic.testfixer.runner import TestRunner, TestResult, TestFailure
+from aragora.nomic.testfixer.analyzer import FailureAnalyzer, FailureAnalysis, FixTarget
+from aragora.nomic.testfixer.proposer import (
+    PatchProposer,
+    PatchProposal,
+    PatchStatus,
+    CodeGenerator,
+)
+from aragora.nomic.testfixer.store import TestFixerAttemptStore
+
+
+logger = logging.getLogger(__name__)
+
+
+class LoopStatus(str, Enum):
+    """Status of the fix loop."""
+
+    RUNNING = "running"
+    SUCCESS = "success"  # All tests pass
+    MAX_ITERATIONS = "max_iterations"  # Hit iteration limit
+    STUCK = "stuck"  # Same failure repeating
+    HUMAN_REQUIRED = "human_required"  # Need human intervention
+    ERROR = "error"  # Unexpected error
+
+
+@dataclass
+class FixAttempt:
+    """Record of a single fix attempt."""
+
+    iteration: int
+    failure: TestFailure
+    analysis: FailureAnalysis
+    proposal: PatchProposal
+    applied: bool
+    test_result_after: TestResult | None
+    success: bool
+    timestamp: datetime = field(default_factory=datetime.now)
+    duration_seconds: float = 0.0
+    notes: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FixLoopResult:
+    """Result of a complete fix loop."""
+
+    status: LoopStatus
+    started_at: datetime
+    finished_at: datetime = field(default_factory=datetime.now)
+
+    # Stats
+    total_iterations: int = 0
+    fixes_applied: int = 0
+    fixes_successful: int = 0
+    fixes_reverted: int = 0
+
+    # Details
+    attempts: list[FixAttempt] = field(default_factory=list)
+    final_test_result: TestResult | None = None
+
+    # Learning data
+    successful_patterns: list[dict[str, Any]] = field(default_factory=list)
+    failed_patterns: list[dict[str, Any]] = field(default_factory=list)
+
+    def summary(self) -> str:
+        """Human-readable summary."""
+        duration = (self.finished_at - self.started_at).total_seconds()
+        return (
+            f"TestFixer {self.status.value}: "
+            f"{self.fixes_successful}/{self.fixes_applied} fixes successful "
+            f"in {self.total_iterations} iterations ({duration:.1f}s)"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "status": self.status.value,
+            "started_at": self.started_at.isoformat(),
+            "finished_at": self.finished_at.isoformat(),
+            "total_iterations": self.total_iterations,
+            "fixes_applied": self.fixes_applied,
+            "fixes_successful": self.fixes_successful,
+            "fixes_reverted": self.fixes_reverted,
+            "attempts": [
+                {
+                    "iteration": a.iteration,
+                    "failure": a.failure.test_name,
+                    "category": a.analysis.category.value,
+                    "applied": a.applied,
+                    "success": a.success,
+                }
+                for a in self.attempts
+            ],
+        }
+
+
+@dataclass
+class FixLoopConfig:
+    """Configuration for the fix loop."""
+
+    # Iteration limits
+    max_iterations: int = 10
+    max_same_failure: int = 3  # Stop if same failure repeats this many times
+
+    # Confidence thresholds
+    min_confidence_to_apply: float = 0.5
+    min_confidence_for_auto: float = 0.7  # Higher threshold for fully auto
+
+    # Behavior
+    revert_on_failure: bool = True
+    require_debate_consensus: bool = False
+    stop_on_first_success: bool = False
+
+    # Callbacks
+    on_fix_proposed: Callable[[PatchProposal], Awaitable[bool]] | None = (
+        None  # Return False to skip
+    )
+    on_fix_applied: Callable[[FixAttempt], Awaitable[None]] | None = None
+    on_iteration_complete: Callable[[int, TestResult], Awaitable[None]] | None = None
+
+    # Persistence
+    save_attempts: bool = True
+    attempts_dir: Path | None = None
+    attempt_store: "TestFixerAttemptStore | None" = None
+
+
+class TestFixerOrchestrator:
+    """Main orchestrator for the automated test fixing loop.
+
+    Example:
+        fixer = TestFixerOrchestrator(
+            repo_path=Path("/path/to/repo"),
+            test_command="pytest tests/ -q --maxfail=1",
+        )
+
+        result = await fixer.run_fix_loop()
+
+        if result.status == LoopStatus.SUCCESS:
+            print("All tests pass!")
+        else:
+            print(f"Stopped: {result.status.value}")
+            for attempt in result.attempts:
+                print(f"  {attempt.failure.test_name}: {attempt.success}")
+    """
+
+    def __init__(
+        self,
+        repo_path: Path,
+        test_command: str,
+        config: FixLoopConfig | None = None,
+        generators: list[CodeGenerator] | None = None,
+        test_timeout: float = 300.0,
+    ):
+        """Initialize the orchestrator.
+
+        Args:
+            repo_path: Path to repository root
+            test_command: Command to run tests
+            config: Loop configuration
+            generators: AI code generators for proposals
+            test_timeout: Timeout for test execution
+        """
+        self.repo_path = Path(repo_path)
+        self.test_command = test_command
+        self.config = config or FixLoopConfig()
+
+        # Initialize components
+        self.runner = TestRunner(
+            repo_path=self.repo_path,
+            test_command=test_command,
+            timeout_seconds=test_timeout,
+        )
+        self.analyzer = FailureAnalyzer(repo_path=self.repo_path)
+        self.proposer = PatchProposer(
+            repo_path=self.repo_path,
+            generators=generators,
+            require_consensus=self.config.require_debate_consensus,
+        )
+
+        # State
+        self._failure_history: list[str] = []  # Track failure patterns to detect loops
+        self._applied_patches: list[tuple[PatchProposal, Path]] = []
+
+    async def run_fix_loop(
+        self,
+        max_iterations: int | None = None,
+    ) -> FixLoopResult:
+        """Run the main fix loop.
+
+        Args:
+            max_iterations: Override config max_iterations
+
+        Returns:
+            FixLoopResult with complete history
+        """
+        max_iter = max_iterations or self.config.max_iterations
+        started_at = datetime.now()
+
+        result = FixLoopResult(
+            status=LoopStatus.RUNNING,
+            started_at=started_at,
+        )
+
+        try:
+            for iteration in range(1, max_iter + 1):
+                result.total_iterations = iteration
+
+                logger.info(f"TestFixer iteration {iteration}/{max_iter}")
+
+                # Run tests
+                test_result = await self.runner.run()
+                result.final_test_result = test_result
+
+                # Callback
+                if self.config.on_iteration_complete:
+                    await self.config.on_iteration_complete(iteration, test_result)
+
+                # Check for success
+                if test_result.success:
+                    result.status = LoopStatus.SUCCESS
+                    logger.info(f"All tests pass after {iteration} iterations")
+                    break
+
+                # Get first failure
+                failure = test_result.first_failure
+                if not failure:
+                    logger.warning("Tests failed but no failure details extracted")
+                    result.status = LoopStatus.ERROR
+                    break
+
+                # Check for stuck loop
+                failure_sig = f"{failure.test_file}::{failure.test_name}::{failure.error_type}"
+                self._failure_history.append(failure_sig)
+
+                recent = self._failure_history[-self.config.max_same_failure :]
+                if len(recent) == self.config.max_same_failure and len(set(recent)) == 1:
+                    logger.warning(f"Same failure {self.config.max_same_failure} times, stopping")
+                    result.status = LoopStatus.STUCK
+                    break
+
+                # Analyze failure
+                analysis = await self.analyzer.analyze(failure)
+
+                # Check if human needed
+                if analysis.fix_target == FixTarget.HUMAN:
+                    logger.info("Analysis indicates human intervention needed")
+                    result.status = LoopStatus.HUMAN_REQUIRED
+                    result.attempts.append(
+                        FixAttempt(
+                            iteration=iteration,
+                            failure=failure,
+                            analysis=analysis,
+                            proposal=PatchProposal(
+                                id=f"human_{iteration}",
+                                analysis=analysis,
+                                status=PatchStatus.REJECTED,
+                                description="Requires human intervention",
+                            ),
+                            applied=False,
+                            test_result_after=None,
+                            success=False,
+                            notes=["Analysis determined human intervention needed"],
+                        )
+                    )
+                    break
+
+                # Propose fix
+                proposal = await self.proposer.propose_fix(analysis)
+
+                # Check confidence
+                if proposal.post_debate_confidence < self.config.min_confidence_to_apply:
+                    logger.info(
+                        f"Proposal confidence {proposal.post_debate_confidence:.0%} "
+                        f"below threshold {self.config.min_confidence_to_apply:.0%}, skipping"
+                    )
+                    result.attempts.append(
+                        FixAttempt(
+                            iteration=iteration,
+                            failure=failure,
+                            analysis=analysis,
+                            proposal=proposal,
+                            applied=False,
+                            test_result_after=None,
+                            success=False,
+                            notes=["Confidence below threshold"],
+                        )
+                    )
+                    continue
+
+                # Callback for approval
+                if self.config.on_fix_proposed:
+                    approved = await self.config.on_fix_proposed(proposal)
+                    if not approved:
+                        logger.info("Fix proposal rejected by callback")
+                        result.attempts.append(
+                            FixAttempt(
+                                iteration=iteration,
+                                failure=failure,
+                                analysis=analysis,
+                                proposal=proposal,
+                                applied=False,
+                                test_result_after=None,
+                                success=False,
+                                notes=["Rejected by approval callback"],
+                            )
+                        )
+                        continue
+
+                # Apply fix
+                if not proposal.patches:
+                    logger.info("No patches in proposal, skipping")
+                    result.attempts.append(
+                        FixAttempt(
+                            iteration=iteration,
+                            failure=failure,
+                            analysis=analysis,
+                            proposal=proposal,
+                            applied=False,
+                            test_result_after=None,
+                            success=False,
+                            notes=["No patches generated"],
+                        )
+                    )
+                    continue
+
+                logger.info(f"Applying fix: {proposal.description}")
+                applied = proposal.apply_all(self.repo_path)
+                result.fixes_applied += 1
+
+                if not applied:
+                    logger.error("Failed to apply patches")
+                    result.attempts.append(
+                        FixAttempt(
+                            iteration=iteration,
+                            failure=failure,
+                            analysis=analysis,
+                            proposal=proposal,
+                            applied=False,
+                            test_result_after=None,
+                            success=False,
+                            notes=["Failed to apply patches"],
+                        )
+                    )
+                    continue
+
+                self._applied_patches.append((proposal, self.repo_path))
+
+                # Retest
+                retest_result = await self.runner.run()
+
+                # Check if fix worked
+                fix_worked = retest_result.success or (
+                    retest_result.first_failure
+                    and retest_result.first_failure.test_name != failure.test_name
+                )
+
+                attempt = FixAttempt(
+                    iteration=iteration,
+                    failure=failure,
+                    analysis=analysis,
+                    proposal=proposal,
+                    applied=True,
+                    test_result_after=retest_result,
+                    success=fix_worked,
+                )
+
+                if fix_worked:
+                    logger.info(f"Fix successful for {failure.test_name}")
+                    result.fixes_successful += 1
+                    result.successful_patterns.append(
+                        {
+                            "category": analysis.category.value,
+                            "fix_target": analysis.fix_target.value,
+                            "diff": proposal.as_diff(),
+                        }
+                    )
+
+                if self.config.on_fix_applied:
+                    await self.config.on_fix_applied(attempt)
+                if self.config.attempt_store:
+                    self.config.attempt_store.record_attempt(attempt)
+
+                    if self.config.stop_on_first_success:
+                        result.attempts.append(attempt)
+                        result.status = LoopStatus.SUCCESS
+                        result.final_test_result = retest_result
+                        break
+
+                else:
+                    logger.info(f"Fix did not resolve {failure.test_name}")
+                    result.failed_patterns.append(
+                        {
+                            "category": analysis.category.value,
+                            "fix_target": analysis.fix_target.value,
+                            "diff": proposal.as_diff(),
+                        }
+                    )
+
+                    # Revert if configured
+                    if self.config.revert_on_failure:
+                        logger.info("Reverting failed fix")
+                        proposal.revert_all(self.repo_path)
+                        result.fixes_reverted += 1
+
+                result.attempts.append(attempt)
+                if self.config.attempt_store:
+                    self.config.attempt_store.record_attempt(attempt)
+
+                # Save attempt if configured
+                if self.config.save_attempts and self.config.attempts_dir:
+                    await self._save_attempt(attempt)
+
+            else:
+                # Loop completed without success
+                result.status = LoopStatus.MAX_ITERATIONS
+
+        except Exception as e:
+            logger.exception("Error in fix loop")
+            result.status = LoopStatus.ERROR
+            if result.attempts:
+                result.attempts[-1].notes.append(f"Error: {e}")
+
+        result.finished_at = datetime.now()
+        if self.config.attempt_store:
+            self.config.attempt_store.record_run(result)
+        return result
+
+    async def run_single_fix(
+        self,
+        failure: TestFailure,
+    ) -> FixAttempt:
+        """Attempt to fix a single failure.
+
+        Args:
+            failure: The failure to fix
+
+        Returns:
+            FixAttempt with result
+        """
+        analysis = await self.analyzer.analyze(failure)
+        proposal = await self.proposer.propose_fix(analysis)
+
+        if proposal.post_debate_confidence < self.config.min_confidence_to_apply:
+            return FixAttempt(
+                iteration=0,
+                failure=failure,
+                analysis=analysis,
+                proposal=proposal,
+                applied=False,
+                test_result_after=None,
+                success=False,
+                notes=["Confidence below threshold"],
+            )
+
+        if not proposal.patches:
+            return FixAttempt(
+                iteration=0,
+                failure=failure,
+                analysis=analysis,
+                proposal=proposal,
+                applied=False,
+                test_result_after=None,
+                success=False,
+                notes=["No patches generated"],
+            )
+
+        applied = proposal.apply_all(self.repo_path)
+        if not applied:
+            return FixAttempt(
+                iteration=0,
+                failure=failure,
+                analysis=analysis,
+                proposal=proposal,
+                applied=False,
+                test_result_after=None,
+                success=False,
+                notes=["Failed to apply patches"],
+            )
+
+        # Run single test to verify
+        retest = await self.runner.run_single_test(f"{failure.test_file}::{failure.test_name}")
+
+        success = retest.success
+        if not success and self.config.revert_on_failure:
+            proposal.revert_all(self.repo_path)
+
+        return FixAttempt(
+            iteration=0,
+            failure=failure,
+            analysis=analysis,
+            proposal=proposal,
+            applied=True,
+            test_result_after=retest,
+            success=success,
+        )
+
+    async def _save_attempt(self, attempt: FixAttempt) -> None:
+        """Save attempt to disk for learning."""
+        if not self.config.attempts_dir:
+            return
+
+        self.config.attempts_dir.mkdir(parents=True, exist_ok=True)
+        filepath = (
+            self.config.attempts_dir
+            / f"attempt_{attempt.iteration}_{attempt.timestamp.strftime('%Y%m%d_%H%M%S')}.json"
+        )
+
+        data = {
+            "iteration": attempt.iteration,
+            "failure": {
+                "test_name": attempt.failure.test_name,
+                "test_file": attempt.failure.test_file,
+                "error_type": attempt.failure.error_type,
+                "error_message": attempt.failure.error_message,
+            },
+            "analysis": {
+                "category": attempt.analysis.category.value,
+                "fix_target": attempt.analysis.fix_target.value,
+                "confidence": attempt.analysis.confidence,
+                "root_cause": attempt.analysis.root_cause,
+            },
+            "proposal": {
+                "id": attempt.proposal.id,
+                "description": attempt.proposal.description,
+                "confidence": attempt.proposal.post_debate_confidence,
+                "diff": attempt.proposal.as_diff(),
+            },
+            "applied": attempt.applied,
+            "success": attempt.success,
+            "notes": attempt.notes,
+            "timestamp": attempt.timestamp.isoformat(),
+        }
+
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+
+
+async def run_test_fixer(
+    repo_path: str | Path,
+    test_command: str,
+    max_iterations: int = 10,
+    min_confidence: float = 0.5,
+) -> FixLoopResult:
+    """Convenience function to run the test fixer.
+
+    Args:
+        repo_path: Path to repository
+        test_command: Command to run tests
+        max_iterations: Maximum fix attempts
+        min_confidence: Minimum confidence to apply fixes
+
+    Returns:
+        FixLoopResult
+    """
+    fixer = TestFixerOrchestrator(
+        repo_path=Path(repo_path),
+        test_command=test_command,
+        config=FixLoopConfig(
+            max_iterations=max_iterations,
+            min_confidence_to_apply=min_confidence,
+        ),
+    )
+    return await fixer.run_fix_loop()

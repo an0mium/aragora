@@ -39,6 +39,7 @@ from aragora.control_plane.coordinator import (
 )
 from aragora.control_plane.registry import AgentCapability, AgentInfo, AgentStatus
 from aragora.control_plane.scheduler import Task, TaskPriority
+from aragora.control_plane.testfixer import TestFixerControlPlane, TestFixerTaskPayload
 from aragora.control_plane.shared_state import (
     SharedControlPlaneState,
     set_shared_state,
@@ -561,6 +562,26 @@ class IntegratedControlPlane:
                 "sla_compliant": outcome.sla_compliant,
             }
         return None
+
+    # =========================================================================
+    # TestFixer Operations (first-class task type)
+    # =========================================================================
+
+    async def submit_testfixer(
+        self,
+        payload: TestFixerTaskPayload,
+        priority: str = "normal",
+    ) -> str:
+        """Submit a TestFixer task to the control plane."""
+        priority_enum = TaskPriority.NORMAL
+        if priority == "high":
+            priority_enum = TaskPriority.HIGH
+        elif priority == "urgent":
+            priority_enum = TaskPriority.URGENT
+        elif priority == "low":
+            priority_enum = TaskPriority.LOW
+        handler = TestFixerControlPlane(self)
+        return await handler.submit(payload, priority=priority_enum)
 
     def _create_elo_callback(self) -> Callable[[Any], None]:
         """Create callback to update ELO on deliberation completion."""
