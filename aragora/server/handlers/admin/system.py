@@ -79,6 +79,8 @@ class SystemHandler(BaseHandler):
         "/api/circuit-breakers",
         # Prometheus metrics
         "/metrics",
+        # Diagnostics
+        "/api/v1/diagnostics/handlers",
     ]
 
     # History endpoints require authentication (can expose debate data)
@@ -151,6 +153,7 @@ class SystemHandler(BaseHandler):
             "/api/auth/stats": lambda: self._get_auth_stats(handler),
             "/metrics": lambda: self._get_prometheus_metrics(handler),
             "/api/circuit-breakers": lambda: self._get_circuit_breaker_metrics(handler),
+            "/api/v1/diagnostics/handlers": lambda: self._get_handler_diagnostics(handler),
         }
 
         if path in simple_routes:
@@ -541,3 +544,77 @@ class SystemHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Circuit breaker metrics failed: {e}")
             return error_response(safe_error_message(e, "circuit breaker metrics"), 500)
+
+    @require_permission("admin:diagnostics")
+    @rate_limit(requests_per_minute=10, limiter_name="diagnostics_handlers")
+    def _get_handler_diagnostics(self, handler: Any = None, user: Any = None) -> HandlerResult:
+        """Get handler registration diagnostics for debugging routing issues.
+
+        Requires admin:diagnostics permission.
+
+        Returns information about registered handlers:
+        - handlers_count: Total registered handlers
+        - loaded_count: Successfully loaded handlers
+        - oauth_handler: OAuth-specific status check
+        - handlers: List of all handlers with their routes
+
+        Useful for debugging "Static directory not configured" and similar
+        routing errors in production.
+        """
+        try:
+            from aragora.server.handler_registry import HANDLER_REGISTRY
+
+            handlers_info = []
+            for attr_name, handler_class in HANDLER_REGISTRY:
+                if handler_class is None:
+                    handlers_info.append(
+                        {
+                            "name": attr_name,
+                            "status": "not_loaded",
+                            "routes": [],
+                        }
+                    )
+                    continue
+
+                routes = getattr(handler_class, "ROUTES", [])
+                handlers_info.append(
+                    {
+                        "name": attr_name,
+                        "status": "loaded",
+                        "class": handler_class.__name__,
+                        "routes_count": len(routes),
+                        "sample_routes": routes[:5] if routes else [],
+                    }
+                )
+
+            # Check OAuth handler specifically (common source of issues)
+            oauth_handler_class = next(
+                (h for n, h in HANDLER_REGISTRY if "_oauth_handler" in n.lower()), None
+            )
+            oauth_status: dict[str, Any] = {
+                "registered": oauth_handler_class is not None,
+                "can_handle_google_callback": False,
+            }
+            if oauth_handler_class:
+                try:
+                    instance = oauth_handler_class(self.ctx)
+                    oauth_status["can_handle_google_callback"] = instance.can_handle(
+                        "/api/auth/oauth/google/callback"
+                    )
+                    oauth_status["class"] = oauth_handler_class.__name__
+                except Exception as e:
+                    oauth_status["error"] = str(e)[:100]
+
+            return json_response(
+                {
+                    "handlers_count": len(handlers_info),
+                    "loaded_count": sum(1 for h in handlers_info if h["status"] == "loaded"),
+                    "oauth_handler": oauth_status,
+                    "handlers": handlers_info,
+                }
+            )
+        except ImportError as e:
+            return error_response(f"Handler registry not available: {e}", 503)
+        except Exception as e:
+            logger.exception(f"Handler diagnostics failed: {e}")
+            return error_response(safe_error_message(e, "handler diagnostics"), 500)
