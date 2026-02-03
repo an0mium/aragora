@@ -1187,75 +1187,14 @@ class PayPalClient:
             else:
                 event_body = str(payload)
 
-        return self._verify_webhook_signature_hmac(
-            transmission_id=transmission_id or "",
-            timestamp=timestamp or "",
-            webhook_id=webhook_id or (self.credentials.webhook_id or ""),
-            event_body=event_body or "",
-            cert_url=cert_url or "",
-            auth_algo=auth_algo or "",
-            actual_signature=actual_signature or "",
-        )
+        transmission_id = transmission_id or ""
+        timestamp = timestamp or ""
+        webhook_id = webhook_id or (self.credentials.webhook_id or "")
+        event_body = event_body or ""
+        cert_url = cert_url or ""
+        auth_algo = auth_algo or ""
+        actual_signature = actual_signature or ""
 
-    def _verify_webhook_internally(
-        self,
-        payload: bytes,
-        transmission_id: str,
-        transmission_time: str,
-        transmission_sig: str,
-        cert_url: str,
-        auth_algo: str | None = None,
-    ) -> bool:
-        """Internal webhook verification used by tests/handlers."""
-        event_body = (
-            payload.decode("utf-8") if isinstance(payload, (bytes, bytearray)) else str(payload)
-        )
-
-        is_valid = self._verify_webhook_signature_hmac(
-            transmission_id=transmission_id,
-            timestamp=transmission_time,
-            webhook_id=self.credentials.webhook_id or "",
-            event_body=event_body,
-            cert_url=cert_url,
-            auth_algo=auth_algo or "",
-            actual_signature=transmission_sig,
-        )
-
-        if not is_valid:
-            raise PayPalError(message="Signature verification failed", status_code=401)
-
-        return True
-
-    def _verify_webhook_signature_hmac(
-        self,
-        transmission_id: str,
-        timestamp: str,
-        webhook_id: str,
-        event_body: str,
-        cert_url: str,
-        auth_algo: str,
-        actual_signature: str,
-    ) -> bool:
-        """
-        Verify PayPal webhook signature.
-
-        Uses webhook ID validation, timestamp freshness checks, and
-        cryptographic signature verification using HMAC-SHA256.
-
-        In production, requires both webhook_id and webhook_secret to be configured.
-
-        Args:
-            transmission_id: PayPal-Transmission-Id header
-            timestamp: PayPal-Transmission-Time header
-            webhook_id: Webhook ID from PayPal (should match configured ID)
-            event_body: Raw JSON body of the webhook
-            cert_url: PayPal-Cert-Url header (for certificate-based verification)
-            auth_algo: PayPal-Auth-Algo header
-            actual_signature: PayPal-Transmission-Sig header (base64-encoded)
-
-        Returns:
-            True if signature is valid, False otherwise
-        """
         env = os.environ.get("ARAGORA_ENV", "development").lower()
         is_production = env not in ("development", "dev", "local", "test")
 
@@ -1351,6 +1290,56 @@ class PayPalClient:
                 f"Transmission ID: {transmission_id}"
             )
             return False
+
+    def _verify_webhook_internally(
+        self,
+        payload: bytes,
+        transmission_id: str,
+        transmission_time: str,
+        transmission_sig: str,
+        cert_url: str,
+        auth_algo: str | None = None,
+    ) -> bool:
+        """Internal webhook verification used by tests/handlers."""
+        event_body = (
+            payload.decode("utf-8") if isinstance(payload, (bytes, bytearray)) else str(payload)
+        )
+
+        is_valid = self._verify_webhook_signature_hmac(
+            transmission_id=transmission_id,
+            timestamp=transmission_time,
+            webhook_id=self.credentials.webhook_id or "",
+            event_body=event_body,
+            cert_url=cert_url,
+            auth_algo=auth_algo or "",
+            actual_signature=transmission_sig,
+        )
+
+        if not is_valid:
+            raise PayPalError(message="Signature verification failed", status_code=401)
+
+        return True
+
+    def _verify_webhook_signature_hmac(
+        self,
+        transmission_id: str,
+        timestamp: str,
+        webhook_id: str,
+        event_body: str,
+        cert_url: str,
+        auth_algo: str,
+        actual_signature: str,
+    ) -> bool:
+        """Compatibility wrapper for direct signature verification."""
+        return self.verify_webhook_signature(
+            transmission_id=transmission_id,
+            timestamp=timestamp,
+            webhook_id=webhook_id,
+            event_body=event_body,
+            cert_url=cert_url,
+            auth_algo=auth_algo,
+            actual_signature=actual_signature,
+        )
 
 
 # =============================================================================
