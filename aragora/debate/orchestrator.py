@@ -112,6 +112,11 @@ from aragora.debate.orchestrator_termination import (
     init_termination_checker as _termination_init_termination_checker,
 )
 
+# Re-export for backward compatibility (tests import from orchestrator)
+from aragora.debate.orchestrator_domains import (  # noqa: F401
+    compute_domain_from_task as _compute_domain_from_task,
+)
+
 # Structured logger for all debate events (JSON-formatted in production)
 logger = get_structured_logger(__name__)
 
