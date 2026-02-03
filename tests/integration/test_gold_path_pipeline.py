@@ -370,7 +370,7 @@ class TestPlanExecutor:
         mock_wf_result.error = None
         mock_wf_result.step_results = []
 
-        with patch("aragora.pipeline.executor.WorkflowEngine") as MockEngine:
+        with patch("aragora.workflow.engine.WorkflowEngine") as MockEngine:
             engine_instance = AsyncMock()
             engine_instance.execute.return_value = mock_wf_result
             MockEngine.return_value = engine_instance
@@ -414,7 +414,7 @@ class TestPlanExecutor:
         mock_wf_result.error = None
         mock_wf_result.step_results = []
 
-        with patch("aragora.pipeline.executor.WorkflowEngine") as MockEngine:
+        with patch("aragora.workflow.engine.WorkflowEngine") as MockEngine:
             engine_instance = AsyncMock()
             engine_instance.execute.return_value = mock_wf_result
             MockEngine.return_value = engine_instance
@@ -434,7 +434,7 @@ class TestPlanExecutor:
         plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
         store_plan(plan)
 
-        with patch("aragora.pipeline.executor.WorkflowEngine") as MockEngine:
+        with patch("aragora.workflow.engine.WorkflowEngine") as MockEngine:
             engine_instance = AsyncMock()
             engine_instance.execute.side_effect = RuntimeError("Workflow crashed")
             MockEngine.return_value = engine_instance

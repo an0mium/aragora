@@ -334,14 +334,14 @@ class TestImplementationStepExecution:
         )
 
         with patch(
-            "aragora.workflow.nodes.implementation.HybridExecutor",
-            side_effect=ImportError("no such module"),
-        ):
+            "aragora.implement.executor.HybridExecutor",
+        ) as MockExecutor:
+            MockExecutor.side_effect = RuntimeError("Executor init failed")
             # Should not raise
             output = await step.execute(context)
 
         assert output["success"] is False
-        assert "unavailable" in output["error"].lower()
+        assert "Executor init failed" in output["error"]
 
 
 # ---------------------------------------------------------------------------

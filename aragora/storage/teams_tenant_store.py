@@ -466,11 +466,11 @@ class TeamsTenantStore:
                 )
 
             conn.commit()
-            logger.info(f"Updated tokens for Teams tenant: {tenant_id}")
+            logger.info("Updated tokens for Teams tenant: %s", tenant_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to update tokens for tenant {tenant_id}: {e}")
+            logger.error("Failed to update tokens for tenant %s: %s", tenant_id, e)
             return False
 
     def deactivate(self, tenant_id: str) -> bool:
@@ -489,11 +489,11 @@ class TeamsTenantStore:
                 (tenant_id,),
             )
             conn.commit()
-            logger.info(f"Deactivated Teams tenant: {tenant_id}")
+            logger.info("Deactivated Teams tenant: %s", tenant_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to deactivate tenant {tenant_id}: {e}")
+            logger.error("Failed to deactivate tenant %s: %s", tenant_id, e)
             return False
 
     def delete(self, tenant_id: str) -> bool:
@@ -512,11 +512,11 @@ class TeamsTenantStore:
                 (tenant_id,),
             )
             conn.commit()
-            logger.info(f"Deleted Teams tenant: {tenant_id}")
+            logger.info("Deleted Teams tenant: %s", tenant_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to delete tenant {tenant_id}: {e}")
+            logger.error("Failed to delete tenant %s: %s", tenant_id, e)
             return False
 
     def count(self, active_only: bool = True) -> int:
@@ -538,7 +538,7 @@ class TeamsTenantStore:
             return cursor.fetchone()[0]
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to count tenants: {e}")
+            logger.error("Failed to count tenants: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -571,7 +571,7 @@ class TeamsTenantStore:
             }
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get stats: {e}")
+            logger.error("Failed to get stats: %s", e)
             return {"total_tenants": 0, "active_tenants": 0}
 
 
@@ -604,7 +604,7 @@ class SupabaseTeamsTenantStore:
         except ImportError:
             logger.warning("Supabase client not available")
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to initialize Supabase client: {e}")
+            logger.error("Failed to initialize Supabase client: %s", e)
 
     @property
     def is_configured(self) -> bool:
@@ -628,7 +628,7 @@ class SupabaseTeamsTenantStore:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token encryption failed: {e}")
+            logger.error("Token encryption failed: %s", e)
             return token
 
     def _decrypt_token(self, encrypted: str) -> str:
@@ -651,7 +651,7 @@ class SupabaseTeamsTenantStore:
         except ImportError:
             return encrypted
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token decryption failed: {e}")
+            logger.error("Token decryption failed: %s", e)
             return encrypted
 
     def save(self, tenant: TeamsTenant) -> bool:
@@ -688,11 +688,11 @@ class SupabaseTeamsTenantStore:
 
             # Upsert: insert or update on conflict
             self._client.table("teams_tenants").upsert(data, on_conflict="tenant_id").execute()
-            logger.info(f"Saved Teams tenant to Supabase: {tenant.tenant_id}")
+            logger.info("Saved Teams tenant to Supabase: %s", tenant.tenant_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to save tenant to Supabase: {e}")
+            logger.error("Failed to save tenant to Supabase: %s", e)
             return False
 
     def get(self, tenant_id: str) -> TeamsTenant | None:
@@ -712,7 +712,7 @@ class SupabaseTeamsTenantStore:
             return None
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get tenant {tenant_id} from Supabase: {e}")
+            logger.error("Failed to get tenant %s from Supabase: %s", tenant_id, e)
             return None
 
     def _row_to_tenant(self, row: dict[str, Any]) -> TeamsTenant:
@@ -763,7 +763,7 @@ class SupabaseTeamsTenantStore:
             return [self._row_to_tenant(row) for row in (response.data or [])]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get tenants for org {aragora_org_id}: {e}")
+            logger.error("Failed to get tenants for org %s: %s", aragora_org_id, e)
             return []
 
     def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsTenant]:
@@ -784,7 +784,7 @@ class SupabaseTeamsTenantStore:
             return [self._row_to_tenant(row) for row in (response.data or [])]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to list tenants: {e}")
+            logger.error("Failed to list tenants: %s", e)
             return []
 
     def list_expiring(self, within_seconds: int = 3600) -> list[TeamsTenant]:
@@ -812,7 +812,7 @@ class SupabaseTeamsTenantStore:
             return [self._row_to_tenant(row) for row in (response.data or [])]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to list expiring tenants: {e}")
+            logger.error("Failed to list expiring tenants: %s", e)
             return []
 
     def update_tokens(
@@ -840,11 +840,11 @@ class SupabaseTeamsTenantStore:
                 data["expires_at"] = datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()
 
             self._client.table("teams_tenants").update(data).eq("tenant_id", tenant_id).execute()
-            logger.info(f"Updated tokens for Teams tenant: {tenant_id}")
+            logger.info("Updated tokens for Teams tenant: %s", tenant_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to update tokens for tenant {tenant_id}: {e}")
+            logger.error("Failed to update tokens for tenant %s: %s", tenant_id, e)
             return False
 
     def deactivate(self, tenant_id: str) -> bool:
@@ -859,11 +859,11 @@ class SupabaseTeamsTenantStore:
                     "updated_at": datetime.now(tz=timezone.utc).isoformat(),
                 }
             ).eq("tenant_id", tenant_id).execute()
-            logger.info(f"Deactivated Teams tenant: {tenant_id}")
+            logger.info("Deactivated Teams tenant: %s", tenant_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to deactivate tenant {tenant_id}: {e}")
+            logger.error("Failed to deactivate tenant %s: %s", tenant_id, e)
             return False
 
     def delete(self, tenant_id: str) -> bool:
@@ -873,11 +873,11 @@ class SupabaseTeamsTenantStore:
 
         try:
             self._client.table("teams_tenants").delete().eq("tenant_id", tenant_id).execute()
-            logger.info(f"Deleted Teams tenant: {tenant_id}")
+            logger.info("Deleted Teams tenant: %s", tenant_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to delete tenant {tenant_id}: {e}")
+            logger.error("Failed to delete tenant %s: %s", tenant_id, e)
             return False
 
     def count(self, active_only: bool = True) -> int:
@@ -893,7 +893,7 @@ class SupabaseTeamsTenantStore:
             return response.count or 0
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to count tenants: {e}")
+            logger.error("Failed to count tenants: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -914,7 +914,7 @@ class SupabaseTeamsTenantStore:
             }
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get stats: {e}")
+            logger.error("Failed to get stats: %s", e)
             return {"total_tenants": 0, "active_tenants": 0}
 
 

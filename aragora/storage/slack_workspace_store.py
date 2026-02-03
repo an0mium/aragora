@@ -658,11 +658,11 @@ class SlackWorkspaceStore:
 
         workspace = self.get(workspace_id)
         if not workspace:
-            logger.error(f"Workspace not found for refresh: {workspace_id}")
+            logger.error("Workspace not found for refresh: %s", workspace_id)
             return None
 
         if not workspace.refresh_token:
-            logger.error(f"No refresh token available for workspace: {workspace_id}")
+            logger.error("No refresh token available for workspace: %s", workspace_id)
             return None
 
         try:
@@ -684,7 +684,7 @@ class SlackWorkspaceStore:
 
             if not result.get("ok"):
                 error = result.get("error", "unknown")
-                logger.error(f"Token refresh failed for {workspace_id}: {error}")
+                logger.error("Token refresh failed for %s: %s", workspace_id, error)
                 # If token is revoked, deactivate the workspace
                 if error in ("invalid_refresh_token", "token_revoked"):
                     self.deactivate(workspace_id)
@@ -705,16 +705,16 @@ class SlackWorkspaceStore:
 
             # Save updated workspace
             if self.save(workspace):
-                logger.info(f"Successfully refreshed token for workspace: {workspace_id}")
+                logger.info("Successfully refreshed token for workspace: %s", workspace_id)
                 return workspace
 
             return None
 
         except httpx.RequestError as e:
-            logger.error(f"Network error refreshing token for {workspace_id}: {e}")
+            logger.error("Network error refreshing token for %s: %s", workspace_id, e)
             return None
         except (ValueError, KeyError) as e:
-            logger.error(f"Invalid response refreshing token for {workspace_id}: {e}")
+            logger.error("Invalid response refreshing token for %s: %s", workspace_id, e)
             return None
 
     def is_token_expired(self, workspace_id: str, buffer_seconds: int = 300) -> bool:
@@ -773,13 +773,13 @@ class SlackWorkspaceStore:
                         workspace.signing_secret = self._decrypt_token(workspace.signing_secret)
                     workspaces.append(workspace)
                 except Exception as e:
-                    logger.error(f"Error loading workspace {row['workspace_id']}: {e}")
+                    logger.error("Error loading workspace %s: %s", row["workspace_id"], e)
 
-            logger.debug(f"Found {len(workspaces)} workspaces with tokens expiring in {hours}h")
+            logger.debug("Found %s workspaces with tokens expiring in %sh", len(workspaces), hours)
             return workspaces
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get expiring tokens: {e}")
+            logger.error("Failed to get expiring tokens: %s", e)
             return []
 
 
@@ -860,11 +860,11 @@ class SupabaseSlackWorkspaceStore:
                 data, on_conflict="workspace_id"
             ).execute()
 
-            logger.info(f"Saved Slack workspace to Supabase: {workspace.workspace_id}")
+            logger.info("Saved Slack workspace to Supabase: %s", workspace.workspace_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to save workspace to Supabase: {e}")
+            logger.error("Failed to save workspace to Supabase: %s", e)
             return False
 
     def get(self, workspace_id: str) -> SlackWorkspace | None:
@@ -886,7 +886,7 @@ class SupabaseSlackWorkspaceStore:
             return None
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get workspace from Supabase: {e}")
+            logger.error("Failed to get workspace from Supabase: %s", e)
             return None
 
     def get_by_tenant(self, tenant_id: str) -> list[SlackWorkspace]:
@@ -907,7 +907,7 @@ class SupabaseSlackWorkspaceStore:
             return [self._row_to_workspace(row) for row in result.data]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get workspaces for tenant from Supabase: {e}")
+            logger.error("Failed to get workspaces for tenant from Supabase: %s", e)
             return []
 
     def list_active(self, limit: int = 100, offset: int = 0) -> list[SlackWorkspace]:
@@ -928,7 +928,7 @@ class SupabaseSlackWorkspaceStore:
             return [self._row_to_workspace(row) for row in result.data]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to list workspaces from Supabase: {e}")
+            logger.error("Failed to list workspaces from Supabase: %s", e)
             return []
 
     def deactivate(self, workspace_id: str) -> bool:
@@ -944,11 +944,11 @@ class SupabaseSlackWorkspaceStore:
                 }
             ).eq("workspace_id", workspace_id).execute()
 
-            logger.info(f"Deactivated Slack workspace in Supabase: {workspace_id}")
+            logger.info("Deactivated Slack workspace in Supabase: %s", workspace_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to deactivate workspace in Supabase: {e}")
+            logger.error("Failed to deactivate workspace in Supabase: %s", e)
             return False
 
     def delete(self, workspace_id: str) -> bool:
@@ -961,11 +961,11 @@ class SupabaseSlackWorkspaceStore:
                 "workspace_id", workspace_id
             ).execute()
 
-            logger.info(f"Deleted Slack workspace from Supabase: {workspace_id}")
+            logger.info("Deleted Slack workspace from Supabase: %s", workspace_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to delete workspace from Supabase: {e}")
+            logger.error("Failed to delete workspace from Supabase: %s", e)
             return False
 
     def count(self, active_only: bool = True) -> int:
@@ -982,7 +982,7 @@ class SupabaseSlackWorkspaceStore:
             return result.count or 0
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to count workspaces in Supabase: {e}")
+            logger.error("Failed to count workspaces in Supabase: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -1001,7 +1001,7 @@ class SupabaseSlackWorkspaceStore:
             }
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get stats from Supabase: {e}")
+            logger.error("Failed to get stats from Supabase: %s", e)
             return {"total_workspaces": 0, "active_workspaces": 0}
 
     def _row_to_workspace(self, row: dict[str, Any]) -> SlackWorkspace:

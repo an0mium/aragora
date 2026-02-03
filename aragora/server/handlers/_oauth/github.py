@@ -13,7 +13,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Coroutine
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
+import urllib.request as urllib_request
 
 import httpx
 
@@ -209,7 +210,7 @@ class GitHubOAuthMixin:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:
                 body = response.read()
             try:
                 return json.loads(body.decode("utf-8")) if body else {}
@@ -251,7 +252,7 @@ class GitHubOAuthMixin:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:
                 body = response.read()
             try:
                 user_data = json.loads(body.decode("utf-8")) if body else {}
@@ -272,7 +273,7 @@ class GitHubOAuthMixin:
                         "Accept": "application/json",
                     },
                 )
-                with urlopen(req) as response:
+                with urllib_request.urlopen(req) as response:
                     body = response.read()
                 try:
                     emails = json.loads(body.decode("utf-8")) if body else []
