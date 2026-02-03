@@ -65,7 +65,7 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 2,800+ Python modules | 120,000+ tests | 2,919 test files | 194 debate modules | 461 HTTP handlers + 26 WebSocket streams | 461 API endpoints | 25 KM adapters | 105 SDK namespaces
+**Codebase Scale:** 2,800+ Python modules | 124,000+ tests | 2,970+ test files | 194 debate modules | 461 HTTP handlers + 26 WebSocket streams | 461 API endpoints | 25 KM adapters | 140 SDK namespaces
 
 ## Architecture
 
