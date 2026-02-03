@@ -248,7 +248,7 @@ class TestRecordCost:
 
     def test_record_cost_no_tracker(self):
         """Record cost when tracker is unavailable."""
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=None):
+        with patch("aragora.server.handlers.costs.models._get_cost_tracker", return_value=None):
             # Should not raise
             record_cost(
                 provider="anthropic",
@@ -265,7 +265,9 @@ class TestRecordCost:
         mock_tracker = MagicMock()
         mock_tracker.record = AsyncMock()
 
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=mock_tracker):
+        with patch(
+            "aragora.server.handlers.costs.models._get_cost_tracker", return_value=mock_tracker
+        ):
             # Just verify no exception is raised
             record_cost(
                 provider="openai",
@@ -291,7 +293,7 @@ class TestGetCostSummary:
     @pytest.mark.asyncio
     async def test_get_cost_summary_no_tracker(self):
         """Get summary when tracker unavailable returns mock."""
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=None):
+        with patch("aragora.server.handlers.costs.models._get_cost_tracker", return_value=None):
             summary = await get_cost_summary(workspace_id="test", time_range="7d")
 
             assert summary.budget == 500.00
@@ -313,7 +315,9 @@ class TestGetCostSummary:
         mock_tracker.generate_report = AsyncMock(return_value=mock_report)
         mock_tracker.get_budget = MagicMock(return_value=None)
 
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=mock_tracker):
+        with patch(
+            "aragora.server.handlers.costs.models._get_cost_tracker", return_value=mock_tracker
+        ):
             summary = await get_cost_summary(workspace_id="test", time_range="7d")
 
             # Should fall back to mock when no real data
@@ -338,7 +342,9 @@ class TestGetCostSummary:
         mock_tracker.generate_report = AsyncMock(return_value=mock_report)
         mock_tracker.get_budget = MagicMock(return_value=mock_budget)
 
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=mock_tracker):
+        with patch(
+            "aragora.server.handlers.costs.models._get_cost_tracker", return_value=mock_tracker
+        ):
             summary = await get_cost_summary(workspace_id="test", time_range="7d")
 
             assert summary.total_cost == 150.50
@@ -421,7 +427,7 @@ class TestCostHandlerHTTP:
         """GET /api/costs returns cost dashboard."""
         mock_request.query = {"range": "7d", "workspace_id": "test"}
 
-        with patch("aragora.server.handlers.costs.get_cost_summary") as mock_summary:
+        with patch("aragora.server.handlers.costs.models.get_cost_summary") as mock_summary:
             mock_summary.return_value = CostSummary(
                 total_cost=150.50,
                 budget=500.00,
@@ -444,7 +450,7 @@ class TestCostHandlerHTTP:
     @pytest.mark.asyncio
     async def test_handle_get_costs_error(self, handler, mock_request):
         """GET /api/costs handles errors."""
-        with patch("aragora.server.handlers.costs.get_cost_summary") as mock_summary:
+        with patch("aragora.server.handlers.costs.models.get_cost_summary") as mock_summary:
             mock_summary.side_effect = Exception("Database error")
 
             response = await handler.handle_get_costs(mock_request)
@@ -458,7 +464,7 @@ class TestCostHandlerHTTP:
         """GET /api/costs/breakdown groups by provider."""
         mock_request.query = {"group_by": "provider"}
 
-        with patch("aragora.server.handlers.costs.get_cost_summary") as mock_summary:
+        with patch("aragora.server.handlers.costs.models.get_cost_summary") as mock_summary:
             mock_summary.return_value = CostSummary(
                 total_cost=150.50,
                 budget=500.00,
@@ -482,7 +488,7 @@ class TestCostHandlerHTTP:
         """GET /api/costs/breakdown groups by feature."""
         mock_request.query = {"group_by": "feature"}
 
-        with patch("aragora.server.handlers.costs.get_cost_summary") as mock_summary:
+        with patch("aragora.server.handlers.costs.models.get_cost_summary") as mock_summary:
             mock_summary.return_value = CostSummary(
                 total_cost=150.50,
                 budget=500.00,
@@ -503,7 +509,7 @@ class TestCostHandlerHTTP:
     @pytest.mark.asyncio
     async def test_handle_get_timeline(self, handler, mock_request):
         """GET /api/costs/timeline returns timeline data."""
-        with patch("aragora.server.handlers.costs.get_cost_summary") as mock_summary:
+        with patch("aragora.server.handlers.costs.models.get_cost_summary") as mock_summary:
             mock_summary.return_value = CostSummary(
                 total_cost=140.00,
                 budget=500.00,
@@ -530,8 +536,10 @@ class TestCostHandlerHTTP:
         mock_tracker = MagicMock()
         mock_tracker.query_km_workspace_alerts = MagicMock(return_value=[])
 
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=mock_tracker):
-            with patch("aragora.server.handlers.costs._get_active_alerts", return_value=[]):
+        with patch(
+            "aragora.server.handlers.costs.models._get_cost_tracker", return_value=mock_tracker
+        ):
+            with patch("aragora.server.handlers.costs.models._get_active_alerts", return_value=[]):
                 response = await handler.handle_get_alerts(mock_request)
 
                 assert response.status == 200
@@ -541,7 +549,7 @@ class TestCostHandlerHTTP:
     @pytest.mark.asyncio
     async def test_handle_get_alerts_no_tracker(self, handler, mock_request):
         """GET /api/costs/alerts returns empty when no tracker."""
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=None):
+        with patch("aragora.server.handlers.costs.models._get_cost_tracker", return_value=None):
             response = await handler.handle_get_alerts(mock_request)
 
             assert response.status == 200
@@ -558,7 +566,9 @@ class TestCostHandlerHTTP:
         mock_tracker = MagicMock()
         mock_tracker.set_budget = MagicMock()
 
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=mock_tracker):
+        with patch(
+            "aragora.server.handlers.costs.models._get_cost_tracker", return_value=mock_tracker
+        ):
             response = await handler.handle_set_budget(mock_request)
 
             assert response.status == 200
@@ -776,7 +786,9 @@ class TestEfficiencyHandler:
             }
         )
 
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=mock_tracker):
+        with patch(
+            "aragora.server.handlers.costs.models._get_cost_tracker", return_value=mock_tracker
+        ):
             response = await handler.handle_get_efficiency(mock_request)
 
             assert response.status == 200
@@ -789,7 +801,7 @@ class TestEfficiencyHandler:
     @pytest.mark.asyncio
     async def test_handle_get_efficiency_no_tracker(self, handler, mock_request):
         """GET /api/costs/efficiency returns 503 when no tracker."""
-        with patch("aragora.server.handlers.costs._get_cost_tracker", return_value=None):
+        with patch("aragora.server.handlers.costs.models._get_cost_tracker", return_value=None):
             response = await handler.handle_get_efficiency(mock_request)
 
             assert response.status == 503

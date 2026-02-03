@@ -658,7 +658,7 @@ class TestOrchestrationHandler:
 
     def test_handle_deliberate_missing_question(self):
         """Test POST /api/v1/orchestration/deliberate without question."""
-        result = self.handler._handle_deliberate({}, None, sync=False)
+        result = self.handler._handle_deliberate({}, None, None, sync=False)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -1582,7 +1582,7 @@ class TestTemplateApplication:
             "template": "code_review",
         }
 
-        result = handler._handle_deliberate(data, None, sync=False)
+        result = handler._handle_deliberate(data, None, None, sync=False)
 
         # Request should be created with template defaults
         # (The result is queued, so we verify it was processed)
@@ -1913,6 +1913,7 @@ class TestErrorHandling:
         result = handler._handle_deliberate(
             {"question": "Test", "knowledge_sources": [{"invalid": "data"}]},
             None,
+            None,
             sync=False,
         )
 
@@ -1924,7 +1925,7 @@ class TestErrorHandling:
         """Test that empty question returns 400 error."""
         handler = OrchestrationHandler({})
 
-        result = handler._handle_deliberate({"question": ""}, None, sync=False)
+        result = handler._handle_deliberate({"question": ""}, None, None, sync=False)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -1939,7 +1940,7 @@ class TestErrorHandling:
         """
         handler = OrchestrationHandler({})
 
-        result = handler._handle_deliberate({"question": "   "}, None, sync=False)
+        result = handler._handle_deliberate({"question": "   "}, None, None, sync=False)
 
         # Should return a valid response (either queued or error)
         assert result is not None
@@ -1951,7 +1952,7 @@ class TestErrorHandling:
 
         long_question = "Test " * 10000  # ~50000 chars
 
-        result = handler._handle_deliberate({"question": long_question}, None, sync=False)
+        result = handler._handle_deliberate({"question": long_question}, None, None, sync=False)
 
         # Should either queue or error, not crash
         assert result is not None
@@ -1965,6 +1966,7 @@ class TestErrorHandling:
         result = handler._handle_deliberate(
             {"question": "Test", "agents": {"invalid": "type"}},
             None,
+            None,
             sync=False,
         )
 
@@ -1977,6 +1979,7 @@ class TestErrorHandling:
 
         result = handler._handle_deliberate(
             {"question": "Test", "knowledge_sources": None},
+            None,
             None,
             sync=False,
         )
@@ -2171,6 +2174,7 @@ class TestSyncVsAsyncDeliberation:
         result = handler._handle_deliberate(
             {"question": "Async test question"},
             None,
+            None,
             sync=False,
         )
 
@@ -2209,6 +2213,7 @@ class TestSyncVsAsyncDeliberation:
                 result = handler._handle_deliberate(
                     {"question": "Sync test question"},
                     None,
+                    None,
                     sync=True,
                 )
 
@@ -2223,6 +2228,7 @@ class TestSyncVsAsyncDeliberation:
 
         result = handler._handle_deliberate(
             {"question": "Test question"},
+            None,
             None,
             sync=False,
         )

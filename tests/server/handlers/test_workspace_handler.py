@@ -518,6 +518,7 @@ class TestWorkspaceRBAC:
     def clear_permission_cache(self):
         """Clear permission cache before each test to ensure isolation."""
         from aragora.server.handlers.workspace_module import _permission_cache
+
         _permission_cache.clear()
         yield
         _permission_cache.clear()
@@ -541,7 +542,9 @@ class TestWorkspaceRBAC:
         assert result is None  # None means allowed
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_allowed
+    )
     def test_permission_check_allowed(self, handler):
         """Permission check should pass when RBAC allows."""
         mock_http = MagicMock()
@@ -554,7 +557,9 @@ class TestWorkspaceRBAC:
         assert result is None  # None means allowed
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     def test_permission_check_denied(self, handler):
         """Permission check should return error when RBAC denies."""
         mock_http = MagicMock()
@@ -568,7 +573,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_create_workspace_rbac_denied(self, mock_extract, handler):
         """Create workspace should deny when RBAC denies."""
@@ -582,7 +589,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_delete_workspace_rbac_denied(self, mock_extract, handler):
         """Delete workspace should deny when RBAC denies."""
@@ -596,7 +605,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_add_member_rbac_denied(self, mock_extract, handler):
         """Add member should deny when RBAC denies."""
@@ -610,7 +621,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_remove_member_rbac_denied(self, mock_extract, handler):
         """Remove member should deny when RBAC denies."""
@@ -624,7 +637,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_create_policy_rbac_denied(self, mock_extract, handler):
         """Create retention policy should deny when RBAC denies."""
@@ -638,7 +653,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_update_policy_rbac_denied(self, mock_extract, handler):
         """Update retention policy should deny when RBAC denies."""
@@ -652,7 +669,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_delete_policy_rbac_denied(self, mock_extract, handler):
         """Delete retention policy should deny when RBAC denies."""
@@ -666,7 +685,9 @@ class TestWorkspaceRBAC:
         assert result.status_code == 403
 
     @patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.workspace_module.check_permission", mock_check_permission_denied
+    )
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_execute_policy_rbac_denied(self, mock_extract, handler):
         """Execute retention policy should deny when RBAC denies."""

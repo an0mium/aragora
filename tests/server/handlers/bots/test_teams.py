@@ -1043,13 +1043,15 @@ class TestTeamsBotCardActions:
             "serviceUrl": "https://test/",
         }
 
-        with patch("aragora.server.handlers.bots.teams.audit_data"):
-            result = await bot._handle_vote(
-                debate_id="debate-456",
-                agent="Claude",
-                user_id="user-123",
-                activity=activity,
-            )
+        # Mock RBAC to allow all permissions
+        with patch.object(bot, "_check_permission", return_value=None):
+            with patch("aragora.server.handlers.bots.teams.audit_data"):
+                result = await bot._handle_vote(
+                    debate_id="debate-456",
+                    agent="Claude",
+                    user_id="user-123",
+                    activity=activity,
+                )
 
         assert result["status"] == 200
         assert "debate-456" in _user_votes
@@ -1067,12 +1069,14 @@ class TestTeamsBotCardActions:
 
         activity = {}
 
-        result = await bot._handle_vote(
-            debate_id="",
-            agent="",
-            user_id="user-123",
-            activity=activity,
-        )
+        # Mock RBAC to allow all permissions so we test validation logic
+        with patch.object(bot, "_check_permission", return_value=None):
+            result = await bot._handle_vote(
+                debate_id="",
+                agent="",
+                user_id="user-123",
+                activity=activity,
+            )
 
         assert result["status"] == 400
         assert "Invalid vote data" in result["body"]["value"]
@@ -1424,10 +1428,12 @@ class TestTeamsBotMessageHandling:
             "entities": [{"type": "mention"}],
         }
 
-        with patch.object(bot, "_send_typing", new_callable=AsyncMock):
-            with patch.object(bot, "_handle_command", new_callable=AsyncMock) as mock_cmd:
-                mock_cmd.return_value = {}
-                await bot._handle_message(activity)
+        # Mock RBAC to allow all permissions
+        with patch.object(bot, "_check_permission", return_value=None):
+            with patch.object(bot, "_send_typing", new_callable=AsyncMock):
+                with patch.object(bot, "_handle_command", new_callable=AsyncMock) as mock_cmd:
+                    mock_cmd.return_value = {}
+                    await bot._handle_message(activity)
 
         mock_cmd.assert_called_once()
         call_args = mock_cmd.call_args
@@ -1448,10 +1454,12 @@ class TestTeamsBotMessageHandling:
             "entities": [],
         }
 
-        with patch.object(bot, "_send_typing", new_callable=AsyncMock):
-            with patch.object(bot, "_handle_command", new_callable=AsyncMock) as mock_cmd:
-                mock_cmd.return_value = {}
-                await bot._handle_message(activity)
+        # Mock RBAC to allow all permissions
+        with patch.object(bot, "_check_permission", return_value=None):
+            with patch.object(bot, "_send_typing", new_callable=AsyncMock):
+                with patch.object(bot, "_handle_command", new_callable=AsyncMock) as mock_cmd:
+                    mock_cmd.return_value = {}
+                    await bot._handle_message(activity)
 
         mock_cmd.assert_called_once()
         # In personal scope, unknown commands default to debate
@@ -1473,13 +1481,142 @@ class TestTeamsBotMessageHandling:
             "entities": [],
         }
 
-        with patch.object(bot, "_send_typing", new_callable=AsyncMock):
-            with patch.object(bot, "_send_reply", new_callable=AsyncMock) as mock_reply:
-                await bot._handle_message(activity)
+        # Mock RBAC to allow all permissions
+        with patch.object(bot, "_check_permission", return_value=None):
+            with patch.object(bot, "_send_typing", new_callable=AsyncMock):
+                with patch.object(bot, "_send_reply", new_callable=AsyncMock) as mock_reply:
+                    await bot._handle_message(activity)
 
         mock_reply.assert_called_once()
         reply_text = mock_reply.call_args[0][1]
         assert "@Aragora" in reply_text
+
+
+class TestTeamsBotRBAC:
+    """Tests for RBAC permission checks in TeamsBot."""
+
+    @pytest.mark.asyncio
+    async def test_rbac_denies_message_without_permission(self):
+        """Should deny message processing when RBAC returns permission denied."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "text": "test message",
+            "conversation": {"id": "conv-123", "conversationType": "personal"},
+            "from": {"id": "user-123", "name": "Test User"},
+            "serviceUrl": "https://test/",
+            "entities": [],
+        }
+
+        # Mock RBAC to deny permission
+        perm_error = {
+            "error": "permission_denied",
+            "message": "Permission denied: teams:messages:read",
+        }
+        with patch.object(bot, "_check_permission", return_value=perm_error):
+            with patch.object(bot, "_send_reply", new_callable=AsyncMock) as mock_reply:
+                result = await bot._handle_message(activity)
+
+        # Should send permission denied message
+        mock_reply.assert_called_once()
+        reply_text = mock_reply.call_args[0][1]
+        assert "permission" in reply_text.lower()
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_rbac_denies_vote_without_permission(self):
+        """Should deny vote action when RBAC returns permission denied."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://test/",
+        }
+
+        # Mock RBAC to deny permission
+        perm_error = {"error": "permission_denied", "message": "Not allowed"}
+        with patch.object(bot, "_check_permission", return_value=perm_error):
+            result = await bot._handle_vote(
+                debate_id="debate-456",
+                agent="Claude",
+                user_id="user-123",
+                activity=activity,
+            )
+
+        # Should return 403 with permission denied card
+        assert result["status"] == 403
+        assert "Permission Denied" in str(result["body"])
+
+    @pytest.mark.asyncio
+    async def test_rbac_denies_debate_creation_without_permission(self):
+        """Should deny debate creation when RBAC returns permission denied."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://test/",
+        }
+
+        # Mock RBAC to deny permission
+        perm_error = {
+            "error": "permission_denied",
+            "message": "Permission denied: teams:debates:create",
+        }
+        with patch.object(bot, "_check_permission", return_value=perm_error):
+            with patch.object(bot, "_send_reply", new_callable=AsyncMock) as mock_reply:
+                result = await bot._cmd_debate(
+                    topic="test topic",
+                    conversation_id="conv-123",
+                    user_id="user-123",
+                    service_url="https://test/",
+                    thread_id=None,
+                    activity=activity,
+                )
+
+        # Should send permission denied message
+        mock_reply.assert_called_once()
+        reply_text = mock_reply.call_args[0][1]
+        assert "permission" in reply_text.lower()
+        assert result == {}
+
+    def test_rbac_helper_methods_exist(self):
+        """TeamsBot should have RBAC helper methods."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        assert hasattr(bot, "_check_permission")
+        assert hasattr(bot, "_get_auth_context_from_activity")
+        assert hasattr(bot, "_validate_tenant")
+        assert callable(bot._check_permission)
+        assert callable(bot._get_auth_context_from_activity)
+        assert callable(bot._validate_tenant)
+
+    def test_rbac_permission_constants_exist(self):
+        """Should have RBAC permission constants defined."""
+        from aragora.server.handlers.bots.teams import (
+            PERM_TEAMS_ADMIN,
+            PERM_TEAMS_CARDS_RESPOND,
+            PERM_TEAMS_DEBATES_CREATE,
+            PERM_TEAMS_DEBATES_VOTE,
+            PERM_TEAMS_MESSAGES_READ,
+            PERM_TEAMS_MESSAGES_SEND,
+        )
+
+        assert PERM_TEAMS_MESSAGES_READ == "teams:messages:read"
+        assert PERM_TEAMS_MESSAGES_SEND == "teams:messages:send"
+        assert PERM_TEAMS_DEBATES_CREATE == "teams:debates:create"
+        assert PERM_TEAMS_DEBATES_VOTE == "teams:debates:vote"
+        assert PERM_TEAMS_CARDS_RESPOND == "teams:cards:respond"
+        assert PERM_TEAMS_ADMIN == "teams:admin"
 
 
 class TestAgentDisplayNames:

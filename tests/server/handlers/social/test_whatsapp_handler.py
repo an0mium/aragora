@@ -181,7 +181,8 @@ class TestWebhookVerification:
         }
 
         with patch(
-            "aragora.server.handlers.social.whatsapp.WHATSAPP_VERIFY_TOKEN", test_verify_token
+            "aragora.server.handlers.social.whatsapp.config.WHATSAPP_VERIFY_TOKEN",
+            test_verify_token,
         ):
             result = handler.handle(
                 "/api/v1/integrations/whatsapp/webhook", query_params, mock_http
@@ -297,7 +298,7 @@ class TestWebhookPost:
             method="POST",
         )
 
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+        with patch("aragora.server.handlers.social.whatsapp.config.create_tracked_task"):
             result = handler.handle("/api/v1/integrations/whatsapp/webhook", {}, mock_http)
 
         assert result is not None
@@ -333,14 +334,18 @@ class TestTextMessageHandling:
 
     def test_handle_text_message_help(self, handler):
         """Test handling 'help' command."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._handle_text_message("15551234567", "Test User", "help")
 
         mock_task.assert_called_once()
 
     def test_handle_text_message_status(self, handler):
         """Test handling 'status' command."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             with patch("aragora.ranking.elo.EloSystem") as mock_elo:
                 mock_elo.return_value.get_all_ratings.return_value = []
                 handler._handle_text_message("15551234567", "Test User", "status")
@@ -349,7 +354,9 @@ class TestTextMessageHandling:
 
     def test_handle_text_message_debate(self, handler):
         """Test handling 'debate' command."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._handle_text_message(
                 "15551234567", "Test User", "debate Should AI be regulated?"
             )
@@ -359,14 +366,18 @@ class TestTextMessageHandling:
 
     def test_handle_text_message_short(self, handler):
         """Test handling short message."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._handle_text_message("15551234567", "Test User", "hi")
 
         mock_task.assert_called_once()
 
     def test_handle_text_message_long(self, handler):
         """Test handling longer message suggests debate."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._handle_text_message(
                 "15551234567",
                 "Test User",
@@ -419,7 +430,9 @@ class TestDebateCommand:
 
     def test_debate_topic_too_short(self, handler):
         """Test debate with short topic."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_debate("15551234567", "User", "test")
 
         mock_task.assert_called_once()
@@ -427,14 +440,18 @@ class TestDebateCommand:
     def test_debate_topic_too_long(self, handler):
         """Test debate with long topic."""
         long_topic = "x" * 600
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_debate("15551234567", "User", long_topic)
 
         mock_task.assert_called_once()
 
     def test_debate_valid_topic(self, handler):
         """Test debate with valid topic."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_debate(
                 "15551234567", "User", "Should artificial intelligence be regulated by governments?"
             )
@@ -453,7 +470,9 @@ class TestGauntletCommand:
 
     def test_gauntlet_statement_too_short(self, handler):
         """Test gauntlet with short statement."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_gauntlet("15551234567", "User", "test")
 
         mock_task.assert_called_once()
@@ -461,14 +480,18 @@ class TestGauntletCommand:
     def test_gauntlet_statement_too_long(self, handler):
         """Test gauntlet with long statement."""
         long_statement = "x" * 1100
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_gauntlet("15551234567", "User", long_statement)
 
         mock_task.assert_called_once()
 
     def test_gauntlet_valid_statement(self, handler):
         """Test gauntlet with valid statement."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_gauntlet(
                 "15551234567",
                 "User",
@@ -559,14 +582,14 @@ class TestVoteRecording:
         """Test recording agree vote."""
         with patch("aragora.server.storage.get_debates_db") as mock_db:
             mock_db.return_value = MagicMock()
-            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+            with patch("aragora.server.handlers.social.whatsapp.config.create_tracked_task"):
                 handler._record_vote("15551234567", "User", "debate123", "agree")
 
     def test_record_vote_disagree(self, handler):
         """Test recording disagree vote."""
         with patch("aragora.server.storage.get_debates_db") as mock_db:
             mock_db.return_value = MagicMock()
-            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+            with patch("aragora.server.handlers.social.whatsapp.config.create_tracked_task"):
                 handler._record_vote("15551234567", "User", "debate123", "disagree")
 
 
@@ -583,7 +606,7 @@ class TestSignatureVerification:
         mock_http = MockHandler()
 
         # When WHATSAPP_APP_SECRET is empty, verification should pass
-        with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_APP_SECRET", ""):
+        with patch("aragora.server.handlers.social.whatsapp.config.WHATSAPP_APP_SECRET", ""):
             result = handler._verify_signature(mock_http)
             assert result is True
 
@@ -591,7 +614,7 @@ class TestSignatureVerification:
         """Test verification with missing signature header."""
         mock_http = MockHandler(headers={})
 
-        with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_APP_SECRET", "secret"):
+        with patch("aragora.server.handlers.social.whatsapp.config.WHATSAPP_APP_SECRET", "secret"):
             result = handler._verify_signature(mock_http)
             assert result is False
 
@@ -601,7 +624,7 @@ class TestSignatureVerification:
             headers={"X-Hub-Signature-256": "wrong_format"},
         )
 
-        with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_APP_SECRET", "secret"):
+        with patch("aragora.server.handlers.social.whatsapp.config.WHATSAPP_APP_SECRET", "secret"):
             result = handler._verify_signature(mock_http)
             assert result is False
 
@@ -617,9 +640,9 @@ class TestFactory:
     def test_get_whatsapp_handler_singleton(self):
         """Test get_whatsapp_handler returns consistent instance."""
         # Reset global state
-        import aragora.server.handlers.social.whatsapp as wa
+        import aragora.server.handlers.social.whatsapp.handler as wa_handler
 
-        wa._whatsapp_handler = None
+        wa_handler._whatsapp_handler = None
 
         handler1 = get_whatsapp_handler({})
         handler2 = get_whatsapp_handler({})
@@ -628,9 +651,9 @@ class TestFactory:
 
     def test_get_whatsapp_handler_creates_instance(self):
         """Test get_whatsapp_handler creates instance."""
-        import aragora.server.handlers.social.whatsapp as wa
+        import aragora.server.handlers.social.whatsapp.handler as wa_handler
 
-        wa._whatsapp_handler = None
+        wa_handler._whatsapp_handler = None
 
         handler = get_whatsapp_handler({})
         assert isinstance(handler, WhatsAppHandler)
@@ -685,7 +708,9 @@ class TestExtendedCommands:
 
     def test_command_debate_valid_topic(self, handler):
         """Test debate command with valid topic creates tasks."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_debate(
                 from_number="15551234567",
                 profile_name="Test User",
@@ -696,13 +721,17 @@ class TestExtendedCommands:
 
     def test_command_debate_short_topic(self, handler):
         """Test debate command with short topic sends error."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_debate("15551234567", "User", "hi")
             mock_task.assert_called()
 
     def test_command_gauntlet_valid_statement(self, handler):
         """Test gauntlet command with valid statement creates tasks."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_gauntlet(
                 from_number="15551234567",
                 profile_name="Test User",
@@ -713,7 +742,9 @@ class TestExtendedCommands:
 
     def test_command_gauntlet_short_statement(self, handler):
         """Test gauntlet command with short statement sends error."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
+        with patch(
+            "aragora.server.handlers.social.whatsapp.config.create_tracked_task"
+        ) as mock_task:
             handler._command_gauntlet("15551234567", "User", "yes")
             mock_task.assert_called()
 
@@ -728,7 +759,7 @@ class TestExtendedErrors:
 
     def test_handle_message_missing_text(self, handler):
         """Test message handling with missing text field."""
-        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+        with patch("aragora.server.handlers.social.whatsapp.config.create_tracked_task"):
             handler._handle_text_message("15551234567", "User", "")
 
     def test_handle_interactive_missing_reply(self, handler):

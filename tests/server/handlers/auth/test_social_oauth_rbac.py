@@ -26,6 +26,31 @@ class TestSlackOAuthRBAC:
         assert CONNECTOR_READ == "connectors.read"
         assert CONNECTOR_AUTHORIZE == "connectors.authorize"
 
+    def test_slack_granular_permissions_defined(self):
+        """Slack handler should define granular RBAC permissions."""
+        from aragora.server.handlers.social.slack_oauth import (
+            PERM_SLACK_OAUTH_INSTALL,
+            PERM_SLACK_OAUTH_CALLBACK,
+            PERM_SLACK_OAUTH_DISCONNECT,
+            PERM_SLACK_WORKSPACE_MANAGE,
+            PERM_SLACK_ADMIN,
+        )
+
+        # Verify colon-separated format for granular permissions
+        assert PERM_SLACK_OAUTH_INSTALL == "slack:oauth:install"
+        assert PERM_SLACK_OAUTH_CALLBACK == "slack:oauth:callback"
+        assert PERM_SLACK_OAUTH_DISCONNECT == "slack:oauth:disconnect"
+        assert PERM_SLACK_WORKSPACE_MANAGE == "slack:workspace:manage"
+        assert PERM_SLACK_ADMIN == "slack:admin"
+
+    def test_slack_handler_has_check_permission_helper(self):
+        """Slack handler should have _check_permission helper method."""
+        from aragora.server.handlers.social.slack_oauth import SlackOAuthHandler
+
+        handler = SlackOAuthHandler()
+        assert hasattr(handler, "_check_permission")
+        assert callable(handler._check_permission)
+
     def test_middleware_protects_slack_install(self):
         """Middleware should protect Slack install with connector.create."""
         from aragora.rbac.middleware import DEFAULT_ROUTE_PERMISSIONS

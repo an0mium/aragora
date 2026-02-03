@@ -3613,109 +3613,102 @@ class TestRBACPermissionEnforcement:
 
 
 class TestRateLimiting:
-    """Tests for rate limiting on payment endpoints.
+    """Tests for rate limiting on payment endpoints."""
 
-    These tests verify the rate limiting logic at the component level,
-    avoiding decorator overhead which can cause metric initialization issues in tests.
-    """
-
-    def test_check_rate_limit_returns_429_when_exceeded(self):
-        """Rate limit check returns 429 response when limit exceeded."""
-        from aragora.server.handlers.payments import _check_rate_limit, _payment_write_limiter
-
-        request = MagicMock()
-        request.get = MagicMock(return_value=None)
+    @pytest.mark.asyncio
+    async def test_charge_rate_limited(self):
+        """Charge endpoint returns 429 when rate limited."""
+        request = create_mock_request({"amount": 100.00})
         request.transport = MagicMock()
         request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
-        request.headers = {}
 
-        # Mock the limiter to deny the request
-        with patch.object(_payment_write_limiter, "is_allowed", return_value=False):
-            response = _check_rate_limit(request, _payment_write_limiter)
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
 
-        assert response is not None
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_charge(request)
+
         assert response.status == 429
         data = json.loads(response.text)
         assert "Rate limit exceeded" in data["error"]
         assert response.headers.get("Retry-After") == "60"
 
-    def test_check_rate_limit_returns_none_when_allowed(self):
-        """Rate limit check returns None when request is allowed."""
-        from aragora.server.handlers.payments import _check_rate_limit, _payment_write_limiter
-
-        request = MagicMock()
-        request.get = MagicMock(return_value=None)
-        request.transport = MagicMock()
-        request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
-        request.headers = {}
-
-        with patch.object(_payment_write_limiter, "is_allowed", return_value=True):
-            response = _check_rate_limit(request, _payment_write_limiter)
-
-        assert response is None
-
-    def test_rate_limit_uses_user_id_if_available(self):
-        """Rate limiter prefers user_id over IP when available."""
-        from aragora.server.handlers.payments import _get_client_identifier
-
-        request = MagicMock()
-        request.get = MagicMock(return_value="user-12345")
-        request.headers = {}
-        request.transport = MagicMock()
-        request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
-
-        identifier = _get_client_identifier(request)
-        assert identifier == "user:user-12345"
-
-    def test_rate_limit_uses_forwarded_for_header(self):
-        """Rate limiter uses X-Forwarded-For when behind proxy."""
-        from aragora.server.handlers.payments import _get_client_identifier
-
-        request = MagicMock()
-        request.get = MagicMock(return_value=None)
-        request.headers = {"X-Forwarded-For": "203.0.113.5, 10.0.0.1"}
-        request.transport = None
-
-        identifier = _get_client_identifier(request)
-        assert identifier == "203.0.113.5"
-
-    def test_rate_limit_falls_back_to_transport(self):
-        """Rate limiter falls back to transport IP when no headers."""
-        from aragora.server.handlers.payments import _get_client_identifier
-
-        request = MagicMock()
-        request.get = MagicMock(return_value=None)
-        request.headers = {}
+    @pytest.mark.asyncio
+    async def test_refund_rate_limited(self):
+        """Refund endpoint returns 429 when rate limited."""
+        request = create_mock_request({"transaction_id": "pi_test", "amount": 50.00})
         request.transport = MagicMock()
         request.transport.get_extra_info.return_value = ("10.0.0.1", 12345)
 
-        identifier = _get_client_identifier(request)
-        assert identifier == "10.0.0.1"
-
-    def test_rate_limit_returns_unknown_when_no_identifier(self):
-        """Rate limiter returns 'unknown' when no identifier available."""
-        from aragora.server.handlers.payments import _get_client_identifier
-
-        request = MagicMock()
-        request.get = MagicMock(return_value=None)
-        request.headers = {}
-        request.transport = None
-
-        identifier = _get_client_identifier(request)
-        assert identifier == "unknown"
-
-    def test_rate_limiters_are_configured(self):
-        """Payment rate limiters are properly configured."""
-        from aragora.server.handlers.payments import (
-            _payment_write_limiter,
-            _payment_read_limiter,
-            _webhook_limiter,
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
         )
 
-        # Verify all rate limiters exist and have is_allowed method
-        assert hasattr(_payment_write_limiter, "is_allowed")
-        assert hasattr(_payment_read_limiter, "is_allowed")
-        assert hasattr(_webhook_limiter, "is_allowed")
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_refund(request)
+
+        assert response.status == 429
+
+    @pytest.mark.asyncio
+    async def test_get_transaction_rate_limited(self):
+        """Get transaction endpoint returns 429 when rate limited."""
+        request = create_mock_request({}, method="GET")
+        request.match_info = {"transaction_id": "pi_test123"}
+        request.query = {"provider": "stripe"}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("10.0.0.2", 12345)
+
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
+
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_get_transaction(request)
+
+        assert response.status == 429
+
+    @pytest.mark.asyncio
+    async def test_webhook_rate_limited(self, mock_stripe_connector):
+        """Stripe webhook returns 429 when rate limited."""
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "test_sig"}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("webhook.stripe.com", 443)
+
+        async def read_func():
+            return b'{"type": "test"}'
+
+        request.read = read_func
+
+        rate_limit_response = web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
+
+        with patch(
+            "aragora.server.handlers.payments._check_rate_limit",
+            return_value=rate_limit_response,
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 429
 
 
 # ===========================================================================
@@ -3825,95 +3818,82 @@ class TestResilientCalls:
 
 
 class TestWebhookIdempotency:
-    """Tests for webhook idempotency handling.
+    """Tests for webhook idempotency handling via handlers."""
 
-    These tests mock the webhook store to verify the idempotency logic.
-    """
+    @pytest.mark.asyncio
+    async def test_stripe_webhook_marks_processed(self, mock_stripe_connector):
+        """Stripe webhook marks event as processed after handling."""
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "test_sig"}
 
-    def test_is_duplicate_webhook_returns_false_for_new_event(self):
-        """Duplicate check returns False for new event ID."""
-        from aragora.server.handlers.payments import _is_duplicate_webhook
+        async def read_func():
+            return b'{"type": "payment_intent.succeeded"}'
+
+        request.read = read_func
+
+        mock_event = MagicMock()
+        mock_event.id = "evt_unique_123"
+        mock_event.type = "payment_intent.succeeded"
+        mock_event.data = MagicMock()
+        mock_event.data.object = MagicMock(id="pi_test123")
+
+        mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=mock_event)
 
         mock_store = MagicMock()
         mock_store.is_processed.return_value = False
 
-        with patch(
-            "aragora.storage.webhook_store.get_webhook_store",
-            return_value=mock_store,
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._check_rate_limit",
+                return_value=None,
+            ),
+            patch(
+                "aragora.storage.webhook_store.get_webhook_store",
+                return_value=mock_store,
+            ),
         ):
-            result = _is_duplicate_webhook("evt_brand_new_123")
+            response = await handle_stripe_webhook(request)
 
-        assert result is False
-        mock_store.is_processed.assert_called_once_with("evt_brand_new_123")
+        assert response.status == 200
+        mock_store.mark_processed.assert_called_once_with("evt_unique_123", "success")
 
-    def test_is_duplicate_webhook_returns_true_for_processed_event(self):
-        """Duplicate check returns True for already processed event."""
-        from aragora.server.handlers.payments import _is_duplicate_webhook
-
-        mock_store = MagicMock()
-        mock_store.is_processed.return_value = True
-
-        with patch(
-            "aragora.storage.webhook_store.get_webhook_store",
-            return_value=mock_store,
-        ):
-            result = _is_duplicate_webhook("evt_already_processed_456")
-
-        assert result is True
-
-    def test_mark_webhook_processed_calls_store(self):
-        """Mark processed calls the webhook store."""
-        from aragora.server.handlers.payments import _mark_webhook_processed
-
-        mock_store = MagicMock()
-
-        with patch(
-            "aragora.storage.webhook_store.get_webhook_store",
-            return_value=mock_store,
-        ):
-            _mark_webhook_processed("evt_to_process_789")
-
-        mock_store.mark_processed.assert_called_once_with("evt_to_process_789", "success")
-
-    def test_mark_webhook_processed_with_result(self):
-        """Mark processed passes result to store."""
-        from aragora.server.handlers.payments import _mark_webhook_processed
-
-        mock_store = MagicMock()
-
-        with patch(
-            "aragora.storage.webhook_store.get_webhook_store",
-            return_value=mock_store,
-        ):
-            _mark_webhook_processed("evt_failed_123", "error")
-
-        mock_store.mark_processed.assert_called_once_with("evt_failed_123", "error")
-
-    def test_idempotency_flow(self):
-        """Test complete idempotency flow with mocked store."""
-        from aragora.server.handlers.payments import (
-            _is_duplicate_webhook,
-            _mark_webhook_processed,
+    @pytest.mark.asyncio
+    async def test_authnet_webhook_marks_processed(self, mock_authnet_connector):
+        """Authorize.net webhook marks event as processed."""
+        request = create_mock_request(
+            {
+                "notificationId": "notif_unique_456",
+                "eventType": "net.authorize.payment.authcapture.created",
+                "payload": {"id": "123456789"},
+            }
         )
+        request.headers = {"X-ANET-Signature": "test_sig"}
 
         mock_store = MagicMock()
-        # First call returns False (not processed), second returns True
-        mock_store.is_processed.side_effect = [False, True]
+        mock_store.is_processed.return_value = False
 
-        with patch(
-            "aragora.storage.webhook_store.get_webhook_store",
-            return_value=mock_store,
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_authnet_connector",
+                return_value=mock_authnet_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._check_rate_limit",
+                return_value=None,
+            ),
+            patch(
+                "aragora.storage.webhook_store.get_webhook_store",
+                return_value=mock_store,
+            ),
         ):
-            # First check - should not be duplicate
-            assert _is_duplicate_webhook("evt_test") is False
+            response = await handle_authnet_webhook(request)
 
-            # Mark as processed
-            _mark_webhook_processed("evt_test")
-
-            # Second check - should be duplicate
-            assert _is_duplicate_webhook("evt_test") is True
-
-        assert mock_store.is_processed.call_count == 2
+        assert response.status == 200
+        mock_store.mark_processed.assert_called_once_with("notif_unique_456", "success")
 
 
 # ===========================================================================

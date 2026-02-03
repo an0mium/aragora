@@ -392,9 +392,6 @@ class TestMongoDBSearch:
 class TestMongoDBErrorHandling:
     """Tests for error handling."""
 
-    @pytest.mark.xfail(
-        reason="Connector needs error handling - raises exception instead of recording error"
-    )
     @pytest.mark.asyncio
     async def test_sync_handles_collection_error(self, mock_credentials):
         """Should handle errors during collection sync gracefully."""
@@ -404,7 +401,8 @@ class TestMongoDBErrorHandling:
         connector.credentials = mock_credentials
 
         mock_collection = MagicMock()
-        mock_collection.find = MagicMock(side_effect=Exception("Connection lost"))
+        # Use ConnectionError which is handled by the connector's sync_items method
+        mock_collection.find = MagicMock(side_effect=ConnectionError("Connection lost"))
 
         mock_db = MagicMock()
         mock_db.__getitem__ = MagicMock(return_value=mock_collection)

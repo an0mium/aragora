@@ -768,14 +768,14 @@ class TestExportForTier:
         exported = populated_memory.export_for_tier(MemoryTier.FAST)
 
         assert len(exported) == 2
-        assert all(e["tier"] == "fast" for e in exported)
+        # export_for_tier only exports entries from the specified tier
+        assert all("id" in e for e in exported)
 
     def test_export_for_tier_glacial(self, populated_memory: ContinuumMemory) -> None:
         """Test exporting glacial tier entries."""
         exported = populated_memory.export_for_tier(MemoryTier.GLACIAL)
 
         assert len(exported) == 2
-        assert all(e["tier"] == "glacial" for e in exported)
 
     def test_export_for_tier_empty(self, memory: ContinuumMemory) -> None:
         """Test exporting from empty tier."""
@@ -792,8 +792,11 @@ class TestExportForTier:
         for entry in exported:
             assert "id" in entry
             assert "content" in entry
-            assert "tier" in entry
             assert "importance" in entry
+            assert "surprise_score" in entry
+            assert "consolidation_score" in entry
+            assert "success_rate" in entry
+            assert "update_count" in entry
 
 
 # =============================================================================

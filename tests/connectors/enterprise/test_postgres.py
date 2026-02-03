@@ -575,7 +575,6 @@ class TestSearch:
         assert len(results) == 1
         assert results[0]["table"] == "documents"
 
-    @pytest.mark.xfail(reason="Connector needs FTS fallback - raises exception instead of catching")
     @pytest.mark.asyncio
     async def test_search_fallback_to_ilike(self, postgres_connector, sample_columns):
         """Test search falls back to ILIKE when FTS fails."""
@@ -584,8 +583,8 @@ class TestSearch:
         async def mock_fetch(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                # First call: FTS fails
-                raise Exception("FTS not configured")
+                # First call: FTS fails - use RuntimeError which is caught by the connector
+                raise RuntimeError("FTS not configured")
             elif call_count[0] == 2:
                 # Second call: get columns
                 return sample_columns

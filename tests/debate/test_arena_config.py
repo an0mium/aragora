@@ -752,7 +752,7 @@ class TestArenaConfigEquality:
         c = ArenaConfig()
         assert c != "not a config"
         assert c != 42
-        assert c != None
+        assert c is not None
 
 
 class TestArenaConfigRepr:
@@ -901,9 +901,7 @@ class TestArenaConfigBuilderValues:
     def test_with_knowledge_sets_values(self):
         config = (
             ArenaConfig.builder()
-            .with_knowledge(
-                enable_knowledge_retrieval=False, extraction_min_confidence=0.6
-            )
+            .with_knowledge(enable_knowledge_retrieval=False, extraction_min_confidence=0.6)
             .build()
         )
         assert config.enable_knowledge_retrieval is False

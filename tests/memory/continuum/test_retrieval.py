@@ -526,64 +526,69 @@ class TestHybridSearch:
     @pytest.mark.asyncio
     async def test_hybrid_search_basic(self, populated_memory: ContinuumMemory) -> None:
         """Test basic hybrid search."""
-        # Mock the hybrid search module
-        with patch.object(populated_memory, "_hybrid_search", None):
-            with patch("aragora.memory.continuum.retrieval.HybridMemorySearch") as mock_search:
-                mock_instance = MagicMock()
-                mock_instance.search = AsyncMock(return_value=[])
-                mock_search.return_value = mock_instance
+        # Mock the hybrid search module at the source
+        with patch("aragora.memory.hybrid_search.HybridMemorySearch") as mock_search:
+            mock_instance = MagicMock()
+            mock_instance.search = AsyncMock(return_value=[])
+            mock_search.return_value = mock_instance
 
-                results = await populated_memory.hybrid_search("Python patterns", limit=5)
+            # Clear any cached hybrid search instance
+            populated_memory._hybrid_search = None
 
-                mock_instance.search.assert_called_once()
+            results = await populated_memory.hybrid_search("Python patterns", limit=5)
+
+            mock_instance.search.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_hybrid_search_with_tiers(self, populated_memory: ContinuumMemory) -> None:
         """Test hybrid search with tier filter."""
-        with patch.object(populated_memory, "_hybrid_search", None):
-            with patch("aragora.memory.continuum.retrieval.HybridMemorySearch") as mock_search:
-                mock_instance = MagicMock()
-                mock_instance.search = AsyncMock(return_value=[])
-                mock_search.return_value = mock_instance
+        with patch("aragora.memory.hybrid_search.HybridMemorySearch") as mock_search:
+            mock_instance = MagicMock()
+            mock_instance.search = AsyncMock(return_value=[])
+            mock_search.return_value = mock_instance
 
-                await populated_memory.hybrid_search(
-                    "Python", limit=5, tiers=[MemoryTier.FAST, MemoryTier.MEDIUM]
-                )
+            populated_memory._hybrid_search = None
 
-                call_kwargs = mock_instance.search.call_args.kwargs
-                assert call_kwargs["tiers"] == ["fast", "medium"]
+            await populated_memory.hybrid_search(
+                "Python", limit=5, tiers=[MemoryTier.FAST, MemoryTier.MEDIUM]
+            )
+
+            call_kwargs = mock_instance.search.call_args.kwargs
+            assert call_kwargs["tiers"] == ["fast", "medium"]
 
     @pytest.mark.asyncio
     async def test_hybrid_search_with_vector_weight(
         self, populated_memory: ContinuumMemory
     ) -> None:
         """Test hybrid search with custom vector weight."""
-        with patch.object(populated_memory, "_hybrid_search", None):
-            with patch("aragora.memory.continuum.retrieval.HybridMemorySearch") as mock_search:
-                mock_instance = MagicMock()
-                mock_instance.search = AsyncMock(return_value=[])
-                mock_search.return_value = mock_instance
+        with patch("aragora.memory.hybrid_search.HybridMemorySearch") as mock_search:
+            mock_instance = MagicMock()
+            mock_instance.search = AsyncMock(return_value=[])
+            mock_search.return_value = mock_instance
 
-                await populated_memory.hybrid_search("Python", limit=5, vector_weight=0.7)
+            populated_memory._hybrid_search = None
 
-                call_kwargs = mock_instance.search.call_args.kwargs
-                assert call_kwargs["vector_weight"] == 0.7
+            await populated_memory.hybrid_search("Python", limit=5, vector_weight=0.7)
+
+            call_kwargs = mock_instance.search.call_args.kwargs
+            assert call_kwargs["vector_weight"] == 0.7
 
     @pytest.mark.asyncio
     async def test_hybrid_search_with_min_importance(
         self, populated_memory: ContinuumMemory
     ) -> None:
         """Test hybrid search with importance threshold."""
-        with patch.object(populated_memory, "_hybrid_search", None):
-            with patch("aragora.memory.continuum.retrieval.HybridMemorySearch") as mock_search:
-                mock_instance = MagicMock()
-                mock_instance.search = AsyncMock(return_value=[])
-                mock_search.return_value = mock_instance
+        with patch("aragora.memory.hybrid_search.HybridMemorySearch") as mock_search:
+            mock_instance = MagicMock()
+            mock_instance.search = AsyncMock(return_value=[])
+            mock_search.return_value = mock_instance
 
-                await populated_memory.hybrid_search("Python", limit=5, min_importance=0.8)
+            populated_memory._hybrid_search = None
 
-                call_kwargs = mock_instance.search.call_args.kwargs
-                assert call_kwargs["min_importance"] == 0.8
+            await populated_memory.hybrid_search("Python", limit=5, min_importance=0.8)
+
+            call_kwargs = mock_instance.search.call_args.kwargs
+            assert call_kwargs["min_importance"] == 0.8
 
 
 # =============================================================================
@@ -596,16 +601,17 @@ class TestIndexRebuilding:
 
     def test_rebuild_keyword_index(self, populated_memory: ContinuumMemory) -> None:
         """Test rebuilding keyword index."""
-        with patch.object(populated_memory, "_hybrid_search", None):
-            with patch("aragora.memory.continuum.retrieval.HybridMemorySearch") as mock_search:
-                mock_instance = MagicMock()
-                mock_instance.rebuild_keyword_index.return_value = 9
-                mock_search.return_value = mock_instance
+        with patch("aragora.memory.hybrid_search.HybridMemorySearch") as mock_search:
+            mock_instance = MagicMock()
+            mock_instance.rebuild_keyword_index.return_value = 9
+            mock_search.return_value = mock_instance
 
-                count = populated_memory.rebuild_keyword_index()
+            populated_memory._hybrid_search = None
 
-                mock_instance.rebuild_keyword_index.assert_called_once()
-                assert count == 9
+            count = populated_memory.rebuild_keyword_index()
+
+            mock_instance.rebuild_keyword_index.assert_called_once()
+            assert count == 9
 
 
 # =============================================================================

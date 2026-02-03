@@ -821,7 +821,8 @@ class TestCallbackQueries:
                 mock_details.return_value = MagicMock(status_code=200, body=b'{"ok":true}')
                 result = handler._handle_callback_query(callback)
 
-                mock_details.assert_called_once_with("callback123", 789, "debate123")
+                # _handle_view_details now takes (callback_id, chat_id, user_id, username, debate_id)
+                mock_details.assert_called_once_with("callback123", 789, 456, "viewer", "debate123")
 
     def test_handle_callback_query_unknown_action(self, handler):
         """Test callback query with unknown action."""
@@ -866,7 +867,9 @@ class TestVoteHandling:
     def test_handle_vote_records_vote(self, handler):
         """Test vote is recorded in storage."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-            with patch("aragora.server.handlers.social.telegram.emit_vote_received") as mock_emit:
+            with patch(
+                "aragora.server.handlers.social.telegram.callbacks.emit_vote_received"
+            ) as mock_emit:
                 with patch("aragora.server.storage.get_debates_db") as mock_db:
                     mock_db.return_value = MagicMock()
                     mock_db.return_value.record_vote = MagicMock()
@@ -912,7 +915,10 @@ class TestViewDetails:
             with patch("aragora.server.storage.get_debates_db") as mock_db:
                 mock_db.return_value.get.return_value = mock_debate
 
-                result = handler._handle_view_details("callback123", 789, "debate123")
+                # _handle_view_details now takes (callback_id, chat_id, user_id, username, debate_id)
+                result = handler._handle_view_details(
+                    "callback123", 789, 456, "viewer", "debate123"
+                )
 
                 assert result is not None
 
@@ -922,7 +928,10 @@ class TestViewDetails:
             with patch("aragora.server.storage.get_debates_db") as mock_db:
                 mock_db.return_value.get.return_value = None
 
-                result = handler._handle_view_details("callback123", 789, "debate123")
+                # _handle_view_details now takes (callback_id, chat_id, user_id, username, debate_id)
+                result = handler._handle_view_details(
+                    "callback123", 789, 456, "viewer", "debate123"
+                )
 
                 assert result is not None
                 # Should send "not found" callback answer
@@ -934,7 +943,10 @@ class TestViewDetails:
             with patch("aragora.server.storage.get_debates_db") as mock_db:
                 mock_db.return_value.get.side_effect = Exception("DB error")
 
-                result = handler._handle_view_details("callback123", 789, "debate123")
+                # _handle_view_details now takes (callback_id, chat_id, user_id, username, debate_id)
+                result = handler._handle_view_details(
+                    "callback123", 789, 456, "viewer", "debate123"
+                )
 
                 assert result is not None
 
@@ -1545,6 +1557,8 @@ class TestRBAC:
 
     def test_set_webhook_checks_permission(self, handler):
         """Test set-webhook endpoint checks RBAC permission."""
+        from aragora.server.handlers.social.telegram import PERM_TELEGRAM_ADMIN
+
         mock_http = MockHandler.with_json_body(
             {"url": "https://example.com/webhook"},
             path="/api/v1/integrations/telegram/set-webhook",
@@ -1556,7 +1570,8 @@ class TestRBAC:
         ) as mock_check:
             result = handler.handle("/api/v1/integrations/telegram/set-webhook", {}, mock_http)
 
-            mock_check.assert_called_once_with(mock_http, "messaging:write")
+            # Set-webhook now requires telegram:admin permission
+            mock_check.assert_called_once_with(mock_http, PERM_TELEGRAM_ADMIN)
             assert get_status_code(result) == 403
 
 
@@ -1905,9 +1920,11 @@ class TestTelemetryAndEvents:
         with patch.object(handler, "_verify_secret", return_value=True):
             with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
                 with patch(
-                    "aragora.server.handlers.social.telegram.record_webhook_request"
+                    "aragora.server.handlers.social.telegram.webhooks.record_webhook_request"
                 ) as mock_record:
-                    with patch("aragora.server.handlers.social.telegram.record_webhook_latency"):
+                    with patch(
+                        "aragora.server.handlers.social.telegram.webhooks.record_webhook_latency"
+                    ):
                         result = handler.handle(
                             "/api/v1/integrations/telegram/webhook", {}, mock_http
                         )
@@ -1917,7 +1934,9 @@ class TestTelemetryAndEvents:
     def test_command_records_metrics(self, handler):
         """Test command handling records command metrics."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-            with patch("aragora.server.handlers.social.telegram.record_command") as mock_record:
+            with patch(
+                "aragora.server.handlers.social.telegram.commands.record_command"
+            ) as mock_record:
                 handler._handle_command(123, 456, "user", "/status")
 
                 mock_record.assert_called_once_with("telegram", "status")
@@ -1930,7 +1949,7 @@ class TestTelemetryAndEvents:
 
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
             with patch(
-                "aragora.server.handlers.social.telegram.emit_message_received"
+                "aragora.server.handlers.social.telegram.callbacks.emit_message_received"
             ) as mock_emit:
                 handler._handle_message(message)
 

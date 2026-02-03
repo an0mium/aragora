@@ -226,7 +226,9 @@ class TestCheckpointCreation:
         """FileCheckpointStore.save handles unicode content."""
         checkpoint = create_checkpoint(
             workflow_id="wf-\u4e2d\u6587",  # Chinese characters
-            step_outputs={"step": {"message": "\u0440\u0443\u0441\u0441\u043a\u0438\u0439"}},  # Russian
+            step_outputs={
+                "step": {"message": "\u0440\u0443\u0441\u0441\u043a\u0438\u0439"}
+            },  # Russian
             context_state={"emoji": "\ud83d\ude80\ud83c\udf1f"},
         )
 
@@ -405,13 +407,7 @@ class TestCheckpointRestoration:
         """Restored checkpoint preserves deeply nested structures."""
         checkpoint = create_checkpoint(
             step_outputs={
-                "step": {
-                    "level1": {
-                        "level2": {
-                            "level3": {"value": "deep", "array": [1, 2, 3]}
-                        }
-                    }
-                }
+                "step": {"level1": {"level2": {"level3": {"value": "deep", "array": [1, 2, 3]}}}}
             }
         )
 
@@ -1259,9 +1255,7 @@ class TestRedisCheckpointStore:
             store._redis = mock_redis
 
             # Large checkpoint
-            checkpoint = create_checkpoint(
-                step_outputs={"large": "x" * 1000}
-            )
+            checkpoint = create_checkpoint(step_outputs={"large": "x" * 1000})
 
             await store.save(checkpoint)
 
@@ -1419,10 +1413,7 @@ class TestKnowledgeMoundCheckpointStore:
         """KnowledgeMoundCheckpointStore allows workspace override."""
         from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
 
-        store = KnowledgeMoundCheckpointStore(
-            mock_knowledge_mound,
-            workspace_id="custom-workspace"
-        )
+        store = KnowledgeMoundCheckpointStore(mock_knowledge_mound, workspace_id="custom-workspace")
         assert store.workspace_id == "custom-workspace"
 
     @pytest.mark.asyncio
@@ -1447,16 +1438,18 @@ class TestKnowledgeMoundCheckpointStore:
         from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
 
         checkpoint_node = MagicMock()
-        checkpoint_node.content = json.dumps({
-            "workflow_id": "wf-prov",
-            "definition_id": "def-prov",
-            "current_step": "latest",
-            "completed_steps": [],
-            "step_outputs": {},
-            "context_state": {},
-            "created_at": datetime.now().isoformat(),
-            "checksum": "",
-        })
+        checkpoint_node.content = json.dumps(
+            {
+                "workflow_id": "wf-prov",
+                "definition_id": "def-prov",
+                "current_step": "latest",
+                "completed_steps": [],
+                "step_outputs": {},
+                "context_state": {},
+                "created_at": datetime.now().isoformat(),
+                "checksum": "",
+            }
+        )
         mock_knowledge_mound.query_by_provenance.return_value = [checkpoint_node]
 
         store = KnowledgeMoundCheckpointStore(mock_knowledge_mound)
@@ -1561,7 +1554,7 @@ class TestEdgeCases:
         checkpoint = create_checkpoint(
             step_outputs={
                 "step": {
-                    "quotes": 'Contains "quotes" and \'apostrophes\'',
+                    "quotes": "Contains \"quotes\" and 'apostrophes'",
                     "path": "C:\\Users\\test\\file.txt",
                     "newlines": "line1\nline2\nline3",
                     "tabs": "col1\tcol2",

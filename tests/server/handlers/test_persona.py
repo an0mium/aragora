@@ -1214,3 +1214,579 @@ class TestVersionPrefix:
             result = persona_handler.handle("/api/personas", {}, mock_http_handler)
 
         assert result.status_code == 200
+
+
+# ===========================================================================
+# RBAC Permission Tests
+# ===========================================================================
+
+
+class TestPersonaHandlerRBAC:
+    """Tests for RBAC permission enforcement on persona endpoints."""
+
+    def test_handle_has_persona_read_permission(self):
+        """The handle method should be decorated with persona:read permission."""
+        handler = PersonaHandler({})
+        method = handler.handle
+        assert callable(method)
+
+    def test_handle_post_has_persona_create_permission(self):
+        """The handle_post method should be decorated with persona:create permission."""
+        handler = PersonaHandler({})
+        method = handler.handle_post
+        assert callable(method)
+
+    def test_handle_put_has_persona_update_permission(self):
+        """The handle_put method should be decorated with persona:update permission."""
+        handler = PersonaHandler({})
+        method = handler.handle_put
+        assert callable(method)
+
+    def test_handle_delete_has_persona_delete_permission(self):
+        """The handle_delete method should be decorated with persona:delete permission."""
+        handler = PersonaHandler({})
+        method = handler.handle_delete
+        assert callable(method)
+
+    def test_rbac_enforced_when_real_auth_enabled(self, mock_http_handler):
+        """Test that RBAC returns 401 when real auth is enabled without token."""
+        handler = PersonaHandler({})
+        handler.get_persona_manager = MagicMock(return_value=MagicMock())
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            with patch.dict(
+                "os.environ",
+                {"ARAGORA_TEST_REAL_AUTH": "1", "PYTEST_CURRENT_TEST": "test"},
+            ):
+                result = handler.handle("/api/personas", {}, mock_http_handler)
+
+        # Without a valid token, should get 401 or 403
+        assert result is not None
+        assert result.status_code in (401, 403)
+
+
+# ===========================================================================
+# Exception/Error Handling Tests
+# ===========================================================================
+
+
+class TestPersonaErrorHandling:
+    """Tests for exception handling in persona endpoints."""
+
+    def test_get_performance_exception(self, persona_handler, mock_http_handler):
+        """Test error handling when performance summary raises exception."""
+        mock_manager = MagicMock()
+        mock_manager.get_performance_summary.side_effect = Exception("DB crash")
+        persona_handler.get_persona_manager = MagicMock(return_value=mock_manager)
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
+
+        assert result.status_code == 500
+
+    def test_get_domains_exception(self, persona_handler, mock_http_handler):
+        """Test error handling when get_best_domains raises exception."""
+        mock_elo = MagicMock()
+        mock_elo.get_best_domains.side_effect = RuntimeError("ELO error")
+        persona_handler.get_elo_system = MagicMock(return_value=mock_elo)
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
+
+        assert result.status_code == 500
+
+    def test_get_persona_exception(self, persona_handler, mock_http_handler):
+        """Test error handling when get_persona raises exception."""
+        mock_manager = MagicMock()
+        mock_manager.get_persona.side_effect = Exception("lookup failed")
+        persona_handler.get_persona_manager = MagicMock(return_value=mock_manager)
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle("/api/agent/claude/persona", {}, mock_http_handler)
+
+        assert result.status_code == 500
+
+    def test_create_persona_exception(self, persona_handler, mock_http_handler):
+        """Test error handling when create_persona raises exception."""
+        mock_manager = MagicMock()
+        mock_manager.create_persona.side_effect = Exception("DB write failed")
+        persona_handler.get_persona_manager = MagicMock(return_value=mock_manager)
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=(
+                {"agent_name": "test_agent", "traits": [], "expertise": {}},
+                None,
+            )
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_post("/api/personas", {}, mock_http_handler)
+
+        assert result.status_code == 500
+
+    def test_update_persona_exception(
+        self, persona_handler, mock_http_handler, mock_persona_manager
+    ):
+        """Test error handling when update (create_persona) raises exception."""
+        mock_persona_manager.create_persona = MagicMock(side_effect=Exception("DB write failed"))
+        persona_handler.get_persona_manager = MagicMock(return_value=mock_persona_manager)
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=({"description": "Updated"}, None)
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_put("/api/agent/claude/persona", {}, mock_http_handler)
+
+        assert result.status_code == 500
+
+    def test_delete_persona_exception(
+        self, persona_handler, mock_http_handler, mock_persona_manager
+    ):
+        """Test error handling when delete raises exception."""
+        mock_persona_manager._connection_ctx.__enter__ = MagicMock(
+            side_effect=Exception("DB connection failed")
+        )
+        mock_persona_manager._connection_ctx.__exit__ = MagicMock(return_value=None)
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_delete(
+                "/api/agent/claude/persona", {}, mock_http_handler
+            )
+
+        assert result.status_code == 500
+
+    def test_grounded_persona_exception(self, persona_handler, mock_http_handler):
+        """Test error handling when PersonaSynthesizer raises exception."""
+        mock_synthesizer = MagicMock()
+        mock_synthesizer.get_grounded_persona.side_effect = Exception("Synthesis error")
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True):
+                with patch(
+                    "aragora.server.handlers.persona.PersonaSynthesizer",
+                    return_value=mock_synthesizer,
+                ):
+                    result = persona_handler.handle(
+                        "/api/agent/claude/grounded-persona", {}, mock_http_handler
+                    )
+
+        assert result.status_code == 500
+
+    def test_identity_prompt_exception(self, persona_handler, mock_http_handler):
+        """Test error handling when identity prompt synthesis raises exception."""
+        mock_synthesizer = MagicMock()
+        mock_synthesizer.synthesize_identity_prompt.side_effect = Exception("Prompt error")
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True):
+                with patch(
+                    "aragora.server.handlers.persona.PersonaSynthesizer",
+                    return_value=mock_synthesizer,
+                ):
+                    result = persona_handler.handle(
+                        "/api/agent/claude/identity-prompt", {}, mock_http_handler
+                    )
+
+        assert result.status_code == 500
+
+    def test_accuracy_exception(self, mock_http_handler):
+        """Test error handling when PositionTracker raises exception."""
+        handler = PersonaHandler({})
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            nomic_path = Path(tmp_dir)
+            db_path = nomic_path / "aragora_positions.db"
+            db_path.touch()
+            handler.get_nomic_dir = MagicMock(return_value=nomic_path)
+
+            mock_tracker_cls = MagicMock(side_effect=Exception("Tracker init failed"))
+
+            with patch(
+                "aragora.server.handlers.persona._persona_limiter.is_allowed",
+                return_value=True,
+            ):
+                with patch(
+                    "aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE",
+                    True,
+                ):
+                    with patch(
+                        "aragora.server.handlers.persona.PositionTracker",
+                        mock_tracker_cls,
+                    ):
+                        result = handler.handle("/api/agent/claude/accuracy", {}, mock_http_handler)
+
+        assert result.status_code == 500
+
+    def test_accuracy_returns_none_data(self, mock_http_handler):
+        """Test response when PositionTracker returns None for agent."""
+        handler = PersonaHandler({})
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            nomic_path = Path(tmp_dir)
+            db_path = nomic_path / "aragora_positions.db"
+            db_path.touch()
+            handler.get_nomic_dir = MagicMock(return_value=nomic_path)
+
+            mock_tracker = MagicMock()
+            mock_tracker.get_agent_position_accuracy.return_value = None
+
+            with patch(
+                "aragora.server.handlers.persona._persona_limiter.is_allowed",
+                return_value=True,
+            ):
+                with patch(
+                    "aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE",
+                    True,
+                ):
+                    with patch(
+                        "aragora.server.handlers.persona.PositionTracker",
+                        return_value=mock_tracker,
+                    ):
+                        result = handler.handle("/api/agent/claude/accuracy", {}, mock_http_handler)
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["total_positions"] == 0
+        assert "message" in data
+
+
+# ===========================================================================
+# Unmatched Path Tests
+# ===========================================================================
+
+
+class TestUnmatchedPaths:
+    """Tests for unmatched paths returning None."""
+
+    def test_handle_returns_none_for_unmatched(self, persona_handler, mock_http_handler):
+        """GET handle should return None for unmatched agent paths."""
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle("/api/something/else", {}, mock_http_handler)
+
+        assert result is None
+
+    def test_handle_post_returns_none_for_unmatched(self, persona_handler, mock_http_handler):
+        """POST handle should return None for non-persona paths."""
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_post("/api/other", {}, mock_http_handler)
+
+        assert result is None
+
+    def test_handle_put_returns_none_for_unmatched(self, persona_handler, mock_http_handler):
+        """PUT handle should return None for non-persona paths."""
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_put("/api/other/path", {}, mock_http_handler)
+
+        assert result is None
+
+    def test_handle_delete_returns_none_for_unmatched(self, persona_handler, mock_http_handler):
+        """DELETE handle should return None for non-persona paths."""
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_delete("/api/other/path", {}, mock_http_handler)
+
+        assert result is None
+
+
+# ===========================================================================
+# PUT/DELETE Path Validation Tests
+# ===========================================================================
+
+
+class TestPutDeletePathValidation:
+    """Tests for path validation on PUT and DELETE endpoints."""
+
+    def test_put_invalid_agent_name(self, persona_handler, mock_http_handler):
+        """PUT should reject invalid agent names."""
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=({"description": "Test"}, None)
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_put(
+                "/api/agent/../../../etc/passwd/persona", {}, mock_http_handler
+            )
+
+        assert result.status_code == 400
+
+    def test_delete_invalid_agent_name(self, persona_handler, mock_http_handler):
+        """DELETE should reject invalid agent names."""
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_delete(
+                "/api/agent/../../../etc/passwd/persona", {}, mock_http_handler
+            )
+
+        assert result.status_code == 400
+
+    def test_put_with_version_prefix(
+        self, persona_handler, mock_http_handler, mock_persona_manager
+    ):
+        """PUT should handle versioned paths."""
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=({"description": "Updated via v1"}, None)
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_put(
+                "/api/v1/agent/claude/persona", {}, mock_http_handler
+            )
+
+        assert result.status_code == 200
+
+    def test_delete_with_version_prefix(
+        self, persona_handler, mock_http_handler, mock_persona_manager
+    ):
+        """DELETE should handle versioned paths."""
+        mock_cursor = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_persona_manager._connection_ctx.__enter__ = MagicMock(return_value=mock_conn)
+        mock_persona_manager._connection_ctx.__exit__ = MagicMock(return_value=None)
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_delete(
+                "/api/v1/agent/claude/persona", {}, mock_http_handler
+            )
+
+        assert result.status_code == 200
+
+
+# ===========================================================================
+# Update Persona Additional Validation Tests
+# ===========================================================================
+
+
+class TestUpdatePersonaValidation:
+    """Additional validation tests for PUT /api/agent/{name}/persona."""
+
+    def test_update_persona_invalid_expertise(self, persona_handler, mock_http_handler):
+        """Test update fails with invalid expertise type."""
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=({"expertise": "not-a-dict"}, None)
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_put("/api/agent/claude/persona", {}, mock_http_handler)
+
+        assert result.status_code == 400
+        data = parse_handler_response(result)
+        assert "expertise must be a dict" in data["error"]
+
+    def test_update_persona_no_manager(self, mock_http_handler):
+        """Test update fails when persona manager not configured."""
+        handler = PersonaHandler({})
+        handler.get_persona_manager = MagicMock(return_value=None)
+        handler.read_json_body_validated = MagicMock(return_value=({"description": "Test"}, None))
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = handler.handle_put("/api/agent/claude/persona", {}, mock_http_handler)
+
+        assert result.status_code == 503
+
+    def test_update_persona_preserves_existing_fields(
+        self, persona_handler, mock_http_handler, mock_persona_manager
+    ):
+        """Test update preserves existing fields when not provided."""
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=({"description": "New description only"}, None)
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_put("/api/agent/claude/persona", {}, mock_http_handler)
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["success"] is True
+
+    def test_update_persona_json_body_error(self, persona_handler, mock_http_handler):
+        """Test update fails when JSON body parsing fails."""
+        from aragora.server.handlers.utils.responses import error_response as er
+
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=(None, er("Invalid JSON", 400))
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_put("/api/agent/claude/persona", {}, mock_http_handler)
+
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# Create Persona Additional Tests
+# ===========================================================================
+
+
+class TestCreatePersonaAdditional:
+    """Additional tests for POST /api/personas."""
+
+    def test_create_persona_empty_agent_name(self, persona_handler, mock_http_handler):
+        """Test creation fails with empty agent_name."""
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=({"agent_name": "   "}, None)
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_post("/api/personas", {}, mock_http_handler)
+
+        assert result.status_code == 400
+
+    def test_create_persona_json_body_error(self, persona_handler, mock_http_handler):
+        """Test creation fails when JSON body parsing fails."""
+        from aragora.server.handlers.utils.responses import error_response as er
+
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=(None, er("Invalid JSON", 400))
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_post("/api/personas", {}, mock_http_handler)
+
+        assert result.status_code == 400
+
+    def test_create_persona_default_traits_expertise(
+        self, persona_handler, mock_http_handler, mock_persona_manager
+    ):
+        """Test creation succeeds with default (empty) traits and expertise."""
+        persona_handler.read_json_body_validated = MagicMock(
+            return_value=({"agent_name": "newagent"}, None)
+        )
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_post("/api/personas", {}, mock_http_handler)
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["success"] is True
+        assert data["persona"]["agent_name"] == "newagent"
+
+
+# ===========================================================================
+# Persona Data Content Verification Tests
+# ===========================================================================
+
+
+class TestPersonaDataContent:
+    """Tests verifying correct data shapes in responses."""
+
+    def test_all_personas_response_fields(self, persona_handler, mock_http_handler):
+        """Test that all persona response includes expected fields per persona."""
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle("/api/personas", {}, mock_http_handler)
+
+        data = parse_handler_response(result)
+        for persona in data["personas"]:
+            assert "agent_name" in persona
+            assert "description" in persona
+            assert "traits" in persona
+            assert "expertise" in persona
+            assert "created_at" in persona
+            assert "updated_at" in persona
+
+    def test_domains_response_shape(self, persona_handler, mock_http_handler):
+        """Test that domains response has correct shape."""
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
+
+        data = parse_handler_response(result)
+        assert "agent" in data
+        assert "domains" in data
+        assert "count" in data
+        for domain in data["domains"]:
+            assert "domain" in domain
+            assert "calibration_score" in domain
+
+    def test_delete_success_message_includes_agent_name(
+        self, persona_handler, mock_http_handler, mock_persona_manager
+    ):
+        """Test delete success message includes the agent name."""
+        mock_cursor = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_persona_manager._connection_ctx.__enter__ = MagicMock(return_value=mock_conn)
+        mock_persona_manager._connection_ctx.__exit__ = MagicMock(return_value=None)
+
+        with patch(
+            "aragora.server.handlers.persona._persona_limiter.is_allowed",
+            return_value=True,
+        ):
+            result = persona_handler.handle_delete(
+                "/api/agent/claude/persona", {}, mock_http_handler
+            )
+
+        data = parse_handler_response(result)
+        assert "claude" in data["message"]
