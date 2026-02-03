@@ -182,8 +182,8 @@ case "$tier" in
     echo -e "${YELLOW}=== Type checking aragora (REQUIRED) ===${NC}"
 
     # Count actual errors (not notes) - pattern: "file:line:col: error:"
-    # Use grep -c || true to prevent exit on no matches (set -e compatible)
-    ERROR_COUNT=$(mypy aragora/ --ignore-missing-imports --show-error-codes 2>/dev/null | { grep -cE "^[^:]+:[0-9]+:[0-9]+: error:" || true; } | tr -d '[:space:]')
+    # Disable pipefail for this pipeline since mypy returns non-zero on errors
+    ERROR_COUNT=$(set +o pipefail; mypy aragora/ --ignore-missing-imports --show-error-codes 2>/dev/null | { grep -cE "^[^:]+:[0-9]+:[0-9]+: error:" || true; } | tr -d '[:space:]')
     ERROR_COUNT=${ERROR_COUNT:-0}
 
     if [ "$ERROR_COUNT" -gt 0 ]; then

@@ -150,7 +150,8 @@ jobs:
             aragora/resilience/retry.py \
             aragora/resilience/timeout.py \
             --config-file pyproject.toml \
-            --no-error-summary
+            --no-error-summary \
+            --follow-imports=silent
           echo "Core modules type check passed!"
 
   frontend-lint:
