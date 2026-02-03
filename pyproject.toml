@@ -1075,6 +1075,21 @@ module = [
 ]
 ignore_errors = true
 
+# Mixin modules use cross-class attribute access that mypy cannot resolve
+# These will be properly typed when converted to Protocol-based typing
+[[tool.mypy.overrides]]
+module = [
+    "aragora.server.handlers.workspace.crud",
+    "aragora.server.handlers.workspace.members",
+    "aragora.server.handlers.workspace.policies",
+    "aragora.server.handlers.workspace.settings",
+    "aragora.server.handlers.social.telegram.commands",
+    "aragora.server.handlers.social.telegram.callbacks",
+    "aragora.server.handlers.social.telegram.webhooks",
+    "aragora.server.handlers.social.telegram._common",
+]
+disable_error_code = ["attr-defined"]
+
 [tool.mutmut]
 # Note: mutmut v3.4.0 has a bug parsing paths_to_mutate from pyproject.toml
 # For now, use: mutmut run aragora/ranking/elo_core.py (positional arg)
