@@ -538,8 +538,8 @@ def build_fastmcp_app(server: AragoraMCPServer) -> Any:
 
     for tool in server._tools.values():
 
-        async def _handler(**kwargs: Any) -> dict[str, Any]:
-            return await server.invoke_tool(tool.name, kwargs)
+        async def _handler(*, _tool_name: str = tool.name, **kwargs: Any) -> dict[str, Any]:
+            return await server.invoke_tool(_tool_name, kwargs)
 
         app.add_tool(_handler, name=tool.name, description=tool.description)
 

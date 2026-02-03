@@ -12,6 +12,7 @@ Tests cover:
 - Vote counting and debate session management
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -435,6 +436,48 @@ class TestSlackEventHandler:
         assert result.status_code == 200
         body = json.loads(result.body)
         assert "response_type" in body
+
+    @pytest.mark.asyncio
+    async def test_handle_app_mention_routes_attachments(self):
+        """Should route Slack attachments into DecisionRequest."""
+        request = MockRequest(
+            body=json.dumps(
+                {
+                    "type": "event_callback",
+                    "event": {
+                        "type": "app_mention",
+                        "text": "@aragora ask about microservices",
+                        "channel": "C123456",
+                        "user": "U123456",
+                        "files": [
+                            {
+                                "id": "F123",
+                                "name": "spec.txt",
+                                "mimetype": "text/plain",
+                                "preview_plain_text": "Spec details",
+                            }
+                        ],
+                    },
+                }
+            ).encode()
+        )
+
+        captured = {}
+
+        async def fake_route(req):
+            captured["request"] = req
+            return MagicMock()
+
+        with patch("aragora.core.get_decision_router") as mock_get:
+            mock_get.return_value = MagicMock(route=fake_route)
+            result = await handle_slack_events(request)
+            await asyncio.sleep(0)
+
+        assert result.status_code == 200
+        routed = captured.get("request")
+        assert routed is not None
+        assert routed.attachments
+        assert routed.attachments[0]["file_id"] == "F123"
 
     @pytest.mark.asyncio
     async def test_handle_message_event(self):

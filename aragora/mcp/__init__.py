@@ -10,8 +10,14 @@ from aragora.mcp.server import (
     MCPTool,
     MCPResource,
     MCPPrompt,
-    MCPCapability,
     create_mcp_server,
+    run_server,
+)
+from aragora.mcp.tools_module import (
+    run_debate_tool,
+    run_gauntlet_tool,
+    list_agents_tool,
+    get_debate_tool,
 )
 
 __all__ = [
@@ -19,6 +25,10 @@ __all__ = [
     "MCPTool",
     "MCPResource",
     "MCPPrompt",
-    "MCPCapability",
     "create_mcp_server",
+    "run_server",
+    "run_debate_tool",
+    "run_gauntlet_tool",
+    "list_agents_tool",
+    "get_debate_tool",
 ]
