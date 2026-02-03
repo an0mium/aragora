@@ -681,6 +681,7 @@ class TestSkillMarketplaceGetStats:
 # ===========================================================================
 
 
+@pytest.mark.no_auto_auth
 class TestSkillMarketplaceAuth:
     """Tests for authentication on protected endpoints."""
 

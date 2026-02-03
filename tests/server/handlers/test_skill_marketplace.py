@@ -265,27 +265,15 @@ def clear_module_state():
 
 
 class TestHandlerRouting:
-    """Tests for handler routing.
-
-    Note: The handler has a mismatch between strip_version_prefix behavior
-    and ROUTES/PATTERN_PREFIXES definitions. After stripping v1, paths don't
-    match the v1-prefixed ROUTES. Tests are written to verify actual behavior.
-    """
+    """Tests for handler routing."""
 
     def test_can_handle_non_versioned_search(self, handler):
         """Test can_handle for non-versioned search route."""
-        # After strip_version_prefix, paths lose v1, so non-versioned should work
-        # if PATTERN_PREFIXES were correct. Currently handler has a bug.
-        # This documents the actual behavior.
-        assert handler.can_handle("/api/skills/marketplace/search") is False
+        assert handler.can_handle("/api/skills/marketplace/search") is True
 
     def test_can_handle_versioned_search(self, handler):
-        """Test can_handle for versioned search route.
-
-        Due to handler bug (strips v1 then checks against v1-prefixed ROUTES),
-        versioned paths return False. This documents actual behavior.
-        """
-        assert handler.can_handle("/api/v1/skills/marketplace/search") is False
+        """Test can_handle for versioned search route."""
+        assert handler.can_handle("/api/v1/skills/marketplace/search") is True
 
     def test_cannot_handle_invalid_route(self, handler):
         """Test can_handle for invalid route."""
@@ -562,28 +550,47 @@ class TestGetStats:
 
 
 class TestAuthentication:
-    """Tests for authentication requirements.
-
-    Note: Due to handler routing bug (strips v1 then checks v1-prefixed ROUTES),
-    handle() returns None for all versioned paths. Tests verify internal methods
-    directly instead.
-    """
+    """Tests for authentication requirements."""
 
     @pytest.mark.asyncio
-    async def test_versioned_paths_not_matched(self, handler):
-        """Test that versioned paths return None due to handler routing bug."""
-        with patch.object(handler, "get_auth_context") as mock_auth:
-            mock_auth.return_value = {}
+    async def test_versioned_paths_matched(self, handler):
+        """Test that versioned paths route to the handler."""
+        with patch.object(handler, "get_auth_context", new=AsyncMock(return_value={})):
+            result = await handler.handle(
+                "/api/v1/skills/marketplace/installed", {}, MockHandler(), method="GET"
+            )
+            assert result is not None
+            assert result.status_code == 401
 
-            # All versioned paths return None because routing is broken
-            for path in [
-                "/api/v1/skills/marketplace/installed",
+            result = await handler.handle(
                 "/api/v1/skills/marketplace/publish",
+                {},
+                MockHandler(),
+                method="POST",
+                body={},
+            )
+            assert result is not None
+            assert result.status_code == 401
+
+        with patch("aragora.skills.marketplace.get_marketplace") as mock_get:
+            mock_get.return_value = MockMarketplace()
+            result = await handler.handle(
                 "/api/v1/skills/marketplace/search",
+                {"q": "test"},
+                MockHandler(),
+                method="GET",
+            )
+            assert result is not None
+            assert result.status_code == 200
+
+            result = await handler.handle(
                 "/api/v1/skills/marketplace/stats",
-            ]:
-                result = await handler.handle(path, {}, MockHandler(), method="GET")
-                assert result is None, f"Expected None for path {path}"
+                {},
+                MockHandler(),
+                method="GET",
+            )
+            assert result is not None
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_search_method_directly(self, handler):

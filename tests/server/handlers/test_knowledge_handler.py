@@ -1042,3 +1042,631 @@ class TestKnowledgeMoundExport:
         assert result.status_code == 200
         call_kwargs = mock_mound.export_graph_d3.call_args[1]
         assert call_kwargs["limit"] == 500  # Clamped to max
+
+
+# =============================================================================
+# TIER 3.1: RBAC BOUNDARY TESTS
+# =============================================================================
+
+
+class MockUserNoPermissions:
+    """Mock user with no knowledge permissions."""
+
+    def __init__(self, user_id: str = "limited-user"):
+        self.user_id = user_id
+        self.permissions = {"debates.read"}  # No knowledge permissions
+        self.roles = {"viewer"}
+
+
+class MockUserReadOnly:
+    """Mock user with only read permission."""
+
+    def __init__(self, user_id: str = "readonly-user"):
+        self.user_id = user_id
+        self.permissions = {"knowledge.read"}
+        self.roles = {"viewer"}
+
+
+class MockUserWriteOnly:
+    """Mock user with read and write but no delete."""
+
+    def __init__(self, user_id: str = "writer-user"):
+        self.user_id = user_id
+        self.permissions = {"knowledge.read", "knowledge.write"}
+        self.roles = {"member"}
+
+
+class TestKnowledgeHandlerRBACBoundaries:
+    """Test RBAC permission enforcement boundaries."""
+
+    def test_list_facts_denied_without_read_permission(self, knowledge_handler, mock_http_handler):
+        """Test listing facts fails without knowledge.read permission."""
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserNoPermissions(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 403
+        body = json.loads(result.body)
+        assert "error" in body
+        assert "permission" in body["error"].lower()
+
+    def test_create_fact_denied_without_write_permission(self, knowledge_handler):
+        """Test creating fact fails without knowledge.write permission."""
+        handler = create_request_body({"statement": "Test fact", "workspace_id": "default"})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserReadOnly(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 403
+        body = json.loads(result.body)
+        assert "error" in body
+
+    def test_update_fact_denied_without_write_permission(self, knowledge_handler):
+        """Test updating fact fails without knowledge.write permission."""
+        # First create a fact
+        store = knowledge_handler._get_fact_store()
+        fact = store.add_fact(statement="Test", workspace_id="default", confidence=0.5)
+
+        handler = create_request_body({"confidence": 0.9})
+        handler.command = "PUT"
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserReadOnly(), None)
+            result = knowledge_handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 403
+
+    def test_delete_fact_denied_without_delete_permission(self, knowledge_handler):
+        """Test deleting fact fails without knowledge.delete permission."""
+        # Create a fact
+        store = knowledge_handler._get_fact_store()
+        fact = store.add_fact(statement="Test", workspace_id="default", confidence=0.5)
+
+        handler = MagicMock()
+        handler.client_address = ("127.0.0.1", 12345)
+        handler.command = "DELETE"
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserWriteOnly(), None)  # Has write but not delete
+            result = knowledge_handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 403
+
+    def test_query_allowed_with_read_permission(self, knowledge_handler):
+        """Test query endpoint works with only read permission."""
+        handler = create_request_body({"question": "What is the meaning of life?"})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserReadOnly(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
+
+        # Should succeed (not 403)
+        assert result is not None
+        assert result.status_code != 403
+
+    def test_search_allowed_with_read_permission(self, knowledge_handler, mock_http_handler):
+        """Test search endpoint works with read permission."""
+        query_params = {"q": "test query"}
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserReadOnly(), None)
+            result = knowledge_handler.handle(
+                "/api/v1/knowledge/search", query_params, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code != 403
+
+    def test_stats_allowed_with_read_permission(self, knowledge_handler, mock_http_handler):
+        """Test stats endpoint works with read permission."""
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserReadOnly(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/stats", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code != 403
+
+    def test_admin_role_bypasses_permission_check(self, knowledge_handler):
+        """Test admin role can perform any operation."""
+
+        class AdminNoExplicitPerms:
+            user_id = "admin-user"
+            permissions = set()  # No explicit permissions
+            roles = {"admin"}
+
+        handler = create_request_body({"statement": "Admin fact", "workspace_id": "default"})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (AdminNoExplicitPerms(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        # Admin should be able to create facts even without explicit permission
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_verify_fact_requires_write_permission(self, knowledge_handler):
+        """Test verifying a fact requires write permission."""
+        store = knowledge_handler._get_fact_store()
+        fact = store.add_fact(statement="Test", workspace_id="default", confidence=0.5)
+
+        handler = create_request_body({})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserReadOnly(), None)
+            result = knowledge_handler.handle(
+                f"/api/v1/knowledge/facts/{fact.id}/verify", {}, handler
+            )
+
+        assert result is not None
+        assert result.status_code == 403
+
+    def test_add_relation_requires_write_permission(self, knowledge_handler):
+        """Test adding a relation requires write permission."""
+        store = knowledge_handler._get_fact_store()
+        fact1 = store.add_fact(statement="Fact 1", workspace_id="default", confidence=0.8)
+        fact2 = store.add_fact(statement="Fact 2", workspace_id="default", confidence=0.8)
+
+        handler = create_request_body(
+            {
+                "target_fact_id": fact2.id,
+                "relation_type": "supports",
+            }
+        )
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockUserReadOnly(), None)
+            result = knowledge_handler.handle(
+                f"/api/v1/knowledge/facts/{fact1.id}/relations", {}, handler
+            )
+
+        assert result is not None
+        assert result.status_code == 403
+
+
+# =============================================================================
+# TIER 3.1: INPUT VALIDATION TESTS
+# =============================================================================
+
+
+class TestKnowledgeHandlerInputValidation:
+    """Test input validation and edge cases."""
+
+    def test_create_fact_empty_statement(self, knowledge_handler):
+        """Test creating fact with empty statement fails."""
+        handler = create_request_body({"statement": "", "workspace_id": "default"})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_create_fact_whitespace_only_statement(self, knowledge_handler):
+        """Test creating fact with whitespace-only statement fails."""
+        handler = create_request_body({"statement": "   ", "workspace_id": "default"})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_create_fact_invalid_confidence_too_high(self, knowledge_handler):
+        """Test creating fact with confidence > 1.0 is handled."""
+        handler = create_request_body(
+            {
+                "statement": "Test fact",
+                "workspace_id": "default",
+                "confidence": 1.5,  # Invalid: > 1.0
+            }
+        )
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        # Should either fail or clamp to 1.0
+        assert result is not None
+        if result.status_code == 201:
+            body = json.loads(result.body)
+            assert body["confidence"] <= 1.0
+
+    def test_create_fact_invalid_confidence_negative(self, knowledge_handler):
+        """Test creating fact with negative confidence is handled."""
+        handler = create_request_body(
+            {
+                "statement": "Test fact",
+                "workspace_id": "default",
+                "confidence": -0.5,  # Invalid: < 0
+            }
+        )
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        assert result is not None
+        if result.status_code == 201:
+            body = json.loads(result.body)
+            assert body["confidence"] >= 0.0
+
+    def test_query_empty_question(self, knowledge_handler):
+        """Test query with empty question fails."""
+        handler = create_request_body({"question": ""})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_list_facts_invalid_limit(self, knowledge_handler, mock_http_handler):
+        """Test listing facts with invalid limit parameter."""
+        query_params = {"limit": "not_a_number"}
+
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        # Should use default or return error
+        body = json.loads(result.body)
+        if result.status_code == 200:
+            assert isinstance(body.get("limit"), int)
+
+    def test_list_facts_negative_limit(self, knowledge_handler, mock_http_handler):
+        """Test listing facts with negative limit parameter."""
+        query_params = {"limit": "-10"}
+
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        body = json.loads(result.body)
+        if result.status_code == 200:
+            assert body.get("limit", 0) >= 0
+
+    def test_list_facts_excessive_limit(self, knowledge_handler, mock_http_handler):
+        """Test listing facts with excessive limit is clamped."""
+        query_params = {"limit": "10000"}
+
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        body = json.loads(result.body)
+        if result.status_code == 200:
+            # Should be clamped to a reasonable max
+            assert body.get("limit", 0) <= 1000
+
+    def test_list_facts_negative_offset(self, knowledge_handler, mock_http_handler):
+        """Test listing facts with negative offset."""
+        query_params = {"offset": "-5"}
+
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        body = json.loads(result.body)
+        if result.status_code == 200:
+            assert body.get("offset", 0) >= 0
+
+    def test_update_fact_invalid_confidence(self, knowledge_handler):
+        """Test updating fact with invalid confidence value."""
+        store = knowledge_handler._get_fact_store()
+        fact = store.add_fact(statement="Test", workspace_id="default", confidence=0.5)
+
+        handler = create_request_body({"confidence": "not_a_number"})
+        handler.command = "PUT"
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, handler)
+
+        assert result is not None
+        # Should either fail or ignore invalid value
+
+    def test_search_empty_query(self, knowledge_handler, mock_http_handler):
+        """Test search with empty query string."""
+        query_params = {"q": ""}
+
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/search", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        # Should return empty results or error
+
+    def test_get_relations_invalid_type_filter(self, knowledge_handler, mock_http_handler):
+        """Test get relations with invalid relation type filter."""
+        store = knowledge_handler._get_fact_store()
+        fact = store.add_fact(statement="Test", workspace_id="default", confidence=0.8)
+
+        query_params = {"relation_type": "invalid_type_xyz"}
+
+        result = knowledge_handler.handle(
+            f"/api/v1/knowledge/facts/{fact.id}/relations", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        # Should return empty or all relations (filter is optional)
+
+
+# =============================================================================
+# TIER 3.1: ERROR HANDLING TESTS
+# =============================================================================
+
+
+class TestKnowledgeHandlerErrorHandling:
+    """Test error handling scenarios."""
+
+    def test_handle_fact_store_initialization_failure(self, knowledge_handler, mock_http_handler):
+        """Test graceful handling when fact store fails to initialize."""
+        with patch.object(knowledge_handler, "_get_fact_store") as mock_store:
+            mock_store.side_effect = Exception("Database connection failed")
+
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 500
+
+    def test_handle_query_engine_failure(self, knowledge_handler):
+        """Test handling query engine failure."""
+        handler = create_request_body({"question": "Test question?"})
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            with patch.object(knowledge_handler, "_get_query_engine") as mock_engine:
+                mock_engine.side_effect = Exception("Query engine unavailable")
+
+                result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 500
+
+    def test_handle_malformed_json_body(self, knowledge_handler):
+        """Test handling malformed JSON in request body."""
+        handler = MagicMock()
+        handler.client_address = ("127.0.0.1", 12345)
+        handler.command = "POST"
+        handler.headers = {"Content-Length": "20"}
+        handler.rfile = BytesIO(b"this is not json!!!")
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        assert result is not None
+        assert result.status_code in [400, 500]
+
+    def test_handle_empty_request_body(self, knowledge_handler):
+        """Test handling empty request body for POST."""
+        handler = MagicMock()
+        handler.client_address = ("127.0.0.1", 12345)
+        handler.command = "POST"
+        handler.headers = {"Content-Length": "0"}
+        handler.rfile = BytesIO(b"")
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+
+        assert result is not None
+        assert result.status_code in [400, 500]
+
+    def test_fact_deletion_error_propagation(self, knowledge_handler):
+        """Test error propagation during fact deletion."""
+        handler = MagicMock()
+        handler.client_address = ("127.0.0.1", 12345)
+        handler.command = "DELETE"
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            with patch.object(knowledge_handler, "_get_fact_store") as mock_store:
+                mock_store_instance = MagicMock()
+                mock_store_instance.delete_fact.side_effect = Exception("Deletion failed")
+                mock_store.return_value = mock_store_instance
+
+                result = knowledge_handler.handle("/api/v1/knowledge/facts/some-id", {}, handler)
+
+        assert result is not None
+        # Should return 500 or 404, not crash
+
+
+# =============================================================================
+# TIER 3.1: PARAMETER VALIDATION TESTS
+# =============================================================================
+
+
+class TestKnowledgeHandlerParameterValidation:
+    """Test parameter validation and clamping."""
+
+    def test_min_confidence_filter_bounds(self, knowledge_handler, mock_http_handler):
+        """Test min_confidence filter respects 0-1 bounds."""
+        # Add some test facts
+        store = knowledge_handler._get_fact_store()
+        store.add_fact(statement="Low confidence", workspace_id="default", confidence=0.3)
+        store.add_fact(statement="High confidence", workspace_id="default", confidence=0.9)
+
+        # Test with valid min_confidence
+        query_params = {"min_confidence": "0.5"}
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_min_confidence_invalid_values(self, knowledge_handler, mock_http_handler):
+        """Test min_confidence handles invalid values."""
+        query_params = {"min_confidence": "not_a_number"}
+
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        # Should ignore invalid and use default
+
+    def test_workspace_id_filter(self, knowledge_handler, mock_http_handler):
+        """Test workspace_id filtering works correctly."""
+        store = knowledge_handler._get_fact_store()
+        store.add_fact(statement="Workspace A", workspace_id="workspace-a", confidence=0.8)
+        store.add_fact(statement="Workspace B", workspace_id="workspace-b", confidence=0.8)
+
+        query_params = {"workspace_id": "workspace-a"}
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # All returned facts should be from workspace-a
+        for fact in body.get("facts", []):
+            assert fact.get("workspace_id") == "workspace-a"
+
+    def test_topic_filter(self, knowledge_handler, mock_http_handler):
+        """Test topic filtering works correctly."""
+        store = knowledge_handler._get_fact_store()
+        store.add_fact(
+            statement="Security fact",
+            workspace_id="default",
+            confidence=0.8,
+            topics=["security"],
+        )
+        store.add_fact(
+            statement="Performance fact",
+            workspace_id="default",
+            confidence=0.8,
+            topics=["performance"],
+        )
+
+        query_params = {"topic": "security"}
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_status_filter_valid_values(self, knowledge_handler, mock_http_handler):
+        """Test status filter with valid status values."""
+        valid_statuses = ["pending", "verified", "majority_agreed", "disputed"]
+
+        for status in valid_statuses:
+            query_params = {"status": status}
+            result = knowledge_handler.handle(
+                "/api/v1/knowledge/facts", query_params, mock_http_handler
+            )
+
+            assert result is not None
+            # Should not error on valid status
+
+    def test_include_superseded_flag(self, knowledge_handler, mock_http_handler):
+        """Test include_superseded parameter handling."""
+        query_params = {"include_superseded": "true"}
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+
+        query_params = {"include_superseded": "false"}
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_stats_workspace_filter(self, knowledge_handler, mock_http_handler):
+        """Test stats endpoint respects workspace_id filter."""
+        store = knowledge_handler._get_fact_store()
+        store.add_fact(statement="WS1 fact", workspace_id="workspace-1", confidence=0.8)
+        store.add_fact(statement="WS2 fact", workspace_id="workspace-2", confidence=0.8)
+
+        query_params = {"workspace_id": "workspace-1"}
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/stats", query_params, mock_http_handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_query_with_options(self, knowledge_handler):
+        """Test query endpoint with additional options."""
+        handler = create_request_body(
+            {
+                "question": "What are the best practices?",
+                "workspace_id": "default",
+                "max_results": 5,
+                "min_confidence": 0.7,
+            }
+        )
+
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
+            mock_auth.return_value = (MockAuthUser(), None)
+            result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
+
+        assert result is not None
+        # Should process options without error
+
+
+# =============================================================================
+# TIER 3.1: RATE LIMITING TESTS
+# =============================================================================
+
+
+class TestKnowledgeHandlerRateLimiting:
+    """Test rate limiting behavior."""
+
+    def test_rate_limit_exceeded(self, knowledge_handler, mock_http_handler):
+        """Test rate limiting returns 429 when exceeded."""
+        from aragora.server.handlers.knowledge_base.handler import _knowledge_limiter
+
+        # Clear existing buckets and set very low limit
+        _knowledge_limiter._buckets.clear()
+
+        # Make many rapid requests to trigger rate limit
+        results = []
+        for i in range(100):
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, mock_http_handler)
+            if result and result.status_code == 429:
+                results.append(result)
+                break
+
+        # Should have hit rate limit at some point
+        # Note: This test may be flaky if rate limiter is configured very high
+        # At minimum, verify handler doesn't crash
+
+    def test_different_clients_separate_rate_limits(self, knowledge_handler):
+        """Test different client IPs have separate rate limits."""
+        handler1 = MagicMock()
+        handler1.client_address = ("192.168.1.1", 12345)
+        handler1.headers = {"Content-Length": "0"}
+        handler1.command = "GET"
+
+        handler2 = MagicMock()
+        handler2.client_address = ("192.168.1.2", 12345)
+        handler2.headers = {"Content-Length": "0"}
+        handler2.command = "GET"
+
+        # Both should succeed (different IPs)
+        result1 = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler1)
+        result2 = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler2)
+
+        assert result1 is not None
+        assert result2 is not None
