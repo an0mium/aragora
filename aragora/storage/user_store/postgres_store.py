@@ -182,9 +182,32 @@ class PostgresUserStore:
         Args:
             pool: asyncpg connection pool
         """
-        self._pool = pool
+        self.__pool = pool
         self._initialized = False
         logger.info("PostgresUserStore initialized")
+
+    @property
+    def _pool(self) -> "Pool":
+        """Get the connection pool, auto-refreshing from the shared pool if it has been replaced.
+
+        When the shared pool is force-refreshed (e.g., after InterfaceError recovery),
+        this property detects the change and updates the local reference so all subsequent
+        operations use the fresh pool instead of the closed/stale one.
+        """
+        try:
+            from aragora.storage.pool_manager import get_shared_pool
+
+            shared = get_shared_pool()
+            if shared is not None and shared is not self.__pool:
+                logger.info("PostgresUserStore: pool reference updated from shared pool")
+                self.__pool = shared
+        except (ImportError, RuntimeError):
+            pass  # pool_manager not available or event loop mismatch
+        return self.__pool
+
+    @_pool.setter
+    def _pool(self, value: "Pool") -> None:
+        self.__pool = value
 
     async def initialize(self) -> None:
         """Initialize database schema."""

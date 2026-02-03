@@ -557,7 +557,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       logger.debug('[AuthContext] Fetching user profile to validate tokens...');
 
-      // Retry logic for network resilience
+      // Retry logic for network and transient server errors
       let response: Response | null = null;
       let lastError: Error | null = null;
 
@@ -568,13 +568,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               'Authorization': `Bearer ${accessToken}`,
             },
           });
-          break; // Success, exit retry loop
+          // Retry on 500/502/503/504 (transient server errors)
+          if (response.status >= 500 && attempt < 3) {
+            logger.warn(`[AuthContext] /me returned ${response.status}, retrying (attempt ${attempt}/3)...`);
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+            continue;
+          }
+          break; // Success or non-retryable status, exit loop
         } catch (fetchErr) {
           lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
           logger.warn(`[AuthContext] /me fetch attempt ${attempt} failed:`, lastError.message);
           if (attempt < 3) {
-            // Exponential backoff: 500ms, 1000ms
-            await new Promise(r => setTimeout(r, 500 * attempt));
+            await new Promise(r => setTimeout(r, 1000 * attempt));
           }
         }
       }
