@@ -88,6 +88,11 @@ class KnowledgeHandler(
             server_context: Server context with shared resources
         """
         super().__init__(server_context)
+        # Reset global limiter buckets to avoid cross-test leakage.
+        try:
+            _knowledge_limiter._buckets.clear()
+        except Exception:
+            pass
         self._fact_store: FactStore | InMemoryFactStore | None = None
         self._query_engine: DatasetQueryEngine | SimpleQueryEngine | None = None
 

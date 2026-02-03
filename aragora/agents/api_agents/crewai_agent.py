@@ -32,6 +32,7 @@ from aragora.agents.api_agents.common import (
     _sanitize_error_message,
     create_client_session,
 )
+from aragora.agents.errors import AgentError
 from aragora.agents.api_agents.external_framework import (
     ExternalFrameworkAgent,
     ExternalFrameworkConfig,
@@ -459,7 +460,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
             )
         except (AgentRateLimitError, AgentAPIError, AgentConnectionError, AgentTimeoutError):
             raise
-        except Exception as e:
+        except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             execution_time = time.time() - start_time
             logger.error(f"[{self.name}] Crew execution failed: {e}")
             return {

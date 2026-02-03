@@ -74,6 +74,25 @@ class OAuthHandler(
             return await value
         return value
 
+    # Sync wrappers for async provider callbacks (used directly in tests).
+    def _handle_google_callback(self, handler: Any, query_params: dict) -> HandlerResult:
+        return self._maybe_await(super()._handle_google_callback(handler, query_params))
+
+    def _handle_github_callback(self, handler: Any, query_params: dict) -> HandlerResult:
+        return self._maybe_await(super()._handle_github_callback(handler, query_params))
+
+    def _handle_microsoft_callback(self, handler: Any, query_params: dict) -> HandlerResult:
+        return self._maybe_await(super()._handle_microsoft_callback(handler, query_params))
+
+    def _handle_apple_callback(self, handler: Any, query_params: dict) -> HandlerResult:
+        return self._maybe_await(super()._handle_apple_callback(handler, query_params))
+
+    def _handle_oidc_callback(self, handler: Any, query_params: dict) -> HandlerResult:
+        return self._maybe_await(super()._handle_oidc_callback(handler, query_params))
+
+    def _handle_oidc_auth_start(self, handler: Any, query_params: dict) -> HandlerResult:
+        return self._maybe_await(super()._handle_oidc_auth_start(handler, query_params))
+
     RESOURCE_TYPE = "oauth"
 
     # Support both v1 and non-v1 routes for backward compatibility
@@ -314,10 +333,14 @@ class OAuthHandler(
     # Common OAuth Flow Completion
     # =========================================================================
 
-    async def _complete_oauth_flow(
+    def _complete_oauth_flow(self, user_info: OAuthUserInfo, state_data: dict) -> HandlerResult:
+        """Complete OAuth flow - create/login user and redirect with tokens."""
+        return self._maybe_await(self._complete_oauth_flow_async(user_info, state_data))
+
+    async def _complete_oauth_flow_async(
         self, user_info: OAuthUserInfo, state_data: dict
     ) -> HandlerResult:
-        """Complete OAuth flow - create/login user and redirect with tokens."""
+        """Async implementation for completing OAuth flow."""
         user_store = self._get_user_store()
         if not user_store:
             return self._redirect_with_error("User service unavailable")

@@ -49,6 +49,7 @@ MEMORY_WRITE_PERMISSION = "memory:write"
 
 # Pre-declare optional import names for type safety
 MemoryTier: Any = None
+CritiqueStore: Any = None
 
 # Optional import for memory functionality
 try:
@@ -62,6 +63,12 @@ except ImportError:
 from aragora.stores.canonical import get_critique_store, is_critique_store_available
 
 CRITIQUE_STORE_AVAILABLE = is_critique_store_available()
+
+# Optional import for critique store class (for direct fallback + test patching)
+try:
+    from aragora.memory.store import CritiqueStore
+except ImportError:
+    CritiqueStore = None
 
 
 class MemoryHandler(SecureHandler):
@@ -699,6 +706,9 @@ class MemoryHandler(SecureHandler):
 
         try:
             store = get_critique_store(nomic_dir)
+            if store is None and CritiqueStore is not None:
+                # Fallback for tests or environments where canonical DB is not present.
+                store = CritiqueStore(nomic_dir)
             if store is None:
                 return error_response("Critique store not available", 503)
 

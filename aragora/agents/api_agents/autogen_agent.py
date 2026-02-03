@@ -26,6 +26,7 @@ from aragora.agents.api_agents.external_framework import (
     ExternalFrameworkAgent,
     ExternalFrameworkConfig,
 )
+from aragora.agents.errors import AgentError
 from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
@@ -331,7 +332,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
                 "response": response,
                 "success": True,
             }
-        except Exception as e:
+        except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"[{self.name}] Failed to initiate chat: {e}")
             return {
                 "conversation_id": conversation_id,
@@ -379,7 +380,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
                 "response": response,
                 "success": True,
             }
-        except Exception as e:
+        except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"[{self.name}] Failed to continue chat: {e}")
             return {
                 "response": str(e),

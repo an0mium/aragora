@@ -55,6 +55,7 @@ ROUTES = [
     "/api/v1/debates/*/verification-report",  # Verification feedback
     "/api/v1/debates/*/summary",  # GET - human-readable summary
     "/api/v1/debates/*/cancel",  # POST - cancel running debate
+    "/api/v1/debates/*/decision-integrity",  # POST - receipt + plan bundle
     "/api/v1/search",  # Cross-debate search
 ]
 
@@ -66,6 +67,7 @@ AUTH_REQUIRED_ENDPOINTS = [
     "/citations",  # Evidence citations
     "/fork",  # Fork debate
     "/followup",  # Create follow-up debate
+    "/decision-integrity",  # Decision receipt + implementation plan
 ]
 
 # Allowed export formats and tables for input validation

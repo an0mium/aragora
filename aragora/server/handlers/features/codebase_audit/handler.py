@@ -64,15 +64,7 @@ from .rules import (
     validate_severity_filter,
     validate_status_filter,
 )
-from .scanning import (
-    _get_tenant_findings,
-    _get_tenant_scans,
-    run_bug_scan,
-    run_dependency_scan,
-    run_metrics_analysis,
-    run_sast_scan,
-    run_secrets_scan,
-)
+from .scanning import _get_tenant_findings, _get_tenant_scans
 from .reporting import (
     build_dashboard_data,
     build_demo_data,
@@ -80,6 +72,14 @@ from .reporting import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _get_scanner_module():
+    """Resolve scan functions via the package namespace so tests can patch them."""
+    from aragora.server.handlers.features import codebase_audit as codebase_module
+
+    return codebase_module
+
 
 # =============================================================================
 # Circuit Breaker Configuration
@@ -289,17 +289,26 @@ class CodebaseAuditHandler(SecureHandler):
             all_findings: list[Finding] = []
             metrics: dict[str, Any] = {}
 
+            scanners = _get_scanner_module()
             tasks: list[tuple[str, Any]] = []
             if "sast" in scan_types:
-                tasks.append(("sast", run_sast_scan(target_path, scan_id, tenant_id, languages)))
+                tasks.append(
+                    ("sast", scanners.run_sast_scan(target_path, scan_id, tenant_id, languages))
+                )
             if "bugs" in scan_types:
-                tasks.append(("bugs", run_bug_scan(target_path, scan_id, tenant_id)))
+                tasks.append(("bugs", scanners.run_bug_scan(target_path, scan_id, tenant_id)))
             if "secrets" in scan_types:
-                tasks.append(("secrets", run_secrets_scan(target_path, scan_id, tenant_id)))
+                tasks.append(
+                    ("secrets", scanners.run_secrets_scan(target_path, scan_id, tenant_id))
+                )
             if "dependencies" in scan_types:
-                tasks.append(("dependencies", run_dependency_scan(target_path, scan_id, tenant_id)))
+                tasks.append(
+                    ("dependencies", scanners.run_dependency_scan(target_path, scan_id, tenant_id))
+                )
             if "metrics" in scan_types:
-                tasks.append(("metrics", run_metrics_analysis(target_path, scan_id, tenant_id)))
+                tasks.append(
+                    ("metrics", scanners.run_metrics_analysis(target_path, scan_id, tenant_id))
+                )
 
             # Execute in parallel
             results = await asyncio.gather(
@@ -367,20 +376,29 @@ class CodebaseAuditHandler(SecureHandler):
 
     async def _handle_sast_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run SAST-only scan."""
-        return await self._run_single_scan(request, tenant_id, ScanType.SAST, run_sast_scan)
+        return await self._run_single_scan(
+            request, tenant_id, ScanType.SAST, _get_scanner_module().run_sast_scan
+        )
 
     async def _handle_bug_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run bug detection scan."""
-        return await self._run_single_scan(request, tenant_id, ScanType.BUGS, run_bug_scan)
+        return await self._run_single_scan(
+            request, tenant_id, ScanType.BUGS, _get_scanner_module().run_bug_scan
+        )
 
     async def _handle_secrets_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run secrets scan."""
-        return await self._run_single_scan(request, tenant_id, ScanType.SECRETS, run_secrets_scan)
+        return await self._run_single_scan(
+            request, tenant_id, ScanType.SECRETS, _get_scanner_module().run_secrets_scan
+        )
 
     async def _handle_dependency_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run dependency vulnerability scan."""
         return await self._run_single_scan(
-            request, tenant_id, ScanType.DEPENDENCIES, run_dependency_scan
+            request,
+            tenant_id,
+            ScanType.DEPENDENCIES,
+            _get_scanner_module().run_dependency_scan,
         )
 
     @rate_limit(requests_per_minute=20, limiter_name="codebase_audit_single_scan")
@@ -493,7 +511,9 @@ class CodebaseAuditHandler(SecureHandler):
             scans = _get_tenant_scans(tenant_id)
             scans[scan_id] = scan_result
 
-            metrics = await run_metrics_analysis(target_path, scan_id, tenant_id)
+            metrics = await _get_scanner_module().run_metrics_analysis(
+                target_path, scan_id, tenant_id
+            )
 
             scan_result.status = ScanStatus.COMPLETED
             scan_result.completed_at = datetime.now(timezone.utc)

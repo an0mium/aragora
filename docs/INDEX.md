@@ -13,6 +13,9 @@ Use this index for fast navigation. For a fuller map, see
 
 | Need | Document |
 |------|----------|
+| Extended reference | [EXTENDED_README.md](EXTENDED_README.md) |
+| Feature discovery | [FEATURE_DISCOVERY.md](FEATURE_DISCOVERY.md) |
+| Project status | [STATUS.md](STATUS.md) |
 | First-time setup | [GETTING_STARTED.md](GETTING_STARTED.md) |
 | Control plane overview | [CONTROL_PLANE.md](CONTROL_PLANE.md) |
 | Control plane operations | [CONTROL_PLANE_GUIDE.md](CONTROL_PLANE_GUIDE.md) |

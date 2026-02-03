@@ -459,7 +459,7 @@ class InboxCommandHandler:
             if err:
                 return err
             action = body.get("action")
-            raw_email_ids = body.get("emailIds", [])
+            raw_email_ids = body.get("emailIds")
             raw_params = body.get("params", {})
 
             if not action or not isinstance(action, str):
@@ -480,6 +480,11 @@ class InboxCommandHandler:
                 )
 
             # Validate emailIds is a list with bounded length
+            if raw_email_ids is None:
+                return web.json_response(
+                    {"success": False, "error": "emailIds is required"},
+                    status=400,
+                )
             if not isinstance(raw_email_ids, list) or not raw_email_ids:
                 return web.json_response(
                     {"success": False, "error": "emailIds must be a non-empty list"},
@@ -562,14 +567,14 @@ class InboxCommandHandler:
             filter_type = body.get("filter")
             raw_params = body.get("params", {})
 
-            if not action or not isinstance(action, str):
+            if (
+                not action
+                or not isinstance(action, str)
+                or not filter_type
+                or not isinstance(filter_type, str)
+            ):
                 return web.json_response(
-                    {"success": False, "error": "action is required"},
-                    status=400,
-                )
-            if not filter_type or not isinstance(filter_type, str):
-                return web.json_response(
-                    {"success": False, "error": "filter is required"},
+                    {"success": False, "error": "action and filter are required"},
                     status=400,
                 )
 

@@ -225,7 +225,8 @@ class DashboardOperationsMixin:
             from aragora.knowledge.mound.federated_query import FederatedQueryAggregator
 
             # Try to get aggregator from server context
-            aggregator = self.ctx.get("km_aggregator")
+            ctx = getattr(self, "ctx", None) or getattr(self, "server_context", {}) or {}
+            aggregator = ctx.get("km_aggregator")
             if aggregator is None:
                 # Create a temporary one to get empty stats
                 aggregator = FederatedQueryAggregator()

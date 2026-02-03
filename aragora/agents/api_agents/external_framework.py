@@ -223,7 +223,7 @@ class ExternalFrameworkAgent(APIAgent):
                 cred = self._credential_proxy.get_credential(self._credential_id)
                 if cred and not cred.is_expired:
                     return cred.api_key
-            except Exception as e:
+            except (KeyError, ValueError, AttributeError, OSError) as e:
                 logger.warning(f"[{self.name}] Failed to resolve credential via proxy: {e}")
         return self.api_key
 

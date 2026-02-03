@@ -83,6 +83,10 @@ class TestDebatesHandlerRoutes:
         """Messages route pattern is in ROUTES."""
         assert "/api/v1/debates/*/messages" in handler.ROUTES
 
+    def test_decision_integrity_route_pattern_in_routes(self, handler):
+        """Decision integrity route pattern is in ROUTES."""
+        assert "/api/v1/debates/*/decision-integrity" in handler.ROUTES
+
 
 class TestDebatesHandlerAuthRequiredEndpoints:
     """Tests for AUTH_REQUIRED_ENDPOINTS attribute."""
@@ -113,6 +117,10 @@ class TestDebatesHandlerAuthRequiredEndpoints:
     def test_fork_requires_auth(self, handler):
         """Fork endpoint requires auth."""
         assert "/fork" in handler.AUTH_REQUIRED_ENDPOINTS
+
+    def test_decision_integrity_requires_auth(self, handler):
+        """Decision integrity endpoint requires auth."""
+        assert "/decision-integrity" in handler.AUTH_REQUIRED_ENDPOINTS
 
 
 class TestDebatesHandlerCanHandle:
@@ -160,6 +168,10 @@ class TestDebatesHandlerCanHandle:
     def test_can_handle_debate_fork(self, handler):
         """Handler can handle fork endpoint."""
         assert handler.can_handle("/api/v1/debates/debate_123/fork") is True
+
+    def test_can_handle_decision_integrity(self, handler):
+        """Handler can handle decision integrity endpoint."""
+        assert handler.can_handle("/api/v1/debates/debate_123/decision-integrity") is True
 
     def test_can_handle_meta_critique(self, handler):
         """Handler can handle meta-critique endpoint."""

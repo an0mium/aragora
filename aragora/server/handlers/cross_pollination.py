@@ -190,12 +190,14 @@ class CrossPollinationMetricsHandler(BaseHandler):
             metrics_text = get_cross_pollination_metrics_text()
 
             # Return raw response dict for Prometheus format
+            content_type = "text/plain; version=0.0.4; charset=utf-8"
             return HandlerResult(
                 status_code=200,
-                content_type="text/plain; version=0.0.4; charset=utf-8",
+                content_type=content_type,
                 body=metrics_text.encode("utf-8")
                 if isinstance(metrics_text, str)
                 else metrics_text,
+                headers={"Content-Type": content_type},
             )
 
         except ImportError:

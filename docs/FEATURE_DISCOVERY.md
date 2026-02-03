@@ -22,7 +22,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 25+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 12+ | Stable |
 
-**Total**: 180+ features | 2,800+ Python modules | 120,000+ tests | 461 API endpoints
+**Total**: 180+ features | 2,900+ Python modules | 125,000+ tests | 500+ API endpoints
 
 ---
 
@@ -122,7 +122,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Consensus Memory** | Stable | Historical debate outcome storage | `aragora/memory/consensus.py` | |
 | **Memory Coordinator** | Stable | Atomic cross-system writes via `enable_coordinated_writes` | `aragora/memory/coordinator.py` | |
 | **Cross-Debate Memory** | Stable | Institutional knowledge injection via `enable_cross_debate_memory` | `aragora/memory/cross_debate_rlm.py` | |
-| **Supermemory** | Stable | Cross-session external memory via `enable_supermemory` (112 tests) | `aragora/memory/supermemory.py` | |
+| **Supermemory** | Stable | Cross-session external memory via `enable_supermemory` (80+ tests) | `aragora/memory/supermemory.py` | |
 | **Memory Streams** | Stable | Event-based memory updates | `aragora/memory/streams.py` | |
 | **Embeddings** | Stable | Semantic embedding for retrieval (OpenAI, Gemini, Ollama) | `aragora/memory/embeddings.py` | |
 | **Critique Store** | Stable | Critique pattern storage | `aragora/memory/store.py` | |
@@ -164,7 +164,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 ## 4. Knowledge Management
 
-### Knowledge Mound (Phase A2 Complete - 950+ tests)
+### Knowledge Mound (Phase A2 Complete - 4,300+ tests)
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
@@ -254,7 +254,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | Feature | Status | Description | Key Files |
 |---------|--------|-------------|-----------|
 | **Permission Models** | Production | Fine-grained permission dataclasses | `aragora/rbac/models.py` |
-| **Default Roles** | Production | 6 pre-configured roles (admin, editor, viewer, etc.) | `aragora/rbac/defaults.py` |
+| **Default Roles** | Production | 7 pre-configured roles (admin, editor, viewer, etc.) | `aragora/rbac/types.py` |
 | **Permission Checker** | Production | Cached permission evaluation with wildcards | `aragora/rbac/checker.py` |
 | **Decorators** | Production | @require_permission, @require_role, @require_admin | `aragora/rbac/decorators.py` |
 | **Middleware** | Production | HTTP route protection | `aragora/rbac/middleware.py` |
@@ -426,7 +426,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Unified Server** | Stable | 461 API endpoints | `aragora/server/unified_server.py` | [API_REFERENCE.md](API_REFERENCE.md) |
+| **Unified Server** | Stable | 500+ API endpoints | `aragora/server/unified_server.py` | [API_REFERENCE.md](API_REFERENCE.md) |
 | **Handler Registry** | Stable | O(1) route lookup with LRU caching | `aragora/server/handler_registry.py` | |
 | **GraphQL API** | Stable | Schema for debates, agents, memory | `aragora/server/graphql/` | |
 | **WebSocket Streaming** | Stable | 26 stream modules for real-time events | `aragora/server/stream/` | |
@@ -437,7 +437,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | SDK | Status | Namespaces | Key Files |
 |-----|--------|------------|-----------|
 | **Python SDK** | Stable | 105 namespaces | `aragora-py/` |
-| **TypeScript SDK** | Stable | 79 namespaces | `sdk/typescript/` |
+| **TypeScript SDK** | Stable | 140 namespaces | `sdk/typescript/` |
 
 ### CLI
 
@@ -529,7 +529,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 ---
 
-## 10. Control Plane (170+ tests)
+## 10. Control Plane (1,500+ tests)
 
 ### Agent Management
 
@@ -559,7 +559,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 ---
 
-## 11. Pulse (Trending Topics - 358+ tests)
+## 11. Pulse (Trending Topics - 1,000+ tests)
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
@@ -687,6 +687,7 @@ grep -r "event_type=" aragora/ --include="*.py"
 | [CLAUDE.md](../CLAUDE.md) | Development guide for AI assistants |
 | [STATUS.md](STATUS.md) | Release status and changelog |
 | [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) | Enterprise capability deep-dive |
+| [EXTENDED_README.md](EXTENDED_README.md) | Comprehensive technical reference |
 | [COMMERCIAL_OVERVIEW.md](COMMERCIAL_OVERVIEW.md) | Commercial positioning |
 | [API_REFERENCE.md](API_REFERENCE.md) | REST API documentation |
 | [WORKFLOWS.md](WORKFLOWS.md) | Workflow engine guide |

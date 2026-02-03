@@ -113,7 +113,7 @@ class TestERC8004Adapter:
             result = await adapter.sync_from_km()
 
         assert isinstance(result, ValidationSyncResult)
-        assert "No agents linked" in result.errors
+        assert any("No agents linked" in e for e in result.errors)
 
 
 class TestERC8004AdapterHealth:

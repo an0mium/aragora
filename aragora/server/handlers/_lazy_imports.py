@@ -33,7 +33,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AlertHandler": "aragora.server.handlers.autonomous",
     "TriggerHandler": "aragora.server.handlers.autonomous",
     "MonitoringHandler": "aragora.server.handlers.autonomous",
-    "AutonomousLearningHandler": "aragora.server.handlers.autonomous",
+    "AutonomousLearningHandler": "aragora.server.handlers.autonomous_learning",
     # bots/ directory
     "DiscordHandler": "aragora.server.handlers.bots",
     "GoogleChatHandler": "aragora.server.handlers.bots",
@@ -86,6 +86,8 @@ HANDLER_MODULES: dict[str, str] = {
     # features/gmail_* modules
     "GmailLabelsHandler": "aragora.server.handlers.features.gmail_labels",
     "GmailThreadsHandler": "aragora.server.handlers.features.gmail_threads",
+    # costs/ directory
+    "CostHandler": "aragora.server.handlers.costs",
     # Connector platform handlers (from features/)
     "AdvertisingHandler": "aragora.server.handlers.features",
     "AnalyticsPlatformsHandler": "aragora.server.handlers.features",
@@ -396,6 +398,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "TriggerHandler",
     "MonitoringHandler",
     "AutonomousLearningHandler",
+    "CostHandler",
     "ExpenseHandler",
     "InvoiceHandler",
     "ARAutomationHandler",

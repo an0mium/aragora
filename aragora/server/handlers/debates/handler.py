@@ -41,6 +41,7 @@ from aragora.rbac.decorators import require_permission
 from aragora.server.debate_utils import _active_debates  # noqa: F401
 from aragora.server.http_utils import run_async
 from aragora.server.validation import validate_debate_id
+from aragora.server.validation.schema import validate_against_schema  # noqa: F401
 
 from ..base import (
     BaseHandler,
@@ -58,6 +59,7 @@ from .crud import CrudOperationsMixin
 from .evidence import EvidenceOperationsMixin
 from .export import ExportOperationsMixin
 from .fork import ForkOperationsMixin
+from .implementation import ImplementationOperationsMixin
 from .routing import (
     ALLOWED_EXPORT_FORMATS,
     ALLOWED_EXPORT_TABLES,
@@ -81,6 +83,7 @@ class DebatesHandler(
     EvidenceOperationsMixin,
     ExportOperationsMixin,
     ForkOperationsMixin,
+    ImplementationOperationsMixin,
     RoutingMixin,
     SearchOperationsMixin,
     BaseHandler,
@@ -180,6 +183,18 @@ class DebatesHandler(
         result = self._dispatch_suffix_route(normalized, query_params, handler)
         if result:
             return result
+
+        # Decision integrity package (POST /api/debates/{id}/decision-integrity)
+        if normalized.endswith("/decision-integrity"):
+            # Enforce POST
+            if handler is not None and getattr(handler, "command", "POST") != "POST":
+                return error_response("Method not allowed", 405)
+            debate_id, err = self._extract_debate_id(normalized)
+            if err:
+                return error_response(err, 400)
+            if not debate_id:
+                return error_response("Invalid debate id", 400)
+            return self._create_decision_integrity(handler, debate_id)
 
         # Export route (special handling for format/table validation)
         # URL: /api/debates/{id}/export/{format}

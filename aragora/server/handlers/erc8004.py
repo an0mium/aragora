@@ -21,7 +21,7 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
-    success_response,
+    json_response,
     rate_limit,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
@@ -116,7 +116,7 @@ async def handle_blockchain_config() -> HandlerResult:
         provider = _get_provider()
         config = provider.get_config()
 
-        return success_response(
+        return json_response(
             {
                 "chain_id": config.chain_id,
                 "rpc_url": config.rpc_url[:50] + "..."
@@ -134,7 +134,7 @@ async def handle_blockchain_config() -> HandlerResult:
         return error_response(str(e), status=501)
     except Exception as e:
         logger.error(f"Error getting blockchain config: {e}")
-        return error_response(f"Configuration error: {str(e)}")
+        return error_response(f"Configuration error: {str(e)}", status=500)
 
 
 @api_endpoint(
@@ -166,7 +166,7 @@ async def handle_get_agent(token_id: int) -> HandlerResult:
         contract = IdentityRegistryContract(provider)
         identity = contract.get_agent(token_id)
 
-        return success_response(
+        return json_response(
             {
                 "token_id": identity.token_id,
                 "owner": identity.owner,
@@ -220,7 +220,7 @@ async def handle_get_reputation(
         contract = ReputationRegistryContract(provider)
         summary = contract.get_summary(token_id, tag1=tag1, tag2=tag2)
 
-        return success_response(
+        return json_response(
             {
                 "agent_id": summary.agent_id,
                 "count": summary.count,
@@ -270,7 +270,7 @@ async def handle_get_validations(
         contract = ValidationRegistryContract(provider)
         summary = contract.get_summary(token_id, tag=tag)
 
-        return success_response(
+        return json_response(
             {
                 "agent_id": summary.agent_id,
                 "count": summary.count,
@@ -320,7 +320,7 @@ async def handle_blockchain_sync(
             sync_validations=sync_validations,
         )
 
-        return success_response(
+        return json_response(
             {
                 "records_synced": result.records_synced,
                 "records_skipped": result.records_skipped,
@@ -361,21 +361,21 @@ async def handle_blockchain_health() -> HandlerResult:
         except Exception as e:
             adapter_status = {"error": str(e)}
 
-        return success_response(
+        return json_response(
             {
                 "connector": health.to_dict(),
                 "adapter": adapter_status,
             }
         )
     except ImportError as e:
-        return success_response(
+        return json_response(
             {
                 "available": False,
                 "error": str(e),
             }
         )
     except Exception as e:
-        return success_response(
+        return json_response(
             {
                 "available": False,
                 "error": str(e),

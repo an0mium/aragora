@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'aragora/**'
+      - 'aragora-operator/**'
       - 'deploy/Dockerfile.*'
       - 'deploy/docker-compose.yml'
       - '.github/workflows/docker.yml'
@@ -162,6 +163,41 @@ jobs:
         with:
           sarif_file: 'trivy-frontend-results.sarif'
           category: 'trivy-frontend'
+
+  build-operator:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build operator image
+        run: |
+          docker build -f aragora-operator/Dockerfile -t test-operator:latest aragora-operator/
+
+      - name: Run Trivy vulnerability scanner (operator)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'test-operator:latest'
+          format: 'sarif'
+          output: 'trivy-operator-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-operator-results.sarif'
+          category: 'trivy-operator'
 
   integration-test:
     needs: [build-backend, build-frontend]

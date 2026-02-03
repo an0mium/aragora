@@ -349,7 +349,7 @@ class FederationOperationsMixin:
     @handle_errors("get federation status")
     @require_permission("federation:read")
     def _handle_get_federation_status(
-        self: FederationHandlerProtocol, query_params: dict
+        self: FederationHandlerProtocol, query_params: dict, handler: Any | None = None
     ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/federation/status - Get federation status."""
         mound = self._get_mound()
@@ -384,7 +384,9 @@ class FederationOperationsMixin:
 
     @handle_errors("list federated regions")
     @require_permission("federation:read")
-    def _handle_list_regions(self: FederationHandlerProtocol, query_params: dict) -> HandlerResult:
+    def _handle_list_regions(
+        self: FederationHandlerProtocol, query_params: dict, handler: Any | None = None
+    ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/federation/regions - List federated regions."""
         mound = self._get_mound()
         if not mound:

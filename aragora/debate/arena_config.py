@@ -551,6 +551,40 @@ class SupermemorySubConfig:
     supermemory_enable_resilience: bool = True  # Use circuit breaker protection
 
 
+@dataclass
+class BudgetSubConfig:
+    """Per-debate budget configuration.
+
+    Groups parameters for cost control during debate execution.
+    When budget_limit_usd is set, the debate will enforce cost limits
+    and can trigger early termination or model switching.
+
+    Example::
+
+        budget_cfg = BudgetSubConfig(
+            budget_limit_usd=2.00,
+            budget_alert_threshold=0.75,
+            budget_hard_stop=True,
+        )
+    """
+
+    # Master budget cap for the debate (None = unlimited)
+    budget_limit_usd: float | None = None
+
+    # Fraction of budget at which to emit a warning event (0.0-1.0)
+    budget_alert_threshold: float = 0.75
+
+    # If True, hard-stop the debate when budget is exceeded.
+    # If False, allow the current round to finish.
+    budget_hard_stop: bool = False
+
+    # If True, switch to cheaper models when approaching the limit.
+    budget_downgrade_models: bool = False
+
+    # Per-round cost cap (None = no per-round limit)
+    budget_per_round_usd: float | None = None
+
+
 # =============================================================================
 # Sub-config field name -> sub-config attribute name mapping
 # Built once at module load for O(1) lookups.
@@ -573,6 +607,7 @@ _SUB_CONFIG_ATTRS: list[tuple[str, type]] = [
     ("km_bidirectional_config", KMBidirectionalConfig),
     ("translation_sub_config", TranslationSubConfig),
     ("supermemory_sub_config", SupermemorySubConfig),
+    ("budget_sub_config", BudgetSubConfig),
 ]
 
 for _attr_name, _cls in _SUB_CONFIG_ATTRS:
@@ -670,6 +705,10 @@ class ArenaConfigBuilder:
 
     def with_supermemory(self, **kwargs: Any) -> "ArenaConfigBuilder":
         """Set Supermemory external memory integration fields."""
+        return self._merge(kwargs)
+
+    def with_budget(self, **kwargs: Any) -> "ArenaConfigBuilder":
+        """Set per-debate budget configuration fields."""
         return self._merge(kwargs)
 
     def build(self) -> "ArenaConfig":
@@ -860,6 +899,7 @@ class ArenaConfig:
         km_bidirectional_config: KMBidirectionalConfig | None = None,
         translation_sub_config: TranslationSubConfig | None = None,
         supermemory_sub_config: SupermemorySubConfig | None = None,
+        budget_sub_config: BudgetSubConfig | None = None,
         # ---- Flat kwargs that belong to sub-configs (backward compat) ----
         **kwargs: Any,
     ) -> None:
@@ -955,6 +995,7 @@ class ArenaConfig:
         self.supermemory_sub_config = self._build_sub_config(
             SupermemorySubConfig, supermemory_sub_config, kwargs
         )
+        self.budget_sub_config = self._build_sub_config(BudgetSubConfig, budget_sub_config, kwargs)
 
         # Any remaining kwargs are unknown fields
         if kwargs:
@@ -1667,6 +1708,7 @@ SUB_CONFIG_CLASSES = (
     KMBidirectionalConfig,
     TranslationSubConfig,
     SupermemorySubConfig,
+    BudgetSubConfig,
 )
 
 
@@ -1687,6 +1729,7 @@ __all__ = [
     "KMBidirectionalConfig",
     "TranslationSubConfig",
     "SupermemorySubConfig",
+    "BudgetSubConfig",
     "SUB_CONFIG_CLASSES",
     # Primary config classes (for Arena constructor refactoring)
     "DebateConfig",

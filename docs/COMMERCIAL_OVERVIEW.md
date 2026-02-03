@@ -1,13 +1,29 @@
-# Aragora - Control Plane for Multi-Agent Vetted Decisionmaking
+# Aragora -- The Decision Integrity Platform
 
 *Version 2.5.0 | Commercial Overview*
 *Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
 
 ## Executive Summary
 
-Aragora is the **control plane for multi-agent vetted decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
+Aragora is the **Decision Integrity Platform** -- orchestrating 15+ AI models to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
 
-Unlike chatbots, Aragora builds institutional memory with full audit trails. **Vetted decisionmaking is the engine. The product is a defensible decision record.**
+**You don't just get an answer. You get a defensible decision trail.**
+
+Unlike chatbots, Aragora builds institutional memory with full audit trails. Vetted decisionmaking is the engine. The product is a defensible decision record.
+
+---
+
+## Five Pillars
+
+Aragora is built on five architectural commitments that together produce something no single-model tool can offer.
+
+| Pillar | What It Means |
+|--------|---------------|
+| **1. SMB-Ready, Enterprise-Grade** | Useful to a 5-person startup on day one; scales to regulated enterprise without rearchitecting. Security and compliance built in, not bolted on. |
+| **2. Leading-Edge Memory and Context** | 4-tier Continuum Memory, Knowledge Mound (25 adapters), and RLM context management enable coherence across 50+ rounds and large document sets. |
+| **3. Extensible and Modular** | Connectors, SDKs (Python + TypeScript, 140 namespaces), 500+ HTTP endpoints, OpenClaw integration, workflow engine, marketplace. |
+| **4. Multi-Agent Robustness** | Heterogeneous agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) produce outputs more robust, less biased, and higher quality than single models. |
+| **5. Self-Healing and Self-Extending** | Nomic Loop autonomous improvement, red-team stress-testing, multi-agent code editing with human approval gates. |
 
 ---
 
@@ -20,7 +36,7 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **V
 | **Multi-Agent Consensus** | 15+ heterogeneous AI models debate to conclusions | Diverse perspectives, defensible decisions |
 | **Bidirectional Dialogue** | Ask follow-ups, refine questions, drill into details | Interactive human-AI collaboration |
 | **Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
-| **Learn & Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
+| **Learn and Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
 
 ---
 
@@ -98,11 +114,11 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **V
 | Security & Authentication | 92% | Ready | OIDC/SAML, MFA, encryption, audit logging |
 | Scalability & Performance | 92% | Ready | Connection pooling, caching, rate limiting |
 | Observability & Monitoring | 90% | Ready | Prometheus, Grafana, OpenTelemetry |
-| Testing & QA | 95% | Ready | 45,100+ tests across 1,220 files |
+| Testing & QA | 95% | Ready | 125,000+ tests across 2,980+ files |
 | Documentation | 91% | Ready | API docs, runbooks, compliance guides |
 | Compliance & Governance | 88% | Ready | RBAC v2 with 50+ permissions, role hierarchy |
-| SDK & Integrations | 90% | Ready | 79 TypeScript namespaces, 8 bot handlers |
-| **OVERALL** | **90%** | **SMB Ready** | Enterprise: 2-3 weeks additional |
+| SDK & Integrations | 90% | Ready | 140 TypeScript namespaces, 8 bot handlers |
+| **OVERALL** | **90%** | **SMB Ready** | Enterprise-grade features integrated |
 
 ### Deployment Readiness
 
@@ -234,14 +250,16 @@ Structured debate for strategic decisions with evidence-based recommendations.
 
 ---
 
-## Roadmap to Enterprise (2-3 weeks)
+## Enterprise Readiness
 
-| Gap | Resolution | Status |
-|-----|------------|--------|
-| Fine-grained RBAC | RBAC v2 with 50+ permissions | Complete |
+| Capability | Resolution | Status |
+|------------|------------|--------|
+| Fine-grained RBAC | RBAC v2 with 7 roles, 50+ permissions | Complete |
 | Automated backups | BackupManager with incremental support | Complete |
 | Bot handler consolidation | BotHandlerMixin across 8 platforms | Complete |
-| TypeScript SDK | 79 namespaces wired to client | Complete |
+| TypeScript SDK | 140 namespaces wired to client | Complete |
+| OpenClaw integration | Portable agent governance | Complete |
+| Knowledge Mound Phase A2 | Contradiction detection, confidence decay, RBAC governance | Complete |
 | SLA documentation | Legally-binding service levels | In Progress |
 | Distributed rate limiting | Redis-backed cluster-aware limiting | In Progress |
 
@@ -292,4 +310,4 @@ See [SDK_GUIDE.md](SDK_GUIDE.md) for the Python SDK reference.
 
 ---
 
-*Document generated from comprehensive codebase exploration. Feature counts verified against actual module inventory.*
+*Document generated from comprehensive codebase exploration. Feature counts verified against actual module inventory (February 2026).*

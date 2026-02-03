@@ -50,6 +50,22 @@ Context for Claude Code when working with the Aragora codebase.
 | TTS/Voice | `aragora/server/stream/` | `tts_integration.py`, `voice_stream.py` |
 | Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/`, `templates/` |
 | Workspace | `aragora/workspace/` | `bead.py`, `convoy.py`, `manager.py` |
+| Audience | `aragora/audience/` | Audience suggestion sanitization and clustering |
+| Blockchain | `aragora/blockchain/` | ERC-8004 agent identity and reputation registries |
+| Coordination | `aragora/coordination/` | Cross-workspace federated execution |
+| Deliberation | `aragora/deliberation/` | Deliberation templates and patterns |
+| Genesis | `aragora/genesis/` | Fractal resolution, agent evolution, Argonaut ledger |
+| Harnesses | `aragora/harnesses/` | External tool integration (Claude Code, Codex) |
+| Introspection | `aragora/introspection/` | Agent self-awareness and meta-cognition |
+| Learning | `aragora/learning/` | Continual learning with Nested Learning paradigm |
+| Marketplace | `aragora/marketplace/` | Agent template and protocol marketplace |
+| Moderation | `aragora/moderation/` | Spam filtering and content validation |
+| Modes | `aragora/modes/` | Operational modes (Architect, Coder, Reviewer, etc.) |
+| Pipeline | `aragora/pipeline/` | Decision-to-PR generation (DecisionMemo, PatchPlan) |
+| Runtime | `aragora/runtime/` | Budget-aware autotuner, metadata, metrics |
+| Sandbox | `aragora/sandbox/` | Docker-based safe code execution |
+| Spectate | `aragora/spectate/` | Real-time debate observation |
+| Visualization | `aragora/visualization/` | Argument cartography and logic mapping |
 
 ## Canonical Storage Paths
 
@@ -63,9 +79,11 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 ## Project Overview
 
-Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
+Aragora is the **Decision Integrity Platform** -- orchestrating 15+ AI models to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel. It implements self-improvement through the **Nomic Loop** -- an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 2,800+ Python modules | 124,000+ tests | 2,970+ test files | 194 debate modules | 461 HTTP handlers + 26 WebSocket streams | 461 API endpoints | 25 KM adapters | 140 SDK namespaces
+**Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
+
+**Codebase Scale:** 2,900+ Python modules | 125,000+ tests | 2,980+ test files | 210+ debate modules | 500+ HTTP handlers + 26 WebSocket streams | 25 KM adapters | 140 SDK namespaces
 
 ## Architecture
 
@@ -117,14 +135,14 @@ aragora/
 ├── ranking/          # Agent skill tracking
 │   └── elo.py              # ELO ratings and calibration
 ├── resilience.py     # CircuitBreaker for agent failure handling
-├── control_plane/    # Enterprise orchestration (142 tests)
+├── control_plane/    # Enterprise orchestration (1,500+ tests)
 │   ├── registry.py        # Agent discovery with heartbeats
 │   ├── scheduler.py       # Priority-based task distribution
 │   ├── health.py          # Liveness probes and monitoring
 │   └── coordinator.py     # Unified control plane API
 ├── rbac/             # Role-based access control v2
 │   ├── models.py           # Permission, Role, RoleAssignment dataclasses
-│   ├── defaults.py         # 6 default roles, 50+ permissions
+│   ├── types.py            # 7 default roles, 50+ permissions
 │   ├── checker.py          # PermissionChecker with caching
 │   ├── decorators.py       # @require_permission, @require_role
 │   ├── middleware.py       # HTTP route protection
@@ -310,7 +328,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 120,000+ tests across 2,919 test files
+**Test Suite:** 125,000+ tests across 2,980+ test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
@@ -348,7 +366,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Gauntlet Receipts - cryptographic audit trails with SHA-256 hashing
 - Gauntlet Defense - proposer_agent param enables attack/defend cycles
 - KM Resilience - ResilientPostgresStore with retry, health monitoring, cache invalidation
-- Supermemory - cross-session external memory via `enable_supermemory` (112 tests)
+- Supermemory - cross-session external memory via `enable_supermemory` (80+ tests)
 
 **Enterprise (production-ready):**
 - Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management, SCIM 2.0 provisioning
@@ -358,7 +376,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Observability - Prometheus metrics, Grafana dashboards, OpenTelemetry tracing
 - RBAC v2 - Fine-grained permissions (50+), role hierarchy, decorators, middleware
 - Backup/DR - Incremental backups, retention policies, disaster recovery drills
-- Control Plane - Agent registry, task scheduler, health monitoring, policy governance (170+ tests)
+- Control Plane - Agent registry, task scheduler, health monitoring, policy governance (1,500+ tests)
   - PolicyConflictDetector - Detects contradictory policies before they cause issues
   - RedisPolicyCache - Distributed cache for fast policy evaluation
   - PolicySyncScheduler - Continuous background policy synchronization
@@ -366,13 +384,13 @@ See `docs/ENVIRONMENT.md` for full reference.
   - ReceiptAdapter - Decision receipts auto-persist to Knowledge Mound
 
 **Integrated:**
-- Knowledge Mound - STABLE Phase A2 (100% integrated, 950+ tests passing)
+- Knowledge Mound - STABLE Phase A2 (100% integrated, 4,300+ tests passing)
   - 25 adapters (Belief, CalibrationFusion, ComputerUse, Consensus, Continuum, ControlPlane, Cost, Critique, Culture, ELO, ERC8004, Evidence, Extraction, Fabric, Gateway, Insights, OpenClaw, Performance, Provenance, Pulse, Ranking, Receipt, RLM, Supermemory, Workspace)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics
   - Phase A2: Contradiction detection, confidence decay, RBAC governance, analytics, knowledge extraction
-- Pulse (trending topics) - STABLE (358+ tests passing)
+- Pulse (trending topics) - STABLE (1,000+ tests passing)
   - HackerNews, Reddit, Twitter ingestors
   - Quality filtering, freshness scoring, source weighting
   - Integration with debate context and prompt building
@@ -384,9 +402,10 @@ See `docs/STATUS.md` for 74+ detailed feature statuses.
 
 | Document | Purpose |
 |----------|---------|
-| `docs/COMMERCIAL_OVERVIEW.md` | Commercial positioning, 85% readiness assessment |
+| `docs/EXTENDED_README.md` | Comprehensive technical reference (five pillars, all features) |
+| `docs/COMMERCIAL_OVERVIEW.md` | Commercial positioning, 90% readiness assessment |
 | `docs/ENTERPRISE_FEATURES.md` | Enterprise capabilities reference |
-| `docs/FEATURE_DISCOVERY.md` | Complete feature catalog (100+ features) |
+| `docs/FEATURE_DISCOVERY.md` | Complete feature catalog (180+ features) |
 | `docs/STATUS.md` | Detailed feature implementation status |
 | `docs/API_REFERENCE.md` | REST API documentation |
 | `docs/RESILIENCE_PATTERNS.md` | Circuit breakers, retry, timeout, health monitoring |

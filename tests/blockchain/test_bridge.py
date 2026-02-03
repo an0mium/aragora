@@ -4,272 +4,269 @@ Tests for BlockchainIdentityBridge.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 import pytest
 
-from aragora.control_plane.blockchain_identity import BlockchainIdentityBridge
+from aragora.control_plane.blockchain_identity import (
+    BlockchainIdentityBridge,
+    AgentBlockchainLink,
+)
 
 
 class TestBlockchainIdentityBridge:
     """Tests for BlockchainIdentityBridge class."""
 
     @pytest.fixture
-    def mock_registry(self, mock_agent_registry):
-        """Create mock agent registry."""
-        return mock_agent_registry
+    def mock_provider(self):
+        """Create mock Web3Provider."""
+        provider = MagicMock()
+        config = MagicMock()
+        config.chain_id = 1
+        provider.get_config.return_value = config
+        return provider
 
     @pytest.fixture
-    def mock_connector(self):
-        """Create mock ERC8004Connector."""
-        with patch("aragora.control_plane.blockchain_identity.ERC8004Connector") as mock_cls:
-            mock_connector = MagicMock()
-            mock_cls.return_value = mock_connector
-            yield mock_connector
+    def mock_identity_contract(self):
+        """Create mock IdentityRegistryContract."""
+        contract = MagicMock()
+        return contract
 
     @pytest.fixture
-    def bridge(self, mock_registry, mock_connector):
+    def bridge(self, mock_provider):
         """Create bridge instance."""
-        return BlockchainIdentityBridge(registry=mock_registry)
+        return BlockchainIdentityBridge(provider=mock_provider)
 
     def test_create_bridge(self, bridge):
         """Test creating bridge instance."""
         assert bridge is not None
 
-    @pytest.mark.asyncio
-    async def test_link_agent(self, bridge, mock_registry, mock_connector, sample_agent_identity):
-        """Test linking an Aragora agent to blockchain identity."""
-        # Mock the connector fetch
-        mock_connector.fetch.return_value = MagicMock(
-            id="identity:1:42",
-            metadata={
-                "token_id": 42,
-                "owner": sample_agent_identity["owner"],
-            },
-        )
+    def test_create_bridge_no_provider(self):
+        """Test creating bridge without provider (lazy init)."""
+        bridge = BlockchainIdentityBridge()
+        assert bridge is not None
+        assert bridge._provider is None
 
+    @pytest.mark.asyncio
+    async def test_link_agent(self, bridge, mock_provider, mock_identity_contract):
+        """Test linking an Aragora agent to blockchain identity."""
+        mock_identity = MagicMock()
+        mock_identity.owner = "0x1234567890abcdef"
+        mock_identity_contract.get_agent.return_value = mock_identity
+
+        with patch.object(bridge, "_get_identity_contract", return_value=mock_identity_contract):
+            result = await bridge.link_agent(
+                aragora_agent_id="agent_abc123",
+                token_id=42,
+            )
+
+        assert isinstance(result, AgentBlockchainLink)
+        assert result.aragora_agent_id == "agent_abc123"
+        assert result.token_id == 42
+        assert result.chain_id == 1
+        assert result.verified is True
+        assert result.owner_address == "0x1234567890abcdef"
+
+    @pytest.mark.asyncio
+    async def test_link_agent_no_verify(self, bridge, mock_provider):
+        """Test linking without on-chain verification."""
         result = await bridge.link_agent(
             aragora_agent_id="agent_abc123",
-            blockchain_token_id=42,
+            token_id=42,
+            verify=False,
         )
 
-        assert result["linked"] is True
-        mock_registry.get_agent.assert_called()
+        assert isinstance(result, AgentBlockchainLink)
+        assert result.verified is False
+        assert result.owner_address == ""
 
     @pytest.mark.asyncio
-    async def test_link_agent_not_found(self, bridge, mock_registry, mock_connector):
-        """Test linking when agent not found in registry."""
-        mock_registry.get_agent.return_value = None
+    async def test_link_agent_verification_fails(self, bridge, mock_identity_contract):
+        """Test linking when on-chain verification fails."""
+        mock_identity_contract.get_agent.side_effect = Exception("Contract error")
 
-        with pytest.raises(ValueError, match="not found"):
-            await bridge.link_agent(
-                aragora_agent_id="nonexistent_agent",
-                blockchain_token_id=42,
-            )
-
-    @pytest.mark.asyncio
-    async def test_link_agent_token_not_found(self, bridge, mock_registry, mock_connector):
-        """Test linking when blockchain token not found."""
-        mock_registry.get_agent.return_value = MagicMock(id="agent_123")
-        mock_connector.fetch.return_value = None
-
-        with pytest.raises(ValueError, match="not found"):
-            await bridge.link_agent(
-                aragora_agent_id="agent_123",
-                blockchain_token_id=99999,
-            )
+        with patch.object(bridge, "_get_identity_contract", return_value=mock_identity_contract):
+            with pytest.raises(ValueError, match="Failed to verify"):
+                await bridge.link_agent(
+                    aragora_agent_id="agent_abc123",
+                    token_id=42,
+                )
 
     @pytest.mark.asyncio
-    async def test_get_blockchain_identity(
-        self, bridge, mock_registry, mock_connector, sample_agent_identity
-    ):
-        """Test getting blockchain identity for an Aragora agent."""
-        mock_registry.get_agent.return_value = MagicMock(
-            id="agent_123",
-            blockchain_agent_id=42,
-        )
-        mock_connector.fetch.return_value = MagicMock(
-            id="identity:1:42",
-            metadata={
-                "token_id": 42,
-                "owner": sample_agent_identity["owner"],
-                "metadata_uri": sample_agent_identity["metadata_uri"],
-            },
-        )
+    async def test_get_blockchain_identity(self, bridge, mock_identity_contract):
+        """Test getting blockchain identity for a linked agent."""
+        # First link the agent
+        await bridge.link_agent("agent_123", token_id=42, verify=False)
 
-        identity = await bridge.get_blockchain_identity(aragora_agent_id="agent_123")
+        mock_identity = MagicMock()
+        mock_identity.owner = "0xabcd"
+        mock_identity_contract.get_agent.return_value = mock_identity
+
+        with patch.object(bridge, "_get_identity_contract", return_value=mock_identity_contract):
+            identity = await bridge.get_blockchain_identity(aragora_agent_id="agent_123")
 
         assert identity is not None
-        assert identity["token_id"] == 42
+        mock_identity_contract.get_agent.assert_called_with(42)
 
     @pytest.mark.asyncio
-    async def test_get_blockchain_identity_not_linked(self, bridge, mock_registry):
-        """Test getting identity for unlinked agent."""
-        mock_registry.get_agent.return_value = MagicMock(
-            id="agent_123",
-            blockchain_agent_id=None,  # Not linked
-        )
+    async def test_get_blockchain_identity_not_linked(self, bridge):
+        """Test getting identity for unlinked agent returns None."""
+        identity = await bridge.get_blockchain_identity(aragora_agent_id="nonexistent")
+        assert identity is None
 
-        identity = await bridge.get_blockchain_identity(aragora_agent_id="agent_123")
+    @pytest.mark.asyncio
+    async def test_get_blockchain_identity_contract_error(self, bridge, mock_identity_contract):
+        """Test getting identity when contract call fails."""
+        await bridge.link_agent("agent_123", token_id=42, verify=False)
+        mock_identity_contract.get_agent.side_effect = Exception("RPC error")
+
+        with patch.object(bridge, "_get_identity_contract", return_value=mock_identity_contract):
+            identity = await bridge.get_blockchain_identity(aragora_agent_id="agent_123")
 
         assert identity is None
 
     @pytest.mark.asyncio
-    async def test_get_agent_by_token(self, bridge, mock_registry, mock_connector):
+    async def test_get_agent_by_token(self, bridge, mock_provider):
         """Test getting Aragora agent by blockchain token ID."""
-        mock_registry.list_agents.return_value = [
-            MagicMock(id="agent_1", blockchain_agent_id=None),
-            MagicMock(id="agent_2", blockchain_agent_id=42),
-            MagicMock(id="agent_3", blockchain_agent_id=100),
-        ]
+        await bridge.link_agent("agent_2", token_id=42, verify=False)
 
         agent = await bridge.get_agent_by_token(token_id=42)
-
-        assert agent is not None
-        assert agent.id == "agent_2"
+        assert agent == "agent_2"
 
     @pytest.mark.asyncio
-    async def test_get_agent_by_token_not_found(self, bridge, mock_registry):
+    async def test_get_agent_by_token_not_found(self, bridge, mock_provider):
         """Test getting agent when token not linked."""
-        mock_registry.list_agents.return_value = [
-            MagicMock(id="agent_1", blockchain_agent_id=None),
-            MagicMock(id="agent_2", blockchain_agent_id=100),
-        ]
-
-        agent = await bridge.get_agent_by_token(token_id=42)
-
+        agent = await bridge.get_agent_by_token(token_id=999)
         assert agent is None
 
 
-class TestBlockchainIdentityBridgeSync:
-    """Tests for bridge sync operations."""
+class TestBlockchainIdentityBridgeUnlink:
+    """Tests for bridge unlink operations."""
 
     @pytest.fixture
-    def mock_registry(self, mock_agent_registry):
-        """Create mock agent registry."""
-        return mock_agent_registry
+    def mock_provider(self):
+        """Create mock Web3Provider."""
+        provider = MagicMock()
+        config = MagicMock()
+        config.chain_id = 1
+        provider.get_config.return_value = config
+        return provider
 
     @pytest.fixture
-    def mock_connector(self):
-        """Create mock connector."""
-        with patch("aragora.control_plane.blockchain_identity.ERC8004Connector") as mock_cls:
-            mock_connector = MagicMock()
-            mock_cls.return_value = mock_connector
-            yield mock_connector
-
-    @pytest.fixture
-    def bridge(self, mock_registry, mock_connector):
+    def bridge(self, mock_provider):
         """Create bridge instance."""
-        return BlockchainIdentityBridge(registry=mock_registry)
+        return BlockchainIdentityBridge(provider=mock_provider)
 
     @pytest.mark.asyncio
-    async def test_sync_reputation_to_chain(self, bridge, mock_registry, mock_connector):
-        """Test syncing ELO to blockchain reputation."""
-        mock_registry.get_agent.return_value = MagicMock(
-            id="agent_123",
-            blockchain_agent_id=42,
-            elo_rating=1650,
-        )
+    async def test_unlink_agent(self, bridge):
+        """Test unlinking an agent."""
+        await bridge.link_agent("agent_1", token_id=42, verify=False)
+        assert bridge.get_link("agent_1") is not None
 
-        # Mock the reputation contract
-        mock_reputation = MagicMock()
-        mock_reputation.give_feedback = MagicMock(return_value="0xtxhash")
-        bridge._reputation_contract = mock_reputation
-
-        result = await bridge.sync_reputation_to_chain(
-            aragora_agent_id="agent_123",
-            elo_rating=1650,
-        )
-
-        assert result["synced"] is True
+        result = await bridge.unlink_agent("agent_1")
+        assert result is True
+        assert bridge.get_link("agent_1") is None
 
     @pytest.mark.asyncio
-    async def test_sync_validation_to_chain(self, bridge, mock_registry, mock_connector):
-        """Test syncing Gauntlet receipt to blockchain validation."""
-        mock_registry.get_agent.return_value = MagicMock(
-            id="agent_123",
-            blockchain_agent_id=42,
-        )
-
-        # Mock the validation contract
-        mock_validation = MagicMock()
-        mock_validation.submit_response = MagicMock(return_value="0xtxhash")
-        bridge._validation_contract = mock_validation
-
-        result = await bridge.sync_validation_to_chain(
-            aragora_agent_id="agent_123",
-            validation_type="capability",
-            passed=True,
-            evidence_uri="ipfs://QmEvidence",
-        )
-
-        assert result["synced"] is True
+    async def test_unlink_agent_not_found(self, bridge):
+        """Test unlinking non-existent agent."""
+        result = await bridge.unlink_agent("nonexistent")
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_sync_from_chain(
-        self, bridge, mock_registry, mock_connector, sample_agent_identity
-    ):
-        """Test syncing blockchain identity to Aragora registry."""
-        mock_connector.fetch.return_value = MagicMock(
-            id="identity:1:42",
-            metadata={
-                "token_id": 42,
-                "owner": sample_agent_identity["owner"],
-                "agent_name": sample_agent_identity["agent_name"],
-            },
-        )
+    async def test_get_agents_by_owner(self, bridge, mock_provider):
+        """Test getting agents by owner address."""
+        mock_identity = MagicMock()
+        mock_identity.owner = "0xAbCd"
 
-        result = await bridge.sync_from_chain(token_id=42)
+        mock_contract = MagicMock()
+        mock_contract.get_agent.return_value = mock_identity
 
-        assert result is not None
-        mock_registry.register_agent.assert_called()
+        with patch.object(bridge, "_get_identity_contract", return_value=mock_contract):
+            await bridge.link_agent("agent_1", token_id=1)
+            await bridge.link_agent("agent_2", token_id=2)
+
+        await bridge.link_agent("agent_3", token_id=3, verify=False)
+
+        agents = await bridge.get_agents_by_owner("0xabcd")
+        assert "agent_1" in agents
+        assert "agent_2" in agents
+        assert "agent_3" not in agents  # empty owner_address
 
 
-class TestBlockchainIdentityBridgeBatch:
-    """Tests for batch bridge operations."""
-
-    @pytest.fixture
-    def mock_registry(self, mock_agent_registry):
-        """Create mock registry."""
-        return mock_agent_registry
+class TestBlockchainIdentityBridgeLinks:
+    """Tests for link query operations."""
 
     @pytest.fixture
-    def mock_connector(self):
-        """Create mock connector."""
-        with patch("aragora.control_plane.blockchain_identity.ERC8004Connector") as mock_cls:
-            mock_connector = MagicMock()
-            mock_cls.return_value = mock_connector
-            yield mock_connector
+    def mock_provider(self):
+        """Create mock Web3Provider."""
+        provider = MagicMock()
+        config = MagicMock()
+        config.chain_id = 1
+        provider.get_config.return_value = config
+        return provider
 
     @pytest.fixture
-    def bridge(self, mock_registry, mock_connector):
+    def bridge(self, mock_provider):
         """Create bridge instance."""
-        return BlockchainIdentityBridge(registry=mock_registry)
+        return BlockchainIdentityBridge(provider=mock_provider)
 
     @pytest.mark.asyncio
-    async def test_batch_sync_from_chain(self, bridge, mock_connector, sample_agent_identities):
-        """Test batch syncing from blockchain."""
-        mock_connector.search.return_value = [
-            MagicMock(
-                id=f"identity:1:{a['token_id']}",
-                metadata={"token_id": a["token_id"], "agent_name": a["agent_name"]},
-            )
-            for a in sample_agent_identities
-        ]
+    async def test_get_link(self, bridge):
+        """Test getting link record."""
+        await bridge.link_agent("agent_1", token_id=42, verify=False)
+        link = bridge.get_link("agent_1")
+        assert link is not None
+        assert link.token_id == 42
 
-        results = await bridge.batch_sync_from_chain(token_ids=[1, 2, 3])
-
-        assert len(results) == 3
+    def test_get_link_not_found(self, bridge):
+        """Test getting non-existent link."""
+        link = bridge.get_link("nonexistent")
+        assert link is None
 
     @pytest.mark.asyncio
-    async def test_get_linked_agents(self, bridge, mock_registry):
-        """Test getting all linked agents."""
-        mock_registry.list_agents.return_value = [
-            MagicMock(id="agent_1", blockchain_agent_id=42),
-            MagicMock(id="agent_2", blockchain_agent_id=None),
-            MagicMock(id="agent_3", blockchain_agent_id=100),
-        ]
+    async def test_get_all_links(self, bridge):
+        """Test getting all links."""
+        await bridge.link_agent("agent_1", token_id=1, verify=False)
+        await bridge.link_agent("agent_2", token_id=2, verify=False)
 
-        linked = await bridge.get_linked_agents()
+        links = bridge.get_all_links()
+        assert len(links) == 2
 
-        assert len(linked) == 2
-        assert all(a.blockchain_agent_id is not None for a in linked)
+    @pytest.mark.asyncio
+    async def test_verify_link_success(self, bridge):
+        """Test verifying a valid link."""
+        await bridge.link_agent("agent_1", token_id=42, verify=False)
+
+        mock_identity = MagicMock()
+        mock_identity.owner = "0xNewOwner"
+        mock_contract = MagicMock()
+        mock_contract.get_agent.return_value = mock_identity
+
+        with patch.object(bridge, "_get_identity_contract", return_value=mock_contract):
+            result = await bridge.verify_link("agent_1")
+
+        assert result is True
+        link = bridge.get_link("agent_1")
+        assert link.verified is True
+        assert link.owner_address == "0xNewOwner"
+
+    @pytest.mark.asyncio
+    async def test_verify_link_failure(self, bridge):
+        """Test verifying when contract call fails."""
+        await bridge.link_agent("agent_1", token_id=42, verify=False)
+
+        mock_contract = MagicMock()
+        mock_contract.get_agent.side_effect = Exception("RPC error")
+
+        with patch.object(bridge, "_get_identity_contract", return_value=mock_contract):
+            result = await bridge.verify_link("agent_1")
+
+        assert result is False
+        link = bridge.get_link("agent_1")
+        assert link.verified is False
+
+    @pytest.mark.asyncio
+    async def test_verify_link_not_found(self, bridge):
+        """Test verifying non-existent link."""
+        result = await bridge.verify_link("nonexistent")
+        assert result is False

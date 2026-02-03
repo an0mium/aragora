@@ -895,3 +895,7 @@ class IntegrationsHandler(BaseHandler):
 def create_integrations_handler(server_context: dict[str, Any]) -> IntegrationsHandler:
     """Factory function for handler registration."""
     return IntegrationsHandler(server_context)
+
+
+# Alias for backwards compatibility with lazy import system
+IntegrationManagementHandler = IntegrationsHandler

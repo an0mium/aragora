@@ -37,6 +37,55 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
+def _coerce_enum_value(value: Any) -> Any:
+    if value is None:
+        return None
+    return value.value if hasattr(value, "value") else value
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    if isinstance(value, int):
+        return value
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _serialize_dependency(name: str, dep: Any) -> dict[str, Any]:
+    if hasattr(dep, "name"):
+        dep_name = dep.name
+        version = getattr(dep, "version", None)
+        dep_type = _coerce_enum_value(getattr(dep, "dependency_type", None))
+        package_manager = _coerce_enum_value(getattr(dep, "package_manager", None))
+        license_name = getattr(dep, "license", None)
+        purl = getattr(dep, "purl", None)
+    elif isinstance(dep, dict):
+        dep_name = name
+        version = dep.get("version")
+        dep_type = dep.get("type") or dep.get("dependency_type")
+        package_manager = dep.get("package_manager")
+        license_name = dep.get("license")
+        purl = dep.get("purl")
+    else:
+        dep_name = name
+        version = getattr(dep, "version", None)
+        dep_type = _coerce_enum_value(getattr(dep, "dependency_type", None))
+        package_manager = _coerce_enum_value(getattr(dep, "package_manager", None))
+        license_name = getattr(dep, "license", None)
+        purl = getattr(dep, "purl", None)
+
+    return {
+        "name": dep_name,
+        "version": version,
+        "type": dep_type,
+        "package_manager": package_manager,
+        "license": license_name,
+        "purl": purl,
+    }
+
+
 # Circuit breaker for dependency analysis operations
 _dependency_circuit_breaker = CircuitBreaker(
     name="dependency_analysis_handler",
@@ -58,6 +107,21 @@ _dependency_analyzer_lock = threading.Lock()
 # Cache for analysis results
 _analysis_cache: dict[str, dict[str, Any]] = {}
 _analysis_cache_lock = threading.Lock()
+
+
+def _validate_repo_path(raw_path: str) -> tuple[Path | None, HandlerResult | None]:
+    """Validate repo path and block traversal attempts."""
+    if not raw_path:
+        return None, error_response("repo_path is required", status=400)
+
+    path = Path(raw_path)
+    if ".." in path.parts:
+        return None, error_response("Invalid repo_path: path traversal is not allowed", status=400)
+
+    if not path.exists():
+        return None, error_response(f"Path does not exist: {path}", status=404)
+
+    return path, None
 
 
 def get_dependency_analyzer():
@@ -107,13 +171,9 @@ async def handle_analyze_dependencies(
     try:
         analyzer = get_dependency_analyzer()
 
-        repo_path = data.get("repo_path")
-        if not repo_path:
-            return error_response("repo_path is required", status=400)
-
-        repo_path = Path(repo_path)
-        if not repo_path.exists():
-            return error_response(f"Path does not exist: {repo_path}", status=404)
+        repo_path, err = _validate_repo_path(data.get("repo_path"))
+        if err:
+            return err
 
         include_dev = data.get("include_dev", True)
         use_cache = data.get("use_cache", True)
@@ -135,21 +195,14 @@ async def handle_analyze_dependencies(
         result = {
             "project_name": tree.project_name,
             "project_version": tree.project_version,
-            "package_managers": [pm.value for pm in tree.package_managers],
+            "package_managers": [_coerce_enum_value(pm) for pm in tree.package_managers],
             "total_dependencies": len(tree.dependencies),
-            "direct_dependencies": tree.total_direct,
-            "transitive_dependencies": tree.total_transitive,
-            "dev_dependencies": tree.total_dev,
+            "direct_dependencies": _safe_int(getattr(tree, "total_direct", 0)),
+            "transitive_dependencies": _safe_int(getattr(tree, "total_transitive", 0)),
+            "dev_dependencies": _safe_int(getattr(tree, "total_dev", 0)),
             "dependencies": [
-                {
-                    "name": dep.name,
-                    "version": dep.version,
-                    "type": dep.dependency_type.value,
-                    "package_manager": dep.package_manager.value,
-                    "license": dep.license,
-                    "purl": dep.purl,
-                }
-                for dep in list(tree.dependencies.values())[:100]  # Limit for response size
+                _serialize_dependency(dep_name, dep)
+                for dep_name, dep in list(tree.dependencies.items())[:100]
             ],
             "analyzed_at": tree.analyzed_at.isoformat(),
         }
@@ -184,13 +237,9 @@ async def handle_generate_sbom(
     try:
         analyzer = get_dependency_analyzer()
 
-        repo_path = data.get("repo_path")
-        if not repo_path:
-            return error_response("repo_path is required", status=400)
-
-        repo_path = Path(repo_path)
-        if not repo_path.exists():
-            return error_response(f"Path does not exist: {repo_path}", status=404)
+        repo_path, err = _validate_repo_path(data.get("repo_path"))
+        if err:
+            return err
 
         sbom_format = data.get("format", "cyclonedx")
         if sbom_format not in ("cyclonedx", "spdx"):
@@ -243,13 +292,9 @@ async def handle_scan_vulnerabilities(
     try:
         analyzer = get_dependency_analyzer()
 
-        repo_path = data.get("repo_path")
-        if not repo_path:
-            return error_response("repo_path is required", status=400)
-
-        repo_path = Path(repo_path)
-        if not repo_path.exists():
-            return error_response(f"Path does not exist: {repo_path}", status=404)
+        repo_path, err = _validate_repo_path(data.get("repo_path"))
+        if err:
+            return err
 
         # Resolve dependencies
         tree = await analyzer.resolve_dependencies(repo_path)
@@ -323,13 +368,9 @@ async def handle_check_licenses(
     try:
         analyzer = get_dependency_analyzer()
 
-        repo_path = data.get("repo_path")
-        if not repo_path:
-            return error_response("repo_path is required", status=400)
-
-        repo_path = Path(repo_path)
-        if not repo_path.exists():
-            return error_response(f"Path does not exist: {repo_path}", status=404)
+        repo_path, err = _validate_repo_path(data.get("repo_path"))
+        if err:
+            return err
 
         project_license = data.get("project_license", "MIT")
 

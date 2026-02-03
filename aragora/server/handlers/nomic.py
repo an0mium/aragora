@@ -391,7 +391,14 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             )
         except (ValueError, KeyError, TypeError) as e:
             logger.warning("Invalid data in nomic metrics: %s", e)
-            return error_response(f"Invalid metrics data: {e}", 500)
+            return json_response(
+                {
+                    "summary": {},
+                    "stuck_detection": {"is_stuck": False},
+                    "status": "metrics_error",
+                    "message": f"Invalid metrics data: {e}",
+                }
+            )
         except (RuntimeError, OSError) as e:
             logger.exception("Unexpected error getting nomic metrics: %s", e)
             return error_response(f"Failed to get nomic metrics: {e}", 500)

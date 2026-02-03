@@ -24,6 +24,7 @@ from aragora.agents.api_agents.external_framework import (
     ExternalFrameworkAgent,
     ExternalFrameworkConfig,
 )
+from aragora.agents.errors import AgentError
 from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
@@ -244,7 +245,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
                 "agent": self.name,
                 "capabilities_used": self._get_enabled_capabilities(),
             }
-        except Exception as e:
+        except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"[{self.name}] Task execution failed: {e}")
             return {
                 "success": False,
@@ -310,7 +311,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
                 "output": result,
                 "channel": channel,
             }
-        except Exception as e:
+        except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"[{self.name}] Failed to send message to {channel}: {e}")
             return {
                 "success": False,

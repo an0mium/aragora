@@ -100,7 +100,12 @@ def _validate_review_internal(value: Any) -> tuple[bool, str | None, str]:
         return False, None, "Review must be a string"
     if len(value) > MAX_REVIEW_LENGTH:
         return False, None, f"Review must be at most {MAX_REVIEW_LENGTH} characters"
-    return True, sanitize_string(value), ""
+    try:
+        from aragora.server.handlers.features import marketplace as marketplace_module
+
+        return True, marketplace_module.sanitize_string(value), ""
+    except Exception:
+        return True, sanitize_string(value), ""
 
 
 def _validate_deployment_name_internal(value: Any, fallback: str) -> tuple[bool, str, str]:

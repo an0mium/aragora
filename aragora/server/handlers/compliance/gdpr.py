@@ -24,12 +24,40 @@ from aragora.server.handlers.base import (
 )
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
-from aragora.storage.audit_store import get_audit_store
-from aragora.storage.receipt_store import get_receipt_store
-from aragora.privacy.deletion import get_deletion_scheduler, get_legal_hold_manager
-from aragora.deletion_coordinator import get_deletion_coordinator
 
 logger = logging.getLogger(__name__)
+
+
+def _get_compliance_module():
+    """Resolve compliance helpers via the shim so tests can patch them."""
+    from aragora.server.handlers import compliance_handler as compliance_module
+
+    return compliance_module
+
+
+def get_receipt_store():
+    """Compatibility wrapper for tests patching gdpr.get_receipt_store."""
+    return _get_compliance_module().get_receipt_store()
+
+
+def get_audit_store():
+    """Compatibility wrapper for tests patching gdpr.get_audit_store."""
+    return _get_compliance_module().get_audit_store()
+
+
+def get_deletion_scheduler():
+    """Compatibility wrapper for tests patching gdpr.get_deletion_scheduler."""
+    return _get_compliance_module().get_deletion_scheduler()
+
+
+def get_legal_hold_manager():
+    """Compatibility wrapper for tests patching gdpr.get_legal_hold_manager."""
+    return _get_compliance_module().get_legal_hold_manager()
+
+
+def get_deletion_coordinator():
+    """Compatibility wrapper for tests patching gdpr.get_deletion_coordinator."""
+    return _get_compliance_module().get_deletion_coordinator()
 
 
 class GDPRMixin:

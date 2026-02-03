@@ -2,14 +2,16 @@
 
 *Last updated: February 2, 2026*
 
+> See [README](../README.md) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
+
 ## Phase 7 Complete (February 2026)
 
 ### Code Quality Quick Wins
 - **Ruff Linting**: All violations fixed - 0 lint errors
 - **Circular Imports**: Fixed in `shared_inbox/__init__.py` and `handlers/utils/cache.py`
 - **RBAC Function Signatures**: Fixed `record_rbac_check` calls across handlers
-- **Modules**: 2,831 Python files
-- **Tests**: 120,430 collected (17,860 handler tests)
+- **Modules**: 2,985 Python files
+- **Tests**: 125,670 collected (19,522 handler tests)
 - **Commercial Readiness**: 90% (SMB-ready)
 
 ### Files Modified
@@ -30,7 +32,7 @@ Current released version is **v2.5.0**.
 
 #### Key Highlights
 - **Type safety** - Fixed 10+ mypy type errors across server handlers
-- **TypeScript SDK** - 79 namespaces wired to client (added backups, dashboard, devices, expenses, rlm, threat-intel, unified-inbox)
+- **TypeScript SDK** - 140 namespaces wired to client (added backups, dashboard, devices, expenses, rlm, threat-intel, unified-inbox)
 - **Bot handler consolidation** - All 8 bot handlers now use BotHandlerMixin
 - **RBAC standardization** - 90%+ of handlers now have permission checks
 - **Feedback handler tests** - 21 new tests for NPS and feedback submission

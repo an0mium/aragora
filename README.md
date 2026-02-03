@@ -1,728 +1,326 @@
-# Aragora: Control Plane for Multi-Agent Vetted Decisionmaking
+# Aragora
+
+### The Decision Integrity Platform
 
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/an0mium/aragora/branch/main/graph/badge.svg)](https://codecov.io/gh/an0mium/aragora)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.**
+**You don't just get an answer. You get a defensible decision trail.**
 
-It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, Telegram, WhatsApp, voice).
-
-**Omnivorous by design**: Aragora ingests common document formats (PDF, Office, Markdown, HTML, JSON, CSV), code, images, audio, and video via a broad connector library. Results route automatically to the originating channel—ask questions wherever you are, get answers backed by multi-agent consensus.
-
-**Unlike chatbots**, Aragora builds institutional memory with full audit trails. Vetted decisionmaking is the engine. The product is a defensible decision record.
-
-**Domain**: [aragora.ai](https://aragora.ai) (available)
-
-## Inspiration & Citations
-
-aragora synthesizes ideas from these excellent open-source projects:
-
-### Foundational Inspiration
-- **[Stanford Generative Agents](https://github.com/joonspk-research/generative_agents)** - Memory + reflection architecture
-- **[ChatArena](https://github.com/chatarena/chatarena)** - Game environments for multi-agent interaction
-- **[LLM Multi-Agent Debate](https://github.com/composable-models/llm_multiagent_debate)** - ICML 2024 consensus mechanisms
-- **[UniversalBackrooms](https://github.com/scottviteri/UniversalBackrooms)** - Multi-model infinite conversations
-- **[Project Sid](https://github.com/altera-al/project-sid)** - Emergent civilization with 1000+ agents
-
-### Borrowed Patterns (MIT/Apache Licensed)
-
-We gratefully acknowledge these projects whose patterns we adapted:
-
-| Project | What We Borrowed | License |
-|---------|------------------|---------|
-| **[ai-counsel](https://github.com/AI-Counsel/ai-counsel)** | Semantic convergence detection (3-tier fallback: SentenceTransformer → TF-IDF → Jaccard), vote option grouping, per-agent similarity tracking | MIT |
-| **[DebateLLM](https://github.com/Tsinghua-MARS-Lab/DebateLLM)** | Agreement intensity modulation (0-10 scale), asymmetric debate roles (affirmative/negative/neutral stances), judge-based termination | Apache 2.0 |
-| **[CAMEL-AI](https://github.com/camel-ai/camel)** | Multi-agent orchestration patterns, critic agent design | Apache 2.0 |
-| **[CrewAI](https://github.com/joaomdmoura/crewAI)** | Agent role and task patterns | MIT |
-| **[AIDO](https://github.com/aido-research/aido)** | Consensus variance tracking (strong/medium/weak classification), reputation-weighted voting concepts | MIT |
-| **[claude-flow](https://github.com/ruvnet/claude-flow)** | Adaptive topology switching (diverging→parallel, refining→ring, converged→minimal), YAML agent configuration patterns, hooks system design | MIT |
-| **[ccswarm](https://github.com/nwiizo/ccswarm)** | Delegation strategy patterns (content-based, load-balanced, hybrid), channel-based orchestration concepts | MIT |
-| **[claude-code-by-agents](https://github.com/baryhuang/claude-code-by-agents)** | Cooperative cancellation tokens with linked parent-child hierarchy, abort control patterns | MIT |
-| **[claude-squad](https://github.com/smtg-ai/claude-squad)** | Session lifecycle state machine concepts (pending→running→paused→completed), pause/resume patterns (implemented from scratch due to AGPL-3.0) | AGPL-3.0 (patterns only) |
-| **[claude-agent-sdk-demos](https://github.com/anthropics/claude-agent-sdk-demos)** | Official Anthropic subagent patterns, parallel execution idioms | MIT |
-
-See implementations in:
-- `aragora/debate/convergence.py` - Semantic convergence detection
-- `aragora/debate/orchestrator.py` - Orchestration patterns
-- `aragora/debate/topology.py` - Adaptive topology (claude-flow)
-- `aragora/debate/session.py` - Session lifecycle (claude-squad patterns)
-- `aragora/debate/cancellation.py` - Cancellation tokens (claude-code-by-agents)
-
-## Debate Engine (Dialectic Roots)
-
-The dialectic framing is the **internal engine**; users get adversarial validation outputs (decision receipts, risk heatmaps, dissent trails). If you're here for outcomes, this section is optional background.
-
-Aragora's debate engine draws from Hegelian dialectics:
-
-| Dialectical Concept | Aragora Implementation |
-|---------------------|------------------------|
-| **Thesis → Antithesis → Synthesis** | Propose → Critique → Revise loop |
-| **Aufhebung** (sublation) | Judge synthesizes best elements, preserving value while transcending limitations |
-| **Contradiction as motor** | Critiques (disagreement) drive improvement, not consensus-seeking |
-| **Negation of negation** | Proposal → Critique (negation) → Revision (higher unity) |
-| **Truth as totality** | No single agent has complete truth; it emerges from multi-perspectival synthesis |
-
-The **nomic loop** (self-modifying rules) mirrors this internal engine by debating and refining its own processes. It is experimental—run in a sandbox and require human review before any auto-commit.
-
-## Key Features
-
-### Core Capabilities
-- **Gauntlet Mode (Decision Stress-Test)**: Red-team attacks, probes, and scenario tests for specs, policies, and architectures
-- **Decision Receipts**: Audit-ready artifacts with evidence chains and dissent tracking
-- **Heterogeneous Agents**: Mix Claude, GPT, Gemini, Grok, Mistral (EU perspective), and Chinese models like DeepSeek, Qwen, and Kimi, plus local models in the same debate
-- **Structured Debate Protocol**: Propose → Critique → Revise loop with configurable rounds
-- **Multiple Consensus Mechanisms**: Majority voting, unanimous, judge-based, or none
-- **Self-Improvement**: SQLite-based pattern store learns from successful critiques
-- **CLI Interface**: One command, multiple agents working behind the scenes
-- **12+ Model Providers**: Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Qwen, Kimi, and more via OpenRouter
-- **Agent Catalog**: Full agent IDs and defaults live in `AGENTS.md`
-
-### Nomic Loop (Self-Improving System)
-The **Nomic Loop** is aragora's autonomous self-improvement system—a society of AI agents that debates and implements improvements to its own codebase:
-
-- **Multi-Phase Debate**: Context gathering → Proposal → Critique → Voting → Implementation
-- **4 Specialized Agents**: Claude (visionary), Codex (engineer), Gemini (architect), Grok (lateral thinker)
-- **Auto-Implementation**: Consensus proposals are automatically implemented and tested
-- **Crash Recovery**: Checkpoint/resume system survives interruptions
-- **Live Streaming**: Watch debates in real-time at [aragora.ai](https://aragora.ai)
+Aragora orchestrates 15+ AI models to adversarially vet decisions against your organization's knowledge, then delivers audit-ready decision receipts to any channel.
 
 ```bash
-# Run the nomic loop (experimental; review changes before auto-commit)
-python scripts/run_nomic_with_stream.py run --cycles 24 --auto
+# Stress-test a specification
+aragora gauntlet spec.md --profile thorough --output receipt.html
+
+# Run a multi-agent debate
+aragora ask "Design a rate limiter for 1M req/sec" --agents anthropic-api,openai-api,gemini
+
+# Start the API server
+aragora serve
 ```
 
-### Live Dashboard
-Real-time debate visualization at **[aragora.ai](https://aragora.ai)**:
-- WebSocket streaming of agent proposals and critiques
-- Argument graph visualization
-- Late-joiner state sync
-- Multi-loop support
+---
 
-### Algorithm Documentation
-Deep-dive documentation for core debate algorithms:
-- **[Consensus Detection](docs/algorithms/CONSENSUS.md)** - Multi-agent consensus mechanisms and proof generation
-- **[Convergence Detection](docs/algorithms/CONVERGENCE.md)** - Semantic similarity for debate convergence
-- **[ELO & Calibration](docs/algorithms/ELO_CALIBRATION.md)** - Agent skill rating and team selection
+## Five Pillars
 
-See [docs/algorithms/README.md](docs/algorithms/README.md) for the full algorithm reference.
+Aragora is built on five architectural commitments that together produce something no single-model tool can offer.
 
-## AI Red Team Code Review
+### 1. SMB-Ready, Enterprise-Grade
 
-Get **unanimous AI consensus** on your pull requests. When 3 independent AI models agree on an issue, you know it's worth fixing. This is Gauntlet configured for code-level stress-testing.
+Aragora is useful to a 5-person startup on day one and scales to regulated enterprise without rearchitecting. Enterprise features -- OIDC/SAML SSO, MFA, AES-256-GCM encryption, multi-tenant isolation, RBAC with 7 roles and 50+ permissions, SOC 2 / GDPR / HIPAA compliance frameworks -- are built in, not bolted on. Security hardening (rate limiting, SSRF protection, path traversal guards, input validation, audit trails) is the default, not a premium tier.
 
-```bash
-# Review a PR
-git diff main | aragora review
+### 2. Leading-Edge Memory and Context
 
-# Review a GitHub PR URL
-aragora review https://github.com/owner/repo/pull/123
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 25 adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system stores context as live Python variables rather than token-consuming prompt text, enabling debates that sustain coherence across 50+ rounds and large document sets where individual models would degrade.
 
-# Try without API keys
-aragora review --demo
-```
+### 3. Extensible and Modular
 
-**What you get:**
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (140 namespaces). 500+ HTTP endpoints and 26 WebSocket streams. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 15+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack -- not the other way around.
 
-| Section | What It Means |
-|---------|--------------|
-| **Unanimous Issues** | All AI models agree → High confidence, fix first |
-| **Split Opinions** | Models disagree → See the tradeoff, you decide |
-| **Risk Areas** | Low confidence → Manual review recommended |
+### 4. Multi-Agent Robustness
 
-Example output:
-```
-### Unanimous Issues
-> All AI models agree - address these first
-- SQL injection in search_users() - user input concatenated into query
-- Missing input validation on file upload endpoint
+Different models have different blind spots. Aragora runs Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and local models in structured Propose / Critique / Revise debates with configurable consensus (majority, unanimous, judge-based). ELO rankings track agent performance. Calibration scoring measures prediction accuracy. The Trickster detects hollow consensus. The result: outputs that are more robust, less biased, and higher quality than any single model, with a complete dissent trail showing where the models disagreed and why.
 
-### Split Opinions
-| Topic | For | Against |
-|-------|-----|---------|
-| Add request rate limiting | Claude, GPT-4 | Gemini |
-```
+### 5. Self-Healing and Self-Extending
 
-**GitHub Actions**: Automatically review every PR with the included workflow.
+The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 2,900+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
 
-## Gauntlet Mode - Adversarial Stress Testing
+---
 
-Stress-test your specifications, architectures, and policies before they ship:
+## Why Aragora?
 
-```bash
-# Test a specification for security vulnerabilities
-aragora gauntlet spec.md --input-type spec --profile quick
+Most AI tools give you one model's opinion. Aragora gives you **adversarial validation** from multiple models, with a complete audit trail showing how the decision was reached, what was contested, and where risks remain.
 
-# GDPR compliance audit
-aragora gauntlet policy.yaml --input-type policy --persona gdpr
+| What you get | How it works |
+|---|---|
+| **Decision Receipts** | Cryptographic audit trails with evidence chains and dissent tracking |
+| **Gauntlet Mode** | Red-team stress-tests for specs, policies, and architectures |
+| **Multi-Model Consensus** | Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more debating in structured rounds |
+| **Channel Delivery** | Results route to Slack, Teams, Discord, Telegram, WhatsApp, email, or voice |
+| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound |
 
-# Full adversarial stress test with HTML report
-aragora gauntlet architecture.md --profile thorough --output report.html
-```
-
-**What you get:**
-
-| Attack Type | What It Tests |
-|-------------|--------------|
-| **Red Team** | Security holes, injection points, auth bypasses |
-| **Devil's Advocate** | Logic flaws, hidden assumptions, edge cases |
-| **Scaling Critic** | Performance bottlenecks, SPOF, thundering herd |
-| **Compliance** | GDPR, HIPAA, SOC 2, AI Act violations |
-
-**Decision receipts** provide cryptographic audit trails for every finding, ready for regulatory review.
-
-CI decision gate:
-
-```bash
-aragora gauntlet architecture.md --profile thorough --output receipt.html
-```
-
-GitHub Action: `.github/workflows/aragora-gauntlet.yml`
-
-See [docs/GAUNTLET.md](docs/GAUNTLET.md) for full documentation and [docs/AGENT_SELECTION.md](docs/AGENT_SELECTION.md) for agent recommendations.
-
-Case studies:
-- `docs/case-studies/README.md`
+---
 
 ## Quick Start
 
-Start here: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the canonical 5-minute setup.
-
 ```bash
-# Clone and install
-git clone https://github.com/an0mium/aragora.git
-cd aragora
+git clone https://github.com/an0mium/aragora.git && cd aragora
 pip install -e .
 
 # Set at least one API key
 export ANTHROPIC_API_KEY=your-key  # or OPENAI_API_KEY, GEMINI_API_KEY, XAI_API_KEY
 
-# Optional but recommended: keep runtime data out of the repo root
-export ARAGORA_DATA_DIR=.nomic
-
-# Run a debate with API agents (recommended - no CLI tools needed)
-aragora ask "Design a rate limiter for 1M requests/sec" \
-  --agents anthropic-api,openai-api
-
-# With more agents and custom consensus
-aragora ask "Implement a secure auth system" \
-  --agents anthropic-api,openai-api,gemini,grok \
-  --rounds 4 \
-  --consensus majority
+# Run a debate
+aragora ask "Should we adopt microservices?" --agents anthropic-api,openai-api --rounds 3
 ```
 
-Optional: run the golden-path harness (offline, demo agents).
-
-```bash
-python scripts/golden_paths.py --mode fast
-python scripts/golden_paths.py --mode fast --enable-trending  # optional network context
-```
-
-Sample artifacts live in `examples/golden_paths/demo`.
-
-> **See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete setup and usage guide.**
+See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete 5-minute setup.
 
 ### SDK Packages
 
-Aragora offers multiple SDK packages for different use cases:
+| Package | Purpose | Install |
+|---|---|---|
+| `aragora` | Full control plane | `pip install aragora` |
+| `aragora-client` | Lightweight async client | `pip install aragora-client` |
+| `@aragora/sdk` | TypeScript/Node.js SDK | `npm install @aragora/sdk` |
 
-| Package | Purpose | Installation |
-|---------|---------|--------------|
-| **`aragora`** | Full control plane (server, CLI, SDK) | `pip install aragora` |
-| **`aragora-client`** | Lightweight async client (remote API only) | `pip install aragora-client` |
-| **`@aragora/sdk`** | TypeScript/Node.js SDK | `npm install @aragora/sdk` |
+---
 
-**Deprecated packages** (do not use):
-- `aragora-sdk` - Use `aragora-client` instead
-- `aragora-js` - Use `@aragora/sdk` instead
-- `sdk/python/` - Use `aragora-client` from `aragora-py/`
+## Core Workflows
 
-See [docs/SDK_COMPARISON.md](docs/SDK_COMPARISON.md) for detailed feature comparison.
+### 1. Gauntlet Mode -- Adversarial Stress Testing
 
-### Python SDK
-> For a lightweight client-only SDK, use `aragora-client`. For TypeScript, use `@aragora/sdk`. Legacy `aragora-sdk` and `@aragora/client` are deprecated.
-
-Use the type-safe Python SDK for programmatic access:
-
-```python
-from aragora.client import AragoraClient
-
-# Synchronous
-client = AragoraClient(base_url="http://localhost:8080")
-debate = client.debates.run(task="Should we adopt microservices?")
-print(f"Consensus: {debate.consensus.reached}")
-
-# Asynchronous
-async with AragoraClient(base_url="http://localhost:8080") as client:
-    debate = await client.debates.run_async(task="Design a rate limiter")
-    receipt = await client.gauntlet.run_and_wait(input_content="spec.md")
-```
-
-See [docs/SDK_GUIDE.md](docs/SDK_GUIDE.md) for full API reference.
-
-### Chat Integrations
-
-Post debate notifications to Discord and Slack:
-
-```python
-from aragora.integrations.discord import DiscordConfig, DiscordIntegration
-
-discord = DiscordIntegration(DiscordConfig(
-    webhook_url="https://discord.com/api/webhooks/..."
-))
-await discord.send_consensus_reached(debate_id, topic, "majority", result)
-```
-
-See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for setup instructions.
-
-## Supported Entry Points
-
-Stable interfaces (recommended):
-- `aragora gauntlet` for decision stress-tests (CLI)
-- `aragora ask` for exploratory debates (CLI)
-- `aragora serve` for the unified API + WebSocket server
-- `python -m aragora` as a CLI alias
-- `python -m aragora.server` for the server in scripts/automation
-
-Experimental/research (may change; use in a sandbox):
-- `scripts/nomic_loop.py` and `scripts/run_nomic_with_stream.py`
-- `aragora improve` (self-improvement mode)
-
-## Prerequisites
-
-**API Agents (Recommended):** Just set your API keys - no additional tools needed:
+Stress-test specs, architectures, and policies before they ship:
 
 ```bash
-# Set one or more API keys in .env or environment
-ANTHROPIC_API_KEY=sk-ant-xxx    # For Claude (Opus 4.5, Sonnet 4)
-OPENAI_API_KEY=sk-xxx           # For GPT models
-GEMINI_API_KEY=AIzaSy...        # For Gemini 2.5
-XAI_API_KEY=xai-xxx             # For Grok 4
-MISTRAL_API_KEY=xxx             # For Mistral Large, Codestral
-OPENROUTER_API_KEY=sk-or-xxx    # For DeepSeek, Qwen, Yi (multi-model access)
-KIMI_API_KEY=xxx                # For Kimi (Moonshot, China perspective)
+aragora gauntlet spec.md --input-type spec --profile quick
+aragora gauntlet policy.yaml --input-type policy --persona gdpr
+aragora gauntlet architecture.md --profile thorough --output report.html
 ```
 
-**CLI Agents (Optional):** For local CLI-based agents, install the corresponding tools:
+| Attack Type | What It Tests |
+|---|---|
+| **Red Team** | Security holes, injection points, auth bypasses |
+| **Devil's Advocate** | Logic flaws, hidden assumptions, edge cases |
+| **Scaling Critic** | Performance bottlenecks, SPOF, thundering herd |
+| **Compliance** | GDPR, HIPAA, SOC 2, AI Act violations |
+
+Decision receipts provide cryptographic audit trails for every finding.
+
+### 2. AI Code Review
+
+Get **unanimous AI consensus** on your pull requests:
 
 ```bash
-# OpenAI Codex CLI
-npm install -g @openai/codex
-
-# Claude CLI (claude-code)
-npm install -g @anthropic-ai/claude-code
-
-# Google Gemini CLI
-npm install -g @google/gemini-cli
-
-# xAI Grok CLI
-npm install -g grok-cli
+git diff main | aragora review
+aragora review https://github.com/owner/repo/pull/123
+aragora review --demo  # try without API keys
 ```
+
+When 3+ independent models agree on an issue, you know it's worth fixing. Split opinions show tradeoffs for human judgment.
+
+### 3. Structured Debates
+
+The debate protocol follows thesis > antithesis > synthesis:
+
+1. **Propose** -- Agents generate initial responses from different perspectives
+2. **Critique** -- Agents challenge each other's proposals with severity scores
+3. **Revise** -- Proposers incorporate valid critiques
+4. **Synthesize** -- Judge combines best elements into a final answer
+
+Configurable consensus: majority, unanimous, judge-based, or none.
+
+---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         ARAGORA FRAMEWORK                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│    ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐       │
-│    │ Claude │ │ Gemini │ │  Grok  │ │Mistral │ │ OpenAI │       │
-│    └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘       │
-│        │    ┌─────┴─────┐    │    ┌─────┴─────┐    │            │
-│        │    │ DeepSeek  │    │    │   Qwen    │    │            │
-│        │    └─────┬─────┘    │    └─────┬─────┘    │            │
-│        └──────────┴──────────┴──────────┴──────────┘            │
-│                             ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    ARENA (Orchestrator)                  │    │
-│  │  • Role assignment (proposer, critic, synthesizer)       │    │
-│  │  • Round management                                      │    │
-│  │  • Context accumulation                                  │    │
-│  └─────────────────────────┬───────────────────────────────┘    │
-│                             ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   DEBATE PROTOCOL                        │    │
-│  │  • Propose → Critique → Revise loop                      │    │
-│  │  • Sparse/all-to-all/round-robin topology                │    │
-│  │  • Majority/unanimous/judge consensus                    │    │
-│  └─────────────────────────┬───────────────────────────────┘    │
-│                             ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   CRITIQUE STORE                         │    │
-│  │  • SQLite-based pattern storage                          │    │
-│  │  • Issue categorization (security, performance, etc.)    │    │
-│  │  • Success rate tracking                                 │    │
-│  │  • Export for fine-tuning                                │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+aragora/
+├── debate/         # Core debate engine (210+ modules)
+│   ├── orchestrator.py   # Arena -- main debate loop
+│   ├── consensus.py      # Consensus detection and proofs
+│   ├── convergence.py    # Semantic similarity detection
+│   └── phases/           # Propose, critique, revise, vote, judge
+├── agents/         # 18+ agent implementations
+│   ├── api_agents/       # Anthropic, OpenAI, Gemini, Grok, Mistral, OpenRouter
+│   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
+│   └── fallback.py       # OpenRouter fallback on quota errors
+├── gauntlet/       # Adversarial stress testing
+├── knowledge/      # Knowledge Mound with 25 adapters
+├── memory/         # 4-tier memory (fast/medium/slow/glacial)
+├── server/         # 500+ HTTP handlers, 26 WebSocket streams
+├── pipeline/       # Decision-to-PR generation
+├── genesis/        # Fractal debates, agent evolution
+├── sandbox/        # Docker-based safe execution
+├── rbac/           # Role-based access control (7 roles, 50+ permissions)
+├── compliance/     # SOC 2, GDPR, HIPAA frameworks
+└── workflow/       # DAG-based automation engine
 ```
 
-## Usage Examples
+**Scale:** 2,900+ Python modules | 125,000+ tests | 140 TypeScript SDK namespaces
 
-### Basic Debate
+---
+
+## Programmatic Usage
 
 ```python
-import asyncio
+from aragora import Arena, Environment, DebateProtocol
 from aragora.agents import create_agent
-from aragora.debate import Arena, DebateProtocol
-from aragora.core import Environment
-from aragora.memory import CritiqueStore
 
-# Create heterogeneous agents (API-backed)
 agents = [
-    create_agent("anthropic-api", name="claude_proposer", role="proposer"),
-    create_agent("openai-api", name="openai_critic", role="critic"),
-    create_agent("gemini", name="gemini_synth", role="synthesizer"),
+    create_agent("anthropic-api", name="claude", role="proposer"),
+    create_agent("openai-api", name="gpt", role="critic"),
+    create_agent("gemini", name="gemini", role="synthesizer"),
 ]
 
-# Define task
-env = Environment(
-    task="Design a distributed cache with LRU eviction",
-    max_rounds=3,
-)
-
-# Configure debate
-protocol = DebateProtocol(
-    rounds=3,
-    consensus="majority",
-)
-
-# Run with memory
-memory = CritiqueStore("debates.db")
-arena = Arena(env, agents, protocol, memory)
-result = asyncio.run(arena.run())
+env = Environment(task="Design a distributed cache with LRU eviction")
+protocol = DebateProtocol(rounds=3, consensus="majority")
+arena = Arena(env, agents, protocol)
+result = await arena.run()
 
 print(result.final_answer)
 print(f"Consensus: {result.consensus_reached} ({result.confidence:.0%})")
 ```
 
-### CLI Commands
-
-```bash
-# Run a decision stress-test
-aragora ask "Your task here" --agents anthropic-api,openai-api --rounds 3
-
-# View statistics
-aragora stats
-
-# View learned patterns
-aragora patterns --type security --limit 20
-
-# Run the API + WebSocket server
-aragora serve
-
-# System health check
-aragora doctor
-
-# Export for training
-aragora export --format jsonl > training_data.jsonl
-
-# Build codebase context (RLM-ready)
-aragora context --preview --rlm
-```
-
-## Debate Protocol (Stress-Test Engine)
-
-Each stress-test session follows the debate engine structure of thesis → antithesis → synthesis:
-
-1. **Round 0: Thesis (Initial Proposals)**
-   - Proposer agents generate initial responses to the task
-   - Multiple perspectives on the same problem
-
-2. **Rounds 1-N: Antithesis (Critique & Revise)**
-   - Agents critique each other's proposals (productive negation)
-   - Identify issues with severity scores (0-1)
-   - Provide concrete suggestions
-   - Proposers revise, incorporating valid critiques (negation of negation)
-
-3. **Synthesis (Consensus Phase)**
-   - All agents vote on best proposal
-   - Judge synthesizes best elements from competing proposals (*Aufhebung*)
-   - Judge selection is randomized or voted to prevent systematic bias
-   - Final answer transcends individual limitations
-
-## Self-Improvement (Reflexive Development)
-
-Aragora learns from successful stress-tests through a structured feedback loop; the engine critiques itself to harden future outputs. This is powerful but risky—keep the nomic loop sandboxed and human-reviewed.
-
-1. **Pattern Storage**: Successful critique→fix patterns are indexed by issue type
-2. **Retrieval**: Future debates can retrieve relevant patterns (learning from history)
-3. **Prompt Evolution**: Agent system prompts evolve based on what works
-4. **Nomic Loop**: The system debates *changes to itself*, making its own rules an object of dialectical inquiry (guarded by safety gates)
-5. **Export**: Patterns can be exported for fine-tuning
+### Python SDK
 
 ```python
-# Retrieve successful patterns
-from aragora.memory import CritiqueStore
+from aragora.client import AragoraClient
 
-store = CritiqueStore("debates.db")
-security_patterns = store.retrieve_patterns(issue_type="security", min_success=3)
-
-for pattern in security_patterns:
-    print(f"Issue: {pattern.issue_text}")
-    print(f"Fix: {pattern.suggestion_text}")
-    print(f"Success rate: {pattern.success_rate:.0%}")
+client = AragoraClient(base_url="http://localhost:8080")
+debate = client.debates.run(task="Should we adopt microservices?")
+receipt = await client.gauntlet.run_and_wait(input_content="spec.md")
 ```
 
-## Implemented Features (2,800+ Modules)
+See [docs/SDK_GUIDE.md](docs/SDK_GUIDE.md) for the full API.
 
-Aragora has evolved through 21+ phases of self-improvement, with the nomic loop debating and implementing each feature. The codebase now includes:
+---
 
-- **2,800+ Python modules** across 50+ directories
-- **120,000+ tests** across 2,900+ test files
-- **174 debate modules** with 9-round structured protocol
-- **15+ agent implementations** across 10 providers (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, local models)
-- **461 HTTP handlers + 26 WebSocket streams**
-- **4-tier memory system** (Fast 1hr → Medium 24hr → Slow 7d → Glacial 30d)
-- **24+ enterprise connectors** (Slack, Discord, Teams, databases, collaboration tools)
-- **Complete workflow engine** with DAG execution and 10+ step types
+## Channels and Integrations
 
-**Commercial Readiness**: 85% production-ready. See [COMMERCIAL_OVERVIEW.md](docs/COMMERCIAL_OVERVIEW.md) for details.
+Aragora delivers debate results to wherever your team works:
 
-### Phase 1: Foundation
-| Feature | Description |
-|---------|-------------|
-| **ContinuumMemory** | Multi-timescale learning (fast/medium/slow tiers) |
-| **ReplayRecorder** | Cycle event recording for analysis |
-| **MetaLearner** | Self-tuning hyperparameters |
-| **IntrospectionAPI** | Agent self-awareness and reflection |
-| **ArgumentCartographer** | Real-time debate graph visualization |
-| **WebhookDispatcher** | External event notifications |
+| Channel | Status |
+|---|---|
+| Slack | Bot + OAuth |
+| Microsoft Teams | Bot + OAuth |
+| Discord | Interactions API |
+| Telegram | Bot API |
+| WhatsApp | Business API |
+| Email | SMTP + Gmail + Outlook |
+| Voice | TTS integration |
+| Webhooks | Custom delivery |
 
-### Phase 2: Learning
-| Feature | Description |
-|---------|-------------|
-| **ConsensusMemory** | Track settled vs contested topics across debates |
-| **InsightExtractor** | Post-debate pattern learning and extraction |
+Results automatically route to the originating channel via bidirectional chat routing.
 
-### Phase 3: Evidence & Resilience
-| Feature | Description |
-|---------|-------------|
-| **MemoryStream** | Per-agent persistent memory |
-| **LocalDocsConnector** | Evidence grounding from codebase |
-| **CounterfactualOrchestrator** | Deadlock resolution via forking |
-| **CapabilityProber** | Agent quality assurance testing |
-| **DebateTemplates** | Structured debate formats |
+See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for setup.
 
-### Phase 4: Agent Evolution
-| Feature | Description |
-|---------|-------------|
-| **PersonaManager** | Agent traits and expertise evolution |
-| **PromptEvolver** | Prompt evolution from winning patterns |
-| **Tournament** | Periodic competitive benchmarking |
+---
 
-### Phase 5: Intelligence
-| Feature | Description |
-|---------|-------------|
-| **ConvergenceDetector** | Early stopping via semantic convergence |
-| **MetaCritiqueAnalyzer** | Debate process feedback and recommendations |
-| **EloSystem** | Persistent agent skill tracking |
-| **AgentSelector** | Smart agent team selection |
-| **RiskRegister** | Low-consensus risk tracking |
+## Enterprise Features
 
-### Phase 6: Formal Reasoning
-| Feature | Description |
-|---------|-------------|
-| **ClaimsKernel** | Structured typed claims with evidence tracking |
-| **ProvenanceManager** | Cryptographic evidence chain integrity |
-| **BeliefNetwork** | Probabilistic reasoning over uncertain claims |
-| **ProofExecutor** | Executable verification of claims |
-| **ScenarioMatrix** | Robustness testing across scenarios |
+| Category | Capabilities |
+|---|---|
+| **Authentication** | OIDC/SAML SSO, MFA (TOTP/HOTP), API key management, SCIM 2.0 |
+| **Multi-Tenancy** | Tenant isolation, resource quotas, usage metering |
+| **Security** | AES-256-GCM encryption, rate limiting, SSRF protection, key rotation |
+| **Compliance** | SOC 2 controls, GDPR support, HIPAA, audit trails |
+| **Observability** | Prometheus metrics, Grafana dashboards, OpenTelemetry tracing |
+| **RBAC** | 7 roles, 50+ permissions, decorator-based enforcement |
+| **Backup** | Incremental backups, retention policies, disaster recovery |
+| **Control Plane** | Agent registry, task scheduler, health monitoring, policy governance |
 
-### Phase 7: Reliability & Audit
-| Feature | Description |
-|---------|-------------|
-| **EnhancedProvenanceManager** | Staleness detection for living documents |
-| **CheckpointManager** | Pause/resume and crash recovery |
-| **BreakpointManager** | Human intervention breakpoints |
-| **ReliabilityScorer** | Claim confidence scoring |
-| **DebateTracer** | Audit logs and deterministic replay |
+See [docs/ENTERPRISE_FEATURES.md](docs/ENTERPRISE_FEATURES.md) for details.
 
-### Phase 8: Advanced Debates
-| Feature | Description |
-|---------|-------------|
-| **PersonaLaboratory** | A/B testing, emergent traits, cross-pollination |
-| **SemanticRetriever** | Pattern matching for similar critiques |
-| **FormalVerificationManager** | Z3 theorem proving for logical claims |
-| **DebateGraph** | DAG-based debates for complex disagreements |
-| **DebateForker** | Parallel branch exploration |
+---
 
-### Phase 9: Truth Grounding
-| Feature | Description |
-|---------|-------------|
-| **FlipDetector** | Semantic position reversal detection |
-| **CalibrationTracker** | Prediction accuracy tracking (Brier score) |
-| **GroundedPersonaManager** | Evidence-linked persona synthesis |
-| **PositionTracker** | Agent position history with verification |
+## Self-Improvement (Nomic Loop)
 
-### Phase 10: Thread-Safe Audience Participation
-| Feature | Description |
-|---------|-------------|
-| **ArenaMailbox** | Thread-safe event queue for live interaction |
-| **LoopScoping** | Session-isolated streaming events |
+Aragora includes an autonomous self-improvement system where agents debate and implement improvements to the codebase itself. **Experimental** -- always run in a sandbox with human review.
 
-### Phase 11: Operational Modes
-| Feature | Description |
-|---------|-------------|
-| **OperationalModes** | Agent tool configuration switching |
-| **CapabilityProber** | Agent vulnerability testing |
-| **RedTeamMode** | Adversarial analysis of proposals |
+```bash
+python scripts/run_nomic_with_stream.py run --cycles 3
+python scripts/self_develop.py --goal "Improve test coverage" --require-approval
+```
 
-### Enterprise Features (Production-Ready)
-| Feature | Description |
-|---------|-------------|
-| **Multi-Tenancy** | Tenant isolation with quotas and cost tracking |
-| **OIDC/SAML SSO** | Enterprise single sign-on integration |
-| **MFA Support** | TOTP/HOTP multi-factor authentication |
-| **AES-256 Encryption** | Encryption at rest with key rotation |
-| **Audit Logging** | Tamper-evident immutable audit trail |
-| **SOC 2 Compliance** | Controls mapping and evidence documentation |
-| **Prometheus Metrics** | 14+ custom metrics with Grafana dashboards |
-| **OpenTelemetry** | Distributed tracing support |
-| **Rate Limiting** | IP, token, and endpoint-based limits |
-| **Connection Pooling** | Adaptive pool with health monitoring |
+Safety: automatic backups, protected file checksums, rollback on failure, human approval gates.
 
-See [ENTERPRISE_FEATURES.md](docs/ENTERPRISE_FEATURES.md) for complete enterprise capabilities.
-
-## Roadmap
-
-- [x] **Phase 1-21**: Core framework with 65+ integrated features ✓
-- [x] **Position Flip Detection**: Track agent position reversals and consistency scores ✓
-- [x] **Hybrid Model Architecture**: Gemini=Designer, Claude=Implementer, Codex=Verifier ✓
-- [x] **Security Hardening**: API key header auth, rate limiting, input validation ✓
-- [x] **Feature Integration**: PerformanceMonitor, CalibrationTracker, Airlock, Telemetry ✓
-- [x] **Multi-Provider Agents**: Mistral, DeepSeek, Qwen, Yi, Kimi via direct API and OpenRouter ✓
-- [ ] **LeanBackend**: Lean 4 theorem proving integration
-- [ ] **Emergent Society**: Society simulation (ala Project Sid)
-- [ ] **Multi-Codebase**: Cross-repository coordination
+---
 
 ## Deployment
 
-### AWS Lightsail (Production)
-
-The aragora API server runs on AWS Lightsail with Cloudflare Tunnel:
-
 ```bash
-# Deploy to Lightsail
+# Local development
+aragora serve --port 8080
+
+# Production (AWS Lightsail + Cloudflare Tunnel)
 ./deploy/lightsail-setup.sh
-
-# The server runs at api.aragora.ai via Cloudflare Tunnel
-# Frontend at aragora.ai via Cloudflare Pages
 ```
 
-Configuration:
-- **Instance**: Ubuntu 22.04, nano_3_0 ($5/month)
-- **HTTP API**: Port 8080
-- **WebSocket**: Port 8765 (ws://host:8765 or ws://host:8765/ws)
-- **Tunnel**: Cloudflare Tunnel proxies api.aragora.ai
+**API:** REST endpoints at `/api/v2/*` | WebSocket streaming at `/ws`
+**Docs:** OpenAPI at `/api/openapi` | Swagger UI at `/api/docs`
 
-### API Endpoints (REST + WS)
-
-The server exposes hundreds of REST endpoints across dozens of handler modules. Key categories:
-
-| Category | Description |
-|----------|-------------|
-| `/api/debates/*` | Debate CRUD, forking, export, search |
-| `/api/gauntlet/*` | Adversarial stress-testing, receipts, heatmaps |
-| `/api/agent/{name}/*` | Agent profiles, calibration, consistency, performance |
-| `/api/memory/*` | Multi-tier memory (continuum), search, analytics |
-| `/api/auth/*` | Registration, login, OAuth, API keys |
-| `/api/billing/*` | Stripe subscriptions, usage, checkout |
-| `/api/tournaments/*` | Competitive brackets, standings, matches |
-| `/api/verify/*` | Formal verification with Z3 solver |
-| `WS /ws` | Real-time streaming (see `docs/WEBSOCKET_EVENTS.md`) |
-
-**Full API reference**: [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) (auto-generated)
-**OpenAPI spec**: `GET /api/openapi` or `GET /api/openapi.yaml`
-**Interactive docs**: `GET /api/docs` (Swagger UI)
-
-### WebSocket Events
-
-```typescript
-// Event types streamed via WebSocket
-type EventType =
-  | "debate_start" | "round_start" | "agent_message"
-  | "critique" | "vote" | "consensus" | "debate_end"
-  | "token_start" | "token_delta" | "token_end"
-  | "loop_list" | "audience_metrics" | "grounded_verdict"
-  | "gauntlet_start" | "gauntlet_verdict" | "gauntlet_complete"
-```
-See `docs/WEBSOCKET_EVENTS.md` for the full list and payloads.
+---
 
 ## Security
 
-Aragora implements several security measures:
+- Ed25519 signature verification for webhooks (Discord, Slack)
+- Rate limiting (IP, token, and endpoint-based)
+- Input validation and content-length enforcement
+- CORS allowlists, security headers, error message sanitization
+- Path traversal protection, upload validation with magic byte checking
+- WebSocket message limits (64KB), debate timeouts, backpressure control
 
-- **API Key Protection**: Gemini API keys are transmitted via HTTP headers, not URL parameters
-- **Rate Limiting**: Thread-safe rate limiting with configurable limits per minute
-- **Input Validation**: API parameters are validated and capped to prevent resource exhaustion
-- **Content-Length Validation**: POST requests validated against max size (100MB general, 10MB JSON)
-- **Multipart Limits**: Max 100 multipart form parts prevents DoS via form flooding
-- **Path Traversal Protection**: Static file serving validates paths against base directory
-- **CORS Validation**: Origin allowlist prevents unauthorized cross-origin requests (no wildcards)
-- **Security Headers**: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy
-- **Generic Error Messages**: Internal errors don't leak stack traces to clients
-- **Error Message Sanitization**: API error responses redact patterns resembling API keys and tokens
-- **Process Cleanup**: CLI agents properly kill and await zombie processes on exceptions
-- **Backpressure Control**: Stream event queues are capped to prevent memory exhaustion
-- **WebSocket Message Limits**: Max message size of 64KB prevents memory exhaustion
-- **Debate Timeouts**: Configurable per-debate and per-round timeouts prevent runaway processes
-- **Connection Health**: WebSocket ping/pong (30s/10s) detects stale connections
-- **Thread Safety**: Double-checked locking for shared executor initialization
-- **Secure Client IDs**: Cryptographically random WebSocket client identifiers
-- **JSON Parse Timeout**: 5-second timeout prevents CPU-bound DoS attacks
-- **Payload Validation**: WebSocket payloads validated and bounded by `ARAGORA_WS_MAX_MESSAGE_SIZE` (default 64KB)
-- **Upload Rate Limiting**: IP-based limits (5/min, 30/hour) prevent storage DoS
+See [docs/SECURITY.md](docs/SECURITY.md) and [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
 
-Configure security via environment variables:
-```bash
-export ARAGORA_API_TOKEN="your-secret-token"    # Enable token auth
-export ARAGORA_ALLOWED_ORIGINS="https://aragora.ai,https://www.aragora.ai"
-export ARAGORA_TOKEN_TTL=3600                   # Token lifetime in seconds
-export ARAGORA_WS_MAX_MESSAGE_SIZE=65536        # Max WebSocket message size (bytes)
-```
+---
 
-### Compliance & Governance
+## Documentation
 
-Aragora includes comprehensive compliance documentation for regulated environments:
+| Need | Where |
+|---|---|
+| First-time setup | [GETTING_STARTED.md](docs/GETTING_STARTED.md) |
+| API reference | [API_REFERENCE.md](docs/API_REFERENCE.md) |
+| SDK guide | [SDK_GUIDE.md](docs/SDK_GUIDE.md) |
+| Enterprise features | [ENTERPRISE_FEATURES.md](docs/ENTERPRISE_FEATURES.md) |
+| Gauntlet guide | [GAUNTLET.md](docs/GAUNTLET.md) |
+| Agent catalog | [AGENTS.md](docs/AGENTS.md) |
+| Feature discovery | [FEATURE_DISCOVERY.md](docs/FEATURE_DISCOVERY.md) |
+| Extended README | [EXTENDED_README.md](docs/EXTENDED_README.md) |
+| Full index | [INDEX.md](docs/INDEX.md) |
 
-| Document | Purpose |
-|----------|---------|
-| [SOC 2 Compliance](docs/COMPLIANCE.md) | SOC 2 Type II controls and evidence |
-| [Data Classification](docs/DATA_CLASSIFICATION.md) | Data handling policies and sensitivity levels |
-| [Incident Response](docs/INCIDENT_RESPONSE.md) | Incident playbooks and escalation procedures |
-| [Privacy Policy](docs/PRIVACY_POLICY.md) | Data collection and retention policies |
-| [Nomic Governance](docs/NOMIC_GOVERNANCE.md) | Autonomous loop safety controls |
+---
 
-See [docs/INDEX.md](docs/INDEX.md) for complete documentation navigation.
+## Inspiration and Citations
+
+Aragora synthesizes ideas from these open-source projects:
+
+- **[Stanford Generative Agents](https://github.com/joonspk-research/generative_agents)** -- Memory + reflection architecture
+- **[ChatArena](https://github.com/chatarena/chatarena)** -- Multi-agent interaction environments
+- **[LLM Multi-Agent Debate](https://github.com/composable-models/llm_multiagent_debate)** -- ICML 2024 consensus mechanisms
+- **[ai-counsel](https://github.com/AI-Counsel/ai-counsel)** -- Semantic convergence detection (MIT)
+- **[DebateLLM](https://github.com/Tsinghua-MARS-Lab/DebateLLM)** -- Agreement intensity modulation (Apache 2.0)
+- **[claude-flow](https://github.com/ruvnet/claude-flow)** -- Adaptive topology switching (MIT)
+
+See the full attribution table in [docs/CREDITS.md](docs/CREDITS.md).
+
+---
 
 ## Contributing
 
-Contributions welcome! Areas of interest:
+Contributions welcome. Areas of interest:
 
-- Additional agent backends (Cohere, Inflection, Reka)
-- Debate visualization enhancements
+- Additional agent backends
+- Debate visualization
 - Benchmark datasets for agent evaluation
-- Prompt engineering for better critiques
-- Self-improvement mechanism research
 - Lean 4 theorem proving integration
 
 ## License
 
 MIT
 
-## Acknowledgments
+---
 
-This project was inspired by a conversation exploring the intersection of:
-- Multi-agent AI systems
-- Competitive-collaborative dynamics
-- Self-improvement through critique
-- Emergent behavior in AI societies
-- Hegelian dialectics and the structure of reason
-
-The name "aragora" evokes the Greek *agora* (ἀγορά)—the public assembly where citizens debated and reached collective decisions through reasoned discourse.
-
-Special thanks to the researchers behind Generative Agents, ChatArena, and Project Sid for pioneering this space, and to Hegel for the insight that contradiction is not a flaw to avoid but the engine of development.
+*The name "aragora" evokes the Greek agora -- the public assembly where citizens debated and reached collective decisions through reasoned discourse.*

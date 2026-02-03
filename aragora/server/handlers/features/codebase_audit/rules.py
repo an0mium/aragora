@@ -237,10 +237,6 @@ def validate_repository_path(path: str | None) -> tuple[bool, str | None]:
         if char in path:
             return False, f"Path contains invalid character: {repr(char)}"
 
-    # Prevent absolute paths starting with / (only allow relative paths)
-    if path.startswith("/"):
-        return False, "Absolute paths are not allowed; use relative paths only"
-
     # Prevent paths that start with ~ (home directory expansion)
     if path.startswith("~"):
         return False, "Home directory expansion (~) is not allowed"
