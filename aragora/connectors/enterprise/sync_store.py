@@ -1060,6 +1060,26 @@ class SyncStore:
                     stats["total_items_synced"] = row[3] or 0
                     stats["total_items_failed"] = row[4] or 0
                     stats["avg_duration_seconds"] = row[5] or 0.0
+        elif not self._connection:
+            history_jobs = [
+                job
+                for job in self._sync_history
+                if connector_id is None or job.connector_id == connector_id
+            ]
+            total_syncs = len(history_jobs)
+            successful_syncs = len([job for job in history_jobs if job.status == "completed"])
+            failed_syncs = len([job for job in history_jobs if job.status == "failed"])
+            total_items_synced = sum(job.items_synced for job in history_jobs)
+            total_items_failed = sum(job.items_failed for job in history_jobs)
+            durations = [job.duration_seconds for job in history_jobs if job.duration_seconds]
+            avg_duration = sum(durations) / len(durations) if durations else 0.0
+
+            stats["total_syncs"] = total_syncs
+            stats["successful_syncs"] = successful_syncs
+            stats["failed_syncs"] = failed_syncs
+            stats["total_items_synced"] = total_items_synced
+            stats["total_items_failed"] = total_items_failed
+            stats["avg_duration_seconds"] = avg_duration
 
         return stats
 
