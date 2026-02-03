@@ -73,7 +73,7 @@ class AragoraClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "aragora-sdk/2.5.0",
+            "User-Agent": "aragora-python-sdk/2.5.0",
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -533,7 +533,7 @@ class AragoraAsyncClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "aragora-sdk/2.5.0",
+            "User-Agent": "aragora-python-sdk/2.5.0",
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"

@@ -208,6 +208,14 @@ def extract_handler_routes(aragora_path: Path) -> list[str]:
     routes_pattern = re.compile(r"ROUTES\s*=\s*\[(.*?)\]", re.DOTALL)
     route_string_pattern = re.compile(r'["\']([^"\']+)["\']')
 
+    # Pattern to match @api_endpoint(...) decorators with path= argument
+    # Handles both single-line and multi-line decorator calls
+    api_endpoint_pattern = re.compile(
+        r"@api_endpoint\s*\((.*?)\)",
+        re.DOTALL,
+    )
+    api_endpoint_path_pattern = re.compile(r'path\s*=\s*["\']([^"\']+)["\']')
+
     for py_file in handlers_dir.rglob("*.py"):
         content = py_file.read_text(errors="ignore")
 
@@ -215,6 +223,15 @@ def extract_handler_routes(aragora_path: Path) -> list[str]:
             routes_block = routes_match.group(1)
             for route_match in route_string_pattern.finditer(routes_block):
                 route = route_match.group(1)
+                if route.startswith("/api"):
+                    routes.append(route)
+
+        # Extract routes from @api_endpoint decorators
+        for ep_match in api_endpoint_pattern.finditer(content):
+            decorator_body = ep_match.group(1)
+            path_match = api_endpoint_path_pattern.search(decorator_body)
+            if path_match:
+                route = path_match.group(1)
                 if route.startswith("/api"):
                     routes.append(route)
 

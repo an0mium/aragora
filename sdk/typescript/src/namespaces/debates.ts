@@ -1591,4 +1591,717 @@ export class DebatesAPI {
       params: { limit, offset },
     });
   }
+
+  // ===========================================================================
+  // Pagination & Iteration
+  // ===========================================================================
+
+  /**
+   * Iterate through all debates with automatic pagination.
+   *
+   * Returns an async iterator that automatically fetches additional pages
+   * as needed. This is useful for processing large numbers of debates
+   * without loading them all into memory at once.
+   *
+   * @param options - Filter and pagination options
+   *
+   * @example
+   * ```typescript
+   * // Iterate through all active debates
+   * for await (const debate of client.debates.listAll({ status: 'active' })) {
+   *   console.log(debate.task);
+   * }
+   *
+   * // Collect all completed debates into an array
+   * const paginator = client.debates.listAll({ status: 'completed' });
+   * const allCompleted = await paginator.toArray();
+   *
+   * // Take first 50 debates
+   * const first50 = await client.debates.listAll().take(50);
+   *
+   * // Find a specific debate
+   * const found = await client.debates.listAll().find(d => d.task.includes('microservices'));
+   * ```
+   */
+  listAll(options?: {
+    status?: string;
+    pageSize?: number;
+    domain?: string;
+    since?: string;
+    until?: string;
+  }): ListAllPaginator {
+    const { status, domain, since, until, pageSize = 20 } = options ?? {};
+    const params: Record<string, unknown> = {};
+    if (status) params.status = status;
+    if (domain) params.domain = domain;
+    if (since) params.since = since;
+    if (until) params.until = until;
+
+    return new ListAllPaginator(this.client, '/api/v1/debates', params, pageSize);
+  }
+
+  // ===========================================================================
+  // Health & Monitoring
+  // ===========================================================================
+
+  /**
+   * Get health status for debates.
+   *
+   * Returns monitoring information about debate health including
+   * active debates, stuck debates, and system metrics.
+   *
+   * @example
+   * ```typescript
+   * const health = await client.debates.listHealth();
+   * console.log(`Active debates: ${health.active_count}`);
+   * console.log(`Stuck debates: ${health.stuck_count}`);
+   * if (health.stuck_debates.length > 0) {
+   *   console.log('Stuck debates:', health.stuck_debates);
+   * }
+   * ```
+   */
+  async listHealth(): Promise<DebateHealthStatus> {
+    return this.client.request('GET', '/api/v1/debates/health');
+  }
+
+  /**
+   * Get health status for a specific debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const health = await client.debates.getHealth('debate-123');
+   * if (health.status === 'stuck') {
+   *   console.log(`Debate stuck since round ${health.stuck_since_round}`);
+   * }
+   * ```
+   */
+  async getHealth(debateId: string): Promise<DebateHealthDetail> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/health`);
+  }
+
+  // ===========================================================================
+  // Advanced Query & Filtering
+  // ===========================================================================
+
+  /**
+   * List debates by date range.
+   *
+   * @param since - Start date (ISO 8601 format)
+   * @param until - End date (ISO 8601 format)
+   * @param options - Additional filter options
+   *
+   * @example
+   * ```typescript
+   * const debates = await client.debates.listByDateRange(
+   *   '2024-01-01T00:00:00Z',
+   *   '2024-01-31T23:59:59Z',
+   *   { status: 'completed' }
+   * );
+   * console.log(`${debates.debates.length} debates in January`);
+   * ```
+   */
+  async listByDateRange(
+    since: string,
+    until: string,
+    options?: { status?: string; limit?: number; offset?: number }
+  ): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/debates', {
+      params: {
+        since,
+        until,
+        ...options,
+      },
+    });
+  }
+
+  /**
+   * List debates by status.
+   *
+   * @param status - The debate status to filter by
+   * @param options - Pagination options
+   *
+   * @example
+   * ```typescript
+   * const active = await client.debates.listByStatus('running');
+   * const completed = await client.debates.listByStatus('completed', { limit: 50 });
+   * ```
+   */
+  async listByStatus(
+    status: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/debates', {
+      params: {
+        status,
+        limit: options?.limit ?? 20,
+        offset: options?.offset ?? 0,
+      },
+    });
+  }
+
+  /**
+   * List debates by participant agent.
+   *
+   * @param agentName - The agent name to filter by
+   * @param options - Additional filter options
+   *
+   * @example
+   * ```typescript
+   * const claudeDebates = await client.debates.listByAgent('claude');
+   * console.log(`Claude participated in ${claudeDebates.total} debates`);
+   * ```
+   */
+  async listByAgent(
+    agentName: string,
+    options?: { status?: string; limit?: number; offset?: number }
+  ): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/debates', {
+      params: {
+        agent: agentName,
+        ...options,
+      },
+    });
+  }
+
+  /**
+   * List debates by domain or topic category.
+   *
+   * @param domain - The domain to filter by (e.g., 'technology', 'business')
+   * @param options - Additional filter options
+   *
+   * @example
+   * ```typescript
+   * const techDebates = await client.debates.listByDomain('technology');
+   * ```
+   */
+  async listByDomain(
+    domain: string,
+    options?: { status?: string; limit?: number; offset?: number }
+  ): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/debates', {
+      params: {
+        domain,
+        ...options,
+      },
+    });
+  }
+
+  /**
+   * List debates with advanced filtering.
+   *
+   * @param filters - Advanced filter options
+   *
+   * @example
+   * ```typescript
+   * const debates = await client.debates.listWithFilters({
+   *   status: 'completed',
+   *   agents: ['claude', 'gpt-4'],
+   *   minRounds: 3,
+   *   consensusReached: true,
+   *   since: '2024-01-01',
+   *   orderBy: 'created_at',
+   *   orderDir: 'desc',
+   * });
+   * ```
+   */
+  async listWithFilters(filters: DebateFilters): Promise<{ debates: Debate[]; total: number }> {
+    const params: Record<string, unknown> = {};
+
+    if (filters.status) params.status = filters.status;
+    if (filters.domain) params.domain = filters.domain;
+    if (filters.agents) params.agents = filters.agents.join(',');
+    if (filters.minRounds !== undefined) params.min_rounds = filters.minRounds;
+    if (filters.maxRounds !== undefined) params.max_rounds = filters.maxRounds;
+    if (filters.consensusReached !== undefined) params.consensus_reached = filters.consensusReached;
+    if (filters.since) params.since = filters.since;
+    if (filters.until) params.until = filters.until;
+    if (filters.orderBy) params.order_by = filters.orderBy;
+    if (filters.orderDir) params.order_dir = filters.orderDir;
+    if (filters.limit !== undefined) params.limit = filters.limit;
+    if (filters.offset !== undefined) params.offset = filters.offset;
+
+    return this.client.request('GET', '/api/v1/debates', { params });
+  }
+
+  // ===========================================================================
+  // Statistics & Analytics
+  // ===========================================================================
+
+  /**
+   * Get overall debate statistics.
+   *
+   * @param period - Time period for statistics (e.g., '7d', '30d', '90d')
+   *
+   * @example
+   * ```typescript
+   * const stats = await client.debates.getStatistics('30d');
+   * console.log(`Total debates: ${stats.total_debates}`);
+   * console.log(`Consensus rate: ${stats.consensus_rate}%`);
+   * console.log(`Average rounds: ${stats.avg_rounds}`);
+   * ```
+   */
+  async getStatistics(period: string = '30d'): Promise<DebateStatistics> {
+    return this.client.request('GET', '/api/v1/debates/statistics', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get agent performance statistics across debates.
+   *
+   * @param options - Filter options
+   *
+   * @example
+   * ```typescript
+   * const agentStats = await client.debates.getAgentStatistics({ period: '30d' });
+   * for (const agent of agentStats.agents) {
+   *   console.log(`${agent.name}: ${agent.win_rate}% win rate`);
+   * }
+   * ```
+   */
+  async getAgentStatistics(options?: {
+    period?: string;
+    agents?: string[];
+  }): Promise<DebateAgentStatistics> {
+    return this.client.request('GET', '/api/v1/debates/statistics/agents', {
+      params: options as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get consensus analytics for debates.
+   *
+   * @param period - Time period for analytics
+   *
+   * @example
+   * ```typescript
+   * const consensus = await client.debates.getConsensusAnalytics('30d');
+   * console.log(`Consensus reached in ${consensus.reached_count}/${consensus.total_debates}`);
+   * console.log(`Average confidence: ${consensus.avg_confidence}`);
+   * ```
+   */
+  async getConsensusAnalytics(period: string = '30d'): Promise<ConsensusAnalytics> {
+    return this.client.request('GET', '/api/v1/debates/analytics/consensus', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get topic trends in debates.
+   *
+   * @param options - Filter options
+   *
+   * @example
+   * ```typescript
+   * const trends = await client.debates.getTopicTrends({ period: '7d', limit: 10 });
+   * for (const topic of trends.topics) {
+   *   console.log(`${topic.name}: ${topic.count} debates, ${topic.velocity} trend`);
+   * }
+   * ```
+   */
+  async getTopicTrends(options?: {
+    period?: string;
+    limit?: number;
+  }): Promise<TopicTrends> {
+    return this.client.request('GET', '/api/v1/debates/analytics/trends', {
+      params: options as Record<string, unknown>,
+    });
+  }
+
+  // ===========================================================================
+  // Import & Export
+  // ===========================================================================
+
+  /**
+   * Import a debate from an external format.
+   *
+   * @param data - The debate data to import
+   * @param format - The format of the imported data
+   *
+   * @example
+   * ```typescript
+   * const imported = await client.debates.importDebate(
+   *   jsonContent,
+   *   'json'
+   * );
+   * console.log(`Imported debate: ${imported.debate_id}`);
+   * ```
+   */
+  async importDebate(
+    data: string,
+    format: 'json' | 'markdown' = 'json'
+  ): Promise<{ debate_id: string; success: boolean }> {
+    return this.client.request('POST', '/api/v1/debates/import', {
+      body: { data, format },
+    });
+  }
+
+  /**
+   * Export multiple debates in a batch.
+   *
+   * @param debateIds - Array of debate IDs to export
+   * @param format - Export format
+   *
+   * @example
+   * ```typescript
+   * const exported = await client.debates.exportBatch(
+   *   ['debate-1', 'debate-2', 'debate-3'],
+   *   'json'
+   * );
+   * console.log(`Exported ${exported.count} debates`);
+   * ```
+   */
+  async exportBatch(
+    debateIds: string[],
+    format: 'json' | 'markdown' | 'html' | 'pdf' = 'json'
+  ): Promise<BatchExportResult> {
+    return this.client.request('POST', '/api/v1/debates/export/batch', {
+      body: { debate_ids: debateIds, format },
+    });
+  }
+
+  // ===========================================================================
+  // Batch Operations (Extended)
+  // ===========================================================================
+
+  /**
+   * Cancel a batch job.
+   *
+   * @param batchId - The batch ID to cancel
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.cancelBatch('batch-123');
+   * if (result.success) {
+   *   console.log(`Batch cancelled: ${result.cancelled_jobs} jobs stopped`);
+   * }
+   * ```
+   */
+  async cancelBatch(batchId: string): Promise<{ success: boolean; cancelled_jobs: number }> {
+    return this.client.request('POST', `/api/v1/debates/batch/${batchId}/cancel`);
+  }
+
+  /**
+   * Retry failed jobs in a batch.
+   *
+   * @param batchId - The batch ID
+   * @param options - Retry options
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.retryBatch('batch-123', { onlyFailed: true });
+   * console.log(`Retrying ${result.retried_count} jobs`);
+   * ```
+   */
+  async retryBatch(
+    batchId: string,
+    options?: { onlyFailed?: boolean }
+  ): Promise<{ success: boolean; retried_count: number }> {
+    return this.client.request('POST', `/api/v1/debates/batch/${batchId}/retry`, {
+      body: options,
+    });
+  }
+
+  /**
+   * Get detailed results from a completed batch.
+   *
+   * @param batchId - The batch ID
+   *
+   * @example
+   * ```typescript
+   * const results = await client.debates.getBatchResults('batch-123');
+   * for (const result of results.debates) {
+   *   console.log(`${result.debate_id}: ${result.status}`);
+   * }
+   * ```
+   */
+  async getBatchResults(batchId: string): Promise<BatchResults> {
+    return this.client.request('GET', `/api/v1/debates/batch/${batchId}/results`);
+  }
+
+  // ===========================================================================
+  // Comparison & Analysis
+  // ===========================================================================
+
+  /**
+   * Compare multiple debates.
+   *
+   * @param debateIds - Array of debate IDs to compare
+   *
+   * @example
+   * ```typescript
+   * const comparison = await client.debates.compare(['debate-1', 'debate-2']);
+   * console.log(`Similarity: ${comparison.similarity_score}`);
+   * console.log('Common themes:', comparison.common_themes);
+   * console.log('Divergent points:', comparison.divergent_points);
+   * ```
+   */
+  async compare(debateIds: string[]): Promise<DebateComparison> {
+    return this.client.request('POST', '/api/v1/debates/compare', {
+      body: { debate_ids: debateIds },
+    });
+  }
+
+  /**
+   * Get similar debates to a given debate.
+   *
+   * @param debateId - The debate ID to find similar debates for
+   * @param limit - Maximum number of similar debates to return
+   *
+   * @example
+   * ```typescript
+   * const similar = await client.debates.findSimilar('debate-123', 5);
+   * for (const debate of similar.debates) {
+   *   console.log(`${debate.debate_id}: ${debate.similarity_score}`);
+   * }
+   * ```
+   */
+  async findSimilar(
+    debateId: string,
+    limit: number = 10
+  ): Promise<{ debates: Array<{ debate_id: string; similarity_score: number; task: string }> }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/similar`, {
+      params: { limit },
+    });
+  }
+
+  /**
+   * Analyze argument quality in a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const quality = await client.debates.analyzeArgumentQuality('debate-123');
+   * console.log(`Overall quality: ${quality.overall_score}`);
+   * for (const agent of quality.by_agent) {
+   *   console.log(`${agent.name}: ${agent.quality_score}`);
+   * }
+   * ```
+   */
+  async analyzeArgumentQuality(debateId: string): Promise<ArgumentQualityAnalysis> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/quality`);
+  }
+
+  // ===========================================================================
+  // Archival & Cleanup
+  // ===========================================================================
+
+  /**
+   * Archive multiple debates in batch.
+   *
+   * @param debateIds - Array of debate IDs to archive
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.archiveBatch(['debate-1', 'debate-2']);
+   * console.log(`Archived ${result.archived_count} debates`);
+   * ```
+   */
+  async archiveBatch(debateIds: string[]): Promise<{ success: boolean; archived_count: number }> {
+    return this.client.request('POST', '/api/v1/debates/archive/batch', {
+      body: { debate_ids: debateIds },
+    });
+  }
+
+  /**
+   * List archived debates.
+   *
+   * @param options - Pagination options
+   *
+   * @example
+   * ```typescript
+   * const archived = await client.debates.listArchived({ limit: 50 });
+   * console.log(`${archived.total} debates in archive`);
+   * ```
+   */
+  async listArchived(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/debates/archived', {
+      params: options as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Restore an archived debate.
+   *
+   * @param debateId - The debate ID to restore
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.restore('debate-123');
+   * if (result.success) {
+   *   console.log('Debate restored successfully');
+   * }
+   * ```
+   */
+  async restore(debateId: string): Promise<{ success: boolean }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/restore`);
+  }
+
+  /**
+   * Permanently delete a debate (requires archive first).
+   *
+   * @param debateId - The debate ID to delete permanently
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.deletePermanently('debate-123');
+   * if (result.success) {
+   *   console.log('Debate permanently deleted');
+   * }
+   * ```
+   */
+  async deletePermanently(debateId: string): Promise<{ success: boolean }> {
+    return this.client.request('DELETE', `/api/v1/debates/${debateId}/permanent`);
+  }
+
+  // ===========================================================================
+  // Tags & Metadata
+  // ===========================================================================
+
+  /**
+   * Add tags to a debate.
+   *
+   * @param debateId - The debate ID
+   * @param tags - Array of tags to add
+   *
+   * @example
+   * ```typescript
+   * await client.debates.addTags('debate-123', ['important', 'review']);
+   * ```
+   */
+  async addTags(debateId: string, tags: string[]): Promise<{ success: boolean; tags: string[] }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/tags`, {
+      body: { tags },
+    });
+  }
+
+  /**
+   * Remove tags from a debate.
+   *
+   * @param debateId - The debate ID
+   * @param tags - Array of tags to remove
+   *
+   * @example
+   * ```typescript
+   * await client.debates.removeTags('debate-123', ['review']);
+   * ```
+   */
+  async removeTags(debateId: string, tags: string[]): Promise<{ success: boolean; tags: string[] }> {
+    return this.client.request('DELETE', `/api/v1/debates/${debateId}/tags`, {
+      body: { tags },
+    });
+  }
+
+  /**
+   * List debates by tag.
+   *
+   * @param tag - The tag to filter by
+   * @param options - Pagination options
+   *
+   * @example
+   * ```typescript
+   * const tagged = await client.debates.listByTag('important');
+   * ```
+   */
+  async listByTag(
+    tag: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/debates', {
+      params: {
+        tag,
+        ...options,
+      },
+    });
+  }
+
+  /**
+   * Update metadata for a debate.
+   *
+   * @param debateId - The debate ID
+   * @param metadata - Metadata to merge with existing metadata
+   *
+   * @example
+   * ```typescript
+   * await client.debates.updateMetadata('debate-123', {
+   *   priority: 'high',
+   *   reviewer: 'john@example.com',
+   * });
+   * ```
+   */
+  async updateMetadata(
+    debateId: string,
+    metadata: Record<string, unknown>
+  ): Promise<{ success: boolean; metadata: Record<string, unknown> }> {
+    return this.client.request('PATCH', `/api/v1/debates/${debateId}/metadata`, {
+      body: { metadata },
+    });
+  }
+
+  // ===========================================================================
+  // Notes & Comments
+  // ===========================================================================
+
+  /**
+   * Add a note to a debate.
+   *
+   * @param debateId - The debate ID
+   * @param note - The note content
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.addNote('debate-123', 'Needs further review');
+   * console.log(`Note added: ${result.note_id}`);
+   * ```
+   */
+  async addNote(
+    debateId: string,
+    note: string
+  ): Promise<{ note_id: string; success: boolean }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/notes`, {
+      body: { note },
+    });
+  }
+
+  /**
+   * Get notes for a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const notes = await client.debates.getNotes('debate-123');
+   * for (const note of notes) {
+   *   console.log(`${note.created_at}: ${note.content}`);
+   * }
+   * ```
+   */
+  async getNotes(debateId: string): Promise<DebateNote[]> {
+    const response = await this.client.request<{ notes: DebateNote[] }>(
+      'GET',
+      `/api/v1/debates/${debateId}/notes`
+    );
+    return response.notes;
+  }
+
+  /**
+   * Delete a note from a debate.
+   *
+   * @param debateId - The debate ID
+   * @param noteId - The note ID to delete
+   *
+   * @example
+   * ```typescript
+   * await client.debates.deleteNote('debate-123', 'note-456');
+   * ```
+   */
+  async deleteNote(debateId: string, noteId: string): Promise<{ success: boolean }> {
+    return this.client.request('DELETE', `/api/v1/debates/${debateId}/notes/${noteId}`);
+  }
 }

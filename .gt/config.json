@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "workspace": "/Users/armand/Development/aragora",
+  "created_at": "2026-02-02T20:45:59.454083",
+  "settings": {
+    "auto_assign_beads": true,
+    "max_concurrent_agents": 5,
+    "witness_patrol_enabled": true
+  }
+}
