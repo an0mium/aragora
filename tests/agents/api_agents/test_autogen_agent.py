@@ -494,7 +494,7 @@ class TestAutoGenConversationManagement:
 
         agent = AutoGenAgent()
 
-        with patch.object(agent, "generate", AsyncMock(side_effect=Exception("Network error"))):
+        with patch.object(agent, "generate", AsyncMock(side_effect=RuntimeError("Network error"))):
             result = await agent.initiate_chat("Hello")
 
         assert result["success"] is False

@@ -13,6 +13,7 @@ The package is structured as follows:
 - crud.py: Workspace CRUD operations mixin
 - policies.py: Retention policy management mixin
 - members.py: Member management and RBAC profiles mixin
+- invites.py: Workspace invite management mixin
 - settings.py: Classification and audit endpoints mixin
 
 For backwards compatibility, all public exports are available directly from this package.
@@ -47,6 +48,7 @@ __all__ = [
     "WorkspaceCrudMixin",
     "WorkspacePoliciesMixin",
     "WorkspaceMembersMixin",
+    "WorkspaceInvitesMixin",
     "WorkspaceSettingsMixin",
     # Feature flags (for test patching compatibility)
     "RBAC_AVAILABLE",
@@ -74,6 +76,7 @@ _WORKSPACE_EXPORTS = {
     "WorkspaceCrudMixin",
     "WorkspacePoliciesMixin",
     "WorkspaceMembersMixin",
+    "WorkspaceInvitesMixin",
     "WorkspaceSettingsMixin",
     "RBAC_AVAILABLE",
     "PROFILES_AVAILABLE",

@@ -159,6 +159,7 @@ from .workspace.workspace_utils import (
 from .workspace.crud import WorkspaceCrudMixin
 from .workspace.policies import WorkspacePoliciesMixin
 from .workspace.members import WorkspaceMembersMixin
+from .workspace.invites import WorkspaceInvitesMixin
 from .workspace.settings import WorkspaceSettingsMixin
 
 if TYPE_CHECKING:
@@ -258,6 +259,7 @@ class WorkspaceHandler(
     WorkspaceCrudMixin,
     WorkspacePoliciesMixin,
     WorkspaceMembersMixin,
+    WorkspaceInvitesMixin,
     WorkspaceSettingsMixin,
     SecureHandler,
 ):
@@ -285,6 +287,7 @@ class WorkspaceHandler(
     ROUTES = [
         "/api/v1/workspaces",
         "/api/v1/workspaces/profiles",  # RBAC profile endpoints
+        "/api/v1/invites",  # Invite acceptance endpoint
         "/api/v1/retention/policies",
         "/api/v1/retention/expiring",
         "/api/v1/classify",
@@ -438,6 +441,10 @@ class WorkspaceHandler(
         if path.startswith("/api/v1/workspaces"):
             return self._route_workspace(path, query_params, handler, method)
 
+        # Invite acceptance endpoint
+        if path.startswith("/api/v1/invites"):
+            return self._route_invites(path, query_params, handler, method)
+
         # Retention endpoints
         if path.startswith("/api/v1/retention"):
             return self._route_retention(path, query_params, handler, method)
@@ -554,6 +561,57 @@ class WorkspaceHandler(
             if not valid:
                 return error_response(err, 400)
             return self._handle_update_member_role(handler, workspace_id, user_id)
+
+        # POST /api/workspaces/{id}/invites - Create invite
+        if len(parts) == 4 and parts[3] == "invites" and method == "POST":
+            workspace_id = parts[2]
+            valid, err = _validate_workspace_id(workspace_id)
+            if not valid:
+                return error_response(err, 400)
+            return self._handle_create_invite(handler, workspace_id)
+
+        # GET /api/workspaces/{id}/invites - List invites
+        if len(parts) == 4 and parts[3] == "invites" and method == "GET":
+            workspace_id = parts[2]
+            valid, err = _validate_workspace_id(workspace_id)
+            if not valid:
+                return error_response(err, 400)
+            return self._handle_list_invites(handler, workspace_id)
+
+        # DELETE /api/workspaces/{id}/invites/{invite_id} - Cancel invite
+        if len(parts) == 5 and parts[3] == "invites" and method == "DELETE":
+            workspace_id = parts[2]
+            invite_id = parts[4]
+            valid, err = _validate_workspace_id(workspace_id)
+            if not valid:
+                return error_response(err, 400)
+            return self._handle_cancel_invite(handler, workspace_id, invite_id)
+
+        # POST /api/workspaces/{id}/invites/{invite_id}/resend - Resend invite
+        if len(parts) == 6 and parts[3] == "invites" and parts[5] == "resend" and method == "POST":
+            workspace_id = parts[2]
+            invite_id = parts[4]
+            valid, err = _validate_workspace_id(workspace_id)
+            if not valid:
+                return error_response(err, 400)
+            return self._handle_resend_invite(handler, workspace_id, invite_id)
+
+        return error_response("Not found", 404)
+
+    def _route_invites(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: HTTPRequestHandler,
+        method: str,
+    ) -> HandlerResult | None:
+        """Route invite acceptance requests."""
+        parts = path.strip("/").split("/")
+
+        # POST /api/v1/invites/{token}/accept - Accept invite
+        if len(parts) == 4 and parts[3] == "accept" and method == "POST":
+            token = parts[2]
+            return self._handle_accept_invite(handler, token)
 
         return error_response("Not found", 404)
 
