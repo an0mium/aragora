@@ -41,19 +41,22 @@ class TestERC8004Connector:
         """Test searching for agents."""
         # Mock identity contract
         mock_identity = MagicMock()
-        mock_identity.get_agents_by_query.return_value = [
-            MagicMock(
-                token_id=identity["token_id"],
-                agent_name=identity["agent_name"],
-                metadata_uri=identity["metadata_uri"],
-            )
-            for identity in sample_agent_identities
-        ]
+        first_identity = sample_agent_identities[0]
+        mock_identity.get_agent.return_value = MagicMock(
+            token_id=first_identity["token_id"],
+            agent_name=first_identity["agent_name"],
+            agent_uri=first_identity["metadata_uri"],
+            owner=first_identity["owner"],
+        )
         connector._identity_contract = mock_identity
 
-        results = await connector.search("claude", limit=10)
+        results = await connector.search(f"agent:{first_identity['token_id']}", limit=10)
 
-        assert len(results) > 0
+        assert len(results) == 1
+        assert (
+            results[0].id
+            == f"identity:{connector._credentials.chain_id}:{first_identity['token_id']}"
+        )
         assert all(hasattr(r, "id") for r in results)
         assert all(hasattr(r, "title") for r in results)
 
