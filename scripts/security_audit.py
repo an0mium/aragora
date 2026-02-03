@@ -258,7 +258,7 @@ async def run_security_debate(
 
     # Create security event
     event = SecurityEvent(
-        event_type=SecurityEventType.SECURITY_SCAN_COMPLETE,
+        event_type=SecurityEventType.SAST_CRITICAL,
         severity=SecuritySeverity.CRITICAL
         if severity_filter == "critical"
         else SecuritySeverity.HIGH,

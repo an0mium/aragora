@@ -9,6 +9,7 @@ This module handles /aragora slash commands from Slack including:
 - /aragora help - Show help message
 """
 
+import json
 import logging
 from typing import Any
 from urllib.parse import parse_qs
@@ -165,6 +166,21 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
             user_name=user_name,
         )
 
+        attachments: list[dict[str, Any]] = []
+        raw_attachments = params.get("attachments", [None])[0]
+        raw_files = params.get("files", [None])[0]
+        for payload in (raw_attachments, raw_files):
+            if not payload:
+                continue
+            try:
+                parsed = json.loads(payload)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(parsed, list):
+                attachments.extend([item for item in parsed if isinstance(item, dict)])
+            elif isinstance(parsed, dict):
+                attachments.append(parsed)
+
         if subcommand == "ask" and args:
             # RBAC: Check debate creation permission
             perm_error = _check_command_permission(PERM_SLACK_DEBATES_CREATE)
@@ -186,6 +202,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                 channel_id=channel_id,
                 user_id=user_id,
                 response_url=response_url,
+                attachments=attachments,
             )
 
             return json_response(

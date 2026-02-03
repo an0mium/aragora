@@ -104,10 +104,10 @@ try:
         ApprovalStatus,
     )
 except ImportError:  # pragma: no cover - optional dependency
-    get_pending_approvals = None
-    get_approval_request = None
-    _resolve = None
-    ApprovalStatus = None
+    get_pending_approvals = None  # type: ignore[assignment]
+    get_approval_request = None  # type: ignore[assignment]
+    _resolve = None  # type: ignore[assignment]
+    ApprovalStatus = None  # type: ignore[misc]
 
 # HTTP handlers
 from .handler import (

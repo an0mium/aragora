@@ -193,6 +193,39 @@ class TestChatWebhookRouter:
         router = ChatWebhookRouter(debate_starter=custom_starter)
         assert router.debate_starter == custom_starter
 
+    @pytest.mark.asyncio
+    async def test_route_decision_passes_attachments(self):
+        """Ensure chat attachments are forwarded into DecisionRequest."""
+        from types import SimpleNamespace
+
+        from aragora.core.decision import DecisionType
+        from aragora.server.handlers.chat.router import ChatWebhookRouter
+
+        captured: dict[str, Any] = {}
+
+        class DummyDecisionRouter:
+            async def route(self, request):
+                captured["request"] = request
+                return SimpleNamespace(success=True)
+
+        router = ChatWebhookRouter(decision_router=DummyDecisionRouter())
+
+        event = SimpleNamespace(
+            platform="slack",
+            message=SimpleNamespace(attachments=[{"filename": "notes.txt", "content": "hello"}]),
+        )
+        command = SimpleNamespace(
+            channel="C123",
+            thread_ts=None,
+            user=SimpleNamespace(id="U123", name="alice"),
+        )
+
+        await router._route_decision("hello", DecisionType.DEBATE, event, command)
+
+        request = captured.get("request")
+        assert request is not None
+        assert request.attachments == [{"filename": "notes.txt", "content": "hello"}]
+
 
 # ===========================================================================
 # Platform Detection Tests

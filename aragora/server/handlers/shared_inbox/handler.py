@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-redef"
 """
 HTTP handlers for Shared Inbox.
 

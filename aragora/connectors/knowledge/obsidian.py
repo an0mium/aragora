@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Iterator
 
 import yaml
 
@@ -147,7 +147,7 @@ class Frontmatter:
 
     def to_yaml(self) -> str:
         """Serialize frontmatter to YAML."""
-        data = {}
+        data: dict[str, Any] = {}
         if self.title:
             data["title"] = self.title
         if self.date:
@@ -815,7 +815,7 @@ class ObsidianConnector(BaseConnector):
     # Internal Helpers
     # =========================================================================
 
-    def _iter_notes(self) -> AsyncIterator[ObsidianNote]:
+    def _iter_notes(self) -> Iterator[ObsidianNote]:
         """Iterate over all notes in vault."""
         for md_file in self._vault_path.rglob("*.md"):
             # Skip ignored folders

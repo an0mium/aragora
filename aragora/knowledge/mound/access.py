@@ -179,8 +179,9 @@ class KnowledgeMoundAccessControl:
         # Use checker's has_permission method
         try:
             # Build permission string
-            allowed = checker.has_permission(ctx, permission)
-            reason = "Permission granted" if allowed else "Permission denied"
+            decision = checker.check_permission(ctx, permission)
+            allowed = decision.allowed
+            reason = decision.reason
         except Exception as e:
             logger.warning("Permission check failed: %s", e)
             allowed = False
@@ -367,11 +368,11 @@ class KnowledgeMoundAccessControl:
                     # Try first arg
                     ctx = args[0] if hasattr(args[0], "user_id") else None
 
-                result = self._check_permission(ctx, permission)
+                result = self._check_permission(ctx, permission)  # type: ignore[arg-type]
                 if not result.allowed:
                     raise PermissionError(f"Permission denied: {permission} - {result.reason}")
 
-                return await func(*args, **kwargs)
+                return await func(*args, **kwargs)  # type: ignore[misc]
 
             return wrapper  # type: ignore
 

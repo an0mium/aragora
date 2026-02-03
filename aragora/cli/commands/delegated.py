@@ -206,7 +206,7 @@ def cmd_billing(args: argparse.Namespace) -> int:
 def cmd_mcp_server(args: argparse.Namespace) -> None:
     """Handle 'mcp-server' command - run MCP server."""
     try:
-        from aragora.mcp.server import main as mcp_main
+        from aragora.mcp.server import main as mcp_main  # type: ignore[attr-defined]
 
         mcp_main()
     except ImportError as e:

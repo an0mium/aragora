@@ -307,6 +307,94 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         # For now, acknowledge receipt
         return json_response({"ok": True, "handled": "message"})
 
+    def _extract_attachments(self, message: dict[str, Any]) -> list[dict[str, Any]]:
+        """Extract Telegram attachments into a normalized list."""
+        attachments: list[dict[str, Any]] = []
+        if not isinstance(message, dict):
+            return attachments
+
+        caption = message.get("caption")
+        if isinstance(caption, str) and caption.strip():
+            caption_text = caption.strip()
+        else:
+            caption_text = ""
+
+        document = message.get("document")
+        if isinstance(document, dict):
+            attachments.append(
+                {
+                    "type": "document",
+                    "file_id": document.get("file_id"),
+                    "filename": document.get("file_name") or "document",
+                    "content_type": document.get("mime_type"),
+                    "size": document.get("file_size"),
+                    "text": caption_text,
+                }
+            )
+
+        photo = message.get("photo")
+        if isinstance(photo, list) and photo:
+            best = None
+            for item in photo:
+                if not isinstance(item, dict):
+                    continue
+                if best is None:
+                    best = item
+                    continue
+                if (item.get("file_size") or 0) > (best.get("file_size") or 0):
+                    best = item
+            if best:
+                attachments.append(
+                    {
+                        "type": "photo",
+                        "file_id": best.get("file_id"),
+                        "filename": "photo",
+                        "size": best.get("file_size"),
+                        "text": caption_text,
+                    }
+                )
+
+        audio = message.get("audio")
+        if isinstance(audio, dict):
+            attachments.append(
+                {
+                    "type": "audio",
+                    "file_id": audio.get("file_id"),
+                    "filename": audio.get("file_name") or "audio",
+                    "content_type": audio.get("mime_type"),
+                    "size": audio.get("file_size"),
+                    "text": caption_text,
+                }
+            )
+
+        video = message.get("video")
+        if isinstance(video, dict):
+            attachments.append(
+                {
+                    "type": "video",
+                    "file_id": video.get("file_id"),
+                    "filename": video.get("file_name") or "video",
+                    "content_type": video.get("mime_type"),
+                    "size": video.get("file_size"),
+                    "text": caption_text,
+                }
+            )
+
+        voice = message.get("voice")
+        if isinstance(voice, dict):
+            attachments.append(
+                {
+                    "type": "voice",
+                    "file_id": voice.get("file_id"),
+                    "filename": "voice",
+                    "content_type": voice.get("mime_type"),
+                    "size": voice.get("file_size"),
+                    "text": caption_text,
+                }
+            )
+
+        return attachments
+
     def _handle_command(
         self,
         command: str,
@@ -326,11 +414,11 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         elif command == "help":
             return self._cmd_help(chat_id)
         elif command == "debate":
-            return self._cmd_debate(chat_id, user_id, args)
+            return self._cmd_debate(chat_id, user_id, args, self._extract_attachments(message))
         elif command == "status":
             return self._cmd_status(chat_id)
         elif command in ("aragora", "ask"):
-            return self._cmd_debate(chat_id, user_id, args)
+            return self._cmd_debate(chat_id, user_id, args, self._extract_attachments(message))
         else:
             return self._cmd_unknown(chat_id, command)
 
@@ -469,7 +557,13 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         )
         return json_response({"ok": True})
 
-    def _cmd_debate(self, chat_id: int, user_id: int, topic: str) -> HandlerResult:
+    def _cmd_debate(
+        self,
+        chat_id: int,
+        user_id: int,
+        topic: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> HandlerResult:
         """Handle /debate command."""
         # RBAC: check debate creation permission
         try:
@@ -487,7 +581,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             return json_response({"ok": True})
 
         # Start debate via queue system
-        debate_id = self._start_debate_async(chat_id, user_id, topic)
+        debate_id = self._start_debate_async(chat_id, user_id, topic, attachments)
 
         self._send_message(
             chat_id,
@@ -499,7 +593,13 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         logger.info(f"Debate requested from Telegram user {user_id}: {topic[:100]}")
         return json_response({"ok": True, "debate_started": True, "debate_id": debate_id})
 
-    def _start_debate_async(self, chat_id: int, user_id: int, topic: str) -> str:
+    def _start_debate_async(
+        self,
+        chat_id: int,
+        user_id: int,
+        topic: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> str:
         """Start a debate asynchronously via the DecisionRouter.
 
         Uses the unified DecisionRouter for:
@@ -546,6 +646,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                     source=InputSource.TELEGRAM,
                     response_channels=[response_channel],
                     context=context,
+                    attachments=attachments or [],
                 )
 
                 # Route through DecisionRouter (handles origin registration, deduplication, caching)

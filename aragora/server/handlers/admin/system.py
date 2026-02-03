@@ -564,7 +564,7 @@ class SystemHandler(BaseHandler):
         try:
             from aragora.server.handler_registry import HANDLER_REGISTRY
 
-            handlers_info = []
+            handlers_info: list[dict[str, Any]] = []
             for attr_name, handler_class in HANDLER_REGISTRY:
                 if handler_class is None:
                     handlers_info.append(

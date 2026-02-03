@@ -502,12 +502,12 @@ class SNSSQSConnector(EnterpriseConnector):
 
         # Setup graceful shutdown
         if self._graceful_shutdown:
-            self._graceful_shutdown.register_handler(self._shutdown_callback)
+            self._graceful_shutdown.register_cleanup(self._shutdown_cleanup)
 
         try:
             while self._running:
                 # Check graceful shutdown
-                if self._graceful_shutdown and self._graceful_shutdown.shutdown_requested:
+                if self._graceful_shutdown and self._graceful_shutdown.is_shutting_down:
                     logger.info("[SNS/SQS] Shutdown requested, stopping consume loop")
                     break
 
@@ -562,17 +562,15 @@ class SNSSQSConnector(EnterpriseConnector):
 
                             # Send to DLQ
                             if self._dlq_handler and self.config.enable_dlq:
-                                dlq_msg = DLQMessage(
-                                    original_topic="sqs-parse-error",
-                                    original_key=msg_data.get("MessageId", "unknown"),
-                                    original_value=json.dumps(msg_data),
-                                    original_headers={},
-                                    error_message=str(e),
-                                    error_type="ParseError",
-                                    retry_count=1,
+                                await self._dlq_handler.send_to_dlq(
+                                    topic="sqs-parse-error",
+                                    key=msg_data.get("MessageId", "unknown"),
+                                    value=json.dumps(msg_data),
+                                    headers={},
                                     timestamp=datetime.now(timezone.utc),
+                                    error=e,
+                                    retry_count=1,
                                 )
-                                await self._dlq_handler.send_to_dlq(dlq_msg)
                                 self._dlq_count += 1
 
                     # Flush deletes periodically
@@ -609,15 +607,14 @@ class SNSSQSConnector(EnterpriseConnector):
         finally:
             # Cleanup
             await self._flush_pending_deletes()
-            if self._graceful_shutdown:
-                self._graceful_shutdown.unregister_handler()
+            # Graceful shutdown cleanup is handled via registered cleanup callback
 
-    def _shutdown_callback(self) -> None:
+    async def _shutdown_cleanup(self) -> None:
         """Handle shutdown signal."""
         logger.info("[SNS/SQS] Received shutdown signal")
         self._running = False
 
-    async def sync_items(self, state: SyncState) -> AsyncIterator[SyncItem]:
+    async def sync_items(self, state: SyncState) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync items from SQS for Knowledge Mound ingestion.
 
@@ -662,7 +659,7 @@ class SNSSQSConnector(EnterpriseConnector):
                 elif isinstance(value, (int, float)):
                     attrs[key] = {"DataType": "Number", "StringValue": str(value)}
                 elif isinstance(value, bytes):
-                    attrs[key] = {"DataType": "Binary", "BinaryValue": value}
+                    attrs[key] = {"DataType": "Binary", "BinaryValue": value}  # type: ignore[dict-item]
 
         try:
             if self.config.topic_arn and self._sns_client:
@@ -763,7 +760,7 @@ class SNSSQSConnector(EnterpriseConnector):
             HealthStatus with current health information
         """
         if self._health_monitor:
-            return self._health_monitor.get_status()
+            return await self._health_monitor.get_status()
 
         return HealthStatus(
             healthy=self._sqs_client is not None,
@@ -789,7 +786,7 @@ class SNSSQSConnector(EnterpriseConnector):
             ),
         }
 
-    async def search(self, query: str, **kwargs: Any) -> list[Any]:
+    async def search(self, query: str, **kwargs: Any) -> list[Any]:  # type: ignore[override]
         """
         Search is not supported for streaming connectors.
 
@@ -798,7 +795,7 @@ class SNSSQSConnector(EnterpriseConnector):
         """
         raise NotImplementedError("Search not supported for SNS/SQS connector")
 
-    async def fetch(self, item_id: str, **kwargs: Any) -> Any:
+    async def fetch(self, item_id: str, **kwargs: Any) -> Any:  # type: ignore[override]
         """
         Fetch is not supported for streaming connectors.
 

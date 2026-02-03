@@ -127,7 +127,7 @@ async def get_matching_rules_for_email(
     Returns:
         List of matching rule dictionaries sorted by priority (ascending)
     """
-    matching_rules = []
+    matching_rules: list[dict[str, Any]] = []
     store_rules: list[dict[str, Any]] = []
 
     # Try RulesStore first (primary persistent storage)
@@ -172,9 +172,9 @@ async def get_matching_rules_for_email(
         if not matching_rules:
             return store_rules
         combined: dict[str, dict[str, Any]] = {r.get("id", ""): r for r in store_rules}
-        for rule in matching_rules:
-            rule_id = rule.get("id", "")
-            combined[rule_id] = rule
+        for matched in matching_rules:
+            rule_id = matched.get("id", "")
+            combined[rule_id] = matched
         merged = list(combined.values())
         merged.sort(key=lambda r: r.get("priority", 0))
         return merged
