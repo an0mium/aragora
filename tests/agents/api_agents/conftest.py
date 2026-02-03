@@ -300,6 +300,8 @@ def mock_env_with_fallback_enabled(monkeypatch):
 @pytest.fixture
 def mock_env_no_api_keys(monkeypatch):
     """Clear all API keys from environment."""
+    monkeypatch.setenv("ARAGORA_SKIP_SECRETS_HYDRATION", "1")
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "false")
     for key in [
         "ANTHROPIC_API_KEY",
         "OPENAI_API_KEY",
@@ -312,6 +314,13 @@ def mock_env_no_api_keys(monkeypatch):
         "KIMI_API_KEY",
     ]:
         monkeypatch.delenv(key, raising=False)
+    # Reset secret manager cache so it doesn't reuse previously loaded AWS secrets.
+    try:
+        from aragora.config.secrets import reset_secret_manager
+
+        reset_secret_manager()
+    except Exception:
+        pass
 
 
 @pytest.fixture
