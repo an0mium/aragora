@@ -208,6 +208,41 @@ def parse_pytest_output(stdout: str, stderr: str) -> tuple[dict[str, int], list[
             )
         )
 
+    # Parse collection errors like "ERROR collecting tests/foo/test_bar.py"
+    collect_pattern = re.compile(r"_+ ERROR collecting (.*?) _+", re.DOTALL)
+    collect_matches = list(collect_pattern.finditer(combined))
+    for idx, match in enumerate(collect_matches):
+        test_file = match.group(1).strip()
+        block_start = match.end()
+        block_end = collect_matches[idx + 1].start() if idx + 1 < len(collect_matches) else None
+        block = combined[block_start:block_end].strip()
+
+        error_type = "ImportError"
+        error_message = ""
+        # Pytest collection errors typically have lines prefixed with "E"
+        error_line_match = re.search(
+            r"^E\s+([\w.]+Error|[\w.]+Exception):\s*(.+)$", block, re.MULTILINE
+        )
+        if error_line_match:
+            error_type = error_line_match.group(1)
+            error_message = error_line_match.group(2).strip()
+        else:
+            # Fallback to the first non-empty line that looks like an error
+            alt_match = re.search(r"([\w.]+Error|[\w.]+Exception):\s*(.+)", block)
+            if alt_match:
+                error_type = alt_match.group(1)
+                error_message = alt_match.group(2).strip()
+
+        failures.append(
+            TestFailure(
+                test_name="collection_error",
+                test_file=test_file,
+                error_type=error_type,
+                error_message=error_message or "Test collection failed",
+                stack_trace=block,
+            )
+        )
+
     # Also check for short test summary info
     short_summary_match = re.search(
         r"=+ short test summary info =+(.*?)(?==+|\Z)", combined, re.DOTALL
