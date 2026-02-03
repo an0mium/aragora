@@ -192,18 +192,45 @@ class ERC8004Connector(BaseConnector):
             if query_type == "agent" and len(parts) > 1:
                 token_id = int(parts[1])
                 identity = self._get_identity_contract().get_agent(token_id)
+                agent_uri = getattr(identity, "agent_uri", None) or getattr(
+                    identity, "metadata_uri", ""
+                )
                 results.append(
                     BlockchainSearchResult(
                         id=f"identity:{self._credentials.chain_id}:{token_id}",
                         title=f"Agent #{token_id}",
-                        snippet=f"Owner: {identity.owner[:10]}... URI: {identity.agent_uri[:50]}...",
+                        snippet=f"Owner: {identity.owner[:10]}... URI: {str(agent_uri)[:50]}...",
                         source_url=make_block_explorer_url(
                             self._credentials.chain_id,
                             address=self._credentials.identity_registry,
                         ),
-                        metadata={"owner": identity.owner, "uri": identity.agent_uri},
+                        metadata={"owner": identity.owner, "uri": agent_uri},
                     )
                 )
+
+            elif query_type == "owner" and len(parts) > 1:
+                owner = parts[1]
+                identities = self._get_identity_contract().get_agents_by_owner(owner)
+                for identity in identities:
+                    agent_uri = getattr(identity, "agent_uri", None) or getattr(
+                        identity, "metadata_uri", ""
+                    )
+                    results.append(
+                        BlockchainSearchResult(
+                            id=f"identity:{self._credentials.chain_id}:{identity.token_id}",
+                            title=getattr(identity, "agent_name", f"Agent #{identity.token_id}"),
+                            snippet=f"Owner: {owner[:10]}... URI: {str(agent_uri)[:50]}...",
+                            source_url=make_block_explorer_url(
+                                self._credentials.chain_id,
+                                address=self._credentials.identity_registry,
+                            ),
+                            metadata={
+                                "owner": owner,
+                                "uri": agent_uri,
+                                "token_id": identity.token_id,
+                            },
+                        )
+                    )
 
             elif query_type == "reputation" and len(parts) > 1:
                 token_id = int(parts[1])
@@ -249,6 +276,12 @@ class ERC8004Connector(BaseConnector):
             logger.error(f"Search error for query '{query}': {e}")
 
         return results[:max_results]
+
+    async def search_by_owner(
+        self, owner: str, max_results: int = 10
+    ) -> list[BlockchainSearchResult]:
+        """Search agents by owner address."""
+        return await self.search(f"owner:{owner}", max_results=max_results)
 
     async def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None:
         """Fetch specific evidence by ID.
