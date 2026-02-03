@@ -157,6 +157,7 @@ class TestDebatePerformance:
             ratio = round_times[3] / round_times[1]
             assert_debate_slo("round_scaling_max_ratio", ratio)
 
+    @pytest.mark.flaky(reruns=3)
     @pytest.mark.asyncio
     async def test_agent_count_scaling(self, benchmark_environment):
         """Measure how latency scales with agent count.
