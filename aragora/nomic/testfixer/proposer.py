@@ -302,16 +302,16 @@ class SimpleCodeGenerator:
             if missing_mod and f"import {missing_mod}" in file_content:
                 if missing_mod == "tiktoken":
                     try_block = (
-                        "try:\\n"
-                        "    import tiktoken\\n"
-                        "    TIKTOKEN_AVAILABLE = True\\n"
-                        "except Exception:\\n"
-                        "    tiktoken = None\\n"
-                        "    TIKTOKEN_AVAILABLE = False\\n"
+                        "try:\n"
+                        "    import tiktoken\n"
+                        "    TIKTOKEN_AVAILABLE = True\n"
+                        "except Exception:\n"
+                        "    tiktoken = None\n"
+                        "    TIKTOKEN_AVAILABLE = False\n"
                     )
                     if "TIKTOKEN_AVAILABLE" in file_content:
                         fixed_content = file_content.replace(
-                            "import tiktoken\\n\\nTIKTOKEN_AVAILABLE = True",
+                            "import tiktoken\n\nTIKTOKEN_AVAILABLE = True",
                             try_block,
                         )
                     else:
