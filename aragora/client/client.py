@@ -37,6 +37,9 @@ from __future__ import annotations
 import json
 import logging
 import time as time_module
+import urllib.error
+import urllib.parse
+import urllib.request
 from typing import TYPE_CHECKING, Any, NoReturn, Optional
 from urllib.parse import urljoin
 
@@ -283,9 +286,11 @@ class AragoraClient:
 
     def _get(self, path: str, params: dict | None = None) -> dict:
         """Make a synchronous GET request with retry and rate limiting."""
-        import httpx
-
         url = urljoin(self.base_url, path)
+        if params:
+            query = urllib.parse.urlencode(params)
+            delimiter = "&" if "?" in url else "?"
+            url = f"{url}{delimiter}{query}"
         last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -295,25 +300,27 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                resp = httpx.get(
+                req = urllib.request.Request(
                     url,
-                    params=params,
+                    method="GET",
                     headers=self._get_headers(),
-                    timeout=self.timeout,
                 )
-                if resp.status_code >= 400:
-                    # Check if we should retry
-                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
-                        if attempt < max_attempts - 1:
-                            delay = self.retry_config.get_delay(attempt)
-                            logger.debug(
-                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
-                            )
-                            time_module.sleep(delay)
-                            continue
-                    self._handle_httpx_error(resp)
-                return resp.json()
-            except httpx.HTTPError as e:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = resp.read() or b"{}"
+                    return json.loads(body)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                status_code = getattr(e, "code", 0)
+                if self.retry_config and status_code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {status_code})"
+                        )
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+            except urllib.error.URLError as e:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
@@ -329,10 +336,22 @@ class AragoraClient:
             raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
-    def _post(self, path: str, data: dict, headers: dict | None = None) -> dict:
+    def _post(
+        self,
+        path: str,
+        data: dict | None = None,
+        headers: dict | None = None,
+        json: dict | None = None,
+    ) -> dict:
         """Make a synchronous POST request with retry and rate limiting."""
-        import httpx
+        import json as json_module
 
+        if json is not None:
+            if data is not None:
+                raise ValueError("Provide either data or json, not both")
+            data = json
+        if data is None:
+            data = {}
         url = urljoin(self.base_url, path)
         request_headers = self._get_headers()
         if headers:
@@ -347,25 +366,29 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                resp = httpx.post(
+                payload = json_module.dumps(data).encode("utf-8")
+                req = urllib.request.Request(
                     url,
-                    json=data,
+                    data=payload,
+                    method="POST",
                     headers=request_headers,
-                    timeout=self.timeout,
                 )
-                if resp.status_code >= 400:
-                    # Check if we should retry
-                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
-                        if attempt < max_attempts - 1:
-                            delay = self.retry_config.get_delay(attempt)
-                            logger.debug(
-                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
-                            )
-                            time_module.sleep(delay)
-                            continue
-                    self._handle_httpx_error(resp)
-                return resp.json()
-            except httpx.HTTPError as e:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = resp.read() or b"{}"
+                    return json_module.loads(body)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                status_code = getattr(e, "code", 0)
+                if self.retry_config and status_code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {status_code})"
+                        )
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+            except urllib.error.URLError as e:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
@@ -383,9 +406,11 @@ class AragoraClient:
 
     def _delete(self, path: str, params: dict | None = None) -> dict:
         """Make a synchronous DELETE request with retry and rate limiting."""
-        import httpx
-
         url = urljoin(self.base_url, path)
+        if params:
+            query = urllib.parse.urlencode(params)
+            delimiter = "&" if "?" in url else "?"
+            url = f"{url}{delimiter}{query}"
         last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -395,25 +420,27 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                resp = httpx.delete(
+                req = urllib.request.Request(
                     url,
-                    params=params,
+                    method="DELETE",
                     headers=self._get_headers(),
-                    timeout=self.timeout,
                 )
-                if resp.status_code >= 400:
-                    # Check if we should retry
-                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
-                        if attempt < max_attempts - 1:
-                            delay = self.retry_config.get_delay(attempt)
-                            logger.debug(
-                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
-                            )
-                            time_module.sleep(delay)
-                            continue
-                    self._handle_httpx_error(resp)
-                return resp.json()
-            except httpx.HTTPError as e:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = resp.read() or b"{}"
+                    return json.loads(body)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                status_code = getattr(e, "code", 0)
+                if self.retry_config and status_code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {status_code})"
+                        )
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+            except urllib.error.URLError as e:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
@@ -489,8 +516,6 @@ class AragoraClient:
 
     def _put(self, path: str, data: dict, headers: dict | None = None) -> dict:
         """Make a synchronous PUT request with retry and rate limiting."""
-        import httpx
-
         url = urljoin(self.base_url, path)
         request_headers = self._get_headers()
         if headers:
@@ -505,25 +530,29 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                resp = httpx.put(
+                payload = json.dumps(data).encode("utf-8")
+                req = urllib.request.Request(
                     url,
-                    json=data,
+                    data=payload,
+                    method="PUT",
                     headers=request_headers,
-                    timeout=self.timeout,
                 )
-                if resp.status_code >= 400:
-                    # Check if we should retry
-                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
-                        if attempt < max_attempts - 1:
-                            delay = self.retry_config.get_delay(attempt)
-                            logger.debug(
-                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
-                            )
-                            time_module.sleep(delay)
-                            continue
-                    self._handle_httpx_error(resp)
-                return resp.json()
-            except httpx.HTTPError as e:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = resp.read() or b"{}"
+                    return json.loads(body)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                status_code = getattr(e, "code", 0)
+                if self.retry_config and status_code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {status_code})"
+                        )
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+            except urllib.error.URLError as e:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
@@ -603,8 +632,6 @@ class AragoraClient:
 
     def _patch(self, path: str, data: dict, headers: dict | None = None) -> dict:
         """Make a synchronous PATCH request with retry and rate limiting."""
-        import httpx
-
         url = urljoin(self.base_url, path)
         request_headers = self._get_headers()
         if headers:
@@ -619,25 +646,29 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                resp = httpx.patch(
+                payload = json.dumps(data).encode("utf-8")
+                req = urllib.request.Request(
                     url,
-                    json=data,
+                    data=payload,
+                    method="PATCH",
                     headers=request_headers,
-                    timeout=self.timeout,
                 )
-                if resp.status_code >= 400:
-                    # Check if we should retry
-                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
-                        if attempt < max_attempts - 1:
-                            delay = self.retry_config.get_delay(attempt)
-                            logger.debug(
-                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
-                            )
-                            time_module.sleep(delay)
-                            continue
-                    self._handle_httpx_error(resp)
-                return resp.json()
-            except httpx.HTTPError as e:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = resp.read() or b"{}"
+                    return json.loads(body)
+            except urllib.error.HTTPError as e:
+                last_error = e
+                status_code = getattr(e, "code", 0)
+                if self.retry_config and status_code in self.retry_config.retry_statuses:
+                    if attempt < max_attempts - 1:
+                        delay = self.retry_config.get_delay(attempt)
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {status_code})"
+                        )
+                        time_module.sleep(delay)
+                        continue
+                self._handle_http_error(e)
+            except urllib.error.URLError as e:
                 last_error = e
                 if self.retry_config and attempt < max_attempts - 1:
                     delay = self.retry_config.get_delay(attempt)
@@ -827,11 +858,24 @@ class AragoraClient:
             str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
         )
 
-    async def _post_async(self, path: str, data: dict, headers: dict | None = None) -> dict:
+    async def _post_async(
+        self,
+        path: str,
+        data: dict | None = None,
+        headers: dict | None = None,
+        json: dict | None = None,
+    ) -> dict:
         """Make an asynchronous POST request with retry and rate limiting."""
         import asyncio
 
         import aiohttp
+
+        if json is not None:
+            if data is not None:
+                raise ValueError("Provide either data or json, not both")
+            data = json
+        if data is None:
+            data = {}
 
         if self._session is None:
             self._session = aiohttp.ClientSession()

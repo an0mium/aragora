@@ -148,7 +148,7 @@ class OpenClawAPI:
         if metadata:
             payload["metadata"] = metadata
 
-        response = self._client._post("/api/v1/openclaw/sessions", payload)
+        response = self._client._post("/api/v1/openclaw/sessions", json=payload)
         return self._parse_session(response)
 
     async def create_session_async(
@@ -170,17 +170,17 @@ class OpenClawAPI:
         if metadata:
             payload["metadata"] = metadata
 
-        response = await self._client._post_async("/api/v1/openclaw/sessions", payload)
+        response = await self._client._post_async("/api/v1/openclaw/sessions", json=payload)
         return self._parse_session(response)
 
     def end_session(self, session_id: str) -> bool:
         """End an active session."""
-        response = self._client._post(f"/api/v1/openclaw/sessions/{session_id}/end", {})
+        response = self._client._post(f"/api/v1/openclaw/sessions/{session_id}/end")
         return response.get("success", False)
 
     async def end_session_async(self, session_id: str) -> bool:
         """End an active session (async)."""
-        response = await self._client._post_async(f"/api/v1/openclaw/sessions/{session_id}/end", {})
+        response = await self._client._post_async(f"/api/v1/openclaw/sessions/{session_id}/end")
         return response.get("success", False)
 
     def get_session(self, session_id: str) -> OpenClawSession:
@@ -241,7 +241,7 @@ class OpenClawAPI:
             "action_type": action_type,
             "params": params,
         }
-        response = self._client._post("/api/v1/openclaw/actions", payload)
+        response = self._client._post("/api/v1/openclaw/actions", json=payload)
         return self._parse_action_result(response)
 
     async def execute_action_async(
@@ -256,7 +256,7 @@ class OpenClawAPI:
             "action_type": action_type,
             "params": params,
         }
-        response = await self._client._post_async("/api/v1/openclaw/actions", payload)
+        response = await self._client._post_async("/api/v1/openclaw/actions", json=payload)
         return self._parse_action_result(response)
 
     def execute_shell(self, session_id: str, command: str) -> ActionResult:
@@ -320,7 +320,7 @@ class OpenClawAPI:
             "enabled": rule.enabled,
             "config": rule.config,
         }
-        response = self._client._post("/api/v1/openclaw/policy/rules", payload)
+        response = self._client._post("/api/v1/openclaw/policy/rules", json=payload)
         return self._parse_rule(response)
 
     async def add_rule_async(self, rule: PolicyRule) -> PolicyRule:
@@ -334,7 +334,7 @@ class OpenClawAPI:
             "enabled": rule.enabled,
             "config": rule.config,
         }
-        response = await self._client._post_async("/api/v1/openclaw/policy/rules", payload)
+        response = await self._client._post_async("/api/v1/openclaw/policy/rules", json=payload)
         return self._parse_rule(response)
 
     def remove_rule(self, rule_name: str) -> bool:
@@ -380,7 +380,9 @@ class OpenClawAPI:
     def approve_action(self, approval_id: str, approver_id: str, reason: str = "") -> bool:
         """Approve a pending action."""
         payload = {"approver_id": approver_id, "reason": reason}
-        response = self._client._post(f"/api/v1/openclaw/approvals/{approval_id}/approve", payload)
+        response = self._client._post(
+            f"/api/v1/openclaw/approvals/{approval_id}/approve", json=payload
+        )
         return response.get("success", False)
 
     async def approve_action_async(
@@ -389,14 +391,16 @@ class OpenClawAPI:
         """Approve a pending action (async)."""
         payload = {"approver_id": approver_id, "reason": reason}
         response = await self._client._post_async(
-            f"/api/v1/openclaw/approvals/{approval_id}/approve", payload
+            f"/api/v1/openclaw/approvals/{approval_id}/approve", json=payload
         )
         return response.get("success", False)
 
     def deny_approval(self, approval_id: str, approver_id: str, reason: str = "") -> bool:
         """Deny a pending approval."""
         payload = {"approver_id": approver_id, "reason": reason}
-        response = self._client._post(f"/api/v1/openclaw/approvals/{approval_id}/deny", payload)
+        response = self._client._post(
+            f"/api/v1/openclaw/approvals/{approval_id}/deny", json=payload
+        )
         return response.get("success", False)
 
     async def deny_approval_async(
@@ -405,7 +409,7 @@ class OpenClawAPI:
         """Deny a pending approval (async)."""
         payload = {"approver_id": approver_id, "reason": reason}
         response = await self._client._post_async(
-            f"/api/v1/openclaw/approvals/{approval_id}/deny", payload
+            f"/api/v1/openclaw/approvals/{approval_id}/deny", json=payload
         )
         return response.get("success", False)
 
