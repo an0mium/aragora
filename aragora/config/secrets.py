@@ -58,7 +58,7 @@ except ImportError:
 # Define fallback exception classes only when botocore is not available
 if not _BOTOCORE_AVAILABLE:
 
-    class ClientError(Exception):  # noqa: N818 - Matches botocore naming
+    class ClientError(Exception):  # type: ignore[no-redef]  # noqa: N818 - Matches botocore naming
         """Fallback ClientError when botocore is not installed."""
 
         response: dict[str, dict[str, str]]
@@ -68,7 +68,7 @@ if not _BOTOCORE_AVAILABLE:
             response_value = kwargs.get("response", {})
             self.response = cast(dict[str, dict[str, str]], response_value)
 
-    class BotoCoreError(Exception):
+    class BotoCoreError(Exception):  # type: ignore[no-redef]
         """Fallback BotoCoreError when botocore is not installed."""
 
         pass
