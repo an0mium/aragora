@@ -69,6 +69,8 @@ def _make_webhook_payload(
     message_type: str = "text",
     text_body: str = "Hello",
     from_number: str = "1234567890",
+    media_id: str = "media123",
+    caption: str = "Media caption",
 ) -> dict[str, Any]:
     """Create a standard WhatsApp webhook message payload."""
     message: dict[str, Any] = {
@@ -87,6 +89,13 @@ def _make_webhook_payload(
         }
     elif message_type == "button":
         message["button"] = {"payload": "quick_reply_payload", "text": "Quick Reply"}
+    elif message_type == "document":
+        message["document"] = {
+            "id": media_id,
+            "filename": "spec.pdf",
+            "mime_type": "application/pdf",
+            "caption": caption,
+        }
 
     return {
         "object": "whatsapp_business_account",
@@ -611,6 +620,20 @@ class TestMessageHandling:
 
         assert result.status_code == 200
         mock_help.assert_called_once()
+
+    def test_document_message_triggers_debate_with_caption(self):
+        """Should start a debate when document message includes a caption."""
+        handler = _make_handler()
+        payload = _make_webhook_payload(
+            message_type="document",
+            caption="Review this spec",
+        )
+
+        with patch.object(handler, "_start_debate") as mock_start:
+            result = _dispatch_webhook(handler, payload, app_secret="secret")
+
+        assert result.status_code == 200
+        mock_start.assert_called_once()
 
 
 # =============================================================================

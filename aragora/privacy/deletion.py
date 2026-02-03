@@ -141,6 +141,9 @@ class DeletionRequest:
             verification_hash=data.get("verification_hash"),
             deletion_certificate=data.get("deletion_certificate"),
             metadata=data.get("metadata", {}),
+            deletion_verified_at=(
+                datetime.fromisoformat(data["deletion_verified_at"]) if data.get("deletion_verified_at") else None
+            ),
         )
 
 
@@ -691,6 +694,7 @@ class GDPRDeletionScheduler:
         self._check_interval = check_interval_seconds
         self._running = False
         self._task: asyncio.Task | None = None
+        self._verification_callbacks: list[Any] = []
 
     @property
     def store(self) -> DeletionStore:

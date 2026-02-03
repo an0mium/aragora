@@ -641,7 +641,7 @@ def command_receipt(debate_id: str) -> str:
             receipt_data = receipt_store.get(debate_id)
 
             if receipt_data:
-                return _format_receipt(receipt_data)
+                return _format_receipt(receipt_data.to_dict())
         except ImportError:
             pass
 

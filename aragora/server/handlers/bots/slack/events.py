@@ -103,7 +103,7 @@ async def _hydrate_slack_attachments(
         return attachments
 
     connector = get_connector("slack")
-    if connector is None or not getattr(connector, "bot_token", ""):
+    if connector is None:
         return attachments
 
     for attachment in attachments:

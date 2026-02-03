@@ -674,6 +674,19 @@ def get_retention_manager() -> RetentionPolicyManager:
     return _retention_manager
 
 
+_enforcement_scheduler: RetentionEnforcementScheduler | None = None
+
+
+def get_enforcement_scheduler() -> RetentionEnforcementScheduler:
+    """Get or create the global enforcement scheduler."""
+    global _enforcement_scheduler
+    if _enforcement_scheduler is None:
+        _enforcement_scheduler = RetentionEnforcementScheduler(
+            manager=get_retention_manager()
+        )
+    return _enforcement_scheduler
+
+
 __all__ = [
     "RetentionPolicyManager",
     "RetentionPolicy",
@@ -681,5 +694,7 @@ __all__ = [
     "DeletionReport",
     "DeletionRecord",
     "RetentionViolation",
+    "RetentionEnforcementScheduler",
     "get_retention_manager",
+    "get_enforcement_scheduler",
 ]

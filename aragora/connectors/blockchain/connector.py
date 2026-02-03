@@ -89,7 +89,7 @@ class _AwaitableValue:
 try:
     from aragora.blockchain.provider import Web3Provider as _Web3Provider
 except ImportError:
-    _Web3Provider = None
+    _Web3Provider = None  # type: ignore[misc]
 
 Web3Provider = _Web3Provider
 
@@ -453,7 +453,7 @@ class ERC8004Connector(BaseConnector):
         """Search agents by owner address."""
         return await self.search(f"owner:{owner}", max_results=max_results)
 
-    def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None | _AwaitableValue:
+    def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None | _AwaitableValue:  # type: ignore[override]
         """Fetch specific evidence by ID.
 
         ID formats:

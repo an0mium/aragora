@@ -172,7 +172,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
         )
         return success
 
-    async def list_users(
+    async def list_users(  # type: ignore[override]
         self,
         channel_id: str | None = None,
         limit: int = 100,

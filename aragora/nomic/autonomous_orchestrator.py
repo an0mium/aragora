@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -426,6 +427,8 @@ class AutonomousOrchestrator:
         max_parallel_tasks: int = 4,
         on_checkpoint: Optional[Callable[[str, dict[str, Any]], None]] = None,
         use_debate_decomposition: bool = False,
+        enable_curriculum: bool = True,
+        curriculum_config: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -440,6 +443,8 @@ class AutonomousOrchestrator:
             on_checkpoint: Callback for checkpoint events
             use_debate_decomposition: Use multi-agent debate for goal decomposition
                 (slower but better for abstract goals)
+            enable_curriculum: Enable SOAR curriculum for failed tasks
+            curriculum_config: Optional curriculum configuration
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -454,6 +459,17 @@ class AutonomousOrchestrator:
 
         self.router = AgentRouter(self.track_configs)
         self.feedback_loop = FeedbackLoop()
+        if enable_curriculum:
+            try:
+                from aragora.nomic.curriculum.integration import CurriculumAwareFeedbackLoop
+
+                self.feedback_loop = CurriculumAwareFeedbackLoop(  # type: ignore[assignment]
+                    max_iterations=self.feedback_loop.max_iterations,
+                    config=curriculum_config,
+                )
+                logger.info("SOAR curriculum enabled for autonomous orchestrator")
+            except Exception as e:
+                logger.debug("SOAR curriculum unavailable: %s" % e)
 
         # State
         self._active_assignments: list[AgentAssignment] = []
@@ -711,6 +727,8 @@ class AutonomousOrchestrator:
                     assignment,
                     {"type": "workflow_failure", "message": result.error or ""},
                 )
+                if inspect.isawaitable(feedback):
+                    feedback = await feedback
 
                 if feedback["action"] == "escalate":
                     assignment.status = "failed"

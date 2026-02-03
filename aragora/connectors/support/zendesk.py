@@ -289,7 +289,7 @@ class ZendeskConnector:
         try:
             side_effect = getattr(client.request, "side_effect", None)
             if isinstance(side_effect, list):
-                client.request.side_effect = iter(side_effect)
+                client.request.side_effect = iter(side_effect)  # type: ignore[attr-defined]
         except Exception:
             pass
         response = await client.request(method, path, params=params, json=json_data)

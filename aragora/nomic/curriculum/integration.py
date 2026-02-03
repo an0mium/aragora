@@ -391,7 +391,7 @@ def integrate_curriculum_with_orchestrator(
         orchestrator: The orchestrator to enhance
         config: Optional curriculum configuration
     """
-    orchestrator.feedback_loop = CurriculumAwareFeedbackLoop(
+    orchestrator.feedback_loop = CurriculumAwareFeedbackLoop(  # type: ignore[assignment]
         max_iterations=orchestrator.feedback_loop.max_iterations,
         config=config,
     )

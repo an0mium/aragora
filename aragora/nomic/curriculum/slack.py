@@ -96,7 +96,7 @@ class DeviationRecord:
     curriculum_id: str
     expected_stone_id: str
     what_user_did: str
-    signal_interpretation: DeviationSignal | None
+    signal_interpretation: DeviationSignal | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     user_explanation: str = ""
     was_productive: bool | None = None  # Determined later
@@ -423,7 +423,7 @@ class SlackPreserver:
             return {"total": 0, "interpretation": "No deviations recorded"}
 
         # Count by signal type
-        signal_counts = {}
+        signal_counts: dict[str, int] = {}
         for d in deviations:
             signal = d.signal_interpretation or self.interpret_deviation(d)
             signal_counts[signal.value] = signal_counts.get(signal.value, 0) + 1

@@ -167,7 +167,7 @@ class DocumentConnector(Connector):
         """Disconnect and clear cached documents."""
         self._parsed_docs.clear()
 
-    async def search(
+    async def search(  # type: ignore[override]
         self,
         query: str,
         limit: int = 5,

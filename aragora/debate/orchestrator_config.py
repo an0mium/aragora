@@ -130,6 +130,7 @@ class MergedConfig:
         "post_debate_workflow",
         "enable_post_debate_workflow",
         "post_debate_workflow_threshold",
+        "power_sampling_config",
         "initial_messages",
         "protocol",
     )
@@ -242,6 +243,7 @@ class MergedConfig:
     post_debate_workflow: Any
     enable_post_debate_workflow: bool
     post_debate_workflow_threshold: float
+    power_sampling_config: Any
     initial_messages: Any
 
 
@@ -361,7 +363,8 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     post_debate_workflow: Any,
     enable_post_debate_workflow: bool,
     post_debate_workflow_threshold: float,
-    initial_messages: Any,
+    power_sampling_config: Any = None,
+    initial_messages: Any = None,
 ) -> MergedConfig:
     """Merge config objects with individual parameters.
 
@@ -596,6 +599,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.post_debate_workflow = post_debate_workflow
     cfg.enable_post_debate_workflow = enable_post_debate_workflow
     cfg.post_debate_workflow_threshold = post_debate_workflow_threshold
+    cfg.power_sampling_config = power_sampling_config
     cfg.initial_messages = initial_messages
 
     return cfg

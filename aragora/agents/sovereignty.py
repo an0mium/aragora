@@ -154,7 +154,7 @@ def calculate_entropy(choices: list[str], options_universe: set[str]) -> float:
         return 0.0
 
     # Count occurrences
-    counts = defaultdict(int)
+    counts: dict[str, int] = defaultdict(int)
     for choice in choices:
         counts[choice] += 1
 
@@ -328,7 +328,7 @@ class EpistemicSovereigntyMonitor:
             return options[0] if options else "", 0.5
 
         # Simple prediction based on past choices
-        choice_counts = defaultdict(int)
+        choice_counts: dict[str, int] = defaultdict(int)
         for r in records:
             if r.option_chosen in options:
                 choice_counts[r.option_chosen] += 1
@@ -411,7 +411,7 @@ class EpistemicSovereigntyMonitor:
         else:
             # Estimate from choice concentration
             choices = [r.option_chosen for r in records]
-            choice_counts = defaultdict(int)
+            choice_counts: dict[str, int] = defaultdict(int)
             for c in choices:
                 choice_counts[c] += 1
             most_common_ratio = max(choice_counts.values()) / len(choices)

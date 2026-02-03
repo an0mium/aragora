@@ -180,7 +180,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
                     sync_state.last_sync_at = since
 
                 async for item in connector.sync_items(sync_state, batch_size=max_notes or 1000):
-                    item_tags = []
+                    item_tags: list[str] = []
                     if isinstance(item.metadata, dict):
                         item_tags = item.metadata.get("tags", []) or []
 

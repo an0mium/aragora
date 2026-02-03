@@ -373,6 +373,167 @@ class TierManager:
         self._min_updates_for_demotion = max(1, value)
 
 
+class GlacialPromotionScheduler:
+    """Automatically promotes stable slow-tier memories to glacial tier.
+
+    Runs periodically to find memories in the SLOW tier that have:
+    - High consolidation score (well-established patterns)
+    - Low surprise score (stable, predictable)
+    - Sufficient observations (not premature)
+
+    These memories are demoted to GLACIAL for long-term retention with
+    minimal resource usage.
+    """
+
+    def __init__(
+        self,
+        tier_manager: TierManager | None = None,
+        interval_hours: float = 24.0,
+        min_consolidation: float = 0.8,
+        max_surprise: float = 0.2,
+        min_update_count: int = 20,
+    ) -> None:
+        self._tier_manager = tier_manager or get_tier_manager()
+        self._interval_hours = interval_hours
+        self._min_consolidation = min_consolidation
+        self._max_surprise = max_surprise
+        self._min_update_count = min_update_count
+
+        # Metrics
+        self.entries_promoted: int = 0
+        self.last_run_at: str | None = None
+        self.total_runs: int = 0
+
+        # Background task handle
+        self._task: asyncio.Task[None] | None = None
+        self._running = False
+
+    async def start(self) -> None:
+        """Start the periodic promotion scheduler."""
+        if self._running:
+            logger.warning("GlacialPromotionScheduler is already running")
+            return
+        self._running = True
+        self._task = asyncio.create_task(self._loop())
+        logger.info(
+            "GlacialPromotionScheduler started (interval=%.1fh, "
+            "min_consolidation=%.2f, max_surprise=%.2f, min_updates=%d)",
+            self._interval_hours,
+            self._min_consolidation,
+            self._max_surprise,
+            self._min_update_count,
+        )
+
+    async def stop(self) -> None:
+        """Stop the periodic promotion scheduler."""
+        self._running = False
+        if self._task is not None:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+        logger.info("GlacialPromotionScheduler stopped")
+
+    async def _loop(self) -> None:
+        """Internal loop that runs run_once on the configured interval."""
+        while self._running:
+            try:
+                await asyncio.sleep(self._interval_hours * 3600)
+            except asyncio.CancelledError:
+                break
+            if not self._running:
+                break
+            try:
+                # Import here to avoid circular imports at module level
+                from aragora.memory.continuum import get_continuum_memory
+
+                cms = get_continuum_memory()
+                result = await self.run_once(cms)
+                logger.info(
+                    "GlacialPromotionScheduler cycle complete: %s", result
+                )
+            except Exception:
+                logger.exception("GlacialPromotionScheduler cycle failed")
+
+    async def run_once(self, cms: Any) -> dict[str, int]:
+        """Run a single promotion cycle.
+
+        Queries ContinuumMemory for SLOW tier entries meeting the promotion
+        criteria, then batch-demotes them to GLACIAL tier.
+
+        Args:
+            cms: A ContinuumMemory instance with ``connection()`` and
+                ``_demote_batch()`` methods.
+
+        Returns:
+            Dict with ``candidates`` (number found) and ``promoted``
+            (number successfully demoted to glacial).
+        """
+        # Query for candidates: slow-tier entries with high consolidation,
+        # low surprise, and sufficient updates
+        conn = cms.connection()
+        query = """
+            SELECT id FROM continuum_entries
+            WHERE tier = ?
+              AND consolidation_score >= ?
+              AND surprise_score <= ?
+              AND update_count >= ?
+            ORDER BY consolidation_score DESC
+        """
+        params = (
+            MemoryTier.SLOW.value,
+            self._min_consolidation,
+            self._max_surprise,
+            self._min_update_count,
+        )
+
+        try:
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
+        except Exception:
+            logger.exception("Failed to query slow-tier candidates")
+            return {"candidates": 0, "promoted": 0}
+
+        candidate_ids = [row[0] for row in rows]
+        num_candidates = len(candidate_ids)
+
+        if num_candidates == 0:
+            self.last_run_at = datetime.now().isoformat()
+            self.total_runs += 1
+            return {"candidates": 0, "promoted": 0}
+
+        # Batch demote to glacial
+        try:
+            await cms._demote_batch(
+                MemoryTier.SLOW, MemoryTier.GLACIAL, candidate_ids
+            )
+            num_promoted = num_candidates
+        except Exception:
+            logger.exception("Failed to demote batch to glacial tier")
+            num_promoted = 0
+
+        # Record metrics
+        if num_promoted > 0:
+            for _ in range(num_promoted):
+                self._tier_manager.record_demotion(
+                    MemoryTier.SLOW, MemoryTier.GLACIAL
+                )
+            self.entries_promoted += num_promoted
+
+        self.last_run_at = datetime.now().isoformat()
+        self.total_runs += 1
+
+        logger.info(
+            "Glacial promotion: %d candidates, %d promoted",
+            num_candidates,
+            num_promoted,
+        )
+
+        return {"candidates": num_candidates, "promoted": num_promoted}
+
+
 # Use ServiceRegistry for singleton management
 # Backward-compatible - these functions still work but delegate to registry
 

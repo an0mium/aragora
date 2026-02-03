@@ -754,7 +754,7 @@ class TelegramCommandsMixin:
                 receipt_data = receipt_store.get(debate_id)
 
                 if receipt_data:
-                    return self._format_receipt(receipt_data)
+                    return self._format_receipt(receipt_data.to_dict())
             except ImportError:
                 pass
 

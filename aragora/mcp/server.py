@@ -30,6 +30,7 @@ try:
     from mcp.types import (
         Tool,
         TextContent,
+        TextResourceContents,
         Resource,
         ResourceTemplate,
         ListToolsRequest,
@@ -47,12 +48,12 @@ try:
     MCP_AVAILABLE = True
 except Exception:  # pragma: no cover - handled by MCP_AVAILABLE flag
     MCP_AVAILABLE = False
-    Tool = TextContent = Resource = ResourceTemplate = None  # type: ignore[assignment]
-    ListToolsRequest = ListToolsResult = None  # type: ignore[assignment]
-    CallToolRequest = CallToolResult = None  # type: ignore[assignment]
-    ListResourcesRequest = ListResourcesResult = None  # type: ignore[assignment]
-    ListResourceTemplatesRequest = ListResourceTemplatesResult = None  # type: ignore[assignment]
-    ReadResourceRequest = ReadResourceResult = None  # type: ignore[assignment]
+    Tool = TextContent = TextResourceContents = Resource = ResourceTemplate = None  # type: ignore[assignment,misc]
+    ListToolsRequest = ListToolsResult = None  # type: ignore[assignment,misc]
+    CallToolRequest = CallToolResult = None  # type: ignore[assignment,misc]
+    ListResourcesRequest = ListResourcesResult = None  # type: ignore[assignment,misc]
+    ListResourceTemplatesRequest = ListResourceTemplatesResult = None  # type: ignore[assignment,misc]
+    ReadResourceRequest = ReadResourceResult = None  # type: ignore[assignment,misc]
 
 
 MAX_QUERY_LENGTH = 1000
@@ -229,14 +230,14 @@ class AragoraMCPServer:
             if not name:
                 continue
             description = meta.get("description", "")
-            input_schema = _build_input_schema(meta.get("parameters", {}))
-            handler = overrides.get(name) or meta.get("function")
+            input_schema = _build_input_schema(dict(meta.get("parameters", {})))  # type: ignore[arg-type]
+            handler = overrides.get(str(name)) or meta.get("function")
             if handler is None:
                 continue
             self.register_tool(
                 MCPTool(
-                    name=name,
-                    description=description,
+                    name=str(name),
+                    description=str(description),
                     input_schema=input_schema,
                     handler=handler,
                 )
@@ -311,7 +312,9 @@ class AragoraMCPServer:
             return {"error": rate_error or "Rate limit exceeded"}
 
         try:
-            result = tool.handler(args) if _expects_dict(tool.handler) else tool.handler(**args)
+            result: Any = (
+                tool.handler(args) if _expects_dict(tool.handler) else tool.handler(**args)
+            )
             if isinstance(result, Awaitable):
                 result = await result
             return result if isinstance(result, dict) else {"result": result}
@@ -486,7 +489,7 @@ class AragoraMCPServer:
                 name = f"Debate {debate_id}: {task[:60]}" if task else f"Debate {debate_id}"
                 resources.append(
                     Resource(
-                        uri=f"debate://{debate_id}",
+                        uri=f"debate://{debate_id}",  # type: ignore[arg-type]
                         name=name,
                         description="Cached debate result",
                         mimeType="application/json",
@@ -511,11 +514,11 @@ class AragoraMCPServer:
             text = content["contents"][0]["text"] if content.get("contents") else ""
             return ReadResourceResult(
                 contents=[
-                    {
-                        "uri": uri,
-                        "mimeType": "application/json",
-                        "text": text,
-                    }
+                    TextResourceContents(
+                        uri=uri,
+                        mimeType="application/json",
+                        text=text,
+                    )
                 ]
             )
 

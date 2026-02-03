@@ -204,7 +204,7 @@ class KafkaConnector(EnterpriseConnector):
                 config=config.resilience,
             )
             # Alias for compatibility with base connector/tests.
-            self._circuit_breaker = self._streaming_circuit_breaker
+            self._circuit_breaker = self._streaming_circuit_breaker  # type: ignore[assignment]
         else:
             self._circuit_breaker = None
 

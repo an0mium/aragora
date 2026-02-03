@@ -81,6 +81,7 @@ class TestAdapterSpecsRegistry:
             "supermemory",
             "rlm",
             "erc8004",
+            "obsidian",
         }
         assert expected_names.issubset(set(ADAPTER_SPECS.keys()))
 

@@ -389,7 +389,7 @@ def _init_specs() -> None:
         AdapterSpec(
             name="obsidian",
             adapter_class=ObsidianAdapter,
-            required_deps=["obsidian_connector"],
+            required_deps=[],
             forward_method="sync_to_km",
             reverse_method=None,
             priority=5,  # Low priority - optional ingestion
@@ -676,8 +676,24 @@ class AdapterFactory:
                     event_callback=self._event_callback,
                 )
             elif spec.name == "obsidian":
+                connector = deps.get("obsidian_connector")
+                if connector is None:
+                    try:
+                        from aragora.connectors.knowledge.obsidian import (
+                            ObsidianConfig,
+                            ObsidianConnector,
+                        )
+
+                        config = ObsidianConfig.from_env()
+                        if config is None:
+                            return None
+                        connector = ObsidianConnector(config)
+                    except Exception as e:
+                        logger.debug("Obsidian connector init failed: %s", e)
+                        return None
+
                 adapter = adapter_class(
-                    connector=deps.get("obsidian_connector"),
+                    connector=connector,
                     event_callback=self._event_callback,
                 )
             elif spec.name == "fabric":

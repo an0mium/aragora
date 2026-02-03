@@ -249,7 +249,7 @@ class SDPOCalibrationBridge:
 
         # Apply CalibrationTracker adjustment
         if self._tracker is not None:
-            summary = self._tracker.get_summary(agent_id, domain=domain)
+            summary = self._tracker.get_summary(agent_id, domain=domain)  # type: ignore[attr-defined]
             if summary:
                 tracker_adjusted = summary.adjust_confidence(raw_confidence, domain=domain)
             else:
@@ -340,7 +340,7 @@ class SDPOCalibrationBridge:
 
         # Get CalibrationTracker data
         if self._tracker is not None:
-            tracker_summary = self._tracker.get_summary(agent_id, domain=domain)
+            tracker_summary = self._tracker.get_summary(agent_id, domain=domain)  # type: ignore[attr-defined]
             if tracker_summary:
                 summary["tracker_data"] = {
                     "brier_score": tracker_summary.brier_score,

@@ -209,7 +209,6 @@ class SubsystemCoordinator:
     km_critique_adapter: Any | None = None
     km_pulse_adapter: Any | None = None
     km_obsidian_adapter: Any | None = None
-    km_obsidian_adapter: Any | None = None
 
     # KM Configuration
     km_sync_interval_seconds: int = 300  # 5 minutes
@@ -864,6 +863,20 @@ class SubsystemCoordinator:
             except Exception as e:
                 logger.debug("PulseAdapter registration failed: %s", e)
 
+        # 7. Obsidian adapter (optional local vault ingestion)
+        if self.km_obsidian_adapter is not None:
+            try:
+                self.km_coordinator.register_adapter(
+                    name="obsidian",
+                    adapter=self.km_obsidian_adapter,
+                    forward_method="sync_to_km",
+                    reverse_method=None,
+                    priority=0,
+                )
+                logger.debug("Registered ObsidianAdapter with KM coordinator")
+            except Exception as e:
+                logger.debug("ObsidianAdapter registration failed: %s", e)
+
         registered = (
             self.km_coordinator.adapter_count
             if hasattr(self.km_coordinator, "adapter_count")
@@ -1369,6 +1382,7 @@ class SubsystemConfig:
     km_insights_adapter: Any | None = None
     km_critique_adapter: Any | None = None
     km_pulse_adapter: Any | None = None
+    km_obsidian_adapter: Any | None = None
     km_sync_interval_seconds: int = 300  # 5 minutes
     km_min_confidence_for_reverse: float = 0.7
     km_parallel_sync: bool = True

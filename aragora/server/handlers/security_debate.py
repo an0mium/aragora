@@ -83,7 +83,7 @@ class SecurityDebateHandler(SecureHandler):
             }
         """
         # Parse request body
-        data = self.read_json()
+        data = self.get_json_body()
         if data is None:
             return error_response("Invalid JSON body", 400)
 

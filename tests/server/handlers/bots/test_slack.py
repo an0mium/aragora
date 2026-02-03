@@ -480,6 +480,61 @@ class TestSlackEventHandler:
         assert routed.attachments[0]["file_id"] == "F123"
 
     @pytest.mark.asyncio
+    async def test_handle_app_mention_downloads_file(self):
+        """Should hydrate Slack file attachments with downloaded data."""
+        request = MockRequest(
+            body=json.dumps(
+                {
+                    "type": "event_callback",
+                    "event": {
+                        "type": "app_mention",
+                        "text": "@aragora ask about microservices",
+                        "channel": "C123456",
+                        "user": "U123456",
+                        "files": [
+                            {
+                                "id": "F123",
+                                "name": "spec.txt",
+                                "mimetype": "text/plain",
+                                "preview_plain_text": "Spec details",
+                            }
+                        ],
+                    },
+                }
+            ).encode()
+        )
+
+        captured = {}
+
+        async def fake_route(req):
+            captured["request"] = req
+            return MagicMock()
+
+        class FakeSlackConnector:
+            bot_token = "token"
+
+            async def download_file(self, file_id: str):
+                return _types_mod.SimpleNamespace(
+                    content=b"hello",
+                    filename="spec.txt",
+                    content_type="text/plain",
+                    size=5,
+                )
+
+        with patch("aragora.connectors.chat.registry.get_connector") as mock_get_connector:
+            mock_get_connector.return_value = FakeSlackConnector()
+            with patch("aragora.core.get_decision_router") as mock_get_router:
+                mock_get_router.return_value = MagicMock(route=fake_route)
+                result = await handle_slack_events(request)
+                await asyncio.sleep(0)
+
+        assert result.status_code == 200
+        routed = captured.get("request")
+        assert routed is not None
+        assert routed.attachments
+        assert routed.attachments[0]["data"] == b"hello"
+
+    @pytest.mark.asyncio
     async def test_handle_message_event(self):
         """Should handle message events."""
         request = MockRequest(

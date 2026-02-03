@@ -175,8 +175,8 @@ class AutonomicExecutor:
         self.enable_telemetry = enable_telemetry
         self.power_sampling_config = power_sampling_config
         self._power_sampling_scorer = power_sampling_scorer
-        self._power_sampler = None
-        self._power_sampling_runtime_config = None
+        self._power_sampler: Any = None
+        self._power_sampling_runtime_config: Any = None
         self._power_sampling_resolved = False
         # Track retry counts per agent for timeout escalation
         self._retry_counts: dict[str, int] = defaultdict(int)

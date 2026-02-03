@@ -493,7 +493,7 @@ class WebConnector(BaseConnector):
                 try:
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
-                        client.get.side_effect = iter(side_effect)
+                        client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
                 except Exception:
                     pass
 

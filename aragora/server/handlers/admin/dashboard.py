@@ -1263,10 +1263,32 @@ class DashboardHandler(SecureHandler):
         },
     )
     def _dismiss_urgent_item(self, item_id: str) -> HandlerResult:
-        """Dismiss an urgent item (stub)."""
+        """Dismiss an urgent item by marking it as reviewed."""
         if not item_id:
             return error_response("item_id is required", 400)
-        return json_response({"success": True})
+        try:
+            storage = self.get_storage()
+            if storage:
+                with storage.connection() as conn:
+                    cursor = conn.cursor()
+                    # Mark as reviewed by setting confidence to indicate human review
+                    cursor.execute(
+                        "UPDATE debates SET consensus_reached = 1 WHERE id = ?",
+                        (item_id,),
+                    )
+                    conn.commit()
+                    if cursor.rowcount == 0:
+                        return error_response("Item not found", 404)
+        except Exception as e:
+            logger.warning("Dismiss urgent item error: %s: %s", type(e).__name__, e)
+            return error_response("Failed to dismiss item", 500)
+        return json_response(
+            {
+                "success": True,
+                "item_id": item_id,
+                "dismissed_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     @api_endpoint(
         method="GET",
@@ -1327,10 +1349,31 @@ class DashboardHandler(SecureHandler):
         },
     )
     def _complete_pending_action(self, action_id: str) -> HandlerResult:
-        """Complete a pending action (stub)."""
+        """Complete a pending action by updating its status."""
         if not action_id:
             return error_response("action_id is required", 400)
-        return json_response({"success": True})
+        try:
+            storage = self.get_storage()
+            if storage:
+                with storage.connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "UPDATE debates SET status = 'completed' WHERE id = ? AND (status = 'pending' OR status = 'in_progress')",
+                        (action_id,),
+                    )
+                    conn.commit()
+                    if cursor.rowcount == 0:
+                        return error_response("Action not found or already completed", 404)
+        except Exception as e:
+            logger.warning("Complete action error: %s: %s", type(e).__name__, e)
+            return error_response("Failed to complete action", 500)
+        return json_response(
+            {
+                "success": True,
+                "action_id": action_id,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     @api_endpoint(
         method="GET",

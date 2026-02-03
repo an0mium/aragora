@@ -116,6 +116,33 @@ from .approval_request_store import (
     reset_approval_request_store,
 )
 
+from typing import Any
+
+# Global debate storage singleton (set during server startup)
+_debate_storage: Any = None
+
+
+def get_storage() -> Any:
+    """Get the current debate storage instance.
+
+    Returns the DebateStorage set during server startup via set_storage(),
+    or None if not yet initialized.
+    """
+    return _debate_storage
+
+
+def set_storage(storage: Any) -> None:
+    """Set the debate storage instance (called during server startup)."""
+    global _debate_storage
+    _debate_storage = storage
+
+
+def reset_storage() -> None:
+    """Reset debate storage to None (for testing)."""
+    global _debate_storage
+    _debate_storage = None
+
+
 __all__ = [
     # Legacy base classes
     "BaseDatabase",
@@ -218,4 +245,8 @@ __all__ = [
     "get_connection_router",
     "is_router_initialized",
     "close_connection_router",
+    # Debate storage singleton
+    "get_storage",
+    "set_storage",
+    "reset_storage",
 ]
