@@ -1141,7 +1141,7 @@ class SecretsManager:
 
     def init_backends(self, include: list[str] | None = None) -> None:
         """Initialize backends."""
-        include = include or ["local", "aws-us-east-2", "github"]
+        include = include or ["local", "aws-us-east-2", "aws-us-east-1", "github"]
 
         if "local" in include:
             self.backends["local"] = LocalEnvBackend()
