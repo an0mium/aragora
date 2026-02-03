@@ -89,6 +89,42 @@ jobs:
           name: bandit-results
           path: bandit-results.json
 
+  aragora-security-scan:
+    name: Aragora Security Scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]" 2>/dev/null || pip install -e . || true
+
+      - name: Run Aragora Security Scanner
+        id: security-scan
+        run: |
+          python scripts/security_scan.py --json --quiet
+        continue-on-error: true
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aragora-security-report
+          path: security-report.json
+
+      - name: Check scan result
+        if: steps.security-scan.outcome == 'failure'
+        run: |
+          echo "::error::Aragora Security Scanner found critical vulnerabilities. Review security-report.json artifact."
+          exit 1
+
   dependency-check:
     name: Dependency Vulnerability Check
     runs-on: ubuntu-latest

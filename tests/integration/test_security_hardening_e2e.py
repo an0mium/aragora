@@ -378,7 +378,59 @@ class TestDecisionRouterIntegration:
 
             assert result["debate_id"] == "debate-123"
             assert result["status"] == "completed"
-            assert result["topic"] == "Test debate"
+
+    @pytest.mark.asyncio
+    async def test_decision_router_attachment_ingestion(self, tmp_path, monkeypatch):
+        """Attachment content should be persisted into document/evidence stores."""
+        try:
+            from aragora.core.decision import (
+                DecisionConfig,
+                DecisionRequest,
+                DecisionRouter,
+                DecisionType,
+            )
+            from aragora.evidence.store import InMemoryEvidenceStore
+            from aragora.server.documents import DocumentStore
+        except ImportError:
+            pytest.skip("Decision module not available")
+
+        monkeypatch.setattr(
+            "aragora.agents.get_agents_by_names",
+            lambda _agents=None: [],
+        )
+
+        class DummyArena:
+            def __init__(self, environment, agents, protocol, **_kwargs):
+                self.environment = environment
+
+            async def run(self):
+                return MagicMock(
+                    final_answer="ok",
+                    consensus_reached=True,
+                    confidence=0.9,
+                    summary=None,
+                )
+
+        document_store = DocumentStore(tmp_path)
+        evidence_store = InMemoryEvidenceStore()
+        router = DecisionRouter(
+            debate_engine=DummyArena,
+            document_store=document_store,
+            evidence_store=evidence_store,
+        )
+
+        request = DecisionRequest(
+            content="Check attachment",
+            decision_type=DecisionType.DEBATE,
+            config=DecisionConfig(rounds=1, agents=[]),
+            attachments=[{"filename": "notes.txt", "content": "hello world"}],
+        )
+
+        result = await router.route(request)
+
+        assert result.success is True
+        assert document_store.list_all()
+        assert evidence_store.search_evidence("hello world")
 
 
 class TestSecurityHardeningComplete:

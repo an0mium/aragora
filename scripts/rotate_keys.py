@@ -2,6 +2,17 @@
 """
 API Key Rotation Script - Multi-Backend Edition
 
+DEPRECATED: This script is superseded by the unified secrets_manager.py.
+Use instead:
+    python scripts/secrets_manager.py status     # View all secrets status
+    python scripts/secrets_manager.py validate   # Validate all API keys
+    python scripts/secrets_manager.py rotate KEY # Rotate a specific key
+    python scripts/secrets_manager.py sync       # Sync between backends
+
+This script is kept for backward compatibility.
+
+---
+
 Rotates keys across:
 - AWS Secrets Manager (us-east-1, us-east-2)
 - GitHub Secrets
