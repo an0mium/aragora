@@ -95,6 +95,141 @@ from aragora.server.http_utils import run_async
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# RBAC Permission Constants for Orchestration
+# =============================================================================
+
+# Core orchestration permissions
+PERM_ORCH_DELIBERATE = "orchestration:deliberate:create"
+PERM_ORCH_KNOWLEDGE_READ = "orchestration:knowledge:read"
+PERM_ORCH_CHANNELS_WRITE = "orchestration:channels:write"
+PERM_ORCH_ADMIN = "orchestration:admin"
+
+# Source-type specific permissions (for fine-grained access control)
+PERM_KNOWLEDGE_SLACK = "orchestration:knowledge:slack"
+PERM_KNOWLEDGE_CONFLUENCE = "orchestration:knowledge:confluence"
+PERM_KNOWLEDGE_GITHUB = "orchestration:knowledge:github"
+PERM_KNOWLEDGE_JIRA = "orchestration:knowledge:jira"
+PERM_KNOWLEDGE_DOCUMENT = "orchestration:knowledge:document"
+
+# Channel-type specific permissions
+PERM_CHANNEL_SLACK = "orchestration:channel:slack"
+PERM_CHANNEL_TEAMS = "orchestration:channel:teams"
+PERM_CHANNEL_DISCORD = "orchestration:channel:discord"
+PERM_CHANNEL_TELEGRAM = "orchestration:channel:telegram"
+PERM_CHANNEL_EMAIL = "orchestration:channel:email"
+PERM_CHANNEL_WEBHOOK = "orchestration:channel:webhook"
+
+# =============================================================================
+# Source ID Validation (Path Traversal Prevention)
+# =============================================================================
+
+import re
+
+# Safe source_id pattern: alphanumeric, hyphens, underscores, colons, slashes (no ..)
+# Allows formats like: owner/repo/pr/123, PROJ-123, channel_id, page-id
+SAFE_SOURCE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\-/:@.#]+$")
+
+# Maximum source_id length to prevent DoS
+MAX_SOURCE_ID_LENGTH = 256
+
+
+class SourceIdValidationError(ValueError):
+    """Raised when source_id validation fails."""
+
+    pass
+
+
+def safe_source_id(source_id: str) -> str:
+    """
+    Validate and sanitize a source_id to prevent path traversal attacks.
+
+    Args:
+        source_id: The source identifier to validate
+
+    Returns:
+        The validated source_id (unchanged if valid)
+
+    Raises:
+        SourceIdValidationError: If source_id contains dangerous patterns
+    """
+    if not source_id:
+        raise SourceIdValidationError("source_id cannot be empty")
+
+    if len(source_id) > MAX_SOURCE_ID_LENGTH:
+        raise SourceIdValidationError(
+            f"source_id too long: {len(source_id)} > {MAX_SOURCE_ID_LENGTH}"
+        )
+
+    # Check for path traversal sequences
+    if ".." in source_id:
+        logger.warning("[SECURITY] Path traversal attempt in source_id: %r", source_id[:50])
+        raise SourceIdValidationError("source_id contains path traversal sequence (..)")
+
+    # Check for absolute paths
+    if source_id.startswith("/"):
+        logger.warning("[SECURITY] Absolute path in source_id: %r", source_id[:50])
+        raise SourceIdValidationError("source_id cannot start with /")
+
+    # Check for Windows absolute paths
+    if len(source_id) > 1 and source_id[1] == ":" and source_id[0].isalpha():
+        logger.warning("[SECURITY] Windows absolute path in source_id: %r", source_id[:50])
+        raise SourceIdValidationError("source_id cannot be a Windows absolute path")
+
+    # Check for null bytes
+    if "\x00" in source_id:
+        logger.warning("[SECURITY] Null byte in source_id: %r", source_id[:50])
+        raise SourceIdValidationError("source_id contains null byte")
+
+    # Check against safe pattern
+    if not SAFE_SOURCE_ID_PATTERN.match(source_id):
+        logger.warning("[SECURITY] Invalid characters in source_id: %r", source_id[:50])
+        raise SourceIdValidationError(
+            "source_id contains invalid characters (only alphanumeric, -, _, :, /, @, ., # allowed)"
+        )
+
+    return source_id
+
+
+def validate_channel_id(channel_id: str, channel_type: str) -> str:
+    """
+    Validate a channel_id based on the channel type.
+
+    Args:
+        channel_id: The channel identifier to validate
+        channel_type: The type of channel (slack, teams, webhook, etc.)
+
+    Returns:
+        The validated channel_id
+
+    Raises:
+        ValueError: If channel_id is invalid for the channel type
+    """
+    if not channel_id:
+        raise ValueError("channel_id cannot be empty")
+
+    if len(channel_id) > MAX_SOURCE_ID_LENGTH:
+        raise ValueError(f"channel_id too long: {len(channel_id)} > {MAX_SOURCE_ID_LENGTH}")
+
+    # Check for null bytes
+    if "\x00" in channel_id:
+        raise ValueError("channel_id contains null byte")
+
+    # For webhooks, validate it's a proper URL
+    if channel_type == "webhook":
+        if not channel_id.startswith(("http://", "https://")):
+            raise ValueError("webhook channel_id must be a valid URL")
+        # Additional URL validation
+        if ".." in channel_id or "\\" in channel_id:
+            raise ValueError("webhook URL contains invalid characters")
+    else:
+        # For non-webhook channels, use similar validation as source_id
+        if ".." in channel_id or channel_id.startswith("/"):
+            raise ValueError("channel_id contains invalid path characters")
+
+    return channel_id
+
+
+# =============================================================================
 # Data Models
 # =============================================================================
 
@@ -414,9 +549,167 @@ class OrchestrationHandler(SecureHandler):
     RBAC Permissions:
     - orchestration:read - View templates and deliberation status
     - orchestration:execute - Run deliberations
+    - orchestration:deliberate:create - Create new deliberations
+    - orchestration:knowledge:read - Access knowledge sources
+    - orchestration:knowledge:{type} - Access specific knowledge source types
+    - orchestration:channels:write - Write to output channels
+    - orchestration:channel:{type} - Write to specific channel types
+    - orchestration:admin - Administrative operations
     """
 
     RESOURCE_TYPE = "orchestration"
+
+    # Knowledge source type to permission mapping
+    KNOWLEDGE_SOURCE_PERMISSIONS: dict[str, str] = {
+        "slack": PERM_KNOWLEDGE_SLACK,
+        "teams": PERM_KNOWLEDGE_SLACK,  # Reuse Slack permission for chat platforms
+        "discord": PERM_KNOWLEDGE_SLACK,
+        "telegram": PERM_KNOWLEDGE_SLACK,
+        "whatsapp": PERM_KNOWLEDGE_SLACK,
+        "google_chat": PERM_KNOWLEDGE_SLACK,
+        "confluence": PERM_KNOWLEDGE_CONFLUENCE,
+        "github": PERM_KNOWLEDGE_GITHUB,
+        "jira": PERM_KNOWLEDGE_JIRA,
+        "document": PERM_KNOWLEDGE_DOCUMENT,
+        "doc": PERM_KNOWLEDGE_DOCUMENT,
+        "km": PERM_KNOWLEDGE_DOCUMENT,
+    }
+
+    # Channel type to permission mapping
+    CHANNEL_PERMISSIONS: dict[str, str] = {
+        "slack": PERM_CHANNEL_SLACK,
+        "teams": PERM_CHANNEL_TEAMS,
+        "discord": PERM_CHANNEL_DISCORD,
+        "telegram": PERM_CHANNEL_TELEGRAM,
+        "email": PERM_CHANNEL_EMAIL,
+        "webhook": PERM_CHANNEL_WEBHOOK,
+    }
+
+    def _check_permission(
+        self,
+        auth_context: Any,
+        permission: str,
+        resource_id: str | None = None,
+    ) -> HandlerResult | None:
+        """
+        Check if the user has a specific permission.
+
+        Args:
+            auth_context: The authorization context from get_auth_context()
+            permission: The permission string to check
+            resource_id: Optional resource ID for resource-specific checks
+
+        Returns:
+            None if permission is granted, error HandlerResult if denied
+        """
+        try:
+            self.check_permission(auth_context, permission, resource_id)
+            return None
+        except ForbiddenError:
+            logger.warning(f"Permission denied: {permission} for user {auth_context.user_id}")
+            return error_response(f"Permission denied: {permission}", 403)
+
+    def _validate_knowledge_source(
+        self,
+        source: "KnowledgeContextSource",
+        auth_context: Any,
+    ) -> HandlerResult | None:
+        """
+        Validate a knowledge source for security and RBAC.
+
+        Performs:
+        1. Path traversal prevention on source_id
+        2. RBAC permission check for the source type
+        3. Format validation
+
+        Args:
+            source: The knowledge source to validate
+            auth_context: User's authorization context
+
+        Returns:
+            None if valid, error HandlerResult if validation fails
+        """
+        # Validate source_id for path traversal
+        try:
+            safe_source_id(source.source_id)
+        except SourceIdValidationError as e:
+            logger.warning(f"[SECURITY] Invalid source_id from user {auth_context.user_id}: {e}")
+            return error_response(f"Invalid source_id: {str(e)}", 400)
+
+        # Check knowledge source type permission
+        source_type = source.source_type.lower()
+        if source_type in self.KNOWLEDGE_SOURCE_PERMISSIONS:
+            perm = self.KNOWLEDGE_SOURCE_PERMISSIONS[source_type]
+            perm_error = self._check_permission(auth_context, perm, source.source_id)
+            if perm_error:
+                return perm_error
+        else:
+            # Unknown source type - require admin permission
+            perm_error = self._check_permission(auth_context, PERM_ORCH_ADMIN)
+            if perm_error:
+                logger.warning(
+                    f"Unknown knowledge source type '{source_type}' requires admin permission"
+                )
+                return error_response(f"Unknown knowledge source type: {source_type}", 400)
+
+        # Also check general knowledge read permission
+        perm_error = self._check_permission(
+            auth_context, PERM_ORCH_KNOWLEDGE_READ, source.source_id
+        )
+        if perm_error:
+            return perm_error
+
+        return None
+
+    def _validate_output_channel(
+        self,
+        channel: "OutputChannel",
+        auth_context: Any,
+    ) -> HandlerResult | None:
+        """
+        Validate an output channel for security and RBAC.
+
+        Performs:
+        1. Channel ID validation (path traversal prevention)
+        2. RBAC permission check for the channel type
+        3. Format validation for webhooks
+
+        Args:
+            channel: The output channel to validate
+            auth_context: User's authorization context
+
+        Returns:
+            None if valid, error HandlerResult if validation fails
+        """
+        # Validate channel_id
+        try:
+            validate_channel_id(channel.channel_id, channel.channel_type.lower())
+        except ValueError as e:
+            logger.warning(f"[SECURITY] Invalid channel_id from user {auth_context.user_id}: {e}")
+            return error_response(f"Invalid channel_id: {str(e)}", 400)
+
+        # Check channel type permission
+        channel_type = channel.channel_type.lower()
+        if channel_type in self.CHANNEL_PERMISSIONS:
+            perm = self.CHANNEL_PERMISSIONS[channel_type]
+            perm_error = self._check_permission(auth_context, perm, channel.channel_id)
+            if perm_error:
+                return perm_error
+        else:
+            # Unknown channel type - require admin permission
+            perm_error = self._check_permission(auth_context, PERM_ORCH_ADMIN)
+            if perm_error:
+                logger.warning(f"Unknown channel type '{channel_type}' requires admin permission")
+                return error_response(f"Unknown channel type: {channel_type}", 400)
+
+        # Also check general channel write permission
+        perm_error = self._check_permission(
+            auth_context, PERM_ORCH_CHANNELS_WRITE, channel.channel_id
+        )
+        if perm_error:
+            return perm_error
+
+        return None
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -483,11 +776,19 @@ class OrchestrationHandler(SecureHandler):
             logger.warning(f"Orchestration execute denied for user {auth_context.user_id}")
             return error_response("Permission denied: orchestration:execute", 403)
 
+        # Also check deliberate permission for deliberation endpoints
+        if path in ("/api/v1/orchestration/deliberate", "/api/v1/orchestration/deliberate/sync"):
+            try:
+                self.check_permission(auth_context, PERM_ORCH_DELIBERATE)
+            except ForbiddenError:
+                logger.warning(f"Deliberation create denied for user {auth_context.user_id}")
+                return error_response(f"Permission denied: {PERM_ORCH_DELIBERATE}", 403)
+
         if path == "/api/v1/orchestration/deliberate":
-            return self._handle_deliberate(data, handler, sync=False)
+            return self._handle_deliberate(data, handler, auth_context, sync=False)
 
         if path == "/api/v1/orchestration/deliberate/sync":
-            return self._handle_deliberate(data, handler, sync=True)
+            return self._handle_deliberate(data, handler, auth_context, sync=True)
 
         return None
 
@@ -538,24 +839,31 @@ class OrchestrationHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=30)
     def _handle_deliberate(
-        self, data: dict[str, Any], handler: Any, sync: bool = False
+        self, data: dict[str, Any], handler: Any, auth_context: Any, sync: bool = False
     ) -> HandlerResult:
         """
         POST /api/v1/orchestration/deliberate
         POST /api/v1/orchestration/deliberate/sync
 
         Unified vetted decisionmaking endpoint that:
-        1. Fetches context from knowledge sources
-        2. Selects agent team based on strategy
-        3. Runs vetted decisionmaking
-        4. Routes results to output channels
-        5. Returns receipt with provenance
+        1. Validates knowledge sources and output channels (RBAC + path traversal)
+        2. Fetches context from knowledge sources
+        3. Selects agent team based on strategy
+        4. Runs vetted decisionmaking
+        5. Routes results to output channels
+        6. Returns receipt with provenance
+
+        Security checks:
+        - Path traversal prevention on all source_ids and channel_ids
+        - RBAC permission checks for each knowledge source type
+        - RBAC permission checks for each output channel type
+        - Input validation and sanitization
         """
         try:
             # Parse request
             request = OrchestrationRequest.from_dict(data)
 
-            # Validate
+            # Validate question
             if not request.question:
                 return error_response("Question is required", 400)
 
@@ -569,6 +877,30 @@ class OrchestrationHandler(SecureHandler):
                         request.knowledge_sources.append(KnowledgeContextSource.from_string(src))
                 request.output_format = cast(OutputFormat, template.output_format)
                 request.max_rounds = template.max_rounds
+
+            # ================================================================
+            # SECURITY: Validate all knowledge sources before processing
+            # ================================================================
+            for source in request.knowledge_sources:
+                validation_error = self._validate_knowledge_source(source, auth_context)
+                if validation_error:
+                    logger.warning(
+                        f"[SECURITY] Knowledge source validation failed for user "
+                        f"{auth_context.user_id}: {source.source_type}:{source.source_id}"
+                    )
+                    return validation_error
+
+            # ================================================================
+            # SECURITY: Validate all output channels before processing
+            # ================================================================
+            for channel in request.output_channels:
+                validation_error = self._validate_output_channel(channel, auth_context)
+                if validation_error:
+                    logger.warning(
+                        f"[SECURITY] Output channel validation failed for user "
+                        f"{auth_context.user_id}: {channel.channel_type}:{channel.channel_id}"
+                    )
+                    return validation_error
 
             # Store request
             _orchestration_requests[request.request_id] = request
@@ -856,19 +1188,49 @@ class OrchestrationHandler(SecureHandler):
 
         Uses the GitHubConnector's search method to retrieve content.
         source_id format: owner/repo/pr/123 or owner/repo/issue/123
+
+        Security: Validates source_id before splitting to prevent path traversal.
         """
         try:
             from aragora.connectors.github import GitHubConnector
 
+            # SECURITY: Defense-in-depth validation before splitting
+            # Note: Primary validation happens in _validate_knowledge_source,
+            # but we add another check here in case this method is called directly
+            source_id = source.source_id
+            if ".." in source_id or source_id.startswith("/"):
+                logger.warning(
+                    f"[SECURITY] Path traversal attempt in GitHub source_id: {source_id[:50]}"
+                )
+                return None
+
             # source_id format: owner/repo/pr/123 or owner/repo/issue/123
-            parts = source.source_id.split("/")
+            parts = source_id.split("/")
             if len(parts) >= 4:
                 owner, repo, item_type, number = parts[0], parts[1], parts[2], parts[3]
+
+                # SECURITY: Validate each component
+                # Owner and repo should be alphanumeric with hyphens/underscores
+                owner_pattern = re.compile(r"^[a-zA-Z0-9_\-]+$")
+                if not owner_pattern.match(owner) or not owner_pattern.match(repo):
+                    logger.warning(f"[SECURITY] Invalid GitHub owner/repo format: {owner}/{repo}")
+                    return None
+
+                # Item type must be either 'pr' or 'issue'
+                if item_type not in ("pr", "issue", "prs", "issues"):
+                    logger.warning(f"[SECURITY] Invalid GitHub item type: {item_type}")
+                    return None
+
+                # Number must be numeric
+                if not number.isdigit():
+                    logger.warning(f"[SECURITY] Invalid GitHub PR/issue number: {number}")
+                    return None
+
                 full_repo = f"{owner}/{repo}"
                 connector = GitHubConnector(repo=full_repo)
 
                 # Use search to find the specific PR/issue
-                search_type = "prs" if item_type == "pr" else "issues"
+                search_type = "prs" if item_type in ("pr", "prs") else "issues"
                 results = await connector.search(
                     query=f"#{number}",
                     limit=1,
@@ -877,6 +1239,9 @@ class OrchestrationHandler(SecureHandler):
                 if results:
                     # Evidence objects have content attribute
                     return str(getattr(results[0], "content", ""))
+            return None
+        except SourceIdValidationError as e:
+            logger.warning(f"[SECURITY] GitHub source_id validation failed: {e}")
             return None
         except Exception as e:
             logger.warning(f"Failed to fetch GitHub context: {e}")
@@ -1108,14 +1473,38 @@ class OrchestrationHandler(SecureHandler):
 handler = OrchestrationHandler({})
 
 __all__ = [
+    # Handler
     "OrchestrationHandler",
+    "handler",
+    # Request/Response types
     "OrchestrationRequest",
     "OrchestrationResult",
-    "DeliberationTemplate",
     "KnowledgeContextSource",
     "OutputChannel",
+    "DeliberationTemplate",
     "TeamStrategy",
     "OutputFormat",
     "TEMPLATES",
-    "handler",
+    # RBAC Permission Constants
+    "PERM_ORCH_DELIBERATE",
+    "PERM_ORCH_KNOWLEDGE_READ",
+    "PERM_ORCH_CHANNELS_WRITE",
+    "PERM_ORCH_ADMIN",
+    "PERM_KNOWLEDGE_SLACK",
+    "PERM_KNOWLEDGE_CONFLUENCE",
+    "PERM_KNOWLEDGE_GITHUB",
+    "PERM_KNOWLEDGE_JIRA",
+    "PERM_KNOWLEDGE_DOCUMENT",
+    "PERM_CHANNEL_SLACK",
+    "PERM_CHANNEL_TEAMS",
+    "PERM_CHANNEL_DISCORD",
+    "PERM_CHANNEL_TELEGRAM",
+    "PERM_CHANNEL_EMAIL",
+    "PERM_CHANNEL_WEBHOOK",
+    # Security Validation
+    "safe_source_id",
+    "validate_channel_id",
+    "SourceIdValidationError",
+    "SAFE_SOURCE_ID_PATTERN",
+    "MAX_SOURCE_ID_LENGTH",
 ]

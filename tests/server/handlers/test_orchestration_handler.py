@@ -83,27 +83,64 @@ def mock_http_handler():
 
 @pytest.fixture
 def mock_auth_context():
-    """Create a mock authenticated authorization context."""
+    """Create a mock authenticated authorization context with full orchestration permissions."""
     return AuthorizationContext(
         user_id="test-user-456",
         user_email="user@example.com",
         org_id="org-789",
         workspace_id="workspace-001",
         roles={"member", "developer"},
-        permissions={"orchestration:read", "orchestration:execute", "debates:create"},
+        permissions={
+            "orchestration:read",
+            "orchestration:execute",
+            "orchestration:deliberate:create",
+            "orchestration:knowledge:read",
+            "orchestration:channels:write",
+            "orchestration:knowledge:slack",
+            "orchestration:knowledge:confluence",
+            "orchestration:knowledge:github",
+            "orchestration:knowledge:jira",
+            "orchestration:knowledge:document",
+            "orchestration:channel:slack",
+            "orchestration:channel:teams",
+            "orchestration:channel:discord",
+            "orchestration:channel:telegram",
+            "orchestration:channel:email",
+            "orchestration:channel:webhook",
+            "debates:create",
+        },
     )
 
 
 @pytest.fixture
 def mock_admin_auth_context():
-    """Create a mock admin authorization context."""
+    """Create a mock admin authorization context with all orchestration permissions."""
     return AuthorizationContext(
         user_id="admin-user",
         user_email="admin@example.com",
         org_id="org-admin",
         workspace_id="workspace-admin",
         roles={"admin"},
-        permissions={"orchestration:read", "orchestration:execute", "admin:all"},
+        permissions={
+            "orchestration:read",
+            "orchestration:execute",
+            "orchestration:deliberate:create",
+            "orchestration:knowledge:read",
+            "orchestration:channels:write",
+            "orchestration:admin",
+            "orchestration:knowledge:slack",
+            "orchestration:knowledge:confluence",
+            "orchestration:knowledge:github",
+            "orchestration:knowledge:jira",
+            "orchestration:knowledge:document",
+            "orchestration:channel:slack",
+            "orchestration:channel:teams",
+            "orchestration:channel:discord",
+            "orchestration:channel:telegram",
+            "orchestration:channel:email",
+            "orchestration:channel:webhook",
+            "admin:all",
+        },
     )
 
 
@@ -277,12 +314,12 @@ class TestOutputChannelParsing:
         assert channel.channel_id == "https://hooks.example.com/callback"
 
     def test_parse_url_without_prefix(self):
-        """Test parsing URL without prefix uses protocol as type."""
+        """Test parsing URL without prefix normalizes to webhook type."""
         channel = OutputChannel.from_string("https://api.example.com/notify")
-        # The from_string method splits on first colon, so https becomes the type
-        # and the rest becomes the channel_id
-        assert channel.channel_type == "https"
-        assert channel.channel_id == "//api.example.com/notify"
+        # URLs are normalized to 'webhook' type for consistent handling
+        # The full URL becomes the channel_id
+        assert channel.channel_type == "webhook"
+        assert channel.channel_id == "https://api.example.com/notify"
 
     def test_parse_email_channel(self):
         """Test parsing email channel."""
@@ -530,57 +567,65 @@ class TestStatusEndpoint:
 class TestDeliberateEndpoint:
     """Tests for the deliberate execution endpoint."""
 
-    def test_deliberate_missing_question(self, handler):
+    def test_deliberate_missing_question(self, handler, mock_auth_context):
         """Test deliberate returns 400 when question is missing."""
-        result = handler._handle_deliberate({}, None, sync=False)
-        assert result.status_code == 400
-        body = json.loads(result.body)
-        assert "Question is required" in body["error"]
+        with patch.object(handler, "check_permission", return_value=True):
+            result = handler._handle_deliberate({}, None, mock_auth_context, sync=False)
+            assert result.status_code == 400
+            body = json.loads(result.body)
+            assert "Question is required" in body["error"]
 
-    def test_deliberate_empty_question(self, handler):
+    def test_deliberate_empty_question(self, handler, mock_auth_context):
         """Test deliberate returns 400 when question is empty."""
-        result = handler._handle_deliberate({"question": ""}, None, sync=False)
-        assert result.status_code == 400
-        body = json.loads(result.body)
-        assert "Question is required" in body["error"]
+        with patch.object(handler, "check_permission", return_value=True):
+            result = handler._handle_deliberate(
+                {"question": ""}, None, mock_auth_context, sync=False
+            )
+            assert result.status_code == 400
+            body = json.loads(result.body)
+            assert "Question is required" in body["error"]
 
     @pytest.mark.asyncio
-    async def test_deliberate_async_returns_queued(self, handler):
+    async def test_deliberate_async_returns_queued(self, handler, mock_auth_context):
         """Test async deliberate returns 202 Accepted."""
         # Use patch to prevent asyncio.create_task from actually running
         with patch("asyncio.create_task") as mock_create_task:
-            result = handler._handle_deliberate(
-                {"question": "What should we do?"},
-                None,
-                sync=False,
-            )
-            assert result.status_code == 202
-            body = json.loads(result.body)
-            assert body["status"] == "queued"
-            assert "request_id" in body
+            with patch.object(handler, "check_permission", return_value=True):
+                result = handler._handle_deliberate(
+                    {"question": "What should we do?"},
+                    None,
+                    mock_auth_context,
+                    sync=False,
+                )
+                assert result.status_code == 202
+                body = json.loads(result.body)
+                assert body["status"] == "queued"
+                assert "request_id" in body
 
     @pytest.mark.asyncio
-    async def test_deliberate_with_template(self, handler):
+    async def test_deliberate_with_template(self, handler, mock_auth_context):
         """Test deliberate applies template configuration."""
         data = {
             "question": "Review this PR for security issues",
             "template": "code_review",
         }
         with patch("asyncio.create_task"):
-            result = handler._handle_deliberate(data, None, sync=False)
+            with patch.object(handler, "check_permission", return_value=True):
+                result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
             assert result.status_code == 202
 
     @pytest.mark.asyncio
-    async def test_deliberate_request_stored(self, handler):
+    async def test_deliberate_request_stored(self, handler, mock_auth_context):
         """Test that deliberate stores request for status checking."""
         data = {"question": "Should we refactor this module?"}
         with patch("asyncio.create_task"):
-            result = handler._handle_deliberate(data, None, sync=False)
-            body = json.loads(result.body)
-            request_id = body["request_id"]
+            with patch.object(handler, "check_permission", return_value=True):
+                result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
+                body = json.loads(result.body)
+                request_id = body["request_id"]
 
-            # Request should be stored while in progress
-            assert request_id in _orchestration_requests
+                # Request should be stored while in progress
+                assert request_id in _orchestration_requests
 
 
 # =============================================================================
@@ -1078,7 +1123,7 @@ class TestTemplateApplication:
     """Tests for template configuration application."""
 
     @pytest.mark.asyncio
-    async def test_template_agents_applied(self, handler):
+    async def test_template_agents_applied(self, handler, mock_auth_context):
         """Test template default agents are applied."""
         # Using a template that exists
         if "code_review" in TEMPLATES:
@@ -1086,8 +1131,9 @@ class TestTemplateApplication:
             # Note: Template application happens in _handle_deliberate
             data = {"question": "Review code", "template": "code_review"}
             with patch("asyncio.create_task"):
-                result = handler._handle_deliberate(data, None, sync=False)
-                assert result.status_code == 202
+                with patch.object(handler, "check_permission", return_value=True):
+                    result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
+                    assert result.status_code == 202
 
     def test_explicit_agents_override_template(self):
         """Test explicit agents override template defaults."""
@@ -1110,30 +1156,33 @@ class TestTemplateApplication:
 class TestErrorHandling:
     """Tests for error handling scenarios."""
 
-    def test_handle_deliberate_invalid_json_body(self, handler):
+    def test_handle_deliberate_invalid_json_body(self, handler, mock_auth_context):
         """Test deliberate handles None body gracefully."""
         # This simulates invalid JSON
-        result = handler._handle_deliberate(None, None, sync=False)
-        # Should return error or handle gracefully
-        assert result is not None
+        with patch.object(handler, "check_permission", return_value=True):
+            result = handler._handle_deliberate(None, None, mock_auth_context, sync=False)
+            # Should return error or handle gracefully
+            assert result is not None
 
-    def test_handle_deliberate_malformed_sources(self, handler):
+    def test_handle_deliberate_malformed_sources(self, handler, mock_auth_context):
         """Test deliberate handles malformed knowledge sources."""
         data = {
             "question": "Test",
             "knowledge_sources": [{"missing_required_fields": True}],
         }
-        result = handler._handle_deliberate(data, None, sync=False)
-        # Should not crash, return queued or error
-        assert result.status_code in [202, 400, 500]
+        with patch.object(handler, "check_permission", return_value=True):
+            result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
+            # Should not crash, return queued or error
+            assert result.status_code in [202, 400, 500]
 
-    def test_handle_deliberate_malformed_channels(self, handler):
+    def test_handle_deliberate_malformed_channels(self, handler, mock_auth_context):
         """Test deliberate handles malformed output channels."""
         data = {
             "question": "Test",
             "output_channels": [{"invalid": "structure"}],
         }
-        result = handler._handle_deliberate(data, None, sync=False)
+        with patch.object(handler, "check_permission", return_value=True):
+            result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
         assert result.status_code in [202, 400, 500]
 
 
@@ -1267,29 +1316,33 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
     @pytest.mark.asyncio
-    async def test_very_long_question(self, handler):
+    async def test_very_long_question(self, handler, mock_auth_context):
         """Test handling of very long question."""
         long_question = "x" * 10000
         with patch("asyncio.create_task"):
-            result = handler._handle_deliberate(
-                {"question": long_question},
-                None,
-                sync=False,
-            )
-            # Should handle without crashing
-            assert result.status_code in [202, 400]
+            with patch.object(handler, "check_permission", return_value=True):
+                result = handler._handle_deliberate(
+                    {"question": long_question},
+                    None,
+                    mock_auth_context,
+                    sync=False,
+                )
+                # Should handle without crashing
+                assert result.status_code in [202, 400]
 
     @pytest.mark.asyncio
-    async def test_unicode_question(self, handler):
+    async def test_unicode_question(self, handler, mock_auth_context):
         """Test handling of unicode characters in question."""
         unicode_question = "What about these characters: (emoji) and chinese?"
         with patch("asyncio.create_task"):
-            result = handler._handle_deliberate(
-                {"question": unicode_question},
-                None,
-                sync=False,
-            )
-            assert result.status_code == 202
+            with patch.object(handler, "check_permission", return_value=True):
+                result = handler._handle_deliberate(
+                    {"question": unicode_question},
+                    None,
+                    mock_auth_context,
+                    sync=False,
+                )
+                assert result.status_code == 202
 
     def test_max_rounds_boundary(self, handler):
         """Test max_rounds at boundary values."""
@@ -1322,26 +1375,30 @@ class TestEdgeCases:
         assert request.timeout_seconds == 0.1
 
     @pytest.mark.asyncio
-    async def test_empty_knowledge_sources_list(self, handler):
+    async def test_empty_knowledge_sources_list(self, handler, mock_auth_context):
         """Test request with empty knowledge sources."""
         with patch("asyncio.create_task"):
-            result = handler._handle_deliberate(
-                {"question": "Test", "knowledge_sources": []},
-                None,
-                sync=False,
-            )
-            assert result.status_code == 202
+            with patch.object(handler, "check_permission", return_value=True):
+                result = handler._handle_deliberate(
+                    {"question": "Test", "knowledge_sources": []},
+                    None,
+                    mock_auth_context,
+                    sync=False,
+                )
+                assert result.status_code == 202
 
     @pytest.mark.asyncio
-    async def test_empty_output_channels_list(self, handler):
+    async def test_empty_output_channels_list(self, handler, mock_auth_context):
         """Test request with empty output channels."""
         with patch("asyncio.create_task"):
-            result = handler._handle_deliberate(
-                {"question": "Test", "output_channels": []},
-                None,
-                sync=False,
-            )
-            assert result.status_code == 202
+            with patch.object(handler, "check_permission", return_value=True):
+                result = handler._handle_deliberate(
+                    {"question": "Test", "output_channels": []},
+                    None,
+                    mock_auth_context,
+                    sync=False,
+                )
+                assert result.status_code == 202
 
 
 # =============================================================================
@@ -1353,17 +1410,18 @@ class TestConcurrentOperations:
     """Tests for concurrent operation handling."""
 
     @pytest.mark.asyncio
-    async def test_multiple_concurrent_requests(self, handler):
+    async def test_multiple_concurrent_requests(self, handler, mock_auth_context):
         """Test handling multiple concurrent requests."""
         requests = []
-        for i in range(5):
-            data = {"question": f"Question {i}"}
-            result = handler._handle_deliberate(data, None, sync=False)
-            body = json.loads(result.body)
-            requests.append(body["request_id"])
+        with patch.object(handler, "check_permission", return_value=True):
+            for i in range(5):
+                data = {"question": f"Question {i}"}
+                result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
+                body = json.loads(result.body)
+                requests.append(body["request_id"])
 
-        # All should have unique request IDs
-        assert len(set(requests)) == 5
+            # All should have unique request IDs
+            assert len(set(requests)) == 5
 
     def test_status_check_during_execution(self, handler):
         """Test status can be checked during execution."""
@@ -1379,3 +1437,167 @@ class TestConcurrentOperations:
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["status"] == "in_progress"
+
+
+# =============================================================================
+# Test Class: Security and Path Traversal Prevention
+# =============================================================================
+
+
+class TestSecurityValidation:
+    """Tests for security validation including path traversal prevention and RBAC."""
+
+    def test_safe_source_id_valid(self):
+        """Test safe_source_id accepts valid identifiers."""
+        from aragora.server.handlers.orchestration import safe_source_id
+
+        # Valid source IDs
+        assert safe_source_id("C12345") == "C12345"
+        assert safe_source_id("owner/repo/pr/123") == "owner/repo/pr/123"
+        assert safe_source_id("PROJ-123") == "PROJ-123"
+        assert safe_source_id("page-id-123") == "page-id-123"
+        assert safe_source_id("doc_123") == "doc_123"
+        assert safe_source_id("user@domain.com") == "user@domain.com"
+        assert safe_source_id("feature#123") == "feature#123"
+
+    def test_safe_source_id_path_traversal(self):
+        """Test safe_source_id rejects path traversal attempts."""
+        from aragora.server.handlers.orchestration import (
+            safe_source_id,
+            SourceIdValidationError,
+        )
+
+        # Path traversal sequences
+        with pytest.raises(SourceIdValidationError, match="path traversal"):
+            safe_source_id("../../../etc/passwd")
+
+        with pytest.raises(SourceIdValidationError, match="path traversal"):
+            safe_source_id("..\\..\\windows\\system32")
+
+        with pytest.raises(SourceIdValidationError, match="path traversal"):
+            safe_source_id("owner/../repo/pr/123")
+
+    def test_safe_source_id_absolute_path(self):
+        """Test safe_source_id rejects absolute paths."""
+        from aragora.server.handlers.orchestration import (
+            safe_source_id,
+            SourceIdValidationError,
+        )
+
+        with pytest.raises(SourceIdValidationError, match="cannot start with /"):
+            safe_source_id("/etc/passwd")
+
+        with pytest.raises(SourceIdValidationError, match="Windows absolute path"):
+            safe_source_id("C:\\Windows\\System32")
+
+    def test_safe_source_id_null_byte(self):
+        """Test safe_source_id rejects null bytes."""
+        from aragora.server.handlers.orchestration import (
+            safe_source_id,
+            SourceIdValidationError,
+        )
+
+        with pytest.raises(SourceIdValidationError, match="null byte"):
+            safe_source_id("valid\x00injected")
+
+    def test_safe_source_id_empty(self):
+        """Test safe_source_id rejects empty strings."""
+        from aragora.server.handlers.orchestration import (
+            safe_source_id,
+            SourceIdValidationError,
+        )
+
+        with pytest.raises(SourceIdValidationError, match="cannot be empty"):
+            safe_source_id("")
+
+    def test_safe_source_id_too_long(self):
+        """Test safe_source_id rejects overly long strings."""
+        from aragora.server.handlers.orchestration import (
+            safe_source_id,
+            SourceIdValidationError,
+            MAX_SOURCE_ID_LENGTH,
+        )
+
+        with pytest.raises(SourceIdValidationError, match="too long"):
+            safe_source_id("x" * (MAX_SOURCE_ID_LENGTH + 1))
+
+    def test_validate_channel_id_webhook(self):
+        """Test validate_channel_id for webhook channels."""
+        from aragora.server.handlers.orchestration import validate_channel_id
+
+        # Valid webhook URLs
+        assert validate_channel_id("https://api.example.com/webhook", "webhook")
+        assert validate_channel_id("http://localhost:8080/callback", "webhook")
+
+        # Invalid webhook URLs
+        with pytest.raises(ValueError, match="valid URL"):
+            validate_channel_id("not-a-url", "webhook")
+
+        with pytest.raises(ValueError, match="invalid characters"):
+            validate_channel_id("https://example.com/../../../etc/passwd", "webhook")
+
+    def test_validate_channel_id_path_traversal(self):
+        """Test validate_channel_id rejects path traversal for non-webhook channels."""
+        from aragora.server.handlers.orchestration import validate_channel_id
+
+        with pytest.raises(ValueError, match="invalid path characters"):
+            validate_channel_id("../../../etc/passwd", "slack")
+
+        with pytest.raises(ValueError, match="invalid path characters"):
+            validate_channel_id("/absolute/path", "teams")
+
+    def test_validate_knowledge_source_security(self, handler, mock_auth_context):
+        """Test _validate_knowledge_source rejects malicious source IDs."""
+        from aragora.server.handlers.orchestration import KnowledgeContextSource
+
+        with patch.object(handler, "check_permission", return_value=True):
+            # Path traversal in source_id
+            malicious_source = KnowledgeContextSource(
+                source_type="github",
+                source_id="../../../etc/passwd",
+            )
+            result = handler._validate_knowledge_source(malicious_source, mock_auth_context)
+            assert result is not None
+            assert result.status_code == 400
+            body = json.loads(result.body)
+            assert "path traversal" in body["error"].lower()
+
+    def test_validate_output_channel_security(self, handler, mock_auth_context):
+        """Test _validate_output_channel rejects malicious channel IDs."""
+        from aragora.server.handlers.orchestration import OutputChannel
+
+        with patch.object(handler, "check_permission", return_value=True):
+            # Path traversal in channel_id
+            malicious_channel = OutputChannel(
+                channel_type="slack",
+                channel_id="../../../etc/passwd",
+            )
+            result = handler._validate_output_channel(malicious_channel, mock_auth_context)
+            assert result is not None
+            assert result.status_code == 400
+
+    def test_deliberate_validates_knowledge_sources(self, handler, mock_auth_context):
+        """Test that _handle_deliberate validates all knowledge sources."""
+        data = {
+            "question": "Test question",
+            "knowledge_sources": [
+                {"type": "github", "id": "../../../etc/passwd"},  # Malicious
+            ],
+        }
+        with patch.object(handler, "check_permission", return_value=True):
+            result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
+            assert result.status_code == 400
+            body = json.loads(result.body)
+            assert "path traversal" in body["error"].lower() or "source_id" in body["error"].lower()
+
+    def test_deliberate_validates_output_channels(self, handler, mock_auth_context):
+        """Test that _handle_deliberate validates all output channels."""
+        data = {
+            "question": "Test question",
+            "output_channels": [
+                {"type": "slack", "id": "../../../etc/passwd"},  # Malicious
+            ],
+        }
+        with patch.object(handler, "check_permission", return_value=True):
+            result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
+            assert result.status_code == 400
