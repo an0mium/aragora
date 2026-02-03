@@ -278,7 +278,7 @@ class FactsOperationsMixin:
             return error_response(f"Invalid JSON: {e}", 400)
 
         statement = data.get("statement", "")
-        if not statement:
+        if not statement or not statement.strip():
             return error_response("Statement is required", 400)
 
         workspace_id = data.get("workspace_id", "default")

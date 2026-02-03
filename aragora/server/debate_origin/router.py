@@ -369,3 +369,99 @@ async def route_result_to_all_sessions(
         logger.debug(f"Multi-session routing failed: {e}")
 
     return success_count
+
+
+async def route_plan_result(
+    debate_id: str,
+    outcome: dict[str, Any],
+) -> bool:
+    """Route a decision plan outcome back to its originating channel.
+
+    Args:
+        debate_id: Original debate identifier (plans link to debates)
+        outcome: Plan outcome dict with keys like:
+            - plan_id: str
+            - success: bool
+            - tasks_completed: int
+            - tasks_total: int
+            - formatted_message: str (pre-formatted notification)
+
+    Returns:
+        True if outcome was successfully routed, False otherwise
+    """
+    origin = get_debate_origin(debate_id)
+    if not origin:
+        logger.warning(f"No origin found for debate {debate_id} (plan routing)")
+        return False
+
+    plan_id = outcome.get("plan_id", "unknown")
+    platform = origin.platform.lower()
+    logger.info(f"Routing plan {plan_id} outcome to {platform}:{origin.channel_id}")
+
+    # Get pre-formatted message or format one
+    message = outcome.get("formatted_message")
+    if not message:
+        success = outcome.get("success", False)
+        tasks_completed = outcome.get("tasks_completed", 0)
+        tasks_total = outcome.get("tasks_total", 0)
+        message = f"**Decision Plan {'Completed' if success else 'Failed'}**\n"
+        message += f"Plan: `{plan_id[:12]}...`\n"
+        message += f"Tasks: {tasks_completed}/{tasks_total} completed"
+
+    # Use dock-based routing if enabled
+    if USE_DOCK_ROUTING:
+        try:
+            from aragora.channels.router import get_channel_router
+
+            router = get_channel_router()
+            send_result = await router.route_result(
+                platform=platform,
+                channel_id=origin.channel_id,
+                result=outcome,
+                thread_id=origin.thread_id,
+                webhook_url=origin.metadata.get("webhook_url"),  # Teams
+            )
+
+            if send_result.success:
+                logger.info(f"Plan outcome routed via dock to {platform}")
+                return True
+            else:
+                logger.warning(f"Dock plan routing failed: {send_result.error}")
+                # Fall through to legacy routing
+        except (ImportError, OSError, RuntimeError) as e:
+            logger.warning(f"Dock plan routing error, falling back: {e}")
+            # Fall through to legacy routing
+
+    # Legacy routing - use result senders with plan outcome as "result"
+    try:
+        # Create a result-like dict for existing senders
+        result_like = {
+            "consensus_reached": outcome.get("success", False),
+            "final_answer": message,
+            "confidence": 1.0 if outcome.get("success") else 0.0,
+            "task": outcome.get("task", "Decision plan execution"),
+        }
+
+        if platform == "telegram":
+            success = await _send_telegram_result(origin, result_like)
+        elif platform == "slack":
+            success = await _send_slack_result(origin, result_like)
+        elif platform == "discord":
+            success = await _send_discord_result(origin, result_like)
+        elif platform == "teams":
+            success = await _send_teams_result(origin, result_like)
+        elif platform == "whatsapp":
+            success = await _send_whatsapp_result(origin, result_like)
+        elif platform == "email":
+            success = await _send_email_result(origin, result_like)
+        elif platform in ("google_chat", "gchat"):
+            success = await _send_google_chat_result(origin, result_like)
+        else:
+            logger.warning(f"Unknown platform for plan routing: {platform}")
+            return False
+
+        return success
+
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.error(f"Failed to route plan outcome for {plan_id}: {e}")
+        return False

@@ -71,6 +71,7 @@ from .registry import (
 from .router import (
     USE_DOCK_ROUTING,
     route_debate_result,
+    route_plan_result,
     post_receipt_to_channel,
     send_error_to_channel,
     route_result_to_all_sessions,
@@ -108,6 +109,7 @@ __all__ = [
     "get_debate_origin_async",
     "mark_result_sent",
     "route_debate_result",
+    "route_plan_result",
     "route_result_to_all_sessions",
     "get_sessions_for_debate",
     "post_receipt_to_channel",

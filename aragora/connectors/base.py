@@ -14,6 +14,8 @@ __all__ = [
     "Connector",
     "Evidence",
     "ConnectorHealth",
+    "ConnectorCapabilities",
+    "ConnectorProtocol",
     # Re-export exceptions for backward compatibility
     "ConnectorError",
     "ConnectorAuthError",
@@ -32,7 +34,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
@@ -170,6 +172,178 @@ class ConnectorHealth:
             "last_check": self.last_check.isoformat() if self.last_check else None,
             "metadata": self.metadata,
         }
+
+
+@dataclass
+class ConnectorCapabilities:
+    """
+    Describes the capabilities of a connector.
+
+    Used for capability negotiation and feature discovery. Connectors
+    can report what operations they support so the platform can route
+    requests appropriately.
+    """
+
+    # Core capabilities
+    can_send: bool = False  # Can send outbound messages/data
+    can_receive: bool = False  # Can receive inbound messages/data
+    can_search: bool = False  # Can search for data/evidence
+    can_sync: bool = False  # Supports incremental sync
+    can_stream: bool = False  # Supports real-time streaming
+    can_batch: bool = False  # Supports batch operations
+
+    # Connection model
+    is_stateful: bool = False  # Maintains persistent connection
+    requires_auth: bool = True  # Requires authentication
+    supports_oauth: bool = False  # Supports OAuth flow
+    supports_webhooks: bool = False  # Can receive webhooks
+
+    # Data capabilities
+    supports_files: bool = False  # Can handle file attachments
+    supports_rich_text: bool = False  # Supports formatted messages
+    supports_reactions: bool = False  # Supports emoji reactions
+    supports_threads: bool = False  # Supports threaded conversations
+    supports_voice: bool = False  # Supports voice messages/calls
+
+    # Reliability
+    supports_delivery_receipts: bool = False  # Confirms message delivery
+    supports_retry: bool = True  # Has built-in retry logic
+    has_circuit_breaker: bool = True  # Has circuit breaker protection
+
+    # Rate limiting
+    max_requests_per_second: float | None = None  # Rate limit if known
+    max_message_size_bytes: int | None = None  # Max payload size
+
+    # Platform-specific features
+    platform_features: list[str] = field(default_factory=list)  # Custom features
+
+    def to_dict(self) -> dict:
+        """Serialize capabilities to dictionary."""
+        return {
+            "can_send": self.can_send,
+            "can_receive": self.can_receive,
+            "can_search": self.can_search,
+            "can_sync": self.can_sync,
+            "can_stream": self.can_stream,
+            "can_batch": self.can_batch,
+            "is_stateful": self.is_stateful,
+            "requires_auth": self.requires_auth,
+            "supports_oauth": self.supports_oauth,
+            "supports_webhooks": self.supports_webhooks,
+            "supports_files": self.supports_files,
+            "supports_rich_text": self.supports_rich_text,
+            "supports_reactions": self.supports_reactions,
+            "supports_threads": self.supports_threads,
+            "supports_voice": self.supports_voice,
+            "supports_delivery_receipts": self.supports_delivery_receipts,
+            "supports_retry": self.supports_retry,
+            "has_circuit_breaker": self.has_circuit_breaker,
+            "max_requests_per_second": self.max_requests_per_second,
+            "max_message_size_bytes": self.max_message_size_bytes,
+            "platform_features": self.platform_features,
+        }
+
+
+@runtime_checkable
+class ConnectorProtocol(Protocol):
+    """
+    Standard interface for all Aragora connectors.
+
+    This Protocol defines the minimal interface that all connectors must
+    implement for interoperability. It enables:
+    - Plugin marketplace and third-party connector development
+    - Unified connector management and monitoring
+    - Capability-based routing and feature discovery
+
+    Connectors that implement this protocol can be discovered and used
+    by the platform for various operations including chat, evidence
+    collection, enterprise sync, device notifications, and more.
+
+    Concrete connector types (BaseConnector, ChatPlatformConnector,
+    EnterpriseConnector, DeviceConnector) may provide additional
+    specialized methods beyond this interface.
+
+    Usage:
+        def process_connector(conn: ConnectorProtocol) -> None:
+            caps = conn.capabilities()
+            if caps.can_send:
+                await conn.send({"message": "hello"})
+    """
+
+    @property
+    def name(self) -> str:
+        """Human-readable name for this connector."""
+        ...
+
+    @property
+    def is_connected(self) -> bool:
+        """Whether the connector has an active connection."""
+        ...
+
+    async def connect(self) -> bool:
+        """
+        Establish connection to the external service.
+
+        Returns:
+            True if connection successful, False otherwise
+        """
+        ...
+
+    async def disconnect(self) -> None:
+        """
+        Close connection to the external service.
+
+        Should be safe to call multiple times.
+        """
+        ...
+
+    async def send(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Send data to the external service.
+
+        Args:
+            data: Connector-specific payload to send
+
+        Returns:
+            Response from the service
+
+        Raises:
+            ConnectorError: On send failure
+        """
+        ...
+
+    async def receive(self) -> dict[str, Any] | None:
+        """
+        Receive data from the external service.
+
+        For pull-based connectors, this actively polls for data.
+        For push-based connectors, this may return None if using webhooks.
+
+        Returns:
+            Received data or None if no data available
+        """
+        ...
+
+    async def health_check(self, timeout: float = 5.0) -> ConnectorHealth:
+        """
+        Perform a health check on the connector.
+
+        Args:
+            timeout: Maximum time to wait for health check
+
+        Returns:
+            ConnectorHealth with status details
+        """
+        ...
+
+    def capabilities(self) -> ConnectorCapabilities:
+        """
+        Report the capabilities of this connector.
+
+        Returns:
+            ConnectorCapabilities describing what this connector supports
+        """
+        ...
 
 
 class BaseConnector(ABC):
@@ -766,6 +940,107 @@ class BaseConnector(ABC):
                 return 0.3
         except (ValueError, TypeError, AttributeError):
             return 0.5  # Unknown age
+
+    # =========================================================================
+    # ConnectorProtocol Implementation
+    # =========================================================================
+    # These methods provide the standard interface for all connectors.
+    # Subclasses should override as needed for their specific use case.
+
+    @property
+    def is_connected(self) -> bool:
+        """
+        Whether the connector has an active connection.
+
+        For evidence connectors, this is generally True if configured.
+        Stateful connectors should track actual connection state.
+        """
+        return self.is_configured
+
+    async def connect(self) -> bool:
+        """
+        Establish connection to the external service.
+
+        For stateless connectors (like most evidence connectors),
+        this is a no-op that returns True if properly configured.
+
+        Returns:
+            True if connection successful
+        """
+        return self.is_configured
+
+    async def disconnect(self) -> None:
+        """
+        Close connection to the external service.
+
+        For stateless connectors, this is a no-op.
+        Stateful connectors should properly close connections.
+        """
+        pass
+
+    async def send(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Send data to the external service.
+
+        BaseConnector (evidence connectors) does not support sending.
+        Subclasses like ChatPlatformConnector override this.
+
+        Args:
+            data: Connector-specific payload
+
+        Returns:
+            Response from service
+
+        Raises:
+            NotImplementedError: BaseConnector doesn't support send
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support send(). "
+            "Use search() and fetch() for evidence connectors."
+        )
+
+    async def receive(self) -> dict[str, Any] | None:
+        """
+        Receive data from the external service.
+
+        BaseConnector (evidence connectors) does not support receive.
+        Use search() and fetch() instead. Subclasses may override.
+
+        Returns:
+            None - evidence connectors use search()/fetch()
+        """
+        return None
+
+    def capabilities(self) -> ConnectorCapabilities:
+        """
+        Report the capabilities of this connector.
+
+        Returns capabilities appropriate for evidence connectors.
+        Subclasses should override to report their specific capabilities.
+
+        Returns:
+            ConnectorCapabilities for this connector
+        """
+        return ConnectorCapabilities(
+            can_send=False,
+            can_receive=False,
+            can_search=True,
+            can_sync=False,
+            can_stream=False,
+            can_batch=False,
+            is_stateful=False,
+            requires_auth=True,
+            supports_oauth=False,
+            supports_webhooks=False,
+            supports_files=False,
+            supports_rich_text=False,
+            supports_reactions=False,
+            supports_threads=False,
+            supports_voice=False,
+            supports_delivery_receipts=False,
+            supports_retry=True,
+            has_circuit_breaker=self._enable_circuit_breaker,
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(source={self.source_type.value})"

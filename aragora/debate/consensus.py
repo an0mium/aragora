@@ -91,6 +91,133 @@ class UnresolvedTension:
 
 
 @dataclass
+class PartialConsensusItem:
+    """Tracks consensus on a specific sub-question or topic.
+
+    When full consensus isn't reached, debates may still achieve agreement
+    on specific aspects. This allows plans to proceed with agreed portions
+    while flagging disagreements for human review.
+    """
+
+    item_id: str
+    topic: str  # The sub-question or aspect
+    statement: str  # The agreed-upon position
+    confidence: float  # Confidence on this specific item (0-1)
+    agreed: bool  # Whether consensus was reached on this item
+    supporting_agents: list[str] = field(default_factory=list)
+    dissenting_agents: list[str] = field(default_factory=list)
+    dissenting_views: list[str] = field(default_factory=list)
+    source: str = "claim_analysis"  # Where this was extracted from
+    actionable: bool = True  # Whether this can be acted upon
+
+    @property
+    def agreement_ratio(self) -> float:
+        """Calculate ratio of agents agreeing on this item."""
+        total = len(self.supporting_agents) + len(self.dissenting_agents)
+        return len(self.supporting_agents) / total if total > 0 else 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "item_id": self.item_id,
+            "topic": self.topic,
+            "statement": self.statement,
+            "confidence": self.confidence,
+            "agreed": self.agreed,
+            "agreement_ratio": self.agreement_ratio,
+            "supporting_agents": self.supporting_agents,
+            "dissenting_agents": self.dissenting_agents,
+            "dissenting_views": self.dissenting_views,
+            "source": self.source,
+            "actionable": self.actionable,
+        }
+
+
+@dataclass
+class PartialConsensus:
+    """Collection of partial consensus items from a debate.
+
+    Allows tracking which sub-questions achieved consensus even when
+    overall consensus was not reached. This enables:
+    - Plans to proceed with agreed portions
+    - Clear flagging of disagreements for human review
+    - More nuanced decision-making from debates
+    """
+
+    debate_id: str
+    items: list[PartialConsensusItem] = field(default_factory=list)
+    overall_consensus: bool = False  # Did the full debate reach consensus?
+    overall_confidence: float = 0.0
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def add_item(self, item: PartialConsensusItem) -> None:
+        """Add a partial consensus item."""
+        self.items.append(item)
+
+    @property
+    def agreed_items(self) -> list[PartialConsensusItem]:
+        """Get items where consensus was reached."""
+        return [i for i in self.items if i.agreed]
+
+    @property
+    def disagreed_items(self) -> list[PartialConsensusItem]:
+        """Get items where consensus was NOT reached."""
+        return [i for i in self.items if not i.agreed]
+
+    @property
+    def actionable_items(self) -> list[PartialConsensusItem]:
+        """Get items that are agreed AND actionable."""
+        return [i for i in self.items if i.agreed and i.actionable]
+
+    @property
+    def consensus_ratio(self) -> float:
+        """Ratio of items that reached consensus."""
+        if not self.items:
+            return 0.0
+        return len(self.agreed_items) / len(self.items)
+
+    @property
+    def avg_confidence(self) -> float:
+        """Average confidence across all items."""
+        if not self.items:
+            return 0.0
+        return sum(i.confidence for i in self.items) / len(self.items)
+
+    def summary(self) -> str:
+        """Generate a summary of partial consensus status."""
+        total = len(self.items)
+        agreed = len(self.agreed_items)
+        actionable = len(self.actionable_items)
+        disagreed = len(self.disagreed_items)
+
+        if total == 0:
+            return "No sub-questions analyzed"
+
+        lines = [
+            f"Partial Consensus: {agreed}/{total} items agreed ({self.consensus_ratio:.0%})",
+            f"  - Actionable items: {actionable}",
+            f"  - Disagreed items: {disagreed}",
+            f"  - Average confidence: {self.avg_confidence:.0%}",
+        ]
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "debate_id": self.debate_id,
+            "items": [i.to_dict() for i in self.items],
+            "overall_consensus": self.overall_consensus,
+            "overall_confidence": self.overall_confidence,
+            "consensus_ratio": self.consensus_ratio,
+            "avg_confidence": self.avg_confidence,
+            "agreed_count": len(self.agreed_items),
+            "disagreed_count": len(self.disagreed_items),
+            "actionable_count": len(self.actionable_items),
+            "created_at": self.created_at,
+        }
+
+
+@dataclass
 class ConsensusVote:
     """An agent's vote on the consensus."""
 
@@ -693,3 +820,190 @@ class ConsensusBuilder:
                 )
 
         return builder
+
+
+def build_partial_consensus(result: Any) -> PartialConsensus:
+    """Build partial consensus from a DebateResult.
+
+    Analyzes the debate result to identify which sub-questions or topics
+    achieved consensus, even if overall consensus wasn't reached.
+
+    This enables:
+    - Plans to proceed with agreed portions
+    - Clear flagging of disagreements for human review
+    - More nuanced decision-making from debates
+
+    Args:
+        result: DebateResult (or compatible object)
+
+    Returns:
+        PartialConsensus with items for each identified sub-topic
+    """
+    debate_id = getattr(result, "debate_id", getattr(result, "id", "unknown"))
+    partial = PartialConsensus(
+        debate_id=debate_id,
+        overall_consensus=getattr(result, "consensus_reached", False),
+        overall_confidence=getattr(result, "confidence", 0.0),
+    )
+
+    participants = list(getattr(result, "participants", []))
+    final_answer = getattr(result, "final_answer", "")
+    critiques = getattr(result, "critiques", [])
+    dissenting_views = getattr(result, "dissenting_views", [])
+    debate_cruxes = getattr(result, "debate_cruxes", [])
+
+    # Extract sub-topics from final answer (numbered items or bullet points)
+    item_num = 0
+    if final_answer:
+        for line in final_answer.split("\n"):
+            line = line.strip()
+            if not line or len(line) < 20:
+                continue
+
+            # Match numbered items or bullet points
+            is_structured = (
+                (line[0].isdigit() and "." in line[:3])
+                or line.startswith("-")
+                or line.startswith("*")
+                or line.startswith("•")
+            )
+
+            if is_structured:
+                item_num += 1
+                clean = line.lstrip("0123456789.-*•) ").strip()
+
+                # Check if any critique specifically mentions this topic
+                critique_mentions = []
+                disagreeing_agents: list[str] = []
+                for critique in critiques:
+                    for issue in getattr(critique, "issues", []):
+                        # Check if critique relates to this topic
+                        if _topics_overlap(clean, issue):
+                            critique_mentions.append(issue)
+                            agent = getattr(critique, "agent", "")
+                            if agent and agent not in disagreeing_agents:
+                                disagreeing_agents.append(agent)
+
+                # Calculate confidence for this item
+                # Higher if no critiques mention it, lower if they do
+                critique_impact = min(len(critique_mentions) * 0.15, 0.5)
+                item_confidence = max(0.2, result.confidence - critique_impact)
+
+                # Determine if agreed
+                agreed = len(disagreeing_agents) < len(participants) / 2
+
+                # Supporting agents = participants minus dissenters
+                supporting = [p for p in participants if p not in disagreeing_agents]
+
+                partial.add_item(
+                    PartialConsensusItem(
+                        item_id=f"item-{debate_id[:8]}-{item_num}",
+                        topic=_extract_topic(clean),
+                        statement=clean[:500],
+                        confidence=item_confidence,
+                        agreed=agreed,
+                        supporting_agents=supporting,
+                        dissenting_agents=disagreeing_agents,
+                        dissenting_views=critique_mentions[:3],
+                        source="final_answer",
+                        actionable=_is_actionable(clean),
+                    )
+                )
+
+    # Add items from debate cruxes (key disagreement drivers)
+    for i, crux in enumerate(debate_cruxes[:5]):
+        claim = crux.get("claim", crux.get("text", ""))
+        if not claim:
+            continue
+
+        item_num += 1
+        agents_involved = crux.get("agents", [])
+
+        partial.add_item(
+            PartialConsensusItem(
+                item_id=f"crux-{debate_id[:8]}-{i}",
+                topic=f"Crux: {_extract_topic(str(claim))}",
+                statement=str(claim)[:500],
+                confidence=0.4,  # Cruxes are inherently contested
+                agreed=False,  # Cruxes represent disagreements
+                supporting_agents=[],
+                dissenting_agents=agents_involved if agents_involved else participants,
+                dissenting_views=[str(claim)],
+                source="belief_network",
+                actionable=False,  # Cruxes need resolution before action
+            )
+        )
+
+    # Add items from explicit dissenting views
+    for i, view in enumerate(dissenting_views[:3]):
+        item_num += 1
+        partial.add_item(
+            PartialConsensusItem(
+                item_id=f"dissent-{debate_id[:8]}-{i}",
+                topic=f"Dissent: {_extract_topic(view)}",
+                statement=view[:500],
+                confidence=0.3,
+                agreed=False,
+                supporting_agents=[],
+                dissenting_agents=["unknown"],  # We don't always know who dissented
+                dissenting_views=[view],
+                source="dissent_analysis",
+                actionable=False,
+            )
+        )
+
+    return partial
+
+
+def _topics_overlap(topic1: str, topic2: str) -> bool:
+    """Check if two topics share significant keywords."""
+    # Simple keyword overlap check
+    words1 = set(w.lower() for w in topic1.split() if len(w) > 4)
+    words2 = set(w.lower() for w in topic2.split() if len(w) > 4)
+
+    if not words1 or not words2:
+        return False
+
+    overlap = words1 & words2
+    return len(overlap) >= 2 or len(overlap) / min(len(words1), len(words2)) > 0.3
+
+
+def _extract_topic(text: str) -> str:
+    """Extract a short topic descriptor from text."""
+    # Take first meaningful phrase
+    text = text.strip()
+    if len(text) <= 50:
+        return text
+
+    # Try to find a natural break
+    for punct in [":", ".", ",", " - "]:
+        if punct in text[:60]:
+            return text[: text.index(punct)].strip()
+
+    # Fallback: first 50 chars
+    return text[:50].strip() + "..."
+
+
+def _is_actionable(text: str) -> bool:
+    """Check if a statement is actionable (implementation-oriented)."""
+    action_keywords = [
+        "implement",
+        "create",
+        "add",
+        "build",
+        "design",
+        "use",
+        "ensure",
+        "should",
+        "must",
+        "will",
+        "configure",
+        "deploy",
+        "integrate",
+        "update",
+        "modify",
+        "set up",
+        "install",
+    ]
+    lower = text.lower()
+    return any(kw in lower for kw in action_keywords)

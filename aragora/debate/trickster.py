@@ -153,6 +153,7 @@ class EvidencePoweredTrickster:
     def __init__(
         self,
         config: TricksterConfig | None = None,
+        domain_configs: dict[str, TricksterConfig] | None = None,
         on_intervention: Optional[Callable[[TricksterIntervention], None]] = None,
         on_alert: Optional[Callable[[HollowConsensusAlert], None]] = None,
         linker: Any | None = None,
@@ -161,12 +162,17 @@ class EvidencePoweredTrickster:
         Initialize the trickster.
 
         Args:
-            config: Configuration options
+            config: Default configuration options
+            domain_configs: Domain-specific configuration overrides. Maps domain names
+                (e.g., "medical", "legal", "financial") to TricksterConfig instances
+                with domain-appropriate thresholds. Use resolve_config() to get the
+                effective config for a specific domain.
             on_intervention: Callback when intervention is triggered
             on_alert: Callback when hollow consensus is detected
             linker: Evidence-claim linker for semantic evidence validation
         """
         self.config = config or TricksterConfig()
+        self.domain_configs = domain_configs or {}
         self.on_intervention = on_intervention
         self.on_alert = on_alert
 
@@ -185,6 +191,32 @@ class EvidencePoweredTrickster:
 
         # CrossProposalAnalyzer can work with None linker
         self._cross_analyzer = CrossProposalAnalyzer(self._linker)
+
+    def resolve_config(self, domain: str | None = None) -> TricksterConfig:
+        """Resolve the effective config for a given domain.
+
+        Args:
+            domain: Domain name (e.g., "medical", "legal", "financial").
+                If None or not found in domain_configs, returns the default config.
+
+        Returns:
+            TricksterConfig for the specified domain, or the default config.
+
+        Example:
+            # Medical domain with stricter thresholds
+            trickster = EvidencePoweredTrickster(
+                config=TricksterConfig(),  # default
+                domain_configs={
+                    "medical": TricksterConfig(sensitivity=0.8),  # more sensitive
+                    "legal": TricksterConfig(min_quality_threshold=0.7),
+                },
+            )
+            config = trickster.resolve_config("medical")  # Returns medical config
+            config = trickster.resolve_config("unknown")  # Returns default config
+        """
+        if domain and domain in self.domain_configs:
+            return self.domain_configs[domain]
+        return self.config
 
     def check_and_intervene(
         self,

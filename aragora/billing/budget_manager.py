@@ -100,6 +100,14 @@ DEFAULT_THRESHOLDS = [
     BudgetThreshold(1.00, BudgetAction.HARD_LIMIT),
 ]
 
+# SMB-strict thresholds: Hard block at 90% to prevent bill shock
+# Recommended for small/medium businesses that want stricter cost control
+SMB_DEFAULT_THRESHOLDS = [
+    BudgetThreshold(0.50, BudgetAction.NOTIFY),
+    BudgetThreshold(0.75, BudgetAction.WARN),
+    BudgetThreshold(0.90, BudgetAction.HARD_LIMIT),  # Block before 100% - no bill shock
+]
+
 
 @dataclass
 class Budget:
@@ -558,6 +566,43 @@ class BudgetManager:
             f"Created budget {budget_id} for org {org_id}: ${amount_usd:.2f}/{period.value}"
         )
         return budget
+
+    def create_smb_budget(
+        self,
+        org_id: str,
+        name: str,
+        amount_usd: float,
+        period: BudgetPeriod = BudgetPeriod.MONTHLY,
+        description: str = "",
+        created_by: str | None = None,
+    ) -> Budget:
+        """Create a budget with SMB-strict thresholds (hard block at 90%).
+
+        This is a convenience method for small/medium businesses that want
+        stricter cost control to prevent bill shock. The budget will hard-block
+        at 90% of the limit, leaving 10% headroom.
+
+        Args:
+            org_id: Organization ID
+            name: Budget name
+            amount_usd: Budget limit in USD
+            period: Budget period type (default: monthly)
+            description: Optional description
+            created_by: User who created the budget
+
+        Returns:
+            Created Budget object with SMB-strict thresholds
+        """
+        return self.create_budget(
+            org_id=org_id,
+            name=name,
+            amount_usd=amount_usd,
+            period=period,
+            description=description or "SMB-strict budget with 90% hard limit",
+            auto_suspend=True,  # Always auto-suspend for SMB
+            thresholds=list(SMB_DEFAULT_THRESHOLDS),
+            created_by=created_by,
+        )
 
     def get_budget(self, budget_id: str) -> Budget | None:
         """Get a budget by ID."""

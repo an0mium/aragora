@@ -47,6 +47,19 @@ class PolicyHandlerMixin:
     - get_current_user(handler) -> User | None
     """
 
+    # Method stubs for type checking - must be provided by parent class
+    def _get_user_id(self, handler: Any) -> str:
+        """Get user ID from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
+    def _get_tenant_id(self, handler: Any) -> str | None:
+        """Get tenant ID from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
+    def get_current_user(self, handler: Any) -> Any:
+        """Get current user from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
     # =========================================================================
     # Policy Rule Handlers
     # =========================================================================
@@ -75,8 +88,7 @@ class PolicyHandlerMixin:
         """Add a policy rule."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-
+            user_id = self._get_user_id(handler)
             name = body.get("name")
             if not name:
                 return error_response("name is required", 400)
@@ -133,8 +145,7 @@ class PolicyHandlerMixin:
         """Remove a policy rule."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-
+            user_id = self._get_user_id(handler)
             if hasattr(store, "remove_policy_rule"):
                 removed = store.remove_policy_rule(rule_name)
             else:
@@ -166,8 +177,7 @@ class PolicyHandlerMixin:
         """List pending approval requests."""
         try:
             store = _get_store()
-            tenant_id = self._get_tenant_id(handler)  # type: ignore[attr-defined]
-
+            tenant_id = self._get_tenant_id(handler)
             limit = safe_query_int(query_params, "limit", default=50, max_val=500)
             offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=100000)
 
@@ -200,9 +210,10 @@ class PolicyHandlerMixin:
         """Approve a pending action."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-
-            approver_id = body.get("approver_id", user_id)
+            user_id = self._get_user_id(handler)
+            # Security: approver_id MUST be the authenticated user to prevent impersonation
+            # The approver_id in body is ignored - only the authenticated user can approve
+            approver_id = user_id
             reason = body.get("reason", "")
 
             if hasattr(store, "approve_action"):
@@ -240,9 +251,9 @@ class PolicyHandlerMixin:
         """Deny a pending action."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-
-            approver_id = body.get("approver_id", user_id)
+            user_id = self._get_user_id(handler)
+            # Security: approver_id MUST be the authenticated user to prevent impersonation
+            approver_id = user_id
             reason = body.get("reason", "")
 
             if hasattr(store, "deny_action"):

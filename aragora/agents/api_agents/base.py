@@ -4,10 +4,18 @@ Base class for API-based agents.
 
 from __future__ import annotations
 
+import logging
+from typing import TYPE_CHECKING
+
 from aragora.agents.base import CritiqueMixin
 from aragora.core import Agent, Message
 from aragora.core_types import AgentRole
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
+
+if TYPE_CHECKING:
+    from aragora.debate.complexity_governor import AdaptiveComplexityGovernor
+
+logger = logging.getLogger(__name__)
 
 
 class APIAgent(CritiqueMixin, Agent):
@@ -35,13 +43,18 @@ class APIAgent(CritiqueMixin, Agent):
         temperature: float | None = None,
         top_p: float | None = None,
         frequency_penalty: float | None = None,
+        # Adaptive timeout configuration
+        enable_adaptive_timeout: bool = True,
     ) -> None:
         super().__init__(name, model, role)
-        self.timeout = timeout
+        self._base_timeout = timeout  # Store base timeout
+        self.timeout = timeout  # Current effective timeout
         self.api_key = api_key
         self.base_url = base_url
         self.agent_type = "api"  # Default for API agents
         self.enable_circuit_breaker = enable_circuit_breaker
+        self.enable_adaptive_timeout = enable_adaptive_timeout
+        self._complexity_governor: "AdaptiveComplexityGovernor | None" = None
 
         # Generation parameters (from persona or explicit)
         self.temperature = temperature  # None means use provider default
@@ -157,6 +170,103 @@ class APIAgent(CritiqueMixin, Agent):
         self._last_tokens_out = 0
         self._total_tokens_in = 0
         self._total_tokens_out = 0
+
+    # =========================================================================
+    # Adaptive Timeout Support
+    # =========================================================================
+
+    def set_complexity_governor(self, governor: "AdaptiveComplexityGovernor | None") -> None:
+        """Set the complexity governor for adaptive timeout management.
+
+        When set, the agent will use the governor to determine timeouts
+        based on task complexity and system stress levels.
+
+        Args:
+            governor: The AdaptiveComplexityGovernor instance, or None to disable
+        """
+        self._complexity_governor = governor
+        if governor:
+            logger.debug(
+                f"adaptive_timeout_enabled agent={self.name} "
+                f"complexity={governor.task_complexity.value}"
+            )
+
+    def get_effective_timeout(self) -> float:
+        """Get the effective timeout for this agent.
+
+        If adaptive timeout is enabled and a complexity governor is set,
+        returns a timeout scaled by task complexity and system stress.
+        Otherwise returns the base timeout.
+
+        Returns:
+            Timeout in seconds
+        """
+        if not self.enable_adaptive_timeout or self._complexity_governor is None:
+            return float(self._base_timeout)
+
+        # Get agent-specific constraints from governor
+        constraints = self._complexity_governor.get_agent_constraints(self.name)
+        adaptive_timeout = constraints.get("timeout_seconds", self._base_timeout)
+
+        # Also consider complexity-scaled timeout
+        scaled_timeout = self._complexity_governor.get_scaled_timeout(float(self._base_timeout))
+
+        # Use the more conservative (lower) of the two
+        effective = min(adaptive_timeout, scaled_timeout)
+
+        # Update self.timeout for compatibility with existing code
+        self.timeout = int(effective)
+
+        logger.debug(
+            f"adaptive_timeout_calc agent={self.name} "
+            f"base={self._base_timeout} adaptive={adaptive_timeout:.0f} "
+            f"scaled={scaled_timeout:.0f} effective={effective:.0f}"
+        )
+
+        return effective
+
+    def record_response_to_governor(
+        self,
+        latency_ms: float,
+        success: bool,
+        response_tokens: int = 0,
+    ) -> None:
+        """Record a response to the complexity governor for metrics tracking.
+
+        This feeds back performance data to the governor so it can adjust
+        timeouts and constraints for future requests.
+
+        Args:
+            latency_ms: Response latency in milliseconds
+            success: Whether the response was successful
+            response_tokens: Number of tokens in response
+        """
+        if self._complexity_governor is None:
+            return
+
+        if success:
+            self._complexity_governor.record_agent_response(
+                self.name, latency_ms, success, response_tokens
+            )
+        else:
+            # Timeouts are recorded separately
+            if latency_ms >= self._base_timeout * 1000:
+                self._complexity_governor.record_agent_timeout(self.name, self._base_timeout)
+            else:
+                self._complexity_governor.record_agent_response(
+                    self.name, latency_ms, success, response_tokens
+                )
+
+    @property
+    def base_timeout(self) -> int:
+        """Get the base timeout (before adaptive adjustments)."""
+        return self._base_timeout
+
+    @base_timeout.setter
+    def base_timeout(self, value: int) -> None:
+        """Set the base timeout."""
+        self._base_timeout = value
+        self.timeout = value  # Also update current timeout
 
     def _build_context_prompt(
         self,

@@ -488,7 +488,14 @@ class TeamsIntegrationHandler(BaseHandler):
                 self._active_debates[conv_id]["debate_id"] = debate_id
 
             # Run debate
-            arena = Arena(env, agents, protocol)
+            ctx = getattr(self, "ctx", {}) or {}
+            arena = Arena(
+                env,
+                agents,
+                protocol,
+                document_store=ctx.get("document_store"),
+                evidence_store=ctx.get("evidence_store"),
+            )
             result = await arena.run()
 
             # Post result

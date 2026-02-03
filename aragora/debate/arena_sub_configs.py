@@ -170,6 +170,9 @@ class PerformanceFeedbackConfig:
     trickster_calibration_min_samples: int = 20  # Min outcomes before calibrating
     trickster_calibration_interval: int = 50  # Debates between calibrations
 
+    # Trickster Domain-Specific Thresholds (Pillar 4: Multi-agent robustness)
+    trickster_domain_configs: dict[str, Any] | None = None  # Domain -> TricksterConfig mapping
+
 
 @dataclass
 class AuditTrailConfig:

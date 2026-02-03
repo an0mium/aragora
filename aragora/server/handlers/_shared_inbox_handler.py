@@ -90,10 +90,11 @@ from aragora.server.handlers.shared_inbox import (
     handle_delete_routing_rule,
     handle_test_routing_rule,
 )
+from aragora.server.handlers.shared_inbox.rules_engine import _evaluate_rule as _evaluate_rule_impl
 
 # Backward compatibility: expose the rate limiter instance
 _rule_rate_limiter = get_rule_rate_limiter()
-_evaluate_rule = evaluate_rule_for_test
+_evaluate_rule = _evaluate_rule_impl
 
 __all__ = [
     # Models

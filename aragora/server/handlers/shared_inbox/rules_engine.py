@@ -128,17 +128,17 @@ async def get_matching_rules_for_email(
         List of matching rule dictionaries sorted by priority (ascending)
     """
     matching_rules = []
+    store_rules: list[dict[str, Any]] = []
 
     # Try RulesStore first (primary persistent storage)
     rules_store = _get_rules_store()
     if rules_store:
         try:
-            matching_rules = rules_store.get_matching_rules(
+            store_rules = rules_store.get_matching_rules(
                 inbox_id=inbox_id,
                 email_data=email_data,
                 workspace_id=workspace_id,
             )
-            return matching_rules
         except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"[SharedInbox] Failed to get matching rules from RulesStore: {e}")
 
@@ -167,6 +167,17 @@ async def get_matching_rules_for_email(
         for rule in rules:
             if _evaluate_rule(rule, msg):
                 matching_rules.append(rule.to_dict())
+
+    if store_rules:
+        if not matching_rules:
+            return store_rules
+        combined: dict[str, dict[str, Any]] = {r.get("id", ""): r for r in store_rules}
+        for rule in matching_rules:
+            rule_id = rule.get("id", "")
+            combined[rule_id] = rule
+        merged = list(combined.values())
+        merged.sort(key=lambda r: r.get("priority", 0))
+        return merged
 
     return matching_rules
 

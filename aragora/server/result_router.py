@@ -46,6 +46,110 @@ async def route_result(debate_id: str, result: dict[str, Any]) -> bool:
         return False
 
 
+async def route_plan_outcome(
+    debate_id: str,
+    plan_id: str,
+    outcome: dict[str, Any],
+) -> bool:
+    """Route a plan outcome notification to the originating channel.
+
+    Args:
+        debate_id: Original debate identifier
+        plan_id: Plan identifier
+        outcome: Plan outcome dictionary
+
+    Returns:
+        True if routed successfully
+    """
+    try:
+        from aragora.server.debate_origin import get_debate_origin
+        from aragora.server.debate_origin.router import route_plan_result
+
+        # Look up the origin by debate_id (plans originate from debates)
+        origin = get_debate_origin(debate_id)
+        if not origin:
+            logger.debug(f"No origin found for debate {debate_id}, skipping plan delivery")
+            return False
+
+        # Format the outcome as a user-friendly message
+        message = _format_plan_outcome_message(plan_id, outcome)
+
+        # Add plan_id and formatted message to outcome for routing
+        outcome_with_message = {
+            **outcome,
+            "plan_id": plan_id,
+            "formatted_message": message,
+        }
+
+        # Route to the originating channel
+        return await route_plan_result(debate_id, outcome_with_message)
+
+    except ImportError as e:
+        logger.warning(f"debate_origin module not available for plan routing: {e}")
+        return False
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.error(f"Failed to route plan outcome: {e}")
+        return False
+
+
+def _format_plan_outcome_message(plan_id: str, outcome: dict[str, Any]) -> str:
+    """Format a plan outcome as a user-friendly message.
+
+    Args:
+        plan_id: Plan identifier
+        outcome: Plan outcome dictionary
+
+    Returns:
+        Formatted message string
+    """
+    success = outcome.get("success", False)
+    task = outcome.get("task", "Unknown task")[:200]
+    tasks_completed = outcome.get("tasks_completed", 0)
+    tasks_total = outcome.get("tasks_total", 0)
+    verification_passed = outcome.get("verification_passed", 0)
+    verification_total = outcome.get("verification_total", 0)
+    error = outcome.get("error")
+
+    if success:
+        status = "Completed Successfully"
+        icon = "check"
+    elif tasks_completed > 0:
+        status = "Partially Completed"
+        icon = "warning"
+    else:
+        status = "Failed"
+        icon = "error"
+
+    lines = [
+        f"**Decision Plan {status}** ({icon})",
+        f"Plan: `{plan_id[:8]}...`",
+        f"Task: {task}",
+        "",
+        f"- Tasks: {tasks_completed}/{tasks_total} completed",
+    ]
+
+    if verification_total > 0:
+        lines.append(f"- Verification: {verification_passed}/{verification_total} passed")
+
+    if error:
+        lines.append(f"- Error: {error}")
+
+    # Include receipt if present
+    receipt_id = outcome.get("receipt_id")
+    if receipt_id:
+        lines.append(f"- Receipt: `{receipt_id[:8]}...`")
+
+    # Include lessons if present
+    lessons = outcome.get("lessons", [])
+    if lessons:
+        lines.append("")
+        lines.append("**Lessons learned:**")
+        for lesson in lessons[:3]:  # Limit to 3 lessons
+            lines.append(f"- {lesson}")
+
+    return "\n".join(lines)
+
+
 def _on_post_debate(**kwargs: Any) -> None:
     """POST_DEBATE hook handler that routes results to originating channels."""
     result = kwargs.get("result")
@@ -142,6 +246,7 @@ def setup_result_routing() -> None:
 
 __all__ = [
     "route_result",
+    "route_plan_outcome",
     "register_result_router_hooks",
     "setup_result_routing",
 ]

@@ -89,6 +89,8 @@ class DebateControllerMixin:
                 dissent_retriever=self.dissent_retriever,
                 moment_detector=self.moment_detector,
                 stream_emitter=self.stream_emitter,
+                document_store=getattr(self, "ctx", {}).get("document_store"),
+                evidence_store=getattr(self, "ctx", {}).get("evidence_store"),
             )
             cls._debate_factory = factory
 

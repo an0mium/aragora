@@ -12,7 +12,7 @@ import asyncio
 import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import (
@@ -55,6 +55,32 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _normalize_documents(value: Any, max_items: int = 50) -> list[str]:
+    """Normalize document ID input to a clean list of strings."""
+    if not value:
+        return []
+    if isinstance(value, str):
+        candidates = [value]
+    elif isinstance(value, list):
+        candidates = value
+    else:
+        return []
+
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for item in candidates:
+        if not isinstance(item, str):
+            continue
+        doc_id = item.strip()
+        if not doc_id or doc_id in seen:
+            continue
+        seen.add(doc_id)
+        normalized.append(doc_id)
+        if len(normalized) >= max_items:
+            break
+    return normalized
+
+
 @dataclass
 class DebateRequest:
     """Parsed debate request from HTTP body."""
@@ -69,12 +95,15 @@ class DebateRequest:
     use_trending: bool = False
     trending_category: str | None = None
     metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
+    documents: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if self.auto_select_config is None:
             self.auto_select_config = {}
         if self.metadata is None:
             self.metadata = {}
+        if self.documents is None:
+            self.documents = []
         # Normalize debate_format
         if self.debate_format not in ("light", "full"):
             self.debate_format = "full"
@@ -114,6 +143,7 @@ class DebateRequest:
             auto_select_config=data.get("auto_select_config", {}),
             use_trending=data.get("use_trending", False),
             trending_category=data.get("trending_category"),
+            documents=_normalize_documents(data.get("documents") or data.get("document_ids") or []),
         )
 
 
@@ -403,6 +433,7 @@ Return JSON with these exact fields:
                 "agents": agents_str,
                 "rounds": request.rounds,
                 "total_rounds": request.rounds,
+                "documents": list(request.documents or []),
             }
 
         # Periodic cleanup
@@ -460,6 +491,7 @@ Return JSON with these exact fields:
             debate_id=debate_id,
             trending_topic=trending_topic,
             metadata=request.metadata,
+            documents=list(request.documents or []),
         )
 
         # Submit to thread pool

@@ -229,6 +229,7 @@ def init_phases(arena: "Arena") -> None:
         enable_trending_context=getattr(arena.protocol, "enable_trending_injection", True),
         document_store=getattr(arena, "document_store", None),
         evidence_store=getattr(arena, "evidence_store", None),
+        document_ids=getattr(arena.env, "documents", None),
     )
 
     # Auto-initialize PopulationManager for genome evolution when auto_evolve is enabled

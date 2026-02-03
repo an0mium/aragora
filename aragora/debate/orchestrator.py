@@ -293,6 +293,8 @@ class Arena(ArenaDelegatesMixin):
         auto_evolve: bool = False,
         breeding_threshold: float = 0.8,
         evidence_collector: Any = None,
+        document_store: Any | None = None,
+        evidence_store: Any | None = None,
         skill_registry: Any = None,
         enable_skills: bool = False,
         propulsion_engine: Any = None,
@@ -720,6 +722,9 @@ class Arena(ArenaDelegatesMixin):
         self.revalidation_staleness_threshold = revalidation_staleness_threshold
         self.revalidation_check_interval_seconds = revalidation_check_interval_seconds
         self.revalidation_scheduler = revalidation_scheduler
+        # Document/evidence stores for context injection
+        self.document_store = document_store
+        self.evidence_store = evidence_store
         # Supermemory integration (external memory persistence)
         self.enable_supermemory = enable_supermemory
         self.supermemory_adapter = supermemory_adapter

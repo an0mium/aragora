@@ -741,7 +741,14 @@ class VerticalsHandler(SecureHandler):
             )
 
             # Run debate
-            arena = Arena(env, agents=agents, protocol=protocol)
+            ctx = getattr(self, "ctx", {}) or {}
+            arena = Arena(
+                env,
+                agents=agents,
+                protocol=protocol,
+                document_store=ctx.get("document_store"),
+                evidence_store=ctx.get("evidence_store"),
+            )
             result = await arena.run()
 
             self._circuit_breaker.record_success()

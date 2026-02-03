@@ -23,6 +23,7 @@ from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
 
 if TYPE_CHECKING:
+    from aragora.connectors.base import ConnectorCapabilities
     from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
@@ -717,3 +718,35 @@ class EnterpriseConnector(BaseConnector):
         ).hexdigest()
 
         return hmac.compare_digest(expected, signature)
+
+    def capabilities(self) -> "ConnectorCapabilities":
+        """
+        Report the capabilities of this enterprise connector.
+
+        Enterprise connectors extend base connectors with sync capabilities.
+
+        Returns:
+            ConnectorCapabilities for this connector
+        """
+        from aragora.connectors.base import ConnectorCapabilities
+
+        return ConnectorCapabilities(
+            can_send=False,
+            can_receive=False,
+            can_search=True,
+            can_sync=True,  # Enterprise connectors support incremental sync
+            can_stream=False,
+            can_batch=True,  # Batch processing via sync
+            is_stateful=False,
+            requires_auth=True,
+            supports_oauth=False,  # Subclasses may override
+            supports_webhooks=True,  # Enterprise connectors support webhooks
+            supports_files=False,
+            supports_rich_text=False,
+            supports_reactions=False,
+            supports_threads=False,
+            supports_voice=False,
+            supports_delivery_receipts=False,
+            supports_retry=True,
+            has_circuit_breaker=self._enable_circuit_breaker,
+        )

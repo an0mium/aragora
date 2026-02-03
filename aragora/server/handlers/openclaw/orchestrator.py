@@ -78,6 +78,19 @@ class SessionOrchestrationMixin:
     - get_current_user(handler) -> User | None
     """
 
+    # Method stubs for type checking - must be provided by parent class
+    def _get_user_id(self, handler: Any) -> str:
+        """Get user ID from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
+    def _get_tenant_id(self, handler: Any) -> str | None:
+        """Get tenant ID from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
+    def get_current_user(self, handler: Any) -> Any:
+        """Get current user from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
     # =========================================================================
     # Session Handlers
     # =========================================================================
@@ -88,8 +101,8 @@ class SessionOrchestrationMixin:
         """List sessions with optional filtering."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-            tenant_id = self._get_tenant_id(handler)  # type: ignore[attr-defined]
+            user_id = self._get_user_id(handler)
+            tenant_id = self._get_tenant_id(handler)
 
             # Parse query parameters
             status_str = query_params.get("status")
@@ -132,8 +145,8 @@ class SessionOrchestrationMixin:
                 return error_response(f"Session not found: {session_id}", 404)
 
             # Check access (user can only see their own sessions unless admin)
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-            user = self.get_current_user(handler)  # type: ignore[attr-defined]
+            user_id = self._get_user_id(handler)
+            user = self.get_current_user(handler)
             is_admin = user and _has_permission(
                 user.role if hasattr(user, "role") else None, "gateway:admin"
             )
@@ -152,8 +165,8 @@ class SessionOrchestrationMixin:
         """Create a new session."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-            tenant_id = self._get_tenant_id(handler)  # type: ignore[attr-defined]
+            user_id = self._get_user_id(handler)
+            tenant_id = self._get_tenant_id(handler)
 
             config = body.get("config", {})
             metadata = body.get("metadata", {})
@@ -197,7 +210,7 @@ class SessionOrchestrationMixin:
         """Close a session."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
+            user_id = self._get_user_id(handler)
 
             session = store.get_session(session_id)
             if not session:
@@ -205,7 +218,7 @@ class SessionOrchestrationMixin:
 
             # Verify ownership
             if session.user_id != user_id:
-                user = self.get_current_user(handler)  # type: ignore[attr-defined]
+                user = self.get_current_user(handler)
                 is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
@@ -237,7 +250,7 @@ class SessionOrchestrationMixin:
         """End a session via POST (SDK-compatible endpoint)."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
+            user_id = self._get_user_id(handler)
 
             session = store.get_session(session_id)
             if not session:
@@ -245,7 +258,7 @@ class SessionOrchestrationMixin:
 
             # Verify ownership
             if session.user_id != user_id:
-                user = self.get_current_user(handler)  # type: ignore[attr-defined]
+                user = self.get_current_user(handler)
                 is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
@@ -289,8 +302,8 @@ class SessionOrchestrationMixin:
             # Check access via session ownership
             session = store.get_session(action.session_id)
             if session:
-                user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-                user = self.get_current_user(handler)  # type: ignore[attr-defined]
+                user_id = self._get_user_id(handler)
+                user = self.get_current_user(handler)
                 is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
@@ -313,7 +326,7 @@ class SessionOrchestrationMixin:
         """Execute an action."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
+            user_id = self._get_user_id(handler)
 
             # Validate required fields
             session_id = body.get("session_id")
@@ -333,7 +346,7 @@ class SessionOrchestrationMixin:
                 return error_response(f"Session not found: {session_id}", 404)
 
             if session.user_id != user_id:
-                user = self.get_current_user(handler)  # type: ignore[attr-defined]
+                user = self.get_current_user(handler)
                 is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
@@ -401,7 +414,7 @@ class SessionOrchestrationMixin:
         """Cancel a running action."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
+            user_id = self._get_user_id(handler)
 
             action = store.get_action(action_id)
             if not action:
@@ -410,7 +423,7 @@ class SessionOrchestrationMixin:
             # Verify access
             session = store.get_session(action.session_id)
             if session and session.user_id != user_id:
-                user = self.get_current_user(handler)  # type: ignore[attr-defined]
+                user = self.get_current_user(handler)
                 is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )

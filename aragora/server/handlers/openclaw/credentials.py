@@ -179,15 +179,27 @@ class CredentialHandlerMixin:
     - get_current_user(handler) -> User | None
     """
 
+    # Method stubs for type checking - must be provided by parent class
+    def _get_user_id(self, handler: Any) -> str:
+        """Get user ID from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
+    def _get_tenant_id(self, handler: Any) -> str | None:
+        """Get tenant ID from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
+    def get_current_user(self, handler: Any) -> Any:
+        """Get current user from handler. Must be overridden by parent class."""
+        raise NotImplementedError("Must be provided by parent class")
+
     @require_permission("gateway:credentials.read")
     @rate_limit(requests_per_minute=60, limiter_name="openclaw_gateway_list_creds")
     def _handle_list_credentials(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """List credentials (metadata only, no secret values)."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-            tenant_id = self._get_tenant_id(handler)  # type: ignore[attr-defined]
-
+            user_id = self._get_user_id(handler)
+            tenant_id = self._get_tenant_id(handler)
             # Parse query parameters
             type_str = query_params.get("type")
             cred_type = CredentialType(type_str) if type_str else None
@@ -227,9 +239,8 @@ class CredentialHandlerMixin:
         """Store a new credential."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-            tenant_id = self._get_tenant_id(handler)  # type: ignore[attr-defined]
-
+            user_id = self._get_user_id(handler)
+            tenant_id = self._get_tenant_id(handler)
             # Validate credential name
             name = body.get("name")
             validation_name = name.replace(" ", "_") if isinstance(name, str) else name
@@ -307,8 +318,7 @@ class CredentialHandlerMixin:
         """Rotate a credential's secret value."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-
+            user_id = self._get_user_id(handler)
             # Check credential rotation rate limit (per-user, in addition to general rate limit)
             rotation_limiter = _get_credential_rotation_limiter()
             if not rotation_limiter.is_allowed(user_id):
@@ -348,7 +358,7 @@ class CredentialHandlerMixin:
 
             # Verify ownership
             if credential.user_id != user_id:
-                user = self.get_current_user(handler)  # type: ignore[attr-defined]
+                user = self.get_current_user(handler)
                 is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )
@@ -396,15 +406,14 @@ class CredentialHandlerMixin:
         """Delete a credential."""
         try:
             store = _get_store()
-            user_id = self._get_user_id(handler)  # type: ignore[attr-defined]
-
+            user_id = self._get_user_id(handler)
             credential = store.get_credential(credential_id)
             if not credential:
                 return error_response(f"Credential not found: {credential_id}", 404)
 
             # Verify ownership
             if credential.user_id != user_id:
-                user = self.get_current_user(handler)  # type: ignore[attr-defined]
+                user = self.get_current_user(handler)
                 is_admin = user and _has_permission(
                     user.role if hasattr(user, "role") else None, "gateway:admin"
                 )

@@ -47,6 +47,13 @@ DEBATE_START_SCHEMA = {
         "allowed_values": {"light", "full"},
         "required": False,
     },  # "light" (~5 min) or "full" (~30 min)
+    "documents": {
+        "type": "list",
+        "min_length": 1,
+        "max_length": 50,
+        "item_type": str,
+        "required": False,
+    },
 }
 
 DEBATE_UPDATE_SCHEMA = {

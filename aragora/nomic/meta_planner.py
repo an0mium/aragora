@@ -3,6 +3,9 @@
 Takes high-level business objectives and uses multi-agent debate to
 determine which areas should be improved first.
 
+Includes cross-cycle learning: queries past Nomic Loop outcomes from
+the Knowledge Mound to inform planning and avoid repeating failures.
+
 Usage:
     from aragora.nomic.meta_planner import MetaPlanner
 
@@ -22,7 +25,10 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +58,17 @@ class PrioritizedGoal:
 
 
 @dataclass
+class HistoricalLearning:
+    """Learning from a past Nomic cycle."""
+
+    cycle_id: str
+    objective: str
+    was_success: bool
+    lesson: str
+    relevance: float  # 0-1, how relevant to current objective
+
+
+@dataclass
 class PlanningContext:
     """Context for meta-planning decisions."""
 
@@ -59,6 +76,10 @@ class PlanningContext:
     test_failures: list[str] = field(default_factory=list)
     user_feedback: list[str] = field(default_factory=list)
     recent_changes: list[str] = field(default_factory=list)
+    # Cross-cycle learning
+    historical_learnings: list[HistoricalLearning] = field(default_factory=list)
+    past_failures_to_avoid: list[str] = field(default_factory=list)
+    past_successes_to_build_on: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -69,6 +90,10 @@ class MetaPlannerConfig:
     debate_rounds: int = 2
     max_goals: int = 5
     consensus_threshold: float = 0.6
+    # Cross-cycle learning
+    enable_cross_cycle_learning: bool = True
+    max_similar_cycles: int = 3
+    min_cycle_similarity: float = 0.3
 
 
 class MetaPlanner:
@@ -106,6 +131,10 @@ class MetaPlanner:
         logger.info(
             f"meta_planner_started objective={objective[:100]} tracks={[t.value for t in available_tracks]}"
         )
+
+        # Cross-cycle learning: Query past similar cycles
+        if self.config.enable_cross_cycle_learning:
+            context = await self._enrich_context_with_history(objective, available_tracks, context)
 
         try:
             from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -156,6 +185,80 @@ class MetaPlanner:
             logger.exception(f"Meta-planning failed: {e}")
             return self._heuristic_prioritize(objective, available_tracks)
 
+    async def _enrich_context_with_history(
+        self,
+        objective: str,
+        tracks: list[Track],
+        context: PlanningContext,
+    ) -> PlanningContext:
+        """Enrich planning context with learnings from past cycles.
+
+        Queries the Knowledge Mound for similar past cycles and extracts
+        relevant learnings to inform the current planning session.
+
+        Args:
+            objective: Current planning objective
+            tracks: Available tracks
+            context: Existing planning context
+
+        Returns:
+            Enriched PlanningContext with historical learnings
+        """
+        try:
+            from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                get_nomic_cycle_adapter,
+            )
+
+            adapter = get_nomic_cycle_adapter()
+            track_names = [t.value for t in tracks]
+
+            similar_cycles = await adapter.find_similar_cycles(
+                objective=objective,
+                tracks=track_names,
+                limit=self.config.max_similar_cycles,
+                min_similarity=self.config.min_cycle_similarity,
+            )
+
+            if similar_cycles:
+                logger.info(
+                    f"cross_cycle_learning found={len(similar_cycles)} cycles "
+                    f"for objective={objective[:50]}"
+                )
+
+            for cycle in similar_cycles:
+                # Add what worked
+                for success in cycle.what_worked:
+                    context.past_successes_to_build_on.append(f"[{cycle.objective[:30]}] {success}")
+                    context.historical_learnings.append(
+                        HistoricalLearning(
+                            cycle_id=cycle.cycle_id,
+                            objective=cycle.objective,
+                            was_success=True,
+                            lesson=success,
+                            relevance=cycle.similarity,
+                        )
+                    )
+
+                # Add what failed (important to avoid!)
+                for failure in cycle.what_failed:
+                    context.past_failures_to_avoid.append(f"[{cycle.objective[:30]}] {failure}")
+                    context.historical_learnings.append(
+                        HistoricalLearning(
+                            cycle_id=cycle.cycle_id,
+                            objective=cycle.objective,
+                            was_success=False,
+                            lesson=failure,
+                            relevance=cycle.similarity,
+                        )
+                    )
+
+        except ImportError:
+            logger.debug("Nomic cycle adapter not available, skipping history enrichment")
+        except Exception as e:
+            logger.warning(f"Failed to enrich context with history: {e}")
+
+        return context
+
     def _build_debate_topic(
         self,
         objective: str,
@@ -196,6 +299,19 @@ FAILING TESTS:
 {chr(10).join(f"- {failure}" for failure in context.test_failures[:5])}
 """
 
+        # Add historical learnings (cross-cycle learning)
+        if context.past_successes_to_build_on:
+            topic += f"""
+PAST SUCCESSES TO BUILD ON (from similar cycles):
+{chr(10).join(f"- {s}" for s in context.past_successes_to_build_on[:5])}
+"""
+
+        if context.past_failures_to_avoid:
+            topic += f"""
+PAST FAILURES TO AVOID (learn from these mistakes):
+{chr(10).join(f"- {f}" for f in context.past_failures_to_avoid[:5])}
+"""
+
         topic += """
 YOUR TASK:
 Propose 3-5 specific improvement goals that would best achieve the objective.
@@ -207,6 +323,10 @@ For each goal, specify:
 
 Format your response as a numbered list with clear structure.
 Consider dependencies and order goals by priority.
+"""
+        if context.past_failures_to_avoid:
+            topic += """
+IMPORTANT: Avoid repeating past failures listed above. Learn from history.
 """
         return topic
 
@@ -384,5 +504,6 @@ __all__ = [
     "MetaPlannerConfig",
     "PrioritizedGoal",
     "PlanningContext",
+    "HistoricalLearning",
     "Track",
 ]

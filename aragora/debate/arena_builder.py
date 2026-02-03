@@ -193,6 +193,8 @@ class ArenaBuilder:
         # Historical context
         self._dissent_retriever: Optional["DissentRetriever"] = None
         self._evidence_collector: Optional["EvidenceCollector"] = None
+        self._document_store: Any | None = None
+        self._evidence_store: Any | None = None
         self._trending_topic: Optional["TrendingTopic"] = None
         self._consensus_memory: Any = None
         self._tier_analytics_tracker: Any = None
@@ -521,6 +523,16 @@ class ArenaBuilder:
             collector: EvidenceCollector instance
         """
         self._evidence_collector = collector
+        return self
+
+    def with_document_store(self, store: Any) -> ArenaBuilder:
+        """Set DocumentStore for uploaded document context."""
+        self._document_store = store
+        return self
+
+    def with_evidence_store(self, store: Any) -> ArenaBuilder:
+        """Set EvidenceStore for evidence snippet context."""
+        self._evidence_store = store
         return self
 
     def with_trending_topic(self, topic: "TrendingTopic") -> ArenaBuilder:
@@ -1068,6 +1080,8 @@ class ArenaBuilder:
             relationship_tracker=self._relationship_tracker,
             moment_detector=self._moment_detector,
             tier_analytics_tracker=self._tier_analytics_tracker,
+            document_store=self._document_store,
+            evidence_store=self._evidence_store,
             loop_id=self._loop_id,
             strict_loop_scoping=self._strict_loop_scoping,
             circuit_breaker=self._circuit_breaker,

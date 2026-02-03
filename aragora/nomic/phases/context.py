@@ -285,6 +285,12 @@ class ContextPhase:
         if _metrics_recorder:
             _metrics_recorder("context", "success" if success else "failure", phase_duration)
 
+        # Inject recent cycle context for cross-cycle learning
+        recent_cycle_context = self._get_recent_cycle_context()
+        if recent_cycle_context:
+            gathered_context = f"{gathered_context}\n\n{recent_cycle_context}"
+            self._log("  [context] Injected recent cycle history for cross-cycle learning")
+
         return ContextResult(
             success=success,
             data={"agents_succeeded": len(combined_context)},
@@ -427,6 +433,57 @@ CRITICAL RULES:
             if _agent_metrics_recorder:
                 agent_duration = time.perf_counter() - agent_start
                 _agent_metrics_recorder("context", name, agent_duration)
+
+    def _get_recent_cycle_context(self, n: int = 3) -> str:
+        """Get summary of recent Nomic cycles for cross-cycle learning.
+
+        Args:
+            n: Number of recent cycles to include
+
+        Returns:
+            Formatted string with recent cycle summaries, or empty string if unavailable
+        """
+        try:
+            from aragora.nomic.cycle_store import get_recent_cycles
+
+            cycles = get_recent_cycles(n)
+            if not cycles:
+                return ""
+
+            lines = ["=== RECENT NOMIC CYCLE HISTORY (for cross-cycle learning) ==="]
+            lines.append(f"Last {len(cycles)} cycles:\n")
+
+            for cycle in cycles:
+                status = "SUCCESS" if cycle.success else "FAILED"
+                topics = ", ".join(cycle.topics_debated[:3]) if cycle.topics_debated else "none"
+                duration = f"{cycle.duration_seconds:.0f}s" if cycle.duration_seconds else "unknown"
+
+                lines.append(f"- Cycle {cycle.cycle_id[:8]}: {status}")
+                lines.append(f"  Topics: {topics}")
+                lines.append(f"  Duration: {duration}")
+
+                # Include patterns that worked
+                if cycle.success and cycle.consensus_reached:
+                    lines.append(f"  Consensus: {cycle.consensus_reached[0][:100]}...")
+
+                # Include surprises/lessons
+                if cycle.surprise_events:
+                    for surprise in cycle.surprise_events[:1]:
+                        lines.append(f"  Lesson: {surprise.description[:80]}...")
+
+                lines.append("")
+
+            lines.append(
+                "Use this history to avoid repeating past mistakes and build on successes."
+            )
+            return "\n".join(lines)
+
+        except ImportError:
+            self._log("  [context] cycle_store not available, skipping cycle context")
+            return ""
+        except Exception as e:
+            self._log(f"  [context] Failed to get recent cycles: {e}")
+            return ""
 
 
 __all__ = ["ContextPhase", "set_metrics_recorder"]

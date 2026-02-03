@@ -381,6 +381,9 @@ class MatrixDebatesHandler(SecureHandler):
 
             matrix_id = str(uuid.uuid4())
             all_conclusions: list[dict[str, Any]] = []
+            ctx = getattr(self, "ctx", {}) or {}
+            document_store = ctx.get("document_store")
+            evidence_store = ctx.get("evidence_store")
 
             # Run scenarios in parallel
             async def run_scenario(scenario_data: dict) -> dict:
@@ -403,7 +406,13 @@ class MatrixDebatesHandler(SecureHandler):
                     convergence_detection=False,
                     early_stopping=False,
                 )
-                arena = Arena(env, agents, protocol)
+                arena = Arena(
+                    env,
+                    agents,
+                    protocol,
+                    document_store=document_store,
+                    evidence_store=evidence_store,
+                )
 
                 result = await arena.run()
 

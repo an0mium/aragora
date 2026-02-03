@@ -636,7 +636,14 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                     env = Environment(task=topic)
                     protocol = DebateProtocol(rounds=DEFAULT_ROUNDS, consensus=DEFAULT_CONSENSUS)
                     agents = get_default_agents()[:3]  # Use first 3 agents
-                    arena = Arena(env, agents, protocol)
+                    ctx = getattr(self, "ctx", {}) or {}
+                    arena = Arena(
+                        env,
+                        agents,
+                        protocol,
+                        document_store=ctx.get("document_store"),
+                        evidence_store=ctx.get("evidence_store"),
+                    )
                     result = await arena.run()
 
                     # Send result back to user

@@ -95,6 +95,7 @@ class DebateConfig:
     debate_id: str | None = None
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
     metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
+    documents: list[str] = field(default_factory=list)
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
 
     def parse_agent_specs(self) -> list[AgentSpec]:
@@ -188,6 +189,8 @@ class DebateFactory:
         dissent_retriever: Optional["DissentRetriever"] = None,
         moment_detector: Optional["MomentDetector"] = None,
         stream_emitter: Optional["SyncEventEmitter"] = None,
+        document_store: Any | None = None,
+        evidence_store: Any | None = None,
     ):
         """Initialize the debate factory.
 
@@ -211,6 +214,8 @@ class DebateFactory:
         self.dissent_retriever = dissent_retriever
         self.moment_detector = moment_detector
         self.stream_emitter = stream_emitter
+        self.document_store = document_store
+        self.evidence_store = evidence_store
 
     def create_agents(
         self,
@@ -500,6 +505,7 @@ class DebateFactory:
             task=config.question,
             context="",
             max_rounds=rounds,
+            documents=list(config.documents or []),
         )
 
         # Create protocol from preset, allowing consensus override
@@ -592,6 +598,10 @@ class DebateFactory:
             builder = builder.with_moment_detector(self.moment_detector)
         if config.trending_topic:
             builder = builder.with_trending_topic(config.trending_topic)
+        if self.document_store:
+            builder = builder.with_document_store(self.document_store)
+        if self.evidence_store:
+            builder = builder.with_evidence_store(self.evidence_store)
 
         # Enable position ledger auto-creation for truth grounding
         builder = builder.with_enable_position_ledger(True)

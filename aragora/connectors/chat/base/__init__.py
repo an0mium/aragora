@@ -20,7 +20,10 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.connectors.base import ConnectorCapabilities
 
 from ..http_resilience import HTTPResilienceMixin
 from ._channel_user import ChannelUserMixin
@@ -199,6 +202,103 @@ class ChatPlatformConnector(
     def is_configured(self) -> bool:
         """Check if the connector has minimum required configuration."""
         return bool(self.bot_token or self.webhook_url)
+
+    @property
+    def is_connected(self) -> bool:
+        """Whether the connector has an active connection."""
+        return self.is_configured and self._initialized
+
+    async def connect(self) -> bool:
+        """
+        Establish connection to the chat platform.
+
+        For webhook-based connectors, this validates configuration.
+        For socket-based connectors, subclasses should establish connection.
+
+        Returns:
+            True if connection successful
+        """
+        if not self.is_configured:
+            return False
+        self._initialized = True
+        return True
+
+    async def disconnect(self) -> None:
+        """Close connection to the chat platform."""
+        self._initialized = False
+
+    async def send(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Send a message to the chat platform.
+
+        This is a generic wrapper around send_message for ConnectorProtocol.
+        For full functionality, use platform-specific methods.
+
+        Args:
+            data: Dict with 'channel_id' and 'text' keys
+
+        Returns:
+            Response from send_message
+        """
+        channel_id = data.get("channel_id", data.get("channel"))
+        text = data.get("text", data.get("message", ""))
+
+        if not channel_id:
+            return {"success": False, "error": "channel_id required"}
+
+        result = await self.send_message(
+            channel_id=channel_id,
+            text=text,
+            thread_id=data.get("thread_id"),
+        )
+        return {"success": result is not None, "response": result}
+
+    async def receive(self) -> dict[str, Any] | None:
+        """
+        Receive messages from the platform.
+
+        Chat connectors use webhooks for receiving, so this returns None.
+        Messages are received via parse_webhook_event() instead.
+
+        Returns:
+            None - use webhooks for receiving messages
+        """
+        return None
+
+    def capabilities(self) -> "ConnectorCapabilities":
+        """
+        Report the capabilities of this chat platform connector.
+
+        Returns:
+            ConnectorCapabilities describing chat platform features
+        """
+        from aragora.connectors.base import ConnectorCapabilities
+
+        return ConnectorCapabilities(
+            can_send=True,
+            can_receive=True,  # Via webhooks
+            can_search=False,  # Chat connectors don't search
+            can_sync=False,
+            can_stream=False,  # Subclasses may override
+            can_batch=False,
+            is_stateful=False,  # Webhook-based
+            requires_auth=True,
+            supports_oauth=False,  # Subclasses may override
+            supports_webhooks=True,
+            supports_files=True,  # Via upload_file
+            supports_rich_text=True,  # Most platforms support markdown
+            supports_reactions=True,  # Via add_reaction
+            supports_threads=True,  # Via thread_id
+            supports_voice=True,  # Via send_voice_message
+            supports_delivery_receipts=False,
+            supports_retry=True,
+            has_circuit_breaker=self._enable_circuit_breaker,
+            platform_features=[
+                "commands",  # Bot commands
+                "interactions",  # Button interactions
+                "mentions",  # User mentions
+            ],
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(platform={self.platform_name})"

@@ -49,14 +49,14 @@ class SkillMarketplaceHandler(SecureHandler):
     RESOURCE_TYPE = "skills"
 
     ROUTES = [
-        "/api/v1/skills/marketplace/search",
-        "/api/v1/skills/marketplace/publish",
-        "/api/v1/skills/marketplace/installed",
-        "/api/v1/skills/marketplace/stats",
+        "/api/skills/marketplace/search",
+        "/api/skills/marketplace/publish",
+        "/api/skills/marketplace/installed",
+        "/api/skills/marketplace/stats",
     ]
 
     PATTERN_PREFIXES = [
-        "/api/v1/skills/marketplace/",
+        "/api/skills/marketplace/",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -88,19 +88,28 @@ class SkillMarketplaceHandler(SecureHandler):
         except (UnauthorizedError, ForbiddenError):
             auth_context = None
 
+        def _is_authenticated(context: AuthorizationContext | dict[str, Any] | None) -> bool:
+            if context is None:
+                return False
+            if isinstance(context, dict):
+                user_id = context.get("user_id")
+            else:
+                user_id = getattr(context, "user_id", None)
+            return bool(user_id) and user_id != "anonymous"
+
         path = strip_version_prefix(path)
 
         # Search skills (public)
-        if path == "/api/v1/skills/marketplace/search":
+        if path == "/api/skills/marketplace/search":
             return await self._search_skills(query_params)
 
         # Get marketplace stats (public)
-        if path == "/api/v1/skills/marketplace/stats":
+        if path == "/api/skills/marketplace/stats":
             return await self._get_stats()
 
         # List installed skills (requires auth)
-        if path == "/api/v1/skills/marketplace/installed":
-            if auth_context is None or not auth_context.user_id:
+        if path == "/api/skills/marketplace/installed":
+            if not _is_authenticated(auth_context):
                 return error_response("Authentication required", 401)
             try:
                 self.check_permission(auth_context, "skills:read")
@@ -109,8 +118,8 @@ class SkillMarketplaceHandler(SecureHandler):
             return await self._list_installed(auth_context)
 
         # Publish skill (requires auth)
-        if path == "/api/v1/skills/marketplace/publish" and method == "POST":
-            if auth_context is None or not auth_context.user_id:
+        if path == "/api/skills/marketplace/publish" and method == "POST":
+            if not _is_authenticated(auth_context):
                 return error_response("Authentication required", 401)
             try:
                 self.check_permission(auth_context, "skills:publish")
@@ -119,7 +128,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return await self._publish_skill(body or {}, auth_context)
 
         # Skill-specific endpoints
-        if path.startswith("/api/v1/skills/marketplace/"):
+        if path.startswith("/api/skills/marketplace/"):
             parts = path.split("/")
             if len(parts) >= 5:
                 skill_id = parts[4]
@@ -138,7 +147,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Install skill
                 if len(parts) == 6 and parts[5] == "install" and method == "POST":
-                    if auth_context is None or not auth_context.user_id:
+                    if not _is_authenticated(auth_context):
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:install")
@@ -148,7 +157,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Uninstall skill
                 if len(parts) == 6 and parts[5] == "install" and method == "DELETE":
-                    if auth_context is None or not auth_context.user_id:
+                    if not _is_authenticated(auth_context):
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:install")
@@ -158,7 +167,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Rate skill
                 if len(parts) == 6 and parts[5] == "rate" and method == "POST":
-                    if auth_context is None or not auth_context.user_id:
+                    if not _is_authenticated(auth_context):
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:rate")
@@ -286,7 +295,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response(f"Failed to get ratings: {e}", 500)
 
     async def _publish_skill(
-        self, body: dict[str, Any], auth_context: AuthorizationContext
+        self, body: dict[str, Any], auth_context: AuthorizationContext | dict[str, Any]
     ) -> HandlerResult:
         """Publish a skill to the marketplace."""
         try:
@@ -323,10 +332,16 @@ class SkillMarketplaceHandler(SecureHandler):
 
             # Publish
             publisher = SkillPublisher()
-            display_name = getattr(auth_context, "display_name", None) or auth_context.user_id
+            user_id = getattr(auth_context, "user_id", None) or (
+                auth_context.get("user_id") if isinstance(auth_context, dict) else None
+            )
+            display_name = getattr(auth_context, "display_name", None)
+            if display_name is None and isinstance(auth_context, dict):
+                display_name = auth_context.get("display_name")
+            display_name = display_name or user_id
             success, listing, issues = await publisher.publish(
                 skill=skill,
-                author_id=auth_context.user_id,
+                author_id=user_id,
                 author_name=display_name,
                 category=category,
                 tier=tier,
@@ -363,7 +378,7 @@ class SkillMarketplaceHandler(SecureHandler):
         self,
         skill_id: str,
         body: dict[str, Any],
-        auth_context: AuthorizationContext,
+        auth_context: AuthorizationContext | dict[str, Any],
     ) -> HandlerResult:
         """Install a skill."""
         try:
@@ -371,10 +386,19 @@ class SkillMarketplaceHandler(SecureHandler):
 
             installer = SkillInstaller()
 
-            tenant_id = getattr(auth_context, "tenant_id", None) or "default"
-            user_id = auth_context.user_id
+            tenant_id = (
+                getattr(auth_context, "tenant_id", None)
+                or (auth_context.get("tenant_id") if isinstance(auth_context, dict) else None)
+                or "default"
+            )
+            user_id = getattr(auth_context, "user_id", None) or (
+                auth_context.get("user_id") if isinstance(auth_context, dict) else None
+            )
             version = body.get("version")
-            permissions = list(getattr(auth_context, "permissions", set()) or [])
+            permissions = getattr(auth_context, "permissions", None)
+            if permissions is None and isinstance(auth_context, dict):
+                permissions = auth_context.get("permissions", set())
+            permissions = list(permissions or [])
 
             result = await installer.install(
                 skill_id=skill_id,
@@ -404,7 +428,7 @@ class SkillMarketplaceHandler(SecureHandler):
     async def _uninstall_skill(
         self,
         skill_id: str,
-        auth_context: AuthorizationContext,
+        auth_context: AuthorizationContext | dict[str, Any],
     ) -> HandlerResult:
         """Uninstall a skill."""
         try:
@@ -412,9 +436,18 @@ class SkillMarketplaceHandler(SecureHandler):
 
             installer = SkillInstaller()
 
-            tenant_id = getattr(auth_context, "tenant_id", None) or "default"
-            user_id = auth_context.user_id
-            permissions = list(getattr(auth_context, "permissions", set()) or [])
+            tenant_id = (
+                getattr(auth_context, "tenant_id", None)
+                or (auth_context.get("tenant_id") if isinstance(auth_context, dict) else None)
+                or "default"
+            )
+            user_id = getattr(auth_context, "user_id", None) or (
+                auth_context.get("user_id") if isinstance(auth_context, dict) else None
+            )
+            permissions = getattr(auth_context, "permissions", None)
+            if permissions is None and isinstance(auth_context, dict):
+                permissions = auth_context.get("permissions", set())
+            permissions = list(permissions or [])
 
             success = await installer.uninstall(
                 skill_id=skill_id,
@@ -444,7 +477,7 @@ class SkillMarketplaceHandler(SecureHandler):
         self,
         skill_id: str,
         body: dict[str, Any],
-        auth_context: AuthorizationContext,
+        auth_context: AuthorizationContext | dict[str, Any],
     ) -> HandlerResult:
         """Rate a skill."""
         try:
@@ -455,11 +488,14 @@ class SkillMarketplaceHandler(SecureHandler):
                 return error_response("rating must be an integer between 1 and 5", 400)
 
             review = body.get("review")
+            user_id = getattr(auth_context, "user_id", None) or (
+                auth_context.get("user_id") if isinstance(auth_context, dict) else None
+            )
 
             marketplace = get_marketplace()
             skill_rating = await marketplace.rate(
                 skill_id=skill_id,
-                user_id=auth_context.user_id,
+                user_id=user_id,
                 rating=rating,
                 review=review,
             )
