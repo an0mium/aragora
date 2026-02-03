@@ -13,6 +13,8 @@ from aragora.nomic.testfixer.store import TestFixerAttemptStore
 
 
 def _parse_agents(agents: str) -> list[AgentCodeGenerator]:
+    if not agents or agents.strip().lower() in ("none", "false", "off", "0"):
+        return []
     generator_configs: list[AgentGeneratorConfig] = []
     for spec in agents.split(","):
         spec = spec.strip()
