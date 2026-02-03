@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from aragora.nomic.testfixer.orchestrator import FixAttempt, FixLoopResult
+if TYPE_CHECKING:
+    from aragora.nomic.testfixer.orchestrator import FixAttempt, FixLoopResult
 
 
 class TestFixerAttemptStore:
@@ -22,7 +23,7 @@ class TestFixerAttemptStore:
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    def record_attempt(self, attempt: FixAttempt) -> None:
+    def record_attempt(self, attempt: "FixAttempt") -> None:
         self._append(
             {
                 "type": "attempt",
@@ -52,7 +53,7 @@ class TestFixerAttemptStore:
             }
         )
 
-    def record_run(self, result: FixLoopResult) -> None:
+    def record_run(self, result: "FixLoopResult") -> None:
         self._append(
             {
                 "type": "run",
