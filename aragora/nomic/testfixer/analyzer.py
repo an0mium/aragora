@@ -403,6 +403,30 @@ class FailureAnalyzer:
                 if "test" not in f.lower():
                     root_cause_file = f
                     break
+        # For missing dependencies, prefer the file that imports the missing module.
+        if category == FailureCategory.ENV_DEPENDENCY and failure.involved_files:
+            missing_mod = None
+            match = re.search(r"No module named '([^']+)'", failure.error_message)
+            if match:
+                missing_mod = match.group(1)
+            if not missing_mod:
+                match = re.search(r"No module named '([^']+)'", failure.stack_trace)
+                if match:
+                    missing_mod = match.group(1)
+            if missing_mod:
+                for f in failure.involved_files:
+                    if "test" in f.lower():
+                        continue
+                    path = self.repo_path / f
+                    if not path.exists():
+                        continue
+                    try:
+                        content = path.read_text()
+                    except Exception:
+                        continue
+                    if f"import {missing_mod}" in content or f"from {missing_mod}" in content:
+                        root_cause_file = f
+                        break
 
         # Estimate complexity
         fix_complexity = "low"
