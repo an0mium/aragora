@@ -30,6 +30,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.observability.metrics.base import NoOpMetric, get_metrics_enabled
+
 logger = logging.getLogger(__name__)
 
 # Default cardinality thresholds
@@ -348,42 +350,74 @@ def reset_cardinality_tracker() -> None:
     _tracker = None
 
 
-# Prometheus metrics for cardinality tracking
-try:
-    from prometheus_client import Gauge, Counter
+# Global metric variables
+CARDINALITY_GAUGE: Any = None
+CARDINALITY_WARNING_COUNTER: Any = None
+CARDINALITY_CRITICAL_COUNTER: Any = None
 
-    # Expose cardinality as Prometheus metrics
-    CARDINALITY_GAUGE = Gauge(
-        "aragora_metric_cardinality",
-        "Current cardinality (unique label combinations) for tracked metrics",
-        ["metric_name"],
-    )
+_cardinality_initialized = False
 
-    CARDINALITY_WARNING_COUNTER = Counter(
-        "aragora_metric_cardinality_warnings_total",
-        "Total cardinality warning alerts",
-        ["metric_name"],
-    )
 
-    CARDINALITY_CRITICAL_COUNTER = Counter(
-        "aragora_metric_cardinality_critical_total",
-        "Total cardinality critical alerts",
-        ["metric_name"],
-    )
+def init_cardinality_metrics() -> None:
+    """Initialize cardinality Prometheus metrics."""
+    global _cardinality_initialized
+    global CARDINALITY_GAUGE, CARDINALITY_WARNING_COUNTER, CARDINALITY_CRITICAL_COUNTER
 
-    _PROMETHEUS_AVAILABLE = True
+    if _cardinality_initialized:
+        return
 
-except ImportError:
-    _PROMETHEUS_AVAILABLE = False
-    CARDINALITY_GAUGE = None
-    CARDINALITY_WARNING_COUNTER = None
-    CARDINALITY_CRITICAL_COUNTER = None
+    if not get_metrics_enabled():
+        _init_noop_cardinality_metrics()
+        _cardinality_initialized = True
+        return
+
+    try:
+        from prometheus_client import Counter, Gauge
+
+        CARDINALITY_GAUGE = Gauge(
+            "aragora_metric_cardinality",
+            "Current cardinality (unique label combinations) for tracked metrics",
+            ["metric_name"],
+        )
+
+        CARDINALITY_WARNING_COUNTER = Counter(
+            "aragora_metric_cardinality_warnings_total",
+            "Total cardinality warning alerts",
+            ["metric_name"],
+        )
+
+        CARDINALITY_CRITICAL_COUNTER = Counter(
+            "aragora_metric_cardinality_critical_total",
+            "Total cardinality critical alerts",
+            ["metric_name"],
+        )
+
+        _cardinality_initialized = True
+        logger.debug("Cardinality metrics initialized")
+
+    except ImportError:
+        _init_noop_cardinality_metrics()
+        _cardinality_initialized = True
+
+
+def _init_noop_cardinality_metrics() -> None:
+    """Initialize no-op metrics when Prometheus is disabled."""
+    global CARDINALITY_GAUGE, CARDINALITY_WARNING_COUNTER, CARDINALITY_CRITICAL_COUNTER
+
+    CARDINALITY_GAUGE = NoOpMetric()
+    CARDINALITY_WARNING_COUNTER = NoOpMetric()
+    CARDINALITY_CRITICAL_COUNTER = NoOpMetric()
+
+
+def _ensure_cardinality_init() -> None:
+    """Ensure cardinality metrics are initialized."""
+    if not _cardinality_initialized:
+        init_cardinality_metrics()
 
 
 def update_prometheus_metrics() -> None:
     """Update Prometheus metrics with current cardinality data."""
-    if not _PROMETHEUS_AVAILABLE:
-        return
+    _ensure_cardinality_init()
 
     tracker = get_cardinality_tracker()
     stats = tracker.get_stats()
@@ -398,7 +432,11 @@ __all__ = [
     "MetricCardinality",
     "get_cardinality_tracker",
     "reset_cardinality_tracker",
+    "init_cardinality_metrics",
     "update_prometheus_metrics",
+    "CARDINALITY_GAUGE",
+    "CARDINALITY_WARNING_COUNTER",
+    "CARDINALITY_CRITICAL_COUNTER",
     "DEFAULT_WARNING_THRESHOLD",
     "DEFAULT_CRITICAL_THRESHOLD",
 ]

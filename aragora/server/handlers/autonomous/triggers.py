@@ -182,7 +182,7 @@ class TriggerHandler:
                 )
 
             trigger = get_scheduled_trigger()
-            config = trigger.add_trigger(
+            config = trigger.add_trigger(  # type: ignore[call-arg]
                 id=trigger_id,
                 name=name,
                 interval_seconds=data.get("interval_seconds"),

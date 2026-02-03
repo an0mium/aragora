@@ -154,7 +154,7 @@ class FindingWorkflowHandler(BaseHandler):
         auth_context = extract_user_from_request(request)
         if auth_context.authenticated and auth_context.user_id:
             # Get display name from email or user_id
-            display_name = auth_context.email or auth_context.user_id
+            display_name = getattr(auth_context, "email", None) or auth_context.user_id
             if "@" in display_name:
                 display_name = display_name.split("@")[0]
             return auth_context.user_id, display_name
@@ -399,7 +399,6 @@ class FindingWorkflowHandler(BaseHandler):
         if not assignee_id:
             return self._error_response(400, "user_id is required")
 
-        _assignee_name = body.get("user_name", "")  # noqa: F841
         comment = body.get("comment", "")
         user_id, user_name = self._get_user_from_request(request)
 
@@ -1194,6 +1193,9 @@ class FindingWorkflowHandler(BaseHandler):
         """Parse JSON body from request."""
         if hasattr(request, "json"):
             return await request.json()
+        if hasattr(request, "read"):
+            body = await request.read()
+            return json.loads(body)
         elif hasattr(request, "body"):
             body = await request.body()
             return json.loads(body)

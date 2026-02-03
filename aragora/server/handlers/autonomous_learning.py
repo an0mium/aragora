@@ -31,6 +31,7 @@ Stability: STABLE
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 import uuid
@@ -38,6 +39,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
+
+import functools
 
 from aragora.rbac.decorators import require_permission
 from aragora.resilience import (
@@ -71,6 +74,36 @@ MAX_ACTIVE_SESSIONS = 10
 
 # Pattern confidence threshold
 MIN_PATTERN_CONFIDENCE = 0.5
+
+
+def _ensure_wrapped(func: Any) -> Any:
+    """Ensure decorated methods expose __wrapped__ even when RBAC is patched."""
+    if asyncio.iscoroutinefunction(func):
+
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any):
+            return await func(*args, **kwargs)
+
+        return wrapper
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+_rbac_require_permission = require_permission
+
+
+def require_permission(*args: Any, **kwargs: Any):
+    """Local wrapper to preserve __wrapped__ even if RBAC is bypassed in tests."""
+    decorator = _rbac_require_permission(*args, **kwargs)
+
+    def _decorator(func: Any):
+        return _ensure_wrapped(decorator(func))
+
+    return _decorator
 
 
 class SessionStatus(str, Enum):

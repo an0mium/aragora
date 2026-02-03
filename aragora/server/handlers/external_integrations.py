@@ -48,6 +48,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.handlers.utils.url_security import validate_webhook_url
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -565,6 +566,10 @@ class ExternalIntegrationsHandler(SecureHandler):
         if not webhook_url:
             return error_response("webhook_url is required", 400)
 
+        is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
+        if not is_valid:
+            return error_response(f"Invalid webhook URL: {url_error}", 400)
+
         zapier = self._get_zapier()
         trigger = zapier.subscribe_trigger(
             app_id=app_id,
@@ -774,6 +779,10 @@ class ExternalIntegrationsHandler(SecureHandler):
         if not webhook_url:
             return error_response("webhook_url is required", 400)
 
+        is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
+        if not is_valid:
+            return error_response(f"Invalid webhook URL: {url_error}", 400)
+
         make = self._get_make()
         webhook = make.register_webhook(
             conn_id=conn_id,
@@ -904,10 +913,16 @@ class ExternalIntegrationsHandler(SecureHandler):
         if not workspace_id:
             return error_response("workspace_id is required", 400)
 
+        api_url = body.get("api_url")
+        if api_url:
+            is_valid, url_error = validate_webhook_url(api_url, allow_localhost=False)
+            if not is_valid:
+                return error_response(f"Invalid api_url: {url_error}", 400)
+
         n8n = self._get_n8n()
         credential = n8n.create_credential(
             workspace_id=workspace_id,
-            api_url=body.get("api_url"),
+            api_url=api_url,
         )
 
         auth_ctx = self._get_auth_context(handler)

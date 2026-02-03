@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.audit.unified import audit_admin
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     SAFE_ID_PATTERN,
@@ -93,6 +94,7 @@ class UserManagementMixin:
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
     )
+    @require_permission("admin:organizations:list")
     @handle_errors("list organizations")
     def _list_organizations(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List all organizations with pagination.

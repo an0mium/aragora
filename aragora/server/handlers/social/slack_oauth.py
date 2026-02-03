@@ -35,9 +35,17 @@ from ..base import (
     error_response,
     json_response,
 )
-from ..secure import SecureHandler, UnauthorizedError
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 
-# RBAC Permissions for Slack OAuth operations
+# RBAC Permission constants for Slack OAuth
+# Following granular permission model for OAuth security
+PERM_SLACK_OAUTH_INSTALL = "slack:oauth:install"
+PERM_SLACK_OAUTH_CALLBACK = "slack:oauth:callback"
+PERM_SLACK_OAUTH_DISCONNECT = "slack:oauth:disconnect"
+PERM_SLACK_WORKSPACE_MANAGE = "slack:workspace:manage"
+PERM_SLACK_ADMIN = "slack:admin"
+
+# Legacy permissions for backward compatibility
 CONNECTOR_READ = "connectors.read"
 CONNECTOR_AUTHORIZE = "connectors.authorize"
 
@@ -145,10 +153,19 @@ class SlackOAuthHandler(SecureHandler):
     """Handler for Slack OAuth installation flow.
 
     RBAC Protection:
-    - /install: Requires connector:authorize permission
+    - /install: Requires slack:oauth:install OR connectors.authorize permission
     - /preview: Requires connector:read permission
-    - /callback: No auth (OAuth callback from Slack)
-    - /uninstall: Verified via Slack signature (webhook)
+    - /callback: No auth (OAuth callback from Slack, state validated)
+    - /uninstall: Verified via Slack signature (webhook from Slack)
+    - /workspaces: Requires slack:workspace:manage OR connectors.read permission
+    - /workspaces/{id}/status: Requires slack:workspace:manage OR connectors.read permission
+    - /workspaces/{id}/refresh: Requires slack:workspace:manage OR connectors.authorize permission
+
+    Security Notes:
+    - OAuth callback validates state token to prevent CSRF
+    - All authenticated endpoints require valid JWT
+    - Workspace operations require specific workspace management permissions
+    - Admin operations require slack:admin permission
     """
 
     def __init__(self, ctx: dict | None = None):
@@ -182,6 +199,54 @@ class SlackOAuthHandler(SecureHandler):
             if re.match(pattern, path):
                 return True
         return False
+
+    def _check_permission(
+        self,
+        auth_context: Any,
+        *permissions: str,
+        require_all: bool = False,
+    ) -> bool:
+        """Check if user has required permission(s).
+
+        Args:
+            auth_context: User's authorization context
+            *permissions: Permission keys to check (at least one required unless require_all=True)
+            require_all: If True, all permissions are required; if False, any one is sufficient
+
+        Returns:
+            True if permission check passes
+
+        Raises:
+            ForbiddenError: If permission is denied
+        """
+        if not permissions:
+            return True
+
+        errors: list[str] = []
+        for perm in permissions:
+            try:
+                self.check_permission(auth_context, perm)
+                if not require_all:
+                    # Any permission is sufficient
+                    return True
+            except (ForbiddenError, PermissionError) as e:
+                errors.append(str(e))
+                if require_all:
+                    # All permissions required, one failed
+                    raise ForbiddenError(
+                        f"Permission denied: {perm} required",
+                        permission=perm,
+                    )
+
+        # If require_all=True and we got here, all passed
+        if require_all:
+            return True
+
+        # None of the permissions passed
+        raise ForbiddenError(
+            f"Permission denied: one of {', '.join(permissions)} required",
+            permission=permissions[0],
+        )
 
     async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Route OAuth requests with dual-signature support.
@@ -271,18 +336,24 @@ class SlackOAuthHandler(SecureHandler):
             handler: Optional HTTP handler for auth context
 
         RBAC enforcement:
-        - /install and /preview require authentication
-        - /callback is unauthenticated (OAuth redirect from Slack)
-        - /uninstall uses Slack signature verification (webhook)
+        - /install: Requires slack:oauth:install OR connectors.authorize permission
+        - /preview: Requires connectors.read permission
+        - /callback: Unauthenticated (OAuth redirect from Slack, state validated)
+        - /uninstall: Verified via Slack signature (webhook from Slack)
+        - /workspaces: Requires slack:workspace:manage OR connectors.read permission
+        - /workspaces/{id}/status: Requires slack:workspace:manage OR connectors.read permission
+        - /workspaces/{id}/refresh: Requires slack:workspace:manage OR connectors.authorize permission
         """
 
         # OAuth callback from Slack - no auth required (external redirect)
+        # Security: State token is validated in _handle_callback to prevent CSRF
         if path == "/api/integrations/slack/callback":
             if method == "GET":
                 return await self._handle_callback(query_params)
             return error_response("Method not allowed", 405)
 
         # Uninstall webhook from Slack - verified via Slack signature
+        # Security: Request is verified using Slack signing secret (HMAC-SHA256)
         if path == "/api/integrations/slack/uninstall":
             if method == "POST":
                 return await self._handle_uninstall(body, headers or {})
@@ -297,34 +368,51 @@ class SlackOAuthHandler(SecureHandler):
 
         if path == "/api/integrations/slack/install":
             if method == "GET":
-                # Require connector:authorize permission
+                # Require slack:oauth:install OR connectors.authorize permission
                 try:
-                    self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
-                except Exception as e:
+                    self._check_permission(
+                        auth_context,
+                        PERM_SLACK_OAUTH_INSTALL,
+                        CONNECTOR_AUTHORIZE,
+                    )
+                except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack install: {e}")
-                    return error_response("Permission denied: connector:authorize required", 403)
+                    return error_response(
+                        f"Permission denied: {PERM_SLACK_OAUTH_INSTALL} or {CONNECTOR_AUTHORIZE} required",
+                        403,
+                    )
                 return await self._handle_install(query_params)
             return error_response("Method not allowed", 405)
 
         elif path == "/api/integrations/slack/preview":
             if method == "GET":
-                # Require connector:read permission
+                # Require connector:read permission for preview
                 try:
-                    self.check_permission(auth_context, CONNECTOR_READ)
-                except Exception as e:
+                    self._check_permission(auth_context, CONNECTOR_READ)
+                except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack preview: {e}")
-                    return error_response("Permission denied: connector:read required", 403)
+                    return error_response(
+                        f"Permission denied: {CONNECTOR_READ} required",
+                        403,
+                    )
                 return await self._handle_preview(query_params)
             return error_response("Method not allowed", 405)
 
         elif path == "/api/integrations/slack/workspaces":
             if method == "GET":
-                # Require connector:read permission for listing
+                # Require slack:workspace:manage OR connectors.read permission for listing
                 try:
-                    self.check_permission(auth_context, CONNECTOR_READ)
-                except Exception as e:
+                    self._check_permission(
+                        auth_context,
+                        PERM_SLACK_WORKSPACE_MANAGE,
+                        CONNECTOR_READ,
+                    )
+                except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack workspace list: {e}")
-                    return error_response("Permission denied: connector:read required", 403)
+                    return error_response(
+                        f"Permission denied: {PERM_SLACK_WORKSPACE_MANAGE} or {CONNECTOR_READ} required",
+                        403,
+                    )
                 return await self._handle_list_workspaces()
             return error_response("Method not allowed", 405)
 
@@ -335,11 +423,19 @@ class SlackOAuthHandler(SecureHandler):
         if status_match:
             workspace_id = status_match.group(1)
             if method == "GET":
+                # Require slack:workspace:manage OR connectors.read permission
                 try:
-                    self.check_permission(auth_context, CONNECTOR_READ)
-                except Exception as e:
+                    self._check_permission(
+                        auth_context,
+                        PERM_SLACK_WORKSPACE_MANAGE,
+                        CONNECTOR_READ,
+                    )
+                except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack workspace status: {e}")
-                    return error_response("Permission denied: connector:read required", 403)
+                    return error_response(
+                        f"Permission denied: {PERM_SLACK_WORKSPACE_MANAGE} or {CONNECTOR_READ} required",
+                        403,
+                    )
                 return await self._handle_workspace_status(workspace_id)
             return error_response("Method not allowed", 405)
 
@@ -347,11 +443,19 @@ class SlackOAuthHandler(SecureHandler):
         if refresh_match:
             workspace_id = refresh_match.group(1)
             if method == "POST":
+                # Require slack:workspace:manage OR connectors.authorize permission
                 try:
-                    self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
-                except Exception as e:
+                    self._check_permission(
+                        auth_context,
+                        PERM_SLACK_WORKSPACE_MANAGE,
+                        CONNECTOR_AUTHORIZE,
+                    )
+                except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack token refresh: {e}")
-                    return error_response("Permission denied: connector:authorize required", 403)
+                    return error_response(
+                        f"Permission denied: {PERM_SLACK_WORKSPACE_MANAGE} or {CONNECTOR_AUTHORIZE} required",
+                        403,
+                    )
                 return await self._handle_refresh_token(workspace_id)
             return error_response("Method not allowed", 405)
 

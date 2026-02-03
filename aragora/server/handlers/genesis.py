@@ -248,19 +248,32 @@ class GenesisHandler(BaseHandler):
 
             # Filter by type if specified
             if event_type:
-                try:
-                    etype = GenesisEventType(event_type)
-                    ledger = GenesisLedger(ledger_path)
-                    events = ledger.get_events_by_type(etype)[-limit:]
-                    return json_response(
-                        {
-                            "events": [e.to_dict() for e in events],
-                            "count": len(events),
-                            "filter": event_type,
-                        }
+                # Validate event_type: must be alphanumeric/underscore and bounded length
+                if not isinstance(event_type, str) or len(event_type) > 64:
+                    return error_response("Invalid event type parameter", 400)
+                import re as _re
+
+                if not _re.fullmatch(r"[a-zA-Z0-9_]+", event_type):
+                    return error_response("Invalid event type parameter", 400)
+
+                # Validate against known enum values
+                valid_types = {et.value for et in GenesisEventType}
+                if event_type not in valid_types:
+                    return error_response(
+                        "Unknown event type. Valid types: " + ", ".join(sorted(valid_types)),
+                        400,
                     )
-                except ValueError:
-                    return error_response(f"Unknown event type: {event_type}", 400)
+
+                etype = GenesisEventType(event_type)
+                ledger = GenesisLedger(ledger_path)
+                events = ledger.get_events_by_type(etype)[-limit:]
+                return json_response(
+                    {
+                        "events": [e.to_dict() for e in events],
+                        "count": len(events),
+                        "filter": event_type,
+                    }
+                )
 
             # Get all recent events
             ledger = GenesisLedger(ledger_path)

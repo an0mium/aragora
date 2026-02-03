@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -42,6 +43,158 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Input validation constants
+# ---------------------------------------------------------------------------
+
+# Budget constraints
+MAX_DAILY_BUDGET = 1_000_000.0  # $1M daily cap
+MAX_TOTAL_BUDGET = 100_000_000.0  # $100M lifetime cap
+MIN_BUDGET = 0.0  # Non-negative
+
+# Campaign name constraints
+MAX_CAMPAIGN_NAME_LENGTH = 256
+MIN_CAMPAIGN_NAME_LENGTH = 1
+# Allow alphanumeric, spaces, hyphens, underscores, periods, parentheses, ampersands
+_CAMPAIGN_NAME_PATTERN = re.compile(r"^[\w\s\-.()/&:,!'+#@]+$", re.UNICODE)
+
+# Allowed campaign types per platform
+ALLOWED_CAMPAIGN_TYPES: dict[str, set[str]] = {
+    "google_ads": {"SEARCH", "DISPLAY", "SHOPPING", "VIDEO", "APP", "SMART", "PERFORMANCE_MAX"},
+    "meta_ads": {
+        "OUTCOME_TRAFFIC",
+        "OUTCOME_ENGAGEMENT",
+        "OUTCOME_LEADS",
+        "OUTCOME_SALES",
+        "OUTCOME_AWARENESS",
+        "OUTCOME_APP_PROMOTION",
+    },
+    "linkedin_ads": {
+        "SPONSORED_UPDATES",
+        "SPONSORED_INMAILS",
+        "TEXT_ADS",
+        "DYNAMIC_ADS",
+        "VIDEO_ADS",
+    },
+    "microsoft_ads": {"Search", "Shopping", "Audience", "DynamicSearchAds"},
+}
+
+# Allowed objectives per platform
+ALLOWED_OBJECTIVES: dict[str, set[str]] = {
+    "google_ads": {"SEARCH", "DISPLAY", "SHOPPING", "VIDEO", "APP", "SMART", "PERFORMANCE_MAX"},
+    "meta_ads": {
+        "OUTCOME_TRAFFIC",
+        "OUTCOME_ENGAGEMENT",
+        "OUTCOME_LEADS",
+        "OUTCOME_SALES",
+        "OUTCOME_AWARENESS",
+        "OUTCOME_APP_PROMOTION",
+    },
+    "linkedin_ads": {
+        "WEBSITE_VISITS",
+        "ENGAGEMENT",
+        "VIDEO_VIEWS",
+        "LEAD_GENERATION",
+        "BRAND_AWARENESS",
+        "JOB_APPLICANTS",
+        "WEBSITE_CONVERSIONS",
+    },
+    "microsoft_ads": {"Search", "Shopping", "Audience", "DynamicSearchAds"},
+}
+
+# Allowed campaign statuses
+ALLOWED_CAMPAIGN_STATUSES = {"ENABLED", "PAUSED", "REMOVED", "ACTIVE", "ARCHIVED", "DELETED"}
+
+# Allowed analysis types
+ALLOWED_ANALYSIS_TYPES = {
+    "performance_review",
+    "budget_optimization",
+    "audience_analysis",
+    "creative_review",
+}
+
+# Allowed budget recommendation objectives
+ALLOWED_BUDGET_OBJECTIVES = {"balanced", "awareness", "conversions"}
+
+# Maximum date range for analysis (2 years)
+MAX_ANALYSIS_DAYS = 730
+
+
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
+
+
+def _validate_budget(
+    value: Any, field_name: str, max_limit: float
+) -> tuple[float | None, str | None]:
+    """Validate a budget value. Returns (parsed_value, error_message)."""
+    if value is None:
+        return None, None
+    try:
+        budget = float(value)
+    except (TypeError, ValueError):
+        return None, f"{field_name} must be a number"
+    if budget < MIN_BUDGET:
+        return None, f"{field_name} must be non-negative"
+    if budget > max_limit:
+        return None, f"{field_name} exceeds maximum allowed value of {max_limit:,.2f}"
+    return budget, None
+
+
+def _validate_campaign_name(name: Any) -> tuple[str | None, str | None]:
+    """Validate and sanitize a campaign name. Returns (sanitized_name, error_message)."""
+    if not name or not isinstance(name, str):
+        return None, "Campaign name is required and must be a string"
+    name = name.strip()
+    if len(name) < MIN_CAMPAIGN_NAME_LENGTH:
+        return None, "Campaign name must not be empty"
+    if len(name) > MAX_CAMPAIGN_NAME_LENGTH:
+        return None, f"Campaign name must not exceed {MAX_CAMPAIGN_NAME_LENGTH} characters"
+    if not _CAMPAIGN_NAME_PATTERN.match(name):
+        return None, "Campaign name contains invalid characters"
+    return name, None
+
+
+def _validate_date_iso(value: Any, field_name: str) -> tuple[date | None, str | None]:
+    """Validate an ISO date string. Returns (parsed_date, error_message)."""
+    if value is None:
+        return None, None
+    if not isinstance(value, str):
+        return None, f"{field_name} must be an ISO format date string (YYYY-MM-DD)"
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        return None, f"{field_name} must be a valid ISO format date (YYYY-MM-DD)"
+    return parsed, None
+
+
+def _validate_date_range(
+    start_str: Any, end_str: Any
+) -> tuple[tuple[date, date] | None, str | None]:
+    """Validate a date range pair. Returns ((start, end), error_message)."""
+    start, err = _validate_date_iso(start_str, "start_date")
+    if err:
+        return None, err
+    end, err = _validate_date_iso(end_str, "end_date")
+    if err:
+        return None, err
+    if start and end and start > end:
+        return None, "start_date must be before or equal to end_date"
+    return (start, end) if start and end else None, None
+
+
+def _validate_against_allowlist(value: Any, allowlist: set[str], field_name: str) -> str | None:
+    """Validate a value is in the allowlist. Returns error message or None."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return f"{field_name} must be a string"
+    if value not in allowlist:
+        return f"Invalid {field_name}: '{value}'. Allowed values: {sorted(allowlist)}"
+    return None
+
 
 # Circuit breaker for advertising platform operations
 _advertising_circuit_breaker = CircuitBreaker(
@@ -495,9 +648,48 @@ class AdvertisingHandler(SecureHandler):
         except Exception as e:
             return self._error_response(400, f"Invalid JSON body: {e}")
 
-        name = body.get("name")
-        if not name:
-            return self._error_response(400, "Campaign name is required")
+        # --- Validate campaign name ---
+        name, err = _validate_campaign_name(body.get("name"))
+        if err:
+            return self._error_response(400, err)
+
+        # --- Validate daily budget ---
+        daily_budget_raw = body.get("daily_budget")
+        daily_budget, err = _validate_budget(daily_budget_raw, "daily_budget", MAX_DAILY_BUDGET)
+        if err:
+            return self._error_response(400, err)
+
+        # --- Validate total/lifetime budget if provided ---
+        total_budget_raw = body.get("total_budget") or body.get("lifetime_budget")
+        total_budget, err = _validate_budget(total_budget_raw, "total_budget", MAX_TOTAL_BUDGET)
+        if err:
+            return self._error_response(400, err)
+
+        # --- Validate campaign type against platform allowlist ---
+        campaign_type = body.get("campaign_type")
+        if campaign_type is not None:
+            err = _validate_against_allowlist(
+                campaign_type, ALLOWED_CAMPAIGN_TYPES.get(platform, set()), "campaign_type"
+            )
+            if err:
+                return self._error_response(400, err)
+
+        # --- Validate objective against platform allowlist ---
+        objective = body.get("objective")
+        if objective is not None:
+            err = _validate_against_allowlist(
+                objective, ALLOWED_OBJECTIVES.get(platform, set()), "objective"
+            )
+            if err:
+                return self._error_response(400, err)
+
+        # --- Validate date fields ---
+        start_date_str = body.get("start_date")
+        end_date_str = body.get("end_date")
+        if start_date_str or end_date_str:
+            _, err = _validate_date_range(start_date_str, end_date_str)
+            if err:
+                return self._error_response(400, err)
 
         connector = await self._get_connector(platform)
         if not connector:
@@ -507,8 +699,10 @@ class AdvertisingHandler(SecureHandler):
             if platform == "google_ads":
                 campaign_id = await connector.create_campaign(
                     name=name,
-                    budget_micros=int(body.get("daily_budget", 10) * 1_000_000),
-                    campaign_type=body.get("campaign_type", "SEARCH"),
+                    budget_micros=int(
+                        (daily_budget if daily_budget is not None else 10) * 1_000_000
+                    ),
+                    campaign_type=campaign_type or "SEARCH",
                 )
                 return self._json_response(
                     201,
@@ -522,7 +716,7 @@ class AdvertisingHandler(SecureHandler):
             elif platform == "meta_ads":
                 campaign = await connector.create_campaign(
                     name=name,
-                    objective=body.get("objective", "OUTCOME_TRAFFIC"),
+                    objective=objective or "OUTCOME_TRAFFIC",
                 )
                 return self._json_response(201, self._normalize_meta_campaign(campaign))
 
@@ -535,17 +729,17 @@ class AdvertisingHandler(SecureHandler):
                 campaign = await connector.create_campaign(
                     name=name,
                     campaign_group_id=campaign_group_id,
-                    campaign_type=body.get("campaign_type", "SPONSORED_UPDATES"),
-                    objective_type=body.get("objective", "WEBSITE_VISITS"),
-                    daily_budget=body.get("daily_budget", 50),
+                    campaign_type=campaign_type or "SPONSORED_UPDATES",
+                    objective_type=objective or "WEBSITE_VISITS",
+                    daily_budget=daily_budget if daily_budget is not None else 50,
                 )
                 return self._json_response(201, self._normalize_linkedin_campaign(campaign))
 
             elif platform == "microsoft_ads":
                 campaign_id = await connector.create_campaign(
                     name=name,
-                    campaign_type=body.get("campaign_type", "Search"),
-                    daily_budget=body.get("daily_budget", 50),
+                    campaign_type=campaign_type or "Search",
+                    daily_budget=daily_budget if daily_budget is not None else 50,
                 )
                 return self._json_response(
                     201,
@@ -580,6 +774,26 @@ class AdvertisingHandler(SecureHandler):
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        # --- Validate name if provided ---
+        if "name" in body:
+            _, err = _validate_campaign_name(body["name"])
+            if err:
+                return self._error_response(400, err)
+
+        # --- Validate status against allowlist ---
+        if "status" in body:
+            err = _validate_against_allowlist(body["status"], ALLOWED_CAMPAIGN_STATUSES, "status")
+            if err:
+                return self._error_response(400, err)
+
+        # --- Validate budget ---
+        if "daily_budget" in body:
+            budget, err = _validate_budget(body["daily_budget"], "daily_budget", MAX_DAILY_BUDGET)
+            if err:
+                return self._error_response(400, err)
+        else:
+            budget = None
+
         try:
             # Handle status updates
             if "status" in body:
@@ -594,8 +808,7 @@ class AdvertisingHandler(SecureHandler):
                     await connector.update_campaign_status(campaign_id, status)
 
             # Handle budget updates
-            if "daily_budget" in body:
-                budget = body["daily_budget"]
+            if budget is not None:
                 if platform == "google_ads":
                     await connector.update_campaign_budget(campaign_id, int(budget * 1_000_000))
                 elif platform == "microsoft_ads":
@@ -735,9 +948,28 @@ class AdvertisingHandler(SecureHandler):
         except Exception as e:
             return self._error_response(400, f"Invalid JSON body: {e}")
 
+        # --- Validate platforms list ---
         platforms = body.get("platforms", list(_platform_credentials.keys()))
+        if not isinstance(platforms, list):
+            return self._error_response(400, "platforms must be a list")
+        for p in platforms:
+            if p not in SUPPORTED_PLATFORMS:
+                return self._error_response(400, f"Unsupported platform: '{p}'")
+
+        # --- Validate analysis type ---
         analysis_type = body.get("type", "performance_review")
+        err = _validate_against_allowlist(analysis_type, ALLOWED_ANALYSIS_TYPES, "type")
+        if err:
+            return self._error_response(400, err)
+
+        # --- Validate days ---
         days = body.get("days", 30)
+        try:
+            days = int(days)
+        except (TypeError, ValueError):
+            return self._error_response(400, "days must be an integer")
+        if days < 1 or days > MAX_ANALYSIS_DAYS:
+            return self._error_response(400, f"days must be between 1 and {MAX_ANALYSIS_DAYS}")
 
         # Gather performance data
         end_date = date.today()
@@ -772,8 +1004,19 @@ class AdvertisingHandler(SecureHandler):
 
     async def _get_budget_recommendations(self, request: Any) -> dict[str, Any]:
         """Get budget allocation recommendations across platforms."""
-        total_budget = float(request.query.get("budget", 10000))
-        objective = request.query.get("objective", "balanced")  # balanced, awareness, conversions
+        # --- Validate budget parameter ---
+        budget_raw = request.query.get("budget", 10000)
+        total_budget, err = _validate_budget(budget_raw, "budget", MAX_TOTAL_BUDGET)
+        if err:
+            return self._error_response(400, err)
+        if total_budget is None:
+            total_budget = 10000.0
+
+        # --- Validate objective ---
+        objective = request.query.get("objective", "balanced")
+        err = _validate_against_allowlist(objective, ALLOWED_BUDGET_OBJECTIVES, "objective")
+        if err:
+            return self._error_response(400, err)
 
         # Gather current performance
         end_date = date.today()

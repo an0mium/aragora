@@ -20,6 +20,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -31,6 +32,7 @@ from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.utils.auth import get_auth_context, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.services import (
     ServiceRegistry,
     EmailPrioritizer,
@@ -40,6 +42,139 @@ from aragora.services import (
 from aragora.cache import HybridTTLCache, register_cache
 from aragora.utils.redis_cache import RedisTTLCache
 from aragora.server.validation.query_params import safe_query_int
+
+# ---------------------------------------------------------------------------
+# Security constants: allowlists and input bounds
+# ---------------------------------------------------------------------------
+
+# Explicit allowlist of valid quick/bulk actions. Any action not in this set
+# is rejected before reaching handler logic, preventing command injection.
+ALLOWED_ACTIONS: frozenset[str] = frozenset(
+    {
+        "archive",
+        "snooze",
+        "reply",
+        "forward",
+        "spam",
+        "mark_important",
+        "mark_vip",
+        "block",
+        "delete",
+    }
+)
+
+# Explicit allowlist of valid bulk-action filter types.
+ALLOWED_BULK_FILTERS: frozenset[str] = frozenset(
+    {
+        "low",
+        "deferred",
+        "spam",
+        "read",
+        "all",
+    }
+)
+
+# Explicit allowlist of valid priority filter values for GET /inbox/command.
+ALLOWED_PRIORITY_FILTERS: frozenset[str] = frozenset(
+    {
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "defer",
+    }
+)
+
+# Explicit allowlist of valid force_tier values for reprioritization.
+ALLOWED_FORCE_TIERS: frozenset[str] = frozenset(
+    {
+        "tier_1_rules",
+        "tier_2_lightweight",
+        "tier_3_debate",
+    }
+)
+
+# Explicit allowlist of valid snooze duration values.
+ALLOWED_SNOOZE_DURATIONS: frozenset[str] = frozenset(
+    {
+        "1h",
+        "3h",
+        "1d",
+        "3d",
+        "1w",
+    }
+)
+
+# Input length bounds
+MAX_EMAIL_ID_LENGTH = 256
+MAX_EMAIL_IDS_PER_REQUEST = 200
+MAX_EMAIL_ADDRESS_LENGTH = 320  # RFC 5321 maximum
+MAX_REPLY_BODY_LENGTH = 100_000  # 100 KB
+MAX_FORWARD_TO_LENGTH = 320
+MAX_SENDER_PARAM_LENGTH = 320
+MAX_PARAMS_KEYS = 20
+
+# Pattern for validating email IDs (alphanumeric, hyphens, underscores, dots)
+_EMAIL_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+# RFC 5322 simplified email validation
+_EMAIL_ADDRESS_PATTERN = re.compile(
+    r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~\-]+@[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$"
+)
+
+
+def _validate_email_id(email_id: Any) -> str | None:
+    """Validate and sanitize an email ID.
+
+    Returns the sanitized ID string, or None if invalid.
+    """
+    if not isinstance(email_id, str):
+        return None
+    email_id = email_id.strip()
+    if not email_id or len(email_id) > MAX_EMAIL_ID_LENGTH:
+        return None
+    if not _EMAIL_ID_PATTERN.match(email_id):
+        return None
+    return email_id
+
+
+def _validate_email_address(address: Any) -> str | None:
+    """Validate and sanitize an email address.
+
+    Returns the sanitized address string, or None if invalid.
+    """
+    if not isinstance(address, str):
+        return None
+    address = address.strip()
+    if not address or len(address) > MAX_EMAIL_ADDRESS_LENGTH:
+        return None
+    if not _EMAIL_ADDRESS_PATTERN.match(address):
+        return None
+    return address
+
+
+def _sanitize_string_param(value: Any, max_length: int) -> str:
+    """Sanitize a generic string parameter.
+
+    Returns the stripped and length-bounded string, or empty string if invalid.
+    """
+    if not isinstance(value, str):
+        return ""
+    return value.strip()[:max_length]
+
+
+def _validate_params(params: Any) -> dict[str, Any] | None:
+    """Validate the params dict from request body.
+
+    Returns sanitized params dict, or None if invalid.
+    """
+    if params is None:
+        return {}
+    if not isinstance(params, dict):
+        return None
+    if len(params) > MAX_PARAMS_KEYS:
+        return None
+    return params
+
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -241,6 +376,7 @@ class InboxCommandHandler:
                 content_type="application/json",
             )
 
+    @rate_limit(requests_per_minute=60, limiter_name="inbox_read")
     async def handle_get_inbox(self, request: web.Request) -> web.Response:
         """
         GET /api/inbox/command
@@ -262,6 +398,18 @@ class InboxCommandHandler:
             priority_filter = request.query.get("priority")
             unread_only = request.query.get("unread_only", "false").lower() == "true"
 
+            # Validate priority filter against allowlist
+            if priority_filter is not None:
+                priority_filter = priority_filter.strip().lower()
+                if priority_filter not in ALLOWED_PRIORITY_FILTERS:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": f"Invalid priority filter. Allowed values: {', '.join(sorted(ALLOWED_PRIORITY_FILTERS))}",
+                        },
+                        status=400,
+                    )
+
             # Get emails from service
             emails = await self._fetch_prioritized_emails(
                 limit=limit,
@@ -282,13 +430,16 @@ class InboxCommandHandler:
                     "timestamp": datetime.utcnow().isoformat(),
                 }
             )
+        except (web.HTTPUnauthorized, web.HTTPForbidden):
+            raise
         except Exception as e:
             logger.exception("Failed to fetch inbox: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Internal server error"},
                 status=500,
             )
 
+    @rate_limit(requests_per_minute=30, limiter_name="inbox_write")
     async def handle_quick_action(self, request: web.Request) -> web.Response:
         """
         POST /api/inbox/actions
@@ -308,20 +459,65 @@ class InboxCommandHandler:
             if err:
                 return err
             action = body.get("action")
-            email_ids = body.get("emailIds", [])
-            params = body.get("params", {})
+            raw_email_ids = body.get("emailIds", [])
+            raw_params = body.get("params", {})
 
-            if not action:
+            if not action or not isinstance(action, str):
                 return web.json_response(
                     {"success": False, "error": "action is required"},
                     status=400,
                 )
 
-            if not email_ids:
+            # Validate action against allowlist
+            action = action.strip().lower()
+            if action not in ALLOWED_ACTIONS:
                 return web.json_response(
-                    {"success": False, "error": "emailIds is required"},
+                    {
+                        "success": False,
+                        "error": f"Invalid action '{action}'. Allowed actions: {', '.join(sorted(ALLOWED_ACTIONS))}",
+                    },
                     status=400,
                 )
+
+            # Validate emailIds is a list with bounded length
+            if not isinstance(raw_email_ids, list) or not raw_email_ids:
+                return web.json_response(
+                    {"success": False, "error": "emailIds must be a non-empty list"},
+                    status=400,
+                )
+            if len(raw_email_ids) > MAX_EMAIL_IDS_PER_REQUEST:
+                return web.json_response(
+                    {
+                        "success": False,
+                        "error": f"emailIds exceeds maximum of {MAX_EMAIL_IDS_PER_REQUEST}",
+                    },
+                    status=400,
+                )
+
+            # Validate and sanitize each email ID
+            email_ids: list[str] = []
+            for raw_id in raw_email_ids:
+                validated = _validate_email_id(raw_id)
+                if validated is None:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": f"Invalid email ID: must be alphanumeric (max {MAX_EMAIL_ID_LENGTH} chars)",
+                        },
+                        status=400,
+                    )
+                email_ids.append(validated)
+
+            # Validate params
+            params = _validate_params(raw_params)
+            if params is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid params object"},
+                    status=400,
+                )
+
+            # Sanitize action-specific params
+            params = self._sanitize_action_params(action, params)
 
             # Execute action
             results = await self._execute_action(action, email_ids, params)
@@ -334,13 +530,16 @@ class InboxCommandHandler:
                     "results": results,
                 }
             )
+        except (web.HTTPUnauthorized, web.HTTPForbidden):
+            raise
         except Exception as e:
             logger.exception("Failed to execute action: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Internal server error"},
                 status=500,
             )
 
+    @rate_limit(requests_per_minute=10, limiter_name="inbox_bulk_write")
     async def handle_bulk_action(self, request: web.Request) -> web.Response:
         """
         POST /api/inbox/bulk-actions
@@ -361,13 +560,51 @@ class InboxCommandHandler:
                 return err
             action = body.get("action")
             filter_type = body.get("filter")
-            params = body.get("params", {})
+            raw_params = body.get("params", {})
 
-            if not action or not filter_type:
+            if not action or not isinstance(action, str):
                 return web.json_response(
-                    {"success": False, "error": "action and filter are required"},
+                    {"success": False, "error": "action is required"},
                     status=400,
                 )
+            if not filter_type or not isinstance(filter_type, str):
+                return web.json_response(
+                    {"success": False, "error": "filter is required"},
+                    status=400,
+                )
+
+            # Validate action against allowlist
+            action = action.strip().lower()
+            if action not in ALLOWED_ACTIONS:
+                return web.json_response(
+                    {
+                        "success": False,
+                        "error": f"Invalid action '{action}'. Allowed actions: {', '.join(sorted(ALLOWED_ACTIONS))}",
+                    },
+                    status=400,
+                )
+
+            # Validate filter against allowlist
+            filter_type = filter_type.strip().lower()
+            if filter_type not in ALLOWED_BULK_FILTERS:
+                return web.json_response(
+                    {
+                        "success": False,
+                        "error": f"Invalid filter '{filter_type}'. Allowed filters: {', '.join(sorted(ALLOWED_BULK_FILTERS))}",
+                    },
+                    status=400,
+                )
+
+            # Validate params
+            params = _validate_params(raw_params)
+            if params is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid params object"},
+                    status=400,
+                )
+
+            # Sanitize action-specific params
+            params = self._sanitize_action_params(action, params)
 
             # Get matching email IDs
             email_ids = await self._get_emails_by_filter(filter_type)
@@ -394,13 +631,16 @@ class InboxCommandHandler:
                     "results": results,
                 }
             )
+        except (web.HTTPUnauthorized, web.HTTPForbidden):
+            raise
         except Exception as e:
-            logger.exception(f"Failed to execute bulk action: {e}")
+            logger.exception("Failed to execute bulk action: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Internal server error"},
                 status=500,
             )
 
+    @rate_limit(requests_per_minute=60, limiter_name="inbox_read")
     async def handle_get_sender_profile(self, request: web.Request) -> web.Response:
         """
         GET /api/inbox/sender-profile
@@ -414,22 +654,32 @@ class InboxCommandHandler:
             await self._check_permission(request, "inbox:read")
             self._ensure_services()
 
-            email = request.query.get("email")
-            if not email:
+            raw_email = request.query.get("email")
+            if not raw_email:
                 return web.json_response(
                     {"success": False, "error": "email parameter is required"},
                     status=400,
                 )
 
+            email = _validate_email_address(raw_email)
+            if email is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid email address format"},
+                    status=400,
+                )
+
             profile = await self._get_sender_profile(email)
             return web.json_response({"success": True, "profile": profile})
+        except (web.HTTPUnauthorized, web.HTTPForbidden):
+            raise
         except Exception as e:
-            logger.exception(f"Failed to get sender profile: {e}")
+            logger.exception("Failed to get sender profile: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Internal server error"},
                 status=500,
             )
 
+    @rate_limit(requests_per_minute=30, limiter_name="inbox_read")
     async def handle_get_daily_digest(self, request: web.Request) -> web.Response:
         """
         GET /api/inbox/daily-digest
@@ -442,13 +692,16 @@ class InboxCommandHandler:
 
             digest = await self._calculate_daily_digest()
             return web.json_response({"success": True, "digest": digest})
+        except (web.HTTPUnauthorized, web.HTTPForbidden):
+            raise
         except Exception as e:
-            logger.exception(f"Failed to get daily digest: {e}")
+            logger.exception("Failed to get daily digest: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Internal server error"},
                 status=500,
             )
 
+    @rate_limit(requests_per_minute=10, limiter_name="inbox_reprioritize")
     async def handle_reprioritize(self, request: web.Request) -> web.Response:
         """
         POST /api/inbox/reprioritize
@@ -466,8 +719,54 @@ class InboxCommandHandler:
             body, err = await parse_json_body(request, context="inbox_reprioritize")
             if err:
                 return err
-            email_ids = body.get("emailIds")
+            raw_email_ids = body.get("emailIds")
             force_tier = body.get("force_tier")
+
+            # Validate and sanitize emailIds if provided
+            email_ids: list[str] | None = None
+            if raw_email_ids is not None:
+                if not isinstance(raw_email_ids, list):
+                    return web.json_response(
+                        {"success": False, "error": "emailIds must be a list"},
+                        status=400,
+                    )
+                if len(raw_email_ids) > MAX_EMAIL_IDS_PER_REQUEST:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": f"emailIds exceeds maximum of {MAX_EMAIL_IDS_PER_REQUEST}",
+                        },
+                        status=400,
+                    )
+                email_ids = []
+                for raw_id in raw_email_ids:
+                    validated = _validate_email_id(raw_id)
+                    if validated is None:
+                        return web.json_response(
+                            {
+                                "success": False,
+                                "error": f"Invalid email ID: must be alphanumeric (max {MAX_EMAIL_ID_LENGTH} chars)",
+                            },
+                            status=400,
+                        )
+                    email_ids.append(validated)
+
+            # Validate force_tier against allowlist
+            if force_tier is not None:
+                if not isinstance(force_tier, str):
+                    return web.json_response(
+                        {"success": False, "error": "force_tier must be a string"},
+                        status=400,
+                    )
+                force_tier = force_tier.strip().lower()
+                if force_tier not in ALLOWED_FORCE_TIERS:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": f"Invalid force_tier. Allowed values: {', '.join(sorted(ALLOWED_FORCE_TIERS))}",
+                        },
+                        status=400,
+                    )
 
             # Trigger reprioritization
             result = await self._reprioritize_emails(email_ids, force_tier)
@@ -480,10 +779,12 @@ class InboxCommandHandler:
                     "tier_used": result.get("tier_used"),
                 }
             )
+        except (web.HTTPUnauthorized, web.HTTPForbidden):
+            raise
         except Exception as e:
-            logger.exception(f"Failed to reprioritize: {e}")
+            logger.exception("Failed to reprioritize: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Internal server error"},
                 status=500,
             )
 
@@ -758,6 +1059,41 @@ class InboxCommandHandler:
                 )
         return results
 
+    def _sanitize_action_params(self, action: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Sanitize action-specific parameters based on the action type.
+
+        Enforces length bounds and format validation on parameters that will
+        be passed to downstream services (Gmail API, etc.).
+        """
+        sanitized: dict[str, Any] = {}
+
+        if action == "snooze":
+            duration = params.get("duration", "1d")
+            if isinstance(duration, str) and duration.strip() in ALLOWED_SNOOZE_DURATIONS:
+                sanitized["duration"] = duration.strip()
+            else:
+                sanitized["duration"] = "1d"  # Safe default
+
+        elif action == "reply":
+            body = params.get("body", "")
+            sanitized["body"] = _sanitize_string_param(body, MAX_REPLY_BODY_LENGTH)
+
+        elif action == "forward":
+            to = params.get("to", "")
+            validated_to = _validate_email_address(to)
+            sanitized["to"] = validated_to if validated_to else ""
+
+        elif action in ("mark_vip", "block"):
+            sender = params.get("sender", "")
+            if sender:
+                validated_sender = _validate_email_address(sender)
+                if validated_sender:
+                    sanitized["sender"] = validated_sender
+
+        # For actions without specific params (archive, spam, mark_important, delete),
+        # return empty dict to avoid passing through unvalidated data
+        return sanitized
+
     async def _perform_action(
         self,
         action: str,
@@ -931,8 +1267,16 @@ class InboxCommandHandler:
         return {"deleted": True, "demo": True}
 
     async def _get_emails_by_filter(self, filter_type: str) -> list[str]:
-        """Get email IDs matching filter from cache."""
-        filter_map = {
+        """Get email IDs matching filter from cache.
+
+        The filter_type is expected to have been validated against
+        ALLOWED_BULK_FILTERS before calling this method.
+        """
+        if filter_type not in ALLOWED_BULK_FILTERS:
+            logger.warning("Unexpected filter_type in _get_emails_by_filter: %s", filter_type)
+            return []
+
+        filter_map: dict[str, list[str] | Callable[[dict[str, Any]], bool] | None] = {
             "low": ["low", "defer"],
             "deferred": ["defer"],
             "spam": ["spam"],

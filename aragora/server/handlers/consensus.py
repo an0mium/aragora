@@ -28,6 +28,7 @@ from aragora.config import (
     CACHE_TTL_RECENT_DISSENTS,
     CACHE_TTL_RISK_WARNINGS,
 )
+from aragora.server.validation.entities import SAFE_SLUG_PATTERN
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
@@ -118,6 +119,20 @@ class ConsensusHandler(BaseHandler):
         except Exception as e:
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", 500)
+
+    @staticmethod
+    def _validate_domain(domain: str | None) -> tuple[str | None, HandlerResult | None]:
+        """Validate domain parameter against safe slug pattern.
+
+        Returns (validated_domain, error_response) tuple.
+        If domain is None, returns (None, None).
+        If domain fails validation, returns (None, error_response).
+        """
+        if domain is None:
+            return None, None
+        if not SAFE_SLUG_PATTERN.match(domain):
+            return None, error_response("Invalid domain format", 400)
+        return domain, None
 
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route consensus requests to appropriate methods."""
@@ -357,19 +372,41 @@ class ConsensusHandler(BaseHandler):
     def _get_recent_dissents(
         self, topic: str | None, domain: str | None, limit: int
     ) -> HandlerResult:
-        """Get recent dissents, optionally filtered by topic."""
+        """Get recent dissents, optionally filtered by topic and domain."""
+        domain, domain_err = self._validate_domain(domain)
+        if domain_err:
+            return domain_err
+
         memory = ConsensusMemory()
 
         with get_db_connection(memory.db_path) as conn:
             cursor = conn.cursor()
-            query = """
+
+            # Build query with optional filters using parameterized placeholders
+            conditions: list[str] = []
+            params: list[Any] = []
+
+            if topic:
+                conditions.append("c.topic LIKE ?")
+                params.append(f"%{topic}%")
+            if domain:
+                conditions.append("c.domain = ?")
+                params.append(domain)
+
+            where_clause = ""
+            if conditions:
+                where_clause = "WHERE " + " AND ".join(conditions)
+
+            query = f"""
                 SELECT d.data, c.topic, c.conclusion
                 FROM dissent d
                 LEFT JOIN consensus c ON d.debate_id = c.id
+                {where_clause}
                 ORDER BY d.timestamp DESC
                 LIMIT ?
             """
-            cursor.execute(query, (limit,))
+            params.append(limit)
+            cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
 
         dissents = []
@@ -405,6 +442,10 @@ class ConsensusHandler(BaseHandler):
         self, topic: str | None, domain: str | None, limit: int
     ) -> HandlerResult:
         """Get historical contrarian/dissenting views."""
+        domain, domain_err = self._validate_domain(domain)
+        if domain_err:
+            return domain_err
+
         memory = ConsensusMemory()
 
         if topic and DissentRetriever is not None:
@@ -453,6 +494,10 @@ class ConsensusHandler(BaseHandler):
         self, topic: str | None, domain: str | None, limit: int
     ) -> HandlerResult:
         """Get risk warnings and edge case concerns."""
+        domain, domain_err = self._validate_domain(domain)
+        if domain_err:
+            return domain_err
+
         memory = ConsensusMemory()
 
         if topic and DissentRetriever is not None:
@@ -509,6 +554,7 @@ class ConsensusHandler(BaseHandler):
     @handle_errors("domain history retrieval")
     def _get_domain_history(self, domain: str, limit: int) -> HandlerResult:
         """Get consensus history for a domain."""
+        # Domain is already validated by extract_path_param with SAFE_ID_PATTERN
         memory = ConsensusMemory()
         records = memory.get_domain_consensus_history(domain, limit=limit)
         return json_response(

@@ -56,8 +56,54 @@ MAX_CONDITIONS = 50
 MAX_ACTIONS = 20
 MAX_TAGS = 20
 MAX_TAG_LENGTH = 50
+MAX_REGEX_LENGTH = 500
+MAX_REGEX_NESTING_DEPTH = 4
+MAX_CONDITION_FIELD_LENGTH = 200
+MAX_CONDITION_VALUE_LENGTH = 2000
+MAX_ACTION_TARGET_LENGTH = 500
+MAX_ACTION_PARAMS_KEYS = 20
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+SAFE_FIELD_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]{0,199}$")
 VALID_MATCH_MODES = {"all", "any"}
+VALID_OPERATORS = {
+    "eq",
+    "neq",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "contains",
+    "not_contains",
+    "starts_with",
+    "ends_with",
+    "matches",
+    "in",
+    "not_in",
+    "exists",
+    "not_exists",
+}
+VALID_ACTION_TYPES = {
+    "route_to_channel",
+    "escalate_to",
+    "notify",
+    "tag",
+    "set_priority",
+    "delay",
+    "block",
+    "require_approval",
+    "webhook",
+    "log",
+}
+
+# Patterns known to cause ReDoS via nested quantifiers or overlapping alternations
+_REDOS_NESTED_QUANTIFIERS = re.compile(
+    r"\([^)]*[+*][^)]*\)[+*?]"  # e.g. (a+)+, (a*)*?, (a+b*)+
+    r"|"
+    r"\([^)]*[+*][^)]*\)\{[0-9,]+\}"  # e.g. (a+){2,}
+)
+_REDOS_OVERLAPPING_ALTERNATION = re.compile(
+    r"\([^)]*\|[^)]*\)[+*]"  # e.g. (a|a)+
+)
 
 # In-memory rule storage (for development/demo)
 # In production, rules would be stored in a database
@@ -94,6 +140,188 @@ def _validate_rule_id(rule_id: str) -> tuple[bool, str | None]:
     return True, None
 
 
+def _validate_regex_pattern(pattern: str) -> tuple[bool, str | None]:
+    """Validate a regex pattern for safety against ReDoS attacks.
+
+    Checks:
+    - Length limit to prevent excessively complex patterns
+    - Nesting depth to prevent exponential backtracking
+    - Known ReDoS trigger patterns (nested quantifiers)
+    - Compilability to reject malformed patterns early
+
+    Args:
+        pattern: The regex pattern string to validate.
+
+    Returns:
+        Tuple of (is_safe, error_message)
+    """
+    if not isinstance(pattern, str):
+        return False, "Regex pattern must be a string"
+
+    if len(pattern) > MAX_REGEX_LENGTH:
+        return False, f"Regex pattern exceeds maximum length of {MAX_REGEX_LENGTH}"
+
+    # Check for nested quantifiers that cause catastrophic backtracking
+    if _REDOS_NESTED_QUANTIFIERS.search(pattern):
+        return False, (
+            "Regex pattern contains nested quantifiers which can cause "
+            "catastrophic backtracking (e.g. (a+)+). Simplify the pattern."
+        )
+
+    # Check for overlapping alternation with quantifiers
+    if _REDOS_OVERLAPPING_ALTERNATION.search(pattern):
+        return False, (
+            "Regex pattern contains overlapping alternation with quantifiers "
+            "which can cause catastrophic backtracking. Simplify the pattern."
+        )
+
+    # Check nesting depth of groups
+    depth = 0
+    max_depth = 0
+    for char in pattern:
+        if char == "(":
+            depth += 1
+            max_depth = max(max_depth, depth)
+        elif char == ")":
+            depth = max(0, depth - 1)
+    if max_depth > MAX_REGEX_NESTING_DEPTH:
+        return False, (
+            f"Regex pattern has nesting depth {max_depth} which exceeds "
+            f"maximum of {MAX_REGEX_NESTING_DEPTH}"
+        )
+
+    # Verify the pattern actually compiles
+    try:
+        re.compile(pattern)
+    except re.error as e:
+        return False, f"Invalid regex pattern: {e}"
+
+    return True, None
+
+
+def _validate_condition(condition: dict[str, Any], index: int) -> tuple[bool, str | None]:
+    """Validate a single condition entry.
+
+    Args:
+        condition: The condition dictionary to validate.
+        index: The index of this condition (for error messages).
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    prefix = f"Condition [{index}]"
+
+    if not isinstance(condition, dict):
+        return False, f"{prefix}: must be an object"
+
+    # Validate required fields
+    if "field" not in condition:
+        return False, f"{prefix}: missing required field 'field'"
+    if "operator" not in condition:
+        return False, f"{prefix}: missing required field 'operator'"
+    if "value" not in condition and condition.get("operator") not in ("exists", "not_exists"):
+        return False, f"{prefix}: missing required field 'value'"
+
+    # Validate field name
+    field = condition["field"]
+    if not isinstance(field, str):
+        return False, f"{prefix}: 'field' must be a string"
+    if len(field) > MAX_CONDITION_FIELD_LENGTH:
+        return False, f"{prefix}: 'field' exceeds maximum length of {MAX_CONDITION_FIELD_LENGTH}"
+    if not SAFE_FIELD_PATTERN.match(field):
+        return False, (
+            f"{prefix}: 'field' contains invalid characters. "
+            "Must start with a letter or underscore and contain only "
+            "alphanumeric characters, underscores, or dots."
+        )
+
+    # Validate operator
+    operator = condition["operator"]
+    if not isinstance(operator, str):
+        return False, f"{prefix}: 'operator' must be a string"
+    if operator not in VALID_OPERATORS:
+        return (
+            False,
+            f"{prefix}: invalid operator '{operator}'. Must be one of: {sorted(VALID_OPERATORS)}",
+        )
+
+    # Validate value
+    value = condition.get("value")
+    if value is not None:
+        if isinstance(value, str) and len(value) > MAX_CONDITION_VALUE_LENGTH:
+            return False, (
+                f"{prefix}: 'value' exceeds maximum length of {MAX_CONDITION_VALUE_LENGTH}"
+            )
+
+    # If operator is 'matches', validate the regex pattern for ReDoS safety
+    if operator == "matches":
+        if not isinstance(value, str):
+            return False, f"{prefix}: 'matches' operator requires a string value as regex pattern"
+        is_safe, regex_error = _validate_regex_pattern(value)
+        if not is_safe:
+            return False, f"{prefix}: {regex_error}"
+
+    # Validate 'in' / 'not_in' require list values
+    if operator in ("in", "not_in"):
+        if not isinstance(value, (list, tuple)):
+            return False, f"{prefix}: '{operator}' operator requires a list value"
+
+    return True, None
+
+
+def _validate_action(action: dict[str, Any], index: int) -> tuple[bool, str | None]:
+    """Validate a single action entry.
+
+    Args:
+        action: The action dictionary to validate.
+        index: The index of this action (for error messages).
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    prefix = f"Action [{index}]"
+
+    if not isinstance(action, dict):
+        return False, f"{prefix}: must be an object"
+
+    # Validate required fields
+    if "type" not in action:
+        return False, f"{prefix}: missing required field 'type'"
+
+    # Validate action type
+    action_type = action["type"]
+    if not isinstance(action_type, str):
+        return False, f"{prefix}: 'type' must be a string"
+    if action_type not in VALID_ACTION_TYPES:
+        return (
+            False,
+            f"{prefix}: invalid action type '{action_type}'. Must be one of: {sorted(VALID_ACTION_TYPES)}",
+        )
+
+    # Validate target
+    target = action.get("target")
+    if target is not None:
+        if not isinstance(target, str):
+            return False, f"{prefix}: 'target' must be a string"
+        if len(target) > MAX_ACTION_TARGET_LENGTH:
+            return False, f"{prefix}: 'target' exceeds maximum length of {MAX_ACTION_TARGET_LENGTH}"
+
+    # Validate params
+    params = action.get("params")
+    if params is not None:
+        if not isinstance(params, dict):
+            return False, f"{prefix}: 'params' must be an object"
+        if len(params) > MAX_ACTION_PARAMS_KEYS:
+            return False, f"{prefix}: 'params' has too many keys (max: {MAX_ACTION_PARAMS_KEYS})"
+
+    # Actions that require a target
+    requires_target = {"route_to_channel", "escalate_to", "notify", "webhook"}
+    if action_type in requires_target and not target:
+        return False, f"{prefix}: action type '{action_type}' requires a 'target'"
+
+    return True, None
+
+
 def _validate_rule_data(data: dict[str, Any]) -> tuple[bool, str | None]:
     """Validate rule creation/update data.
 
@@ -102,26 +330,48 @@ def _validate_rule_data(data: dict[str, Any]) -> tuple[bool, str | None]:
     """
     # Validate name
     name = data.get("name", "")
+    if not isinstance(name, str):
+        return False, "Rule name must be a string"
     if name and len(name) > MAX_RULE_NAME_LENGTH:
         return False, f"Rule name exceeds maximum length of {MAX_RULE_NAME_LENGTH}"
 
     # Validate description
     description = data.get("description", "")
+    if not isinstance(description, str):
+        return False, "Description must be a string"
     if description and len(description) > MAX_DESCRIPTION_LENGTH:
         return False, f"Description exceeds maximum length of {MAX_DESCRIPTION_LENGTH}"
 
     # Validate conditions count
     conditions = data.get("conditions", [])
+    if not isinstance(conditions, list):
+        return False, "Conditions must be a list"
     if len(conditions) > MAX_CONDITIONS:
         return False, f"Too many conditions (max: {MAX_CONDITIONS})"
 
+    # Validate each condition
+    for i, condition in enumerate(conditions):
+        is_valid, error = _validate_condition(condition, i)
+        if not is_valid:
+            return False, error
+
     # Validate actions count
     actions = data.get("actions", [])
+    if not isinstance(actions, list):
+        return False, "Actions must be a list"
     if len(actions) > MAX_ACTIONS:
         return False, f"Too many actions (max: {MAX_ACTIONS})"
 
+    # Validate each action
+    for i, action in enumerate(actions):
+        is_valid, error = _validate_action(action, i)
+        if not is_valid:
+            return False, error
+
     # Validate tags
     tags = data.get("tags", [])
+    if not isinstance(tags, list):
+        return False, "Tags must be a list"
     if len(tags) > MAX_TAGS:
         return False, f"Too many tags (max: {MAX_TAGS})"
     for tag in tags:
@@ -142,6 +392,16 @@ def _validate_rule_data(data: dict[str, Any]) -> tuple[bool, str | None]:
             return False, "Priority must be an integer"
         if priority < -1000 or priority > 1000:
             return False, "Priority must be between -1000 and 1000"
+
+    # Validate enabled field type if present
+    enabled = data.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        return False, "'enabled' must be a boolean"
+
+    # Validate stop_processing field type if present
+    stop_processing = data.get("stop_processing")
+    if stop_processing is not None and not isinstance(stop_processing, bool):
+        return False, "'stop_processing' must be a boolean"
 
     return True, None
 
@@ -546,6 +806,14 @@ class RoutingRulesHandler(SecureHandler):
 
             if not isinstance(context, dict):
                 return {"status": "error", "error": "Context must be an object", "code": 400}
+
+            # Limit context size to prevent abuse
+            if len(context) > 100:
+                return {
+                    "status": "error",
+                    "error": "Context has too many keys (max: 100)",
+                    "code": 400,
+                }
 
             engine = _get_routing_engine()
             results = engine.evaluate(context, execute_actions=False)

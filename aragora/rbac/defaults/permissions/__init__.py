@@ -356,6 +356,16 @@ from .organization import (
     PERM_WORKSPACE_UPDATE,
 )
 
+# Autonomous permissions
+from .autonomous import (
+    PERM_ALERTS_ADMIN,
+    PERM_ALERTS_READ,
+    PERM_ALERTS_WRITE,
+    PERM_AUTONOMOUS_APPROVE,
+    PERM_AUTONOMOUS_READ,
+    PERM_AUTONOMOUS_WRITE,
+)
+
 # Resource permissions
 from .resources import (
     PERM_A2A_CREATE,
@@ -782,4 +792,12 @@ __all__ = [
     "PERM_REVIEWS_READ",
     "PERM_A2A_READ",
     "PERM_A2A_CREATE",
+    # Autonomous
+    "PERM_AUTONOMOUS_READ",
+    "PERM_AUTONOMOUS_WRITE",
+    "PERM_AUTONOMOUS_APPROVE",
+    # Alerts
+    "PERM_ALERTS_READ",
+    "PERM_ALERTS_WRITE",
+    "PERM_ALERTS_ADMIN",
 ]

@@ -66,6 +66,7 @@ def init_core_metrics() -> bool:
         # Import and initialize all submodules
         from aragora.observability.metrics.agent import init_agent_metrics
         from aragora.observability.metrics.cache import init_cache_metrics
+        from aragora.observability.metrics.cardinality import init_cardinality_metrics
         from aragora.observability.metrics.checkpoint import init_checkpoint_metrics
         from aragora.observability.metrics.consensus import (
             init_consensus_metrics,
@@ -124,6 +125,9 @@ def init_core_metrics() -> bool:
         init_explainability_metrics()
         init_user_mapping_metrics()
         init_security_metrics()
+
+        # Cardinality monitoring
+        init_cardinality_metrics()
 
         _initialized = True
         logger.info("All Prometheus metrics initialized")

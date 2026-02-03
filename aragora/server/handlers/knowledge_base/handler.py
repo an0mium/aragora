@@ -77,6 +77,8 @@ class KnowledgeHandler(
         "/api/v1/knowledge/facts",
         "/api/v1/knowledge/search",
         "/api/v1/knowledge/stats",
+        # Aliases: SDK expects /api/v1/facts/* without the /knowledge/ prefix
+        "/api/v1/facts",
     ]
 
     def __init__(self, server_context: dict[str, Any]):
@@ -116,7 +118,21 @@ class KnowledgeHandler(
             return True
         if path.startswith("/api/v1/knowledge/facts/"):
             return True
+        # Alias: SDK expects /api/v1/facts/* without the /knowledge/ prefix
+        if path.startswith("/api/v1/facts/"):
+            return True
         return False
+
+    @staticmethod
+    def _normalize_facts_path(path: str) -> str:
+        """Normalize /api/v1/facts/* to /api/v1/knowledge/facts/* for routing.
+
+        The SDK uses the shorter /api/v1/facts/ prefix, but the internal
+        routing logic expects the canonical /api/v1/knowledge/facts/ prefix.
+        """
+        if path == "/api/v1/facts" or path.startswith("/api/v1/facts/"):
+            return path.replace("/api/v1/facts", "/api/v1/knowledge/facts", 1)
+        return path
 
     def _check_permission(self, handler: Any, permission: str) -> HandlerResult | None:
         """Check RBAC permission and return error response if denied."""
@@ -134,6 +150,9 @@ class KnowledgeHandler(
     @require_permission("knowledge:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route knowledge requests to appropriate methods."""
+        # Normalize /api/v1/facts/* aliases to canonical /api/v1/knowledge/facts/*
+        path = self._normalize_facts_path(path)
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _knowledge_limiter.is_allowed(client_ip):

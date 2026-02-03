@@ -38,19 +38,41 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
 # Import botocore exceptions for proper error handling
 # These are optional - if not installed, we use Exception as fallback
+_BOTOCORE_AVAILABLE = False
 try:
     from botocore.exceptions import BotoCoreError, ClientError
+
+    _BOTOCORE_AVAILABLE = True
 except ImportError:
-    # Placeholder exceptions when botocore is not installed; mypy sees these
-    # as redefinitions of the names from the try block.
-    ClientError: type[Exception] = type("ClientError", (Exception,), {})  # type: ignore[no-redef]
-    BotoCoreError: type[Exception] = type("BotoCoreError", (Exception,), {})  # type: ignore[no-redef]
+    # Placeholder exceptions when botocore is not installed.
+    # We create these as module-level classes to avoid mypy redefinition errors.
+    pass
+
+
+# Define fallback exception classes only when botocore is not available
+if not _BOTOCORE_AVAILABLE:
+
+    class ClientError(Exception):  # noqa: N818 - Matches botocore naming
+        """Fallback ClientError when botocore is not installed."""
+
+        response: dict[str, dict[str, str]]
+
+        def __init__(self, *args: object, **kwargs: Any) -> None:
+            super().__init__(*args)
+            response_value = kwargs.get("response", {})
+            self.response = cast(dict[str, dict[str, str]], response_value)
+
+    class BotoCoreError(Exception):
+        """Fallback BotoCoreError when botocore is not installed."""
+
+        pass
+
 
 # Secret names that should be loaded from Secrets Manager
 MANAGED_SECRETS = frozenset(

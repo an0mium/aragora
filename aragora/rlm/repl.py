@@ -634,7 +634,7 @@ class RLMEnvironment:
 
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stdout_capture):
-                exec(code, {"__builtins__": {}}, self.state.namespace)
+                exec(code, {"__builtins__": {}}, self.state.namespace)  # noqa: S102 - Sandboxed REPL with AST validation
         except SecurityError as e:
             return f"SecurityError: {e}", False
         except Exception as e:

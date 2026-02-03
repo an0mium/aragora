@@ -324,9 +324,9 @@ class FeatureDevelopmentAgent:
         }
 
         if self.codebase_agent:
-            # Index the codebase
+            # Index the codebase (result not needed, side-effect is indexing)
             self._log("Indexing codebase...")
-            _index = await self.codebase_agent.index_codebase()  # noqa: F841
+            await self.codebase_agent.index_codebase()
 
             # Find relevant files based on spec
             if spec.affected_files:

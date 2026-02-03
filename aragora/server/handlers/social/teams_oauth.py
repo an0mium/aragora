@@ -36,7 +36,15 @@ from ..base import (
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 
-# RBAC Permissions for Teams OAuth operations
+# RBAC Permission constants for Teams OAuth
+# Following granular permission model for OAuth security
+PERM_TEAMS_OAUTH_INSTALL = "teams:oauth:install"
+PERM_TEAMS_OAUTH_CALLBACK = "teams:oauth:callback"
+PERM_TEAMS_OAUTH_DISCONNECT = "teams:oauth:disconnect"
+PERM_TEAMS_TENANT_MANAGE = "teams:tenant:manage"
+PERM_TEAMS_ADMIN = "teams:admin"
+
+# Legacy permission for backward compatibility
 CONNECTOR_AUTHORIZE = "connectors.authorize"
 
 # Environment configuration
@@ -70,9 +78,17 @@ class TeamsOAuthHandler(SecureHandler):
     """Handler for Microsoft Teams OAuth installation flow.
 
     RBAC Protection:
-    - /install: Requires connector:authorize permission
-    - /callback: No auth (OAuth callback from Microsoft)
-    - /refresh: Requires authentication
+    - /install: Requires teams:oauth:install OR connectors.authorize permission
+    - /callback: No auth (OAuth callback from Microsoft, state validated)
+    - /refresh: Requires teams:tenant:manage permission
+    - /disconnect: Requires teams:oauth:disconnect permission
+    - /tenants: Requires teams:tenant:manage permission (list/manage tenants)
+
+    Security Notes:
+    - OAuth callback validates state token to prevent CSRF
+    - All authenticated endpoints require valid JWT
+    - Tenant operations require specific tenant management permissions
+    - Admin operations require teams:admin permission
     """
 
     def __init__(self, ctx: dict | None = None):
@@ -85,11 +101,58 @@ class TeamsOAuthHandler(SecureHandler):
         "/api/integrations/teams/install",
         "/api/integrations/teams/callback",
         "/api/integrations/teams/refresh",
+        "/api/integrations/teams/disconnect",
+        "/api/integrations/teams/tenants",
+    ]
+
+    # Route patterns for dynamic paths
+    ROUTE_PATTERNS = [
+        r"/api/integrations/teams/tenants/([^/]+)",
+        r"/api/integrations/teams/tenants/([^/]+)/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        import re
+
+        if path in self.ROUTES:
+            return True
+        # Check dynamic patterns
+        for pattern in self.ROUTE_PATTERNS:
+            if re.match(pattern, path):
+                return True
+        return False
+
+    def _check_permission(
+        self,
+        auth_context: Any,
+        permission: str,
+        fallback_permission: str | None = None,
+    ) -> bool:
+        """Check if user has required permission with optional fallback.
+
+        Args:
+            auth_context: User's authorization context
+            permission: Primary permission to check
+            fallback_permission: Optional fallback permission (for backward compatibility)
+
+        Returns:
+            True if permission granted
+
+        Raises:
+            ForbiddenError: If permission denied
+        """
+        try:
+            self.check_permission(auth_context, permission)
+            return True
+        except (ForbiddenError, PermissionError):
+            if fallback_permission:
+                try:
+                    self.check_permission(auth_context, fallback_permission)
+                    return True
+                except (ForbiddenError, PermissionError):
+                    pass
+            raise ForbiddenError(f"Permission denied: {permission} required")
 
     async def handle(
         self,
@@ -134,15 +197,22 @@ class TeamsOAuthHandler(SecureHandler):
         For BaseHandler compatibility, use handle(path, query_params, handler) which
         delegates to this method.
 
-        Authentication:
-        - /install: Requires authentication + connector:authorize permission
-        - /callback: No auth (OAuth redirect from Microsoft)
-        - /refresh: Requires authentication (admin operation)
+        RBAC enforcement:
+        - /install: Requires teams:oauth:install (or legacy connectors.authorize)
+        - /callback: No auth (OAuth redirect from Microsoft, state validated)
+        - /refresh: Requires teams:tenant:manage permission
+        - /disconnect: Requires teams:oauth:disconnect permission
+        - /tenants: Requires teams:tenant:manage permission
+        - /tenants/{id}: Requires teams:tenant:manage permission
+        - /tenants/{id}/status: Requires teams:tenant:manage permission
         """
+        import re
+
         query_params_dict = query_params or {}
         body = body or {}
 
         # OAuth callback from Microsoft - no auth required (external redirect)
+        # Security: State token is validated in _handle_callback to prevent CSRF
         if path == "/api/integrations/teams/callback":
             if method == "GET":
                 return await self._handle_callback(query_params_dict)
@@ -155,19 +225,94 @@ class TeamsOAuthHandler(SecureHandler):
             logger.debug(f"Teams OAuth auth failed: {e}")
             return error_response("Authentication required", 401)
 
+        # Install endpoint - initiate OAuth flow
         if path == "/api/integrations/teams/install":
             if method == "GET":
                 try:
-                    self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
-                except (ForbiddenError, PermissionError):
-                    return error_response("Permission denied: connector:authorize required", 403)
+                    # Check teams:oauth:install with fallback to legacy connector permission
+                    self._check_permission(
+                        auth_context,
+                        PERM_TEAMS_OAUTH_INSTALL,
+                        fallback_permission=CONNECTOR_AUTHORIZE,
+                    )
+                except ForbiddenError:
+                    return error_response(
+                        f"Permission denied: {PERM_TEAMS_OAUTH_INSTALL} required", 403
+                    )
                 return await self._handle_install(query_params_dict)
             return error_response("Method not allowed", 405)
 
+        # Refresh endpoint - refresh tokens for a tenant
         if path == "/api/integrations/teams/refresh":
             if method == "POST":
-                # Refresh is an admin operation - auth is enough (or could add specific permission)
+                try:
+                    self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
+                except ForbiddenError:
+                    return error_response(
+                        f"Permission denied: {PERM_TEAMS_TENANT_MANAGE} required", 403
+                    )
                 return await self._handle_refresh(body)
+            return error_response("Method not allowed", 405)
+
+        # Disconnect endpoint - disconnect a tenant
+        if path == "/api/integrations/teams/disconnect":
+            if method == "POST":
+                try:
+                    self._check_permission(auth_context, PERM_TEAMS_OAUTH_DISCONNECT)
+                except ForbiddenError:
+                    return error_response(
+                        f"Permission denied: {PERM_TEAMS_OAUTH_DISCONNECT} required", 403
+                    )
+                return await self._handle_disconnect(body)
+            return error_response("Method not allowed", 405)
+
+        # Tenants list endpoint
+        if path == "/api/integrations/teams/tenants":
+            if method == "GET":
+                try:
+                    self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
+                except ForbiddenError:
+                    return error_response(
+                        f"Permission denied: {PERM_TEAMS_TENANT_MANAGE} required", 403
+                    )
+                return await self._handle_list_tenants()
+            return error_response("Method not allowed", 405)
+
+        # Check for dynamic tenant routes
+        # GET/DELETE /api/integrations/teams/tenants/{tenant_id}
+        tenant_match = re.match(r"/api/integrations/teams/tenants/([^/]+)$", path)
+        if tenant_match:
+            tenant_id = tenant_match.group(1)
+            if method == "GET":
+                try:
+                    self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
+                except ForbiddenError:
+                    return error_response(
+                        f"Permission denied: {PERM_TEAMS_TENANT_MANAGE} required", 403
+                    )
+                return await self._handle_get_tenant(tenant_id)
+            if method == "DELETE":
+                try:
+                    self._check_permission(auth_context, PERM_TEAMS_OAUTH_DISCONNECT)
+                except ForbiddenError:
+                    return error_response(
+                        f"Permission denied: {PERM_TEAMS_OAUTH_DISCONNECT} required", 403
+                    )
+                return await self._handle_disconnect({"tenant_id": tenant_id})
+            return error_response("Method not allowed", 405)
+
+        # GET /api/integrations/teams/tenants/{tenant_id}/status
+        status_match = re.match(r"/api/integrations/teams/tenants/([^/]+)/status$", path)
+        if status_match:
+            tenant_id = status_match.group(1)
+            if method == "GET":
+                try:
+                    self._check_permission(auth_context, PERM_TEAMS_TENANT_MANAGE)
+                except ForbiddenError:
+                    return error_response(
+                        f"Permission denied: {PERM_TEAMS_TENANT_MANAGE} required", 403
+                    )
+                return await self._handle_tenant_status(tenant_id)
             return error_response("Method not allowed", 405)
 
         return error_response("Not found", 404)
@@ -511,6 +656,237 @@ class TeamsOAuthHandler(SecureHandler):
                 "expires_in": expires_in,
             }
         )
+
+    async def _handle_disconnect(self, body: dict[str, Any]) -> HandlerResult:
+        """
+        Disconnect a Teams tenant.
+
+        Request body:
+            tenant_id: Azure AD tenant ID to disconnect
+
+        RBAC: Requires teams:oauth:disconnect permission
+        """
+        tenant_id = body.get("tenant_id")
+        if not tenant_id:
+            return error_response("Missing tenant_id", 400)
+
+        try:
+            from aragora.storage.teams_tenant_store import get_teams_tenant_store
+
+            store = get_teams_tenant_store()
+            tenant = store.get(tenant_id)
+
+            if not tenant:
+                return error_response("Tenant not found", 404)
+
+            # Deactivate the tenant
+            tenant.is_active = False
+            if not store.save(tenant):
+                return error_response("Failed to disconnect tenant", 500)
+
+            logger.info(f"Teams tenant disconnected: {tenant.tenant_name} ({tenant_id})")
+
+            return json_response(
+                {
+                    "success": True,
+                    "tenant_id": tenant_id,
+                    "tenant_name": tenant.tenant_name,
+                    "message": "Tenant disconnected successfully",
+                }
+            )
+
+        except ImportError as e:
+            logger.error(f"Tenant store not available: {e}")
+            return error_response("Tenant storage not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to disconnect tenant: {e}")
+            return error_response(f"Failed to disconnect tenant: {e}", 500)
+
+    async def _handle_list_tenants(self) -> HandlerResult:
+        """
+        List all Teams tenants with their status.
+
+        RBAC: Requires teams:tenant:manage permission
+
+        Returns:
+            List of tenants with id, name, is_active, token status
+        """
+        try:
+            from aragora.storage.teams_tenant_store import get_teams_tenant_store
+
+            store = get_teams_tenant_store()
+            tenants = store.list_all()
+
+            tenant_list = []
+            current_time = time.time()
+
+            for t in tenants:
+                # Determine token health
+                token_status = "valid"
+                if t.expires_at:
+                    if t.expires_at < current_time:
+                        token_status = "expired"
+                    elif t.expires_at < current_time + 3600:
+                        token_status = "expiring_soon"
+
+                tenant_list.append(
+                    {
+                        "tenant_id": t.tenant_id,
+                        "tenant_name": t.tenant_name,
+                        "is_active": t.is_active,
+                        "token_status": token_status,
+                        "expires_at": t.expires_at,
+                        "installed_at": t.installed_at,
+                        "installed_by": t.installed_by,
+                        "scopes": t.scopes,
+                        "aragora_org_id": t.aragora_org_id,
+                    }
+                )
+
+            logger.info(f"Listed {len(tenant_list)} Teams tenants")
+            return json_response(
+                {
+                    "tenants": tenant_list,
+                    "total": len(tenant_list),
+                }
+            )
+
+        except ImportError as e:
+            logger.error(f"Tenant store not available: {e}")
+            return error_response("Tenant storage not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to list tenants: {e}")
+            return error_response(f"Failed to list tenants: {e}", 500)
+
+    async def _handle_get_tenant(self, tenant_id: str) -> HandlerResult:
+        """
+        Get details for a specific Teams tenant.
+
+        Args:
+            tenant_id: The Azure AD tenant ID
+
+        RBAC: Requires teams:tenant:manage permission
+
+        Returns:
+            Tenant details including token status
+        """
+        try:
+            from aragora.storage.teams_tenant_store import get_teams_tenant_store
+
+            store = get_teams_tenant_store()
+            tenant = store.get(tenant_id)
+
+            if not tenant:
+                return error_response(f"Tenant {tenant_id} not found", 404)
+
+            current_time = time.time()
+
+            # Determine token health
+            token_status = "valid"
+            expires_in_seconds = None
+            if tenant.expires_at:
+                expires_in_seconds = int(tenant.expires_at - current_time)
+                if expires_in_seconds < 0:
+                    token_status = "expired"
+                elif expires_in_seconds < 3600:
+                    token_status = "expiring_soon"
+                elif expires_in_seconds < 86400:
+                    token_status = "expiring_today"
+
+            # Check if refresh token is available
+            has_refresh_token = bool(tenant.refresh_token)
+
+            tenant_data = {
+                "tenant_id": tenant.tenant_id,
+                "tenant_name": tenant.tenant_name,
+                "is_active": tenant.is_active,
+                "token_status": token_status,
+                "expires_at": tenant.expires_at,
+                "expires_in_seconds": expires_in_seconds,
+                "has_refresh_token": has_refresh_token,
+                "scopes": tenant.scopes,
+                "installed_at": tenant.installed_at,
+                "installed_by": tenant.installed_by,
+                "bot_id": tenant.bot_id,
+                "aragora_org_id": tenant.aragora_org_id,
+            }
+
+            logger.debug(f"Retrieved tenant {tenant_id}: {token_status}")
+            return json_response(tenant_data)
+
+        except ImportError as e:
+            logger.error(f"Tenant store not available: {e}")
+            return error_response("Tenant storage not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to get tenant: {e}")
+            return error_response(f"Failed to get tenant: {e}", 500)
+
+    async def _handle_tenant_status(self, tenant_id: str) -> HandlerResult:
+        """
+        Get detailed token status for a specific tenant.
+
+        Args:
+            tenant_id: The Azure AD tenant ID
+
+        RBAC: Requires teams:tenant:manage permission
+
+        Returns:
+            Token health details including validity, expiration, scopes
+        """
+        try:
+            from aragora.storage.teams_tenant_store import get_teams_tenant_store
+
+            store = get_teams_tenant_store()
+            tenant = store.get(tenant_id)
+
+            if not tenant:
+                return error_response(f"Tenant {tenant_id} not found", 404)
+
+            current_time = time.time()
+
+            # Determine token health
+            token_status = "valid"
+            expires_in_seconds = None
+            if tenant.expires_at:
+                expires_in_seconds = int(tenant.expires_at - current_time)
+                if expires_in_seconds < 0:
+                    token_status = "expired"
+                elif expires_in_seconds < 3600:
+                    token_status = "expiring_soon"
+                elif expires_in_seconds < 86400:
+                    token_status = "expiring_today"
+
+            # Check if refresh token is available
+            has_refresh_token = bool(tenant.refresh_token)
+
+            # Calculate time until refresh recommended
+            refresh_recommended_in = None
+            if expires_in_seconds and expires_in_seconds > 0:
+                # Recommend refresh when 50% of token lifetime has passed
+                refresh_recommended_in = max(0, expires_in_seconds - 1800)
+
+            status_data = {
+                "tenant_id": tenant.tenant_id,
+                "tenant_name": tenant.tenant_name,
+                "is_active": tenant.is_active,
+                "token_status": token_status,
+                "expires_at": tenant.expires_at,
+                "expires_in_seconds": expires_in_seconds,
+                "has_refresh_token": has_refresh_token,
+                "refresh_recommended_in": refresh_recommended_in,
+                "can_refresh": has_refresh_token and tenant.is_active,
+                "scopes": tenant.scopes,
+            }
+
+            logger.debug(f"Token status for tenant {tenant_id}: {token_status}")
+            return json_response(status_data)
+
+        except ImportError as e:
+            logger.error(f"Tenant store not available: {e}")
+            return error_response("Tenant storage not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to get tenant status: {e}")
+            return error_response(f"Failed to get tenant status: {e}", 500)
 
 
 # Handler factory function for registration

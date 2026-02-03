@@ -19,6 +19,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+import defusedxml.ElementTree as ET
 import httpx
 
 from aragora.exceptions import ExternalServiceError
@@ -691,8 +692,6 @@ class GoogleTrendsIngestor(PulseIngestor):
 
     async def _parse_rss(self, rss_text: str, limit: int) -> list[TrendingTopic]:
         """Parse Google Trends RSS XML response."""
-        import xml.etree.ElementTree as ET
-
         root = ET.fromstring(rss_text)
 
         topics = []
@@ -794,8 +793,6 @@ class ArxivIngestor(PulseIngestor):
                 response.raise_for_status()
 
                 # Parse Atom XML feed
-                import xml.etree.ElementTree as ET
-
                 root = ET.fromstring(response.text)
                 ns = {
                     "atom": "http://www.w3.org/2005/Atom",
@@ -1022,8 +1019,6 @@ class ProductHuntIngestor(PulseIngestor):
                 response = await client.get(self.rss_url)
                 response.raise_for_status()
 
-                import xml.etree.ElementTree as ET
-
                 root = ET.fromstring(response.text)
 
                 topics = []
@@ -1170,8 +1165,6 @@ class SubstackIngestor(PulseIngestor):
 
         async def _fetch():
             async with httpx.AsyncClient(timeout=10.0) as client:
-                import xml.etree.ElementTree as ET
-
                 all_topics = []
 
                 for feed_url, category in self.feeds:

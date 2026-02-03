@@ -724,7 +724,7 @@ Guidelines:
         # Find functions
         func_pattern = r"^(async\s+)?def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*([^:]+))?:"
         for match in re.finditer(func_pattern, code, re.MULTILINE):
-            _is_async = bool(match.group(1))  # noqa: F841
+            # Note: match.group(1) captures async keyword if present (unused for now)
             name = match.group(2)
             params_str = match.group(3)
             return_type = match.group(4).strip() if match.group(4) else None

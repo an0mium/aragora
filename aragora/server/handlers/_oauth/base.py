@@ -142,8 +142,8 @@ class OAuthHandler(
         # Access create_span/add_span_attributes via _impl() so test patches
         # applied to _oauth_impl.create_span are visible at runtime.
         impl = _impl()
-        _cs = impl.create_span  # noqa: F841
-        _asa = impl.add_span_attributes  # noqa: F841
+        _cs = impl.create_span
+        _asa = impl.add_span_attributes
 
         with _cs(f"oauth.{provider}", {"oauth.provider": provider, "oauth.path": path}) as span:
             # Get client IP for rate limiting

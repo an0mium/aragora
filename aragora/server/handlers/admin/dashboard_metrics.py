@@ -6,18 +6,103 @@ Extracted from dashboard.py to reduce file size. Contains:
 - Legacy metrics calculation (for compatibility)
 - Debate pattern analysis
 - Single-pass batch processing
+
+All functions require admin:metrics:read permission and are rate limited.
 """
 
 from __future__ import annotations
 
+import functools
 import logging
 import time
 from datetime import datetime, timedelta
 from typing import Any
 
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.decorators import PermissionDeniedError
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.utils.rate_limit import rate_limit
+
 logger = logging.getLogger(__name__)
 
+# RBAC permission for admin metrics access
+PERM_ADMIN_METRICS_READ = "admin:metrics:read"
 
+
+def _get_context_from_args_strict(
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    context_param: str,
+) -> AuthorizationContext | None:
+    """Extract AuthorizationContext without relying on patched helpers."""
+    if context_param in kwargs and isinstance(kwargs[context_param], AuthorizationContext):
+        return kwargs[context_param]
+
+    if args and isinstance(args[0], AuthorizationContext):
+        return args[0]
+    if len(args) >= 2 and isinstance(args[1], AuthorizationContext):
+        return args[1]
+
+    for value in kwargs.values():
+        if isinstance(value, AuthorizationContext):
+            return value
+
+    for arg in args:
+        if hasattr(arg, "_auth_context") and isinstance(arg._auth_context, AuthorizationContext):
+            return arg._auth_context
+
+    return None
+
+
+def require_permission(
+    permission_key: str,
+    resource_id_param: str | None = None,
+    context_param: str = "context",
+    checker: Any = None,
+    on_denied: Any = None,
+):
+    """Local strict permission decorator (avoids test auto-auth patches)."""
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            context = _get_context_from_args_strict(args, kwargs, context_param)
+            if context is None:
+                raise PermissionDeniedError(
+                    f"No AuthorizationContext found for permission check: {permission_key}"
+                )
+
+            resource_id: str | None = None
+            if resource_id_param:
+                raw_resource_id = kwargs.get(resource_id_param)
+                if raw_resource_id is not None:
+                    resource_id = str(raw_resource_id)
+                else:
+                    import inspect as _inspect
+
+                    sig = _inspect.signature(func)
+                    params = list(sig.parameters.keys())
+                    if resource_id_param in params:
+                        idx = params.index(resource_id_param)
+                        if idx < len(args):
+                            resource_id = str(args[idx])
+
+            perm_checker = checker or get_permission_checker()
+            decision = perm_checker.check_permission(context, permission_key, resource_id)
+            if not decision.allowed:
+                if on_denied:
+                    on_denied(decision)
+                raise PermissionDeniedError(decision.reason, decision)
+
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+@require_permission(PERM_ADMIN_METRICS_READ)
+@rate_limit(requests_per_minute=30, limiter_name="admin_dashboard_metrics")
 def get_summary_metrics_sql(storage: Any, domain: str | None) -> dict[str, Any]:
     """Get summary metrics using SQL aggregation (O(1) memory).
 
@@ -63,6 +148,8 @@ def get_summary_metrics_sql(storage: Any, domain: str | None) -> dict[str, Any]:
     return summary
 
 
+@require_permission(PERM_ADMIN_METRICS_READ)
+@rate_limit(requests_per_minute=30, limiter_name="admin_dashboard_metrics")
 def get_recent_activity_sql(storage: Any, hours: int) -> dict[str, Any]:
     """Get recent activity metrics using SQL aggregation.
 
@@ -104,6 +191,8 @@ def get_recent_activity_sql(storage: Any, hours: int) -> dict[str, Any]:
     return activity
 
 
+@require_permission(PERM_ADMIN_METRICS_READ)
+@rate_limit(requests_per_minute=30, limiter_name="admin_dashboard_metrics")
 def get_summary_metrics_legacy(domain: str | None, debates: list) -> dict[str, Any]:
     """Get high-level summary metrics (legacy, kept for compatibility).
 
@@ -142,6 +231,8 @@ def get_summary_metrics_legacy(domain: str | None, debates: list) -> dict[str, A
     return summary
 
 
+@require_permission(PERM_ADMIN_METRICS_READ)
+@rate_limit(requests_per_minute=30, limiter_name="admin_dashboard_metrics")
 def get_recent_activity_legacy(domain: str | None, hours: int, debates: list) -> dict[str, Any]:
     """Get recent debate activity metrics.
 
@@ -193,6 +284,8 @@ def get_recent_activity_legacy(domain: str | None, hours: int, debates: list) ->
     return activity
 
 
+@require_permission(PERM_ADMIN_METRICS_READ)
+@rate_limit(requests_per_minute=20, limiter_name="admin_dashboard_metrics_batch")
 def process_debates_single_pass(
     debates: list, domain: str | None, hours: int
 ) -> tuple[dict, dict, dict]:
@@ -336,6 +429,8 @@ def process_debates_single_pass(
     return summary, activity, patterns
 
 
+@require_permission(PERM_ADMIN_METRICS_READ)
+@rate_limit(requests_per_minute=30, limiter_name="admin_dashboard_metrics")
 def get_debate_patterns(debates: list) -> dict[str, Any]:
     """Get debate pattern statistics.
 

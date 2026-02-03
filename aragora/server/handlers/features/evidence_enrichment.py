@@ -95,9 +95,10 @@ class EvidenceEnrichmentHandler(BaseHandler):
         """Check if this handler can process the given path."""
         if path in self.ROUTES:
             return True
-        # Handle /api/findings/{finding_id}/evidence pattern
+        # Handle /api/v1/findings/{finding_id}/evidence pattern (single path segment)
         if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
-            return True
+            parts = path.split("/")
+            return len(parts) == 6
         return False
 
     @require_permission("evidence:read")
@@ -105,10 +106,10 @@ class EvidenceEnrichmentHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
-            # Extract finding_id from /api/findings/{finding_id}/evidence
+            # Extract finding_id from /api/v1/findings/{finding_id}/evidence
             parts = path.split("/")
-            if len(parts) == 5:
-                finding_id = parts[3]
+            if len(parts) == 6:
+                finding_id = parts[4]
                 return self._get_finding_evidence(finding_id, handler=handler)
         return None
 
@@ -120,10 +121,10 @@ class EvidenceEnrichmentHandler(BaseHandler):
             return self._batch_enrich(handler)
 
         if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
-            # Extract finding_id from /api/findings/{finding_id}/evidence
+            # Extract finding_id from /api/v1/findings/{finding_id}/evidence
             parts = path.split("/")
-            if len(parts) == 5:
-                finding_id = parts[3]
+            if len(parts) == 6:
+                finding_id = parts[4]
                 return self._enrich_finding(handler, finding_id)
 
         return None

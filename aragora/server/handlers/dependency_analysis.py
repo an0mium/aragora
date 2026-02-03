@@ -345,7 +345,6 @@ async def handle_check_licenses(
         # Group by severity
         errors = [c for c in conflicts if c.severity == "error"]
         warnings = [c for c in conflicts if c.severity == "warning"]
-        _info = [c for c in conflicts if c.severity == "info"]  # noqa: F841
 
         # Get license distribution
         license_counts: dict[str, int] = {}

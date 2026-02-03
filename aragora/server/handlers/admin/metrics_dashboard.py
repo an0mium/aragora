@@ -22,6 +22,7 @@ from ..base import (
     json_response,
 )
 from ..openapi_decorator import api_endpoint
+from aragora.rbac.decorators import require_permission
 
 if TYPE_CHECKING:
     from aragora.auth.context import AuthorizationContext
@@ -191,6 +192,7 @@ class MetricsDashboardMixin:
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
     )
+    @require_permission("admin:revenue:read")
     @handle_errors("get revenue stats")
     def _get_revenue_stats(self, handler: Any) -> HandlerResult:
         """Get revenue and billing statistics.

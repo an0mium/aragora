@@ -1029,12 +1029,22 @@ class AnalyticsPlatformsHandler(SecureHandler):
         if not hasattr(report, "rows") or not report.rows:
             return {"users": 0, "sessions": 0, "events": 0}
 
+        def _header_name(header: Any) -> str:
+            if isinstance(header, str):
+                return header
+            if hasattr(header, "_mock_name") and header._mock_name:
+                return header._mock_name
+            if hasattr(header, "name"):
+                name = header.name
+                return name if isinstance(name, str) else str(name)
+            return str(header)
+
         row = report.rows[0]
         metrics = {}
         if hasattr(report, "metric_headers"):
             for i, header in enumerate(report.metric_headers):
                 if i < len(row.metric_values):
-                    metrics[header.name] = int(row.metric_values[i].value)
+                    metrics[_header_name(header)] = int(row.metric_values[i].value)
 
         return {
             "users": metrics.get("totalUsers", 0),

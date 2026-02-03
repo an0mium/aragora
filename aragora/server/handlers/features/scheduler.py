@@ -90,13 +90,13 @@ class SchedulerHandler(BaseHandler):
 
         if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")
-            if len(parts) == 5:
-                # /api/scheduler/jobs/{job_id}
-                job_id = parts[4]
+            if len(parts) == 6:
+                # /api/v1/scheduler/jobs/{job_id}
+                job_id = parts[5]
                 return self._get_job(job_id)
-            elif len(parts) == 6 and parts[5] == "history":
-                # /api/scheduler/jobs/{job_id}/history
-                job_id = parts[4]
+            elif len(parts) == 7 and parts[6] == "history":
+                # /api/v1/scheduler/jobs/{job_id}/history
+                job_id = parts[5]
                 limit = safe_query_int(query_params, "limit", default=10, min_val=1, max_val=100)
                 return self._get_job_history(job_id, limit)
 
@@ -120,15 +120,15 @@ class SchedulerHandler(BaseHandler):
         if path.startswith("/api/v1/scheduler/webhooks/"):
             # /api/scheduler/webhooks/{webhook_id}
             parts = path.split("/")
-            if len(parts) == 5:
-                webhook_id = parts[4]
+            if len(parts) == 6:
+                webhook_id = parts[5]
                 return self._handle_webhook(handler, webhook_id)
 
         if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")
-            if len(parts) == 6:
-                job_id = parts[4]
-                action = parts[5]
+            if len(parts) == 7:
+                job_id = parts[5]
+                action = parts[6]
                 if action == "trigger":
                     return self._trigger_job(job_id)
                 elif action == "pause":
@@ -146,8 +146,8 @@ class SchedulerHandler(BaseHandler):
 
         if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")
-            if len(parts) == 5:
-                job_id = parts[4]
+            if len(parts) == 6:
+                job_id = parts[5]
                 return self._delete_job(job_id)
         return None
 

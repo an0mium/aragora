@@ -14,6 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from aragora.rbac.decorators import require_permission
@@ -34,6 +35,12 @@ if TYPE_CHECKING:
     from ..base import ServerContext
 
 logger = logging.getLogger(__name__)
+
+# Allowed status values for query filtering
+_VALID_STATUSES = frozenset({"active", "concluded", "cancelled"})
+
+# Pattern for debate IDs - alphanumeric, hyphens, underscores, max 128 chars
+_DEBATE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]{1,128}$")
 
 # Try to import A/B testing module
 ABTestManager: Any
@@ -156,6 +163,7 @@ class EvolutionABTestingHandler(BaseHandler):
 
         return None
 
+    @require_permission("testing:delete")
     def handle_delete(
         self, path: str, query_params: dict, handler: Any = None
     ) -> HandlerResult | None:
@@ -207,6 +215,19 @@ class EvolutionABTestingHandler(BaseHandler):
         status = query_params.get("status")
         limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
 
+        # Validate status against allowed values
+        if status is not None and status not in _VALID_STATUSES:
+            return error_response(
+                f"Invalid status filter. Allowed values: {', '.join(sorted(_VALID_STATUSES))}",
+                400,
+            )
+
+        # Validate agent if provided
+        if agent:
+            valid, err = validate_path_segment(agent, "agent")
+            if not valid:
+                return error_response(err or "Invalid agent name", 400)
+
         # Get tests from database
         if agent:
             tests = self.manager.get_agent_tests(agent, limit=limit)
@@ -222,29 +243,34 @@ class EvolutionABTestingHandler(BaseHandler):
         )
 
     def _get_all_tests(self, limit: int, status: str | None = None) -> list:
-        """Get all tests with optional status filter."""
-        from aragora.evolution.ab_testing import ABTest
+        """Get all tests with optional status filter.
+
+        Args:
+            limit: Maximum number of tests to return (already clamped by caller).
+            status: Optional status filter (already validated against _VALID_STATUSES).
+        """
+        from aragora.evolution.ab_testing import AB_TEST_COLUMNS, ABTest
 
         with get_db_connection(str(self.manager.db_path)) as conn:
             cursor = conn.cursor()
 
             if status:
                 cursor.execute(
-                    """
-                    SELECT * FROM ab_tests
+                    f"""
+                    SELECT {AB_TEST_COLUMNS} FROM ab_tests
                     WHERE status = ?
                     ORDER BY started_at DESC
                     LIMIT ?
-                    """,
+                    """,  # nosec B608 - AB_TEST_COLUMNS is a module-level constant
                     (status, limit),
                 )
             else:
                 cursor.execute(
-                    """
-                    SELECT * FROM ab_tests
+                    f"""
+                    SELECT {AB_TEST_COLUMNS} FROM ab_tests
                     ORDER BY started_at DESC
                     LIMIT ?
-                    """,
+                    """,  # nosec B608 - AB_TEST_COLUMNS is a module-level constant
                     (limit,),
                 )
 
@@ -303,6 +329,13 @@ class EvolutionABTestingHandler(BaseHandler):
         agent = body.get("agent")
         if not agent:
             return error_response("agent is required", 400)
+
+        # Validate agent name
+        if not isinstance(agent, str):
+            return error_response("agent must be a string", 400)
+        valid, err = validate_path_segment(agent, "agent")
+        if not valid:
+            return error_response(err or "Invalid agent name", 400)
 
         baseline_version = body.get("baseline_version")
         evolved_version = body.get("evolved_version")
@@ -368,6 +401,13 @@ class EvolutionABTestingHandler(BaseHandler):
 
         if not debate_id:
             return error_response("debate_id is required", 400)
+
+        # Validate debate_id format to prevent injection via downstream usage
+        if not isinstance(debate_id, str) or not _DEBATE_ID_PATTERN.match(debate_id):
+            return error_response(
+                "debate_id must be alphanumeric (hyphens/underscores allowed, max 128 chars)",
+                400,
+            )
 
         if variant not in ("baseline", "evolved"):
             return error_response(

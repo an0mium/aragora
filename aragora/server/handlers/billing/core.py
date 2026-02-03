@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -73,6 +74,40 @@ def _get_admin_billing_callable(name: str, fallback):
         if callable(candidate) and candidate is not fallback:
             return candidate
     return fallback
+
+
+# --- Input validation helpers for financial operations ---
+
+# ISO date pattern: YYYY-MM-DD
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# Maximum number of usage events returned in an export to prevent DoS
+_MAX_EXPORT_ROWS = 10_000
+
+
+def _validate_iso_date(value: str | None) -> str | None:
+    """Validate and return an ISO date string (YYYY-MM-DD), or None if invalid."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _ISO_DATE_RE.match(value):
+        return None
+    # Verify it actually parses as a real date
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return None
+    return value
+
+
+def _safe_positive_int(value: str, default: int, maximum: int) -> int:
+    """Parse a string to a bounded non-negative integer."""
+    try:
+        parsed = int(value)
+    except (ValueError, TypeError):
+        return default
+    if parsed < 0:
+        return default
+    return min(parsed, maximum)
 
 
 # Webhook idempotency tracking (persistent SQLite by default)
@@ -440,6 +475,12 @@ class BillingHandler(SecureHandler):
         except StripeConfigError as e:
             logger.error(f"Stripe checkout failed: {type(e).__name__}: {e}")
             return error_response("Payment service unavailable", 503)
+        except StripeAPIError as e:
+            logger.error(f"Stripe API error during checkout: {type(e).__name__}: {e}")
+            return error_response("Failed to create checkout session with payment provider", 502)
+        except StripeError as e:
+            logger.error(f"Stripe error during checkout: {type(e).__name__}: {e}")
+            return error_response("Payment service error", 500)
 
     @handle_errors("create portal")
     @require_permission("org:billing")
@@ -487,6 +528,12 @@ class BillingHandler(SecureHandler):
         except StripeConfigError as e:
             logger.error(f"Stripe portal failed: {type(e).__name__}: {e}")
             return error_response("Payment service unavailable", 503)
+        except StripeAPIError as e:
+            logger.error(f"Stripe API error creating portal: {type(e).__name__}: {e}")
+            return error_response("Failed to create billing portal with payment provider", 502)
+        except StripeError as e:
+            logger.error(f"Stripe error creating portal: {type(e).__name__}: {e}")
+            return error_response("Payment service error", 500)
 
     def _log_audit(
         self,
@@ -559,9 +606,9 @@ class BillingHandler(SecureHandler):
         if user.role not in ("owner", "admin"):
             return error_response("Insufficient permissions", 403)
 
-        # Get query params
-        limit = min(int(get_string_param(handler, "limit", "50")), 100)
-        offset = int(get_string_param(handler, "offset", "0"))
+        # Get query params with safe parsing
+        limit = _safe_positive_int(get_string_param(handler, "limit", "50"), 50, 100)
+        offset = _safe_positive_int(get_string_param(handler, "offset", "0"), 0, 100_000)
         action_filter = get_string_param(handler, "action", None)
 
         # Get audit entries
@@ -610,27 +657,35 @@ class BillingHandler(SecureHandler):
         if not org:
             return error_response("Organization not found", 404)
 
-        # Get date range from query params
-        start_date = get_string_param(handler, "start", None)
-        end_date = get_string_param(handler, "end", None)
+        # Get and validate date range from query params
+        start_date = _validate_iso_date(get_string_param(handler, "start", None))
+        end_date = _validate_iso_date(get_string_param(handler, "end", None))
 
-        # Get usage events from store
+        # Get usage events from store using parameterized queries
         usage_events = []
         if hasattr(user_store, "_transaction"):
-            with user_store._transaction() as cursor:
-                query = "SELECT * FROM usage_events WHERE org_id = ?"
-                params = [org.id]
+            try:
+                with user_store._transaction() as cursor:
+                    query = (
+                        "SELECT id, org_id, event_type, count, metadata, created_at "
+                        "FROM usage_events WHERE org_id = ?"
+                    )
+                    params: list[Any] = [org.id]
 
-                if start_date:
-                    query += " AND created_at >= ?"
-                    params.append(start_date)
-                if end_date:
-                    query += " AND created_at <= ?"
-                    params.append(end_date)
+                    if start_date:
+                        query += " AND created_at >= ?"
+                        params.append(start_date)
+                    if end_date:
+                        query += " AND created_at <= ?"
+                        params.append(end_date)
 
-                query += " ORDER BY created_at DESC"
-                cursor.execute(query, params)
-                usage_events = cursor.fetchall()
+                    query += " ORDER BY created_at DESC LIMIT ?"
+                    params.append(_MAX_EXPORT_ROWS)
+                    cursor.execute(query, params)
+                    usage_events = cursor.fetchall()
+            except Exception as e:
+                logger.error(f"Database error exporting usage data for org {org.id}: {e}")
+                return error_response("Failed to export usage data", 500)
 
         # Build CSV
         output = io.StringIO()
@@ -788,7 +843,7 @@ class BillingHandler(SecureHandler):
         if not org or not org.stripe_customer_id:
             return error_response("No billing account found", 404)
 
-        limit = min(int(get_string_param(handler, "limit", "10")), 100)
+        limit = _safe_positive_int(get_string_param(handler, "limit", "10"), 10, 100)
 
         try:
             stripe = get_stripe_client()
@@ -804,8 +859,8 @@ class BillingHandler(SecureHandler):
                         "id": inv.get("id"),
                         "number": inv.get("number"),
                         "status": inv.get("status"),
-                        "amount_due": inv.get("amount_due", 0) / 100,
-                        "amount_paid": inv.get("amount_paid", 0) / 100,
+                        "amount_due": (inv.get("amount_due") or 0) / 100,
+                        "amount_paid": (inv.get("amount_paid") or 0) / 100,
                         "currency": inv.get("currency", "usd").upper(),
                         "created": datetime.fromtimestamp(inv.get("created", 0)).isoformat(),
                         "period_start": (
@@ -1185,7 +1240,7 @@ class BillingHandler(SecureHandler):
         invoice = event.object
         customer_id = invoice.get("customer")
         subscription_id = invoice.get("subscription")
-        amount_paid = invoice.get("amount_paid", 0)
+        amount_paid = invoice.get("amount_paid") or 0
 
         logger.info(
             f"Invoice paid: customer={customer_id}, "
@@ -1196,13 +1251,19 @@ class BillingHandler(SecureHandler):
         if user_store and customer_id:
             org = user_store.get_organization_by_stripe_customer(customer_id)
             if org:
-                user_store.reset_org_usage(org.id)
-                logger.info(f"Reset usage for org {org.id} after invoice payment")
+                try:
+                    user_store.reset_org_usage(org.id)
+                    logger.info(f"Reset usage for org {org.id} after invoice payment")
+                except Exception as e:
+                    logger.error(f"Failed to reset usage for org {org.id}: {e}")
 
                 # Mark any active payment failure as recovered
-                recovery_store = get_recovery_store()
-                if recovery_store.mark_recovered(org.id):
-                    logger.info(f"Payment recovered for org {org.id}")
+                try:
+                    recovery_store = get_recovery_store()
+                    if recovery_store.mark_recovered(org.id):
+                        logger.info(f"Payment recovered for org {org.id}")
+                except Exception as e:
+                    logger.error(f"Failed to update recovery status for org {org.id}: {e}")
 
         return json_response({"received": True})
 
@@ -1233,46 +1294,58 @@ class BillingHandler(SecureHandler):
             org = user_store.get_organization_by_stripe_customer(customer_id)
             if org:
                 # Record in payment recovery store
-                recovery_store = get_recovery_store()
-                failure = recovery_store.record_failure(
-                    org_id=org.id,
-                    stripe_customer_id=customer_id,
-                    stripe_subscription_id=subscription_id,
-                    invoice_id=invoice_id,
-                    invoice_url=hosted_invoice_url,
-                )
+                try:
+                    recovery_store = get_recovery_store()
+                    failure = recovery_store.record_failure(
+                        org_id=org.id,
+                        stripe_customer_id=customer_id,
+                        stripe_subscription_id=subscription_id,
+                        invoice_id=invoice_id,
+                        invoice_url=hosted_invoice_url,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to record payment failure for org {org.id}: {e}")
+                    failure = None
 
-                logger.info(
-                    f"Payment failure recorded for org {org.id}: "
-                    f"attempt={failure.attempt_count}, "
-                    f"days_failing={failure.days_failing}, "
-                    f"days_until_downgrade={failure.days_until_downgrade}"
-                )
+                if failure:
+                    logger.info(
+                        f"Payment failure recorded for org {org.id}: "
+                        f"attempt={failure.attempt_count}, "
+                        f"days_failing={failure.days_failing}, "
+                        f"days_until_downgrade={failure.days_until_downgrade}"
+                    )
+
+                    # Log warning if nearing grace period end
+                    if failure.days_until_downgrade <= 3:
+                        logger.warning(
+                            f"Org {org.id} payment grace period ending soon: "
+                            f"{failure.days_until_downgrade} days until auto-downgrade"
+                        )
 
                 # Send notification to organization owner
-                owner = user_store.get_organization_owner(org.id)
-                if owner and owner.email:
-                    notifier = get_billing_notifier()
+                try:
+                    owner = user_store.get_organization_owner(org.id)
+                    if owner and owner.email:
+                        notifier = get_billing_notifier()
 
-                    # Escalate notification severity based on attempt count
-                    result = notifier.notify_payment_failed(
-                        org_id=org.id,
-                        org_name=org.name,
-                        email=owner.email,
-                        attempt_count=failure.attempt_count,
-                        invoice_url=hosted_invoice_url,
-                        days_until_downgrade=failure.days_until_downgrade,
-                    )
-                    logger.info(
-                        f"Payment failure notification sent to {owner.email}: "
-                        f"method={result.method}, success={result.success}"
-                    )
-
-                # Log warning if nearing grace period end
-                if failure.days_until_downgrade <= 3:
-                    logger.warning(
-                        f"Org {org.id} payment grace period ending soon: "
-                        f"{failure.days_until_downgrade} days until auto-downgrade"
+                        # Escalate notification severity based on attempt count
+                        notify_result = notifier.notify_payment_failed(
+                            org_id=org.id,
+                            org_name=org.name,
+                            email=owner.email,
+                            attempt_count=failure.attempt_count if failure else attempt_count,
+                            invoice_url=hosted_invoice_url,
+                            days_until_downgrade=(
+                                failure.days_until_downgrade if failure else None
+                            ),
+                        )
+                        logger.info(
+                            f"Payment failure notification sent to {owner.email}: "
+                            f"method={notify_result.method}, success={notify_result.success}"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to send payment failure notification for org {org.id}: {e}"
                     )
 
         return json_response(

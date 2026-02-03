@@ -6,6 +6,7 @@ from aragora.server.handlers.compliance.handler import *  # noqa: F401,F403  # t
 from aragora.storage.receipt_store import get_receipt_store
 from aragora.storage.audit_store import get_audit_store
 from aragora.privacy.deletion import get_legal_hold_manager, get_deletion_scheduler
+from aragora.deletion_coordinator import get_deletion_coordinator
 
 __all__ = [
     *globals().get("__all__", []),
@@ -13,4 +14,5 @@ __all__ = [
     "get_audit_store",
     "get_legal_hold_manager",
     "get_deletion_scheduler",
+    "get_deletion_coordinator",
 ]

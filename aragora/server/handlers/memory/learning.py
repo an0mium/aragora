@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from aragora.rbac.decorators import require_permission  # noqa: F401
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     HandlerResult,
@@ -31,8 +31,9 @@ from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
 
-# RBAC permission for learning endpoints
-LEARNING_PERMISSION = "memory:write"
+# RBAC permissions for learning endpoints
+MEMORY_READ_PERMISSION = "memory:read"
+MEMORY_WRITE_PERMISSION = "memory:write"
 
 # Rate limiter for learning endpoints (30 requests per minute - ML operations)
 _learning_limiter = RateLimiter(requests_per_minute=30)
@@ -72,7 +73,7 @@ class LearningHandler(SecureHandler):
         # RBAC: Require authentication and memory:read permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
-            self.check_permission(auth_context, LEARNING_PERMISSION)
+            self.check_permission(auth_context, MEMORY_READ_PERMISSION)
         except UnauthorizedError:
             return error_response("Authentication required to access learning data", 401)
         except ForbiddenError as e:
@@ -99,6 +100,7 @@ class LearningHandler(SecureHandler):
         return None
 
     @rate_limit(requests_per_minute=60, limiter_name="learning_read")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("cycle summaries")
     def _get_cycle_summaries(self, limit: int) -> HandlerResult:
         """Get summaries of all nomic loop cycles."""
@@ -159,6 +161,7 @@ class LearningHandler(SecureHandler):
         )
 
     @rate_limit(requests_per_minute=60, limiter_name="learning_read")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("learned patterns")
     def _get_learned_patterns(self) -> HandlerResult:
         """Get patterns learned across cycles from consensus memory."""
@@ -257,6 +260,7 @@ class LearningHandler(SecureHandler):
         return json_response(patterns)
 
     @rate_limit(requests_per_minute=5, limiter_name="learning_expensive")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("agent evolution")
     def _get_agent_evolution(self) -> HandlerResult:
         """Get agent performance evolution over cycles."""
@@ -346,6 +350,7 @@ class LearningHandler(SecureHandler):
         )
 
     @rate_limit(requests_per_minute=60, limiter_name="learning_read")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("aggregated insights")
     def _get_aggregated_insights(self, limit: int) -> HandlerResult:
         """Get insights aggregated from all cycles."""

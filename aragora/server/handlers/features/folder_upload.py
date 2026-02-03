@@ -32,6 +32,7 @@ from ..base import (
     safe_error_message,
 )
 from ..utils.file_validation import validate_file_upload, MAX_FILE_SIZE
+from ..utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
@@ -196,6 +197,7 @@ class FolderUploadHandler(BaseHandler):
         return False
 
     @require_permission("upload:create")
+    @rate_limit(requests_per_minute=30)
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET folder requests."""
         if path == "/api/v1/documents/folders":
@@ -216,6 +218,7 @@ class FolderUploadHandler(BaseHandler):
         return None
 
     @require_permission("upload:create")
+    @rate_limit(requests_per_minute=10)
     async def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST folder requests."""
         if path == "/api/v1/documents/folder/scan":

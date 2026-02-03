@@ -241,6 +241,14 @@ from .permissions import (
     PERM_GATEWAY_CREDENTIAL_ROTATE,
     PERM_GATEWAY_HYBRID_DEBATE,
     PERM_GATEWAY_HEALTH,
+    # Autonomous
+    PERM_AUTONOMOUS_READ,
+    PERM_AUTONOMOUS_WRITE,
+    PERM_AUTONOMOUS_APPROVE,
+    # Alerts
+    PERM_ALERTS_READ,
+    PERM_ALERTS_WRITE,
+    PERM_ALERTS_ADMIN,
 )
 
 
@@ -453,6 +461,14 @@ ROLE_ADMIN = Role(
         PERM_GATEWAY_CREDENTIAL_ROTATE.key,
         PERM_GATEWAY_HYBRID_DEBATE.key,
         PERM_GATEWAY_HEALTH.key,
+        # Autonomous (all operations)
+        PERM_AUTONOMOUS_READ.key,
+        PERM_AUTONOMOUS_WRITE.key,
+        PERM_AUTONOMOUS_APPROVE.key,
+        # Alerts (all operations)
+        PERM_ALERTS_READ.key,
+        PERM_ALERTS_WRITE.key,
+        PERM_ALERTS_ADMIN.key,
     },
     parent_roles=[],
     priority=80,
@@ -637,6 +653,9 @@ ROLE_MEMBER = Role(
         PERM_GATEWAY_CREDENTIAL_READ.key,
         PERM_GATEWAY_HEALTH.key,
         PERM_GATEWAY_HYBRID_DEBATE.key,
+        # Autonomous (read-only)
+        PERM_AUTONOMOUS_READ.key,
+        PERM_ALERTS_READ.key,
     },
     parent_roles=[],
     priority=40,

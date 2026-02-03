@@ -9,6 +9,8 @@ Provides Health Insurance Portability and Accountability Act (HIPAA) compliance 
 - Privacy Rule Compliance Assessment
 - Audit Control Requirements
 """
+# mypy: disable-error-code="assignment,index,attr-defined,var-annotated"
+# Complex dict operations with dynamic keys
 
 from __future__ import annotations
 
@@ -27,6 +29,28 @@ from aragora.observability.metrics import track_handler
 from aragora.storage.audit_store import get_audit_store
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# RBAC Permission Constants for HIPAA Compliance
+# =============================================================================
+
+# Basic HIPAA compliance read access
+PERM_HIPAA_READ = "compliance:hipaa:read"
+
+# Generate HIPAA compliance reports
+PERM_HIPAA_REPORT = "compliance:hipaa:report"
+
+# View breach assessments and history
+PERM_HIPAA_BREACHES_READ = "compliance:breaches:read"
+
+# Create and manage breach risk assessments
+PERM_HIPAA_BREACHES_REPORT = "compliance:breaches:report"
+
+# Manage Business Associate Agreements
+PERM_HIPAA_BAA_MANAGE = "compliance:baa:manage"
+
+# Full HIPAA administrative access
+PERM_HIPAA_ADMIN = "compliance:hipaa:admin"
 
 
 class HIPAAMixin:
@@ -188,7 +212,7 @@ class HIPAAMixin:
     ]
 
     @track_handler("compliance/hipaa-status", method="GET")
-    @require_permission("compliance:hipaa")
+    @require_permission(PERM_HIPAA_READ)
     async def _hipaa_status(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Get HIPAA compliance status overview.
@@ -261,7 +285,7 @@ class HIPAAMixin:
         return json_response(status_result)
 
     @track_handler("compliance/hipaa-phi-access", method="GET")
-    @require_permission("compliance:hipaa")
+    @require_permission(PERM_HIPAA_READ)
     async def _hipaa_phi_access_log(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Get PHI access log for audit purposes.
@@ -349,7 +373,7 @@ class HIPAAMixin:
             return error_response(f"Failed to fetch access log: {str(e)}", 500)
 
     @track_handler("compliance/hipaa-breach-assessment", method="POST")
-    @require_permission("compliance:hipaa")
+    @require_permission(PERM_HIPAA_BREACHES_REPORT)
     async def _hipaa_breach_assessment(self, body: dict[str, Any]) -> HandlerResult:
         """
         Perform HIPAA breach risk assessment.
@@ -520,7 +544,7 @@ class HIPAAMixin:
         return json_response(assessment)
 
     @track_handler("compliance/hipaa-baa", method="GET")
-    @require_permission("compliance:hipaa")
+    @require_permission(PERM_HIPAA_READ)
     async def _hipaa_list_baas(self, query_params: dict[str, str]) -> HandlerResult:
         """
         List Business Associate Agreements (BAAs).
@@ -545,7 +569,7 @@ class HIPAAMixin:
         )
 
     @track_handler("compliance/hipaa-baa-create", method="POST")
-    @require_permission("compliance:hipaa")
+    @require_permission(PERM_HIPAA_BAA_MANAGE)
     async def _hipaa_create_baa(self, body: dict[str, Any]) -> HandlerResult:
         """
         Register a new Business Associate Agreement.
@@ -618,7 +642,7 @@ class HIPAAMixin:
         )
 
     @track_handler("compliance/hipaa-security-report", method="GET")
-    @require_permission("compliance:hipaa")
+    @require_permission(PERM_HIPAA_REPORT)
     async def _hipaa_security_report(self, query_params: dict[str, str]) -> HandlerResult:
         """
         Generate HIPAA Security Rule compliance report.
@@ -864,4 +888,13 @@ class HIPAAMixin:
         """
 
 
-__all__ = ["HIPAAMixin"]
+__all__ = [
+    "HIPAAMixin",
+    # RBAC Permission Constants
+    "PERM_HIPAA_READ",
+    "PERM_HIPAA_REPORT",
+    "PERM_HIPAA_BREACHES_READ",
+    "PERM_HIPAA_BREACHES_REPORT",
+    "PERM_HIPAA_BAA_MANAGE",
+    "PERM_HIPAA_ADMIN",
+]

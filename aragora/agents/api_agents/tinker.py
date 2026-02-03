@@ -134,17 +134,32 @@ class TinkerAgent(APIAgent):
             await self._client.close()
             self._client = None
 
-    def generate(self, prompt: str, context: list[Message] | None = None, **kwargs: Any) -> str:  # type: ignore[override]
-        """Generate a response (sync wrapper for Agent Protocol compatibility).
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response to a prompt (implements Agent.generate).
 
-        This method extends the base Agent.generate() with optional context and
-        kwargs parameters to support TinkerAgent's extended functionality while
-        maintaining backward compatibility with the base signature.
+        This is the async method required by the Agent abstract base class.
+        It delegates to the respond() method which contains the actual
+        implementation logic.
 
         Args:
             prompt: The prompt to generate a response for
             context: Optional previous messages for context
-            **kwargs: Additional arguments (ignored)
+
+        Returns:
+            Generated response text
+        """
+        return await self.respond(prompt, context)
+
+    def generate_sync(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response synchronously (blocking).
+
+        This is a synchronous wrapper around generate() for use cases where
+        async/await is not available. Creates a new event loop to run the
+        async method.
+
+        Args:
+            prompt: The prompt to generate a response for
+            context: Optional previous messages for context
 
         Returns:
             Generated response text

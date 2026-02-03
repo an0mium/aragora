@@ -27,6 +27,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AnalyticsDashboardHandler": "aragora.server.handlers.analytics_dashboard",
     "EndpointAnalyticsHandler": "aragora.server.handlers.endpoint_analytics",
     "AnalyticsMetricsHandler": "aragora.server.handlers._analytics_metrics_impl",
+    "AnalyticsPerformanceHandler": "aragora.server.handlers.analytics_performance",
     # autonomous/ directory
     "ApprovalHandler": "aragora.server.handlers.autonomous",
     "AlertHandler": "aragora.server.handlers.autonomous",
@@ -231,6 +232,8 @@ HANDLER_MODULES: dict[str, str] = {
     # Accounting handlers
     "ARAutomationHandler": "aragora.server.handlers.ar_automation",
     "APAutomationHandler": "aragora.server.handlers.ap_automation",
+    # RBAC management
+    "RBACHandler": "aragora.server.handlers.rbac",
 }
 
 # List of all handler class names (in priority order for dispatch)
@@ -251,6 +254,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "AnalyticsHandler",
     "AnalyticsDashboardHandler",
     "AnalyticsMetricsHandler",
+    "AnalyticsPerformanceHandler",
     "EndpointAnalyticsHandler",
     "CrossPlatformAnalyticsHandler",
     "MetricsHandler",
@@ -418,4 +422,5 @@ ALL_HANDLER_NAMES: list[str] = [
     "BackupHandler",
     "GmailLabelsHandler",
     "GmailThreadsHandler",
+    "RBACHandler",
 ]

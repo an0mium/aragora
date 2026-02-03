@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.audit.unified import audit_admin
+from aragora.rbac.decorators import require_permission
 
 from ..base import (
     HandlerResult,
@@ -203,6 +204,7 @@ class NomicAdminMixin:
             "503": {"description": "Nomic recovery module not available"},
         },
     )
+    @require_permission("admin:nomic:read")
     @handle_errors("get nomic circuit breakers")
     def _get_nomic_circuit_breakers(self, handler: Any) -> HandlerResult:
         """Get detailed circuit breaker status for the nomic loop.
@@ -447,6 +449,7 @@ class NomicAdminMixin:
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
     )
+    @require_permission("admin:nomic:write")
     @handle_errors("pause nomic")
     @log_request("admin pause nomic")
     def _pause_nomic(self, handler: Any) -> HandlerResult:
@@ -572,6 +575,7 @@ class NomicAdminMixin:
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
     )
+    @require_permission("admin:nomic:write")
     @handle_errors("resume nomic")
     @log_request("admin resume nomic")
     def _resume_nomic(self, handler: Any) -> HandlerResult:

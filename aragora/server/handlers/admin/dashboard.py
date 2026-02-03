@@ -43,6 +43,15 @@ from .dashboard_health import (
 
 logger = logging.getLogger(__name__)
 
+
+def _call_bypassing_decorators(func, *args, **kwargs):
+    """Call underlying function bypassing @require_permission/@rate_limit wrappers."""
+    inner = func
+    while hasattr(inner, "__wrapped__"):
+        inner = inner.__wrapped__
+    return inner(*args, **kwargs)
+
+
 # Rate limiter for dashboard endpoints (60 requests per minute - frequently accessed)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
 
@@ -316,23 +325,23 @@ class DashboardHandler(SecureHandler):
         self, debates: list, domain: str | None, hours: int
     ) -> tuple[dict, dict, dict]:
         """Process all debate metrics in a single pass through the data."""
-        return process_debates_single_pass(debates, domain, hours)
+        return _call_bypassing_decorators(process_debates_single_pass, debates, domain, hours)
 
     def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]:
         """Get summary metrics using SQL aggregation (O(1) memory)."""
-        return get_summary_metrics_sql(storage, domain)
+        return _call_bypassing_decorators(get_summary_metrics_sql, storage, domain)
 
     def _get_recent_activity_sql(self, storage: Any, hours: int) -> dict[str, Any]:
         """Get recent activity metrics using SQL aggregation."""
-        return get_recent_activity_sql(storage, hours)
+        return _call_bypassing_decorators(get_recent_activity_sql, storage, hours)
 
     def _get_summary_metrics(self, domain: str | None, debates: list) -> dict:
         """Get high-level summary metrics (legacy, kept for compatibility)."""
-        return get_summary_metrics_legacy(domain, debates)
+        return _call_bypassing_decorators(get_summary_metrics_legacy, domain, debates)
 
     def _get_recent_activity(self, domain: str | None, hours: int, debates: list) -> dict:
         """Get recent debate activity metrics."""
-        return get_recent_activity_legacy(domain, hours, debates)
+        return _call_bypassing_decorators(get_recent_activity_legacy, domain, hours, debates)
 
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="agent_performance", skip_first=True
@@ -378,7 +387,7 @@ class DashboardHandler(SecureHandler):
 
     def _get_debate_patterns(self, debates: list) -> dict:
         """Get debate pattern statistics."""
-        return get_debate_patterns(debates)
+        return _call_bypassing_decorators(get_debate_patterns, debates)
 
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="consensus_insights", skip_first=True

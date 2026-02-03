@@ -960,7 +960,7 @@ DEBATE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Message", {"$ref": "#/components/schemas/Message"}),
+                "200": _ok_response("Message", "Message"),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
             },

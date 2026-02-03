@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 _approval_circuit_breaker = None
 
 
-def _get_circuit_breaker():
+def _get_circuit_breaker():  # type: ignore[no-untyped-def]
     """Get or create circuit breaker for approval operations."""
     global _approval_circuit_breaker
     if _approval_circuit_breaker is None:

@@ -12,13 +12,28 @@ Routes:
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import os
+import re
 from typing import Any, cast
 
 from aragora.server.validation.query_params import safe_query_int
 
 
 logger = logging.getLogger(__name__)
+
+# Lazy import to avoid circular dependencies
+try:
+    from ..utils.rate_limit import rate_limit
+except ImportError:
+    # Fallback: no-op decorator if rate_limit not available
+    def rate_limit(**kwargs):  # type: ignore[misc]
+        def decorator(fn):  # type: ignore[no-untyped-def]
+            return fn
+
+        return decorator
+
 
 # Try to import handler base
 try:
@@ -43,8 +58,56 @@ CLOUD_WRITE_PERMISSION = "cloud:write"
 # Supported providers
 PROVIDERS = ["google_drive", "onedrive", "dropbox", "s3"]
 
+# --- Security constants ---
+
+# Maximum download file size (100MB default, configurable via env)
+MAX_DOWNLOAD_SIZE_BYTES = int(os.environ.get("ARAGORA_MAX_DOWNLOAD_SIZE", 100 * 1024 * 1024))
+
+# Safe filename pattern - alphanumeric, hyphens, underscores, dots, spaces
+SAFE_FILENAME_PATTERN = re.compile(r"^[\w\-. ]+$")
+
+# Safe file_id pattern - provider IDs are typically alphanumeric with hyphens/underscores
+SAFE_FILE_ID_PATTERN = re.compile(r"^[\w\-.:=+/]{1,512}$")
+
+# Maximum length for OAuth authorization codes
+MAX_AUTH_CODE_LENGTH = 4096
+
+# Maximum length for redirect URIs
+MAX_REDIRECT_URI_LENGTH = 2048
+
+# Path traversal sequences that must be rejected
+_PATH_TRAVERSAL_SEQUENCES = ("..", "~", "\x00")
+
 # In-memory token storage (use Redis/DB in production)
 _tokens: dict[str, dict[str, str]] = {}
+
+
+def _validate_path(path: str) -> str | None:
+    """Validate a file listing path to prevent path traversal.
+
+    Returns the sanitised path, or None if the path is invalid.
+    """
+    if not path:
+        return "/"
+
+    # Reject null bytes and traversal sequences
+    for seq in _PATH_TRAVERSAL_SEQUENCES:
+        if seq in path:
+            return None
+
+    # Normalise repeated slashes
+    path = re.sub(r"/+", "/", path)
+
+    return path
+
+
+def _validate_file_id(file_id: str) -> bool:
+    """Validate a file ID to prevent injection attacks."""
+    if not file_id or not isinstance(file_id, str):
+        return False
+    if len(file_id) > 512:
+        return False
+    return bool(SAFE_FILE_ID_PATTERN.match(file_id))
 
 
 def get_provider_connector(provider: str) -> Any:
@@ -228,7 +291,10 @@ async def list_files(
 
 
 async def download_file(provider: str, file_id: str) -> bytes | None:
-    """Download file content."""
+    """Download file content.
+
+    Enforces MAX_DOWNLOAD_SIZE_BYTES to prevent memory exhaustion.
+    """
     connector = get_provider_connector(provider)
     if not connector:
         return None
@@ -240,7 +306,16 @@ async def download_file(provider: str, file_id: str) -> bytes | None:
 
     try:
         if hasattr(connector, "download_file"):
-            return await connector.download_file(file_id)
+            content = await connector.download_file(file_id)
+            # Enforce download size limit
+            if content is not None and len(content) > MAX_DOWNLOAD_SIZE_BYTES:
+                logger.warning(
+                    "Downloaded file exceeds size limit: %d > %d bytes",
+                    len(content),
+                    MAX_DOWNLOAD_SIZE_BYTES,
+                )
+                return None
+            return content
     except Exception as e:
         logger.error(f"Failed to download file from {provider}: {e}")
 
@@ -270,6 +345,7 @@ if HANDLER_BASE_AVAILABLE:
             """Check if this handler can process the given path."""
             return path.startswith("/api/v1/cloud/")
 
+        @rate_limit(requests_per_minute=60)
         async def handle(
             self,
             path: str,
@@ -317,6 +393,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return error_response("Not found", 404)
 
+        @rate_limit(requests_per_minute=30)
         async def handle_post(
             self,
             path: str,
@@ -342,6 +419,9 @@ if HANDLER_BASE_AVAILABLE:
                 return error_response("Invalid path", 400)
 
             provider = parts[3]
+            if provider not in PROVIDERS:
+                return error_response(f"Unknown provider: {provider}", 400)
+
             action = parts[4]
             sub_action = parts[5]
 
@@ -362,6 +442,14 @@ if HANDLER_BASE_AVAILABLE:
             redirect_uri = query_params.get("redirect_uri", "http://localhost:3000/auth/callback")
             state = query_params.get("state", "")
 
+            # Validate redirect_uri length
+            if len(redirect_uri) > MAX_REDIRECT_URI_LENGTH:
+                return error_response("redirect_uri too long", 400)
+
+            # Validate redirect_uri scheme
+            if not redirect_uri.startswith(("http://", "https://")):
+                return error_response("Invalid redirect_uri scheme", 400)
+
             url = await get_auth_url(provider, redirect_uri, state)
 
             if not url:
@@ -381,6 +469,17 @@ if HANDLER_BASE_AVAILABLE:
             if not code:
                 return error_response("Missing authorization code", 400)
 
+            # Validate authorization code length to prevent abuse
+            if not isinstance(code, str) or len(code) > MAX_AUTH_CODE_LENGTH:
+                return error_response("Invalid authorization code", 400)
+
+            # Validate redirect_uri
+            if not isinstance(redirect_uri, str) or len(redirect_uri) > MAX_REDIRECT_URI_LENGTH:
+                return error_response("Invalid redirect_uri", 400)
+
+            if not redirect_uri.startswith(("http://", "https://")):
+                return error_response("Invalid redirect_uri scheme", 400)
+
             success = await handle_auth_callback(provider, code, redirect_uri)
 
             if success:
@@ -393,8 +492,13 @@ if HANDLER_BASE_AVAILABLE:
             query_params: dict[str, Any],
         ) -> HandlerResult:
             """List files in a folder."""
-            path = query_params.get("path", "/")
+            raw_path = query_params.get("path", "/")
             page_size = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
+
+            # Validate path to prevent traversal attacks
+            path = _validate_path(raw_path)
+            if path is None:
+                return error_response("Invalid path: traversal sequences not allowed", 400)
 
             files = await list_files(provider, path, page_size)
 
@@ -405,21 +509,29 @@ if HANDLER_BASE_AVAILABLE:
             provider: str,
             body: dict[str, Any],
         ) -> HandlerResult:
-            """Download a file."""
+            """Download a file with size limit enforcement and checksum."""
             import base64
 
             file_id = body.get("file_id")
             if not file_id:
                 return error_response("Missing file_id", 400)
 
+            # Validate file_id format to prevent injection
+            if not _validate_file_id(file_id):
+                return error_response("Invalid file_id format", 400)
+
             content = await download_file(provider, file_id)
 
             if content is None:
-                return error_response("Download failed", 500)
+                return error_response("Download failed or file exceeds size limit", 500)
+
+            # Compute SHA-256 checksum for integrity verification
+            checksum = hashlib.sha256(content).hexdigest()
 
             return json_response(
                 {
                     "content": base64.b64encode(content).decode(),
                     "size": len(content),
+                    "checksum_sha256": checksum,
                 }
             )

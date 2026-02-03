@@ -10,6 +10,10 @@ This package provides API endpoints for workspace and privacy management:
 
 The package is structured as follows:
 - workspace_utils.py: Circuit breaker and validation utilities
+- crud.py: Workspace CRUD operations mixin
+- policies.py: Retention policy management mixin
+- members.py: Member management and RBAC profiles mixin
+- settings.py: Classification and audit endpoints mixin
 
 For backwards compatibility, all public exports are available directly from this package.
 
@@ -39,6 +43,11 @@ from .workspace_utils import (
 __all__ = [
     # Main handler
     "WorkspaceHandler",
+    # Mixin classes
+    "WorkspaceCrudMixin",
+    "WorkspacePoliciesMixin",
+    "WorkspaceMembersMixin",
+    "WorkspaceSettingsMixin",
     # Feature flags (for test patching compatibility)
     "RBAC_AVAILABLE",
     "PROFILES_AVAILABLE",
@@ -62,6 +71,10 @@ __all__ = [
 
 _WORKSPACE_EXPORTS = {
     "WorkspaceHandler",
+    "WorkspaceCrudMixin",
+    "WorkspacePoliciesMixin",
+    "WorkspaceMembersMixin",
+    "WorkspaceSettingsMixin",
     "RBAC_AVAILABLE",
     "PROFILES_AVAILABLE",
     "extract_user_from_request",

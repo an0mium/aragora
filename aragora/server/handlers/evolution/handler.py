@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
@@ -76,16 +77,14 @@ class EvolutionHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    @require_permission("evolution:read")
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route evolution requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         if not normalized.startswith("/api/evolution/"):
             return None
-
-        # Require authentication and evolution:read permission
-        user, err = self.require_permission_or_error(handler, "evolution:read")
-        if err:
-            return err
 
         # Rate limit check
         client_ip = get_client_ip(handler)

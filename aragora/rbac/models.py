@@ -101,6 +101,10 @@ class ResourceType(str, Enum):
     ORCHESTRATION = "orchestration"  # Multi-agent orchestration
     SYSTEM = "system"  # System-wide operations (health, etc.)
 
+    # Autonomous operations
+    AUTONOMOUS = "autonomous"  # Autonomous agent operations (triggers, monitoring, learning)
+    ALERTS = "alerts"  # Alert management operations
+
     # Domain specialists
     VERTICALS = "verticals"  # Domain-specific AI specialists (legal, medical, etc.)
 

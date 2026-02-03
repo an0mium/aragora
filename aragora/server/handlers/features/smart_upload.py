@@ -940,6 +940,7 @@ if HANDLER_BASE_AVAILABLE:
             return None
 
         @require_permission("upload:create")
+        @rate_limit(requests_per_minute=20)
         async def handle_post(
             self,
             path: str,

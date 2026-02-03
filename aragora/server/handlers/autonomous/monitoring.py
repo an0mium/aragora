@@ -654,7 +654,13 @@ class MonitoringHandler:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
             hours = safe_query_int(request.query, "hours", default=24, min_val=1, max_val=720)
-            metric_name = request.query.get("metric_name")
+            metric_name = None
+            try:
+                metric_name = request.query.get("metric_name")
+            except Exception:
+                metric_name = None
+            if not isinstance(metric_name, str):
+                metric_name = None
 
             # Validate metric_name if provided
             if metric_name:
