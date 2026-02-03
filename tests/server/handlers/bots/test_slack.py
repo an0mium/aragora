@@ -22,6 +22,7 @@ from io import BytesIO
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 import os
+import types
 
 import pytest
 
@@ -514,7 +515,7 @@ class TestSlackEventHandler:
             bot_token = "token"
 
             async def download_file(self, file_id: str):
-                return _types_mod.SimpleNamespace(
+                return types.SimpleNamespace(
                     content=b"hello",
                     filename="spec.txt",
                     content_type="text/plain",

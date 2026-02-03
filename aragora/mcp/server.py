@@ -361,14 +361,15 @@ class AragoraMCPServer:
         return {"resources": resources}
 
     async def read_resource(self, uri: str) -> dict[str, Any]:
-        if uri.startswith("debate://"):
-            debate_id = uri.replace("debate://", "")
+        uri_str = str(uri)
+        if uri_str.startswith("debate://"):
+            debate_id = uri_str.replace("debate://", "")
             debate = self._debates_cache.get(debate_id)
             if debate:
                 return {
                     "contents": [
                         {
-                            "uri": uri,
+                            "uri": uri_str,
                             "mimeType": "application/json",
                             "text": json.dumps(debate, indent=2, default=str),
                         }
@@ -377,7 +378,7 @@ class AragoraMCPServer:
             return {
                 "contents": [
                     {
-                        "uri": uri,
+                        "uri": uri_str,
                         "mimeType": "application/json",
                         "text": json.dumps({"error": f"Debate {debate_id} not found"}),
                     }
@@ -387,9 +388,9 @@ class AragoraMCPServer:
         return {
             "contents": [
                 {
-                    "uri": uri,
+                    "uri": uri_str,
                     "mimeType": "application/json",
-                    "text": json.dumps({"error": f"Unknown resource: {uri}"}),
+                    "text": json.dumps({"error": f"Unknown resource: {uri_str}"}),
                 }
             ]
         }

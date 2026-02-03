@@ -441,6 +441,90 @@ Audit session endpoints manage multi-agent document audits. The UI uses
 | POST | `/api/v1/audit/sessions/{session_id}/intervene` | Human intervention |
 | GET | `/api/v1/audit/sessions/{session_id}/report` | Export report |
 
+## Security Debate API
+
+Trigger multi-agent debates on security vulnerability findings. Debates use the Arena with
+security-focused agents to analyze vulnerabilities and recommend remediation strategies.
+
+**Authentication:** Required. Permissions: `audit:write` (POST), `audit:read` (GET).
+**Rate limit:** 10 requests per minute per user.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/audit/security/debate` | Trigger security debate on findings |
+| GET | `/api/v1/audit/security/debate/{id}` | Get security debate status |
+
+### POST /api/v1/audit/security/debate
+
+Trigger a multi-agent security debate on vulnerability findings.
+
+**Request body:**
+
+```json
+{
+    "findings": [
+        {
+            "id": "optional-uuid",
+            "finding_type": "vulnerability",
+            "severity": "critical",
+            "title": "SQL Injection in user handler",
+            "description": "Unsanitized user input passed to SQL query",
+            "file_path": "aragora/server/handlers/users.py",
+            "line_number": 42,
+            "cve_id": "CVE-2024-1234",
+            "package_name": "optional-package",
+            "package_version": "1.2.3",
+            "recommendation": "Use parameterized queries",
+            "metadata": {}
+        }
+    ],
+    "repository": "repo-name",
+    "confidence_threshold": 0.7,
+    "timeout_seconds": 300
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| findings | array | Yes | List of security findings to debate |
+| repository | string | No | Repository name (default: "unknown") |
+| confidence_threshold | number | No | Debate confidence threshold, 0.1-1.0 (default: 0.7) |
+| timeout_seconds | integer | No | Debate timeout, 30-600 (default: 300) |
+
+**Response (200):**
+
+```json
+{
+    "debate_id": "uuid",
+    "status": "completed",
+    "consensus_reached": true,
+    "confidence": 0.85,
+    "final_answer": "Remediation recommendations...",
+    "rounds_used": 3,
+    "duration_ms": 12500,
+    "findings_analyzed": 2,
+    "votes": {
+        "SecurityAnalyst": "remediate",
+        "CodeReviewer": "remediate"
+    }
+}
+```
+
+### GET /api/v1/audit/security/debate/{id}
+
+Get the status of a previously triggered security debate. Currently debates are synchronous,
+so this endpoint returns `not_found` for any ID (placeholder for future async support).
+
+**Response (200):**
+
+```json
+{
+    "debate_id": "the-id",
+    "status": "not_found",
+    "message": "Debate results are not persisted. Use POST to trigger a new debate."
+}
+```
+
 ## Shared Inbox API
 
 Shared inbox endpoints live under `/api/v1/inbox`. For workflow details, see

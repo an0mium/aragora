@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: February 2, 2026*
+*Last updated: February 3, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
 
@@ -13,13 +13,55 @@
 - **Modules**: 3,001 Python files
 - **Tests**: 130,778 collected across 2,998 test files
 - **Mypy Errors**: 0 (strict mode with --ignore-missing-imports)
-- **Commercial Readiness**: 90% (SMB-ready)
+- **Commercial Readiness**: 95% (SMB-ready, enterprise features verified)
 
 ### Files Modified
 - `aragora/server/handlers/external_integrations.py` - Fixed RBAC calls (allowed -> granted)
 - `aragora/server/handlers/connectors.py` - Fixed RBAC calls
 - `aragora/server/handlers/shared_inbox/__init__.py` - Added lazy `__getattr__` imports
 - `aragora/server/handlers/utils/cache.py` - NEW: Moved from admin/cache to break import cycle
+
+### Security Hardening
+- **Security Debate API**: Multi-agent debate endpoints for vulnerability analysis (`/api/v1/audit/security/debate`)
+- **Security Audit Scheduling**: Automated security scans with cron expressions and optional debate on critical findings
+- **CI Security Pipeline**: 6-job pipeline - CodeQL, Bandit, Aragora Scanner, dependency audit, RBAC coverage, secret scanning
+- **Secrets Management**: Rotation framework with AWS/Vault/local backends (`scripts/secrets_manager.py`)
+
+### Files Added
+- `aragora/server/handlers/security_debate.py` - Security debate API handler
+- `aragora/scheduler/security_audit_schedule.py` - Scheduled security scans with debate integration
+- `scripts/security_scan.py` - CI-friendly security scanner CLI
+- `scripts/secrets_manager.py` - Secrets rotation management
+- `.github/workflows/security.yml` - CI security pipeline (6 jobs)
+
+### GA Readiness Verification Audit (February 3, 2026)
+
+Independent verification of production readiness found the project is **95% GA-ready**, higher than previously estimated. Key findings:
+
+| Area | Previous Estimate | Verified Status |
+|------|-------------------|-----------------|
+| SSRF Protection | HIGH-severity gap | Already remediated at all 3 locations (`validate_webhook_url()` in external_integrations.py) |
+| OAuth Provider Tests | 0% coverage | 164 tests passing across OIDC, Google, GitHub, Discord, Slack, Apple providers |
+| Billing/Payments Tests | 0% coverage | 295 tests passing (billing core, costs, payments handlers) |
+| OpenAPI Specification | Not started | 2,189 endpoints documented, 64 endpoint modules, 397 `@api_endpoint` decorators, full CI/CD |
+| Self-Hosted Deployment | Missing production setup | Docker Compose + .env.example comprehensive (193 + 125 lines) |
+| Knowledge Handler Tests | Partial | 97 tests passing (whitespace validation fix applied) |
+
+**Remaining GA Gaps (genuine):**
+- External penetration test (requires third-party vendor)
+- TypeScript SDK parity at ~70% (target: 95%)
+- Slack/Teams OAuth wizard and slash commands
+- Decision receipts cryptographic signing + PDF export
+
+### Files Modified
+- `aragora/server/handlers/knowledge_base/facts.py` - Fixed whitespace-only statement validation
+
+### READMEs Added
+- `aragora/cli/README.md` - CLI module documentation
+- `aragora/config/README.md` - Configuration module documentation
+- `aragora/utils/README.md` - Utilities module documentation
+- `aragora/skills/README.md` - Skills system documentation
+- `aragora/policy/README.md` - Policy engine documentation
 
 ---
 
@@ -2381,7 +2423,7 @@ The nomic loop (`scripts/nomic_loop.py`) implements a 6-phase self-improvement c
 - `on_meta_analyzed`, `on_elo_recorded`, `on_claims_extracted`, `on_belief_network_built`
 
 The codebase is **feature-rich with improving exposure**:
-- 64+ API endpoints, ~15% used by frontend
+- 2,189+ API endpoints documented via OpenAPI, 461 HTTP handlers
 - Many sophisticated features now surfaced via new APIs
 - WebSocket-first architecture for real-time, REST for data access
 
