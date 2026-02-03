@@ -1,29 +1,32 @@
 /**
  * Gateway Namespace Tests
  *
- * Comprehensive tests for the gateway namespace API including:
- * - Device management
- * - Route configuration
- * - Gateway status
- * - Connection management
+ * Comprehensive tests for the GatewayAPI namespace class.
+ * Tests all methods including:
+ * - Device management (list, get, register, unregister)
+ * - Device heartbeat
+ * - Channel listing
+ * - Routing statistics and rules
+ * - Message routing
  */
 
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
-import { GatewayNamespace } from '../gateway';
+import { GatewayAPI } from '../gateway';
 
 interface MockClient {
   request: Mock;
 }
 
-describe('GatewayNamespace', () => {
-  let api: GatewayNamespace;
+describe('GatewayAPI', () => {
+  let api: GatewayAPI;
   let mockClient: MockClient;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockClient = {
       request: vi.fn(),
     };
-    api = new GatewayNamespace(mockClient as any);
+    api = new GatewayAPI(mockClient as any);
   });
 
   // ===========================================================================
@@ -31,23 +34,23 @@ describe('GatewayNamespace', () => {
   // ===========================================================================
 
   describe('Device Management', () => {
-    it('should list devices', async () => {
+    it('should list devices without filters', async () => {
       const mockDevices = {
         devices: [
           {
             device_id: 'dev_1',
             name: 'Edge Server 1',
-            type: 'edge',
+            device_type: 'edge',
             status: 'online',
-            last_seen: '2024-01-20T10:00:00Z',
-            ip_address: '192.168.1.100',
+            last_heartbeat: '2024-01-20T10:00:00Z',
+            created_at: '2024-01-01T00:00:00Z',
           },
           {
             device_id: 'dev_2',
             name: 'IoT Gateway',
-            type: 'iot',
+            device_type: 'iot',
             status: 'online',
-            last_seen: '2024-01-20T09:55:00Z',
+            created_at: '2024-01-02T00:00:00Z',
           },
         ],
         total: 2,
@@ -62,11 +65,33 @@ describe('GatewayNamespace', () => {
       expect(result.devices).toHaveLength(2);
     });
 
-    it('should list devices with filters', async () => {
+    it('should list devices with status filter', async () => {
       const mockDevices = { devices: [], total: 0 };
       mockClient.request.mockResolvedValue(mockDevices);
 
-      await api.listDevices({ status: 'online', type: 'edge' });
+      await api.listDevices({ status: 'online' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/devices', {
+        params: { status: 'online' },
+      });
+    });
+
+    it('should list devices with device type filter', async () => {
+      const mockDevices = { devices: [], total: 0 };
+      mockClient.request.mockResolvedValue(mockDevices);
+
+      await api.listDevices({ deviceType: 'edge' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/devices', {
+        params: { type: 'edge' },
+      });
+    });
+
+    it('should list devices with combined filters', async () => {
+      const mockDevices = { devices: [], total: 0 };
+      mockClient.request.mockResolvedValue(mockDevices);
+
+      await api.listDevices({ status: 'online', deviceType: 'edge' });
 
       expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/devices', {
         params: { status: 'online', type: 'edge' },
@@ -75,17 +100,12 @@ describe('GatewayNamespace', () => {
 
     it('should get device by ID', async () => {
       const mockDevice = {
-        device_id: 'dev_1',
-        name: 'Edge Server 1',
-        type: 'edge',
-        status: 'online',
-        config: {
-          max_connections: 100,
-          timeout_ms: 5000,
-        },
-        metrics: {
-          requests_per_minute: 150,
-          error_rate: 0.01,
+        device: {
+          device_id: 'dev_1',
+          name: 'Edge Server 1',
+          device_type: 'edge',
+          status: 'online',
+          created_at: '2024-01-01T00:00:00Z',
         },
       };
       mockClient.request.mockResolvedValue(mockDevice);
@@ -93,351 +113,220 @@ describe('GatewayNamespace', () => {
       const result = await api.getDevice('dev_1');
 
       expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/devices/dev_1');
-      expect(result.config.max_connections).toBe(100);
+      expect(result.device.device_id).toBe('dev_1');
     });
 
-    it('should register device', async () => {
-      const mockDevice = {
+    it('should register a new device', async () => {
+      const mockResult = {
         device_id: 'dev_new',
-        name: 'New Edge Server',
-        type: 'edge',
-        status: 'pending',
-        token: 'auth_token_123',
+        message: 'Device registered successfully',
       };
-      mockClient.request.mockResolvedValue(mockDevice);
+      mockClient.request.mockResolvedValue(mockResult);
 
       const result = await api.registerDevice({
         name: 'New Edge Server',
-        type: 'edge',
+        deviceType: 'edge',
+        capabilities: ['voice', 'tts'],
       });
 
       expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/gateway/devices', {
-        json: { name: 'New Edge Server', type: 'edge' },
+        json: {
+          name: 'New Edge Server',
+          device_type: 'edge',
+          capabilities: ['voice', 'tts'],
+        },
       });
-      expect(result.token).toBe('auth_token_123');
+      expect(result.device_id).toBe('dev_new');
     });
 
-    it('should update device', async () => {
-      const mockDevice = {
-        device_id: 'dev_1',
-        name: 'Updated Server',
-        status: 'online',
-      };
-      mockClient.request.mockResolvedValue(mockDevice);
+    it('should register a device with minimal options', async () => {
+      const mockResult = { device_id: 'dev_min', message: 'Registered' };
+      mockClient.request.mockResolvedValue(mockResult);
 
-      const result = await api.updateDevice('dev_1', { name: 'Updated Server' });
+      await api.registerDevice({ name: 'Basic Device' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('PATCH', '/api/v1/gateway/devices/dev_1', {
-        json: { name: 'Updated Server' },
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/gateway/devices', {
+        json: {
+          name: 'Basic Device',
+          device_type: 'unknown',
+        },
       });
-      expect(result.name).toBe('Updated Server');
     });
 
-    it('should delete device', async () => {
-      mockClient.request.mockResolvedValue({ success: true });
+    it('should unregister a device', async () => {
+      const mockResult = { success: true, message: 'Device unregistered' };
+      mockClient.request.mockResolvedValue(mockResult);
 
-      await api.deleteDevice('dev_1');
+      const result = await api.unregisterDevice('dev_1');
 
       expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v1/gateway/devices/dev_1');
+      expect(result.success).toBe(true);
     });
   });
 
   // ===========================================================================
-  // Route Configuration
+  // Device Heartbeat
   // ===========================================================================
 
-  describe('Route Configuration', () => {
-    it('should list routes', async () => {
-      const mockRoutes = {
-        routes: [
-          {
-            route_id: 'route_1',
-            path: '/api/debates/*',
-            target: 'debate-service',
-            methods: ['GET', 'POST'],
-            enabled: true,
-          },
-          {
-            route_id: 'route_2',
-            path: '/api/agents/*',
-            target: 'agent-service',
-            methods: ['GET'],
-            enabled: true,
-          },
-        ],
+  describe('Device Heartbeat', () => {
+    it('should send device heartbeat', async () => {
+      const mockResult = {
+        status: 'acknowledged',
+        timestamp: '2024-01-20T10:00:00Z',
       };
-      mockClient.request.mockResolvedValue(mockRoutes);
+      mockClient.request.mockResolvedValue(mockResult);
 
-      const result = await api.listRoutes();
+      const result = await api.heartbeat('dev_1');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/routes');
-      expect(result.routes).toHaveLength(2);
-    });
-
-    it('should create route', async () => {
-      const mockRoute = {
-        route_id: 'route_new',
-        path: '/api/custom/*',
-        target: 'custom-service',
-        enabled: true,
-      };
-      mockClient.request.mockResolvedValue(mockRoute);
-
-      const result = await api.createRoute({
-        path: '/api/custom/*',
-        target: 'custom-service',
-        methods: ['GET', 'POST'],
-      });
-
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/gateway/routes', {
-        json: { path: '/api/custom/*', target: 'custom-service', methods: ['GET', 'POST'] },
-      });
-      expect(result.route_id).toBe('route_new');
-    });
-
-    it('should update route', async () => {
-      const mockRoute = {
-        route_id: 'route_1',
-        enabled: false,
-      };
-      mockClient.request.mockResolvedValue(mockRoute);
-
-      const result = await api.updateRoute('route_1', { enabled: false });
-
-      expect(mockClient.request).toHaveBeenCalledWith('PATCH', '/api/v1/gateway/routes/route_1', {
-        json: { enabled: false },
-      });
-      expect(result.enabled).toBe(false);
-    });
-
-    it('should delete route', async () => {
-      mockClient.request.mockResolvedValue({ success: true });
-
-      await api.deleteRoute('route_1');
-
-      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v1/gateway/routes/route_1');
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/v1/gateway/devices/dev_1/heartbeat'
+      );
+      expect(result.status).toBe('acknowledged');
     });
   });
 
   // ===========================================================================
-  // Gateway Status
+  // Channels
   // ===========================================================================
 
-  describe('Gateway Status', () => {
-    it('should get gateway status', async () => {
-      const mockStatus = {
-        status: 'healthy',
-        uptime_seconds: 86400,
-        version: '2.1.0',
-        active_connections: 150,
-        total_requests_24h: 50000,
-        error_rate: 0.005,
-        latency_p50_ms: 25,
-        latency_p99_ms: 150,
-      };
-      mockClient.request.mockResolvedValue(mockStatus);
-
-      const result = await api.getStatus();
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/status');
-      expect(result.status).toBe('healthy');
-      expect(result.active_connections).toBe(150);
-    });
-
-    it('should get gateway metrics', async () => {
-      const mockMetrics = {
-        requests: {
-          total: 50000,
-          success: 49750,
-          error: 250,
-        },
-        latency: {
-          p50: 25,
-          p90: 80,
-          p99: 150,
-        },
-        bandwidth: {
-          inbound_mb: 500,
-          outbound_mb: 1500,
-        },
-      };
-      mockClient.request.mockResolvedValue(mockMetrics);
-
-      const result = await api.getMetrics();
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/metrics', {
-        params: undefined,
-      });
-      expect(result.requests.success).toBe(49750);
-    });
-
-    it('should get metrics with time range', async () => {
-      const mockMetrics = { requests: { total: 1000 } };
-      mockClient.request.mockResolvedValue(mockMetrics);
-
-      await api.getMetrics({
-        start_time: '2024-01-20T00:00:00Z',
-        end_time: '2024-01-20T12:00:00Z',
-      });
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/metrics', {
-        params: {
-          start_time: '2024-01-20T00:00:00Z',
-          end_time: '2024-01-20T12:00:00Z',
-        },
-      });
-    });
-  });
-
-  // ===========================================================================
-  // Connection Management
-  // ===========================================================================
-
-  describe('Connection Management', () => {
-    it('should list active connections', async () => {
-      const mockConnections = {
-        connections: [
+  describe('Channels', () => {
+    it('should list active channels', async () => {
+      const mockChannels = {
+        channels: [
           {
-            connection_id: 'conn_1',
-            device_id: 'dev_1',
-            client_ip: '10.0.0.50',
-            connected_at: '2024-01-20T09:00:00Z',
-            requests: 150,
+            channel_id: 'ch_1',
+            name: 'Slack',
+            type: 'chat',
+            active: true,
+            connected_devices: 5,
           },
           {
-            connection_id: 'conn_2',
-            device_id: 'dev_2',
-            client_ip: '10.0.0.51',
-            connected_at: '2024-01-20T09:30:00Z',
-            requests: 80,
+            channel_id: 'ch_2',
+            name: 'Email',
+            type: 'email',
+            active: true,
+            connected_devices: 3,
           },
         ],
         total: 2,
       };
-      mockClient.request.mockResolvedValue(mockConnections);
+      mockClient.request.mockResolvedValue(mockChannels);
 
-      const result = await api.listConnections();
+      const result = await api.listChannels();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/connections', {
-        params: undefined,
-      });
-      expect(result.connections).toHaveLength(2);
-    });
-
-    it('should list connections by device', async () => {
-      const mockConnections = { connections: [], total: 0 };
-      mockClient.request.mockResolvedValue(mockConnections);
-
-      await api.listConnections({ device_id: 'dev_1' });
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/connections', {
-        params: { device_id: 'dev_1' },
-      });
-    });
-
-    it('should disconnect connection', async () => {
-      mockClient.request.mockResolvedValue({ success: true });
-
-      await api.disconnect('conn_1');
-
-      expect(mockClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/gateway/connections/conn_1/disconnect'
-      );
-    });
-
-    it('should disconnect all device connections', async () => {
-      mockClient.request.mockResolvedValue({ disconnected: 5 });
-
-      const result = await api.disconnectDevice('dev_1');
-
-      expect(mockClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/gateway/devices/dev_1/disconnect'
-      );
-      expect(result.disconnected).toBe(5);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/channels');
+      expect(result.channels).toHaveLength(2);
+      expect(result.channels[0].name).toBe('Slack');
     });
   });
 
   // ===========================================================================
-  // Rate Limiting
+  // Routing
   // ===========================================================================
 
-  describe('Rate Limiting', () => {
-    it('should get rate limit config', async () => {
-      const mockConfig = {
-        enabled: true,
-        default_limit: 1000,
-        default_window_seconds: 60,
-        rules: [
-          { path: '/api/debates', limit: 100, window_seconds: 60 },
-          { path: '/api/agents', limit: 500, window_seconds: 60 },
-        ],
-      };
-      mockClient.request.mockResolvedValue(mockConfig);
-
-      const result = await api.getRateLimitConfig();
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/rate-limits');
-      expect(result.default_limit).toBe(1000);
-    });
-
-    it('should update rate limit config', async () => {
-      const mockConfig = { enabled: true, default_limit: 2000 };
-      mockClient.request.mockResolvedValue(mockConfig);
-
-      const result = await api.updateRateLimitConfig({ default_limit: 2000 });
-
-      expect(mockClient.request).toHaveBeenCalledWith('PATCH', '/api/v1/gateway/rate-limits', {
-        json: { default_limit: 2000 },
-      });
-      expect(result.default_limit).toBe(2000);
-    });
-  });
-
-  // ===========================================================================
-  // Health Checks
-  // ===========================================================================
-
-  describe('Health Checks', () => {
-    it('should run health check', async () => {
-      const mockHealth = {
-        healthy: true,
-        checks: [
-          { name: 'database', status: 'healthy', latency_ms: 5 },
-          { name: 'redis', status: 'healthy', latency_ms: 2 },
-          { name: 'upstream', status: 'healthy', latency_ms: 15 },
-        ],
-        timestamp: '2024-01-20T10:00:00Z',
-      };
-      mockClient.request.mockResolvedValue(mockHealth);
-
-      const result = await api.healthCheck();
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/health');
-      expect(result.healthy).toBe(true);
-      expect(result.checks).toHaveLength(3);
-    });
-
-    it('should check device health', async () => {
-      const mockHealth = {
-        device_id: 'dev_1',
-        healthy: true,
-        last_heartbeat: '2024-01-20T09:59:55Z',
-        metrics: {
-          cpu_percent: 45,
-          memory_percent: 60,
+  describe('Routing', () => {
+    it('should get routing statistics', async () => {
+      const mockStats = {
+        stats: {
+          total_messages: 50000,
+          messages_today: 1200,
+          messages_by_channel: { slack: 30000, email: 15000 },
+          messages_by_agent: { claude: 25000, gpt4: 20000 },
+          average_latency_ms: 45,
         },
       };
-      mockClient.request.mockResolvedValue(mockHealth);
+      mockClient.request.mockResolvedValue(mockStats);
 
-      const result = await api.checkDeviceHealth('dev_1');
+      const result = await api.getRoutingStats();
 
-      expect(mockClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/gateway/devices/dev_1/health'
-      );
-      expect(result.healthy).toBe(true);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/routing/stats');
+      expect(result.stats.total_messages).toBe(50000);
+      expect(result.stats.average_latency_ms).toBe(45);
+    });
+
+    it('should list routing rules', async () => {
+      const mockRules = {
+        rules: [
+          {
+            rule_id: 'rule_1',
+            name: 'Debate routing',
+            channel: 'slack',
+            agent_id: 'claude',
+            priority: 1,
+            active: true,
+          },
+          {
+            rule_id: 'rule_2',
+            name: 'Email routing',
+            channel: 'email',
+            agent_id: 'gpt4',
+            priority: 2,
+            active: true,
+          },
+        ],
+        total: 2,
+      };
+      mockClient.request.mockResolvedValue(mockRules);
+
+      const result = await api.listRoutingRules();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/gateway/routing/rules');
+      expect(result.rules).toHaveLength(2);
+      expect(result.rules[0].priority).toBe(1);
+    });
+  });
+
+  // ===========================================================================
+  // Message Routing
+  // ===========================================================================
+
+  describe('Message Routing', () => {
+    it('should route a message', async () => {
+      const mockResult = {
+        routed: true,
+        agent_id: 'claude',
+        rule_id: 'rule_1',
+        message_id: 'msg_123',
+      };
+      mockClient.request.mockResolvedValue(mockResult);
+
+      const result = await api.routeMessage({
+        channel: 'slack',
+        content: 'Hello from the gateway!',
+      });
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/gateway/messages/route', {
+        json: {
+          channel: 'slack',
+          content: 'Hello from the gateway!',
+        },
+      });
+      expect(result.routed).toBe(true);
+      expect(result.agent_id).toBe('claude');
+      expect(result.message_id).toBe('msg_123');
+    });
+
+    it('should route a message to a different channel', async () => {
+      const mockResult = {
+        routed: true,
+        agent_id: 'gpt4',
+        message_id: 'msg_124',
+      };
+      mockClient.request.mockResolvedValue(mockResult);
+
+      const result = await api.routeMessage({
+        channel: 'email',
+        content: 'Important debate result',
+      });
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/gateway/messages/route', {
+        json: {
+          channel: 'email',
+          content: 'Important debate result',
+        },
+      });
+      expect(result.routed).toBe(true);
     });
   });
 });

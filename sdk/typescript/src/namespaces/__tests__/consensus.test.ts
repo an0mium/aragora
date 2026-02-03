@@ -1,87 +1,78 @@
 /**
  * Consensus Namespace Tests
  *
- * Comprehensive tests for the consensus namespace API including:
- * - Consensus detection
+ * Comprehensive tests for the ConsensusAPI namespace class.
+ * Tests all methods including:
+ * - Finding similar debates
  * - Settled topics
+ * - Consensus statistics
  * - Dissent tracking
  * - Contrarian views
- * - Confidence analysis
+ * - Risk warnings
+ * - Domain history
+ * - Demo seeding
  */
 
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
-import { ConsensusNamespace } from '../consensus';
+import { ConsensusAPI } from '../consensus';
 
 interface MockClient {
   request: Mock;
 }
 
-describe('ConsensusNamespace', () => {
-  let api: ConsensusNamespace;
+describe('ConsensusAPI', () => {
+  let api: ConsensusAPI;
   let mockClient: MockClient;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockClient = {
       request: vi.fn(),
     };
-    api = new ConsensusNamespace(mockClient as any);
+    api = new ConsensusAPI(mockClient as any);
   });
 
   // ===========================================================================
-  // Consensus Detection
+  // Find Similar Debates
   // ===========================================================================
 
-  describe('Consensus Detection', () => {
-    it('should check consensus for debate', async () => {
-      const mockConsensus = {
-        debate_id: 'd_123',
-        has_consensus: true,
-        confidence: 0.92,
-        consensus_type: 'majority',
-        position: 'We should adopt microservices for the backend',
-        supporting_agents: ['claude', 'gpt4', 'gemini'],
-        dissenting_agents: ['mistral'],
-        vote_distribution: {
-          for: 3,
-          against: 1,
-          abstain: 0,
-        },
-      };
-      mockClient.request.mockResolvedValue(mockConsensus);
-
-      const result = await api.check('d_123');
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/d_123');
-      expect(result.has_consensus).toBe(true);
-      expect(result.confidence).toBe(0.92);
-    });
-
-    it('should detect no consensus', async () => {
-      const mockConsensus = {
-        debate_id: 'd_124',
-        has_consensus: false,
-        confidence: 0.45,
-        positions: [
-          { position: 'Option A', supporters: ['claude', 'gpt4'] },
-          { position: 'Option B', supporters: ['gemini', 'mistral'] },
+  describe('Find Similar Debates', () => {
+    it('should find similar debates for a topic', async () => {
+      const mockSimilar = {
+        query: 'microservices',
+        similar: [
+          {
+            topic: 'Should we adopt microservices?',
+            conclusion: 'Yes, for large teams',
+            strength: 'strong',
+            confidence: 0.92,
+            similarity: 0.95,
+            agents: ['claude', 'gpt4'],
+            dissent_count: 1,
+            timestamp: '2024-01-15T00:00:00Z',
+          },
         ],
+        count: 1,
       };
-      mockClient.request.mockResolvedValue(mockConsensus);
+      mockClient.request.mockResolvedValue(mockSimilar);
 
-      const result = await api.check('d_124');
+      const result = await api.findSimilar({ topic: 'microservices', limit: 5 });
 
-      expect(result.has_consensus).toBe(false);
-      expect(result.positions).toHaveLength(2);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/similar', {
+        params: { topic: 'microservices', limit: 5 },
+      });
+      expect(result.similar).toHaveLength(1);
+      expect(result.similar[0].confidence).toBe(0.92);
     });
 
-    it('should get consensus with options', async () => {
-      const mockConsensus = { has_consensus: true };
-      mockClient.request.mockResolvedValue(mockConsensus);
+    it('should use default limit when not specified', async () => {
+      const mockSimilar = { query: 'caching', similar: [], count: 0 };
+      mockClient.request.mockResolvedValue(mockSimilar);
 
-      await api.check('d_123', { include_reasoning: true, threshold: 0.8 });
+      await api.findSimilar({ topic: 'caching' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/d_123', {
-        params: { include_reasoning: true, threshold: 0.8 },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/similar', {
+        params: { topic: 'caching', limit: 5 },
       });
     });
   });
@@ -91,251 +82,40 @@ describe('ConsensusNamespace', () => {
   // ===========================================================================
 
   describe('Settled Topics', () => {
-    it('should list settled topics', async () => {
+    it('should get settled topics with defaults', async () => {
       const mockSettled = {
+        min_confidence: 0.8,
         topics: [
           {
-            topic_id: 't_1',
-            topic: 'Best practices for API design',
-            position: 'Use REST with OpenAPI spec',
+            topic: 'API design best practices',
+            conclusion: 'Use REST with OpenAPI spec',
             confidence: 0.95,
-            debates_count: 15,
-            last_challenged: '2024-01-10T00:00:00Z',
-            status: 'settled',
-          },
-          {
-            topic_id: 't_2',
-            topic: 'Database choice for high-write workloads',
-            position: 'Use PostgreSQL with proper indexing',
-            confidence: 0.88,
-            debates_count: 8,
-            status: 'settled',
+            strength: 'strong',
+            timestamp: '2024-01-10T00:00:00Z',
           },
         ],
-        total: 2,
+        count: 1,
       };
       mockClient.request.mockResolvedValue(mockSettled);
 
-      const result = await api.listSettled();
+      const result = await api.getSettled();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/settled', {
-        params: undefined,
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/settled', {
+        params: { min_confidence: 0.8, limit: 20 },
       });
-      expect(result.topics).toHaveLength(2);
+      expect(result.topics).toHaveLength(1);
+      expect(result.topics[0].confidence).toBe(0.95);
     });
 
-    it('should list settled by domain', async () => {
-      const mockSettled = { topics: [], total: 0 };
+    it('should get settled topics with custom confidence', async () => {
+      const mockSettled = { min_confidence: 0.9, topics: [], count: 0 };
       mockClient.request.mockResolvedValue(mockSettled);
 
-      await api.listSettled({ domain: 'technology', min_confidence: 0.9 });
+      await api.getSettled({ minConfidence: 0.9, limit: 10 });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/settled', {
-        params: { domain: 'technology', min_confidence: 0.9 },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/settled', {
+        params: { min_confidence: 0.9, limit: 10 },
       });
-    });
-
-    it('should mark topic as settled', async () => {
-      const mockResult = {
-        topic_id: 't_new',
-        topic: 'Caching strategy',
-        position: 'Use Redis for session cache',
-        marked_at: '2024-01-20T10:00:00Z',
-      };
-      mockClient.request.mockResolvedValue(mockResult);
-
-      const result = await api.markSettled({
-        topic: 'Caching strategy',
-        position: 'Use Redis for session cache',
-        debate_ids: ['d_1', 'd_2'],
-      });
-
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/consensus/settled', {
-        json: {
-          topic: 'Caching strategy',
-          position: 'Use Redis for session cache',
-          debate_ids: ['d_1', 'd_2'],
-        },
-      });
-      expect(result.topic_id).toBe('t_new');
-    });
-
-    it('should challenge settled topic', async () => {
-      const mockResult = {
-        challenge_id: 'ch_1',
-        topic_id: 't_1',
-        status: 'pending_debate',
-        challenger: 'user@example.com',
-        reason: 'New evidence suggests alternatives',
-      };
-      mockClient.request.mockResolvedValue(mockResult);
-
-      const result = await api.challenge('t_1', {
-        reason: 'New evidence suggests alternatives',
-      });
-
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/consensus/settled/t_1/challenge', {
-        json: { reason: 'New evidence suggests alternatives' },
-      });
-      expect(result.status).toBe('pending_debate');
-    });
-  });
-
-  // ===========================================================================
-  // Dissent Tracking
-  // ===========================================================================
-
-  describe('Dissent Tracking', () => {
-    it('should get dissents for debate', async () => {
-      const mockDissents = {
-        debate_id: 'd_123',
-        dissents: [
-          {
-            agent: 'mistral',
-            position: 'Monolith is better for small teams',
-            reasoning: 'Operational complexity outweighs benefits',
-            confidence: 0.75,
-            evidence: ['study_1', 'case_study_2'],
-          },
-        ],
-        total_dissents: 1,
-      };
-      mockClient.request.mockResolvedValue(mockDissents);
-
-      const result = await api.getDissents('d_123');
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/d_123/dissents');
-      expect(result.dissents).toHaveLength(1);
-      expect(result.dissents[0].agent).toBe('mistral');
-    });
-
-    it('should list all dissents', async () => {
-      const mockDissents = {
-        dissents: [
-          { debate_id: 'd_1', agent: 'mistral', position: 'Alternative view 1' },
-          { debate_id: 'd_2', agent: 'grok', position: 'Alternative view 2' },
-        ],
-        total: 2,
-      };
-      mockClient.request.mockResolvedValue(mockDissents);
-
-      const result = await api.listDissents();
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/dissents', {
-        params: undefined,
-      });
-      expect(result.dissents).toHaveLength(2);
-    });
-
-    it('should list dissents by agent', async () => {
-      const mockDissents = { dissents: [], total: 0 };
-      mockClient.request.mockResolvedValue(mockDissents);
-
-      await api.listDissents({ agent: 'mistral' });
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/dissents', {
-        params: { agent: 'mistral' },
-      });
-    });
-  });
-
-  // ===========================================================================
-  // Contrarian Views
-  // ===========================================================================
-
-  describe('Contrarian Views', () => {
-    it('should get contrarian analysis', async () => {
-      const mockAnalysis = {
-        debate_id: 'd_123',
-        contrarian_views: [
-          {
-            view: 'Event sourcing introduces unnecessary complexity',
-            agent: 'grok',
-            strength: 0.72,
-            counter_evidence: ['Large event stores are hard to manage'],
-            addressed_by: [],
-          },
-        ],
-        total_views: 1,
-      };
-      mockClient.request.mockResolvedValue(mockAnalysis);
-
-      const result = await api.getContrarian('d_123');
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/d_123/contrarian');
-      expect(result.contrarian_views).toHaveLength(1);
-    });
-
-    it('should list strongest contrarian views', async () => {
-      const mockViews = {
-        views: [
-          { topic: 'Microservices', view: 'Monolith better for most', strength: 0.85 },
-          { topic: 'NoSQL', view: 'Relational still superior', strength: 0.78 },
-        ],
-      };
-      mockClient.request.mockResolvedValue(mockViews);
-
-      const result = await api.listContrarianViews({ min_strength: 0.7, limit: 10 });
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/contrarian', {
-        params: { min_strength: 0.7, limit: 10 },
-      });
-      expect(result.views).toHaveLength(2);
-    });
-  });
-
-  // ===========================================================================
-  // Confidence Analysis
-  // ===========================================================================
-
-  describe('Confidence Analysis', () => {
-    it('should get confidence breakdown', async () => {
-      const mockConfidence = {
-        debate_id: 'd_123',
-        overall_confidence: 0.88,
-        breakdown: {
-          agent_agreement: 0.92,
-          evidence_quality: 0.85,
-          argument_strength: 0.87,
-          historical_accuracy: 0.90,
-        },
-        factors: [
-          { factor: 'Strong supporting evidence', impact: 0.15 },
-          { factor: 'High agent expertise in domain', impact: 0.12 },
-          { factor: 'Minor dissent', impact: -0.05 },
-        ],
-      };
-      mockClient.request.mockResolvedValue(mockConfidence);
-
-      const result = await api.getConfidence('d_123');
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/d_123/confidence');
-      expect(result.overall_confidence).toBe(0.88);
-      expect(result.breakdown.agent_agreement).toBe(0.92);
-    });
-
-    it('should get confidence trend', async () => {
-      const mockTrend = {
-        debate_id: 'd_123',
-        trend: [
-          { round: 1, confidence: 0.5 },
-          { round: 2, confidence: 0.65 },
-          { round: 3, confidence: 0.8 },
-          { round: 4, confidence: 0.88 },
-        ],
-        final_confidence: 0.88,
-        convergence_rate: 0.127,
-      };
-      mockClient.request.mockResolvedValue(mockTrend);
-
-      const result = await api.getConfidenceTrend('d_123');
-
-      expect(mockClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/consensus/d_123/confidence/trend'
-      );
-      expect(result.trend).toHaveLength(4);
-      expect(result.convergence_rate).toBe(0.127);
     });
   });
 
@@ -346,91 +126,223 @@ describe('ConsensusNamespace', () => {
   describe('Consensus Statistics', () => {
     it('should get consensus statistics', async () => {
       const mockStats = {
-        total_debates_analyzed: 1500,
-        consensus_rate: 0.78,
-        average_confidence: 0.82,
-        by_type: {
-          unanimous: 350,
-          majority: 820,
-          no_consensus: 330,
-        },
-        by_domain: {
-          technology: { debates: 500, consensus_rate: 0.82 },
-          business: { debates: 400, consensus_rate: 0.75 },
-          science: { debates: 300, consensus_rate: 0.80 },
-        },
-        average_rounds_to_consensus: 3.2,
+        total_topics: 150,
+        high_confidence_count: 80,
+        domains: ['technology', 'business', 'science'],
+        avg_confidence: 0.82,
+        total_dissents: 45,
+        by_strength: { strong: 60, moderate: 50, weak: 40 },
+        by_domain: { technology: 80, business: 40, science: 30 },
       };
       mockClient.request.mockResolvedValue(mockStats);
 
       const result = await api.getStats();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/stats');
-      expect(result.consensus_rate).toBe(0.78);
-      expect(result.by_type.unanimous).toBe(350);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/stats');
+      expect(result.total_topics).toBe(150);
+      expect(result.avg_confidence).toBe(0.82);
+      expect(result.domains).toHaveLength(3);
+    });
+  });
+
+  // ===========================================================================
+  // Dissent Tracking
+  // ===========================================================================
+
+  describe('Dissent Tracking', () => {
+    it('should get dissents with defaults', async () => {
+      const mockDissents = {
+        dissents: [
+          {
+            id: 'dis_1',
+            topic: 'Microservices adoption',
+            agent: 'mistral',
+            position: 'Monolith is better for small teams',
+            reasoning: 'Operational complexity outweighs benefits',
+            timestamp: '2024-01-20T00:00:00Z',
+          },
+        ],
+        count: 1,
+      };
+      mockClient.request.mockResolvedValue(mockDissents);
+
+      const result = await api.getDissents();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/dissents', {
+        params: { topic: undefined, domain: undefined, limit: 10 },
+      });
+      expect(result.dissents).toHaveLength(1);
+      expect(result.dissents[0].agent).toBe('mistral');
     });
 
-    it('should get stats with date filter', async () => {
-      const mockStats = { consensus_rate: 0.80 };
-      mockClient.request.mockResolvedValue(mockStats);
+    it('should get dissents filtered by topic', async () => {
+      const mockDissents = { dissents: [], count: 0 };
+      mockClient.request.mockResolvedValue(mockDissents);
 
-      await api.getStats({
-        start_date: '2024-01-01',
-        end_date: '2024-01-31',
-      });
+      await api.getDissents({ topic: 'caching', domain: 'technology', limit: 5 });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/stats', {
-        params: { start_date: '2024-01-01', end_date: '2024-01-31' },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/dissents', {
+        params: { topic: 'caching', domain: 'technology', limit: 5 },
       });
     });
   });
 
   // ===========================================================================
-  // Hollow Consensus Detection
+  // Contrarian Views
   // ===========================================================================
 
-  describe('Hollow Consensus Detection', () => {
-    it('should check for hollow consensus', async () => {
-      const mockResult = {
-        debate_id: 'd_123',
-        is_hollow: false,
-        indicators: {
-          surface_agreement: 0.95,
-          deep_alignment: 0.88,
-          reasoning_consistency: 0.85,
-        },
-        risk_score: 0.15,
+  describe('Contrarian Views', () => {
+    it('should get contrarian views with defaults', async () => {
+      const mockContrarian = {
+        views: [
+          {
+            id: 'cv_1',
+            topic: 'NoSQL databases',
+            agent: 'grok',
+            perspective: 'Relational databases are still superior for most use cases',
+            confidence: 0.78,
+            timestamp: '2024-01-18T00:00:00Z',
+          },
+        ],
+        count: 1,
       };
-      mockClient.request.mockResolvedValue(mockResult);
+      mockClient.request.mockResolvedValue(mockContrarian);
 
-      const result = await api.checkHollow('d_123');
+      const result = await api.getContrarian();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/consensus/d_123/hollow');
-      expect(result.is_hollow).toBe(false);
-      expect(result.risk_score).toBe(0.15);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/contrarian-views', {
+        params: { topic: undefined, domain: undefined, limit: 10 },
+      });
+      expect(result.views).toHaveLength(1);
+      expect(result.views[0].confidence).toBe(0.78);
     });
 
-    it('should detect hollow consensus', async () => {
-      const mockResult = {
-        debate_id: 'd_124',
-        is_hollow: true,
-        indicators: {
-          surface_agreement: 0.90,
-          deep_alignment: 0.45,
-          reasoning_consistency: 0.50,
-        },
-        risk_score: 0.75,
+    it('should get contrarian views filtered by domain', async () => {
+      const mockContrarian = { views: [], count: 0 };
+      mockClient.request.mockResolvedValue(mockContrarian);
+
+      await api.getContrarian({ domain: 'architecture', limit: 20 });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/contrarian-views', {
+        params: { topic: undefined, domain: 'architecture', limit: 20 },
+      });
+    });
+  });
+
+  // ===========================================================================
+  // Risk Warnings
+  // ===========================================================================
+
+  describe('Risk Warnings', () => {
+    it('should get risk warnings with defaults', async () => {
+      const mockWarnings = {
         warnings: [
-          'Agents agree on conclusion but reasoning diverges significantly',
-          'Evidence cited by agents does not overlap',
+          {
+            id: 'rw_1',
+            topic: 'Serverless migration',
+            warning: 'Cold start latency may impact user experience',
+            severity: 'medium' as const,
+            source_agent: 'claude',
+            timestamp: '2024-01-19T00:00:00Z',
+          },
         ],
+        count: 1,
       };
+      mockClient.request.mockResolvedValue(mockWarnings);
+
+      const result = await api.getRiskWarnings();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/risk-warnings', {
+        params: { topic: undefined, domain: undefined, limit: 10 },
+      });
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].severity).toBe('medium');
+    });
+
+    it('should get risk warnings filtered by topic', async () => {
+      const mockWarnings = { warnings: [], count: 0 };
+      mockClient.request.mockResolvedValue(mockWarnings);
+
+      await api.getRiskWarnings({ topic: 'security', limit: 5 });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/risk-warnings', {
+        params: { topic: 'security', domain: undefined, limit: 5 },
+      });
+    });
+  });
+
+  // ===========================================================================
+  // Domain History
+  // ===========================================================================
+
+  describe('Domain History', () => {
+    it('should get domain history with default limit', async () => {
+      const mockHistory = {
+        domain: 'technology',
+        history: [
+          {
+            topic: 'Microservices vs Monolith',
+            conclusion: 'Depends on team size',
+            confidence: 0.88,
+            timestamp: '2024-01-15T00:00:00Z',
+          },
+        ],
+        count: 1,
+      };
+      mockClient.request.mockResolvedValue(mockHistory);
+
+      const result = await api.getDomainHistory('technology');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/consensus/domain/technology',
+        { params: { limit: 50 } }
+      );
+      expect(result.domain).toBe('technology');
+      expect(result.history).toHaveLength(1);
+    });
+
+    it('should get domain history with custom limit', async () => {
+      const mockHistory = { domain: 'business', history: [], count: 0 };
+      mockClient.request.mockResolvedValue(mockHistory);
+
+      await api.getDomainHistory('business', 10);
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/consensus/domain/business',
+        { params: { limit: 10 } }
+      );
+    });
+
+    it('should encode domain name in URL', async () => {
+      const mockHistory = { domain: 'AI/ML', history: [], count: 0 };
+      mockClient.request.mockResolvedValue(mockHistory);
+
+      await api.getDomainHistory('AI/ML');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/consensus/domain/AI%2FML',
+        { params: { limit: 50 } }
+      );
+    });
+  });
+
+  // ===========================================================================
+  // Seed Demo
+  // ===========================================================================
+
+  describe('Seed Demo', () => {
+    it('should seed demo consensus data', async () => {
+      const mockResult = { success: true, message: 'Demo data seeded successfully' };
       mockClient.request.mockResolvedValue(mockResult);
 
-      const result = await api.checkHollow('d_124');
+      const result = await api.seedDemo();
 
-      expect(result.is_hollow).toBe(true);
-      expect(result.warnings).toHaveLength(2);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/consensus/seed-demo');
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('seeded');
     });
   });
 });

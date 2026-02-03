@@ -1,87 +1,227 @@
 /**
  * Analytics Namespace Tests
  *
- * Comprehensive tests for the analytics namespace API including:
- * - Dashboard analytics
+ * Comprehensive tests for the AnalyticsAPI namespace class.
+ * Tests all methods including:
+ * - Core analytics (disagreements, role rotation, early stops)
+ * - Consensus quality
+ * - Ranking and memory stats
+ * - Dashboard overview
  * - Debate analytics
  * - Agent analytics
- * - Usage analytics
- * - Export functionality
+ * - Usage and costs
+ * - Flip detection
+ * - Deliberation analytics
+ * - External platforms
  */
 
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
-import { AnalyticsNamespace } from '../analytics';
+import { AnalyticsAPI } from '../analytics';
 
 interface MockClient {
   request: Mock;
+  getDisagreementAnalytics: Mock;
+  getRoleRotationAnalytics: Mock;
+  getEarlyStopAnalytics: Mock;
+  getConsensusQualityAnalytics: Mock;
+  getRankingStats: Mock;
+  getMemoryStats: Mock;
 }
 
-describe('AnalyticsNamespace', () => {
-  let api: AnalyticsNamespace;
+function createMockClient(): MockClient {
+  return {
+    request: vi.fn(),
+    getDisagreementAnalytics: vi.fn(),
+    getRoleRotationAnalytics: vi.fn(),
+    getEarlyStopAnalytics: vi.fn(),
+    getConsensusQualityAnalytics: vi.fn(),
+    getRankingStats: vi.fn(),
+    getMemoryStats: vi.fn(),
+  };
+}
+
+describe('AnalyticsAPI', () => {
+  let api: AnalyticsAPI;
   let mockClient: MockClient;
 
   beforeEach(() => {
-    mockClient = {
-      request: vi.fn(),
-    };
-    api = new AnalyticsNamespace(mockClient as any);
+    vi.clearAllMocks();
+    mockClient = createMockClient();
+    api = new AnalyticsAPI(mockClient as any);
   });
 
   // ===========================================================================
-  // Dashboard Analytics
+  // Core Analytics Methods
   // ===========================================================================
 
-  describe('Dashboard Analytics', () => {
-    it('should get dashboard overview', async () => {
-      const mockDashboard = {
+  describe('Core Analytics Methods', () => {
+    it('should get disagreement analytics', async () => {
+      const mockData = {
+        total_disagreements: 150,
+        patterns: [{ agents: ['claude', 'gpt4'], frequency: 25 }],
+      };
+      mockClient.getDisagreementAnalytics.mockResolvedValue(mockData);
+
+      const result = await api.disagreements({ period: '7d' });
+
+      expect(mockClient.getDisagreementAnalytics).toHaveBeenCalledWith({ period: '7d' });
+      expect(result.total_disagreements).toBe(150);
+    });
+
+    it('should get disagreement analytics without params', async () => {
+      const mockData = { total_disagreements: 100 };
+      mockClient.getDisagreementAnalytics.mockResolvedValue(mockData);
+
+      const result = await api.disagreements();
+
+      expect(mockClient.getDisagreementAnalytics).toHaveBeenCalledWith(undefined);
+      expect(result.total_disagreements).toBe(100);
+    });
+
+    it('should get role rotation analytics', async () => {
+      const mockData = {
+        total_rotations: 200,
+        by_agent: { claude: 50, gpt4: 45 },
+      };
+      mockClient.getRoleRotationAnalytics.mockResolvedValue(mockData);
+
+      const result = await api.roleRotation({ period: '30d' });
+
+      expect(mockClient.getRoleRotationAnalytics).toHaveBeenCalledWith({ period: '30d' });
+      expect(result.total_rotations).toBe(200);
+    });
+
+    it('should get early stop analytics', async () => {
+      const mockData = {
+        total_early_stops: 30,
+        rate: 0.06,
+      };
+      mockClient.getEarlyStopAnalytics.mockResolvedValue(mockData);
+
+      const result = await api.earlyStops({ period: '7d' });
+
+      expect(mockClient.getEarlyStopAnalytics).toHaveBeenCalledWith({ period: '7d' });
+      expect(result.total_early_stops).toBe(30);
+    });
+
+    it('should get consensus quality analytics', async () => {
+      const mockData = {
+        average_quality: 0.85,
+        by_domain: { technology: 0.88, business: 0.82 },
+      };
+      mockClient.getConsensusQualityAnalytics.mockResolvedValue(mockData);
+
+      const result = await api.consensusQuality({ period: '90d' });
+
+      expect(mockClient.getConsensusQualityAnalytics).toHaveBeenCalledWith({ period: '90d' });
+      expect(result.average_quality).toBe(0.85);
+    });
+
+    it('should get ranking stats', async () => {
+      const mockData = {
+        total_agents: 15,
+        average_elo: 1450,
+      };
+      mockClient.getRankingStats.mockResolvedValue(mockData);
+
+      const result = await api.rankingStats();
+
+      expect(mockClient.getRankingStats).toHaveBeenCalledTimes(1);
+      expect(result.total_agents).toBe(15);
+    });
+
+    it('should get memory stats', async () => {
+      const mockData = {
+        total_memories: 5000,
+        by_tier: { fast: 1000, medium: 2000, slow: 1500, glacial: 500 },
+      };
+      mockClient.getMemoryStats.mockResolvedValue(mockData);
+
+      const result = await api.memoryStats();
+
+      expect(mockClient.getMemoryStats).toHaveBeenCalledTimes(1);
+      expect(result.total_memories).toBe(5000);
+    });
+  });
+
+  // ===========================================================================
+  // Dashboard Overview
+  // ===========================================================================
+
+  describe('Dashboard Overview', () => {
+    it('should get dashboard summary', async () => {
+      const mockSummary = {
         total_debates: 1500,
         active_debates: 25,
-        total_decisions: 1200,
         consensus_rate: 0.85,
-        average_debate_duration: 180,
-        top_agents: [
-          { agent: 'claude', debates: 500, win_rate: 0.75 },
-          { agent: 'gpt4', debates: 450, win_rate: 0.72 },
-        ],
-        recent_activity: [
-          { date: '2024-01-20', debates: 15, decisions: 12 },
-          { date: '2024-01-19', debates: 18, decisions: 15 },
-        ],
       };
-      mockClient.request.mockResolvedValue(mockDashboard);
+      mockClient.request.mockResolvedValue(mockSummary);
 
-      const result = await api.getDashboard();
+      const result = await api.getSummary();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/dashboard', {
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/summary', { params: undefined });
+      expect(result).toHaveProperty('total_debates');
+    });
+
+    it('should get dashboard summary with workspace filter', async () => {
+      const mockSummary = { total_debates: 50 };
+      mockClient.request.mockResolvedValue(mockSummary);
+
+      await api.getSummary({ workspace_id: 'ws_123', time_range: '7d' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/summary', {
+        params: { workspace_id: 'ws_123', time_range: '7d' },
+      });
+    });
+
+    it('should get finding trends', async () => {
+      const mockTrends = {
+        data: [{ date: '2024-01-20', count: 15 }],
+      };
+      mockClient.request.mockResolvedValue(mockTrends);
+
+      const result = await api.getFindingTrends({ time_range: '30d', granularity: 'day' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/trends/findings', {
+        params: { time_range: '30d', granularity: 'day' },
+      });
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should get remediation metrics', async () => {
+      const mockMetrics = { average_time_to_fix: 3600 };
+      mockClient.request.mockResolvedValue(mockMetrics);
+
+      const result = await api.getRemediationMetrics();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/remediation', {
         params: undefined,
       });
-      expect(result.total_debates).toBe(1500);
-      expect(result.consensus_rate).toBe(0.85);
+      expect(result).toHaveProperty('average_time_to_fix');
     });
 
-    it('should get dashboard with date range', async () => {
-      const mockDashboard = { total_debates: 100 };
-      mockClient.request.mockResolvedValue(mockDashboard);
+    it('should get compliance scorecard', async () => {
+      const mockScorecard = { overall_score: 0.92 };
+      mockClient.request.mockResolvedValue(mockScorecard);
 
-      await api.getDashboard({
-        start_date: '2024-01-01',
-        end_date: '2024-01-31',
-      });
+      const result = await api.getComplianceScorecard({ frameworks: ['SOC2'] });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/dashboard', {
-        params: { start_date: '2024-01-01', end_date: '2024-01-31' },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/compliance', {
+        params: { frameworks: ['SOC2'] },
       });
+      expect(result.overall_score).toBe(0.92);
     });
 
-    it('should get dashboard with tenant filter', async () => {
-      const mockDashboard = { total_debates: 50 };
-      mockClient.request.mockResolvedValue(mockDashboard);
+    it('should get risk heatmap', async () => {
+      const mockHeatmap = { cells: [] };
+      mockClient.request.mockResolvedValue(mockHeatmap);
 
-      await api.getDashboard({ tenant_id: 't123' });
+      const result = await api.getRiskHeatmap({ time_range: '90d' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/dashboard', {
-        params: { tenant_id: 't123' },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/heatmap', {
+        params: { time_range: '90d' },
       });
+      expect(result).toHaveProperty('cells');
     });
   });
 
@@ -90,68 +230,63 @@ describe('AnalyticsNamespace', () => {
   // ===========================================================================
 
   describe('Debate Analytics', () => {
-    it('should get debate analytics', async () => {
-      const mockAnalytics = {
-        total_debates: 500,
-        by_status: { completed: 450, in_progress: 30, failed: 20 },
-        by_outcome: { consensus: 400, majority: 40, no_consensus: 10 },
+    it('should get debates overview', async () => {
+      const mockOverview = {
+        total: 500,
+        consensus_rate: 0.78,
         average_rounds: 3.5,
-        average_duration_seconds: 240,
-        average_agents_per_debate: 4.2,
-        trend: [
-          { date: '2024-01-20', count: 15 },
-          { date: '2024-01-19', count: 18 },
-        ],
       };
-      mockClient.request.mockResolvedValue(mockAnalytics);
+      mockClient.request.mockResolvedValue(mockOverview);
 
-      const result = await api.getDebateAnalytics();
+      const result = await api.getDebatesOverview();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/debates', {
-        params: undefined,
-      });
-      expect(result.total_debates).toBe(500);
-      expect(result.by_outcome.consensus).toBe(400);
-    });
-
-    it('should get debate analytics with filters', async () => {
-      const mockAnalytics = { total_debates: 100 };
-      mockClient.request.mockResolvedValue(mockAnalytics);
-
-      await api.getDebateAnalytics({
-        start_date: '2024-01-01',
-        end_date: '2024-01-31',
-        group_by: 'day',
-        domain: 'technology',
-      });
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/debates', {
-        params: {
-          start_date: '2024-01-01',
-          end_date: '2024-01-31',
-          group_by: 'day',
-          domain: 'technology',
-        },
-      });
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/debates/overview');
+      expect(result.total).toBe(500);
+      expect(result.consensus_rate).toBe(0.78);
     });
 
     it('should get debate trends', async () => {
       const mockTrends = {
-        period: 'week',
-        data: [
-          { date: '2024-01-14', debates: 100, decisions: 85 },
-          { date: '2024-01-21', debates: 120, decisions: 100 },
-        ],
-        growth_rate: 0.20,
+        data: [{ date: '2024-01-20', debates: 15 }],
       };
       mockClient.request.mockResolvedValue(mockTrends);
 
-      const result = await api.getDebateTrends('week');
+      const result = await api.getDebateTrends({ time_range: '30d', granularity: 'week' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/debates/trends', {
-        params: { period: 'week' },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/debates/trends', {
+        params: { time_range: '30d', granularity: 'week' },
       });
-      expect(result.growth_rate).toBe(0.20);
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should get debate topics', async () => {
+      const mockTopics = {
+        topics: [{ topic: 'AI Ethics', count: 50 }],
+      };
+      mockClient.request.mockResolvedValue(mockTopics);
+
+      const result = await api.getDebateTopics({ limit: 10 });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/debates/topics', {
+        params: { limit: 10 },
+      });
+      expect(result.topics).toHaveLength(1);
+    });
+
+    it('should get debate outcomes', async () => {
+      const mockOutcomes = {
+        consensus: 400,
+        majority: 80,
+        no_consensus: 20,
+      };
+      mockClient.request.mockResolvedValue(mockOutcomes);
+
+      const result = await api.getDebateOutcomes();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/debates/outcomes', {
+        params: undefined,
+      });
+      expect(result.consensus).toBe(400);
     });
   });
 
@@ -160,231 +295,257 @@ describe('AnalyticsNamespace', () => {
   // ===========================================================================
 
   describe('Agent Analytics', () => {
-    it('should get agent analytics', async () => {
-      const mockAnalytics = {
-        total_agents: 15,
-        active_agents: 12,
+    it('should get agent leaderboard', async () => {
+      const mockLeaderboard = {
         agents: [
-          {
-            agent: 'claude',
-            total_debates: 500,
-            wins: 375,
-            losses: 100,
-            draws: 25,
-            win_rate: 0.75,
-            elo: 1850,
-            average_response_time: 2.5,
-          },
-          {
-            agent: 'gpt4',
-            total_debates: 450,
-            wins: 324,
-            losses: 90,
-            draws: 36,
-            win_rate: 0.72,
-            elo: 1800,
-            average_response_time: 3.0,
-          },
+          { name: 'claude', elo: 1850 },
+          { name: 'gpt4', elo: 1800 },
         ],
       };
-      mockClient.request.mockResolvedValue(mockAnalytics);
+      mockClient.request.mockResolvedValue(mockLeaderboard);
 
-      const result = await api.getAgentAnalytics();
+      const result = await api.getAgentLeaderboard({ limit: 10, domain: 'technology' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/agents', {
-        params: undefined,
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/agents/leaderboard', {
+        params: { limit: 10, domain: 'technology' },
       });
       expect(result.agents).toHaveLength(2);
-      expect(result.agents[0].win_rate).toBe(0.75);
     });
 
-    it('should get specific agent analytics', async () => {
-      const mockAnalytics = {
+    it('should get agent performance', async () => {
+      const mockPerf = {
         agent: 'claude',
-        total_debates: 500,
-        performance_by_domain: {
-          technology: { debates: 200, win_rate: 0.80 },
-          science: { debates: 150, win_rate: 0.75 },
-        },
-        recent_debates: [
-          { id: 'd1', topic: 'AI Ethics', outcome: 'win' },
-        ],
+        win_rate: 0.75,
+        elo: 1850,
       };
-      mockClient.request.mockResolvedValue(mockAnalytics);
+      mockClient.request.mockResolvedValue(mockPerf);
 
-      const result = await api.getAgentAnalytics({ agent: 'claude' });
+      const result = await api.getAgentPerformance('claude', { time_range: '30d' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/agents', {
-        params: { agent: 'claude' },
-      });
-      expect(result.performance_by_domain.technology.win_rate).toBe(0.80);
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/analytics/agents/claude/performance',
+        { params: { time_range: '30d' } }
+      );
+      expect(result.win_rate).toBe(0.75);
     });
 
-    it('should get agent comparison', async () => {
+    it('should compare agents', async () => {
       const mockComparison = {
         agents: ['claude', 'gpt4'],
-        metrics: {
-          win_rate: { claude: 0.75, gpt4: 0.72 },
-          elo: { claude: 1850, gpt4: 1800 },
-          response_time: { claude: 2.5, gpt4: 3.0 },
-        },
-        head_to_head: { claude_wins: 60, gpt4_wins: 40 },
+        metrics: { win_rate: { claude: 0.75, gpt4: 0.72 } },
       };
       mockClient.request.mockResolvedValue(mockComparison);
 
       const result = await api.compareAgents(['claude', 'gpt4']);
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/analytics/agents/compare', {
-        json: { agents: ['claude', 'gpt4'] },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/agents/comparison', {
+        params: { agents: 'claude,gpt4' },
       });
-      expect(result.head_to_head.claude_wins).toBe(60);
+      expect(result.agents).toHaveLength(2);
+    });
+
+    it('should get learning efficiency', async () => {
+      const mockEfficiency = { agent: 'claude', efficiency: 0.92 };
+      mockClient.request.mockResolvedValue(mockEfficiency);
+
+      const result = await api.getLearningEfficiency({ agent: 'claude', domain: 'technology' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/learning-efficiency', {
+        params: { agent: 'claude', domain: 'technology' },
+      });
+      expect(result.efficiency).toBe(0.92);
     });
   });
 
   // ===========================================================================
-  // Usage Analytics
+  // Usage & Costs
   // ===========================================================================
 
-  describe('Usage Analytics', () => {
-    it('should get usage analytics', async () => {
-      const mockUsage = {
-        period: { start: '2024-01-01', end: '2024-01-31' },
-        api_calls: 50000,
-        debates_created: 500,
-        tokens_used: 2500000,
-        storage_used_mb: 250,
-        by_endpoint: {
-          '/api/v1/debates': 20000,
-          '/api/v1/agents': 15000,
-        },
-      };
+  describe('Usage & Costs', () => {
+    it('should get token usage', async () => {
+      const mockUsage = { total_tokens: 2500000 };
       mockClient.request.mockResolvedValue(mockUsage);
 
-      const result = await api.getUsageAnalytics();
+      const result = await api.getTokenUsage({ time_range: '30d' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/usage', {
-        params: undefined,
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/usage/tokens', {
+        params: { time_range: '30d' },
       });
-      expect(result.api_calls).toBe(50000);
-      expect(result.tokens_used).toBe(2500000);
-    });
-
-    it('should get usage by tenant', async () => {
-      const mockUsage = { api_calls: 5000, tenant_id: 't123' };
-      mockClient.request.mockResolvedValue(mockUsage);
-
-      await api.getUsageAnalytics({ tenant_id: 't123' });
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/usage', {
-        params: { tenant_id: 't123' },
-      });
+      expect(result.total_tokens).toBe(2500000);
     });
 
     it('should get cost breakdown', async () => {
       const mockCosts = {
         total_cost: 150.00,
-        by_provider: {
-          anthropic: 80.00,
-          openai: 50.00,
-          mistral: 20.00,
-        },
-        by_model: {
-          'claude-3-opus': 60.00,
-          'gpt-4': 40.00,
-        },
+        by_provider: { anthropic: 80, openai: 50, mistral: 20 },
       };
       mockClient.request.mockResolvedValue(mockCosts);
 
       const result = await api.getCostBreakdown();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/costs', {
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/usage/costs', {
         params: undefined,
       });
       expect(result.total_cost).toBe(150.00);
     });
-  });
 
-  // ===========================================================================
-  // Export Functionality
-  // ===========================================================================
+    it('should get active users', async () => {
+      const mockUsers = { active_users: 42 };
+      mockClient.request.mockResolvedValue(mockUsers);
 
-  describe('Export Functionality', () => {
-    it('should export analytics as JSON', async () => {
-      const mockExport = {
-        format: 'json',
-        data: { debates: [], agents: [] },
-        generated_at: '2024-01-20T10:00:00Z',
-      };
-      mockClient.request.mockResolvedValue(mockExport);
+      const result = await api.getActiveUsers({ time_range: '7d' });
 
-      const result = await api.exportAnalytics('json');
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/export', {
-        params: { format: 'json' },
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/usage/active_users', {
+        params: { time_range: '7d' },
       });
-      expect(result.format).toBe('json');
+      expect(result.active_users).toBe(42);
     });
 
-    it('should export analytics as CSV', async () => {
-      const mockExport = { format: 'csv', download_url: 'https://...' };
-      mockClient.request.mockResolvedValue(mockExport);
+    it('should get cost metrics', async () => {
+      const mockMetrics = { total_cost: 500 };
+      mockClient.request.mockResolvedValue(mockMetrics);
 
-      const result = await api.exportAnalytics('csv', {
-        start_date: '2024-01-01',
-        end_date: '2024-01-31',
+      const result = await api.getCostMetrics({ workspace_id: 'ws_1' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/cost', {
+        params: { workspace_id: 'ws_1' },
       });
-
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/export', {
-        params: { format: 'csv', start_date: '2024-01-01', end_date: '2024-01-31' },
-      });
-    });
-
-    it('should schedule report generation', async () => {
-      const mockSchedule = {
-        report_id: 'rpt_123',
-        status: 'scheduled',
-        estimated_completion: '2024-01-20T10:05:00Z',
-      };
-      mockClient.request.mockResolvedValue(mockSchedule);
-
-      const result = await api.scheduleReport({
-        type: 'monthly_summary',
-        format: 'pdf',
-        recipients: ['admin@example.com'],
-      });
-
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/analytics/reports/schedule', {
-        json: {
-          type: 'monthly_summary',
-          format: 'pdf',
-          recipients: ['admin@example.com'],
-        },
-      });
-      expect(result.report_id).toBe('rpt_123');
+      expect(result.total_cost).toBe(500);
     });
   });
 
   // ===========================================================================
-  // Real-time Analytics
+  // Flip Detection
   // ===========================================================================
 
-  describe('Real-time Analytics', () => {
+  describe('Flip Detection', () => {
+    it('should get flip summary', async () => {
+      const mockSummary = { total_flips: 25, by_agent: { claude: 5 } };
+      mockClient.request.mockResolvedValue(mockSummary);
+
+      const result = await api.getFlipSummary();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/flips/summary');
+      expect(result.total_flips).toBe(25);
+    });
+
+    it('should get recent flips', async () => {
+      const mockFlips = {
+        flips: [{ agent: 'claude', topic: 'Topic 1' }],
+      };
+      mockClient.request.mockResolvedValue(mockFlips);
+
+      const result = await api.getRecentFlips({ limit: 10, agent: 'claude' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/flips/recent', {
+        params: { limit: 10, agent: 'claude' },
+      });
+      expect(result.flips).toHaveLength(1);
+    });
+
+    it('should get agent consistency scores', async () => {
+      const mockConsistency = { claude: 0.92, gpt4: 0.88 };
+      mockClient.request.mockResolvedValue(mockConsistency);
+
+      const result = await api.getAgentConsistency(['claude', 'gpt4']);
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/flips/consistency', {
+        params: { agents: 'claude,gpt4' },
+      });
+      expect(result).toHaveProperty('claude');
+    });
+
+    it('should get flip trends', async () => {
+      const mockTrends = { data: [{ date: '2024-01-20', flips: 3 }] };
+      mockClient.request.mockResolvedValue(mockTrends);
+
+      const result = await api.getFlipTrends({ days: 30 });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/flips/trends', {
+        params: { days: 30 },
+      });
+      expect(result.data).toHaveLength(1);
+    });
+  });
+
+  // ===========================================================================
+  // External Platforms
+  // ===========================================================================
+
+  describe('External Platforms', () => {
+    it('should list platforms', async () => {
+      const mockPlatforms = { platforms: [{ name: 'google_analytics' }] };
+      mockClient.request.mockResolvedValue(mockPlatforms);
+
+      const result = await api.listPlatforms();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/platforms');
+      expect(result.platforms).toHaveLength(1);
+    });
+
+    it('should connect a platform', async () => {
+      mockClient.request.mockResolvedValue({ connected: true });
+
+      const result = await api.connectPlatform('mixpanel', { api_key: 'key123' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/analytics/connect', {
+        json: { platform: 'mixpanel', credentials: { api_key: 'key123' } },
+      });
+      expect(result.connected).toBe(true);
+    });
+
+    it('should disconnect a platform', async () => {
+      mockClient.request.mockResolvedValue({ disconnected: true });
+
+      const result = await api.disconnectPlatform('mixpanel');
+
+      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v1/analytics/mixpanel');
+      expect(result.disconnected).toBe(true);
+    });
+
+    it('should list dashboards', async () => {
+      const mockDashboards = { dashboards: [{ id: 'd1', name: 'Overview' }] };
+      mockClient.request.mockResolvedValue(mockDashboards);
+
+      const result = await api.listDashboards();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/dashboards');
+      expect(result.dashboards).toHaveLength(1);
+    });
+
+    it('should execute a query', async () => {
+      const mockResult = { rows: [{ metric: 'pageviews', value: 1000 }] };
+      mockClient.request.mockResolvedValue(mockResult);
+
+      const result = await api.executeQuery('SELECT * FROM events', { platform: 'mixpanel' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/analytics/query', {
+        json: { query: 'SELECT * FROM events', platform: 'mixpanel' },
+      });
+      expect(result.rows).toHaveLength(1);
+    });
+
+    it('should generate a report', async () => {
+      const mockReport = { report_id: 'rpt_1', status: 'generating' };
+      mockClient.request.mockResolvedValue(mockReport);
+
+      const result = await api.generateReport('monthly_summary', { format: 'pdf' });
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/analytics/reports/generate', {
+        json: { type: 'monthly_summary', format: 'pdf' },
+      });
+      expect(result.report_id).toBe('rpt_1');
+    });
+
     it('should get real-time metrics', async () => {
-      const mockRealtime = {
-        active_debates: 15,
-        active_users: 42,
-        requests_per_minute: 120,
-        average_latency_ms: 85,
-        error_rate: 0.002,
-        timestamp: '2024-01-20T10:00:00Z',
-      };
+      const mockRealtime = { active_users: 42, events_per_minute: 120 };
       mockClient.request.mockResolvedValue(mockRealtime);
 
-      const result = await api.getRealtime();
+      const result = await api.getRealtimeMetrics();
 
       expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/analytics/realtime');
-      expect(result.active_debates).toBe(15);
-      expect(result.error_rate).toBe(0.002);
+      expect(result.active_users).toBe(42);
     });
   });
 });
