@@ -235,7 +235,7 @@ def parse_pytest_output(stdout: str, stderr: str) -> tuple[dict[str, int], list[
 
         failures.append(
             TestFailure(
-                test_name="collection_error",
+                test_name=f"collection_error::{test_file}",
                 test_file=test_file,
                 error_type=error_type,
                 error_message=error_message or "Test collection failed",
