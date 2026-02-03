@@ -22,6 +22,8 @@ def create_production_policy(
     allowed_agents: Optional[list[str]] = None,
     blocked_agents: Optional[list[str]] = None,
     allowed_regions: Optional[list[str]] = None,
+    # Aliases for backward compatibility
+    agent_allowlist: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
     """Create a policy for production task restrictions.
 
@@ -30,19 +32,20 @@ def create_production_policy(
         allowed_agents: List of agent IDs that are allowed
         blocked_agents: List of agent IDs that are blocked
         allowed_regions: List of allowed regions for deployment
+        agent_allowlist: Alias for allowed_agents (deprecated)
     """
+    # Support alias
+    effective_agents = allowed_agents or agent_allowlist or []
     return ControlPlanePolicy(
         name=name,
         description="Restricts production tasks to approved agents and regions",
         task_types=["production", "production-deployment", "production-migration"],
-        agent_allowlist=allowed_agents or [],
+        agent_allowlist=effective_agents,
         agent_blocklist=blocked_agents or [],
         region_constraint=RegionConstraint(
             allowed_regions=allowed_regions or [],
-            require_data_residency=True,
-        )
-        if allowed_regions
-        else None,
+            require_data_residency=True if allowed_regions else False,
+        ),
         sla=SLARequirements(
             max_execution_seconds=600.0,
             max_queue_seconds=30.0,
@@ -59,6 +62,8 @@ def create_sensitive_data_policy(
     allowed_regions: Optional[list[str]] = None,
     blocked_regions: Optional[list[str]] = None,
     require_data_residency: bool = True,
+    # Alias for backward compatibility
+    data_regions: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
     """Create a policy for sensitive data handling with residency requirements.
 
@@ -67,14 +72,17 @@ def create_sensitive_data_policy(
         allowed_regions: List of regions where data can be processed
         blocked_regions: List of regions where data cannot be processed
         require_data_residency: Whether to enforce data residency requirements
+        data_regions: Alias for allowed_regions (deprecated)
     """
+    # Support alias
+    effective_regions = allowed_regions or data_regions or []
     return ControlPlanePolicy(
         name="sensitive-data-residency",
         description="Enforces data residency for sensitive task types",
         task_types=["pii-processing", "financial-analysis", "healthcare-analysis"],
         agent_allowlist=allowed_agents or [],
         region_constraint=RegionConstraint(
-            allowed_regions=allowed_regions or [],
+            allowed_regions=effective_regions,
             blocked_regions=blocked_regions or [],
             require_data_residency=require_data_residency,
             allow_cross_region=False,
@@ -89,6 +97,8 @@ def create_agent_tier_policy(
     tier: str,
     allowed_agents: Optional[list[str]] = None,
     task_types: Optional[list[str]] = None,
+    # Alias for backward compatibility
+    agents: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
     """Create a policy restricting certain task types to specific agent tiers.
 
@@ -96,12 +106,15 @@ def create_agent_tier_policy(
         tier: The tier name (e.g., "premium", "standard")
         allowed_agents: List of agent IDs in this tier
         task_types: Task types that require this tier (optional)
+        agents: Alias for allowed_agents (deprecated)
     """
+    # Support alias
+    effective_agents = allowed_agents or agents or []
     return ControlPlanePolicy(
         name=f"{tier}-agent-tier",
         description=f"Restricts tasks to {tier} tier agents",
         task_types=task_types or [],
-        agent_allowlist=allowed_agents or [],
+        agent_allowlist=effective_agents,
         enforcement_level=EnforcementLevel.HARD,
         priority=50,
         enabled=True,

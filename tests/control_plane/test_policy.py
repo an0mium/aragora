@@ -626,7 +626,7 @@ class TestFactoryFunctions:
             allowed_regions=["us-east-1"],
         )
 
-        assert policy.name == "production-restrictions"
+        assert policy.name == "production-environment"
         assert "production-deployment" in policy.task_types
         assert "claude-3-opus" in policy.agent_allowlist
         assert policy.region_constraint is not None
