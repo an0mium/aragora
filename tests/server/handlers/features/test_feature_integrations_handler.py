@@ -305,7 +305,7 @@ class TestIntegrationStatus:
         result = status.to_dict()
         assert result["type"] == "slack"
         assert result["enabled"] is True
-        assert result["messages_sent"] == 10
+        assert result["messagesSent"] == 10  # camelCase for frontend compatibility
 
 
 class TestMultiTenant:
