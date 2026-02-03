@@ -10,15 +10,19 @@
 - CI Security Pipeline: 6-job workflow (CodeQL, Bandit, Aragora Scanner, dependency audit, RBAC, secrets)
 - Server handlers: auth, payments, SLO monitoring, selection role assignment improvements
 - Privacy: deletion verification callbacks for GDPR compliance
+- TestFixer: automated test failure analysis, Hegelian debate-based fix proposals, and retry loop orchestrator
+- Secrets Manager: AWS Secrets Manager integration with secure key rotation and clipboard clearing
 
 ### Improvements
-- OpenClaw handler refactoring with shared base class
+- OpenClaw handler refactoring with shared base class (promoted to STABLE)
 - Decision system modularization (routing, models, integrity packages)
 - Generic store abstraction layer
 - Gauntlet worker ELO feedback integration
+- Secrets Manager preferred over .env across codebase (embeddings, semantic store, agent filter)
 
 ### Testing
 - 135+ new tests across security, scheduler, validators, and handler modules
+- 231 new TestFixer tests covering runner, analyzer, proposer, orchestrator, store, and agent generator
 - Context strategy and similarity backend coverage
 - RBAC handler enforcement expansion
 - Privacy deletion callback tests

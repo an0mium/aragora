@@ -1,80 +1,280 @@
-# Capability Matrix
+# Aragora Capability Matrix
 
-This document maps user-facing capabilities to code and tests in the repo.
-It is used to keep product claims aligned with implementation. It is not
-exhaustive; update it whenever claims or implementations change.
+> Generated: 2026-02-03
+> Purpose: Map features to their exposure across CLI, API, SDK, and UI surfaces
 
-Status legend:
-- stable: intended for production use
-- experimental: implemented but evolving or guarded by feature flags
-- planned: documented elsewhere but not implemented (do not claim as current)
+## Executive Summary
 
-Version baseline: v2.5.0 (see `pyproject.toml` and `aragora/__version__.py`).
+| Surface | Features Exposed | Coverage |
+|---------|------------------|----------|
+| **SDK (Python/TypeScript)** | 134 namespaces | 100% (baseline) |
+| **HTTP API** | 60 handlers / 896 endpoints | 45% |
+| **CLI** | 45 commands | 8% |
+| **UI (docs-site)** | TBD | TBD |
 
-## Core Debate & Consensus
+**Critical Gap:** 67 namespaces (50%) are SDK-only with no HTTP API access.
 
-| Capability | Status | Code refs | Tests / validation | Notes |
-| --- | --- | --- | --- | --- |
-| Multi-agent debate orchestration (propose/critique/revise) | stable | `aragora/debate/orchestrator.py`, `aragora/debate/phases/` | `tests/debate/`, `tests/integration/` | Core engine |
-| Debate protocol configuration (rounds, roles, consensus) | stable | `aragora/debate/protocol.py`, `aragora/debate/consensus.py` | `tests/debate/` | Majority, unanimous, judge |
-| Semantic convergence detection (early stop) | stable | `aragora/debate/convergence.py` | `tests/debate/`, `tests/ml/` | Embedding + fallback |
-| Debate graph / forking | experimental | `aragora/debate/graph.py`, `aragora/debate/forking.py` | `tests/debate/` | Parallel branch exploration |
-| Vote weighting and calibration | experimental | `aragora/debate/phases/vote_weighter.py`, `aragora/ranking/` | `tests/ranking/`, `tests/debate/` | Reliability-weighted votes |
+---
 
-## Agents & Providers
+## Feature Coverage Matrix
 
-| Capability | Status | Code refs | Tests / validation | Notes |
-| --- | --- | --- | --- | --- |
-| Agent base types and roles | stable | `aragora/core/__init__.py`, `aragora/core_types.py` | `tests/core/`, `tests/agents/` | Agent, Message, Critique, Vote |
-| Agent factory and catalog | stable | `aragora/agents/base.py`, `aragora/agents/__init__.py` | `tests/agents/` | `create_agent`, registry |
-| API agents (Anthropic/OpenAI/Gemini/etc.) | stable | `aragora/agents/api_agents/` | `tests/agents/`, `tests/integration/` | Requires provider API keys |
-| CLI agents (claude/codex/gemini/etc.) | stable | `aragora/agents/cli_agents.py` | `tests/agents/` | Requires external CLI tools |
-| Personas and grounded identities | experimental | `aragora/agents/personas.py`, `aragora/agents/grounded.py`, `aragora/agents/truth_grounding.py` | `tests/agents/`, `tests/insights/` | Traits, position tracking |
-| Capability probing and red team modes | experimental | `aragora/modes/prober.py`, `aragora/modes/gauntlet.py` | `tests/modes/`, `tests/gauntlet/` | Adversarial probing |
+### Legend
+- **Full** = SDK + HTTP + CLI + Tests
+- **API** = SDK + HTTP + Tests (no CLI)
+- **CLI** = SDK + CLI + Tests (local only)
+- **SDK** = SDK + Tests only (no HTTP/CLI)
+- **Stub** = Defined but not implemented
 
-## Knowledge, Memory, Evidence
+### Core Decision Making
 
-| Capability | Status | Code refs | Tests / validation | Notes |
-| --- | --- | --- | --- | --- |
-| Knowledge Mound ingestion and retrieval | stable | `aragora/knowledge/`, `aragora/knowledge/mound/` | `tests/knowledge/` | Unified knowledge store |
-| CritiqueStore (pattern learning) | stable | `aragora/memory/store.py` | `tests/memory/` | SQLite-backed patterns |
-| Continuum memory tiers | stable | `aragora/memory/continuum/core.py` | `tests/memory/` | Fast/medium/slow/glacial |
-| Semantic retrieval / embeddings | stable | `aragora/memory/embeddings.py`, `aragora/knowledge/embeddings.py` | `tests/memory/`, `tests/ml/` | Vector retrieval |
-| Evidence collection and attribution | experimental | `aragora/evidence/`, `aragora/reasoning/citations.py` | `tests/evidence/`, `tests/reasoning/` | Provenance + citations |
-| Claims and belief networks | experimental | `aragora/reasoning/claims.py`, `aragora/reasoning/belief.py` | `tests/reasoning/` | Structured claims |
-| Formal verification hooks | experimental | `aragora/verification/` | `tests/verification/` | Z3-based checks |
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Debates (multi-agent) | Y | N | Y (`ask`) | Y | **CLI** |
+| Graph Debates | Y | Y | Y (`--graph`) | Y | **Full** |
+| Matrix Debates | Y | Y | Y (`--matrix`) | Y | **Full** |
+| Consensus Detection | Y | Y | N | Y | **API** |
+| Deliberations | Y | Y | N | Y | **API** |
+| Decisions Pipeline | Y | Y | Y (`decide`) | Y | **Full** |
+| Gauntlet (stress-test) | Y | Y | Y | Y | **Full** |
+| Explainability | Y | Y | N | Y | **API** |
+| Verification (formal) | Y | Y | N | Y | **API** |
+| Receipts | Y | Y | N | Y | **API** |
 
-## Outputs & Audit
+### Agents & Reasoning
 
-| Capability | Status | Code refs | Tests / validation | Notes |
-| --- | --- | --- | --- | --- |
-| Decision receipts and exports | stable | `aragora/export/` | `tests/export/`, `tests/gauntlet/` | PDF/HTML/JSON outputs |
-| Gauntlet stress testing | stable | `aragora/gauntlet/` | `tests/gauntlet/` | Red team, risk reports |
-| Risk heatmaps | stable | `aragora/gauntlet/heatmap.py` | `tests/gauntlet/` | Severity visualization |
-| Replay and audit trails | stable | `aragora/replay/`, `aragora/persistence/` | `tests/replay/`, `tests/persistence/` | Deterministic replay |
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Agents (CRUD) | Y | Y | Y (`agents`) | Y | **Full** |
+| Personas | Y | Y | N | Y | **API** |
+| Calibration/ELO | Y | Y | Y (`elo`) | Y | **Full** |
+| Training | Y | Y | Y | Y | **Full** |
+| A2A Protocol | Y | Y | N | Y | **API** |
+| Agent Selection | Y | N | N | Y | **SDK** |
+| Verticals | Y | Y | N | Y | **API** |
+| Evolution (A/B) | Y | Y | N | Y | **API** |
 
-## Interfaces & Channels
+### Knowledge & Memory
 
-| Capability | Status | Code refs | Tests / validation | Notes |
-| --- | --- | --- | --- | --- |
-| CLI entry points | stable | `aragora/cli/` | `tests/cli/` | `aragora ask`, `gauntlet`, `review` |
-| HTTP API + handlers | stable | `aragora/server/unified_server.py`, `aragora/server/handlers/` | `tests/server/`, `tests/handlers/` | REST endpoints |
-| WebSocket streaming | stable | `aragora/server/stream/`, `aragora/spectate/` | `tests/stream/`, `tests/server/` | Real-time events |
-| Live dashboard (Next.js) | stable | `aragora/live/` | `aragora/live/__tests__/`, `aragora/live/e2e/` | UI + realtime |
-| Python SDK (aragora-client) | stable | `aragora-py/aragora_client/`, `aragora/client/` | `aragora-py/tests/`, `tests/client/` | HTTP client |
-| TypeScript SDK | stable | `sdk/typescript/` | `sdk/typescript/` | `@aragora/sdk` |
-| TypeScript SDK (legacy) | deprecated | `aragora-js/` | `aragora-js/tests/` | `@aragora/client` |
-| Bots and channel integrations | experimental | `aragora/bots/`, `aragora/channels/`, `aragora/integrations/` | `tests/bots/`, `tests/channels/`, `tests/integrations/` | Slack/Teams/etc. |
-| External connectors | experimental | `aragora/connectors/` | `tests/connectors/` | Data source adapters |
-| MCP server integration | experimental | `aragora/mcp/` | `tests/mcp/` | Claude Desktop / MCP |
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Knowledge Base | Y | Y | Y (`knowledge`) | Y | **Full** |
+| Knowledge Mound | Y | Y | N | Y | **API** |
+| Memory (continuum) | Y | Y | Y (`memory`) | Y | **Full** |
+| Evidence | Y | Y | N | Y | **API** |
+| Belief Network | Y | Y | N | N | **API** |
+| Cross-Pollination | Y | Y | N | Y | **API** |
+| RLM Context | Y | Y | Y (`rlm`) | Y | **Full** |
+| Facts | Y | N | N | Y | **SDK** |
 
-## Operations & Deployment
+### Documents & Content
 
-| Capability | Status | Code refs | Tests / validation | Notes |
-| --- | --- | --- | --- | --- |
-| Auth, RBAC, tenancy | stable | `aragora/auth/`, `aragora/rbac/`, `aragora/tenancy/` | `tests/auth/`, `tests/rbac/`, `tests/tenancy/` | Access control |
-| Rate limiting and security middleware | stable | `aragora/server/middleware/`, `aragora/security/` | `tests/middleware/`, `tests/security/` | API protections |
-| Observability and telemetry | stable | `aragora/observability/`, `aragora/telemetry/` | `tests/observability/` | Metrics + tracing |
-| Docker and Compose deployment | stable | `deploy/`, `docker-compose*.yml`, `Dockerfile` | Manual validation | Local + prod deploys |
-| Kubernetes operator and manifests | experimental | `aragora-operator/`, `k8s/` | Manual validation | Scale-out ops |
-| Nomic loop self-improvement | experimental | `scripts/nomic_loop.py`, `aragora/nomic/` | `tests/nomic/` | Guarded automation |
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Documents | Y | Y | Y (`documents`) | Y | **Full** |
+| Document Audit | Y | Y | Y | Y | **Full** |
+| Code Review | Y | Y | Y (`review`) | Y | **Full** |
+| Codebase Intel | Y | Y | N | Y | **API** |
+| Threat Intel | Y | Y | N | N | **API** |
+
+### Enterprise & Admin
+
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Admin | Y | N | N | Y | **SDK** |
+| Auth | Y | N | N | Y | **SDK** |
+| OAuth | Y | Y | N | Y | **API** |
+| SSO | Y | Y | N | Y | **API** |
+| SCIM | Y | Y | N | Y | **API** |
+| RBAC | Y | Y | N | Y | **API** |
+| Tenants | Y | N | Y (`tenant`) | Y | **CLI** |
+| Workspaces | Y | Y | N | Y | **API** |
+| Organizations | Y | Y | N | Y | **API** |
+| Compliance | Y | N | N | Y | **SDK** |
+| Audit Trails | Y | Y | Y (`audit`) | Y | **Full** |
+| Privacy | Y | Y | N | Y | **API** |
+| Backup/DR | Y | Y | Y (`backup`) | Y | **Full** |
+
+### Billing & Costs
+
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Billing | Y | Y | Y (`billing`) | Y | **Full** |
+| Costs | Y | Y | N | Y | **API** |
+| Budgets | Y | Y | N | Y | **API** |
+| Usage Metering | Y | Y | N | Y | **API** |
+| Payments | Y | N | N | Y | **SDK** |
+
+### Integrations
+
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Slack | Y | Y | N | Y | **API** |
+| Teams | Y | Y | N | Y | **API** |
+| Discord | Y | Y | N | Y | **API** |
+| Telegram | Y | Y | N | Y | **API** |
+| WhatsApp | Y | Y | N | Y | **API** |
+| Gmail | Y | Y | N | Y | **API** |
+| Outlook | Y | Y | N | Y | **API** |
+| Webhooks | Y | Y | N | Y | **API** |
+| Connectors | Y | Y | N | Y | **API** |
+| OpenClaw | Y | Y | Y (`openclaw`) | Y | **Full** |
+
+### Workflows & Automation
+
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Workflows | Y | N | N | Y | **SDK** |
+| Workflow Templates | Y | Y | Y (`template`) | Y | **Full** |
+| Queue | Y | Y | N | Y | **API** |
+| Scheduler | Y | Y | N | Y | **API** |
+| Plugins | Y | Y | N | Y | **API** |
+
+### Observability
+
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Analytics | Y | N | N | Y | **SDK** |
+| Metrics | Y | Y | N | Y | **API** |
+| SLO | Y | Y | N | Y | **API** |
+| Pulse (trending) | Y | Y | N | Y | **API** |
+| Dashboard | Y | Y | N | Y | **API** |
+| Health | Y | Y | Y (`status`) | Y | **Full** |
+
+### Marketplace & Skills
+
+| Feature | SDK | HTTP | CLI | Tests | Status |
+|---------|-----|------|-----|-------|--------|
+| Marketplace | Y | Y | Y (`marketplace`) | Y | **Full** |
+| Skills | Y | Y | N | N | **API** |
+| Templates | Y | Y | Y (`templates`) | Y | **Full** |
+
+---
+
+## Gap Analysis
+
+### Priority 1: SDK-Only Features Needing HTTP API
+
+These 67 namespaces are only accessible via embedded SDK, blocking cloud/SaaS deployments:
+
+**Critical (security/compliance):**
+- `admin` - System administration
+- `auth` - Authentication flows
+- `compliance` - Regulatory requirements
+
+**High (core features):**
+- `debates` - Core multi-agent debates (CLI-only currently)
+- `analytics` - Business intelligence
+- `workflows` - DAG automation
+- `notifications` - Alert delivery
+- `payments` - Revenue operations
+
+**Medium (enterprise):**
+- `control_plane` - Policy governance
+- `evolution` - A/B testing
+- `integrations` - Third-party connections
+- `orchestration` - Task coordination
+
+### Priority 2: HTTP-Only Features Needing CLI
+
+56 handlers have no CLI equivalent, limiting DevOps automation:
+
+**High Value:**
+- `dashboard` - Admin dashboard access
+- `analytics` - Analytics queries
+- `metrics` - Prometheus metrics
+- `monitoring` - Health monitoring
+- `cross_pollination` - Federation stats
+
+### Priority 3: Missing Tests
+
+12 namespaces lack test coverage:
+- belief, evaluation, moments, reviews, skills, threat_intel, workflow_templates
+- Plus 5 SDK-only namespaces
+
+---
+
+## Activation Roadmap
+
+### Phase 1: HTTP API Parity (Weeks 1-4)
+
+Add HTTP handlers for critical SDK-only features:
+
+```
+aragora/server/handlers/debates_crud.py      # Debates CRUD via HTTP
+aragora/server/handlers/admin_api.py         # Admin operations
+aragora/server/handlers/auth_api.py          # Auth flows
+aragora/server/handlers/compliance_api.py    # Compliance checks
+aragora/server/handlers/analytics_api.py     # Analytics queries
+```
+
+### Phase 2: CLI Expansion (Weeks 3-6)
+
+Add CLI commands for high-value HTTP handlers:
+
+```bash
+aragora dashboard [show|export]
+aragora analytics [query|report]
+aragora metrics [list|export]
+aragora monitoring [status|alerts]
+```
+
+### Phase 3: Test Coverage (Ongoing)
+
+Add tests for 12 untested namespaces.
+
+---
+
+## Validation Commands
+
+```bash
+# Verify SDK-Handler parity
+python scripts/sdk_handler_audit.py --verify
+
+# Check CLI coverage
+aragora --help | wc -l
+
+# Count HTTP endpoints
+grep -r "@api_endpoint" aragora/server/handlers | wc -l
+
+# Run full test suite
+pytest tests/ -v --cov=aragora --cov-fail-under=70
+```
+
+---
+
+## Vertical Specialists Activation
+
+The vertical specialists system (Software, Legal, Healthcare, Accounting, Research) is architecturally complete but needs activation:
+
+### Current State
+- Registry: Complete (factory pattern, 5 verticals registered)
+- HTTP API: Complete (RBAC, circuit breaker, rate limiting)
+- SDK: Complete (Python + TypeScript namespaces)
+- LLM Integration: **PLACEHOLDER** (returns mock responses)
+- Tool Connectors: **PLACEHOLDER** (returns "not implemented")
+
+### Activation Path (24-32 hours)
+1. Implement `_generate_response()` in base class (2-4 hrs)
+2. Wire `VerticalRegistry.create_specialist()` to debates (1 hr)
+3. Add HTTP error handling for missing tools (2 hrs)
+4. Deploy to staging with graceful fallbacks (1 hr)
+
+### Tool Connector Priorities
+| Vertical | Tool | API | Effort |
+|----------|------|-----|--------|
+| Software | GitHub | PyGithub | 4 hrs |
+| Software | SAST | Semgrep | 4 hrs |
+| Healthcare | PubMed | NCBI E-utils | 4 hrs |
+| Research | arXiv | arXiv API | 3 hrs |
+| Accounting | SEC EDGAR | sec-api | 4 hrs |
+| Legal | Statutes | US Code | 6 hrs |
+
+---
+
+## References
+
+- [API Reference](API_REFERENCE.md)
+- [CLI Reference](CLI_REFERENCE.md)
+- [SDK Documentation](../sdk/python/README.md)
+- [Handler Registry](../aragora/server/handler_registry/)
+- [STATUS.md](STATUS.md)

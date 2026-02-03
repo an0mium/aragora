@@ -480,7 +480,7 @@ class DebateStreamServer(ServerBase):
                             "Client send timed out during broadcast, marking for disconnect"
                         )
                         disconnected.add(client)
-                except (OSError, ConnectionError, RuntimeError) as e:
+                except (OSError, ConnectionError, RuntimeError, Exception) as e:
                     # WebSocket/network errors during send
                     logger.debug(f"Client disconnected during broadcast: {e}")
                     disconnected.add(client)
@@ -538,7 +538,7 @@ class DebateStreamServer(ServerBase):
                             "Client send timed out during batch broadcast, marking for disconnect"
                         )
                         disconnected.add(client)
-                except (OSError, ConnectionError, RuntimeError) as e:
+                except (OSError, ConnectionError, RuntimeError, Exception) as e:
                     # WebSocket/network errors during send
                     logger.debug(f"Client disconnected during batch broadcast: {e}")
                     disconnected.add(client)

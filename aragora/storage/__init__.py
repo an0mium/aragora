@@ -16,6 +16,7 @@ from .backends import (
 )
 from .base_database import BaseDatabase
 from .base_store import SQLiteStore
+from .interface import AsyncStorageInterface, StorageInterface
 from .organization_store import OrganizationStore
 from .share_store import ShareLinkStore
 from .user_store import UserStore
@@ -147,6 +148,8 @@ __all__ = [
     # Legacy base classes
     "BaseDatabase",
     "SQLiteStore",
+    "StorageInterface",
+    "AsyncStorageInterface",
     "UserStore",
     "OrganizationStore",
     "AuditStore",

@@ -1,14 +1,25 @@
 """
-Protocol definitions for Aragora storage and memory backends.
+Backend protocol definitions for Aragora storage and memory backends.
 
 These protocols define the interfaces that storage implementations must follow,
 enabling better type checking and easier testing with mock implementations.
 
-Usage:
+Note: This module contains *backend* protocols (sync, simple interfaces).
+For *domain* protocols (async, full-featured), use `aragora.type_protocols`.
+
+**Canonical Import Point**: Use `aragora.protocols` for all protocol imports:
+
     from aragora.protocols import StorageBackend, MemoryBackend
 
-    def save_debate(storage: StorageBackend, debate: DebateResult) -> str:
-        return storage.save(debate)
+The `aragora.protocols` module provides unified access to both backend and
+domain protocols with clear documentation on when to use each.
+
+Protocol Mapping:
+    Backend (this module)          → Domain (type_protocols)
+    MemoryBackend (simple)         → MemoryProtocol, TieredMemoryProtocol
+    EloBackend (simple)            → EloSystemProtocol
+    StorageBackend (simple)        → DebateStorageProtocol
+    CritiqueBackend (simple)       → CritiqueStoreProtocol
 """
 
 from __future__ import annotations

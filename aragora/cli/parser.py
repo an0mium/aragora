@@ -58,6 +58,7 @@ from aragora.cli.commands.testfixer import build_parser as build_testfixer_parse
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+DEFAULT_API_KEY = os.environ.get("ARAGORA_API_KEY")
 
 
 def get_version() -> str:
@@ -123,6 +124,7 @@ Examples:
     _add_cross_pollination_parser(subparsers)
     _add_mcp_parser(subparsers)
     _add_marketplace_parser(subparsers)
+    _add_skills_parser(subparsers)
     _add_control_plane_parser(subparsers)
     _add_decide_parser(subparsers)
     _add_plans_parser(subparsers)
@@ -196,6 +198,16 @@ def _add_ask_parser(subparsers) -> None:
         "--local",
         action="store_true",
         help="Run debate locally without API server (offline/air-gapped mode)",
+    )
+    ask_parser.add_argument(
+        "--api-url",
+        default=DEFAULT_API_URL,
+        help=f"API server URL (default: {DEFAULT_API_URL})",
+    )
+    ask_parser.add_argument(
+        "--api-key",
+        default=None if DEFAULT_API_KEY is None else DEFAULT_API_KEY,
+        help="API key for server authentication (default: ARAGORA_API_KEY)",
     )
     debate_type = ask_parser.add_mutually_exclusive_group()
     debate_type.add_argument(
@@ -800,6 +812,13 @@ def _add_marketplace_parser(subparsers) -> None:
         help="Subcommand arguments",
     )
     marketplace_parser.set_defaults(func=cmd_marketplace)
+
+
+def _add_skills_parser(subparsers) -> None:
+    """Add the 'skills' subcommand parser for skill marketplace."""
+    from aragora.cli.commands.skills import add_skills_parser
+
+    add_skills_parser(subparsers)
 
 
 def _add_control_plane_parser(subparsers) -> None:

@@ -207,6 +207,41 @@ class OutputSanitizerProtocol(Protocol):
         ...
 
 
+@runtime_checkable
+class DecisionRouterProtocol(Protocol):
+    """Protocol for routing decision requests.
+
+    Implementations handle routing decisions to appropriate engines
+    (debate, workflow, gauntlet, quick).
+    """
+
+    async def route(self, request: Any) -> Any:
+        """Route a decision request to appropriate engine.
+
+        Args:
+            request: The decision request to route
+
+        Returns:
+            DecisionResult with outcome
+        """
+        ...
+
+
+@runtime_checkable
+class UnifiedRouterProtocol(Protocol):
+    """Protocol for unified decision routing.
+
+    Chains Gateway business logic with Core execution routing.
+    """
+
+    async def route(self, request: Any) -> Any:
+        """Route request through unified pipeline.
+
+        For AUTO type, evaluates business criteria first.
+        """
+        ...
+
+
 # =============================================================================
 # Container Implementation
 # =============================================================================
@@ -610,6 +645,16 @@ def _configure_defaults(container: Container) -> None:
 
         return OutputSanitizer()
 
+    def _create_decision_router(c: Container) -> DecisionRouterProtocol:
+        from aragora.core.decision_router import DecisionRouter
+
+        return DecisionRouter()
+
+    def _create_unified_router(c: Container) -> UnifiedRouterProtocol:
+        from aragora.routing.unified_router import UnifiedDecisionRouter
+
+        return UnifiedDecisionRouter()
+
     # Register default implementations
     # These are stateless services that can be instantiated without arguments.
     # For services that require runtime configuration (PromptBuilder, JudgeSelector, etc.),
@@ -620,6 +665,8 @@ def _configure_defaults(container: Container) -> None:
     container.register_factory(cast(Any, EventEmitterProtocol), _create_event_emitter)
     container.register_factory(cast(Any, LifecycleManagerProtocol), _create_lifecycle_manager)
     container.register_factory(cast(Any, OutputSanitizerProtocol), _create_output_sanitizer)
+    container.register_factory(cast(Any, DecisionRouterProtocol), _create_decision_router)
+    container.register_factory(cast(Any, UnifiedRouterProtocol), _create_unified_router)
 
 
 # =============================================================================

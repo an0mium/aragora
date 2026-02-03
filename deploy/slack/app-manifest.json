@@ -1,0 +1,80 @@
+{
+  "_metadata": {
+    "major_version": 2,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "Aragora",
+    "description": "Multi-agent AI debate platform for defensible decisions",
+    "background_color": "#4A154B",
+    "long_description": "Aragora orchestrates 30+ AI agents to adversarially vet decisions against your organizational knowledge. Start debates directly from Slack, receive consensus results, and get cryptographically signed decision receipts for audit trails."
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "Aragora",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/aragora",
+        "url": "https://YOUR_DOMAIN/api/v1/bots/slack/commands",
+        "description": "Start AI debates and get defensible decisions",
+        "usage_hint": "[debate|plan|implement|status|help] <topic>",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "channels:read",
+        "chat:write",
+        "chat:write.public",
+        "commands",
+        "files:read",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "im:read",
+        "im:write",
+        "mpim:history",
+        "mpim:read",
+        "reactions:read",
+        "reactions:write",
+        "users:read",
+        "users:read.email"
+      ]
+    },
+    "redirect_urls": [
+      "https://YOUR_DOMAIN/api/v1/bots/slack/oauth/callback"
+    ]
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://YOUR_DOMAIN/api/v1/bots/slack/events",
+      "bot_events": [
+        "app_home_opened",
+        "app_mention",
+        "message.channels",
+        "message.groups",
+        "message.im",
+        "message.mpim",
+        "reaction_added"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://YOUR_DOMAIN/api/v1/bots/slack/interactions"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

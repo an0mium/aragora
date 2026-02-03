@@ -589,9 +589,10 @@ class TestDebateStateErrors:
             loop_id="test_loop",
         )
 
-        # Should raise KeyError since role is required
-        with pytest.raises(KeyError):
-            server._update_debate_state(malformed_event)
+        # Should not raise; missing fields default safely
+        server._update_debate_state(malformed_event)
+        messages = server.debate_states["test_loop"]["messages"]
+        assert messages[-1]["role"] == "agent"
 
     def test_message_history_overflow_protection(self):
         """Message history should be capped to prevent memory issues."""

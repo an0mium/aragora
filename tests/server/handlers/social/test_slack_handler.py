@@ -1767,6 +1767,52 @@ class TestSlashCommandDebate:
         assert body_data.get("response_type") == "ephemeral"
 
     @pytest.mark.asyncio
+    async def test_implement_command_with_computer_use(self, handler, signing_secret):
+        """Implement with --computer-use should pass override to debate."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "implement Update docs --computer-use",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands.get_debates_db",
+                return_value=None,
+            ),
+            patch.object(handler, "_command_debate", return_value={"ok": True}) as mock_start,
+        ):
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        assert get_status_code(result) == 200
+        assert mock_start.called is True
+        kwargs = mock_start.call_args.kwargs
+        decision_integrity = kwargs.get("decision_integrity") or {}
+        assert decision_integrity["execution_engine"] == "computer_use"
+        assert decision_integrity["execution_mode"] == "execute"
+
+    @pytest.mark.asyncio
     async def test_debate_command_topic_too_short(self, handler, signing_secret):
         """Debate with very short topic should show error."""
         body = urlencode(

@@ -21,6 +21,7 @@ from aragora.debate.arena_config import (
     ObservabilityConfig,
     StreamingConfig,
 )
+from aragora.container import try_resolve, BudgetCoordinatorProtocol
 from aragora.debate.arena_initializer import ArenaInitializer
 from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.batch_loaders import debate_loader_context
@@ -897,10 +898,17 @@ class Arena(ArenaDelegatesMixin):
         self.checkpoint_manager = core.checkpoint_manager
         self.org_id = core.org_id
         self.user_id = core.user_id
-        self._budget_coordinator = BudgetCoordinator(
-            org_id=self.org_id,
-            user_id=self.user_id,
-        )
+        # Try DI container first, fall back to direct instantiation
+        self._budget_coordinator = try_resolve(BudgetCoordinatorProtocol)
+        if self._budget_coordinator is None:
+            self._budget_coordinator = BudgetCoordinator(
+                org_id=self.org_id,
+                user_id=self.user_id,
+            )
+        else:
+            # Configure resolved coordinator with org/user context
+            self._budget_coordinator.org_id = self.org_id
+            self._budget_coordinator.user_id = self.user_id
         self.extensions = core.extensions
         self.cartographer = core.cartographer
         self.event_bridge = core.event_bridge

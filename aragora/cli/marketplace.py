@@ -557,8 +557,51 @@ def _rate_template_local(template_id: str, score: int, review: str | None):
 @click.argument("template_id")
 @click.argument("task")
 @click.option("--rounds", "-r", default=3, help="Number of debate rounds")
-def use_template(template_id: str, task: str, rounds: int):
+@click.pass_context
+def use_template(ctx, template_id: str, task: str, rounds: int):
     """Use a debate template to start a debate."""
+    if ctx.obj.get("use_local"):
+        _use_template_local(template_id, task, rounds)
+    else:
+        _use_template_api(ctx.obj["client"], template_id, task, rounds)
+
+
+def _use_template_api(client, template_id: str, task: str, rounds: int):
+    """Use template via API."""
+    try:
+        template = client.get(f"/api/v1/marketplace/templates/{template_id}")
+    except Exception as e:
+        click.echo(f"API error: {e}", err=True)
+        sys.exit(1)
+
+    if template is None:
+        click.echo(f"Template not found: {template_id}", err=True)
+        sys.exit(1)
+
+    if template.get("type") != "DebateTemplate":
+        click.echo(f"Template {template_id} is not a debate template", err=True)
+        sys.exit(1)
+
+    # Format the task using the template
+    task_template = template.get("task_template", "{topic}")
+    formatted_task = task_template.format(
+        topic=task,
+        motion=task,
+        problem=task,
+        code=task,
+    )
+
+    protocol = template.get("protocol", {})
+    click.echo(f"\nStarting debate with template: {template.get('name', template_id)}")
+    click.echo(f"Task: {formatted_task}")
+    click.echo(f"Roles: {len(template.get('agent_roles', []))}")
+    click.echo(f"Rounds: {protocol.get('rounds', rounds)}")
+    click.echo("\nTo run this debate, use:")
+    click.echo(f'  aragora debate run "{formatted_task}" --rounds {rounds}')
+
+
+def _use_template_local(template_id: str, task: str, rounds: int):
+    """Use template from local registry."""
     from aragora.marketplace import TemplateRegistry, DebateTemplate
 
     registry = TemplateRegistry()

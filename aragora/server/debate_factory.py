@@ -11,6 +11,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, cast
 
+import os
+
 from aragora.config import (
     DEFAULT_AGENTS,
     DEFAULT_CONSENSUS,
@@ -19,6 +21,21 @@ from aragora.config import (
 )
 from aragora.exceptions import ConfigurationError
 from aragora.rlm.debate_integration import create_training_hook
+
+# Default vertical specialist injection (can be disabled via env)
+DEFAULT_ENABLE_VERTICALS = os.environ.get("ARAGORA_ENABLE_VERTICALS", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
+# Pre-register vertical specialists at import time
+try:
+    import aragora.verticals.specialists  # noqa: F401
+
+    VERTICALS_AVAILABLE = True
+except ImportError:
+    VERTICALS_AVAILABLE = False
 
 # Import credential validator for auto-trim
 try:
@@ -96,8 +113,10 @@ class DebateConfig:
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
     metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
     documents: list[str] = field(default_factory=list)
-    enable_verticals: bool = False  # Enable vertical specialist injection
-    vertical_id: str | None = None  # Explicit vertical ID (optional)
+    enable_verticals: bool = field(
+        default_factory=lambda: DEFAULT_ENABLE_VERTICALS and VERTICALS_AVAILABLE
+    )  # Enable vertical specialist injection (auto-injects domain expert, set ARAGORA_ENABLE_VERTICALS=false to disable)
+    vertical_id: str | None = None  # Explicit vertical ID (optional, auto-detected if None)
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
 
     def parse_agent_specs(self) -> list[AgentSpec]:

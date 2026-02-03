@@ -220,6 +220,11 @@ class CrudMixin:
             conn.commit()
             return cursor.rowcount > 0
 
+    async def update_entry_async(self: "ContinuumMemory", entry: ContinuumMemoryEntry) -> bool:
+        """Async wrapper for update_entry() - offloads blocking I/O to executor."""
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.update_entry, entry)
+
     def update(
         self: "ContinuumMemory",
         memory_id: str,
@@ -288,6 +293,30 @@ class CrudMixin:
             conn.commit()
             return cursor.rowcount > 0
 
+    @with_retry(_MEMORY_RETRY_CONFIG)
+    async def update_async(
+        self: "ContinuumMemory",
+        memory_id: str,
+        content: str | None = None,
+        importance: float | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        surprise_score: float | None = None,
+        consolidation_score: float | None = None,
+    ) -> bool:
+        """Async wrapper for update() - offloads blocking I/O to executor."""
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.update(
+                memory_id=memory_id,
+                content=content,
+                importance=importance,
+                metadata=metadata,
+                surprise_score=surprise_score,
+                consolidation_score=consolidation_score,
+            ),
+        )
+
     def promote_entry(self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier) -> bool:
         """Promote an entry to a specific tier.
 
@@ -306,6 +335,13 @@ class CrudMixin:
             conn.commit()
             return cursor.rowcount > 0
 
+    async def promote_entry_async(
+        self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier
+    ) -> bool:
+        """Async wrapper for promote_entry() - offloads blocking I/O to executor."""
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, lambda: self.promote_entry(memory_id, new_tier))
+
     def demote_entry(self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier) -> bool:
         """Demote an entry to a specific tier.
 
@@ -323,6 +359,13 @@ class CrudMixin:
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    async def demote_entry_async(
+        self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier
+    ) -> bool:
+        """Async wrapper for demote_entry() - offloads blocking I/O to executor."""
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, lambda: self.demote_entry(memory_id, new_tier))
 
 
 __all__ = ["CrudMixin"]

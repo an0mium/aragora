@@ -258,7 +258,7 @@ class MixedAgentConsensus:
             if (approve_weight + reject_weight) > 0
             else 0
         )
-        reached_consensus = quorum_reached and vote_ratio >= self.consensus_threshold
+        reached_consensus = quorum_reached and vote_ratio > self.consensus_threshold
 
         return ConsensusResult(
             proposal=proposal,

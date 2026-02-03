@@ -1,0 +1,665 @@
+# Aragora Capability Registry
+# ===========================
+#
+# Comprehensive catalog of all Aragora capabilities, activation patterns, and usage examples.
+# Serves as both human documentation and AI reference for capability discovery.
+#
+# Usage:
+#   - Human developers: Browse to understand available features
+#   - AI agents: Reference for determining what capabilities exist and how to activate them
+#   - CLI tools: Generate help text and feature discovery commands
+#
+# Categories:
+#   - core: Core debate and orchestration capabilities
+#   - knowledge: Knowledge management and retrieval
+#   - memory: Memory persistence and learning
+#   - observability: Metrics, tracing, and monitoring
+#   - integrations: External platform integrations
+#   - enterprise: Enterprise and multi-tenant features
+#   - experimental: Beta and experimental features
+
+version: "2.0"
+last_updated: "2026-02-03"
+
+capabilities:
+
+  # ============================================================================
+  # CORE CAPABILITIES - Debate orchestration and agent management
+  # ============================================================================
+
+  debate_orchestration:
+    name: "Multi-Agent Debate Orchestration"
+    category: core
+    status: stable
+    description: |
+      Core debate engine that orchestrates multiple AI agents to debate topics,
+      reach consensus, and produce defensible decisions.
+    activation:
+      python: |
+        from aragora import Arena, Environment, DebateProtocol
+        env = Environment(task="Design a rate limiter")
+        protocol = DebateProtocol(rounds=3, consensus="majority")
+        arena = Arena(env, agents, protocol)
+        result = await arena.run()
+      cli: "aragora debate run 'Design a rate limiter' --rounds 3"
+    key_files:
+      - aragora/debate/orchestrator.py
+      - aragora/debate/consensus.py
+      - aragora/debate/convergence.py
+    feature_flags:
+      - enable_consensus_estimation
+      - enable_quality_gates
+
+  agent_team_selection:
+    name: "Intelligent Agent Selection"
+    category: core
+    status: stable
+    description: |
+      ELO-based agent ranking with performance feedback loops for selecting
+      optimal agent teams based on task characteristics.
+    activation:
+      python: |
+        from aragora.debate.team_selector import TeamSelector
+        selector = TeamSelector(elo_store=elo_store)
+        team = await selector.select(task_embedding, count=5)
+      config: "enable_performance_elo: true"
+    key_files:
+      - aragora/debate/team_selector.py
+      - aragora/ranking/elo.py
+    feature_flags:
+      - enable_performance_elo
+      - enable_performance_feedback
+      - enable_performance_router
+
+  consensus_detection:
+    name: "Consensus Detection & Proofs"
+    category: core
+    status: stable
+    description: |
+      Semantic similarity detection for convergence and cryptographic
+      proof generation for consensus decisions.
+    activation:
+      config: "enable_consensus_estimation: true"
+    key_files:
+      - aragora/debate/consensus.py
+      - aragora/debate/convergence.py
+      - aragora/verification/formal.py
+
+  circuit_breaker:
+    name: "Agent Resilience Circuit Breaker"
+    category: core
+    status: stable
+    description: |
+      Automatic failure detection and recovery for agent API calls.
+      Falls back to OpenRouter when primary providers fail.
+    activation:
+      automatic: true
+      config: "max_failures: 5, reset_timeout: 60"
+    key_files:
+      - aragora/resilience/circuit_breaker.py
+      - aragora/agents/fallback.py
+      - aragora/agents/airlock.py
+    feature_flags:
+      - use_airlock
+
+  # ============================================================================
+  # KNOWLEDGE CAPABILITIES - Knowledge Mound and retrieval
+  # ============================================================================
+
+  knowledge_mound:
+    name: "Knowledge Mound (Unified Knowledge Graph)"
+    category: knowledge
+    status: stable
+    description: |
+      Unified knowledge storage with 25 adapters, semantic search,
+      contradiction detection, and cross-debate learning.
+    activation:
+      python: |
+        from aragora.knowledge.mound import KnowledgeMound
+        mound = KnowledgeMound()
+        await mound.ingest(content, source="debate")
+        results = await mound.search("rate limiting patterns")
+    key_files:
+      - aragora/knowledge/mound/
+      - aragora/knowledge/bridges.py
+    feature_flags:
+      - enable_knowledge_retrieval
+      - enable_knowledge_ingestion
+      - enable_knowledge_extraction
+      - enable_auto_revalidation
+    adapters:
+      - Belief
+      - CalibrationFusion
+      - ComputerUse
+      - Consensus
+      - Continuum
+      - ControlPlane
+      - Cost
+      - Critique
+      - Culture
+      - ELO
+      - ERC8004
+      - Evidence
+      - Extraction
+      - Fabric
+      - Gateway
+      - Insights
+      - OpenClaw
+      - Performance
+      - Provenance
+      - Pulse
+      - Ranking
+      - Receipt
+      - RLM
+      - Supermemory
+      - Workspace
+
+  pulse_trending:
+    name: "Pulse (Trending Topics)"
+    category: knowledge
+    status: stable
+    description: |
+      Real-time trending topic ingestion from HackerNews, Reddit, Twitter.
+      Provides context enrichment for debates.
+    activation:
+      python: |
+        from aragora.pulse import PulseIngestor
+        ingestor = PulseIngestor()
+        topics = await ingestor.get_trending(domain="technology")
+    key_files:
+      - aragora/pulse/ingestor.py
+      - aragora/pulse/scheduler.py
+      - aragora/pulse/quality.py
+
+  belief_network:
+    name: "Belief Network (Claim Provenance)"
+    category: knowledge
+    status: stable
+    description: |
+      Tracks claim provenance and belief dependencies across debates.
+      Enables explainability and audit trails.
+    activation:
+      config: "enable_belief_guidance: true"
+    key_files:
+      - aragora/reasoning/belief.py
+      - aragora/reasoning/provenance.py
+      - aragora/reasoning/claims.py
+    feature_flags:
+      - enable_belief_guidance
+      - enable_provenance
+
+  # ============================================================================
+  # MEMORY CAPABILITIES - Persistence and learning
+  # ============================================================================
+
+  continuum_memory:
+    name: "Multi-Tier Memory (Continuum)"
+    category: memory
+    status: stable
+    description: |
+      Four-tier memory system (fast/medium/slow/glacial) for context
+      persistence across sessions and debates.
+    activation:
+      python: |
+        from aragora.memory.continuum import ContinuumMemory
+        memory = ContinuumMemory()
+        await memory.store(key, value, tier="medium")
+    tiers:
+      fast:
+        ttl: "1 minute"
+        purpose: "Immediate context"
+      medium:
+        ttl: "1 hour"
+        purpose: "Session memory"
+      slow:
+        ttl: "1 day"
+        purpose: "Cross-session learning"
+      glacial:
+        ttl: "1 week"
+        purpose: "Long-term patterns"
+    key_files:
+      - aragora/memory/continuum.py
+      - aragora/memory/consensus.py
+      - aragora/memory/coordinator.py
+    feature_flags:
+      - enable_coordinated_writes
+      - enable_cross_debate_memory
+      - enable_checkpointing
+
+  supermemory:
+    name: "Supermemory (External Memory)"
+    category: memory
+    status: stable
+    description: |
+      Cross-session external memory integration for persistent
+      context across conversations.
+    activation:
+      config: "enable_supermemory: true"
+    feature_flags:
+      - enable_supermemory
+
+  # ============================================================================
+  # OBSERVABILITY CAPABILITIES - Metrics, tracing, logging
+  # ============================================================================
+
+  prometheus_metrics:
+    name: "Prometheus Metrics"
+    category: observability
+    status: stable
+    default_enabled: true
+    description: |
+      Comprehensive Prometheus metrics for debate performance,
+      agent health, and system resource utilization.
+    activation:
+      automatic: true
+      endpoint: "/metrics"
+    key_files:
+      - aragora/observability/metrics.py
+    feature_flags:
+      - enable_metrics
+      - enable_telemetry
+
+  distributed_tracing:
+    name: "OpenTelemetry Tracing"
+    category: observability
+    status: stable
+    default_enabled: true
+    description: |
+      Distributed tracing with correlation IDs for debugging
+      multi-agent debate flows.
+    activation:
+      automatic: true
+      config: "enable_tracing: true"
+    key_files:
+      - aragora/observability/tracing.py
+    feature_flags:
+      - enable_tracing
+
+  structured_logging:
+    name: "JSON Structured Logging"
+    category: observability
+    status: stable
+    default_enabled: true
+    description: |
+      Structured JSON logging with context propagation for
+      log aggregation and analysis.
+    activation:
+      config: "enable_structured_logging: true"
+    key_files:
+      - aragora/observability/logging.py
+    feature_flags:
+      - enable_structured_logging
+
+  slo_alerting:
+    name: "SLO Alerting"
+    category: observability
+    status: stable
+    description: |
+      Service Level Objective monitoring with automatic alerts
+      when performance degrades.
+    key_files:
+      - aragora/observability/slo.py
+
+  # ============================================================================
+  # INTEGRATION CAPABILITIES - External platforms
+  # ============================================================================
+
+  slack_integration:
+    name: "Slack Integration"
+    category: integrations
+    status: stable
+    description: |
+      Full Slack integration with OAuth, slash commands, and
+      thread-based debate UI.
+    activation:
+      oauth: "/oauth/slack/start"
+      slash_commands:
+        - "/aragora debate"
+        - "/aragora status"
+    key_files:
+      - aragora/server/handlers/bots/slack/
+      - aragora/server/handlers/social/slack_oauth.py
+      - aragora/integrations/slack.py
+
+  teams_integration:
+    name: "Microsoft Teams Integration"
+    category: integrations
+    status: stable
+    description: |
+      Microsoft Teams integration with OAuth and bot framework.
+    activation:
+      oauth: "/oauth/teams/start"
+    key_files:
+      - aragora/server/handlers/bots/teams/
+      - aragora/server/handlers/social/teams_oauth.py
+      - aragora/integrations/teams.py
+
+  telegram_connector:
+    name: "Telegram Connector"
+    category: integrations
+    status: stable
+    description: |
+      Telegram bot integration for debate participation.
+    key_files:
+      - aragora/connectors/chat/telegram.py
+      - aragora/server/handlers/social/telegram/
+
+  whatsapp_connector:
+    name: "WhatsApp Connector"
+    category: integrations
+    status: stable
+    description: |
+      WhatsApp Business API integration for debate participation.
+    key_files:
+      - aragora/connectors/chat/whatsapp.py
+      - aragora/server/handlers/social/whatsapp/
+
+  webhook_integrations:
+    name: "Webhook Integrations"
+    category: integrations
+    status: stable
+    description: |
+      Zapier, Make, and n8n webhook integrations for automation.
+    key_files:
+      - aragora/server/handlers/external_integrations.py
+      - aragora/integrations/zapier.py
+    feature_flags:
+      - enable_webhooks
+
+  kafka_streaming:
+    name: "Apache Kafka Streaming"
+    category: integrations
+    status: stable
+    description: |
+      Kafka consumer for enterprise event stream ingestion.
+    key_files:
+      - aragora/connectors/enterprise/streaming/kafka.py
+
+  rabbitmq_streaming:
+    name: "RabbitMQ Streaming"
+    category: integrations
+    status: stable
+    description: |
+      RabbitMQ consumer/publisher for message queue integration.
+    key_files:
+      - aragora/connectors/enterprise/streaming/rabbitmq.py
+
+  # ============================================================================
+  # ENTERPRISE CAPABILITIES - Multi-tenant and compliance
+  # ============================================================================
+
+  multi_tenancy:
+    name: "Multi-Tenant Isolation"
+    category: enterprise
+    status: stable
+    description: |
+      Full tenant isolation with resource quotas, usage metering,
+      and tenant-specific configuration.
+    key_files:
+      - aragora/tenancy/isolation.py
+      - aragora/tenancy/quotas.py
+
+  rbac_v2:
+    name: "Role-Based Access Control v2"
+    category: enterprise
+    status: stable
+    description: |
+      Fine-grained permissions (50+), role hierarchy, and
+      decorator-based authorization.
+    activation:
+      python: |
+        from aragora.rbac.decorators import require_permission
+        @require_permission("debates:create")
+        async def create_debate(ctx, ...): ...
+    key_files:
+      - aragora/rbac/models.py
+      - aragora/rbac/checker.py
+      - aragora/rbac/decorators.py
+      - aragora/rbac/middleware.py
+
+  sso_authentication:
+    name: "SSO Authentication (OIDC/SAML)"
+    category: enterprise
+    status: stable
+    description: |
+      Enterprise SSO with OIDC and SAML support, MFA (TOTP/HOTP),
+      and SCIM 2.0 provisioning.
+    key_files:
+      - aragora/auth/oidc.py
+      - aragora/auth/saml.py
+      - aragora/auth/mfa.py
+      - aragora/auth/scim.py
+    feature_flags:
+      - enable_sso
+
+  compliance_framework:
+    name: "Compliance Framework"
+    category: enterprise
+    status: stable
+    description: |
+      SOC 2 controls, GDPR support, HIPAA compliance, and
+      comprehensive audit trails.
+    key_files:
+      - aragora/compliance/framework.py
+      - aragora/compliance/monitor.py
+      - aragora/server/handlers/compliance/hipaa.py
+    feature_flags:
+      - enable_audit_log
+
+  decision_receipts:
+    name: "Gauntlet Decision Receipts"
+    category: enterprise
+    status: stable
+    description: |
+      Cryptographic audit trails with SHA-256/HMAC-SHA256/RSA/Ed25519
+      signing, PDF export, and RFC 3161 timestamps.
+    activation:
+      config: "enable_receipt_generation: true"
+    key_files:
+      - aragora/gauntlet/receipts.py
+    feature_flags:
+      - enable_receipt_generation
+
+  backup_disaster_recovery:
+    name: "Backup & Disaster Recovery"
+    category: enterprise
+    status: stable
+    description: |
+      Incremental backups with retention policies and disaster
+      recovery drill automation.
+    key_files:
+      - aragora/backup/manager.py
+
+  control_plane:
+    name: "Control Plane Orchestration"
+    category: enterprise
+    status: stable
+    description: |
+      Agent registry, task scheduler, health monitoring, and
+      policy governance.
+    key_files:
+      - aragora/control_plane/registry.py
+      - aragora/control_plane/scheduler.py
+      - aragora/control_plane/policy.py
+
+  # ============================================================================
+  # WORKFLOW CAPABILITIES - Automation and templates
+  # ============================================================================
+
+  workflow_engine:
+    name: "DAG-Based Workflow Engine"
+    category: core
+    status: stable
+    description: |
+      Visual DAG-based workflow automation with 15+ pre-built
+      templates across 6 categories.
+    key_files:
+      - aragora/workflow/engine.py
+      - aragora/workflow/patterns/
+      - aragora/workflow/templates/
+
+  marketplace:
+    name: "Template Marketplace"
+    category: core
+    status: stable
+    description: |
+      Agent and debate template marketplace with local and
+      server-backed registry.
+    activation:
+      cli: |
+        aragora marketplace list
+        aragora marketplace search "code review"
+        aragora marketplace get devil-advocate
+    key_files:
+      - aragora/cli/marketplace.py
+      - aragora/marketplace/
+
+  # ============================================================================
+  # EXPERIMENTAL CAPABILITIES - Beta and experimental features
+  # ============================================================================
+
+  rlm:
+    name: "Recursive Language Models"
+    category: experimental
+    status: beta
+    description: |
+      REPL-based programmatic context access for advanced
+      multi-turn reasoning.
+    activation:
+      config: "enable_rlm: true"
+    key_files:
+      - aragora/rlm/factory.py
+      - aragora/rlm/bridge.py
+      - aragora/rlm/repl.py
+    feature_flags:
+      - enable_rlm
+
+  prompt_evolution:
+    name: "Prompt Evolution"
+    category: experimental
+    status: beta
+    description: |
+      Evolutionary optimization of agent prompts based on
+      debate performance.
+    activation:
+      config: "enable_prompt_evolution: true"
+    feature_flags:
+      - enable_prompt_evolution
+
+  nomic_loop:
+    name: "Nomic Self-Improvement Loop"
+    category: experimental
+    status: beta
+    description: |
+      Autonomous self-improvement cycle where agents debate
+      improvements, design solutions, implement code, and verify changes.
+    activation:
+      cli: "python scripts/nomic_loop.py run --cycles 3"
+    phases:
+      0_context: "Gather codebase understanding"
+      1_debate: "Agents propose improvements"
+      2_design: "Architecture planning"
+      3_implement: "Code generation"
+      4_verify: "Tests and checks"
+    key_files:
+      - scripts/nomic_loop.py
+      - aragora/nomic/meta_planner.py
+      - aragora/nomic/autonomous_orchestrator.py
+
+  extended_debates:
+    name: "Extended Debates"
+    category: experimental
+    status: beta
+    description: |
+      Multi-session debates that span days or weeks with
+      persistent context.
+    activation:
+      config: "enable_extended_debates: true"
+    feature_flags:
+      - enable_extended_debates
+
+# ============================================================================
+# AI MODEL SUPPORT
+# ============================================================================
+
+models:
+  anthropic:
+    - claude-3-opus
+    - claude-3-sonnet
+    - claude-3-haiku
+    - claude-3.5-sonnet
+    - claude-4-opus
+    - claude-4-sonnet
+  openai:
+    - gpt-4o
+    - gpt-4-turbo
+    - o1
+    - o1-mini
+  google:
+    - gemini-1.5-pro
+    - gemini-2.0-flash
+  xai:
+    - grok-2
+    - grok-3
+  mistral:
+    - mistral-large
+    - codestral
+  openrouter:
+    - deepseek-v3
+    - llama-3.3-70b
+    - qwen-72b
+    - yi-large
+    - kimi-k1
+
+# ============================================================================
+# API ENDPOINTS
+# ============================================================================
+
+api:
+  total_endpoints: 461
+  websocket_streams: 26
+  spec_path: "/api/openapi.json"
+  documentation: "docs/API_REFERENCE.md"
+
+# ============================================================================
+# SDK SUPPORT
+# ============================================================================
+
+sdks:
+  python:
+    package: "aragora-sdk"
+    namespaces: 140
+    path: "sdk/python/"
+  typescript:
+    package: "@aragora/sdk"
+    namespaces: 140
+    path: "sdk/typescript/"
+
+# ============================================================================
+# ENVIRONMENT VARIABLES
+# ============================================================================
+
+environment_variables:
+  required:
+    - name: ANTHROPIC_API_KEY
+      description: "Anthropic API key for Claude models"
+    - name: OPENAI_API_KEY
+      description: "OpenAI API key for GPT models"
+  recommended:
+    - name: OPENROUTER_API_KEY
+      description: "Fallback when primary APIs fail (auto-used on 429)"
+    - name: MISTRAL_API_KEY
+      description: "Mistral API for Large and Codestral models"
+  optional:
+    - name: GEMINI_API_KEY
+      description: "Google Gemini API"
+    - name: XAI_API_KEY
+      description: "xAI Grok API"
+    - name: SUPABASE_URL
+      description: "Supabase persistence URL"
+    - name: SUPABASE_KEY
+      description: "Supabase API key"
+    - name: ARAGORA_API_TOKEN
+      description: "Authentication token"
+    - name: ARAGORA_ALLOWED_ORIGINS
+      description: "CORS allowed origins"

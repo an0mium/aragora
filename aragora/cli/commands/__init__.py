@@ -49,6 +49,7 @@ from aragora.cli.commands.delegated import (
     cmd_control_plane,
 )
 from aragora.cli.commands.testfix import cmd_testfix
+from aragora.cli.commands.skills import cmd_skills, add_skills_parser
 
 __all__ = [
     # debate
@@ -92,4 +93,7 @@ __all__ = [
     "cmd_marketplace",
     "cmd_control_plane",
     "cmd_testfix",
+    # skills (API-backed)
+    "cmd_skills",
+    "add_skills_parser",
 ]
