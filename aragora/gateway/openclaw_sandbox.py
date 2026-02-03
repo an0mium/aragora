@@ -77,6 +77,7 @@ class SandboxConfig:
             "npm",
             "pip",
             "git",
+            "sleep",
         ]
     )
     blocked_commands: list[str] = field(
@@ -688,12 +689,13 @@ class OpenClawActionSandbox:
             return {"allowed": False, "reason": "Invalid path"}
 
         resolved_str = str(resolved)
+        normalized_input = os.path.normpath(path)
 
         # Check blocked paths
         for blocked in config.blocked_paths:
             import fnmatch
 
-            if fnmatch.fnmatch(resolved_str, blocked):
+            if fnmatch.fnmatch(resolved_str, blocked) or fnmatch.fnmatch(normalized_input, blocked):
                 return {"allowed": False, "reason": f"Path is blocked: {path}"}
 
         # For writes, must be within workspace

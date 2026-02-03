@@ -302,6 +302,12 @@ class RLMResult:
     confidence: float = 0.0
     uncertainty_sources: list[str] = field(default_factory=list)  # What might be missing
 
+    # Belief network integration (Phase 2: RLM-Belief Bridge)
+    beliefs_consulted: list[str] = field(default_factory=list)  # Belief node IDs consulted
+    cruxes_addressed: list[str] = field(default_factory=list)  # Crux IDs addressed/resolved
+    belief_context_used: bool = False  # Whether belief context was injected
+    belief_confidence_adjustment: float = 0.0  # How much beliefs affected answer confidence
+
 
 # Type aliases for callbacks
 CompressionCallback = Callable[[str, AbstractionLevel], str]

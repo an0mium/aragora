@@ -190,17 +190,6 @@ class PostgreSQLConnector(EnterpriseConnector):
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
-            # Normalize AsyncMock side_effect lists to iterators (test safety).
-            try:
-                from unittest.mock import AsyncMock
-
-                if isinstance(conn.fetch, AsyncMock):
-                    side_effect = getattr(conn.fetch, "side_effect", None)
-                    if isinstance(side_effect, list):
-                        conn.fetch.side_effect = iter(side_effect)
-            except Exception as e:
-                logger.debug("Mock side_effect normalization skipped: %s", e)
-
             rows = await conn.fetch(
                 """
                 SELECT column_name, data_type, is_nullable

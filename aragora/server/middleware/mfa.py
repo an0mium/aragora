@@ -30,6 +30,33 @@ logger = logging.getLogger(__name__)
 MAX_MFA_BYPASS_DAYS = 90
 
 
+def _audit_mfa_bypass(actor_id: str, operation: str) -> None:
+    """Emit an audit event for an MFA bypass.
+
+    Falls back to structured error logging when the unified audit module
+    cannot be imported (e.g. minimal deployment without the audit package).
+    """
+    details = {
+        "operation": operation,
+        "actor_id": actor_id,
+        "reason": "service_account_bypass",
+    }
+    try:
+        from aragora.audit.unified import audit_security
+
+        audit_security(
+            event_type="mfa_bypass",
+            actor_id=actor_id,
+            reason="service_account_bypass",
+            details=details,
+        )
+    except ImportError:
+        logger.error(
+            "MFA bypass audit event could not be dispatched (audit module unavailable): %s",
+            details,
+        )
+
+
 def _has_valid_mfa_bypass(full_user: Any) -> bool:
     """
     Check if user has a valid MFA bypass (service account with approved bypass).
@@ -140,17 +167,7 @@ def require_mfa(func: Callable) -> Callable:
                 # Check for service account with valid MFA bypass
                 if _has_valid_mfa_bypass(full_user):
                     logger.warning(f"Service account {user.id} bypassing MFA requirement")
-                    try:
-                        from aragora.audit.unified import audit_security
-
-                        audit_security(
-                            event_type="mfa_bypass",
-                            actor_id=user.id,
-                            reason="service_account_bypass",
-                            details={"operation": "require_mfa decorator bypass"},
-                        )
-                    except ImportError:
-                        pass
+                    _audit_mfa_bypass(user.id, "require_mfa decorator bypass")
                     kwargs["user"] = user
                     return func(*args, **kwargs)
                 if not getattr(full_user, "mfa_enabled", False):
@@ -228,17 +245,7 @@ def require_admin_mfa(func: Callable) -> Callable:
                     if _has_valid_mfa_bypass(full_user):
                         has_bypass = True
                         logger.warning(f"Admin service account {user.id} bypassing MFA requirement")
-                        try:
-                            from aragora.audit.unified import audit_security
-
-                            audit_security(
-                                event_type="mfa_bypass",
-                                actor_id=user.id,
-                                reason="service_account_bypass",
-                                details={"operation": "require_admin_mfa decorator bypass"},
-                            )
-                        except ImportError:
-                            pass
+                        _audit_mfa_bypass(user.id, "require_admin_mfa decorator bypass")
                     else:
                         mfa_enabled = getattr(full_user, "mfa_enabled", False)
             else:
@@ -312,19 +319,9 @@ def require_admin_with_mfa(func: Callable) -> Callable:
                     logger.warning(
                         f"Admin service account {user.id} bypassing MFA for sensitive operation"
                     )
-                    try:
-                        from aragora.audit.unified import audit_security
-
-                        audit_security(
-                            event_type="mfa_bypass",
-                            actor_id=user.id,
-                            reason="service_account_bypass",
-                            details={
-                                "operation": "require_admin_with_mfa decorator bypass for sensitive operation"
-                            },
-                        )
-                    except ImportError:
-                        pass
+                    _audit_mfa_bypass(
+                        user.id, "require_admin_with_mfa decorator bypass for sensitive operation"
+                    )
                 else:
                     mfa_enabled = getattr(full_user, "mfa_enabled", False)
         else:
@@ -564,17 +561,7 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
                         logger.warning(
                             f"Service account {user.id} bypassing MFA freshness requirement"
                         )
-                        try:
-                            from aragora.audit.unified import audit_security
-
-                            audit_security(
-                                event_type="mfa_bypass",
-                                actor_id=user.id,
-                                reason="service_account_bypass",
-                                details={"operation": "require_mfa_fresh decorator bypass"},
-                            )
-                        except ImportError:
-                            pass
+                        _audit_mfa_bypass(user.id, "require_mfa_fresh decorator bypass")
                     else:
                         mfa_enabled = getattr(full_user, "mfa_enabled", False)
             else:
