@@ -390,6 +390,8 @@ class DecisionRequest:
         documents = normalize_document_ids(
             kwargs.pop("documents", None) or kwargs.pop("document_ids", None) or []
         )
+        attachments = kwargs.pop("attachments", []) or []
+        evidence = kwargs.pop("evidence", []) or []
         source = InputSource(platform.lower())
 
         response_channel = ResponseChannel(
@@ -410,6 +412,8 @@ class DecisionRequest:
             response_channels=[response_channel],
             context=context,
             documents=documents,
+            attachments=attachments,
+            evidence=evidence,
         )
 
     @classmethod

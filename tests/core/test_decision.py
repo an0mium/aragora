@@ -968,6 +968,7 @@ class TestDecisionRouterRouteMethods:
         """Attachment text is ingested into DocumentStore and passed as document IDs."""
         from types import SimpleNamespace
 
+        from aragora.evidence.store import InMemoryEvidenceStore
         from aragora.server.documents import DocumentStore
 
         # Stub agent lookup
@@ -991,7 +992,12 @@ class TestDecisionRouterRouteMethods:
                 )
 
         store = DocumentStore(tmp_path)
-        router = DecisionRouter(debate_engine=DummyArena, document_store=store)
+        evidence_store = InMemoryEvidenceStore()
+        router = DecisionRouter(
+            debate_engine=DummyArena,
+            document_store=store,
+            evidence_store=evidence_store,
+        )
 
         request = DecisionRequest(
             content="Use attachment",
@@ -1009,6 +1015,48 @@ class TestDecisionRouterRouteMethods:
         assert env is not None
         assert len(env.documents) == 1
         assert store.get(env.documents[0]) is not None
+        assert evidence_store.search_evidence("hello world")
+
+    @pytest.mark.asyncio
+    async def test_route_to_debate_ingests_request_evidence(self, monkeypatch):
+        """Evidence payloads are persisted into EvidenceStore."""
+        from types import SimpleNamespace
+
+        from aragora.evidence.store import InMemoryEvidenceStore
+
+        monkeypatch.setattr(
+            "aragora.agents.get_agents_by_names",
+            lambda _agents=None: [],
+        )
+
+        class DummyArena:
+            def __init__(self, environment, agents, protocol, **_kwargs):
+                pass
+
+            async def run(self):
+                return SimpleNamespace(
+                    final_answer="ok",
+                    consensus_reached=True,
+                    confidence=0.9,
+                    summary=None,
+                )
+
+        evidence_store = InMemoryEvidenceStore()
+        router = DecisionRouter(debate_engine=DummyArena, evidence_store=evidence_store)
+
+        request = DecisionRequest(
+            content="Use evidence",
+            decision_type=DecisionType.DEBATE,
+            config=DecisionConfig(rounds=1, agents=[]),
+            evidence=[
+                {"title": "Spec excerpt", "content": "Requirement X must hold."},
+            ],
+        )
+
+        result = await router.route(request)
+
+        assert result.success is True
+        assert evidence_store.search_evidence("Requirement X")
 
 
 # ===========================================================================

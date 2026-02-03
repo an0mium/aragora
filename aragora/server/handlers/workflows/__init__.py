@@ -49,6 +49,7 @@ from .core import (
     track_handler,
     audit_data,
     _UnauthenticatedSentinel,
+    _run_async,
 )
 
 # CRUD operations
@@ -100,6 +101,17 @@ from .handler import (
     WorkflowHandlers,
 )
 
+# Optional RBAC helpers for tests and patching
+try:
+    from aragora.billing.auth import extract_user_from_request
+except ImportError:  # pragma: no cover - optional dependency
+    extract_user_from_request = None
+
+try:
+    from aragora.rbac import check_permission
+except ImportError:  # pragma: no cover - optional dependency
+    check_permission = None
+
 # Initialize templates on module import (matches original behavior)
 initialize_templates()
 
@@ -125,6 +137,7 @@ __all__ = [
     "track_handler",
     "audit_data",
     "_UnauthenticatedSentinel",
+    "_run_async",
     # CRUD operations
     "list_workflows",
     "get_workflow",
@@ -156,4 +169,6 @@ __all__ = [
     # HTTP handlers
     "WorkflowHandler",
     "WorkflowHandlers",
+    "extract_user_from_request",
+    "check_permission",
 ]

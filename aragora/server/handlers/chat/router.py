@@ -678,6 +678,10 @@ class ChatWebhookRouter:
             session_id=command.channel if command else None,
         )
 
+        attachments: list[dict[str, Any]] = []
+        if event.message and event.message.attachments:
+            attachments = event.message.attachments
+
         # Create decision request
         request = DecisionRequest(
             content=content,
@@ -685,6 +689,7 @@ class ChatWebhookRouter:
             source=self._get_input_source(event.platform),
             response_channels=[response_channel],
             context=context,
+            attachments=attachments,
         )
 
         # Route through DecisionRouter

@@ -621,9 +621,14 @@ class DecisionRouter:
 
                 explicit_docs.extend(normalize_document_ids(metadata_docs))
             # Ingest attachments into DocumentStore where possible
-            attachment_docs = self._ingest_attachments_to_documents(request.attachments)
+            attachment_docs = self._ingest_attachments_to_documents(
+                request.attachments,
+                request=request,
+            )
             if attachment_docs:
                 explicit_docs.extend(attachment_docs)
+            # Persist request-supplied evidence snippets for retrieval
+            self._ingest_request_evidence(request.evidence, request=request)
             if explicit_docs:
                 seen: set[str] = set()
                 merged: list[str] = []
@@ -640,6 +645,12 @@ class DecisionRouter:
                     knowledge_context = f"{knowledge_context}\n\n{attachment_context}"
                 else:
                     knowledge_context = attachment_context
+            evidence_context = self._format_request_evidence_context(request.evidence)
+            if evidence_context:
+                if knowledge_context:
+                    knowledge_context = f"{knowledge_context}\n\n{evidence_context}"
+                else:
+                    knowledge_context = evidence_context
 
             env = Environment(
                 task=request.content,
@@ -710,6 +721,7 @@ class DecisionRouter:
     def _ingest_attachments_to_documents(
         self,
         attachments: list[dict[str, Any]] | None,
+        request: DecisionRequest | None = None,
         max_items: int = 5,
         max_bytes: int = 2_000_000,
     ) -> list[str]:
@@ -768,10 +780,74 @@ class DecisionRouter:
                 doc_id = self._document_store.add(parsed)
                 if doc_id:
                     doc_ids.append(doc_id)
+                self._store_attachment_evidence(
+                    parsed=parsed,
+                    filename=filename,
+                    attachment=att,
+                    index=idx,
+                    request=request,
+                )
             except Exception as e:
                 logger.debug("Failed to ingest attachment %s: %s", filename, e)
 
         return doc_ids
+
+    def _store_attachment_evidence(
+        self,
+        parsed: Any,
+        filename: str,
+        attachment: dict[str, Any],
+        index: int,
+        request: DecisionRequest | None,
+        max_chars: int = 4000,
+    ) -> None:
+        """Persist attachment text into EvidenceStore for cross-session retrieval."""
+        if not self._evidence_store:
+            return
+
+        text = getattr(parsed, "text", None)
+        if not isinstance(text, str):
+            return
+        text = text.strip()
+        if not text:
+            return
+
+        snippet = text[:max_chars]
+        url = attachment.get("url")
+        if not isinstance(url, str):
+            url = ""
+
+        metadata: dict[str, Any] = {
+            "filename": filename,
+            "content_type": getattr(parsed, "content_type", None),
+            "document_id": getattr(parsed, "id", None),
+            "attachment_index": index,
+        }
+        if request is not None:
+            metadata["request_id"] = request.request_id
+            metadata["correlation_id"] = request.context.correlation_id
+            if request.context.workspace_id:
+                metadata["workspace_id"] = request.context.workspace_id
+            if request.context.tenant_id:
+                metadata["tenant_id"] = request.context.tenant_id
+            if request.source:
+                metadata["source"] = request.source.value
+
+        try:
+            import uuid
+
+            evidence_id = f"att_{uuid.uuid4().hex}"
+            self._evidence_store.save_evidence(
+                evidence_id=evidence_id,
+                source="attachment",
+                title=filename,
+                snippet=snippet,
+                url=url,
+                reliability_score=0.5,
+                metadata=metadata,
+            )
+        except Exception as e:
+            logger.debug("Failed to store attachment evidence %s: %s", filename, e)
 
     def _format_attachment_context(
         self,
@@ -814,6 +890,109 @@ class DecisionRouter:
         if not parts:
             return ""
         return "## Provided Attachments\n\n" + "\n\n".join(parts)
+
+    def _ingest_request_evidence(
+        self,
+        evidence: list[dict[str, Any]] | None,
+        request: DecisionRequest | None = None,
+        max_items: int = 10,
+        max_chars: int = 4000,
+    ) -> list[str]:
+        """Store request-supplied evidence in the EvidenceStore."""
+        if not evidence or not self._evidence_store:
+            return []
+
+        saved_ids: list[str] = []
+        for idx, item in enumerate(evidence[:max_items]):
+            if not isinstance(item, dict):
+                continue
+            raw_snippet = item.get("snippet") or item.get("content") or item.get("text") or ""
+            if isinstance(raw_snippet, (bytes, bytearray)):
+                raw_snippet = raw_snippet.decode("utf-8", errors="ignore")
+            snippet = str(raw_snippet).strip()
+            if not snippet:
+                continue
+
+            if len(snippet) > max_chars:
+                snippet = snippet[:max_chars] + "..."
+
+            evidence_id = item.get("evidence_id") or item.get("id")
+            if not isinstance(evidence_id, str) or not evidence_id:
+                import uuid
+
+                evidence_id = f"req_{uuid.uuid4().hex}"
+
+            source = item.get("source") or item.get("type") or "request"
+            title = item.get("title") or item.get("name") or f"Evidence {idx + 1}"
+            url = item.get("url") if isinstance(item.get("url"), str) else ""
+            reliability_score = item.get("reliability_score") or item.get("score") or 0.5
+            try:
+                reliability_score = float(reliability_score)
+            except (TypeError, ValueError):
+                reliability_score = 0.5
+
+            metadata = dict(item.get("metadata") or {})
+            metadata["evidence_index"] = idx
+            if request is not None:
+                metadata["request_id"] = request.request_id
+                metadata["correlation_id"] = request.context.correlation_id
+                if request.context.workspace_id:
+                    metadata["workspace_id"] = request.context.workspace_id
+                if request.context.tenant_id:
+                    metadata["tenant_id"] = request.context.tenant_id
+                if request.source:
+                    metadata["source"] = request.source.value
+
+            try:
+                saved_id = self._evidence_store.save_evidence(
+                    evidence_id=evidence_id,
+                    source=str(source),
+                    title=str(title),
+                    snippet=snippet,
+                    url=url,
+                    reliability_score=reliability_score,
+                    metadata=metadata,
+                )
+                saved_ids.append(saved_id)
+            except Exception as e:
+                logger.debug("Failed to store request evidence %s: %s", evidence_id, e)
+
+        return saved_ids
+
+    def _format_request_evidence_context(
+        self,
+        evidence: list[dict[str, Any]] | None,
+        max_items: int = 5,
+        max_chars: int = 1200,
+    ) -> str:
+        """Format request-provided evidence for immediate context injection."""
+        if not evidence:
+            return ""
+
+        parts: list[str] = []
+        for item in evidence[:max_items]:
+            if not isinstance(item, dict):
+                continue
+            title = item.get("title") or item.get("name") or "Evidence"
+            source = item.get("source") or item.get("type") or "request"
+            url = item.get("url")
+            content = item.get("snippet") or item.get("content") or item.get("text") or ""
+            if isinstance(content, (bytes, bytearray)):
+                content = content.decode("utf-8", errors="ignore")
+            content_str = str(content).strip()
+            if not content_str:
+                continue
+            if len(content_str) > max_chars:
+                content_str = content_str[:max_chars] + "..."
+
+            header = f"### {title} ({source})"
+            if url:
+                header = f"{header}\nSource: {url}"
+            parts.append(f"{header}\n{content_str}")
+
+        if not parts:
+            return ""
+        return "## Provided Evidence\n\n" + "\n\n".join(parts)
 
     async def _route_to_workflow(self, request: DecisionRequest) -> DecisionResult:
         """Route to workflow engine."""

@@ -254,7 +254,16 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return None
 
         # JWT authentication required (secure)
-        jwt_context = extract_user_from_request(handler)
+        extractor = extract_user_from_request
+        try:
+            pkg = sys.modules.get("aragora.server.handlers.workflows")
+            override = getattr(pkg, "extract_user_from_request", None) if pkg is not None else None
+            if override is not None and override is not extract_user_from_request:
+                extractor = override
+        except Exception:
+            pass
+
+        jwt_context = extractor(handler)
         if not jwt_context.authenticated or not jwt_context.user_id:
             logger.warning(
                 "workflows: JWT authentication required. Request rejected - no valid token."
@@ -295,7 +304,16 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Authentication required. Please provide a valid JWT token.", 401)
 
         try:
-            decision = check_permission(context, permission_key, resource_id)
+            checker = check_permission
+            try:
+                pkg = sys.modules.get("aragora.server.handlers.workflows")
+                override = getattr(pkg, "check_permission", None) if pkg is not None else None
+                if override is not None and override is not check_permission:
+                    checker = override
+            except Exception:
+                pass
+
+            decision = checker(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
                     "Permission denied: %s for user %s: %s",
