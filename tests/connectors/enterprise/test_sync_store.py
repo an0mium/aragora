@@ -358,6 +358,7 @@ class TestConnectorConfig:
         assert config.items_indexed == 0
 
 
+@pytest.mark.skipif(not HAS_AIOSQLITE, reason="aiosqlite required for recovery tests")
 class TestSyncJobRecovery:
     """Tests for sync job recovery on startup."""
 
