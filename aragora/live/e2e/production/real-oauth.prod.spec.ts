@@ -47,7 +47,8 @@ test.describe('Real OAuth Flow', () => {
     const fakeRefreshToken = `${header}.${btoa(JSON.stringify({ type: 'refresh' }))}.${signature}`;
 
     // Navigate to callback with tokens
-    const callbackUrl = `https://aragora.ai/auth/callback/?access_token=${fakeAccessToken}&refresh_token=${fakeRefreshToken}&token_type=Bearer&expires_in=86400`;
+    // SECURITY: Tokens should be in URL fragment (#) not query params (?)
+    const callbackUrl = `https://aragora.ai/auth/callback/#access_token=${fakeAccessToken}&refresh_token=${fakeRefreshToken}&token_type=Bearer&expires_in=86400`;
 
     console.log('\n=== Navigating to callback URL ===');
     console.log(`URL: ${callbackUrl.substring(0, 100)}...`);

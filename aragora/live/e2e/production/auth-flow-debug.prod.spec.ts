@@ -104,9 +104,10 @@ test.describe('Auth Flow Debug', () => {
     });
 
     // Go directly to callback with fake tokens (will fail but shows the flow)
+    // SECURITY: Tokens should be in URL fragment (#) not query params (?)
     const fakeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItaWQiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20ifQ.fake';
     await page.goto(
-      `https://aragora.ai/auth/callback/?access_token=${fakeToken}&refresh_token=refresh-token&token_type=Bearer&expires_in=86400`,
+      `https://aragora.ai/auth/callback/#access_token=${fakeToken}&refresh_token=refresh-token&token_type=Bearer&expires_in=86400`,
       { waitUntil: 'networkidle' }
     );
 

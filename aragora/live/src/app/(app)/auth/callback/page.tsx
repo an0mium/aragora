@@ -34,14 +34,18 @@ function OAuthCallbackContent() {
         return;
       }
 
-      // Parse tokens from URL query params (primary) or fragment (legacy fallback)
-      let tokenString = window.location.search.substring(1); // Remove leading '?'
-      logger.debug('[OAuth Callback] Query params:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
+      // SECURITY: Parse tokens from URL fragment (primary) - fragments are NOT sent to servers
+      // Query params are a fallback but should be avoided as they leak via logs, referer headers, etc.
+      let tokenString = window.location.hash.substring(1); // Remove leading '#'
+      logger.debug('[OAuth Callback] Hash fragment:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
 
-      // Legacy fallback: Check hash fragment if query params are empty
+      // Fallback to query params (less secure, but some OAuth flows may use them)
       if (!tokenString) {
-        tokenString = window.location.hash.substring(1);
-        logger.debug('[OAuth Callback] Hash fragment:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
+        tokenString = window.location.search.substring(1);
+        logger.debug('[OAuth Callback] Query params fallback:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
+        if (tokenString) {
+          logger.warn('[OAuth Callback] Tokens received via query params - this is less secure than fragments');
+        }
       }
 
       if (!tokenString) {

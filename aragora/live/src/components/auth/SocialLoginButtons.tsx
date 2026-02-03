@@ -98,7 +98,8 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
 
   const handleOAuthClick = (provider: Provider) => {
     // Build callback URL for the current origin
-    const callbackUrl = `${window.location.origin}/auth/callback`;
+    // IMPORTANT: Include trailing slash to prevent Next.js redirect which loses URL fragments
+    const callbackUrl = `${window.location.origin}/auth/callback/`;
     const oauthUrl = `${API_BASE_URL}${provider.auth_url}?redirect_url=${encodeURIComponent(callbackUrl)}`;
 
     // Debug: Log the redirect URL
