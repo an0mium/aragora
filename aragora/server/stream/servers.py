@@ -132,6 +132,13 @@ except ImportError:
     PAYMENT_HANDLER_AVAILABLE = False
 
 try:
+    from aragora.server.handlers.costs import register_routes as register_cost_routes
+
+    COST_HANDLER_AVAILABLE = True
+except ImportError:
+    COST_HANDLER_AVAILABLE = False
+
+try:
     from aragora.server.handlers.features.integrations import (
         IntegrationsHandler,
         register_integration_routes,
@@ -140,6 +147,34 @@ try:
     INTEGRATIONS_HANDLER_AVAILABLE = True
 except ImportError:
     INTEGRATIONS_HANDLER_AVAILABLE = False
+
+try:
+    from aragora.server.handlers.threat_intel import register_threat_intel_routes
+
+    THREAT_INTEL_HANDLER_AVAILABLE = True
+except ImportError:
+    THREAT_INTEL_HANDLER_AVAILABLE = False
+
+try:
+    from aragora.server.handlers.admin.credits import (
+        CreditsAdminHandler,
+        register_credits_admin_routes,
+    )
+
+    CREDITS_ADMIN_HANDLER_AVAILABLE = True
+except ImportError:
+    CREDITS_ADMIN_HANDLER_AVAILABLE = False
+
+try:
+    from aragora.server.handlers.autonomous.alerts import AlertHandler
+    from aragora.server.handlers.autonomous.triggers import TriggerHandler
+    from aragora.server.handlers.autonomous.approvals import ApprovalHandler
+    from aragora.server.handlers.autonomous.monitoring import MonitoringHandler
+    from aragora.server.handlers.autonomous.learning import LearningHandler
+
+    AUTONOMOUS_HANDLERS_AVAILABLE = True
+except ImportError:
+    AUTONOMOUS_HANDLERS_AVAILABLE = False
 
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
@@ -1448,11 +1483,28 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         if PAYMENT_HANDLER_AVAILABLE:
             register_payment_routes(app)
             logger.info("Registered payment routes")
+        if COST_HANDLER_AVAILABLE:
+            register_cost_routes(app)
+            logger.info("Registered cost routes")
         if INTEGRATIONS_HANDLER_AVAILABLE:
             server_context: dict[str, Any] = {}
             integrations_handler = IntegrationsHandler(server_context)
             register_integration_routes(app, integrations_handler)
             logger.info("Registered integration status routes")
+        if THREAT_INTEL_HANDLER_AVAILABLE:
+            register_threat_intel_routes(app)
+            logger.info("Registered threat intel routes")
+        if CREDITS_ADMIN_HANDLER_AVAILABLE:
+            credits_handler = CreditsAdminHandler()
+            register_credits_admin_routes(app, credits_handler)
+            logger.info("Registered credits admin routes")
+        if AUTONOMOUS_HANDLERS_AVAILABLE:
+            AlertHandler.register_routes(app)
+            TriggerHandler.register_routes(app)
+            ApprovalHandler.register_routes(app)
+            MonitoringHandler.register_routes(app)
+            LearningHandler.register_routes(app)
+            logger.info("Registered autonomous agent routes")
 
         # Start drain loop
         asyncio.create_task(self._drain_loop())
