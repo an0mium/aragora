@@ -100,7 +100,7 @@ class TeamsWorkspaceHandler(SecureHandler):
         self,
         path: str,
         query_params: dict,
-        handler,
+        handler: Any,
         method: str = "GET",
     ) -> HandlerResult | None:
         """Route Teams workspace requests to appropriate methods."""
@@ -175,13 +175,13 @@ class TeamsWorkspaceHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    def _get_workspace_store(self):
+    def _get_workspace_store(self) -> Any:
         """Get Teams workspace store instance."""
         from aragora.storage.teams_workspace_store import get_teams_workspace_store
 
         return get_teams_workspace_store()
 
-    def _get_subscription_store(self):
+    def _get_subscription_store(self) -> Any:
         """Get channel subscription store instance."""
         from aragora.storage.channel_subscription_store import (
             get_channel_subscription_store,
@@ -189,7 +189,7 @@ class TeamsWorkspaceHandler(SecureHandler):
 
         return get_channel_subscription_store()
 
-    def _get_user_and_org(self, handler, user):
+    def _get_user_and_org(self, handler: Any, user: Any) -> tuple[Any, Any, HandlerResult | None]:
         """Get user and organization from context."""
         user_store = self.ctx.get("user_store")
         if not user_store:
@@ -208,7 +208,7 @@ class TeamsWorkspaceHandler(SecureHandler):
 
         return db_user, org, None
 
-    def _parse_json_body(self, handler) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+    def _parse_json_body(self, handler: Any) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Parse JSON body from handler."""
         import json as json_lib
 
@@ -223,9 +223,9 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:read")
     def _list_workspaces(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         List connected Teams workspaces for the organization.
@@ -272,9 +272,9 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _create_tenant(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Create a Teams tenant entry."""
         db_user, org, error = self._get_user_and_org(handler, user)
@@ -320,10 +320,10 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _update_tenant(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         tenant_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Update Teams tenant details."""
         db_user, org, error = self._get_user_and_org(handler, user)
@@ -360,10 +360,10 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:read")
     def _get_workspace(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         tenant_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Get details for a specific Teams workspace.
@@ -394,10 +394,10 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _test_connection(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         tenant_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Test connection to a Teams workspace.
@@ -466,10 +466,10 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _disconnect_workspace(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         tenant_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Disconnect (deactivate) a Teams workspace.
@@ -522,10 +522,10 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:read")
     def _list_channels(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         tenant_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         List available channels for a Teams workspace.
@@ -604,9 +604,9 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:channels:subscribe")
     def _subscribe_channel(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Subscribe a Teams channel to receive notifications.
@@ -696,9 +696,9 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:channels:subscribe")
     def _list_subscriptions(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         List Teams channel subscriptions for the organization.
@@ -741,10 +741,10 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:channels:subscribe")
     def _delete_subscription(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         subscription_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Delete a Teams channel subscription.
@@ -787,9 +787,9 @@ class TeamsWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _handle_oauth_start(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Start Teams OAuth flow (placeholder for SME flow)."""
         return json_response(
@@ -805,8 +805,8 @@ class TeamsWorkspaceHandler(SecureHandler):
         self,
         code: str,
         state: str | None,
-        handler,
-        user=None,
+        handler: Any,
+        user: Any = None,
     ) -> HandlerResult:
         """Handle Teams OAuth callback (placeholder)."""
         if not code:

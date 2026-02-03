@@ -99,7 +99,7 @@ class SlackWorkspaceHandler(SecureHandler):
         self,
         path: str,
         query_params: dict,
-        handler,
+        handler: Any,
         method: str = "GET",
     ) -> HandlerResult | None:
         """Route Slack workspace requests to appropriate methods."""
@@ -174,13 +174,13 @@ class SlackWorkspaceHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    def _get_workspace_store(self):
+    def _get_workspace_store(self) -> Any:
         """Get Slack workspace store instance."""
         from aragora.storage.slack_workspace_store import get_slack_workspace_store
 
         return get_slack_workspace_store()
 
-    def _get_subscription_store(self):
+    def _get_subscription_store(self) -> Any:
         """Get channel subscription store instance."""
         from aragora.storage.channel_subscription_store import (
             get_channel_subscription_store,
@@ -188,7 +188,7 @@ class SlackWorkspaceHandler(SecureHandler):
 
         return get_channel_subscription_store()
 
-    def _get_user_and_org(self, handler, user):
+    def _get_user_and_org(self, handler: Any, user: Any) -> tuple[Any, Any, HandlerResult | None]:
         """Get user and organization from context."""
         user_store = self.ctx.get("user_store")
         if not user_store:
@@ -207,7 +207,7 @@ class SlackWorkspaceHandler(SecureHandler):
 
         return db_user, org, None
 
-    def _parse_json_body(self, handler) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+    def _parse_json_body(self, handler: Any) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Parse JSON body from handler."""
         import json as json_lib
 
@@ -228,9 +228,9 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:read")
     def _list_workspaces(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         List connected Slack workspaces for the organization.
@@ -283,9 +283,9 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _create_workspace(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Create a Slack workspace entry."""
         db_user, org, error = self._get_user_and_org(handler, user)
@@ -336,10 +336,10 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _update_workspace(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         workspace_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Update Slack workspace details."""
         db_user, org, error = self._get_user_and_org(handler, user)
@@ -382,10 +382,10 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:read")
     def _get_workspace(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         workspace_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Get details for a specific Slack workspace.
@@ -422,10 +422,10 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _test_connection(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         workspace_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Test connection to a Slack workspace.
@@ -500,10 +500,10 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _disconnect_workspace(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         workspace_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Disconnect (deactivate) a Slack workspace.
@@ -562,10 +562,10 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:read")
     def _list_channels(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         workspace_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         List available channels for a Slack workspace.
@@ -644,9 +644,9 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:channels:subscribe")
     def _subscribe_channel(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Subscribe a Slack channel to receive notifications.
@@ -742,9 +742,9 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:channels:subscribe")
     def _list_subscriptions(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         List Slack channel subscriptions for the organization.
@@ -793,10 +793,10 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:channels:subscribe")
     def _delete_subscription(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
         subscription_id: str,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """
         Delete a Slack channel subscription.
@@ -845,9 +845,9 @@ class SlackWorkspaceHandler(SecureHandler):
     @require_permission("sme:workspaces:write")
     def _handle_oauth_start(
         self,
-        handler,
+        handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Start Slack OAuth flow (placeholder for SME flow)."""
         # In production this should redirect to Slack OAuth.
@@ -870,8 +870,8 @@ class SlackWorkspaceHandler(SecureHandler):
         self,
         code: str,
         state: str | None,
-        handler,
-        user=None,
+        handler: Any,
+        user: Any = None,
     ) -> HandlerResult:
         """Handle Slack OAuth callback (placeholder)."""
         if not code:

@@ -146,7 +146,7 @@ class OAuthHandler(
         return path in self.ROUTES
 
     def handle(
-        self, path: str, query_params: dict, handler, method: str = "GET"
+        self, path: str, query_params: dict, handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
         """Route OAuth requests to appropriate methods."""
         # Extract provider from path for tracing
@@ -273,12 +273,12 @@ class OAuthHandler(
             _asa(span, {"oauth.error": "method_not_allowed"})
             return error_response("Method not allowed", 405)
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
     def _check_permission(
-        self, handler, permission_key: str, resource_id: str | None = None
+        self, handler: Any, permission_key: str, resource_id: str | None = None
     ) -> HandlerResult | None:
         """Check RBAC permission. Returns error response if denied, None if allowed."""
         from aragora.billing.jwt_auth import extract_user_from_request
@@ -390,11 +390,11 @@ class OAuthHandler(
         redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
+    def _find_user_by_oauth(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Find user by OAuth provider ID."""
         return self._maybe_await(self._find_user_by_oauth_async(user_store, user_info))
 
-    async def _find_user_by_oauth_async(self, user_store, user_info: OAuthUserInfo):
+    async def _find_user_by_oauth_async(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Async implementation for finding user by OAuth provider ID.
 
         Includes retry logic for handling transient database connection errors
@@ -447,39 +447,39 @@ class OAuthHandler(
             raise last_error
         return None
 
-    async def _try_refresh_user_store_pool(self, user_store) -> None:
+    async def _try_refresh_user_store_pool(self, user_store: Any) -> None:
         """Attempt to refresh the user store's database pool.
 
-        This is a best-effort operation to recover from stale pool connections.
+        Force-reinitializes the shared pool to get fresh connections instead of
+        reusing the same broken pool reference.
         """
         try:
             from aragora.storage.pool_manager import (
                 get_shared_pool,
                 initialize_shared_pool,
-                is_pool_initialized,
             )
 
-            # Check if we need to reinitialize the pool
-            if not is_pool_initialized():
-                logger.info("Shared pool not initialized, attempting to initialize...")
-                await initialize_shared_pool()
+            # Force-reinitialize the pool to get fresh connections.
+            # Without force=True, initialize_shared_pool() returns the existing
+            # (broken) pool since it's already initialized on this event loop.
+            logger.info("Force-reinitializing shared pool after InterfaceError...")
+            await initialize_shared_pool(force=True)
 
             # Get fresh pool reference
             new_pool = get_shared_pool()
             if new_pool and hasattr(user_store, "_pool"):
-                # Update user store's pool reference
                 user_store._pool = new_pool
-                logger.info("User store pool reference updated")
+                logger.info("User store pool reference updated with fresh pool")
 
         except ImportError:
             pass  # pool_manager not available
 
-    def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
+    def _link_oauth_to_user(self, user_store: Any, user_id: str, user_info: OAuthUserInfo) -> bool:
         """Link OAuth provider to existing user."""
         return self._maybe_await(self._link_oauth_to_user_async(user_store, user_id, user_info))
 
     async def _link_oauth_to_user_async(
-        self, user_store, user_id: str, user_info: OAuthUserInfo
+        self, user_store: Any, user_id: str, user_info: OAuthUserInfo
     ) -> bool:
         """Async implementation for linking OAuth provider to existing user."""
         async_link = getattr(user_store, "link_oauth_provider_async", None)
@@ -501,11 +501,11 @@ class OAuthHandler(
         logger.warning("UserStore doesn't support OAuth linking, using fallback")
         return False
 
-    def _create_oauth_user(self, user_store, user_info: OAuthUserInfo):
+    def _create_oauth_user(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Create a new user from OAuth info."""
         return self._maybe_await(self._create_oauth_user_async(user_store, user_info))
 
-    async def _create_oauth_user_async(self, user_store, user_info: OAuthUserInfo):
+    async def _create_oauth_user_async(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Async implementation for creating a new user from OAuth info."""
         from aragora.billing.models import hash_password
 
@@ -544,7 +544,7 @@ class OAuthHandler(
 
     def _handle_account_linking(
         self,
-        user_store,
+        user_store: Any,
         user_id: str,
         user_info: OAuthUserInfo,
         state_data: dict,
@@ -556,7 +556,7 @@ class OAuthHandler(
 
     async def _handle_account_linking_async(
         self,
-        user_store,
+        user_store: Any,
         user_id: str,
         user_info: OAuthUserInfo,
         state_data: dict,
@@ -602,7 +602,7 @@ class OAuthHandler(
         "Expires": "0",
     }
 
-    def _redirect_with_tokens(self, redirect_url: str, tokens) -> HandlerResult:
+    def _redirect_with_tokens(self, redirect_url: str, tokens: Any) -> HandlerResult:
         """Redirect to frontend with tokens in URL fragment.
 
         Tokens in query params can leak via logs, referrers, and proxies.

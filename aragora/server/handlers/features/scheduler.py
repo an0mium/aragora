@@ -21,6 +21,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -80,7 +81,7 @@ class SchedulerHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         if path == "/api/v1/scheduler/jobs":
             return self._list_jobs(query_params)
@@ -102,7 +103,7 @@ class SchedulerHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         _, perm_error = self.require_permission_or_error(handler, "scheduler:write")
         if perm_error:
@@ -138,7 +139,7 @@ class SchedulerHandler(BaseHandler):
 
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_delete(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
         _, perm_error = self.require_permission_or_error(handler, "scheduler:delete")
         if perm_error:
@@ -151,7 +152,7 @@ class SchedulerHandler(BaseHandler):
                 return self._delete_job(job_id)
         return None
 
-    def _get_scheduler(self):
+    def _get_scheduler(self) -> Any:
         """Get the scheduler instance."""
         from aragora.scheduler import get_scheduler
 
@@ -160,7 +161,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:read")
     @handle_errors("list jobs")
-    def _list_jobs(self, query_params: dict, user=None) -> HandlerResult:
+    def _list_jobs(self, query_params: dict, user: Any = None) -> HandlerResult:
         """List all scheduled jobs."""
         scheduler = self._get_scheduler()
 
@@ -189,7 +190,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:read")
     @handle_errors("get job")
-    def _get_job(self, job_id: str, user=None) -> HandlerResult:
+    def _get_job(self, job_id: str, user: Any = None) -> HandlerResult:
         """Get details of a specific job."""
         scheduler = self._get_scheduler()
         job = scheduler.get_job(job_id)
@@ -203,7 +204,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:create")
     @handle_errors("create job")
-    def _create_job(self, handler, user=None) -> HandlerResult:
+    def _create_job(self, handler: Any, user: Any = None) -> HandlerResult:
         """
         Create a new scheduled job.
 
@@ -297,7 +298,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:delete")
     @handle_errors("delete job")
-    def _delete_job(self, job_id: str, user=None) -> HandlerResult:
+    def _delete_job(self, job_id: str, user: Any = None) -> HandlerResult:
         """Delete a scheduled job."""
         scheduler = self._get_scheduler()
 
@@ -316,7 +317,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:execute")
     @handle_errors("trigger job")
-    def _trigger_job(self, job_id: str, user=None) -> HandlerResult:
+    def _trigger_job(self, job_id: str, user: Any = None) -> HandlerResult:
         """Manually trigger a job execution.
 
         Protected by:
@@ -356,7 +357,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:update")
     @handle_errors("pause job")
-    def _pause_job(self, job_id: str, user=None) -> HandlerResult:
+    def _pause_job(self, job_id: str, user: Any = None) -> HandlerResult:
         """Pause a scheduled job."""
         scheduler = self._get_scheduler()
 
@@ -373,7 +374,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:update")
     @handle_errors("resume job")
-    def _resume_job(self, job_id: str, user=None) -> HandlerResult:
+    def _resume_job(self, job_id: str, user: Any = None) -> HandlerResult:
         """Resume a paused job."""
         scheduler = self._get_scheduler()
 
@@ -390,7 +391,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:read")
     @handle_errors("job history")
-    def _get_job_history(self, job_id: str, limit: int = 10, user=None) -> HandlerResult:
+    def _get_job_history(self, job_id: str, limit: int = 10, user: Any = None) -> HandlerResult:
         """Get run history for a job."""
         scheduler = self._get_scheduler()
 
@@ -425,7 +426,7 @@ class SchedulerHandler(BaseHandler):
         )
 
     @handle_errors("webhook")
-    def _handle_webhook(self, handler, webhook_id: str) -> HandlerResult:
+    def _handle_webhook(self, handler: Any, webhook_id: str) -> HandlerResult:
         """
         Handle incoming webhook trigger.
 
@@ -461,7 +462,7 @@ class SchedulerHandler(BaseHandler):
             return error_response(safe_error_message(e, "Webhook handling"), 500)
 
     @handle_errors("git push event")
-    def _handle_git_push(self, handler) -> HandlerResult:
+    def _handle_git_push(self, handler: Any) -> HandlerResult:
         """
         Handle git push event (e.g., from GitHub webhook).
 
@@ -517,7 +518,7 @@ class SchedulerHandler(BaseHandler):
     @require_user_auth
     @require_permission("scheduler:execute")
     @handle_errors("file upload event")
-    def _handle_file_upload(self, handler, user=None) -> HandlerResult:
+    def _handle_file_upload(self, handler: Any, user: Any = None) -> HandlerResult:
         """
         Handle file upload event to trigger audits.
 
