@@ -451,7 +451,7 @@ class TestCostHandlerHTTP:
     async def test_handle_get_costs_error(self, handler, mock_request):
         """GET /api/costs handles errors."""
         with patch("aragora.server.handlers.costs.models.get_cost_summary") as mock_summary:
-            mock_summary.side_effect = Exception("Database error")
+            mock_summary.side_effect = RuntimeError("Database error")
 
             response = await handler.handle_get_costs(mock_request)
 

@@ -261,7 +261,7 @@ class TestExtractSymbolsFromAnalysis:
 
 class TestGetExportedSymbols:
     def test_uses_all_when_present(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analysis.exports = ["A", "B"]
         analysis.functions.append(
             FunctionInfo(
@@ -274,7 +274,7 @@ class TestGetExportedSymbols:
         assert result == ["A", "B"]
 
     def test_collects_public_when_no_all(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analysis.functions.append(
             FunctionInfo(
                 name="public_func",
@@ -310,7 +310,7 @@ class TestGetExportedSymbols:
 class TestFindSymbolDefinition:
     def test_find_function(self):
         loc = SourceLocation("a.py", 10, 0, 15, 0)
-        analysis = FileAnalysis(file_path="a.py")
+        analysis = FileAnalysis(file_path="a.py", language=Language.PYTHON)
         analysis.functions.append(
             FunctionInfo(name="target", kind=SymbolKind.FUNCTION, location=loc)
         )
@@ -319,7 +319,7 @@ class TestFindSymbolDefinition:
 
     def test_find_class(self):
         loc = SourceLocation("b.py", 20, 0, 40, 0)
-        analysis = FileAnalysis(file_path="b.py")
+        analysis = FileAnalysis(file_path="b.py", language=Language.PYTHON)
         analysis.classes.append(ClassInfo(name="Target", kind=SymbolKind.CLASS, location=loc))
         result = find_symbol_definition("Target", {"b.py": analysis})
         assert result == loc
@@ -334,13 +334,13 @@ class TestFindSymbolDefinition:
         cls.methods.append(
             FunctionInfo(name="target_method", kind=SymbolKind.METHOD, location=method_loc)
         )
-        analysis = FileAnalysis(file_path="c.py")
+        analysis = FileAnalysis(file_path="c.py", language=Language.PYTHON)
         analysis.classes.append(cls)
         result = find_symbol_definition("target_method", {"c.py": analysis})
         assert result == method_loc
 
     def test_not_found(self):
-        analysis = FileAnalysis(file_path="a.py")
+        analysis = FileAnalysis(file_path="a.py", language=Language.PYTHON)
         result = find_symbol_definition("missing", {"a.py": analysis})
         assert result is None
 
@@ -353,7 +353,7 @@ class TestFindSymbolDefinition:
 class TestAnalyzeWithRegexPython:
     def test_detects_functions(self):
         source = "def foo():\n    pass\n\ndef bar(x, y):\n    return x + y"
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analyze_with_regex(source, analysis, Language.PYTHON)
         names = [f.name for f in analysis.functions]
         assert "foo" in names
@@ -361,7 +361,7 @@ class TestAnalyzeWithRegexPython:
 
     def test_detects_async_functions(self):
         source = "async def fetch():\n    pass"
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analyze_with_regex(source, analysis, Language.PYTHON)
         assert len(analysis.functions) == 1
         assert analysis.functions[0].name == "fetch"
@@ -369,7 +369,7 @@ class TestAnalyzeWithRegexPython:
 
     def test_detects_classes(self):
         source = "class Foo:\n    pass\n\nclass Bar(Base):\n    pass"
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analyze_with_regex(source, analysis, Language.PYTHON)
         names = [c.name for c in analysis.classes]
         assert "Foo" in names
@@ -377,7 +377,7 @@ class TestAnalyzeWithRegexPython:
 
     def test_detects_imports(self):
         source = "import os\nfrom pathlib import Path\nfrom typing import Any, Optional"
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analyze_with_regex(source, analysis, Language.PYTHON)
         modules = [i.module for i in analysis.imports]
         assert "os" in modules
@@ -386,7 +386,7 @@ class TestAnalyzeWithRegexPython:
 
     def test_ignores_indented_functions(self):
         source = "class Foo:\n    def method(self):\n        pass\n\ndef top_level():\n    pass"
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analyze_with_regex(source, analysis, Language.PYTHON)
         # Only top-level functions should be detected
         func_names = [f.name for f in analysis.functions]
@@ -394,7 +394,7 @@ class TestAnalyzeWithRegexPython:
         assert "method" not in func_names
 
     def test_empty_source(self):
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analyze_with_regex("", analysis, Language.PYTHON)
         assert analysis.functions == []
         assert analysis.classes == []
@@ -402,7 +402,7 @@ class TestAnalyzeWithRegexPython:
 
     def test_class_bases_extracted(self):
         source = "class Child(Parent, Mixin):\n    pass"
-        analysis = FileAnalysis(file_path="test.py")
+        analysis = FileAnalysis(file_path="test.py", language=Language.PYTHON)
         analyze_with_regex(source, analysis, Language.PYTHON)
         assert len(analysis.classes) == 1
         assert "Parent" in analysis.classes[0].bases

@@ -32,6 +32,15 @@ from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+# RBAC imports - optional dependency
+try:
+    from aragora.rbac.checker import check_permission
+    from aragora.rbac.models import AuthorizationContext
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Environment variables - None defaults make misconfiguration explicit
@@ -90,6 +99,34 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+
+    # ------------------------------------------------------------------
+    # RBAC helper
+    # ------------------------------------------------------------------
+
+    def _check_bot_permission(
+        self, permission: str, *, user_id: str = "", context: dict | None = None
+    ) -> None:
+        """Check RBAC permission if available.
+
+        Args:
+            permission: The permission string to check (e.g. "debates:create").
+            user_id: Platform-qualified user id (e.g. "whatsapp:15551234567").
+            context: Optional dict that may carry an ``auth_context`` key.
+
+        Raises:
+            PermissionError: When RBAC is available and the check fails.
+        """
+        if not RBAC_AVAILABLE:
+            return
+        auth_ctx = (context or {}).get("auth_context")
+        if auth_ctx is None and user_id:
+            auth_ctx = AuthorizationContext(
+                user_id=user_id,
+                roles={"bot_user"},
+            )
+        if auth_ctx:
+            check_permission(auth_ctx, permission)
 
     # BotHandlerMixin configuration
     bot_platform = "whatsapp"

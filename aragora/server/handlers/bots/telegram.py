@@ -25,6 +25,15 @@ from typing import Any, Protocol, cast
 
 from aragora.audit.unified import audit_data
 
+# RBAC imports - optional dependency
+try:
+    from aragora.rbac.checker import check_permission
+    from aragora.rbac.models import AuthorizationContext
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 
 class VoteRecordingStore(Protocol):
     """Protocol for stores that can record votes.
@@ -135,6 +144,34 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+
+    # ------------------------------------------------------------------
+    # RBAC helper
+    # ------------------------------------------------------------------
+
+    def _check_bot_permission(
+        self, permission: str, *, user_id: str = "", context: dict | None = None
+    ) -> None:
+        """Check RBAC permission if available.
+
+        Args:
+            permission: The permission string to check (e.g. "debates:create").
+            user_id: Platform-qualified user id (e.g. "telegram:12345").
+            context: Optional dict that may carry an ``auth_context`` key.
+
+        Raises:
+            PermissionError: When RBAC is available and the check fails.
+        """
+        if not RBAC_AVAILABLE:
+            return
+        auth_ctx = (context or {}).get("auth_context")
+        if auth_ctx is None and user_id:
+            auth_ctx = AuthorizationContext(
+                user_id=user_id,
+                roles={"bot_user"},
+            )
+        if auth_ctx:
+            check_permission(auth_ctx, permission)
 
     # BotHandlerMixin configuration
     bot_platform = "telegram"
@@ -334,6 +371,14 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         self, callback_id: str, user_id: int, debate_id: str, vote_option: str
     ) -> HandlerResult:
         """Handle vote on debate outcome."""
+        # RBAC: check vote permission
+        try:
+            self._check_bot_permission("votes:record", user_id=f"telegram:{user_id}")
+        except PermissionError as exc:
+            logger.warning("RBAC denied votes:record for telegram:%s: %s", user_id, exc)
+            self._answer_callback_query(callback_id, "Permission denied: cannot vote.")
+            return json_response({"ok": False, "error": "permission_denied"})
+
         logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
 
         try:
@@ -426,6 +471,14 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
     def _cmd_debate(self, chat_id: int, user_id: int, topic: str) -> HandlerResult:
         """Handle /debate command."""
+        # RBAC: check debate creation permission
+        try:
+            self._check_bot_permission("debates:create", user_id=f"telegram:{user_id}")
+        except PermissionError as exc:
+            logger.warning("RBAC denied debates:create for telegram:%s: %s", user_id, exc)
+            self._send_message(chat_id, "Permission denied: you cannot start debates.")
+            return json_response({"ok": False, "error": "permission_denied"})
+
         if not topic.strip():
             self._send_message(
                 chat_id,

@@ -131,7 +131,7 @@ jobs:
             aragora/policy/risk.py \
             aragora/policy/tools.py \
             aragora/connectors/chat/models.py \
-            aragora/connectors/chat/base.py \
+            aragora/connectors/chat/base/__init__.py \
             aragora/connectors/chat/telegram.py \
             aragora/connectors/chat/whatsapp.py \
             aragora/connectors/chat/slack/__init__.py \

@@ -94,9 +94,9 @@ class MoundHandlersMixin:
                     },
                     tier=MemoryTier.MEDIUM,  # Cross-session memory
                 )
-                logger.debug(f"Synced KM node {node_id} to memory continuum")
+                logger.debug("Synced KM node %s to memory continuum", node_id)
             except Exception as e:
-                logger.debug(f"Memory sync unavailable: {e}")
+                logger.debug("Memory sync unavailable: %s", e)
 
             self.stats["mound_to_memory"]["events"] += 1
 
@@ -106,7 +106,7 @@ class MoundHandlersMixin:
                 slo_checker("km_mound_to_memory", latency_ms)
 
         except Exception as e:
-            logger.error(f"Mound → Memory handler error: {e}")
+            logger.error("Mound -> Memory handler error: %s", e)
             self.stats["mound_to_memory"]["errors"] += 1
 
     def _handle_memory_to_mound(self, event: StreamEvent) -> None:
@@ -147,9 +147,9 @@ class MoundHandlersMixin:
                     mound = KnowledgeMound()
                     if hasattr(mound, "record_access"):
                         mound.record_access(node_id, access_type=access_type, hit=hit)
-                        logger.debug(f"Recorded KM access for node {node_id}")
+                        logger.debug("Recorded KM access for node %s", node_id)
                 except Exception as e:
-                    logger.debug(f"KM access recording unavailable: {e}")
+                    logger.debug("KM access recording unavailable: %s", e)
 
             self.stats["memory_to_mound"]["events"] += 1
 
@@ -159,7 +159,7 @@ class MoundHandlersMixin:
                 slo_checker("km_memory_to_mound", latency_ms)
 
         except Exception as e:
-            logger.error(f"Memory → Mound handler error: {e}")
+            logger.error("Memory -> Mound handler error: %s", e)
             self.stats["memory_to_mound"]["errors"] += 1
 
     def _handle_belief_to_mound(self, event: StreamEvent) -> None:
@@ -192,14 +192,14 @@ class MoundHandlersMixin:
                         confidence=confidence,
                         sources=sources,
                     )
-                    logger.debug(f"Ingested belief {claim_id} to KM")
+                    logger.debug("Ingested belief %s to KM", claim_id)
             except Exception as e:
-                logger.debug(f"KM belief ingestion unavailable: {e}")
+                logger.debug("KM belief ingestion unavailable: %s", e)
 
             self.stats["belief_to_mound"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"Belief → Mound handler error: {e}")
+            logger.error("Belief -> Mound handler error: %s", e)
             self.stats["belief_to_mound"]["errors"] += 1
 
     def _handle_mound_to_belief(self, event: StreamEvent) -> None:
@@ -227,14 +227,16 @@ class MoundHandlersMixin:
                     related = mound.find_related_claims(query, limit=5)
                     if related and debate_id:
                         # Store for belief network to pick up
-                        logger.debug(f"Found {len(related)} related claims for debate {debate_id}")
+                        logger.debug(
+                            "Found %s related claims for debate %s", len(related), debate_id
+                        )
             except Exception as e:
-                logger.debug(f"KM claim lookup unavailable: {e}")
+                logger.debug("KM claim lookup unavailable: %s", e)
 
             self.stats["mound_to_belief"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"Mound → Belief handler error: {e}")
+            logger.error("Mound -> Belief handler error: %s", e)
             self.stats["mound_to_belief"]["errors"] += 1
 
     def _handle_rlm_to_mound(self, event: StreamEvent) -> None:
@@ -266,12 +268,12 @@ class MoundHandlersMixin:
                         retrieval_count=retrieval_count,
                     )
             except Exception as e:
-                logger.debug(f"KM RLM metadata update unavailable: {e}")
+                logger.debug("KM RLM metadata update unavailable: %s", e)
 
             self.stats["rlm_to_mound"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"RLM → Mound handler error: {e}")
+            logger.error("RLM -> Mound handler error: %s", e)
             self.stats["rlm_to_mound"]["errors"] += 1
 
     def _handle_mound_to_rlm(self, event: StreamEvent) -> None:
@@ -297,14 +299,14 @@ class MoundHandlersMixin:
                 if hasattr(mound, "get_compression_hints"):
                     hints = mound.get_compression_hints(content_type)
                     if hints:
-                        logger.debug(f"Retrieved compression hints for {content_type}")
+                        logger.debug("Retrieved compression hints for %s", content_type)
             except Exception as e:
-                logger.debug(f"KM compression hints unavailable: {e}")
+                logger.debug("KM compression hints unavailable: %s", e)
 
             self.stats["mound_to_rlm"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"Mound → RLM handler error: {e}")
+            logger.error("Mound -> RLM handler error: %s", e)
             self.stats["mound_to_rlm"]["errors"] += 1
 
     def _handle_elo_to_mound(self, event: StreamEvent) -> None:
@@ -337,14 +339,14 @@ class MoundHandlersMixin:
                         rating_change=rating_change,
                         domain=domain,
                     )
-                    logger.debug(f"Recorded ELO update for {agent_name} in KM")
+                    logger.debug("Recorded ELO update for %s in KM", agent_name)
             except Exception as e:
-                logger.debug(f"KM ELO recording unavailable: {e}")
+                logger.debug("KM ELO recording unavailable: %s", e)
 
             self.stats["elo_to_mound"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"ELO → Mound handler error: {e}")
+            logger.error("ELO -> Mound handler error: %s", e)
             self.stats["elo_to_mound"]["errors"] += 1
 
     def _handle_mound_to_team_selection(self, event: StreamEvent) -> None:
@@ -372,14 +374,14 @@ class MoundHandlersMixin:
                     for agent in candidate_agents:
                         history = mound.get_agent_history(agent, task_type=task_type)
                         if history:
-                            logger.debug(f"Retrieved history for {agent} on {task_type}")
+                            logger.debug("Retrieved history for %s on %s", agent, task_type)
             except Exception as e:
-                logger.debug(f"KM agent history unavailable: {e}")
+                logger.debug("KM agent history unavailable: %s", e)
 
             self.stats["mound_to_team_selection"]["events"] += 1
 
         except Exception as e:
-            logger.error(f"Mound → Team Selection handler error: {e}")
+            logger.error("Mound -> Team Selection handler error: %s", e)
             self.stats["mound_to_team_selection"]["errors"] += 1
 
     def _handle_insight_to_mound(self, event: StreamEvent) -> None:

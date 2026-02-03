@@ -386,22 +386,32 @@ class OAuthHandler(
         redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    async def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
+    def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
         """Find user by OAuth provider ID."""
+        return self._maybe_await(self._find_user_by_oauth_async(user_store, user_info))
+
+    async def _find_user_by_oauth_async(self, user_store, user_info: OAuthUserInfo):
+        """Async implementation for finding user by OAuth provider ID."""
         # Look for user with matching OAuth link
         # This requires the user store to support OAuth lookups
-        if hasattr(user_store, "get_user_by_oauth_async"):
-            return await user_store.get_user_by_oauth_async(
-                user_info.provider, user_info.provider_user_id
-            )
+        async_lookup = getattr(user_store, "get_user_by_oauth_async", None)
+        if async_lookup and inspect.iscoroutinefunction(async_lookup):
+            return await async_lookup(user_info.provider, user_info.provider_user_id)
         if hasattr(user_store, "get_user_by_oauth"):
             return user_store.get_user_by_oauth(user_info.provider, user_info.provider_user_id)
         return None
 
-    async def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
+    def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
         """Link OAuth provider to existing user."""
-        if hasattr(user_store, "link_oauth_provider_async"):
-            return await user_store.link_oauth_provider_async(
+        return self._maybe_await(self._link_oauth_to_user_async(user_store, user_id, user_info))
+
+    async def _link_oauth_to_user_async(
+        self, user_store, user_id: str, user_info: OAuthUserInfo
+    ) -> bool:
+        """Async implementation for linking OAuth provider to existing user."""
+        async_link = getattr(user_store, "link_oauth_provider_async", None)
+        if async_link and inspect.iscoroutinefunction(async_link):
+            return await async_link(
                 user_id=user_id,
                 provider=user_info.provider,
                 provider_user_id=user_info.provider_user_id,
@@ -418,8 +428,12 @@ class OAuthHandler(
         logger.warning("UserStore doesn't support OAuth linking, using fallback")
         return False
 
-    async def _create_oauth_user(self, user_store, user_info: OAuthUserInfo):
+    def _create_oauth_user(self, user_store, user_info: OAuthUserInfo):
         """Create a new user from OAuth info."""
+        return self._maybe_await(self._create_oauth_user_async(user_store, user_info))
+
+    async def _create_oauth_user_async(self, user_store, user_info: OAuthUserInfo):
+        """Async implementation for creating a new user from OAuth info."""
         from aragora.billing.models import hash_password
 
         # Generate random password (user will use OAuth to login)
@@ -427,8 +441,9 @@ class OAuthHandler(
         password_hash, password_salt = hash_password(random_password)
 
         try:
-            if hasattr(user_store, "create_user_async"):
-                user = await user_store.create_user_async(
+            create_async = getattr(user_store, "create_user_async", None)
+            if create_async and inspect.iscoroutinefunction(create_async):
+                user = await create_async(
                     email=user_info.email,
                     password_hash=password_hash,
                     password_salt=password_salt,
@@ -445,7 +460,7 @@ class OAuthHandler(
             logger.debug(f"OAuth user created: id={user.id}, email={user_info.email}")
 
             # Link OAuth provider
-            await self._link_oauth_to_user(user_store, user.id, user_info)
+            await self._link_oauth_to_user(user_store, user.id, user_info)  # type: ignore[misc]
 
             logger.info(f"Created OAuth user: {user_info.email} via {user_info.provider}")
             return user

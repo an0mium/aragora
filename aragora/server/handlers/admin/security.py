@@ -24,7 +24,18 @@ from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from .admin import admin_secure_endpoint
 
+try:
+    from aragora.rbac.checker import check_permission  # noqa: F401
+    from aragora.rbac.models import AuthorizationContext  # noqa: F401
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+# Permission required for security admin access
+ADMIN_SECURITY_PERMISSION = "admin:security"
 
 # Rate limiter for security admin endpoints (10 requests per minute)
 _security_limiter = RateLimiter(requests_per_minute=10)
@@ -62,6 +73,17 @@ class SecurityHandler(SecureHandler):
             logger.warning(f"Rate limit exceeded for security endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # RBAC inline check via rbac.checker if available
+        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+            decision = check_permission(handler.auth_context, ADMIN_SECURITY_PERMISSION)
+            if not decision.allowed:
+                logger.warning(f"RBAC denied admin security access: {decision.reason}")
+                return error_response(
+                    decision.reason or "Permission denied",
+                    403,
+                    code="PERMISSION_DENIED",
+                )
+
         handlers = {
             "/api/v1/admin/security/status": self._get_status,
             "/api/v1/admin/security/health": self._get_health,
@@ -80,6 +102,17 @@ class SecurityHandler(SecureHandler):
 
     def handle_post(self, path: str, data: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for security endpoints."""
+        # RBAC inline check via rbac.checker if available
+        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+            decision = check_permission(handler.auth_context, ADMIN_SECURITY_PERMISSION)
+            if not decision.allowed:
+                logger.warning(f"RBAC denied admin security POST access: {decision.reason}")
+                return error_response(
+                    decision.reason or "Permission denied",
+                    403,
+                    code="PERMISSION_DENIED",
+                )
+
         if path in ("/api/v1/admin/security/rotate-key", "/api/admin/security/rotate-key"):
             return self._rotate_key(data, handler)
         return None

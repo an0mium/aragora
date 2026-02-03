@@ -35,6 +35,15 @@ from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+# RBAC imports - optional dependency
+try:
+    from aragora.rbac.checker import check_permission  # noqa: F401
+    from aragora.rbac.models import AuthorizationContext  # noqa: F401
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Environment variables - None defaults make misconfiguration explicit
@@ -192,6 +201,34 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
+    # ------------------------------------------------------------------
+    # RBAC helper
+    # ------------------------------------------------------------------
+
+    def _check_bot_permission(
+        self, permission: str, *, user_id: str = "", context: dict | None = None
+    ) -> None:
+        """Check RBAC permission if available.
+
+        Args:
+            permission: The permission string to check (e.g. "debates:create").
+            user_id: Platform-qualified user id (e.g. "discord:12345").
+            context: Optional dict that may carry an ``auth_context`` key.
+
+        Raises:
+            PermissionError: When RBAC is available and the check fails.
+        """
+        if not RBAC_AVAILABLE:
+            return
+        auth_ctx = (context or {}).get("auth_context")
+        if auth_ctx is None and user_id:
+            auth_ctx = AuthorizationContext(
+                user_id=user_id,
+                roles={"bot_user"},
+            )
+        if auth_ctx:
+            check_permission(auth_ctx, permission)
+
     # BotHandlerMixin configuration
     bot_platform = "discord"
 
@@ -342,10 +379,38 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             return await self._execute_command(subcommand, subargs, user_id, interaction)
 
         if command_name == "debate":
+            # RBAC: check debate creation permission
+            try:
+                self._check_bot_permission("debates:create", user_id=f"discord:{user_id}")
+            except PermissionError as exc:
+                logger.warning("RBAC denied debates:create for discord:%s: %s", user_id, exc)
+                return json_response(
+                    {
+                        "type": 4,
+                        "data": {
+                            "content": "Permission denied: you cannot start debates.",
+                            "flags": 64,
+                        },
+                    }
+                )
             topic = args.get("topic", "")
             return await self._execute_command("debate", topic, user_id, interaction)
 
         if command_name == "gauntlet":
+            # RBAC: check gauntlet permission
+            try:
+                self._check_bot_permission("gauntlet:run", user_id=f"discord:{user_id}")
+            except PermissionError as exc:
+                logger.warning("RBAC denied gauntlet:run for discord:%s: %s", user_id, exc)
+                return json_response(
+                    {
+                        "type": 4,
+                        "data": {
+                            "content": "Permission denied: you cannot run gauntlet.",
+                            "flags": 64,
+                        },
+                    }
+                )
             statement = args.get("statement", "")
             return await self._execute_command("gauntlet", statement, user_id, interaction)
 
@@ -464,6 +529,21 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
 
         # Parse custom_id (e.g., "vote_debateid_agree")
         if custom_id.startswith("vote_"):
+            # RBAC: check vote permission
+            try:
+                self._check_bot_permission("votes:record", user_id=f"discord:{user_id}")
+            except PermissionError as exc:
+                logger.warning("RBAC denied votes:record for discord:%s: %s", user_id, exc)
+                return json_response(
+                    {
+                        "type": 4,
+                        "data": {
+                            "content": "Permission denied: you cannot vote.",
+                            "flags": 64,
+                        },
+                    }
+                )
+
             parts = custom_id.split("_")
             if len(parts) >= 3:
                 debate_id = parts[1]

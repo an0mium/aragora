@@ -22,6 +22,14 @@ from typing import Any
 from aragora.config import CACHE_TTL_ANALYTICS
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
+
+try:
+    from aragora.rbac.checker import check_permission  # noqa: F401
+    from aragora.rbac.models import AuthorizationContext  # noqa: F401
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .analytics.cache import CACHE_CONFIGS, CacheConfig
@@ -128,6 +136,17 @@ class AnalyticsPerformanceHandler(BaseHandler):
                 "Rate limit exceeded. Please try again later.",
                 429,
             )
+
+        # RBAC inline check via rbac.checker if available
+        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+            decision = check_permission(handler.auth_context, PERM_ANALYTICS_PERFORMANCE)
+            if not decision.allowed:
+                logger.warning(f"RBAC denied analytics performance access: {decision.reason}")
+                return error_response(
+                    decision.reason or "Permission denied",
+                    403,
+                    code="PERMISSION_DENIED",
+                )
 
         # Route to appropriate handler
         if normalized == "/api/analytics/agents/performance":

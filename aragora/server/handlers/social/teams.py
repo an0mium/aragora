@@ -66,8 +66,8 @@ try:
         UserAuthContext as _UserAuthCtx,
         extract_user_from_request as _extract_user,
     )
-    from aragora.rbac.checker import check_permission as _check_perm
-    from aragora.rbac.models import AuthorizationContext as _AuthCtx
+    from aragora.rbac.checker import check_permission as _check_perm  # noqa: F401
+    from aragora.rbac.models import AuthorizationContext as _AuthCtx  # noqa: F401
 
     check_permission = _check_perm
     extract_user_from_request = _extract_user

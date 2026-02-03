@@ -11,6 +11,7 @@ from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async
 
 from aragora.pipeline.decision_integrity import build_decision_integrity_package
+from aragora.server.result_router import route_result
 from aragora.implement import HybridExecutor
 from aragora.autonomous.loop_enhancement import ApprovalStatus
 from aragora.server.handlers.autonomous.approvals import get_approval_flow
@@ -71,6 +72,7 @@ class ImplementationOperationsMixin:
         plan_strategy = str(payload.get("plan_strategy", "single_task"))
         execution_mode = str(payload.get("execution_mode", "plan_only"))
         parallel_execution = bool(payload.get("parallel_execution", False))
+        notify_origin = bool(payload.get("notify_origin", False))
         risk_level = str(payload.get("risk_level", "medium"))
         approval_timeout = payload.get("approval_timeout_seconds")
 
@@ -96,7 +98,7 @@ class ImplementationOperationsMixin:
             if user:
                 try:
                     checker = get_permission_checker()
-                    decision = checker.check_permission(user, "autonomous:approve")
+                    decision = checker.check_permission(user, "autonomous:approve")  # type: ignore[arg-type]
                     if not decision.allowed:
                         return error_response(
                             f"Permission denied: {decision.reason}",
@@ -181,5 +183,20 @@ class ImplementationOperationsMixin:
                         "status": "pending_approval",
                         "approval_id": approval_request.id,
                     }
+
+        if notify_origin:
+            try:
+                run_async(
+                    route_result(
+                        debate_id,
+                        {
+                            "debate_id": debate_id,
+                            "event": "decision_integrity",
+                            "package": response_payload,
+                        },
+                    )
+                )
+            except Exception as exc:
+                logger.debug("Decision integrity routing failed: %s", exc)
 
         return json_response(response_payload)

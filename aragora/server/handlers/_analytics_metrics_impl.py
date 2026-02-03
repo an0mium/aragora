@@ -34,6 +34,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from aragora.rbac.decorators import require_permission  # noqa: F401
 
+try:
+    from aragora.rbac.checker import check_permission  # noqa: F401
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 from aragora.config import CACHE_TTL_ANALYTICS
 from aragora.server.validation.query_params import safe_query_int
 from aragora.server.versioning.compat import strip_version_prefix
@@ -228,6 +235,17 @@ class AnalyticsMetricsHandler(SecureHandler):
         except ForbiddenError as e:
             logger.warning(f"Analytics metrics access denied: {e}")
             return error_response(str(e), 403, code="PERMISSION_DENIED")
+
+        # Additional RBAC check via rbac.checker if available
+        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+            decision = check_permission(handler.auth_context, ANALYTICS_METRICS_PERMISSION)
+            if not decision.allowed:
+                logger.warning(f"RBAC denied analytics metrics access: {decision.reason}")
+                return error_response(
+                    decision.reason or "Permission denied",
+                    403,
+                    code="PERMISSION_DENIED",
+                )
 
         # Debate Analytics
         if normalized == "/api/analytics/debates/overview":

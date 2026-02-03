@@ -899,7 +899,7 @@ class InboxCommandHandler:
                     for i, e in enumerate(emails[offset : offset + limit])
                 ]
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:
             logger.warning("Failed to fetch from Gmail, using demo data: %s", e)
             return self._get_demo_emails(limit, offset, priority_filter)
 
@@ -1053,7 +1053,15 @@ class InboxCommandHandler:
                         email=None,
                     )
 
-            except Exception as e:
+            except (
+                ValueError,
+                KeyError,
+                TypeError,
+                AttributeError,
+                RuntimeError,
+                OSError,
+                ConnectionError,
+            ) as e:
                 logger.warning("Action %s failed for %s: %s", action, email_id, e)
                 results.append(
                     {
@@ -1332,7 +1340,7 @@ class InboxCommandHandler:
                             else "Never"
                         ),
                     }
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:
                 logger.warning("Failed to get sender stats: %s", e)
 
         # Check prioritizer config for VIP status
@@ -1368,7 +1376,7 @@ class InboxCommandHandler:
                 today_stats: dict[str, Any] | None = await get_summary_fn(user_id="default")
                 if today_stats:
                     return today_stats
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:
                 logger.debug("Daily summary not available: %s", e)
 
         # Use cached data stats
@@ -1477,7 +1485,7 @@ class InboxCommandHandler:
         if self.gmail_connector:
             try:
                 email_messages = await self.gmail_connector.get_messages(email_ids_to_fetch)
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
                 logger.warning("Batch email fetch failed: %s", e)
                 # Fall back to individual fetches on batch failure
                 for eid in email_ids_to_fetch:
@@ -1485,7 +1493,7 @@ class InboxCommandHandler:
                         msg = await self.gmail_connector.get_message(eid)
                         if msg:
                             email_messages.append(msg)
-                    except Exception as fetch_err:
+                    except (OSError, ConnectionError, RuntimeError, AttributeError) as fetch_err:
                         logger.debug("Could not fetch email %s: %s", eid, fetch_err)
 
         if not email_messages:
@@ -1500,7 +1508,7 @@ class InboxCommandHandler:
         # This loads sender profiles in bulk (1-2 queries instead of N)
         try:
             results = await self.prioritizer.score_emails(email_messages, force_tier=scoring_tier)
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError, ConnectionError, AttributeError) as e:
             logger.warning("Batch scoring failed: %s", e)
             return {
                 "count": 0,

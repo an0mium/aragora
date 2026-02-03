@@ -276,7 +276,15 @@ async def handle_accounting_status(request: web.Request) -> web.Response:
                 }
             )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error getting accounting status: {e}")
         return web.json_response(
             {
@@ -312,7 +320,15 @@ async def handle_accounting_connect(request: web.Request) -> web.Response:
 
     except web.HTTPFound:
         raise
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error initiating QBO connection: {e}")
         return web.json_response(
             {
@@ -372,7 +388,15 @@ async def handle_accounting_callback(request: web.Request) -> web.Response:
 
     except web.HTTPFound:
         raise
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error handling OAuth callback: {e}")
         return web.json_response(
             {
@@ -406,7 +430,15 @@ async def handle_accounting_disconnect(request: web.Request) -> web.Response:
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error disconnecting QBO: {e}")
         return web.json_response(
             {
@@ -478,7 +510,15 @@ async def handle_accounting_customers(request: web.Request) -> web.Response:
                 }
             )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error listing customers: {e}")
         return web.json_response(
             {
@@ -584,7 +624,15 @@ async def handle_accounting_transactions(request: web.Request) -> web.Response:
                 }
             )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error listing transactions: {e}")
         return web.json_response(
             {
@@ -655,7 +703,15 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
                 }
             )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error generating report: {e}")
         return web.json_response(
             {
@@ -799,7 +855,15 @@ async def handle_gusto_status(request: web.Request) -> web.Response:
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error getting Gusto status: {e}")
         return web.json_response(
             {
@@ -833,7 +897,15 @@ async def handle_gusto_connect(request: web.Request) -> web.Response:
 
     except web.HTTPFound:
         raise
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error initiating Gusto connection: {e}")
         return web.json_response(
             {
@@ -888,7 +960,15 @@ async def handle_gusto_callback(request: web.Request) -> web.Response:
 
     except web.HTTPFound:
         raise
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error handling Gusto OAuth callback: {e}")
         return web.json_response(
             {
@@ -916,7 +996,15 @@ async def handle_gusto_disconnect(request: web.Request) -> web.Response:
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error disconnecting Gusto: {e}")
         return web.json_response(
             {
@@ -966,7 +1054,15 @@ async def handle_gusto_employees(request: web.Request) -> web.Response:
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error listing Gusto employees: {e}")
         return web.json_response(
             {
@@ -1035,7 +1131,14 @@ async def handle_gusto_payrolls(request: web.Request) -> web.Response:
             },
             status=400,
         )
-    except Exception as e:
+    except (
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error listing Gusto payrolls: {e}")
         return web.json_response(
             {
@@ -1089,7 +1192,15 @@ async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error fetching Gusto payroll: {e}")
         return web.json_response(
             {
@@ -1163,7 +1274,15 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.error(f"Error generating Gusto journal entry: {e}")
         return web.json_response(
             {

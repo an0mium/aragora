@@ -123,11 +123,16 @@ class TestGatherAll:
         )
 
     async def test_returns_string(self, gatherer):
-        # Mock the source fetcher to return something
-        gatherer._source_fetcher = MagicMock()
-        gatherer._source_fetcher.fetch_all = AsyncMock(return_value={})
-        gatherer._processor = MagicMock()
-        gatherer._processor.process_sources = MagicMock(return_value="Formatted context")
+        # Mock the source fetcher with AsyncMock for all awaited methods
+        fetcher = MagicMock()
+        fetcher.gather_claude_web_search = AsyncMock(return_value="Web search context")
+        fetcher.gather_knowledge_mound_with_timeout = AsyncMock(return_value=None)
+        fetcher.gather_belief_with_timeout = AsyncMock(return_value=None)
+        fetcher.gather_culture_with_timeout = AsyncMock(return_value=None)
+        fetcher.gather_threat_intel_with_timeout = AsyncMock(return_value=None)
+        gatherer._source_fetcher = fetcher
+        # Mock gather_aragora_context on the gatherer itself
+        gatherer.gather_aragora_context = AsyncMock(return_value=None)
         gatherer._cache = MagicMock()
         gatherer._cache.get_context = MagicMock(return_value=None)
         gatherer._cache.set_context = MagicMock()
