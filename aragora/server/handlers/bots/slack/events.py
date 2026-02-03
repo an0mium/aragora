@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from aragora.audit.unified import audit_data
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
@@ -191,7 +192,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
 
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
         logger.error(f"Slack events handler error: {e}")
-        return error_response(str(e), 500)
+        return error_response(safe_error_message(e, "Slack event"), 500)
 
 
 __all__ = [

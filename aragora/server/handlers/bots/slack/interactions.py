@@ -14,6 +14,7 @@ from urllib.parse import parse_qs
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_ROUNDS
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
@@ -374,7 +375,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
 
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
         logger.error(f"Slack interactions handler error: {e}")
-        return error_response(str(e), 500)
+        return error_response(safe_error_message(e, "Slack interaction"), 500)
 
 
 __all__ = [

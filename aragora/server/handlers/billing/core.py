@@ -1304,7 +1304,7 @@ class BillingHandler(SecureHandler):
                         invoice_id=invoice_id,
                         invoice_url=hosted_invoice_url,
                     )
-                except Exception as e:
+                except (AttributeError, IOError, OSError) as e:
                     logger.error(f"Failed to record payment failure for org {org.id}: {e}")
                     failure = None
 
@@ -1344,7 +1344,7 @@ class BillingHandler(SecureHandler):
                             f"Payment failure notification sent to {owner.email}: "
                             f"method={notify_result.method}, success={notify_result.success}"
                         )
-                except Exception as e:
+                except (AttributeError, IOError, OSError) as e:
                     logger.error(
                         f"Failed to send payment failure notification for org {org.id}: {e}"
                     )
@@ -1384,7 +1384,7 @@ class BillingHandler(SecureHandler):
                             f"Flushed {len(flushed_records)} usage records for org {org.id} "
                             f"on invoice finalize"
                         )
-                except Exception as e:
+                except (AttributeError, IOError, OSError) as e:
                     logger.error(f"Failed to flush usage on invoice finalize: {e}")
 
         return json_response(

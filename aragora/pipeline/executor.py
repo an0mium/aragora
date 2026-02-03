@@ -8,8 +8,16 @@ Usage:
     executor = PlanExecutor()
     outcome = await executor.execute(plan)
 
+    # Use HybridExecutor for multi-model execution (Claude + Codex)
+    executor = PlanExecutor(execution_mode="hybrid", repo_path=Path.cwd())
+    outcome = await executor.execute(plan)
+
 The executor also manages an in-memory plan store for retrieval by
 plan_id, enabling the HTTP handler to look up plans across the lifecycle.
+
+Execution Modes:
+    - "workflow": Uses WorkflowEngine with DAG-based step execution (default)
+    - "hybrid": Uses HybridExecutor with Claude primary + Codex fallback
 
 Stability: ALPHA
 """
@@ -17,9 +25,11 @@ Stability: ALPHA
 from __future__ import annotations
 
 import logging
+import os
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal
 
 from aragora.pipeline.decision_plan import (
     DecisionPlan,
@@ -32,6 +42,12 @@ if TYPE_CHECKING:
     from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
+
+# Execution mode type
+ExecutionMode = Literal["workflow", "hybrid"]
+
+# Environment variable to control default execution mode
+DEFAULT_EXECUTION_MODE: ExecutionMode = os.environ.get("PLAN_EXECUTION_MODE", "workflow")  # type: ignore[assignment]
 
 # Permission required to execute plans
 PLAN_EXECUTE_PERMISSION = "decisions:execute"
@@ -86,14 +102,19 @@ def get_outcome(plan_id: str) -> PlanOutcome | None:
 
 
 class PlanExecutor:
-    """Executes an approved DecisionPlan through the WorkflowEngine.
+    """Executes an approved DecisionPlan through WorkflowEngine or HybridExecutor.
 
     Lifecycle:
         1. Validates plan is approved
-        2. Generates WorkflowDefinition from plan
-        3. Executes via WorkflowEngine
+        2. Generates WorkflowDefinition from plan (workflow mode) or
+           prepares ImplementTasks (hybrid mode)
+        3. Executes via WorkflowEngine or HybridExecutor
         4. Records PlanOutcome to memory
         5. Updates plan status
+
+    Execution Modes:
+        - "workflow": DAG-based workflow engine with generic step execution
+        - "hybrid": Multi-model executor with Claude + Codex (faster, model fallback)
 
     The executor is stateless; all state lives in the plan itself
     and the plan store.
@@ -105,6 +126,8 @@ class PlanExecutor:
         knowledge_mound: Any | None = None,
         parallel_execution: bool = False,
         max_parallel: int | None = None,
+        execution_mode: ExecutionMode | None = None,
+        repo_path: Path | None = None,
     ) -> None:
         if continuum_memory is None:
             try:
@@ -125,6 +148,8 @@ class PlanExecutor:
         self._knowledge_mound = knowledge_mound
         self._parallel_execution = parallel_execution
         self._max_parallel = max_parallel
+        self._execution_mode: ExecutionMode = execution_mode or DEFAULT_EXECUTION_MODE
+        self._repo_path = repo_path or Path.cwd()
 
     async def execute(
         self,
@@ -132,6 +157,7 @@ class PlanExecutor:
         *,
         parallel_execution: bool | None = None,
         auth_context: AuthorizationContext | None = None,
+        execution_mode: ExecutionMode | None = None,
     ) -> PlanOutcome:
         """Execute a DecisionPlan and return the outcome.
 
@@ -141,6 +167,8 @@ class PlanExecutor:
             auth_context: Authorization context for the requesting user.
                 If provided, permission checks are enforced.
                 If None, execution proceeds (for internal/system calls).
+            execution_mode: Override the default execution mode for this call.
+                "workflow" uses WorkflowEngine, "hybrid" uses HybridExecutor.
 
         Returns:
             PlanOutcome with execution results.
@@ -189,8 +217,14 @@ class PlanExecutor:
         if parallel_execution is None:
             parallel_execution = self._parallel_execution
 
+        # Determine execution mode
+        mode = execution_mode or self._execution_mode
+
         try:
-            outcome = await self._run_workflow(plan, parallel_execution=parallel_execution)
+            if mode == "hybrid":
+                outcome = await self._run_hybrid(plan, parallel_execution=parallel_execution)
+            else:
+                outcome = await self._run_workflow(plan, parallel_execution=parallel_execution)
         except Exception as e:
             logger.error("Plan execution failed: %s: %s", plan.id, e)
             duration = time.time() - start_time
@@ -324,6 +358,114 @@ class PlanExecutor:
             duration_seconds=duration,
             lessons=lessons,
         )
+
+    async def _run_hybrid(
+        self,
+        plan: DecisionPlan,
+        *,
+        parallel_execution: bool = False,
+    ) -> PlanOutcome:
+        """Run plan tasks using HybridExecutor (Claude + Codex).
+
+        HybridExecutor uses Claude for all implementation tasks with Codex
+        as fallback on timeout. This mode is typically faster than the
+        workflow engine for code implementation tasks.
+
+        Args:
+            plan: DecisionPlan with implement_plan containing tasks
+            parallel_execution: Whether to run independent tasks in parallel
+
+        Returns:
+            PlanOutcome with execution results
+        """
+        from aragora.implement.executor import HybridExecutor
+        from aragora.implement.types import ImplementTask  # noqa: F401
+
+        if not plan.implement_plan or not plan.implement_plan.tasks:
+            return PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=False,
+                error="No implementation tasks in plan",
+                tasks_total=0,
+            )
+
+        # Create HybridExecutor
+        executor = HybridExecutor(
+            repo_path=self._repo_path,
+            max_retries=2,
+        )
+
+        # Extract tasks from plan
+        tasks = plan.implement_plan.tasks
+        tasks_total = len(tasks)
+
+        # Set parallel execution mode via environment if needed
+        import os as _os
+
+        if parallel_execution:
+            _os.environ["IMPL_PARALLEL_TASKS"] = "1"
+            if self._max_parallel:
+                _os.environ["IMPL_MAX_PARALLEL"] = str(self._max_parallel)
+
+        start_time = time.time()
+
+        try:
+            # Execute all tasks
+            completed: set[str] = set()
+            results = await executor.execute_plan(
+                tasks=tasks,
+                completed=completed,
+                stop_on_failure=False,  # Continue on failures, retry at end
+            )
+
+            duration = time.time() - start_time
+
+            # Compute stats
+            tasks_completed = sum(1 for r in results if r.success)
+            total_cost = sum(getattr(r, "cost_usd", 0.0) or 0.0 for r in results)
+
+            # Collect errors
+            errors = [r.error for r in results if r.error]
+            error_msg = "; ".join(errors) if errors else None
+
+            # Derive lessons
+            lessons: list[str] = []
+            if tasks_completed < tasks_total:
+                lessons.append(
+                    f"Only {tasks_completed}/{tasks_total} tasks completed via HybridExecutor"
+                )
+
+            # Check for model fallbacks
+            fallback_count = sum(1 for r in results if r.model_used and "fallback" in r.model_used)
+            if fallback_count > 0:
+                lessons.append(f"{fallback_count} task(s) required Codex fallback")
+
+            success = tasks_completed == tasks_total and not error_msg
+
+            # Update plan status
+            plan.status = PlanStatus.COMPLETED if success else PlanStatus.FAILED
+            plan.execution_completed_at = datetime.now()
+
+            return PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=success,
+                tasks_completed=tasks_completed,
+                tasks_total=tasks_total,
+                total_cost_usd=total_cost + plan.budget.spent_usd,
+                error=error_msg,
+                duration_seconds=duration,
+                lessons=lessons,
+            )
+
+        finally:
+            # Clean up environment
+            if parallel_execution:
+                _os.environ.pop("IMPL_PARALLEL_TASKS", None)
+                _os.environ.pop("IMPL_MAX_PARALLEL", None)
 
     async def _generate_receipt(
         self,

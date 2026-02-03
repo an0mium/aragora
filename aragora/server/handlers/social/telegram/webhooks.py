@@ -20,6 +20,7 @@ from ...base import (
     json_response,
 )
 from ...utils.rate_limit import rate_limit
+from ...utils.url_security import validate_webhook_url
 from ..telemetry import (
     record_error,
     record_message,
@@ -102,6 +103,11 @@ class TelegramWebhooksMixin:
             webhook_url = data.get("url")
             if not webhook_url:
                 return error_response("webhook url is required", 400)
+
+            # SSRF protection: validate webhook URL
+            is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
+            if not is_valid:
+                return error_response(f"Invalid webhook URL: {url_error}", 400)
 
             # Set webhook via Telegram API
             telegram_module.create_tracked_task(

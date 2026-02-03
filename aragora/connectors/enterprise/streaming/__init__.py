@@ -4,6 +4,7 @@ Enterprise Streaming Connectors.
 Real-time event stream ingestion from message brokers:
 - Kafka: Apache Kafka topics with consumer group management
 - RabbitMQ: AMQP message queues with acknowledgment handling
+- SNS/SQS: AWS SNS/SQS for cloud-native event streaming
 
 These connectors enable omnivorous real-time data ingestion into
 Aragora's Knowledge Mound and decision pipelines.
@@ -23,6 +24,11 @@ from aragora.connectors.enterprise.streaming.kafka import (
 from aragora.connectors.enterprise.streaming.rabbitmq import (
     RabbitMQConnector,
     RabbitMQConfig,
+)
+from aragora.connectors.enterprise.streaming.snssqs import (
+    SNSSQSConnector,
+    SNSSQSConfig,
+    SQSMessage,
 )
 from aragora.connectors.enterprise.streaming.resilience import (
     CircuitBreakerOpenError,
@@ -44,6 +50,9 @@ __all__ = [
     "KafkaConfig",
     "RabbitMQConnector",
     "RabbitMQConfig",
+    "SNSSQSConnector",
+    "SNSSQSConfig",
+    "SQSMessage",
     # Resilience
     "StreamingResilienceConfig",
     "ExponentialBackoff",

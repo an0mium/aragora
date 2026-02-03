@@ -117,6 +117,13 @@ _engine: WorkflowEngine | None = None
 def _get_engine() -> WorkflowEngine:
     """Lazily initialize the workflow engine to avoid import-time side effects."""
     global _engine
+    try:
+        pkg = sys.modules.get("aragora.server.handlers.workflows")
+        override = getattr(pkg, "_engine", None) if pkg is not None else None
+        if override is not None and override is not _engine:
+            return cast(WorkflowEngine, override)
+    except Exception:
+        pass
     if _engine is None:
         _engine = WorkflowEngine()
     return _engine

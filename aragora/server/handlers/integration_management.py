@@ -23,6 +23,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -225,7 +226,9 @@ class IntegrationsHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling integration request: {e}")
-            return _legacy_error_response(f"Internal error: {str(e)}", 500, code="INTERNAL_ERROR")
+            return _legacy_error_response(
+                safe_error_message(e, "integration management"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_permission("integrations.read")
     async def _list_integrations(

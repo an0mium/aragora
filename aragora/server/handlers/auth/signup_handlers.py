@@ -579,7 +579,7 @@ async def handle_invite(
 
     except Exception as e:
         logger.exception("Invite failed")
-        return error_response(f"Invite failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "invite"), status=500)
 
 
 async def handle_check_invite(
@@ -620,7 +620,7 @@ async def handle_check_invite(
 
     except Exception as e:
         logger.exception("Check invite failed")
-        return error_response(f"Check failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "invite check"), status=500)
 
 
 async def handle_accept_invite(
@@ -688,7 +688,7 @@ async def handle_accept_invite(
 
     except Exception as e:
         logger.exception("Accept invite failed")
-        return error_response(f"Accept failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "accept invite"), status=500)
 
 
 # =============================================================================
@@ -743,7 +743,7 @@ async def handle_onboarding_complete(
 
     except Exception as e:
         logger.exception("Onboarding completion failed")
-        return error_response(f"Completion failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "onboarding completion"), status=500)
 
 
 async def handle_onboarding_status(
@@ -797,7 +797,7 @@ async def handle_onboarding_status(
 
     except Exception as e:
         logger.exception("Onboarding status check failed")
-        return error_response(f"Status check failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "status check"), status=500)
 
 
 # =============================================================================

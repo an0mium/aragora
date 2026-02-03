@@ -45,6 +45,7 @@ from aragora.resilience import (
     CircuitOpenError,
     get_circuit_breaker,
 )
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -501,7 +502,7 @@ class CloudStorageHandler(BaseHandler):
             logger.exception(f"Error handling cloud storage GET request: {e}")
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response(safe_error_message(e, "cloud storage upload"), 500)
 
     @rate_limit(requests_per_minute=30)
     async def handle_post(
@@ -557,7 +558,7 @@ class CloudStorageHandler(BaseHandler):
             logger.exception(f"Error handling cloud storage POST request: {e}")
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response(safe_error_message(e, "cloud storage list"), 500)
 
     @rate_limit(requests_per_minute=20)
     async def handle_delete(
@@ -607,7 +608,7 @@ class CloudStorageHandler(BaseHandler):
             logger.exception(f"Error handling cloud storage DELETE request: {e}")
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response(safe_error_message(e, "cloud storage delete"), 500)
 
     @require_permission("storage:read")
     async def _list_files(
