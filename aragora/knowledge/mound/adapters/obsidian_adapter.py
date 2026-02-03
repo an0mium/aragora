@@ -1,0 +1,244 @@
+"""
+ObsidianAdapter - Bridges Obsidian vaults to the Knowledge Mound.
+
+Ingests notes from an Obsidian vault into the Knowledge Mound with
+metadata, tags, and backlinks preserved.
+
+Usage:
+    from aragora.connectors.knowledge.obsidian import ObsidianConfig, ObsidianConnector
+    from aragora.knowledge.mound.adapters import ObsidianAdapter
+
+    config = ObsidianConfig(vault_path="~/Vault")
+    connector = ObsidianConnector(config)
+    adapter = ObsidianAdapter(connector=connector, workspace_id="team-1")
+
+    result = await adapter.sync_to_km()
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from aragora.connectors.knowledge.obsidian import ObsidianConfig, ObsidianConnector
+from aragora.knowledge.mound.adapters._base import (
+    KnowledgeMoundAdapter,
+    ADAPTER_CIRCUIT_CONFIGS,
+    AdapterCircuitBreakerConfig,
+)
+from aragora.knowledge.mound.adapters._types import SyncResult
+from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
+
+logger = logging.getLogger(__name__)
+
+# Obsidian is local IO, so use tighter circuit breaker thresholds
+ADAPTER_CIRCUIT_CONFIGS["obsidian"] = AdapterCircuitBreakerConfig(
+    failure_threshold=3,
+    success_threshold=2,
+    timeout_seconds=20.0,
+    half_open_max_calls=2,
+)
+
+
+@dataclass
+class ObsidianSyncConfig:
+    """Configuration for Obsidian → Knowledge Mound sync."""
+
+    workspace_id: str = "default"
+    watch_tags: list[str] | None = None
+    include_untagged: bool = False
+    max_notes: int | None = None
+
+
+class ObsidianAdapter(KnowledgeMoundAdapter):
+    """Adapter that ingests Obsidian notes into the Knowledge Mound."""
+
+    adapter_name = "obsidian"
+    source_type = "document"
+
+    def __init__(
+        self,
+        connector: ObsidianConnector | None = None,
+        config: ObsidianConfig | None = None,
+        vault_path: str | Path | None = None,
+        sync_config: ObsidianSyncConfig | None = None,
+        workspace_id: str = "default",
+        event_callback: Any | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize the adapter.
+
+        Args:
+            connector: Pre-configured ObsidianConnector
+            config: ObsidianConfig (used if connector not provided)
+            vault_path: Vault path (used if config not provided)
+            sync_config: Sync behavior configuration
+            workspace_id: Knowledge Mound workspace ID
+            event_callback: Optional event callback
+        """
+        super().__init__(**kwargs)
+
+        if connector is None:
+            if config is None:
+                if vault_path is not None:
+                    config = ObsidianConfig(vault_path=str(vault_path))
+                else:
+                    config = ObsidianConfig.from_env()
+            if config is not None:
+                connector = ObsidianConnector(config)
+
+        self._connector = connector
+        self._config = config or getattr(connector, "_config", None)
+        self._sync_config = sync_config or ObsidianSyncConfig(workspace_id=workspace_id)
+        self._event_callback = event_callback
+
+        if self._sync_config.watch_tags is None and self._config is not None:
+            self._sync_config.watch_tags = list(self._config.watch_tags)
+
+    @property
+    def connector(self) -> ObsidianConnector | None:
+        """Return the underlying Obsidian connector."""
+        return self._connector
+
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
+        """Emit event via callback if configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.debug("ObsidianAdapter event callback failed: %s", e)
+
+    def _get_mound(self) -> Any | None:
+        """Get Knowledge Mound instance."""
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            return get_knowledge_mound(workspace_id=self._sync_config.workspace_id)
+        except Exception as e:
+            logger.debug("Could not get knowledge mound: %s", e)
+            return None
+
+    async def sync_to_km(
+        self,
+        knowledge_mound: Any | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
+        tags: list[str] | None = None,
+        include_untagged: bool | None = None,
+    ) -> SyncResult:
+        """Sync Obsidian notes into the Knowledge Mound.
+
+        Args:
+            knowledge_mound: Optional Knowledge Mound instance
+            since: Only ingest notes modified after this time
+            limit: Maximum notes to ingest
+            tags: Optional tag filter (overrides config)
+            include_untagged: Whether to ingest notes without matching tags
+        """
+        start_time = time.time()
+        synced = 0
+        skipped = 0
+        failed = 0
+        errors: list[str] = []
+
+        connector = self._connector
+        if connector is None or not connector.is_configured:
+            return SyncResult(
+                records_synced=0,
+                records_skipped=0,
+                records_failed=1,
+                errors=["Obsidian connector not configured or vault unavailable"],
+                duration_ms=(time.time() - start_time) * 1000,
+            )
+
+        mound = knowledge_mound or self._get_mound()
+        if mound is None:
+            return SyncResult(
+                records_synced=0,
+                records_skipped=0,
+                records_failed=1,
+                errors=["Knowledge Mound not available"],
+                duration_ms=(time.time() - start_time) * 1000,
+            )
+
+        watch_tags = tags or self._sync_config.watch_tags or []
+        include_untagged = (
+            include_untagged if include_untagged is not None else self._sync_config.include_untagged
+        )
+        max_notes = limit if limit is not None else self._sync_config.max_notes
+
+        try:
+            async with self._resilient_call("sync_to_km"):
+                from aragora.connectors.enterprise.base import SyncState
+
+                sync_state = SyncState(connector_id=connector.name)
+                if since is not None:
+                    sync_state.last_sync_at = since
+
+                async for item in connector.sync_items(sync_state, batch_size=max_notes or 1000):
+                    item_tags = []
+                    if isinstance(item.metadata, dict):
+                        item_tags = item.metadata.get("tags", []) or []
+
+                    if watch_tags and not any(t in item_tags for t in watch_tags):
+                        if not include_untagged:
+                            skipped += 1
+                            continue
+
+                    try:
+                        req = IngestionRequest(
+                            content=item.content,
+                            workspace_id=self._sync_config.workspace_id,
+                            source_type=KnowledgeSource.DOCUMENT,
+                            document_id=item.source_id,
+                            node_type="document",
+                            confidence=item.confidence,
+                            topics=[t.lstrip("#") for t in item_tags if isinstance(t, str)],
+                            metadata={
+                                "source": "obsidian",
+                                "title": item.title,
+                                "url": item.url,
+                                "tags": item_tags,
+                                "note_type": item.metadata.get("note_type")
+                                if item.metadata
+                                else None,
+                                "path": item.source_id,
+                            },
+                        )
+                        await mound.ingest(req)
+                        synced += 1
+                    except Exception as e:
+                        failed += 1
+                        errors.append(str(e))
+
+                    if max_notes is not None and (synced + skipped + failed) >= max_notes:
+                        break
+
+        except Exception as e:
+            errors.append(str(e))
+
+        duration_ms = (time.time() - start_time) * 1000
+        self._emit_event(
+            "obsidian_sync_complete",
+            {
+                "synced": synced,
+                "skipped": skipped,
+                "failed": failed,
+                "duration_ms": duration_ms,
+            },
+        )
+
+        return SyncResult(
+            records_synced=synced,
+            records_skipped=skipped,
+            records_failed=failed,
+            errors=errors,
+            duration_ms=duration_ms,
+        )
+
+
+__all__ = ["ObsidianAdapter", "ObsidianSyncConfig"]

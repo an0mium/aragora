@@ -1150,6 +1150,16 @@ def check_permission(
     # Normalize permission key format (colon -> dot)
     if ":" in permission_key and "." not in permission_key:
         permission_key = permission_key.replace(":", ".")
+    # Normalize legacy/plural resource names for backwards compatibility
+    if "." in permission_key:
+        resource, action = permission_key.split(".", 1)
+        legacy_map = {
+            "organizations": "organization",
+            "workspaces": "workspace",
+        }
+        normalized_resource = legacy_map.get(resource)
+        if normalized_resource:
+            permission_key = f"{normalized_resource}.{action}"
     return get_permission_checker().check_permission(context, permission_key, resource_id)
 
 

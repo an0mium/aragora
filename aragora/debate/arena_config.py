@@ -77,6 +77,7 @@ from .arena_sub_configs import (
     MemoryCoordinationConfig,
     MLIntegrationConfig,
     PerformanceFeedbackConfig,
+    PowerSamplingConfig,
     RLMCognitiveConfig,
     SupermemorySubConfig,
     TrackingConfig,
@@ -107,6 +108,7 @@ _SUB_CONFIG_ATTRS: list[tuple[str, type]] = [
     ("translation_sub_config", TranslationSubConfig),
     ("supermemory_sub_config", SupermemorySubConfig),
     ("budget_sub_config", BudgetSubConfig),
+    ("power_sampling_config", PowerSamplingConfig),
 ]
 
 for _attr_name, _cls in _SUB_CONFIG_ATTRS:
@@ -208,6 +210,10 @@ class ArenaConfigBuilder:
 
     def with_budget(self, **kwargs: Any) -> "ArenaConfigBuilder":
         """Set per-debate budget configuration fields."""
+        return self._merge(kwargs)
+
+    def with_power_sampling(self, **kwargs: Any) -> "ArenaConfigBuilder":
+        """Set power sampling configuration for inference-time reasoning."""
         return self._merge(kwargs)
 
     def build(self) -> "ArenaConfig":
@@ -399,6 +405,7 @@ class ArenaConfig:
         translation_sub_config: TranslationSubConfig | None = None,
         supermemory_sub_config: SupermemorySubConfig | None = None,
         budget_sub_config: BudgetSubConfig | None = None,
+        power_sampling_config: PowerSamplingConfig | None = None,
         # ---- Flat kwargs that belong to sub-configs (backward compat) ----
         **kwargs: Any,
     ) -> None:
@@ -495,6 +502,9 @@ class ArenaConfig:
             SupermemorySubConfig, supermemory_sub_config, kwargs
         )
         self.budget_sub_config = self._build_sub_config(BudgetSubConfig, budget_sub_config, kwargs)
+        self.power_sampling_config = self._build_sub_config(
+            PowerSamplingConfig, power_sampling_config, kwargs
+        )
 
         # Any remaining kwargs are unknown fields
         if kwargs:

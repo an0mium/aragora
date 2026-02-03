@@ -148,7 +148,6 @@ class TestUploadFile:
             channel_id="channel-abc",
             content=b"Content",
             filename="doc.txt",
-            team_id=None,  # Not provided directly
             service_url="https://example.com",  # In kwargs for other purposes
             **{"team_id": "team-from-kwargs"},
         )

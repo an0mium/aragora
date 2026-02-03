@@ -159,6 +159,10 @@ from .trickster_adapter import (
     TricksterSearchResult,
     InterventionRecord,
 )
+from .obsidian_adapter import (
+    ObsidianAdapter,
+    ObsidianSyncConfig,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -291,4 +295,6 @@ __all__ = [
     "TricksterAdapter",
     "TricksterSearchResult",
     "InterventionRecord",
+    "ObsidianAdapter",
+    "ObsidianSyncConfig",
 ]

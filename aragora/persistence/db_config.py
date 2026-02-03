@@ -221,6 +221,17 @@ def get_db_path(
     if mode is None:
         mode = get_db_mode()
 
+    if not isinstance(db_type, DatabaseType):
+        try:
+            if isinstance(db_type, str):
+                db_type = DatabaseType(db_type)
+            elif hasattr(db_type, "value"):
+                db_type = DatabaseType(db_type.value)
+            else:
+                db_type = DatabaseType(str(db_type))
+        except Exception as exc:
+            raise KeyError(db_type) from exc
+
     if mode == DatabaseMode.CONSOLIDATED:
         db_name = CONSOLIDATED_DB_MAPPING[db_type]
     else:

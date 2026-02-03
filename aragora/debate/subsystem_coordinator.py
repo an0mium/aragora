@@ -195,6 +195,8 @@ class SubsystemCoordinator:
     km_insights_adapter: Any | None = None
     km_critique_adapter: Any | None = None
     km_pulse_adapter: Any | None = None
+    km_obsidian_adapter: Any | None = None
+    km_obsidian_adapter: Any | None = None
 
     # KM Configuration
     km_sync_interval_seconds: int = 300  # 5 minutes
@@ -337,6 +339,7 @@ class SubsystemCoordinator:
             self.km_insights_adapter,
             self.km_critique_adapter,
             self.km_pulse_adapter,
+            self.km_obsidian_adapter,
         ]
         return sum(1 for a in adapters if a is not None)
 
@@ -1130,6 +1133,7 @@ class SubsystemCoordinator:
                     "insights": self.km_insights_adapter is not None,
                     "critique": self.km_critique_adapter is not None,
                     "pulse": self.km_pulse_adapter is not None,
+                    "obsidian": self.km_obsidian_adapter is not None,
                 },
                 "active_adapters_count": self.active_km_adapters_count,
                 "config": {
@@ -1289,6 +1293,7 @@ class SubsystemConfig:
             km_insights_adapter=self.km_insights_adapter,
             km_critique_adapter=self.km_critique_adapter,
             km_pulse_adapter=self.km_pulse_adapter,
+            km_obsidian_adapter=self.km_obsidian_adapter,
             km_sync_interval_seconds=self.km_sync_interval_seconds,
             km_min_confidence_for_reverse=self.km_min_confidence_for_reverse,
             km_parallel_sync=self.km_parallel_sync,

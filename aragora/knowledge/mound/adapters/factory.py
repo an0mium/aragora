@@ -243,6 +243,7 @@ def _init_specs() -> None:
     from .erc8004_adapter import ERC8004Adapter
     from .supermemory_adapter import SupermemoryAdapter
     from .trickster_adapter import TricksterAdapter
+    from .obsidian_adapter import ObsidianAdapter
 
     register_adapter_spec(
         AdapterSpec(
@@ -383,6 +384,20 @@ def _init_specs() -> None:
         )
     )
 
+    # Obsidian vault adapter (local knowledge ingestion)
+    register_adapter_spec(
+        AdapterSpec(
+            name="obsidian",
+            adapter_class=ObsidianAdapter,
+            required_deps=["obsidian_connector"],
+            forward_method="sync_to_km",
+            reverse_method=None,
+            priority=5,  # Low priority - optional ingestion
+            enabled_by_default=False,  # Opt-in
+            config_key="km_obsidian_adapter",
+        )
+    )
+
 
 # Initialize specs on import
 _init_specs()
@@ -449,6 +464,7 @@ class AdapterFactory:
         cost_tracker: Any | None = None,
         flip_detector: Any | None = None,
         provenance_store: Any | None = None,
+        obsidian_connector: Any | None = None,
         **kwargs,
     ) -> dict[str, CreatedAdapter]:
         """
@@ -482,6 +498,7 @@ class AdapterFactory:
             "cost_tracker": cost_tracker,
             "flip_detector": flip_detector,
             "provenance_store": provenance_store,
+            "obsidian_connector": obsidian_connector,
         }
         deps.update(kwargs)
 
@@ -529,6 +546,7 @@ class AdapterFactory:
             or subsystems.get("cost_tracker"),
             "flip_detector": getattr(config, "flip_detector", None)
             or subsystems.get("flip_detector"),
+            "obsidian_connector": subsystems.get("obsidian_connector"),
         }
 
         # Check for explicitly configured adapters
@@ -655,6 +673,11 @@ class AdapterFactory:
             elif spec.name == "cost":
                 adapter = adapter_class(
                     cost_tracker=deps.get("cost_tracker"),
+                    event_callback=self._event_callback,
+                )
+            elif spec.name == "obsidian":
+                adapter = adapter_class(
+                    connector=deps.get("obsidian_connector"),
                     event_callback=self._event_callback,
                 )
             elif spec.name == "fabric":

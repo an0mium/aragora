@@ -54,15 +54,15 @@ WEB_SEARCH_INDICATORS = [
 # Google Gemini API requires specific versioned model names
 GEMINI_MODEL_ALIASES = {
     # Legacy names -> current valid names
-    "gemini-1.5-flash": "gemini-1.5-flash-latest",
-    "gemini-1.5-pro": "gemini-1.5-pro-latest",
-    "gemini-pro": "gemini-1.5-pro-latest",
-    "gemini-flash": "gemini-1.5-flash-latest",
+    "gemini-1.5-flash": "gemini-1.5-flash",
+    "gemini-1.5-pro": "gemini-1.5-pro",
+    "gemini-pro": "gemini-1.5-pro",
+    "gemini-flash": "gemini-1.5-flash",
     # Keep versioned names as-is
-    "gemini-1.5-flash-latest": "gemini-1.5-flash-latest",
+    "gemini-1.5-flash-latest": "gemini-1.5-flash",
     "gemini-1.5-flash-001": "gemini-1.5-flash-001",
     "gemini-1.5-flash-002": "gemini-1.5-flash-002",
-    "gemini-1.5-pro-latest": "gemini-1.5-pro-latest",
+    "gemini-1.5-pro-latest": "gemini-1.5-pro",
     "gemini-1.5-pro-001": "gemini-1.5-pro-001",
     "gemini-1.5-pro-002": "gemini-1.5-pro-002",
     "gemini-2.0-flash": "gemini-2.0-flash",

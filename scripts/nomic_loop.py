@@ -80,6 +80,9 @@ logger = logging.getLogger(__name__)
 # Import config for database paths (consolidated persona database)
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
+# Import tracing for distributed observability (NoOp when OTel not configured)
+from aragora.observability.tracing import get_tracer
+
 # =============================================================================
 # MODULAR PACKAGE IMPORTS (scripts/nomic/)
 # These modules are extracted versions of the code below, available for reuse
@@ -2731,48 +2734,63 @@ class NomicLoop:
         # Track phase start time for metrics
         phase_start = time.time()
 
-        try:
-            result = await asyncio.wait_for(coro, timeout=timeout)
+        # Distributed tracing span for phase execution
+        tracer = get_tracer()
+        with tracer.start_as_current_span(f"nomic.phase.{phase}") as span:
+            span.set_attribute("nomic.phase", phase)
+            span.set_attribute("nomic.cycle", self.cycle_count)
+            span.set_attribute("nomic.timeout_budget", timeout)
+            span.set_attribute("nomic.attempt", attempt)
 
-            # Log duration metrics on success
-            duration = time.time() - phase_start
-            utilization = (duration / timeout) * 100
-            self._log(
-                f"  [{phase}] Completed in {duration:.1f}s ({utilization:.0f}% of {timeout}s budget)"
-            )
+            try:
+                result = await asyncio.wait_for(coro, timeout=timeout)
 
-            # Store metrics for cycle_result (initialize dict if needed)
-            if not hasattr(self, "_phase_metrics"):
-                self._phase_metrics = {}
-            self._phase_metrics[phase] = {
-                "duration": round(duration, 1),
-                "budget": timeout,
-                "utilization": round(utilization, 1),
-                "status": "completed",
-            }
+                # Log duration metrics on success
+                duration = time.time() - phase_start
+                utilization = (duration / timeout) * 100
+                self._log(
+                    f"  [{phase}] Completed in {duration:.1f}s ({utilization:.0f}% of {timeout}s budget)"
+                )
 
-            return result
+                span.set_attribute("nomic.phase.duration_s", round(duration, 1))
+                span.set_attribute("nomic.phase.status", "completed")
+                span.set_attribute("nomic.phase.utilization_pct", round(utilization, 1))
 
-        except asyncio.TimeoutError:
-            duration = time.time() - phase_start
-            elapsed_msg = f"Phase '{phase}' exceeded {timeout}s timeout"
-            self._log(f"  [TIMEOUT] {elapsed_msg}")
-            logger.warning(f"[phase_timeout] {elapsed_msg}")
-            self._stream_emit("on_phase_timeout", phase, timeout)
+                # Store metrics for cycle_result (initialize dict if needed)
+                if not hasattr(self, "_phase_metrics"):
+                    self._phase_metrics = {}
+                self._phase_metrics[phase] = {
+                    "duration": round(duration, 1),
+                    "budget": timeout,
+                    "utilization": round(utilization, 1),
+                    "status": "completed",
+                }
 
-            # Store timeout metrics
-            if not hasattr(self, "_phase_metrics"):
-                self._phase_metrics = {}
-            self._phase_metrics[phase] = {
-                "duration": round(duration, 1),
-                "budget": timeout,
-                "utilization": 100.0,  # Consumed entire budget
-                "status": "timeout",
-            }
+                return result
 
-            if fallback is not None:
-                return fallback
-            raise PhaseError(phase, f"Timeout after {timeout}s", recoverable=False)
+            except asyncio.TimeoutError:
+                duration = time.time() - phase_start
+                elapsed_msg = f"Phase '{phase}' exceeded {timeout}s timeout"
+                self._log(f"  [TIMEOUT] {elapsed_msg}")
+                logger.warning(f"[phase_timeout] {elapsed_msg}")
+                self._stream_emit("on_phase_timeout", phase, timeout)
+
+                span.set_attribute("nomic.phase.duration_s", round(duration, 1))
+                span.set_attribute("nomic.phase.status", "timeout")
+
+                # Store timeout metrics
+                if not hasattr(self, "_phase_metrics"):
+                    self._phase_metrics = {}
+                self._phase_metrics[phase] = {
+                    "duration": round(duration, 1),
+                    "budget": timeout,
+                    "utilization": 100.0,  # Consumed entire budget
+                    "status": "timeout",
+                }
+
+                if fallback is not None:
+                    return fallback
+                raise PhaseError(phase, f"Timeout after {timeout}s", recoverable=False)
 
     async def _run_phase_with_recovery(self, phase: str, coro_factory, fallback=None):
         """
@@ -8909,30 +8927,41 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         start_time = time.time()
         cycle_timeout = self.max_cycle_seconds
 
-        try:
-            result = await asyncio.wait_for(self._run_cycle_impl(), timeout=cycle_timeout)
-        except asyncio.TimeoutError:
-            self._log(f"[CYCLE TIMEOUT] Cycle exceeded {cycle_timeout}s budget")
-            result = {
-                "cycle": self.cycle_count,
-                "outcome": "cycle_timeout",
-                "error": f"Cycle exceeded {cycle_timeout}s budget",
-            }
-            if self._cycle_backup_path and not self.disable_rollback:
-                self._log("  [rollback] Restoring backup after cycle timeout")
-                if self._restore_backup(self._cycle_backup_path):
-                    result["rolled_back"] = True
-        except Exception as e:
-            self._log(f"[CYCLE CRASH] Cycle failed: {e}")
-            result = {
-                "cycle": self.cycle_count,
-                "outcome": "cycle_crashed",
-                "error": str(e),
-            }
+        # Distributed tracing span for entire cycle
+        tracer = get_tracer()
+        with tracer.start_as_current_span("nomic.cycle") as span:
+            span.set_attribute("nomic.cycle_number", self.cycle_count)
+            span.set_attribute("nomic.cycle_timeout", cycle_timeout)
 
-        result["duration_seconds"] = round(time.time() - start_time, 1)
-        self.history.append(result)
-        return result
+            try:
+                result = await asyncio.wait_for(self._run_cycle_impl(), timeout=cycle_timeout)
+            except asyncio.TimeoutError:
+                self._log(f"[CYCLE TIMEOUT] Cycle exceeded {cycle_timeout}s budget")
+                result = {
+                    "cycle": self.cycle_count,
+                    "outcome": "cycle_timeout",
+                    "error": f"Cycle exceeded {cycle_timeout}s budget",
+                }
+                if self._cycle_backup_path and not self.disable_rollback:
+                    self._log("  [rollback] Restoring backup after cycle timeout")
+                    if self._restore_backup(self._cycle_backup_path):
+                        result["rolled_back"] = True
+                span.set_attribute("nomic.cycle.outcome", "cycle_timeout")
+            except Exception as e:
+                self._log(f"[CYCLE CRASH] Cycle failed: {e}")
+                result = {
+                    "cycle": self.cycle_count,
+                    "outcome": "cycle_crashed",
+                    "error": str(e),
+                }
+                span.set_attribute("nomic.cycle.outcome", "cycle_crashed")
+            else:
+                span.set_attribute("nomic.cycle.outcome", result.get("outcome", "unknown"))
+
+            result["duration_seconds"] = round(time.time() - start_time, 1)
+            span.set_attribute("nomic.cycle.duration_s", result["duration_seconds"])
+            self.history.append(result)
+            return result
 
     async def _run_cycle_impl_inner(self, cycle_start: datetime, cycle_deadline: datetime) -> dict:
         """Inner implementation of cycle logic."""

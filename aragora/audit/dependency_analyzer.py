@@ -662,6 +662,9 @@ class DependencyAnalyzer:
         """Resolve transitive Python dependencies using pip."""
         transitive: dict[str, Dependency] = {}
 
+        if self.offline_mode:
+            return transitive
+
         try:
             # Use pip show to get dependencies
             for dep_name in list(direct_deps.keys())[:50]:  # Limit to avoid timeout

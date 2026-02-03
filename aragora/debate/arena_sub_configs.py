@@ -529,6 +529,56 @@ class BudgetSubConfig:
     budget_per_round_usd: float | None = None
 
 
+@dataclass
+class PowerSamplingConfig:
+    """Power sampling configuration for inference-time reasoning.
+
+    Enables best-of-n sampling with power-law weighted selection during
+    proposal generation. Instead of generating a single response, agents
+    generate multiple samples and select the best one based on quality
+    scoring and diversity.
+
+    Based on research showing that inference-time compute can significantly
+    improve reasoning quality even without additional training.
+
+    Example::
+
+        power_cfg = PowerSamplingConfig(
+            enable_power_sampling=True,
+            n_samples=8,
+            alpha=2.0,
+        )
+    """
+
+    # Master switch for power sampling
+    enable_power_sampling: bool = False
+
+    # Number of samples to generate per proposal (higher = better quality, more cost)
+    n_samples: int = 8
+
+    # Power law exponent (higher = more concentrated on top samples)
+    alpha: float = 2.0
+
+    # Number of diverse samples to consider for final selection
+    k_diverse: int = 3
+
+    # Temperature for generation (higher = more diversity between samples)
+    sampling_temperature: float = 1.0
+
+    # Minimum quality score to accept a sample (0.0-1.0)
+    min_quality_threshold: float = 0.3
+
+    # Whether to apply power sampling to critique phase too
+    enable_for_critiques: bool = False
+
+    # Custom scorer function path (e.g., "mymodule.custom_scorer")
+    # If None, uses the default quality scorer
+    custom_scorer: str | None = None
+
+    # Per-sample timeout in seconds (lower timeout for faster sampling)
+    sample_timeout: float = 30.0
+
+
 __all__ = [
     "HookConfig",
     "TrackingConfig",
@@ -544,4 +594,5 @@ __all__ = [
     "TranslationSubConfig",
     "SupermemorySubConfig",
     "BudgetSubConfig",
+    "PowerSamplingConfig",
 ]

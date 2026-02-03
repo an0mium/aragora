@@ -89,6 +89,12 @@ from .secrets_rotation_scheduler import (
     rotate_secret,
 )
 
+from .security_audit_schedule import (
+    add_daily_security_scan,
+    run_security_scan_with_debate,
+    setup_default_security_schedules,
+)
+
 __all__ = [
     # Audit scheduler
     "AuditScheduler",
@@ -129,4 +135,8 @@ __all__ = [
     "RotationTrigger",
     "get_secrets_rotation_scheduler",
     "rotate_secret",
+    # Security audit scheduling
+    "add_daily_security_scan",
+    "run_security_scan_with_debate",
+    "setup_default_security_schedules",
 ]

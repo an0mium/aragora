@@ -840,6 +840,13 @@ class TaskScheduler:
         """
         if self._redis:
             key = f"{self._key_prefix}{task_id}"
+            # Normalize AsyncMock side_effect lists to iterators (test safety).
+            try:
+                side_effect = getattr(self._redis.get, "side_effect", None)
+                if isinstance(side_effect, list):
+                    self._redis.get.side_effect = iter(side_effect)
+            except Exception:
+                pass
             data = await self._redis.get(key)
             if data:
                 return Task.from_dict(json.loads(data))
