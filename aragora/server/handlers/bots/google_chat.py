@@ -248,6 +248,31 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             status.update(extra_status)
         return json_response(status)
 
+    def _extract_attachments(self, event: dict[str, Any]) -> list[dict[str, Any]]:
+        """Extract attachments from a Google Chat event payload."""
+        message = event.get("message")
+        if not isinstance(message, dict):
+            return []
+        attachments = message.get("attachments")
+        if not isinstance(attachments, list):
+            return []
+
+        normalized: list[dict[str, Any]] = []
+        for idx, attachment in enumerate(attachments):
+            if not isinstance(attachment, dict):
+                continue
+            entry = dict(attachment)
+            filename = (
+                entry.get("name")
+                or entry.get("filename")
+                or entry.get("contentName")
+                or f"attachment_{idx + 1}"
+            )
+            if filename and "filename" not in entry:
+                entry["filename"] = filename
+            normalized.append(entry)
+        return normalized
+
     @rate_limit(requests_per_minute=60)
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -624,9 +649,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         user_name = user.get("displayName", "Unknown")
         user_id = user.get("name", "").split("/")[-1]
 
+        attachments = self._extract_attachments(event)
+
         # Queue debate asynchronously
         create_tracked_task(
-            self._run_debate_async(topic, space_name, user_id),
+            self._run_debate_async(topic, space_name, user_id, attachments),
             name=f"gchat-debate-{topic[:30]}",
         )
 
@@ -713,6 +740,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         topic: str,
         space_name: str,
         user_id: str,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> None:
         """Run debate asynchronously via DecisionRouter and post result.
 
@@ -768,6 +796,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                     user_id=f"gchat:{user_id}",
                     metadata={"space_name": space_name},
                 ),
+                attachments=attachments or [],
             )
 
             router = get_decision_router()

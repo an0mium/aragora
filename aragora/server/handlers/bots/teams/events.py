@@ -235,12 +235,17 @@ class TeamsEventProcessor:
             return {}
 
         # Start the debate
+        attachments = activity.get("attachments")
+        if not isinstance(attachments, list):
+            attachments = []
+
         debate_id = await _start_teams_debate(
             topic=topic,
             conversation_id=conversation_id,
             user_id=user_id,
             service_url=service_url,
             thread_id=thread_id,
+            attachments=attachments,
         )
 
         # Build and send the debate card

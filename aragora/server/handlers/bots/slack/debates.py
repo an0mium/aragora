@@ -8,6 +8,7 @@ including integration with DecisionRouter and fallback mechanisms.
 import asyncio
 import logging
 import time
+from typing import Any
 
 from .state import _active_debates
 
@@ -20,6 +21,7 @@ async def start_slack_debate(
     user_id: str,
     response_url: str = "",
     thread_ts: str | None = None,
+    attachments: list[dict[str, Any]] | None = None,
 ) -> str:
     """Start a debate from Slack via DecisionRouter.
 
@@ -64,6 +66,7 @@ async def start_slack_debate(
             source=InputSource.SLACK,
             response_channels=[response_channel],
             context=context,
+            attachments=attachments or [],
         )
 
         # Route through DecisionRouter in the background to keep Slack responsive.

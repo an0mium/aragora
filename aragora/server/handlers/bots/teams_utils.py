@@ -339,6 +339,7 @@ async def _start_teams_debate(
     user_id: str,
     service_url: str,
     thread_id: str | None = None,
+    attachments: list[dict[str, Any]] | None = None,
 ) -> str:
     """Start a debate from Teams via DecisionRouter.
 
@@ -381,6 +382,7 @@ async def _start_teams_debate(
             source=InputSource.TEAMS,
             response_channels=[response_channel],
             context=context,
+            attachments=attachments or [],
         )
 
         # Route through DecisionRouter
