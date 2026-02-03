@@ -49,8 +49,17 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="mb-6 p-3 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
-                  {error}
+                <div
+                  role="alert"
+                  className="mb-6 p-3 border border-warning/50 bg-warning/10 text-warning text-sm font-mono"
+                >
+                  <p>{error}</p>
+                  {(error.toLowerCase().includes('invalid') ||
+                    error.toLowerCase().includes('failed')) && (
+                    <p className="mt-2 text-text-muted text-xs">
+                      Tip: Try signing in with Google or GitHub below
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -65,8 +74,10 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading || authLoading}
                     autoComplete="email"
-                    className="w-full px-4 py-3 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50"
+                    aria-describedby={error ? 'login-error' : undefined}
+                    className="w-full px-4 py-3 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="user@example.com"
                   />
                 </div>
@@ -81,8 +92,10 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoading || authLoading}
                     autoComplete="current-password"
-                    className="w-full px-4 py-3 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50"
+                    aria-describedby={error ? 'login-error' : undefined}
+                    className="w-full px-4 py-3 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="********"
                   />
                 </div>

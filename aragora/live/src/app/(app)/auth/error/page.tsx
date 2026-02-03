@@ -11,15 +11,37 @@ function friendlyMessage(raw: string): { message: string; isTransient: boolean }
   const lower = decoded.toLowerCase();
 
   // Transient database/connection errors - auto-retry is appropriate
-  if (lower.includes('interfaceerror') || lower.includes('connectiondoesnotexisterror')) {
+  if (
+    lower.includes('interfaceerror') ||
+    lower.includes('connectiondoesnotexisterror') ||
+    lower.includes('database error')
+  ) {
     return {
-      message: 'A temporary connection issue occurred. Retrying automatically\u2026',
+      message:
+        'A temporary database connection issue occurred. This usually resolves automatically. Retrying\u2026',
       isTransient: true,
     };
   }
-  if (lower.includes('timeouterror') || lower.includes('connectionrefusederror')) {
+  if (
+    lower.includes('timeouterror') ||
+    lower.includes('connectionrefusederror') ||
+    lower.includes('connection refused')
+  ) {
     return {
       message: 'The server is temporarily unreachable. Retrying automatically\u2026',
+      isTransient: true,
+    };
+  }
+  if (lower.includes('too many') || lower.includes('rate limit')) {
+    return {
+      message: 'Too many login attempts. Please wait a moment before trying again.',
+      isTransient: true,
+    };
+  }
+  if (lower.includes('pool') && (lower.includes('exhausted') || lower.includes('timeout'))) {
+    return {
+      message:
+        'The server is experiencing high load. Please wait a moment while we retry\u2026',
       isTransient: true,
     };
   }
@@ -45,7 +67,29 @@ function friendlyMessage(raw: string): { message: string; isTransient: boolean }
   }
   if (lower.includes('user service unavailable')) {
     return {
-      message: 'The authentication service is currently unavailable. Please try again shortly.',
+      message:
+        'The authentication service is currently unavailable. Please try again shortly.',
+      isTransient: true,
+    };
+  }
+  if (lower.includes('email already') || lower.includes('already registered')) {
+    return {
+      message:
+        'This email is already registered. Try signing in with your existing account or use a different provider.',
+      isTransient: false,
+    };
+  }
+  if (lower.includes('account linking failed') || lower.includes('failed to link')) {
+    return {
+      message:
+        'Could not link your account to this provider. Please try again or use a different login method.',
+      isTransient: false,
+    };
+  }
+  if (lower.includes('network') || lower.includes('fetch failed')) {
+    return {
+      message:
+        'A network error occurred. Please check your connection and try again.',
       isTransient: true,
     };
   }
@@ -137,10 +181,21 @@ function OAuthErrorContent() {
                 <ul className="text-xs font-mono text-text-muted/70 mt-2 space-y-1">
                   <li>- Clearing your browser cookies</li>
                   <li>- Using a different browser</li>
+                  <li>- Using a different login method (Google, GitHub, etc.)</li>
                   <li>- Waiting a few minutes and trying again</li>
                 </ul>
               </div>
             )}
+
+            {/* Debug Info (collapsible) - helps with support tickets */}
+            <details className="mt-6 text-left">
+              <summary className="text-xs font-mono text-text-muted/50 cursor-pointer hover:text-text-muted">
+                Technical details
+              </summary>
+              <pre className="mt-2 p-2 bg-bg/50 border border-acid-green/10 text-xs font-mono text-text-muted/40 overflow-auto max-h-24 whitespace-pre-wrap break-all">
+                {rawError}
+              </pre>
+            </details>
           </div>
         </div>
       </main>
