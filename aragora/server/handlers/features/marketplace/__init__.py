@@ -73,3 +73,6 @@ from .store import _download_counts  # noqa: F401
 from .handler import MarketplaceHandler  # noqa: F401
 from .handler import get_marketplace_handler  # noqa: F401
 from .handler import handle_marketplace  # noqa: F401
+
+# Utilities (for test patching)
+from aragora.server.handlers.utils import parse_json_body  # noqa: F401

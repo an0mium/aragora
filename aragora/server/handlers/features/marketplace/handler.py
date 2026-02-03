@@ -36,12 +36,8 @@ from ...base import (
     error_response,
     json_response,
 )
-from ...utils import parse_json_body
 from ...utils.rate_limit import rate_limit
-from .circuit_breaker import (
-    _get_marketplace_circuit_breaker,
-    get_marketplace_circuit_breaker_status,
-)
+from .circuit_breaker import get_marketplace_circuit_breaker_status
 from .models import (
     CATEGORY_INFO,
     DeploymentStatus,
@@ -76,6 +72,22 @@ def _load_templates_proxy() -> dict[str, TemplateMetadata]:
     from aragora.server.handlers.features import marketplace as marketplace_module
 
     return marketplace_module._load_templates()
+
+
+async def _parse_json_body_proxy(
+    request: Any, *, context: str
+) -> tuple[dict[str, Any] | None, Any]:
+    """Parse JSON via the package namespace so tests can patch it."""
+    from aragora.server.handlers.features import marketplace as marketplace_module
+
+    return await marketplace_module.parse_json_body(request, context=context)
+
+
+def _get_marketplace_circuit_breaker_proxy():
+    """Fetch circuit breaker via package namespace so tests can patch it."""
+    from aragora.server.handlers.features import marketplace as marketplace_module
+
+    return marketplace_module._get_marketplace_circuit_breaker()
 
 
 class MarketplaceHandler:
@@ -220,7 +232,7 @@ class MarketplaceHandler:
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         if hasattr(request, "json"):
-            body, _err = await parse_json_body(request, context="marketplace._get_json_body")
+            body, _err = await _parse_json_body_proxy(request, context="marketplace._get_json_body")
             return body if body is not None else {}
         return {}
 
@@ -474,7 +486,7 @@ class MarketplaceHandler:
     @rate_limit(requests_per_minute=20, limiter_name="marketplace.deploy")
     async def _handle_deploy(self, request: Any, tenant_id: str, template_id: str) -> HandlerResult:
         """Deploy a template for the tenant."""
-        cb = _get_marketplace_circuit_breaker()
+        cb = _get_marketplace_circuit_breaker_proxy()
         if not cb.is_allowed():
             return error_response("Marketplace temporarily unavailable", 503)
 
@@ -600,7 +612,7 @@ class MarketplaceHandler:
     @rate_limit(requests_per_minute=10, limiter_name="marketplace.rate")
     async def _handle_rate(self, request: Any, tenant_id: str, template_id: str) -> HandlerResult:
         """Rate a template."""
-        cb = _get_marketplace_circuit_breaker()
+        cb = _get_marketplace_circuit_breaker_proxy()
         if not cb.is_allowed():
             return error_response("Marketplace temporarily unavailable", 503)
 
