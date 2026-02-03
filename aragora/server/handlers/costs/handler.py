@@ -880,7 +880,9 @@ class CostHandler:
                     workspace_id=workspace_id,
                     monthly_limit_usd=Decimal(str(monthly_limit)),
                     daily_limit_usd=Decimal(str(daily_limit)) if daily_limit else None,
-                    alert_thresholds=alert_thresholds,
+                    alert_threshold_50=50 in alert_thresholds,
+                    alert_threshold_75=75 in alert_thresholds,
+                    alert_threshold_90=90 in alert_thresholds,
                 )
                 tracker.set_budget(budget)
                 logger.info(f"[CostHandler] Budget created for {workspace_id}: ${monthly_limit}")
