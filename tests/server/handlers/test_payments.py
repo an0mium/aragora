@@ -1334,7 +1334,7 @@ class TestWebhookSecurity:
 
         assert response.status == 400
         data = json.loads(response.text)
-        assert "Signature verification failed" in data["error"]
+        assert "signature verification failed" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_stripe_webhook_duplicate_event(self, mock_stripe_connector):

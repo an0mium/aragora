@@ -155,9 +155,15 @@ async def handle_charge(
             }
         )
 
+    except (ConnectionError, OSError) as e:
+        logger.error(f"Connection error processing charge: {e}")
+        return web_error_response("Payment service temporarily unavailable", 503)
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error processing charge: {e}")
+        return web_error_response("Invalid payment data", 400)
     except Exception as e:
-        logger.exception(f"Error processing charge: {e}")
-        return web_error_response(str(e), 500)
+        logger.exception(f"Unexpected error processing charge: {e}")
+        return web_error_response("Internal payment error", 500)
 
 
 async def _charge_stripe(
@@ -211,22 +217,34 @@ async def _charge_stripe(
         )
 
     except ConnectionError as e:
+        logger.error(f"Stripe connection error: {e}")
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.STRIPE,
             status=PaymentStatus.ERROR,
             amount=amount,
             currency=currency,
-            message=f"Service unavailable: {e}",
+            message="Payment service temporarily unavailable",
+        )
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Stripe data error: {e}")
+        return PaymentResult(
+            transaction_id="",
+            provider=PaymentProvider.STRIPE,
+            status=PaymentStatus.ERROR,
+            amount=amount,
+            currency=currency,
+            message="Invalid payment request",
         )
     except Exception as e:
+        logger.exception(f"Unexpected Stripe error: {e}")
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.STRIPE,
             status=PaymentStatus.ERROR,
             amount=amount,
             currency=currency,
-            message=str(e),
+            message="Internal payment processing error",
         )
 
 
@@ -306,22 +324,34 @@ async def _charge_authnet(
         )
 
     except ConnectionError as e:
+        logger.error(f"Authorize.net connection error: {e}")
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.AUTHORIZE_NET,
             status=PaymentStatus.ERROR,
             amount=amount,
             currency=currency,
-            message=f"Service unavailable: {e}",
+            message="Payment service temporarily unavailable",
+        )
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Authorize.net data error: {e}")
+        return PaymentResult(
+            transaction_id="",
+            provider=PaymentProvider.AUTHORIZE_NET,
+            status=PaymentStatus.ERROR,
+            amount=amount,
+            currency=currency,
+            message="Invalid payment request",
         )
     except Exception as e:
+        logger.exception(f"Unexpected Authorize.net error: {e}")
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.AUTHORIZE_NET,
             status=PaymentStatus.ERROR,
             amount=amount,
             currency=currency,
-            message=str(e),
+            message="Internal payment processing error",
         )
 
 
@@ -403,9 +433,15 @@ async def handle_authorize(request: web.Request) -> web.Response:
 
         return web_error_response("Invalid request", 400)
 
+    except (ConnectionError, OSError) as e:
+        logger.error(f"Connection error authorizing payment: {e}")
+        return web_error_response("Payment service temporarily unavailable", 503)
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error authorizing payment: {e}")
+        return web_error_response("Invalid authorization data", 400)
     except Exception as e:
-        logger.exception(f"Error authorizing payment: {e}")
-        return web_error_response(str(e), 500)
+        logger.exception(f"Unexpected error authorizing payment: {e}")
+        return web_error_response("Internal payment error", 500)
 
 
 @require_permission(PERM_PAYMENTS_CAPTURE)
@@ -477,9 +513,15 @@ async def handle_capture(request: web.Request) -> web.Response:
                 }
             )
 
+    except (ConnectionError, OSError) as e:
+        logger.error(f"Connection error capturing payment: {e}")
+        return web_error_response("Payment service temporarily unavailable", 503)
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error capturing payment: {e}")
+        return web_error_response("Invalid capture data", 400)
     except Exception as e:
-        logger.exception(f"Error capturing payment: {e}")
-        return web_error_response(str(e), 500)
+        logger.exception(f"Unexpected error capturing payment: {e}")
+        return web_error_response("Internal payment error", 500)
 
 
 @require_permission(PERM_PAYMENTS_REFUND)
@@ -591,16 +633,22 @@ async def handle_refund(
                 }
             )
 
+    except (ConnectionError, OSError) as e:
+        logger.error(f"Connection error processing refund: {e}")
+        return web_error_response("Payment service temporarily unavailable", 503)
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error processing refund: {e}")
+        return web_error_response("Invalid refund data", 400)
     except Exception as e:
-        logger.exception(f"Error processing refund: {e}")
+        logger.exception(f"Unexpected error processing refund: {e}")
         _pkg().audit_security(
             event_type="refund_error",
             actor_id=request.get("user_id", "unknown"),
             resource_type="payment",
             resource_id=body.get("transaction_id", "unknown") if body else "unknown",
-            reason=str(e),
+            reason=type(e).__name__,
         )
-        return web_error_response(str(e), 500)
+        return web_error_response("Internal payment error", 500)
 
 
 @require_permission(PERM_PAYMENTS_VOID)
@@ -669,9 +717,15 @@ async def handle_void(
                 }
             )
 
+    except (ConnectionError, OSError) as e:
+        logger.error(f"Connection error voiding transaction: {e}")
+        return web_error_response("Payment service temporarily unavailable", 503)
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error voiding transaction: {e}")
+        return web_error_response("Invalid void request", 400)
     except Exception as e:
-        logger.exception(f"Error voiding transaction: {e}")
-        return web_error_response(str(e), 500)
+        logger.exception(f"Unexpected error voiding transaction: {e}")
+        return web_error_response("Internal payment error", 500)
 
 
 @require_permission(PERM_PAYMENTS_READ)
@@ -738,9 +792,15 @@ async def handle_get_transaction(
                 }
             )
 
+    except (ConnectionError, OSError) as e:
+        logger.error(f"Connection error getting transaction: {e}")
+        return web_error_response("Payment service temporarily unavailable", 503)
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error getting transaction: {e}")
+        return web_error_response("Invalid transaction request", 400)
     except Exception as e:
-        logger.exception(f"Error getting transaction: {e}")
-        return web_error_response(str(e), 500)
+        logger.exception(f"Unexpected error getting transaction: {e}")
+        return web_error_response("Internal payment error", 500)
 
 
 # =============================================================================
@@ -773,8 +833,8 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
             event = await connector.construct_webhook_event(payload, sig_header)
         except ValueError:
             return web_error_response("Invalid payload", 400)
-        except Exception as e:
-            return web_error_response(f"Signature verification failed: {e}", 400)
+        except Exception:
+            return web_error_response("Webhook signature verification failed", 400)
 
         # Get event ID for idempotency check
         event_id = event.id
@@ -806,9 +866,12 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
 
         return web.json_response({"received": True})
 
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error in Stripe webhook: {e}")
+        return web_error_response("Invalid webhook data", 400)
     except Exception as e:
-        logger.exception(f"Error handling Stripe webhook: {e}")
-        return web_error_response(str(e), 500)
+        logger.exception(f"Unexpected error handling Stripe webhook: {e}")
+        return web_error_response("Webhook processing error", 500)
 
 
 @track_handler("payments/webhook/authnet")
@@ -870,6 +933,9 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
 
         return web.json_response({"received": True})
 
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Data error in Authorize.net webhook: {e}")
+        return web_error_response("Invalid webhook data", 400)
     except Exception as e:
-        logger.exception(f"Error handling Authorize.net webhook: {e}")
-        return web_error_response(str(e), 500)
+        logger.exception(f"Unexpected error handling Authorize.net webhook: {e}")
+        return web_error_response("Webhook processing error", 500)
