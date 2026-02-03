@@ -96,7 +96,7 @@ class TestERC8004Adapter:
         """Test reverse sync requires signer when enabled."""
         adapter = ERC8004Adapter(provider=mock_provider, enable_reverse_sync=True)
         result = await adapter.sync_from_km()
-        assert "No signer configured" in result.errors
+        assert any("No signer configured" in err for err in result.errors)
 
     @pytest.mark.asyncio
     async def test_sync_from_km_no_links(self, mock_provider):
