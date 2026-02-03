@@ -343,6 +343,38 @@ class SimpleCodeGenerator:
                 rationale = "Provide StrEnum fallback for Python < 3.11"
                 confidence = 0.7
 
+        # Pattern: missing submodule export (e.g., aragora.rbac.decorators)
+        if analysis.category == FailureCategory.IMPL_MISSING:
+            attr_match = re.search(
+                r"module '([\w\.]+)' has no attribute '([\w_]+)'",
+                analysis.failure.error_message,
+            )
+            if (
+                attr_match
+                and attr_match.group(2) == "decorators"
+                and file_path.endswith("__init__.py")
+                and "decorators" not in file_content
+            ):
+                insert_line = "from . import decorators as decorators\n"
+                lines = file_content.splitlines(keepends=True)
+                inserted = False
+                for idx, line in enumerate(lines):
+                    if line.startswith("from .decorators") or line.startswith("from . import"):
+                        lines.insert(idx + 1, insert_line)
+                        inserted = True
+                        break
+                if not inserted:
+                    # Place near top after docstring/imports
+                    for idx, line in enumerate(lines):
+                        if line.strip().startswith("from ") or line.strip().startswith("import "):
+                            lines.insert(idx, insert_line)
+                            inserted = True
+                            break
+                if inserted:
+                    fixed_content = "".join(lines)
+                    rationale = "Expose decorators submodule on package"
+                    confidence = 0.65
+
         return fixed_content, rationale, confidence
 
     async def critique_fix(

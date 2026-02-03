@@ -445,6 +445,16 @@ class FailureAnalyzer:
                 if "from enum import StrEnum" in content:
                     root_cause_file = f
                     break
+        # Attribute errors on modules often mean missing submodule export.
+        attr_match = re.search(
+            r"module '([\w\.]+)' has no attribute '([\w_]+)'", failure.error_message
+        )
+        if attr_match:
+            module_name = attr_match.group(1)
+            candidate = Path(module_name.replace(".", "/")) / "__init__.py"
+            candidate_path = self.repo_path / candidate
+            if candidate_path.exists():
+                root_cause_file = str(candidate)
 
         # Estimate complexity
         fix_complexity = "low"
