@@ -53,7 +53,6 @@ from .models import (
 from .store import (
     _get_full_template,
     _get_tenant_deployments,
-    _load_templates,
     get_deployments,
     get_download_counts,
     get_ratings,
@@ -70,6 +69,13 @@ from .validation import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _load_templates_proxy() -> dict[str, TemplateMetadata]:
+    """Load templates via the package namespace so tests can patch it."""
+    from aragora.server.handlers.features import marketplace as marketplace_module
+
+    return marketplace_module._load_templates()
 
 
 class MarketplaceHandler:
@@ -102,7 +108,7 @@ class MarketplaceHandler:
         """Initialize handler with optional server context."""
         self.ctx = server_context if server_context is not None else {}
         # Pre-load templates
-        _load_templates()
+        _load_templates_proxy()
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -224,7 +230,7 @@ class MarketplaceHandler:
 
     async def _handle_list_templates(self, request: Any, tenant_id: str) -> HandlerResult:
         """List all available templates."""
-        templates = _load_templates()
+        templates = _load_templates_proxy()
         query = getattr(request, "query", {})
 
         # Validate category filter
@@ -267,7 +273,7 @@ class MarketplaceHandler:
         self, request: Any, tenant_id: str, template_id: str
     ) -> HandlerResult:
         """Get detailed template information."""
-        templates = _load_templates()
+        templates = _load_templates_proxy()
         meta = templates.get(template_id)
 
         if not meta:
@@ -340,7 +346,7 @@ class MarketplaceHandler:
 
     async def _handle_list_categories(self, request: Any, tenant_id: str) -> HandlerResult:
         """List all template categories with counts."""
-        templates = _load_templates()
+        templates = _load_templates_proxy()
 
         # Count templates per category
         category_counts: dict[str, int] = {}
@@ -370,7 +376,7 @@ class MarketplaceHandler:
 
     async def _handle_search(self, request: Any, tenant_id: str) -> HandlerResult:
         """Search templates by query."""
-        templates = _load_templates()
+        templates = _load_templates_proxy()
         query = getattr(request, "query", {})
 
         # Validate search query
@@ -441,7 +447,7 @@ class MarketplaceHandler:
 
     async def _handle_popular(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get most popular templates."""
-        templates = _load_templates()
+        templates = _load_templates_proxy()
         query = getattr(request, "query", {})
 
         limit, _, _ = _validate_pagination(query)
@@ -473,7 +479,7 @@ class MarketplaceHandler:
             return error_response("Marketplace temporarily unavailable", 503)
 
         try:
-            templates = _load_templates()
+            templates = _load_templates_proxy()
             meta = templates.get(template_id)
 
             if not meta:
@@ -558,7 +564,7 @@ class MarketplaceHandler:
             return error_response("Deployment not found", 404)
 
         # Get template info
-        templates = _load_templates()
+        templates = _load_templates_proxy()
         template = templates.get(deployment.template_id)
 
         return json_response(
@@ -599,7 +605,7 @@ class MarketplaceHandler:
             return error_response("Marketplace temporarily unavailable", 503)
 
         try:
-            templates = _load_templates()
+            templates = _load_templates_proxy()
             meta = templates.get(template_id)
 
             if not meta:
@@ -661,7 +667,7 @@ class MarketplaceHandler:
 
     async def _handle_status(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get marketplace health status including circuit breaker state."""
-        templates = _load_templates()
+        templates = _load_templates_proxy()
         cb_status = get_marketplace_circuit_breaker_status()
 
         return json_response(
@@ -680,7 +686,7 @@ class MarketplaceHandler:
 
     async def _handle_demo(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get demo marketplace data for development."""
-        templates = _load_templates()
+        templates = _load_templates_proxy()
 
         # Group by category
         by_category: dict[str, list[dict[str, Any]]] = {}
