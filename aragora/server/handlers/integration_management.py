@@ -227,7 +227,9 @@ class IntegrationsHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Error handling integration request: {e}")
             return _legacy_error_response(
-                safe_error_message(e, "integration management"), 500, code="INTERNAL_ERROR"
+                f"Internal error: {safe_error_message(e, 'integration management')}",
+                500,
+                code="INTERNAL_ERROR",
             )
 
     @require_permission("integrations.read")
@@ -798,7 +800,7 @@ class IntegrationsHandler(BaseHandler):
 
         except Exception as e:
             logger.warning("Slack health check failed: %s", e, exc_info=True)
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": "Health check failed"}
 
     async def _check_teams_health(self, workspace) -> dict[str, Any]:
         """Check Teams workspace health."""
@@ -826,7 +828,7 @@ class IntegrationsHandler(BaseHandler):
 
         except Exception as e:
             logger.warning("Teams health check failed: %s", e, exc_info=True)
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": "Health check failed"}
 
     async def _check_discord_health(self) -> dict[str, Any]:
         """Check Discord bot health."""
@@ -857,7 +859,7 @@ class IntegrationsHandler(BaseHandler):
 
         except Exception as e:
             logger.warning("Discord health check failed: %s", e, exc_info=True)
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": "Health check failed"}
 
     async def _check_email_health(self) -> dict[str, Any]:
         """Check email/SMTP health."""
@@ -891,7 +893,7 @@ class IntegrationsHandler(BaseHandler):
 
         except Exception as e:
             logger.warning("Email health check failed: %s", e, exc_info=True)
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": "Health check failed"}
 
 
 # Handler factory function for registration

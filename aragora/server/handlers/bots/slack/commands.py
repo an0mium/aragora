@@ -267,7 +267,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
         return json_response(
             {
                 "response_type": "ephemeral",
-                "text": f" Error: {str(e)}",
+                "text": "An error occurred processing your command. Please try again.",
             }
         )
 

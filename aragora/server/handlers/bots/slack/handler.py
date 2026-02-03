@@ -379,11 +379,11 @@ Need more help? Visit https://aragora.ai/docs/slack"""
             agent_count = len(ratings)
         except (ImportError, AttributeError, RuntimeError) as e:
             agent_count = 0
-            error_msg = str(e)
+            error_msg = type(e).__name__
         except Exception as e:
             logger.exception(f"Unexpected error getting status: {e}")
             agent_count = 0
-            error_msg = str(e)[:100]
+            error_msg = "unexpected error"
 
         status_text = f"""*System Status: Online*
 
@@ -439,7 +439,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
             return json_response(
                 {
                     "response_type": "ephemeral",
-                    "text": f"Error fetching agents: {str(e)}",
+                    "text": "Error fetching agents. Please try again later.",
                 }
             )
         except Exception as e:
@@ -447,7 +447,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
             return json_response(
                 {
                     "response_type": "ephemeral",
-                    "text": f"Error: {str(e)[:100]}",
+                    "text": "An unexpected error occurred. Please try again later.",
                 }
             )
 
