@@ -79,11 +79,21 @@ async def init_deployment_validation() -> dict:
     try:
         from aragora.ops.deployment_validator import validate_deployment, Severity
 
-        strict = os.environ.get("ARAGORA_STRICT_DEPLOYMENT", "").lower() in (
-            "true",
-            "1",
-            "yes",
-        )
+        env = os.environ.get("ARAGORA_ENV", "development")
+        is_production = env in ("production", "staging")
+
+        # Default to strict mode in production/staging environments
+        strict_env = os.environ.get("ARAGORA_STRICT_DEPLOYMENT", "")
+        if strict_env:
+            strict = strict_env.lower() in ("true", "1", "yes")
+        else:
+            strict = is_production
+
+        if is_production and not strict:
+            logger.warning(
+                "ARAGORA_STRICT_DEPLOYMENT is disabled in production - "
+                "this is not recommended. Server may start with insecure configuration."
+            )
 
         result = await validate_deployment(strict=strict)
 

@@ -276,7 +276,13 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
             if msg_type == "text":
                 text = message.get("text", {}).get("body", "")
-                self._handle_text_message(from_number, contact_name, text, msg_id)
+                self._handle_text_message(
+                    from_number,
+                    contact_name,
+                    text,
+                    msg_id,
+                    attachments=self._extract_attachments(message),
+                )
             elif msg_type == "interactive":
                 self._handle_interactive(from_number, message.get("interactive", {}))
             elif msg_type == "button":
@@ -285,7 +291,12 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 logger.debug(f"Unhandled WhatsApp message type: {msg_type}")
 
     def _handle_text_message(
-        self, from_number: str, contact_name: str, text: str, msg_id: str
+        self,
+        from_number: str,
+        contact_name: str,
+        text: str,
+        msg_id: str,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> None:
         """Handle incoming text message."""
         text_lower = text.lower().strip()
@@ -299,7 +310,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             if command == "help":
                 self._send_help(from_number)
             elif command == "debate":
-                self._start_debate(from_number, contact_name, args)
+                self._start_debate(from_number, contact_name, args, attachments)
             elif command == "status":
                 self._send_status(from_number)
             else:
@@ -311,7 +322,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             self._send_welcome(from_number)
         else:
             # Treat as debate topic
-            self._start_debate(from_number, contact_name, text)
+            self._start_debate(from_number, contact_name, text, attachments)
 
     def _handle_interactive(self, from_number: str, interactive: dict[str, Any]) -> None:
         """Handle interactive message response (list reply, button reply)."""
@@ -332,6 +343,66 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         payload = button.get("payload", "")
         text = button.get("text", "")
         logger.info(f"WhatsApp button reply from {from_number}: {payload} ({text})")
+
+    def _extract_attachments(self, message: dict[str, Any]) -> list[dict[str, Any]]:
+        """Extract WhatsApp attachment metadata from message payload."""
+        attachments: list[dict[str, Any]] = []
+        if not isinstance(message, dict):
+            return attachments
+
+        caption = ""
+        if isinstance(message.get("text"), dict):
+            caption = message.get("text", {}).get("body", "")
+
+        document = message.get("document")
+        if isinstance(document, dict):
+            attachments.append(
+                {
+                    "type": "document",
+                    "file_id": document.get("id"),
+                    "filename": document.get("filename") or "document",
+                    "content_type": document.get("mime_type"),
+                    "caption": document.get("caption"),
+                    "text": caption or document.get("caption") or "",
+                }
+            )
+
+        image = message.get("image")
+        if isinstance(image, dict):
+            attachments.append(
+                {
+                    "type": "image",
+                    "file_id": image.get("id"),
+                    "content_type": image.get("mime_type"),
+                    "caption": image.get("caption"),
+                    "text": caption or image.get("caption") or "",
+                }
+            )
+
+        video = message.get("video")
+        if isinstance(video, dict):
+            attachments.append(
+                {
+                    "type": "video",
+                    "file_id": video.get("id"),
+                    "content_type": video.get("mime_type"),
+                    "caption": video.get("caption"),
+                    "text": caption or video.get("caption") or "",
+                }
+            )
+
+        audio = message.get("audio")
+        if isinstance(audio, dict):
+            attachments.append(
+                {
+                    "type": "audio",
+                    "file_id": audio.get("id"),
+                    "content_type": audio.get("mime_type"),
+                    "text": caption,
+                }
+            )
+
+        return attachments
 
     # Message sending
 
@@ -412,7 +483,13 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             "Ready for debates!",
         )
 
-    def _start_debate(self, to_number: str, contact_name: str, topic: str) -> None:
+    def _start_debate(
+        self,
+        to_number: str,
+        contact_name: str,
+        topic: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> None:
         """Start a debate on the given topic."""
         # RBAC: check debate creation permission
         try:
@@ -431,7 +508,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             return
 
         # Start debate via queue system
-        debate_id = self._start_debate_async(to_number, contact_name, topic)
+        debate_id = self._start_debate_async(to_number, contact_name, topic, attachments)
 
         self._send_message(
             to_number,
@@ -442,7 +519,13 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
         logger.info(f"Debate requested from WhatsApp {contact_name} ({to_number}): {topic[:100]}")
 
-    def _start_debate_async(self, to_number: str, contact_name: str, topic: str) -> str:
+    def _start_debate_async(
+        self,
+        to_number: str,
+        contact_name: str,
+        topic: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> str:
         """Start a debate asynchronously via the DecisionRouter.
 
         Uses the unified DecisionRouter for:
@@ -499,6 +582,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                         user_id=f"whatsapp:{to_number}",
                         metadata={"contact_name": contact_name},
                     ),
+                    attachments=attachments or [],
                 )
 
                 # Route through DecisionRouter (handles origin registration, deduplication, caching)

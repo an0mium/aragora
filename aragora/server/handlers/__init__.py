@@ -142,6 +142,7 @@ if TYPE_CHECKING:
     from .ap_automation import APAutomationHandler
     from .ar_automation import ARAutomationHandler
     from .auditing import AuditingHandler
+    from .security_debate import SecurityDebateHandler
     from .auth import AuthHandler
     from .autonomous import (
         AlertHandler,
@@ -487,6 +488,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "SocialMediaHandler": Stability.STABLE,
     "MomentsHandler": Stability.STABLE,
     "AuditingHandler": Stability.STABLE,
+    "SecurityDebateHandler": Stability.STABLE,
     "PluginsHandler": Stability.STABLE,
     "BroadcastHandler": Stability.STABLE,
     "GenesisHandler": Stability.STABLE,
@@ -704,6 +706,7 @@ __all__ = [
     "AuditSessionsHandler",
     "VerificationHandler",
     "AuditingHandler",
+    "SecurityDebateHandler",
     "DashboardHandler",
     "PersonaHandler",
     "IntrospectionHandler",

@@ -121,7 +121,7 @@ class DashboardHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _dashboard_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for dashboard endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and admin:dashboard:read permission
@@ -129,10 +129,10 @@ class DashboardHandler(SecureHandler):
             auth_context = await self.get_auth_context(handler, require_auth=True)
             self.check_permission(auth_context, PERM_ADMIN_DASHBOARD_READ)
         except UnauthorizedError as e:
-            logger.warning(f"Dashboard auth error: {e}")
+            logger.warning("Dashboard auth error: %s", e)
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Dashboard access denied: {e}")
+            logger.warning("Dashboard access denied: %s", e)
             return error_response(str(e), 403)
 
         if path == "/api/dashboard/debates":
@@ -209,7 +209,7 @@ class DashboardHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, PERM_ADMIN_METRICS_READ)
             except ForbiddenError as e:
-                logger.warning(f"Metrics access denied: {e}")
+                logger.warning("Metrics access denied: %s", e)
                 return error_response(str(e), 403)
             return self._get_quality_metrics()
 
@@ -222,7 +222,7 @@ class DashboardHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _dashboard_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for dashboard endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and admin:dashboard:write permission for POST operations
@@ -230,10 +230,10 @@ class DashboardHandler(SecureHandler):
             auth_context = await self.get_auth_context(handler, require_auth=True)
             self.check_permission(auth_context, PERM_ADMIN_DASHBOARD_WRITE)
         except UnauthorizedError as e:
-            logger.warning(f"Dashboard auth error: {e}")
+            logger.warning("Dashboard auth error: %s", e)
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Dashboard access denied: {e}")
+            logger.warning("Dashboard access denied: %s", e)
             return error_response(str(e), 403)
 
         if path.startswith("/api/v1/dashboard/quick-actions/"):
@@ -543,7 +543,7 @@ class DashboardHandler(SecureHandler):
                         row = cursor.fetchone()
                         overview["total_debates_today"] = row[0] if row else 0
                 except Exception as e:
-                    logger.debug(f"Could not get today's debates count: {e}")
+                    logger.debug("Could not get today's debates count: %s", e)
 
             # Agent performance as stat cards
             perf = self._get_agent_performance(5)
@@ -750,7 +750,7 @@ class DashboardHandler(SecureHandler):
                             if row[0]:
                                 stats["debates"]["by_status"][row[0]] = row[1]
                 except Exception as e:
-                    logger.debug(f"Could not get debate stats: {e}")
+                    logger.debug("Could not get debate stats: %s", e)
 
             # Agent stats from ELO
             perf = self._get_agent_performance(100)
@@ -1114,7 +1114,7 @@ class DashboardHandler(SecureHandler):
                         row = cursor.fetchone()
                         summary["today_count"] = row[0] if row else 0
                 except Exception as e:
-                    logger.debug(f"Could not get today's inbox count: {e}")
+                    logger.debug("Could not get today's inbox count: %s", e)
         except Exception as e:
             logger.warning("Inbox summary error: %s: %s", type(e).__name__, e)
 
@@ -1484,7 +1484,7 @@ class DashboardHandler(SecureHandler):
                             for i, bucket in enumerate(curve)
                         ]
                 except Exception as e:
-                    logger.debug(f"Calibration curve error for {agent}: {e}")
+                    logger.debug("Calibration curve error for %s: %s", agent, e)
 
             # Get domain breakdown for agents with sufficient data
             for agent in all_agents[:5]:
@@ -1501,7 +1501,7 @@ class DashboardHandler(SecureHandler):
                             for domain, s in domain_data.items()
                         }
                 except Exception as e:
-                    logger.debug(f"Domain breakdown error for {agent}: {e}")
+                    logger.debug("Domain breakdown error for %s: %s", agent, e)
 
         except Exception as e:
             logger.warning("Calibration metrics error: %s", e)
@@ -1555,7 +1555,7 @@ class DashboardHandler(SecureHandler):
                             }
                             metrics["total_versions"] += version.version
                     except (AttributeError, KeyError) as e:
-                        logger.debug(f"Skipping agent version with missing data: {e}")
+                        logger.debug("Skipping agent version with missing data: %s", e)
 
                 # Get pattern count
                 patterns = cast(Any, prompt_evolver).get_top_patterns(limit=100)

@@ -48,6 +48,7 @@ AUTH_ENDPOINTS = {
             "summary": "Register new user",
             "operationId": "registerUser",
             "description": "Create a new user account. Returns user info and session tokens.",
+            "security": [],
             "requestBody": {
                 "required": True,
                 "content": {
@@ -90,6 +91,7 @@ AUTH_ENDPOINTS = {
             "summary": "Login user",
             "operationId": "loginUser",
             "description": "Authenticate user with email and password. Returns session tokens. If MFA is enabled, returns mfa_required flag.",
+            "security": [],
             "requestBody": {
                 "required": True,
                 "content": {

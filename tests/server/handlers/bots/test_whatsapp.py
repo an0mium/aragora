@@ -840,6 +840,26 @@ class TestDebateStarting:
         assert isinstance(debate_id, str)
         assert len(debate_id) > 0
 
+    def test_start_debate_async_accepts_attachments(self):
+        """Should accept attachments when starting debate."""
+        handler = _make_handler()
+
+        with patch("asyncio.run") as mock_run:
+            mock_run.return_value = None
+            with patch.object(whatsapp_module, "WHATSAPP_ACCESS_TOKEN", ""):
+                with patch.dict(
+                    "sys.modules",
+                    {"aragora.server.debate_origin": MagicMock()},
+                ):
+                    debate_id = handler._start_debate_async(
+                        "12345",
+                        "User",
+                        "Test topic",
+                        attachments=[{"type": "document", "file_id": "file123"}],
+                    )
+
+        assert isinstance(debate_id, str)
+
 
 # =============================================================================
 # Test Error Handling

@@ -8,8 +8,10 @@ This module handles incoming Slack Events API webhooks including:
 - App uninstall/token revocation events
 """
 
+import asyncio
 import json
 import logging
+import re
 from typing import Any
 
 from aragora.audit.unified import audit_data
@@ -30,6 +32,60 @@ from .constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_slack_attachments(
+    event: dict[str, Any], max_preview: int = 2000
+) -> list[dict[str, Any]]:
+    """Extract Slack file and attachment metadata into a normalized list."""
+    attachments: list[dict[str, Any]] = []
+
+    files = event.get("files", [])
+    if isinstance(files, list):
+        for file in files:
+            if not isinstance(file, dict):
+                continue
+            preview = (
+                file.get("preview_plain_text")
+                or file.get("preview")
+                or file.get("initial_comment", {}).get("comment")
+                or ""
+            )
+            if isinstance(preview, str) and len(preview) > max_preview:
+                preview = preview[:max_preview] + "..."
+            attachments.append(
+                {
+                    "type": "slack_file",
+                    "file_id": file.get("id"),
+                    "filename": file.get("name") or file.get("title") or "file",
+                    "content_type": file.get("mimetype") or file.get("filetype"),
+                    "size": file.get("size"),
+                    "url": file.get("url_private_download")
+                    or file.get("url_private")
+                    or file.get("permalink"),
+                    "text": preview,
+                }
+            )
+
+    event_attachments = event.get("attachments", [])
+    if isinstance(event_attachments, list):
+        for attachment in event_attachments:
+            if not isinstance(attachment, dict):
+                continue
+            text = attachment.get("text") or attachment.get("fallback") or ""
+            if isinstance(text, str) and len(text) > max_preview:
+                text = text[:max_preview] + "..."
+            attachments.append(
+                {
+                    "type": "slack_attachment",
+                    "filename": attachment.get("title") or "attachment",
+                    "title": attachment.get("title"),
+                    "url": attachment.get("title_link") or attachment.get("from_url"),
+                    "text": text,
+                }
+            )
+
+    return attachments
 
 
 @rate_limit(rpm=60)
@@ -122,6 +178,49 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                     logger.debug("RBAC check failed for app_mention: %s", e)
 
             logger.info(f"Slack mention from {user} in {channel}: {text[:100]}")
+
+            clean_text = re.sub(r"<@[^>]+>", "", text).strip()
+            if clean_text.lower().startswith(("ask ", "debate ", "aragora ")):
+                clean_text = clean_text.split(maxsplit=1)[-1].strip()
+
+            attachments = _extract_slack_attachments(event)
+
+            if clean_text:
+                try:
+                    from aragora.core import (
+                        DecisionRequest,
+                        DecisionType,
+                        InputSource,
+                        RequestContext,
+                        ResponseChannel,
+                        get_decision_router,
+                    )
+
+                    response_channel = ResponseChannel(
+                        platform="slack",
+                        channel_id=channel,
+                        user_id=user,
+                        thread_id=event.get("thread_ts") or event.get("ts"),
+                    )
+                    context = RequestContext(
+                        user_id=user,
+                        session_id=f"slack:{channel}",
+                        metadata={"team_id": team_id},
+                    )
+                    request = DecisionRequest(
+                        content=clean_text,
+                        decision_type=DecisionType.DEBATE,
+                        source=InputSource.SLACK,
+                        response_channels=[response_channel],
+                        context=context,
+                        attachments=attachments,
+                    )
+                    router = get_decision_router()
+                    asyncio.create_task(router.route(request))
+                except ImportError:
+                    logger.debug("DecisionRouter not available for Slack app_mention")
+                except Exception as e:
+                    logger.error("Failed to route Slack app_mention: %s", e)
 
             # Parse command from mention
             # Format: @aragora ask "question" or @aragora status

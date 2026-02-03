@@ -576,12 +576,16 @@ class TeamsCardActions:
 
             conversation = activity.get("conversation", {})
             service_url = activity.get("serviceUrl", "")
+            attachments = activity.get("attachments")
+            if not isinstance(attachments, list):
+                attachments = []
 
             debate_id = await _start_teams_debate(
                 topic=topic,
                 conversation_id=conversation.get("id", ""),
                 user_id=user_id,
                 service_url=service_url,
+                attachments=attachments,
             )
 
             card = build_debate_card(
@@ -738,12 +742,16 @@ class TeamsCardActions:
             if topic:
                 conversation = activity.get("conversation", {})
                 service_url = activity.get("serviceUrl", "")
+                attachments = activity.get("attachments")
+                if not isinstance(attachments, list):
+                    attachments = []
 
                 debate_id = await _start_teams_debate(
                     topic=topic,
                     conversation_id=conversation.get("id", ""),
                     user_id=user_id,
                     service_url=service_url,
+                    attachments=attachments,
                 )
 
                 card = build_debate_card(

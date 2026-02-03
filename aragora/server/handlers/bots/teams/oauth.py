@@ -90,14 +90,14 @@ class TeamsOAuth:
                         result = await response.json()
                         return result.get("access_token")
                     else:
-                        logger.error(f"Failed to get bot token: {response.status}")
+                        logger.error("Failed to get bot token: %s", response.status)
                         return None
 
         except ImportError:
             logger.warning("aiohttp not available for OAuth token request")
             return None
         except Exception as e:
-            logger.error(f"Error getting bot token: {e}")
+            logger.error("Error getting bot token: %s", e)
             return None
 
     async def validate_incoming_token(self, auth_header: str) -> dict[str, Any] | None:
@@ -130,7 +130,7 @@ class TeamsOAuth:
             logger.warning("JWT verification module not available")
             return None
         except Exception as e:
-            logger.error(f"Token validation error: {e}")
+            logger.error("Token validation error: %s", e)
             return None
 
     async def exchange_sso_token(self, sso_token: str, connection_name: str = "") -> str | None:
@@ -165,7 +165,7 @@ class TeamsOAuth:
             return None
 
         except Exception as e:
-            logger.error(f"SSO token exchange failed: {e}")
+            logger.error("SSO token exchange failed: %s", e)
             return None
 
     async def get_user_token(self, user_id: str, connection_name: str) -> dict[str, Any] | None:
@@ -194,7 +194,7 @@ class TeamsOAuth:
         cache_key = f"{user_id}:{connection_name}"
         if cache_key in self._token_cache:
             del self._token_cache[cache_key]
-            logger.info(f"Signed out user {user_id} from {connection_name}")
+            logger.info("Signed out user %s from %s", user_id, connection_name)
             return True
         return False
 

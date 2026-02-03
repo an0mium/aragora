@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
     summary="Register a new user account",
     description="Create a new user account with email, password, and optional organization.",
     tags=["Authentication"],
+    auth_required=False,
     responses={
         "201": {
             "description": "User created successfully",
@@ -179,6 +180,7 @@ def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
     summary="Authenticate user and obtain tokens",
     description="Authenticate with email and password. Returns JWT tokens or MFA challenge if enabled.",
     tags=["Authentication"],
+    auth_required=False,
     responses={
         "200": {
             "description": "Login successful, tokens returned",

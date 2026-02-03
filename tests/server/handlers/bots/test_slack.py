@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import time
+from urllib.parse import urlencode
 from io import BytesIO
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -416,6 +417,14 @@ class TestSlackEventHandler:
                         "text": "@aragora ask about microservices",
                         "channel": "C123456",
                         "user": "U123456",
+                        "files": [
+                            {
+                                "id": "F123",
+                                "name": "spec.txt",
+                                "mimetype": "text/plain",
+                                "preview_plain_text": "Spec details",
+                            }
+                        ],
                     },
                 }
             ).encode()
@@ -518,6 +527,34 @@ class TestSlackCommandHandler:
         response_body = json.loads(result.body)
         assert response_body["response_type"] == "in_channel"
         assert "microservices" in response_body["text"]
+
+    @pytest.mark.asyncio
+    async def test_handle_ask_command_with_attachments(self):
+        """Should pass attachments through to debate starter."""
+        attachments = [{"filename": "spec.txt", "content": "hello"}]
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "ask Should we use microservices",
+                "user_id": "U123",
+                "user_name": "testuser",
+                "channel_id": "C123",
+                "response_url": "https://hooks.slack.com/test",
+                "attachments": json.dumps(attachments),
+            }
+        )
+        request = MockRequest(body=body.encode())
+
+        with patch(
+            "aragora.server.handlers.bots.slack.commands.start_slack_debate",
+            new_callable=AsyncMock,
+        ) as mock_start:
+            mock_start.return_value = "test-debate-id-123"
+            result = await handle_slack_commands(request)
+
+        assert result.status_code == 200
+        _, kwargs = mock_start.call_args
+        assert kwargs.get("attachments") == attachments
 
     @pytest.mark.asyncio
     async def test_handle_ask_command_has_blocks(self):

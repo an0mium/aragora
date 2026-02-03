@@ -352,6 +352,29 @@ class HTTPClientPool:
         if self._closed:
             raise RuntimeError("HTTPClientPool has been closed")
 
+        # In test runs, avoid reusing cached clients to keep patching isolated.
+        if os.getenv("PYTEST_CURRENT_TEST"):
+            client = await self._create_async_client(provider)
+            if client is None:
+                raise RuntimeError(f"Failed to create async client for {provider}")
+            provider_metrics = self.metrics.get_provider_metrics(provider)
+            try:
+                yield client
+                provider_metrics.requests_success += 1
+            except (OSError, TimeoutError, ConnectionError) as e:
+                provider_metrics.requests_failed += 1
+                if "429" in str(e) or "rate" in str(e).lower():
+                    provider_metrics.rate_limits_hit += 1
+                elif "timeout" in str(e).lower():
+                    provider_metrics.timeouts += 1
+                raise
+            finally:
+                try:
+                    await client.aclose()
+                except Exception:
+                    pass
+            return
+
         start_time = time.time()
 
         # Get or create client

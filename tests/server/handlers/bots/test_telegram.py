@@ -951,3 +951,61 @@ class TestDebateAsyncStart:
         mock_send.assert_called_once()
         sent_text = mock_send.call_args[0][1]
         assert "Please provide a topic" in sent_text
+
+
+class TestAttachmentExtraction:
+    """Tests for Telegram attachment extraction."""
+
+    def test_extracts_document_attachment(self):
+        handler = _make_handler()
+        message = {
+            "document": {
+                "file_id": "file123",
+                "file_name": "spec.txt",
+                "mime_type": "text/plain",
+                "file_size": 123,
+            },
+            "caption": "Spec preview",
+        }
+
+        attachments = handler._extract_attachments(message)
+
+        assert len(attachments) == 1
+        assert attachments[0]["type"] == "document"
+        assert attachments[0]["file_id"] == "file123"
+        assert attachments[0]["filename"] == "spec.txt"
+        assert attachments[0]["content_type"] == "text/plain"
+        assert attachments[0]["text"] == "Spec preview"
+
+    def test_extracts_largest_photo(self):
+        handler = _make_handler()
+        message = {
+            "photo": [
+                {"file_id": "small", "file_size": 10},
+                {"file_id": "large", "file_size": 20},
+            ]
+        }
+
+        attachments = handler._extract_attachments(message)
+
+        assert len(attachments) == 1
+        assert attachments[0]["type"] == "photo"
+        assert attachments[0]["file_id"] == "large"
+
+    def test_cmd_debate_passes_attachments(self):
+        handler = _make_handler()
+        message = {
+            "document": {"file_id": "file123", "file_name": "spec.txt"},
+            "caption": "Spec preview",
+        }
+
+        with patch.object(handler, "_send_message"):
+            with patch.object(handler, "_start_debate_async") as mock_start:
+                handler._cmd_debate(
+                    12345, 67890, "Test topic", handler._extract_attachments(message)
+                )
+
+        assert mock_start.called is True
+        _, _, _, attachments = mock_start.call_args[0]
+        assert isinstance(attachments, list)
+        assert attachments[0]["file_id"] == "file123"

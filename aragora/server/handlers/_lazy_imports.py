@@ -124,6 +124,7 @@ HANDLER_MODULES: dict[str, str] = {
     # Top-level handler modules (single file)
     "A2AHandler": "aragora.server.handlers.a2a",
     "AuditingHandler": "aragora.server.handlers.auditing",
+    "SecurityDebateHandler": "aragora.server.handlers.security_debate",
     "AuthHandler": "aragora.server.handlers.auth",
     "BackupHandler": "aragora.server.handlers.backup_handler",
     "BeliefHandler": "aragora.server.handlers.belief",
@@ -300,6 +301,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "AuditSessionsHandler",
     "VerificationHandler",
     "AuditingHandler",
+    "SecurityDebateHandler",
     "DashboardHandler",
     "PersonaHandler",
     "IntrospectionHandler",
