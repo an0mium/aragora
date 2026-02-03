@@ -4,6 +4,9 @@ Tier Manager for Continuum Memory System.
 Extracts tier configuration and transition logic from ContinuumMemory,
 providing a configurable component for managing memory tier lifecycles.
 
+Includes GlacialPromotionScheduler for automatic promotion of stable
+slow-tier memories to glacial tier based on consolidation and surprise scores.
+
 Usage:
     from aragora.memory.tier_manager import TierManager, MemoryTier
 
@@ -15,10 +18,15 @@ Usage:
 
     # Get tier metrics
     stats = manager.get_transition_stats()
+
+    # Automatic glacial promotion
+    scheduler = GlacialPromotionScheduler(tier_manager=manager)
+    await scheduler.start()
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 from dataclasses import dataclass, field

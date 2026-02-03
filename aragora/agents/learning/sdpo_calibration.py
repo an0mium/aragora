@@ -130,6 +130,7 @@ class SDPOCalibrationBridge:
         correct: bool,
         domain: str = "general",
         trajectory_id: str | None = None,
+        trajectory: "TrajectoryRecord | None" = None,
         action_type: str | None = None,
     ) -> None:
         """Record a debate outcome in both SDPO and CalibrationTracker.
@@ -154,13 +155,18 @@ class SDPOCalibrationBridge:
             )
 
         # Record trajectory outcome if we have a trajectory
-        if self._sdpo is not None and trajectory_id:
-            # Evaluate the trajectory and update calibration
-            result = await self._sdpo.evaluate_trajectory(trajectory_id)
-            if result:
-                # Update calibration cache
-                calibration = await self._sdpo.update_calibration(agent_id, result.trajectory)
-                self._agent_calibrations[agent_id] = calibration
+        if self._sdpo is not None:
+            resolved = trajectory
+            if resolved is None and trajectory_id:
+                resolved = self._sdpo.get_trajectory(trajectory_id)
+
+            if resolved is not None:
+                insights = await self._sdpo.evaluate_trajectory(resolved)
+                if insights:
+                    self._sdpo.update_calibration(insights)
+                    calibration = self._sdpo.calibrations.get(agent_id)
+                    if calibration is not None:
+                        self._agent_calibrations[agent_id] = calibration
 
     async def sync_trajectory_to_calibration(
         self,

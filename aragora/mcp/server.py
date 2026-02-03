@@ -332,6 +332,14 @@ class AragoraMCPServer:
             ],
         }
 
+    async def initialize(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        _ = params or {}
+        return {
+            "protocolVersion": "2024-11-05",
+            "serverInfo": {"name": self.name, "version": self.version},
+            "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
+        }
+
     async def list_tools(self) -> dict[str, Any]:
         return {"tools": [tool.to_dict() for tool in self._tools.values()]}
 
@@ -609,7 +617,8 @@ def _build_input_schema(parameters: dict[str, Any]) -> dict[str, Any]:
 
 
 def _expects_dict(handler: Callable[..., Any]) -> bool:
-    return handler.__name__.startswith("_")
+    name = getattr(handler, "__name__", "")
+    return bool(name) and name.startswith("_")
 
 
 __all__ = [

@@ -30,12 +30,19 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
+    from aragora.agents.learning.sdpo import SDPOLearner, TrajectoryRecord
+    from aragora.agents.learning.sdpo_calibration import (
+        SDPOCalibrationBridge,
+        SDPOCalibrationConfig,
+    )
     from aragora.agents.grounded import MomentDetector
     from aragora.agents.positions import PositionLedger
     from aragora.agents.truth_grounding import PositionTracker
@@ -106,6 +113,12 @@ class SubsystemCoordinator:
     elo_system: Optional["EloSystem"] = None
     calibration_tracker: Optional["CalibrationTracker"] = None
     enable_calibration: bool = False
+
+    # SDPO learning (self-distillation for calibration)
+    sdpo_learner: Optional["SDPOLearner"] = None
+    sdpo_bridge: Optional["SDPOCalibrationBridge"] = None
+    sdpo_calibration_config: Optional["SDPOCalibrationConfig"] = None
+    enable_sdpo: bool = True
 
     # Persona management
     persona_manager: Any | None = None
@@ -357,6 +370,10 @@ class SubsystemCoordinator:
         if self.enable_calibration and self.calibration_tracker is None:
             self._auto_init_calibration_tracker()
 
+        # SDPO learning bridge (uses calibration tracker when available)
+        if self.enable_sdpo and self.sdpo_learner is None:
+            self._auto_init_sdpo()
+
         # Dissent retriever (requires consensus_memory)
         if self.consensus_memory is not None and self.dissent_retriever is None:
             self._auto_init_dissent_retriever()
@@ -441,6 +458,34 @@ class SubsystemCoordinator:
         except (TypeError, ValueError, RuntimeError) as e:
             logger.warning("CalibrationTracker auto-init failed: %s", e)
             self._init_errors.append(f"CalibrationTracker init failed: {e}")
+
+    def _auto_init_sdpo(self) -> None:
+        """Auto-initialize SDPO learner and optional calibration bridge."""
+        try:
+            from aragora.agents.learning.sdpo import SDPOLearner, SDPOConfig
+            from aragora.agents.learning.sdpo_calibration import (
+                SDPOCalibrationBridge,
+                SDPOCalibrationConfig,
+            )
+
+            sdpo_config = SDPOConfig()
+            self.sdpo_learner = self.sdpo_learner or SDPOLearner(config=sdpo_config)
+
+            if self.calibration_tracker is not None:
+                bridge_config = self.sdpo_calibration_config or SDPOCalibrationConfig()
+                self.sdpo_bridge = SDPOCalibrationBridge(
+                    sdpo_learner=self.sdpo_learner,
+                    calibration_tracker=self.calibration_tracker,
+                    config=bridge_config,
+                )
+
+            logger.debug("Auto-initialized SDPO learner for calibration feedback")
+        except ImportError:
+            logger.debug("SDPO not available - skipping SDPO initialization")
+            self._init_errors.append("SDPO import failed")
+        except Exception as e:
+            logger.warning("SDPO auto-init failed: %s", e)
+            self._init_errors.append(f"SDPO init failed: {e}")
 
     def _auto_init_dissent_retriever(self) -> None:
         """Auto-initialize DissentRetriever for historical minority views.
@@ -947,6 +992,12 @@ class SubsystemCoordinator:
             except Exception as e:
                 logger.debug("Calibration update failed: %s", e)
 
+        # SDPO retrospective learning from debate trajectory
+        if self.sdpo_learner and result:
+            trajectory = self._build_sdpo_trajectory(ctx, result)
+            if trajectory is not None:
+                self._schedule_async(self._process_sdpo_trajectory(trajectory))
+
         # Update continuum memory with debate outcome
         if self.continuum_memory and result:
             try:
@@ -972,6 +1023,100 @@ class SubsystemCoordinator:
                 )
             except Exception as e:
                 logger.debug("Continuum memory update failed: %s", e)
+
+    # ---------------------------------------------------------------------
+    # SDPO helpers
+    # ---------------------------------------------------------------------
+
+    def _schedule_async(self, coro: Any) -> None:
+        """Schedule an async task without blocking."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(coro)
+        except RuntimeError:
+            try:
+                asyncio.run(coro)
+            except Exception as e:
+                logger.debug("Failed to run async task: %s", e)
+
+    def _build_sdpo_trajectory(
+        self,
+        ctx: "DebateContext",
+        result: "DebateResult",
+    ) -> "TrajectoryRecord | None":
+        """Construct an SDPO trajectory from debate messages."""
+        try:
+            from aragora.agents.learning.sdpo import TrajectoryRecord, ActionType
+        except Exception as e:
+            logger.debug("SDPO types unavailable: %s", e)
+            return None
+
+        task = ctx.env.task if ctx.env else getattr(result, "task", "") or ""
+        started_at = (
+            datetime.fromtimestamp(ctx.start_time, tz=timezone.utc)
+            if getattr(ctx, "start_time", 0)
+            else datetime.now(timezone.utc)
+        )
+
+        trajectory = TrajectoryRecord(
+            id=f"traj_{ctx.debate_id}",
+            task=task,
+            started_at=started_at,
+        )
+
+        role_map = {
+            "proposer": ActionType.PROPOSE,
+            "critic": ActionType.CRITIQUE,
+            "synthesizer": ActionType.SYNTHESIZE,
+            "judge": ActionType.JUDGE,
+        }
+
+        for msg in getattr(result, "messages", []) or []:
+            action = role_map.get(getattr(msg, "role", ""), ActionType.OTHER)
+            trajectory.record_step(
+                agent=getattr(msg, "agent", "unknown"),
+                action=action,
+                content=getattr(msg, "content", ""),
+                confidence=0.5,
+                metadata={
+                    "round": getattr(msg, "round", 0),
+                    "timestamp": getattr(msg, "timestamp", None),
+                },
+            )
+
+        confidence = float(
+            getattr(result, "confidence", 0.0) or getattr(result, "consensus_confidence", 0.0)
+        )
+        success = bool(getattr(result, "consensus_reached", False))
+        feedback = getattr(result, "final_answer", "") or getattr(result, "consensus", "")
+
+        trajectory.set_outcome(
+            success=success,
+            quality_score=confidence,
+            feedback=feedback or "",
+            metadata={
+                "debate_id": ctx.debate_id,
+                "consensus_reached": success,
+                "confidence": confidence,
+            },
+        )
+
+        return trajectory
+
+    async def _process_sdpo_trajectory(self, trajectory: "TrajectoryRecord") -> None:
+        """Evaluate and persist SDPO trajectory insights."""
+        if self.sdpo_learner is None:
+            return
+
+        try:
+            self.sdpo_learner.buffer.add(trajectory)
+            insights = await self.sdpo_learner.evaluate_trajectory(trajectory)
+            if insights:
+                self.sdpo_learner.update_calibration(insights)
+            if self.sdpo_bridge is not None:
+                await self.sdpo_bridge.sync_trajectory_to_calibration(trajectory)
+        except Exception as e:
+            logger.debug("SDPO trajectory processing failed: %s", e)
 
     # =========================================================================
     # Query methods
@@ -1091,6 +1236,7 @@ class SubsystemCoordinator:
                 "position_ledger": self.position_ledger is not None,
                 "elo_system": self.elo_system is not None,
                 "calibration_tracker": self.calibration_tracker is not None,
+                "sdpo_learner": self.sdpo_learner is not None,
                 "consensus_memory": self.consensus_memory is not None,
                 "dissent_retriever": self.dissent_retriever is not None,
                 "continuum_memory": self.continuum_memory is not None,
@@ -1106,6 +1252,7 @@ class SubsystemCoordinator:
                 "position_tracking": self.has_position_tracking,
                 "elo_ranking": self.has_elo,
                 "calibration": self.has_calibration,
+                "sdpo": self.sdpo_learner is not None,
                 "consensus_memory": self.has_consensus_memory,
                 "dissent_retrieval": self.has_dissent_retrieval,
                 "moment_detection": self.has_moment_detection,
@@ -1160,6 +1307,7 @@ class SubsystemConfig:
     # Enable flags
     enable_position_ledger: bool = False
     enable_calibration: bool = False
+    enable_sdpo: bool = True
     enable_moment_detection: bool = False
     enable_hook_handlers: bool = True
 
@@ -1177,6 +1325,9 @@ class SubsystemConfig:
     position_ledger: Any | None = None
     elo_system: Any | None = None
     calibration_tracker: Any | None = None
+    sdpo_learner: Any | None = None
+    sdpo_bridge: Any | None = None
+    sdpo_calibration_config: Any | None = None
     persona_manager: Any | None = None
     consensus_memory: Any | None = None
     dissent_retriever: Any | None = None
@@ -1245,6 +1396,10 @@ class SubsystemConfig:
             elo_system=self.elo_system,
             calibration_tracker=self.calibration_tracker,
             enable_calibration=self.enable_calibration,
+            sdpo_learner=self.sdpo_learner,
+            sdpo_bridge=self.sdpo_bridge,
+            sdpo_calibration_config=self.sdpo_calibration_config,
+            enable_sdpo=self.enable_sdpo,
             persona_manager=self.persona_manager,
             consensus_memory=self.consensus_memory,
             dissent_retriever=self.dissent_retriever,

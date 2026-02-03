@@ -16,6 +16,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import hashlib
 import logging
@@ -276,13 +277,29 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
             if msg_type == "text":
                 text = message.get("text", {}).get("body", "")
+                attachments = self._extract_attachments(message)
+                attachments = self._hydrate_whatsapp_attachments(attachments)
                 self._handle_text_message(
                     from_number,
                     contact_name,
                     text,
                     msg_id,
-                    attachments=self._extract_attachments(message),
+                    attachments=attachments,
                 )
+            elif msg_type in ("document", "image", "video", "audio"):
+                attachments = self._extract_attachments(message)
+                attachments = self._hydrate_whatsapp_attachments(attachments)
+                caption = ""
+                media_payload = message.get(msg_type, {})
+                if isinstance(media_payload, dict):
+                    caption = media_payload.get("caption", "")
+                if caption:
+                    self._start_debate(from_number, contact_name, caption, attachments)
+                else:
+                    self._send_message(
+                        from_number,
+                        "Received your file. Please reply with a question to analyze it.",
+                    )
             elif msg_type == "interactive":
                 self._handle_interactive(from_number, message.get("interactive", {}))
             elif msg_type == "button":
@@ -401,6 +418,60 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                     "text": caption,
                 }
             )
+
+        return attachments
+
+    def _hydrate_whatsapp_attachments(
+        self,
+        attachments: list[dict[str, Any]],
+        max_bytes: int = 2_000_000,
+    ) -> list[dict[str, Any]]:
+        """Best-effort download of WhatsApp media into attachment payloads."""
+        if not attachments:
+            return attachments
+
+        try:
+            from aragora.connectors.chat.registry import get_connector
+        except Exception as e:
+            logger.debug("WhatsApp connector unavailable for downloads: %s", e)
+            return attachments
+
+        connector = get_connector("whatsapp")
+        if (
+            connector is None
+            or not getattr(connector, "bot_token", "")
+            or not getattr(connector, "phone_number_id", "")
+        ):
+            return attachments
+
+        try:
+            asyncio.get_running_loop()
+            # If we already have a running loop, skip to avoid blocking.
+            return attachments
+        except RuntimeError:
+            pass
+
+        for attachment in attachments:
+            if not isinstance(attachment, dict):
+                continue
+            file_id = attachment.get("file_id")
+            if not file_id or attachment.get("data") or attachment.get("content"):
+                continue
+            try:
+                file_obj = asyncio.run(connector.download_file(str(file_id)))
+                content = getattr(file_obj, "content", None)
+                if content and len(content) <= max_bytes:
+                    attachment["data"] = content
+                    if not attachment.get("filename") and getattr(file_obj, "filename", None):
+                        attachment["filename"] = file_obj.filename
+                    if not attachment.get("content_type") and getattr(
+                        file_obj, "content_type", None
+                    ):
+                        attachment["content_type"] = file_obj.content_type
+                    if not attachment.get("size") and getattr(file_obj, "size", None):
+                        attachment["size"] = file_obj.size
+            except Exception as e:
+                logger.debug("Failed to download WhatsApp media %s: %s", file_id, e)
 
         return attachments
 

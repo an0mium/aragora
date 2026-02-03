@@ -246,5 +246,91 @@ class OutcomeMixin:
         config: TierConfig = TIER_CONFIGS[tier]
         return config.base_learning_rate * (config.decay_rate**update_count)
 
+    def create_pattern_feedback_hook(
+        self: "ContinuumMemory",
+    ) -> Any:
+        """Create a hook that feeds outcome data back to pattern confidence.
+
+        When a memory in SLOW or GLACIAL tier accumulates enough observations,
+        the outcome data is captured as pattern feedback. This enables
+        PatternBridge and CultureAccumulator to adjust pattern confidence
+        based on real-world outcome tracking.
+
+        Returns:
+            Callable hook suitable for register_post_outcome_hook().
+        """
+        feedback_log: list[dict[str, Any]] = []
+
+        def _pattern_feedback_hook(outcome_data: dict[str, Any]) -> None:
+            tier = outcome_data.get("tier", "")
+            total_obs = outcome_data.get("total_observations", 0)
+
+            # Only generate feedback for well-established memories
+            if tier not in ("slow", "glacial") or total_obs < 10:
+                return
+
+            memory_id = outcome_data["id"]
+            success = outcome_data["success"]
+            surprise = outcome_data.get("surprise_score", 0.0)
+
+            # Look up pattern_id from memory metadata
+            pattern_id = None
+            try:
+                with self.connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT metadata FROM continuum_memory WHERE id = ?",
+                        (memory_id,),
+                    )
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        import json
+                        meta = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+                        pattern_id = meta.get("pattern_id")
+            except Exception:
+                pass  # Non-critical - metadata lookup failure
+
+            feedback_entry = {
+                "memory_id": memory_id,
+                "pattern_id": pattern_id,
+                "success": success,
+                "surprise_score": surprise,
+                "tier": tier,
+                "total_observations": total_obs,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            feedback_log.append(feedback_entry)
+
+            logger.debug(
+                "Pattern feedback: memory=%s pattern=%s success=%s surprise=%.3f obs=%d",
+                memory_id,
+                pattern_id,
+                success,
+                surprise,
+                total_obs,
+            )
+
+        # Attach the log to the hook for external access
+        _pattern_feedback_hook.feedback_log = feedback_log  # type: ignore[attr-defined]
+        return _pattern_feedback_hook
+
+    def get_pattern_feedback(self: "ContinuumMemory") -> list[dict[str, Any]]:
+        """Get accumulated pattern feedback from all registered feedback hooks.
+
+        Returns:
+            List of pattern feedback entries from outcome observations.
+        """
+        feedback: list[dict[str, Any]] = []
+        if not self._post_outcome_hooks:
+            return feedback
+
+        for hook in self._post_outcome_hooks:
+            log = getattr(hook, "feedback_log", None)
+            if log:
+                feedback.extend(log)
+
+        return feedback
+
 
 __all__ = ["OutcomeMixin"]

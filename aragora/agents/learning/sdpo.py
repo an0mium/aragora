@@ -557,6 +557,15 @@ class SDPOLearner:
         self.buffer.add(trajectory)
         return trajectory
 
+    def get_trajectory(self, trajectory_id: str) -> TrajectoryRecord | None:
+        """Retrieve a trajectory by ID from active set or buffer."""
+        if trajectory_id in self._active_trajectories:
+            return self._active_trajectories[trajectory_id]
+        for traj in self.buffer.get_recent(self.buffer.max_size):
+            if traj.id == trajectory_id:
+                return traj
+        return None
+
     async def evaluate_trajectory(
         self,
         trajectory: TrajectoryRecord,

@@ -536,6 +536,132 @@ class RetentionPolicyManager:
         return len(policy.notification_recipients)
 
 
+class RetentionEnforcementScheduler:
+    """Automatic retention policy enforcement scheduler.
+
+    Runs periodically to execute all enabled retention policies,
+    supporting per-tenant overrides and audit trail logging.
+
+    Integrates with the control plane for tenant-specific scheduling.
+    """
+
+    def __init__(
+        self,
+        manager: RetentionPolicyManager | None = None,
+        interval_hours: float = 24.0,
+        workspace_ids: list[str] | None = None,
+    ) -> None:
+        """Initialize the enforcement scheduler.
+
+        Args:
+            manager: RetentionPolicyManager to execute policies through.
+            interval_hours: How often to run enforcement (default 24h).
+            workspace_ids: Limit enforcement to specific workspaces (None = all).
+        """
+        self._manager = manager or RetentionPolicyManager()
+        self._interval_seconds = int(interval_hours * 3600)
+        self._workspace_ids = workspace_ids
+        self._running = False
+        self._task: Any = None
+        self._enforcement_log: list[dict[str, Any]] = []
+
+    @property
+    def enforcement_log(self) -> list[dict[str, Any]]:
+        """Get the enforcement audit trail."""
+        return list(self._enforcement_log)
+
+    async def start(self) -> None:
+        """Start the enforcement scheduler background task."""
+        if self._running:
+            return
+        self._running = True
+
+        import asyncio
+        self._task = asyncio.create_task(self._run_loop())
+        logger.info(
+            "Started retention enforcement scheduler (interval=%ds, workspaces=%s)",
+            self._interval_seconds,
+            self._workspace_ids or "all",
+        )
+
+    async def stop(self) -> None:
+        """Stop the enforcement scheduler."""
+        self._running = False
+        if self._task:
+            self._task.cancel()
+            import asyncio
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        logger.info("Stopped retention enforcement scheduler")
+
+    async def run_once(self, dry_run: bool = False) -> list[DeletionReport]:
+        """Execute a single enforcement run.
+
+        Args:
+            dry_run: If True, don't actually delete/archive.
+
+        Returns:
+            List of DeletionReport from each policy execution.
+        """
+        started_at = datetime.now(timezone.utc)
+        reports: list[DeletionReport] = []
+
+        # Get applicable policies
+        policies = self._manager.list_policies()
+        if self._workspace_ids:
+            policies = [
+                p for p in policies
+                if p.workspace_ids is None
+                or any(ws in p.workspace_ids for ws in self._workspace_ids)
+            ]
+
+        for policy in policies:
+            if not policy.enabled:
+                continue
+            try:
+                report = await self._manager.execute_policy(policy.id, dry_run=dry_run)
+                reports.append(report)
+            except (ValueError, RuntimeError, TypeError, KeyError) as e:
+                logger.error("Enforcement error for policy %s: %s", policy.id, e)
+
+        # Record audit entry
+        duration = (datetime.now(timezone.utc) - started_at).total_seconds()
+        log_entry = {
+            "run_at": started_at.isoformat(),
+            "duration_seconds": duration,
+            "policies_executed": len(reports),
+            "total_deleted": sum(r.items_deleted for r in reports),
+            "total_archived": sum(r.items_archived for r in reports),
+            "total_anonymized": sum(r.items_anonymized for r in reports),
+            "total_failed": sum(r.items_failed for r in reports),
+            "dry_run": dry_run,
+            "workspace_ids": self._workspace_ids,
+        }
+        self._enforcement_log.append(log_entry)
+
+        logger.info(
+            "Retention enforcement complete: %d policies, %d deleted, %d archived (%.1fs)",
+            len(reports),
+            log_entry["total_deleted"],
+            log_entry["total_archived"],
+            duration,
+        )
+
+        return reports
+
+    async def _run_loop(self) -> None:
+        """Background loop for periodic enforcement."""
+        import asyncio
+        while self._running:
+            try:
+                await self.run_once()
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
+                logger.error("Error in retention enforcement loop: %s", e)
+            await asyncio.sleep(self._interval_seconds)
+
+
 # Global instance
 _retention_manager: RetentionPolicyManager | None = None
 

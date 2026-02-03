@@ -88,6 +88,51 @@ def _extract_slack_attachments(
     return attachments
 
 
+async def _hydrate_slack_attachments(
+    attachments: list[dict[str, Any]],
+    max_bytes: int = 2_000_000,
+) -> list[dict[str, Any]]:
+    """Best-effort download of Slack file attachments into attachment payloads."""
+    if not attachments:
+        return attachments
+
+    try:
+        from aragora.connectors.chat.registry import get_connector
+    except Exception as e:
+        logger.debug("Slack connector unavailable for downloads: %s", e)
+        return attachments
+
+    connector = get_connector("slack")
+    if connector is None or not getattr(connector, "bot_token", ""):
+        return attachments
+
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            continue
+        file_id = attachment.get("file_id")
+        if not file_id or attachment.get("data") or attachment.get("content"):
+            continue
+        size = attachment.get("size")
+        if isinstance(size, int) and size > max_bytes:
+            logger.debug("Skipping Slack file %s (size %s > %s)", file_id, size, max_bytes)
+            continue
+        try:
+            file_obj = await connector.download_file(str(file_id))
+            content = getattr(file_obj, "content", None)
+            if content:
+                attachment["data"] = content
+                if not attachment.get("filename") and getattr(file_obj, "filename", None):
+                    attachment["filename"] = file_obj.filename
+                if not attachment.get("content_type") and getattr(file_obj, "content_type", None):
+                    attachment["content_type"] = file_obj.content_type
+                if not attachment.get("size") and getattr(file_obj, "size", None):
+                    attachment["size"] = file_obj.size
+        except Exception as e:
+            logger.debug("Failed to download Slack file %s: %s", file_id, e)
+
+    return attachments
+
+
 @rate_limit(rpm=60)
 async def handle_slack_events(request: Any) -> HandlerResult:
     """Handle Slack Events API webhook.
@@ -184,6 +229,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                 clean_text = clean_text.split(maxsplit=1)[-1].strip()
 
             attachments = _extract_slack_attachments(event)
+            attachments = await _hydrate_slack_attachments(attachments)
 
             if clean_text:
                 try:

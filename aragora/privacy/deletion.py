@@ -91,6 +91,7 @@ class DeletionRequest:
     verification_hash: str | None = None
     deletion_certificate: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    deletion_verified_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -111,6 +112,7 @@ class DeletionRequest:
             "verification_hash": self.verification_hash,
             "deletion_certificate": self.deletion_certificate,
             "metadata": self.metadata,
+            "deletion_verified_at": self.deletion_verified_at.isoformat() if self.deletion_verified_at else None,
         }
 
     @classmethod

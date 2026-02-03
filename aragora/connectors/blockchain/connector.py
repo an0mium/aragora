@@ -368,7 +368,7 @@ class ERC8004Connector(BaseConnector):
                 results.append(
                     BlockchainSearchResult(
                         id=f"identity:{self._credentials.chain_id}:{token_id}",
-                        title=f"Agent #{token_id}",
+                        title=getattr(identity, "agent_name", f"Agent #{token_id}"),
                         snippet=f"Owner: {identity.owner[:10]}... URI: {str(agent_uri)[:50]}...",
                         source_url=make_block_explorer_url(
                             self._credentials.chain_id,
@@ -695,6 +695,12 @@ class ERC8004Connector(BaseConnector):
         except Exception as e:
             logger.error(f"Search error for query '{query}': {e}")
         return results[:max_results]
+
+    async def search_by_owner_async(
+        self, owner: str, max_results: int = 10
+    ) -> list[BlockchainSearchResult]:
+        """Search agents by owner address (async)."""
+        return await self.search(f"owner:{owner}", max_results=max_results)
 
     async def fetch_async(self, evidence_id: str, **kwargs: Any) -> Evidence | None:
         """Async fetch that uses async contract methods when available."""
