@@ -23,6 +23,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
+# Import live server fixtures for use by tests
+from tests.e2e.server_fixture import (  # noqa: F401
+    LiveServerInfo,
+    find_free_port,
+    http_client,
+    live_server,
+)
+
 pytestmark = pytest.mark.e2e
 
 # Note: pytest-asyncio configured in pyproject.toml with asyncio_mode = "auto"

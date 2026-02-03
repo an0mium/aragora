@@ -337,6 +337,19 @@ class UnifiedHandler(  # type: ignore[misc]
             )
             return
 
+        # Health check endpoints (non-API paths routed to HealthHandler)
+        # These are required by Kubernetes probes and load balancers
+        if path in ("/healthz", "/readyz", "/health", "/ready", "/metrics"):
+            if self._try_modular_handler(path, query):
+                return
+            # Fallback: return simple OK if handler not available
+            if path in ("/healthz", "/health"):
+                self._send_json({"status": "ok"})
+                return
+            elif path in ("/readyz", "/ready"):
+                self._send_json({"status": "ready"})
+                return
+
         # Static file serving (non-API routes)
         if path in ("/favicon.ico", "/icon.png"):
             if self._serve_fallback_asset(path.lstrip("/")):

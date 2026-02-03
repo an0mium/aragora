@@ -44,6 +44,12 @@ PERM_KNOWLEDGE_DELETE = _permission(
 PERM_KNOWLEDGE_SHARE = _permission(
     ResourceType.KNOWLEDGE, Action.SHARE, "Share Knowledge", "Share knowledge with others"
 )
+PERM_KNOWLEDGE_ADMIN = _permission(
+    ResourceType.KNOWLEDGE,
+    Action.ADMIN_OP,
+    "Administer Knowledge",
+    "Full administrative access to Knowledge Mound: configure, export, import, and manage settings",
+)
 PERM_CULTURE_READ = _permission(
     ResourceType.KNOWLEDGE,
     Action.READ,
@@ -236,6 +242,7 @@ __all__ = [
     "PERM_KNOWLEDGE_WRITE",
     "PERM_KNOWLEDGE_DELETE",
     "PERM_KNOWLEDGE_SHARE",
+    "PERM_KNOWLEDGE_ADMIN",
     "PERM_CULTURE_READ",
     "PERM_CULTURE_WRITE",
     # Memory
