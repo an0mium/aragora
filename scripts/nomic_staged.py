@@ -287,9 +287,58 @@ async def phase_implement():
 
 
 async def phase_verify():
-    """Phase 4: Verify changes."""
+    """Phase 4: Verify changes.
+
+    Delegates to VerifyPhase from aragora.nomic.phases.verify when available,
+    which runs full verification including pytest. Falls back to basic inline
+    checks if the VerifyPhase module is unavailable.
+    """
+    # Try to use the full VerifyPhase with pytest support
+    try:
+        from aragora.nomic.phases.verify import VerifyPhase
+
+        print("\n" + "=" * 70)
+        print("PHASE 4: VERIFICATION (using VerifyPhase)")
+        print("=" * 70 + "\n")
+
+        # Create VerifyPhase with logging functions
+        verify_phase = VerifyPhase(
+            aragora_path=ARAGORA_PATH,
+            log_fn=lambda msg: print(msg),
+        )
+
+        # Execute full verification (includes pytest)
+        result = await verify_phase.execute()
+
+        # Convert VerifyResult to our data format
+        data = {
+            "timestamp": datetime.now().isoformat(),
+            "checks": [
+                {"check": "syntax", "passed": result.get("syntax_valid", False)},
+                {"check": "import", "passed": result.get("success", False)},
+                {"check": "tests", "passed": result.get("tests_passed", False)},
+            ],
+            "all_passed": result.get("success", False),
+            "test_output": result.get("test_output", ""),
+            "used_verify_phase": True,
+        }
+
+        save_phase("verify", data)
+
+        print("\n" + "-" * 40)
+        print(f"Verification: {'PASSED' if data['all_passed'] else 'FAILED'}")
+
+        if data["all_passed"]:
+            print("\nNext step: python scripts/nomic_staged.py commit")
+
+        return data
+
+    except ImportError:
+        logger.info("VerifyPhase not available, using inline verification")
+
+    # Fallback to basic inline verification (no pytest)
     print("\n" + "=" * 70)
-    print("PHASE 4: VERIFICATION")
+    print("PHASE 4: VERIFICATION (inline fallback)")
     print("=" * 70 + "\n")
 
     checks = []
@@ -354,12 +403,14 @@ async def phase_verify():
         "timestamp": datetime.now().isoformat(),
         "checks": checks,
         "all_passed": all_passed,
+        "used_verify_phase": False,
     }
 
     save_phase("verify", data)
 
     print("\n" + "-" * 40)
     print(f"Verification: {'PASSED' if all_passed else 'FAILED'}")
+    print("(Note: Using inline fallback - pytest not run)")
 
     if all_passed:
         print("\nNext step: python scripts/nomic_staged.py commit")
@@ -428,6 +479,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>
         # Show commit
         subprocess.run(["git", "log", "--oneline", "-1"], cwd=ARAGORA_PATH)
 
+        # Persist cycle outcome for cross-cycle learning
+        try:
+            await _persist_cycle_outcome(improvement, summary)
+        except Exception as e:
+            logger.warning(f"Failed to persist cycle outcome: {e}")
+
     data = {
         "timestamp": datetime.now().isoformat(),
         "committed": committed,
@@ -437,6 +494,71 @@ Co-Authored-By: Claude <noreply@anthropic.com>
     save_phase("commit", data)
 
     return data
+
+
+async def _persist_cycle_outcome(improvement: str, summary: str) -> None:
+    """Persist the cycle outcome for cross-cycle learning."""
+    import time
+    import uuid
+
+    from aragora.nomic.cycle_record import NomicCycleRecord
+    from aragora.nomic.cycle_store import save_cycle
+
+    # Load phase data to build comprehensive record
+    debate_data = {}
+    verify_data = {}
+    design_data = {}
+    try:
+        debate_data = load_phase("debate")
+    except Exception:
+        pass
+    try:
+        verify_data = load_phase("verify")
+    except Exception:
+        pass
+    try:
+        design_data = load_phase("design")
+    except Exception:
+        pass
+
+    # Get commit info
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%H"],
+        cwd=ARAGORA_PATH,
+        capture_output=True,
+        text=True,
+    )
+    commit_sha = result.stdout.strip() if result.returncode == 0 else None
+
+    result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=ARAGORA_PATH,
+        capture_output=True,
+        text=True,
+    )
+    branch_name = result.stdout.strip() if result.returncode == 0 else None
+
+    # Create cycle record
+    record = NomicCycleRecord(
+        cycle_id=f"staged_{uuid.uuid4().hex[:8]}",
+        started_at=time.time() - 60,  # Approximate
+        topics_debated=[improvement],
+        consensus_reached=[summary] if summary else [],
+        phases_completed=["debate", "design", "implement", "verify", "commit"],
+        success=True,
+        commit_sha=commit_sha,
+        branch_name=branch_name,
+    )
+
+    # Add verify results if available
+    if verify_data:
+        checks = verify_data.get("checks", [])
+        record.tests_passed = sum(1 for c in checks if c.get("passed"))
+        record.tests_failed = sum(1 for c in checks if not c.get("passed"))
+
+    record.mark_complete(success=True)
+    save_cycle(record)
+    logger.info(f"cycle_persisted cycle_id={record.cycle_id}")
 
 
 async def run_all():

@@ -135,7 +135,33 @@ for handler in handlers:
             return True
 ```
 
-## Existing Handlers
+## Handler Catalog
+
+**Total:** 501 handler modules across 30+ categories
+
+### Handler Categories by Module Count
+
+| Category | Modules | Description |
+|----------|---------|-------------|
+| `features/` | 69 | Feature-specific handlers (audio, broadcast, scheduler, etc.) |
+| `social/` | 38 | Social platform integrations (Slack, Teams, Discord, etc.) |
+| `admin/` | 30 | Admin endpoints (billing, cache, metrics, security) |
+| `bots/` | 28 | Bot platform handlers (Telegram, Discord, Teams bots) |
+| `knowledge_base/` | 27 | Knowledge Mound and document management |
+| `utils/` | 18 | Shared utilities (decorators, routing, validation) |
+| `debates/` | 15 | Debate CRUD, rounds, participants, export |
+| `compliance/` | 11 | GDPR, HIPAA, SOC2 compliance handlers |
+| `codebase/` | 10 | Codebase analysis, audit, SAST scanning |
+| `auth/` | 10 | Authentication, SSO, MFA, API keys |
+| `email/` | 9 | Email integration and automation |
+| `_oauth/` | 8 | OAuth provider implementations |
+| `workflows/` | 7 | Workflow engine endpoints |
+| `openclaw/` | 7 | OpenClaw Gateway (credentials, policies, sessions) |
+| `workspace/` | 6 | Workspace management |
+| `gauntlet/` | 6 | Gauntlet security scanning |
+| `analytics_dashboard/` | 6 | Analytics dashboard endpoints |
+
+### Core Handlers
 
 | Handler | Domain | Key Endpoints |
 |---------|--------|---------------|
@@ -150,6 +176,28 @@ for handler in handlers:
 | `PulseHandler` | Trending topics | `/api/pulse/*` |
 | `GenesisHandler` | Genetic evolution | `/api/genesis/*` |
 | `ReplaysHandler` | Debate replays | `/api/replays`, `/api/learning/evolution` |
+
+### Enterprise Handlers
+
+| Handler | Domain | Key Endpoints |
+|---------|--------|---------------|
+| `OpenClawGatewayHandler` | Agent gateway | `/api/openclaw/*` |
+| `ComplianceHandler` | Compliance reporting | `/api/compliance/*` |
+| `AuditHandler` | Audit trails | `/api/audit/*` |
+| `BackupHandler` | Disaster recovery | `/api/backups/*` |
+| `RBACHandler` | Permissions | `/api/rbac/*` |
+| `BillingHandler` | Usage/billing | `/api/billing/*` |
+| `TenantHandler` | Multi-tenancy | `/api/tenants/*` |
+
+### Bot Platform Handlers
+
+| Handler | Platform | Key Endpoints |
+|---------|----------|---------------|
+| `SlackBotHandler` | Slack | `/api/bots/slack/*` |
+| `TeamsBotHandler` | MS Teams | `/api/bots/teams/*` |
+| `TelegramBotHandler` | Telegram | `/api/bots/telegram/*` |
+| `DiscordBotHandler` | Discord | `/api/bots/discord/*` |
+| `GoogleChatBotHandler` | Google Chat | `/api/bots/googlechat/*` |
 
 ## Creating a New Handler
 

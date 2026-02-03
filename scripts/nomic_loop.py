@@ -9821,6 +9821,13 @@ Working directory: {self.aragora_path}
 
         self._log("\nVerification passed")
 
+        # Bridge to DecisionPlan for organizational learning (best-effort)
+        await self._bridge_to_decision_plan(
+            debate_result=cycle_result["phases"].get("debate", {}),
+            impl_result=cycle_result["phases"].get("implement", {}),
+            verify_result=verify_result,
+        )
+
         # Phase 5: Commit (with recovery tracking)
         try:
             commit_result = await self._run_with_phase_timeout(

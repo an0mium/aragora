@@ -6,7 +6,7 @@ HTTP endpoint handlers for the Aragora unified server.
 
 The handlers system provides modular, domain-specific endpoint groups. Each handler manages routes for a specific feature area (debates, agents, analytics, etc.) and inherits common functionality from `BaseHandler`.
 
-**Scale:** 90+ handler modules, 375+ HTTP endpoints, 461 API endpoints total.
+**Scale:** 501 handler modules, 461 API endpoints, 30+ handler categories.
 
 ## Directory Structure
 
