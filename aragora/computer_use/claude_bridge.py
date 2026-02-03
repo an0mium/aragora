@@ -110,6 +110,11 @@ class ClaudeComputerUseBridge:
     def _get_client(self) -> Any:
         """Get or create the Anthropic client."""
         if self._client is None:
+            if not self._api_key:
+                raise ValueError(
+                    "Anthropic API key is required. "
+                    "Set ANTHROPIC_API_KEY environment variable or pass api_key parameter."
+                )
             try:
                 import anthropic
             except ImportError as e:
@@ -117,12 +122,6 @@ class ClaudeComputerUseBridge:
                     "anthropic package is required for ClaudeComputerUseBridge. "
                     "Install with: pip install anthropic"
                 ) from e
-
-            if not self._api_key:
-                raise ValueError(
-                    "Anthropic API key is required. "
-                    "Set ANTHROPIC_API_KEY environment variable or pass api_key parameter."
-                )
 
             self._client = anthropic.Anthropic(api_key=self._api_key)
 
