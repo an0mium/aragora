@@ -245,7 +245,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
                 "agent": self.name,
                 "capabilities_used": self._get_enabled_capabilities(),
             }
-        except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
+        except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError, Exception) as e:
             logger.error(f"[{self.name}] Task execution failed: {e}")
             return {
                 "success": False,
