@@ -1069,7 +1069,7 @@ class TestCredentialProxyIntegration:
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
         mock_proxy = MagicMock()
-        mock_proxy.get_credential.side_effect = Exception("Proxy error")
+        mock_proxy.get_credential.side_effect = OSError("Proxy error")
 
         agent = ExternalFrameworkAgent(
             base_url="https://api.example.com",

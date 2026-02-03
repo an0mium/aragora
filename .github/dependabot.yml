@@ -53,9 +53,9 @@ updates:
           - "esbuild*"
           - "typescript*"
 
-  # npm dependencies for aragora-js SDK
+  # npm dependencies for TypeScript SDK
   - package-ecosystem: "npm"
-    directory: "/aragora-js"
+    directory: "/sdk/typescript"
     schedule:
       interval: "weekly"
       day: "monday"
