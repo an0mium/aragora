@@ -539,7 +539,7 @@ class TestOpenClawSendMessage:
         )
         agent = OpenClawAgent(config=config)
 
-        with patch.object(agent, "generate", AsyncMock(side_effect=Exception("API error"))):
+        with patch.object(agent, "generate", AsyncMock(side_effect=RuntimeError("API error"))):
             result = await agent.send_message("slack", "Hello")
 
         assert result["success"] is False

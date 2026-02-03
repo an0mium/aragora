@@ -60,11 +60,22 @@ class TestHandlerRegistry:
             if handler_class is None:
                 continue
 
-            # Required methods
-            assert hasattr(handler_class, "can_handle"), f"{attr_name} missing can_handle"
-            assert hasattr(handler_class, "handle"), f"{attr_name} missing handle"
-            assert callable(handler_class.can_handle), f"{attr_name} can_handle not callable"
-            assert callable(handler_class.handle), f"{attr_name} handle not callable"
+            # Handlers use varied dispatch patterns:
+            # - can_handle + handle (standard BaseHandler)
+            # - routes/ROUTES + handle (SSO-style)
+            # - handle_* methods (cost, voice, inbox)
+            # - register_routes (alert, autonomous)
+            has_handle = hasattr(handler_class, "handle")
+            has_handle_methods = any(
+                attr.startswith("handle_")
+                for attr in dir(handler_class)
+                if not attr.startswith("__")
+            )
+            has_register = hasattr(handler_class, "register_routes")
+
+            assert has_handle or has_handle_methods or has_register, (
+                f"{attr_name} missing handle, handle_*, or register_routes"
+            )
 
 
 class TestRouteIndex:
@@ -194,7 +205,7 @@ class TestHandlerValidation:
 
         class BrokenHandler:
             def can_handle(self, path):
-                raise Exception("Broken!")
+                raise RuntimeError("Broken!")
 
             def handle(self, path, query, request_handler):
                 return None
@@ -207,9 +218,17 @@ class TestHandlerValidation:
     @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_validate_all_handlers(self):
         """validate_all_handlers should check all registry entries."""
-        from aragora.server.handler_registry import validate_all_handlers
+        from aragora.server.handler_registry import (
+            HANDLER_REGISTRY,
+            HANDLERS_AVAILABLE,
+            validate_all_handlers,
+        )
 
-        results = validate_all_handlers(raise_on_error=False)
+        results = validate_all_handlers(
+            handler_registry=HANDLER_REGISTRY,
+            handlers_available=HANDLERS_AVAILABLE,
+            raise_on_error=False,
+        )
 
         assert "valid" in results
         assert "invalid" in results
@@ -224,14 +243,14 @@ class TestHandlerRegistryMixin:
     """Test HandlerRegistryMixin functionality."""
 
     def test_mixin_has_handler_attributes(self):
-        """Mixin should define handler instance attributes."""
+        """Mixin should define core handler infrastructure."""
         from aragora.server.handler_registry import HandlerRegistryMixin
 
-        # Check that class has handler placeholders
-        assert hasattr(HandlerRegistryMixin, "_health_handler")
-        assert hasattr(HandlerRegistryMixin, "_debates_handler")
-        assert hasattr(HandlerRegistryMixin, "_agents_handler")
-        assert hasattr(HandlerRegistryMixin, "_control_plane_handler")
+        # Check core mixin infrastructure
+        assert hasattr(HandlerRegistryMixin, "_init_handlers")
+        assert hasattr(HandlerRegistryMixin, "_try_modular_handler")
+        assert hasattr(HandlerRegistryMixin, "_handlers_initialized")
+        assert hasattr(HandlerRegistryMixin, "_get_handler_stats")
 
     def test_mixin_init_handlers_method(self):
         """Mixin should have _init_handlers method."""
@@ -326,7 +345,7 @@ class TestHandlerCanHandlePaths:
     @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_control_plane_handler_paths(self):
         """ControlPlaneHandler should handle control plane paths."""
-        from aragora.server.handler_registry import ControlPlaneHandler
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
 
         handler = ControlPlaneHandler({})
 
@@ -374,8 +393,17 @@ class TestHandlerRoutes:
 
             routes = getattr(handler_class, "ROUTES", [])
             for route in routes:
-                assert isinstance(route, str)
-                assert route.startswith("/")
+                # Routes can be strings ("/path" or "METHOD /path") or
+                # tuples (method, path, handler_name)
+                if isinstance(route, (tuple, list)):
+                    path = route[1] if len(route) >= 2 else route[0]
+                elif isinstance(route, str):
+                    path = route.split(" ", 1)[-1] if " " in route else route
+                else:
+                    pytest.fail(f"{attr_name} route has unexpected type: {type(route)}")
+                assert path.startswith("/"), (
+                    f"{attr_name} route '{route}' path doesn't start with /"
+                )
 
 
 class TestHandlerInstantiation:
@@ -433,13 +461,14 @@ class TestHandlerValidationError:
             validate_all_handlers,
         )
 
-        # With a mock that has missing handlers
-        with patch(
-            "aragora.server.handler_registry.HANDLER_REGISTRY",
-            [("_test_handler", None)],
-        ):
-            with pytest.raises(HandlerValidationError):
-                validate_all_handlers(raise_on_error=True)
+        # With a mock registry that has missing handlers
+        mock_registry = [("_test_handler", None)]
+        with pytest.raises(HandlerValidationError):
+            validate_all_handlers(
+                handler_registry=mock_registry,
+                handlers_available=True,
+                raise_on_error=True,
+            )
 
 
 class TestKnowledgeHandler:
@@ -455,7 +484,7 @@ class TestKnowledgeHandler:
     @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_knowledge_handler_paths(self):
         """KnowledgeHandler should handle knowledge paths."""
-        from aragora.server.handler_registry import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -480,7 +509,7 @@ class TestWorkflowHandler:
     @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_workflow_handler_exists(self):
         """WorkflowHandler should be importable."""
-        from aragora.server.handler_registry import WorkflowHandler
+        from aragora.server.handlers.workflows.handler import WorkflowHandler
 
         assert WorkflowHandler is not None
 
@@ -498,9 +527,12 @@ class TestFeaturesHandler:
     @pytest.mark.skipif(requires_handlers, reason=REQUIRES_HANDLERS)
     def test_features_handler_paths(self):
         """FeaturesHandler should handle features paths."""
-        from aragora.server.handler_registry import FeaturesHandler
+        from aragora.server.handlers.features.features import FeaturesHandler
 
         handler = FeaturesHandler({})
+
+        assert handler.can_handle("/api/v1/features")
+        assert not handler.can_handle("/api/v1/debates")
 
         assert handler.can_handle("/api/v1/features")
         assert not handler.can_handle("/api/v1/debates")
