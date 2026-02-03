@@ -25,7 +25,6 @@ from aragora.cli.commands.status import (
     cmd_validate,
 )
 from aragora.cli.commands.server import cmd_serve
-from aragora.cli.commands.testfix import cmd_testfix
 from aragora.cli.commands.tools import (
     cmd_modes,
     cmd_templates,
@@ -55,6 +54,7 @@ from aragora.cli.commands.decide import (
     cmd_plans_reject,
     cmd_plans_execute,
 )
+from aragora.cli.commands.testfixer import build_parser as build_testfixer_parser
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
@@ -126,7 +126,7 @@ Examples:
     _add_control_plane_parser(subparsers)
     _add_decide_parser(subparsers)
     _add_plans_parser(subparsers)
-    _add_testfix_parser(subparsers)
+    build_testfixer_parser(subparsers)
 
     return parser
 
@@ -917,84 +917,3 @@ Examples:
 
     # Default behavior when just 'aragora plans' is called
     plans_parser.set_defaults(func=cmd_plans)
-
-
-def _add_testfix_parser(subparsers) -> None:
-    """Add the 'testfix' subcommand parser."""
-    testfix_parser = subparsers.add_parser(
-        "testfix",
-        help="Automatically diagnose and fix test failures",
-    )
-    testfix_parser.add_argument(
-        "--repo",
-        default=".",
-        help="Repository root (default: current directory)",
-    )
-    testfix_parser.add_argument(
-        "--test-command",
-        default="pytest tests/ -q --maxfail=1",
-        help="Test command to run (default: pytest tests/ -q --maxfail=1)",
-    )
-    testfix_parser.add_argument(
-        "--test-timeout",
-        type=float,
-        default=300.0,
-        help="Timeout per test run in seconds (default: 300)",
-    )
-    testfix_parser.add_argument(
-        "--max-iterations",
-        type=int,
-        default=10,
-        help="Maximum fix iterations (default: 10)",
-    )
-    testfix_parser.add_argument(
-        "--max-same-failure",
-        type=int,
-        default=3,
-        help="Stop after repeated failure count (default: 3)",
-    )
-    testfix_parser.add_argument(
-        "--min-confidence",
-        type=float,
-        default=0.5,
-        help="Minimum confidence to apply a fix (default: 0.5)",
-    )
-    testfix_parser.add_argument(
-        "--min-auto-confidence",
-        type=float,
-        default=0.7,
-        help="Minimum confidence for auto-apply (default: 0.7)",
-    )
-    testfix_parser.add_argument(
-        "--require-approval",
-        action="store_true",
-        help="Require manual approval before applying fixes",
-    )
-    testfix_parser.add_argument(
-        "--agents",
-        help="Comma-separated agent types for fix generation (e.g., claude,codex)",
-    )
-    testfix_parser.add_argument(
-        "--attempts-dir",
-        help="Directory to save fix attempts (optional)",
-    )
-    testfix_parser.add_argument(
-        "--require-consensus",
-        action="store_true",
-        help="Require debate consensus before applying fixes",
-    )
-    testfix_parser.add_argument(
-        "--no-revert",
-        action="store_true",
-        help="Do not revert failed fixes",
-    )
-    testfix_parser.add_argument(
-        "--stop-on-first-success",
-        action="store_true",
-        help="Stop after the first successful fix",
-    )
-    testfix_parser.add_argument(
-        "--output",
-        help="Write result JSON to a file",
-    )
-    testfix_parser.set_defaults(func=cmd_testfix)

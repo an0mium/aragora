@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 # Module-level reference for shutdown coordination
 _gauntlet_worker: GauntletWorker | None = None
+_testfixer_worker = None
+_testfixer_task_worker = None
 
 
 def get_gauntlet_worker() -> GauntletWorker | None:
@@ -28,6 +30,16 @@ def get_gauntlet_worker() -> GauntletWorker | None:
     before closing database connections.
     """
     return _gauntlet_worker
+
+
+def get_testfixer_worker():
+    """Get the running testfixer worker instance (if any)."""
+    return _testfixer_worker
+
+
+def get_testfixer_task_worker():
+    """Get the running control-plane testfixer task worker instance (if any)."""
+    return _testfixer_task_worker
 
 
 def init_slo_webhooks() -> bool:
@@ -276,6 +288,57 @@ async def init_notification_worker() -> bool:
     except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to start notification worker: {e}")
 
+    return False
+
+
+async def init_testfixer_worker() -> bool:
+    """Initialize and start the TestFixer worker.
+
+    Environment Variables:
+        ARAGORA_TESTFIXER_WORKER: "0" to disable (enabled by default)
+    """
+    global _testfixer_worker
+    if os.environ.get("ARAGORA_TESTFIXER_WORKER", "1").lower() in ("0", "false", "no"):
+        logger.debug("TestFixer worker not started (ARAGORA_TESTFIXER_WORKER disabled)")
+        return False
+    try:
+        from aragora.queue.workers.testfixer_worker import TestFixerWorker
+
+        worker = TestFixerWorker()
+        _testfixer_worker = worker
+
+        import asyncio
+
+        asyncio.create_task(worker.start())
+        logger.info("TestFixer worker started")
+        return True
+    except ImportError as e:
+        logger.debug(f"TestFixer worker not available: {e}")
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
+        logger.warning(f"Failed to start TestFixer worker: {e}")
+    return False
+
+
+async def init_testfixer_task_worker() -> bool:
+    """Initialize and start the control-plane TestFixer task worker.
+
+    Environment Variables:
+        ARAGORA_TESTFIXER_TASK_WORKER: "1" to enable (disabled by default)
+    """
+    global _testfixer_task_worker
+    if os.environ.get("ARAGORA_TESTFIXER_TASK_WORKER", "0").lower() in ("0", "false", "no"):
+        logger.debug("TestFixer task worker not started (ARAGORA_TESTFIXER_TASK_WORKER disabled)")
+        return False
+    try:
+        from aragora.nomic.testfixer.worker_loop import start_testfixer_worker
+
+        _testfixer_task_worker = await start_testfixer_worker()
+        logger.info("TestFixer task worker started")
+        return True
+    except ImportError as e:
+        logger.debug(f"TestFixer task worker not available: {e}")
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
+        logger.warning(f"Failed to start TestFixer task worker: {e}")
     return False
 
 

@@ -84,6 +84,9 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+# Avoid leaking secrets via verbose HTTP logs.
+for noisy_logger in ("httpx", "httpcore"):
+    logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 # =============================================================================
 # Constants and Colors
@@ -258,7 +261,8 @@ def _validate_gemini(key: str) -> bool:
         import httpx
 
         resp = httpx.get(
-            f"https://generativelanguage.googleapis.com/v1/models?key={key}",
+            "https://generativelanguage.googleapis.com/v1/models",
+            headers={"x-goog-api-key": key},
             timeout=15.0,
         )
         return resp.status_code == 200
@@ -1112,11 +1116,113 @@ class BrowserRotator:
             finally:
                 await browser.close()
 
+    async def rotate_google(self, headless: bool = False) -> str | None:
+        """Rotate Google Gemini API key via browser (AI Studio)."""
+        creds = self.credential_store.get_credentials("google")
+        if not creds:
+            logger.error(
+                "No stored credentials for Google. Run: secrets_manager.py browser-setup google"
+            )
+            return None
+
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            logger.error(
+                "Playwright not installed. Run: pip install playwright && playwright install"
+            )
+            return None
+
+        username, password = creds
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=headless)
+            context = await browser.new_context()
+            page = await context.new_page()
+
+            try:
+                await page.goto("https://aistudio.google.com/app/apikey")
+                await page.wait_for_load_state("networkidle")
+
+                # Best-effort login flow (may require manual MFA/SSO)
+                email_input = await page.query_selector('input[type="email"]')
+                if email_input:
+                    await email_input.fill(username)
+                    next_button = await page.query_selector('button:has-text("Next")')
+                    if next_button:
+                        await next_button.click()
+                        await page.wait_for_timeout(1000)
+
+                    password_input = await page.query_selector('input[type="password"]')
+                    if password_input:
+                        await password_input.fill(password)
+                        next_button = await page.query_selector('button:has-text("Next")')
+                        if next_button:
+                            await next_button.click()
+                            await page.wait_for_load_state("networkidle")
+
+                # If MFA is required, prompt user to complete it.
+                if await page.query_selector('input[type="tel"], input[name="totpPin"]'):
+                    logger.info("MFA required - please complete in the browser window.")
+                    _ = input("Press Enter after completing MFA in the browser...")
+
+                # Ensure we're on the API key page
+                await page.goto("https://aistudio.google.com/app/apikey")
+                await page.wait_for_load_state("networkidle")
+
+                create_selectors = [
+                    'button:has-text("Create API key")',
+                    'button:has-text("Get API key")',
+                    'button:has-text("Create new API key")',
+                    'button:has-text("Create API key in new project")',
+                ]
+                create_button = None
+                for selector in create_selectors:
+                    create_button = await page.query_selector(selector)
+                    if create_button:
+                        break
+
+                if create_button:
+                    await create_button.click()
+                    await page.wait_for_timeout(1500)
+
+                    # Sometimes a modal has secondary create button
+                    modal_create = await page.query_selector(
+                        'button:has-text("Create API key"), button:has-text("Create")'
+                    )
+                    if modal_create:
+                        await modal_create.click()
+                        await page.wait_for_timeout(2000)
+
+                    key_element = await page.query_selector(
+                        'code, .font-mono, [data-testid="api-key"], input[readonly]'
+                    )
+                    if key_element:
+                        new_key = await key_element.text_content()
+                        if not new_key and await key_element.get_attribute("value"):
+                            new_key = await key_element.get_attribute("value")
+                        if new_key:
+                            new_key = new_key.strip()
+                            if new_key:
+                                logger.info("Successfully generated new Google Gemini key")
+                                return new_key
+
+                logger.error("Could not find key creation flow - UI may have changed")
+                return None
+
+            except Exception as e:
+                logger.error(f"Browser automation error: {e}")
+                return None
+            finally:
+                await browser.close()
+
     async def rotate(self, provider: str, headless: bool = False) -> str | None:
         """Rotate a key for a provider."""
         rotators = {
             "anthropic": self.rotate_anthropic,
             "openai": self.rotate_openai,
+            "google": self.rotate_google,
+            "gemini": self.rotate_google,
         }
 
         if provider not in rotators:
@@ -1469,7 +1575,7 @@ class SecretsManager:
 
     def cmd_browser_setup(self, args: argparse.Namespace) -> int:
         """Set up browser credentials for a provider."""
-        provider = args.provider
+        provider = "google" if args.provider == "gemini" else args.provider
 
         print(f"\n{BOLD}Browser Automation Setup: {provider}{RESET}")
         print(
@@ -1620,7 +1726,7 @@ Why manual rotation? See: %(prog)s --explain
     # browser-setup
     browser_parser = subparsers.add_parser("browser-setup", help="Set up browser credentials")
     browser_parser.add_argument(
-        "provider", choices=["anthropic", "openai", "openrouter", "mistral", "google"]
+        "provider", choices=["anthropic", "openai", "openrouter", "mistral", "google", "gemini"]
     )
 
     args = parser.parse_args()

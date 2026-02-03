@@ -181,11 +181,11 @@ class SemanticStore(SQLiteStore):
 
     def _auto_detect_provider(self) -> EmbeddingProvider:
         """Auto-detect best available embedding provider."""
-        from aragora.config.secrets import get_secret
+        from aragora.config import get_api_key
 
-        if get_secret("OPENAI_API_KEY"):
+        if get_api_key("OPENAI_API_KEY", required=False):
             return OpenAIEmbedding()
-        elif get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY"):
+        elif get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY", required=False):
             return GeminiEmbedding()
         else:
             # Try Ollama connectivity check

@@ -29,6 +29,7 @@ from aragora.nomic.testfixer.proposer import (
     PatchStatus,
     CodeGenerator,
 )
+from aragora.nomic.testfixer.store import TestFixerAttemptStore
 
 
 logger = logging.getLogger(__name__)
@@ -142,6 +143,7 @@ class FixLoopConfig:
     # Persistence
     save_attempts: bool = True
     attempts_dir: Path | None = None
+    attempt_store: "TestFixerAttemptStore | None" = None
 
 
 class TestFixerOrchestrator:
@@ -395,8 +397,10 @@ class TestFixerOrchestrator:
                         }
                     )
 
-                    if self.config.on_fix_applied:
-                        await self.config.on_fix_applied(attempt)
+                if self.config.on_fix_applied:
+                    await self.config.on_fix_applied(attempt)
+                if self.config.attempt_store:
+                    self.config.attempt_store.record_attempt(attempt)
 
                     if self.config.stop_on_first_success:
                         result.attempts.append(attempt)
@@ -421,6 +425,8 @@ class TestFixerOrchestrator:
                         result.fixes_reverted += 1
 
                 result.attempts.append(attempt)
+                if self.config.attempt_store:
+                    self.config.attempt_store.record_attempt(attempt)
 
                 # Save attempt if configured
                 if self.config.save_attempts and self.config.attempts_dir:
@@ -437,6 +443,8 @@ class TestFixerOrchestrator:
                 result.attempts[-1].notes.append(f"Error: {e}")
 
         result.finished_at = datetime.now()
+        if self.config.attempt_store:
+            self.config.attempt_store.record_run(result)
         return result
 
     async def run_single_fix(

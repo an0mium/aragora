@@ -866,6 +866,15 @@ User feedback and NPS collection under `/api/v1/feedback`.
 | GET | `/api/v1/feedback/prompts` | Get feedback prompts |
 | GET | `/api/v1/feedback/history` | Get feedback history |
 
+### New Endpoints (2026-02-03)
+
+| Endpoint | Description | Status |
+|----------|-------------|--------|
+| `POST /api/testfixer/analyze` | Analyze a failing test | NEW |
+| `POST /api/testfixer/propose` | Propose a fix via multi-agent debate | NEW |
+| `POST /api/testfixer/apply` | Apply a proposed fix | NEW |
+| `POST /api/testfixer/run` | Run the full fix loop | NEW |
+
 ### New Endpoints (2026-01-27)
 
 | Endpoint | Description | Status |

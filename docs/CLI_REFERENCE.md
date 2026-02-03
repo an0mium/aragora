@@ -101,6 +101,47 @@ aragora ask "Rate limiter design" --demo
 
 ---
 
+### testfixer - Automated Test Repair Loop
+
+Run an automated test-fix loop that iterates on the first failing test until
+tests pass or a maximum iteration count is reached.
+
+```bash
+aragora testfixer /path/to/repo --test-command "pytest tests/ -q --maxfail=1"
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `repo_path` | Repository root path |
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--test-command` | `pytest tests/ -q --maxfail=1` | Test command to run |
+| `--agents` | `codex,claude` | Comma-separated agents for propose/critique/synthesis |
+| `--max-iterations` | `10` | Maximum fix iterations |
+| `--min-confidence` | `0.5` | Minimum confidence to apply a fix |
+| `--min-confidence-auto` | `0.7` | Minimum confidence for auto-apply without manual review |
+| `--timeout-seconds` | `300` | Test run timeout per iteration |
+| `--attempt-store` | - | Path to JSONL file to record fix attempts |
+| `--require-consensus` | - | Require multi-agent consensus before applying |
+| `--no-revert` | - | Do not revert failed fixes |
+
+**Examples:**
+
+```bash
+# Basic loop with default agents
+aragora testfixer . --test-command "pytest tests/ -q --maxfail=1"
+
+# Use API agents and persist attempts
+aragora testfixer . --agents "anthropic-api,openai-api" --attempt-store .testfixer/attempts.jsonl
+```
+
+---
+
 ### gauntlet - Adversarial Stress-Testing
 
 Run comprehensive adversarial stress-testing on documents (specs, architecture, policies, code).

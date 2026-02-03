@@ -51,6 +51,8 @@ from aragora.nomic.testfixer.proposer import (
     PatchProposal,
     ProposalDebate,
 )
+from aragora.nomic.testfixer.store import TestFixerAttemptStore
+from aragora.nomic.testfixer.generators import AgentCodeGenerator, AgentGeneratorConfig
 
 __all__ = [
     "TestFixerOrchestrator",
@@ -65,4 +67,7 @@ __all__ = [
     "PatchProposer",
     "PatchProposal",
     "ProposalDebate",
+    "TestFixerAttemptStore",
+    "AgentCodeGenerator",
+    "AgentGeneratorConfig",
 ]

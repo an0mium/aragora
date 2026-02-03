@@ -155,7 +155,7 @@ class TestERC8004Connector:
         health = await connector.health_check()
 
         assert health["healthy"] is True
-        assert health["connector"] == "erc8004"
+        assert health["name"] == "erc8004"
 
 
 class TestERC8004ConnectorAsync:

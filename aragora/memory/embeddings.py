@@ -332,11 +332,9 @@ class SemanticRetriever:
         Falls back gracefully to hash-based embeddings if no API keys
         are available and Ollama is not running.
         """
-        from aragora.config.secrets import get_secret
-
-        if get_secret("OPENAI_API_KEY"):
+        if get_api_key("OPENAI_API_KEY", required=False):
             return OpenAIEmbedding()
-        elif get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY"):
+        elif get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY", required=False):
             return GeminiEmbedding()
         else:
             # Try Ollama, but fall back to hash-based if not available

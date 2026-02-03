@@ -106,7 +106,6 @@ class AgentFileFilter:
         if "gemini" in self.model.lower():
             try:
                 import google.generativeai as genai
-
                 from aragora.config.secrets import get_secret
 
                 api_key = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
@@ -124,7 +123,6 @@ class AgentFileFilter:
         elif "claude" in self.model.lower():
             try:
                 import anthropic
-
                 from aragora.config.secrets import get_secret
 
                 api_key = get_secret("ANTHROPIC_API_KEY")
@@ -139,7 +137,6 @@ class AgentFileFilter:
         elif "gpt" in self.model.lower() or "openai" in self.model.lower():
             try:
                 from openai import OpenAI
-
                 from aragora.config.secrets import get_secret
 
                 api_key = get_secret("OPENAI_API_KEY")
