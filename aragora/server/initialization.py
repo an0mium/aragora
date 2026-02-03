@@ -269,13 +269,13 @@ def init_insight_store(nomic_dir: Path) -> Any | None:
             logger.debug("[init] KM InsightsAdapter not available")
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             # Adapter configuration or wiring errors - non-critical, store still works
-            logger.warning(f"[init] InsightsAdapter wiring failed: {e}")
+            logger.warning("[init] InsightsAdapter wiring failed: %s", e)
 
         logger.info("[init] SQLite InsightStore loaded/created for API access")
         return store
     except (OSError, PermissionError, sqlite3.Error) as e:
         # File system or SQLite errors during store creation - server continues without insights
-        logger.warning(f"[init] InsightStore initialization failed: {e}")
+        logger.warning("[init] InsightStore initialization failed: %s", e)
         return None
 
 
@@ -301,13 +301,13 @@ def init_elo_system(nomic_dir: Path) -> Any | None:
             logger.debug("[init] KM EloAdapter not available")
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             # Adapter configuration or wiring errors - non-critical, ELO still works
-            logger.warning(f"[init] EloAdapter wiring failed: {e}")
+            logger.warning("[init] EloAdapter wiring failed: %s", e)
 
         logger.info("[init] EloSystem loaded/created for leaderboard API")
         return system
     except (OSError, PermissionError, sqlite3.Error) as e:
         # File system or SQLite errors during ELO DB creation - server continues without rankings
-        logger.warning(f"[init] EloSystem initialization failed: {e}")
+        logger.warning("[init] EloSystem initialization failed: %s", e)
         return None
 
 
@@ -333,13 +333,13 @@ def init_flip_detector(nomic_dir: Path) -> Any | None:
             logger.debug("[init] KM InsightsAdapter not available for FlipDetector")
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             # Adapter configuration or wiring errors - non-critical, detector still works
-            logger.warning(f"[init] FlipDetector InsightsAdapter wiring failed: {e}")
+            logger.warning("[init] FlipDetector InsightsAdapter wiring failed: %s", e)
 
         logger.info("[init] FlipDetector loaded/created for position reversal API")
         return detector
     except (OSError, PermissionError, sqlite3.Error) as e:
         # File system or SQLite errors - server continues without flip detection
-        logger.warning(f"[init] FlipDetector initialization failed: {e}")
+        logger.warning("[init] FlipDetector initialization failed: %s", e)
         return None
 
 
@@ -366,7 +366,7 @@ def init_position_ledger(nomic_dir: Path) -> Any | None:
         return ledger
     except (OSError, PermissionError, sqlite3.Error) as e:
         # File system or SQLite errors - server continues without position ledger
-        logger.warning(f"[init] PositionLedger initialization failed: {e}")
+        logger.warning("[init] PositionLedger initialization failed: %s", e)
         return None
 
 
@@ -382,7 +382,7 @@ def init_debate_embeddings(nomic_dir: Path) -> Any | None:
         return db
     except (OSError, PermissionError, sqlite3.Error) as e:
         # File system or SQLite errors - server continues without embeddings
-        logger.warning(f"[init] DebateEmbeddings initialization failed: {e}")
+        logger.warning("[init] DebateEmbeddings initialization failed: %s", e)
         return None
 
 
@@ -405,14 +405,14 @@ def init_consensus_memory() -> tuple[Any | None, Any | None]:
             logger.debug("[init] KM ConsensusAdapter not available")
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             # Adapter configuration or wiring errors - non-critical, memory still works
-            logger.warning(f"[init] ConsensusAdapter wiring failed: {e}")
+            logger.warning("[init] ConsensusAdapter wiring failed: %s", e)
 
         retriever = DissentRetriever(memory)
         logger.info("[init] DissentRetriever loaded for historical minority views")
         return memory, retriever
     except (OSError, PermissionError, sqlite3.Error, TypeError, ValueError) as e:
         # Storage or configuration errors - server continues without consensus memory
-        logger.warning(f"[init] DissentRetriever initialization failed: {e}")
+        logger.warning("[init] DissentRetriever initialization failed: %s", e)
         return None, None
 
 
@@ -433,7 +433,7 @@ def init_moment_detector(
         return detector
     except (TypeError, ValueError, AttributeError) as e:
         # Configuration errors with dependencies - server continues without moments
-        logger.warning(f"[init] MomentDetector initialization failed: {e}")
+        logger.warning("[init] MomentDetector initialization failed: %s", e)
         return None
 
 
@@ -449,7 +449,7 @@ def init_position_tracker(nomic_dir: Path) -> Any | None:
         return tracker
     except (OSError, PermissionError, sqlite3.Error) as e:
         # File system or SQLite errors - server continues without position tracking
-        logger.warning(f"[init] PositionTracker initialization failed: {e}")
+        logger.warning("[init] PositionTracker initialization failed: %s", e)
         return None
 
 
@@ -472,13 +472,13 @@ def init_continuum_memory(nomic_dir: Path) -> Any | None:
             logger.debug("[init] KM ContinuumAdapter not available")
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             # Adapter configuration or wiring errors - non-critical, memory still works
-            logger.warning(f"[init] ContinuumAdapter wiring failed: {e}")
+            logger.warning("[init] ContinuumAdapter wiring failed: %s", e)
 
         logger.info("[init] ContinuumMemory loaded for multi-tier memory")
         return memory
     except (OSError, PermissionError, sqlite3.Error) as e:
         # File system or SQLite errors - server continues without continuum memory
-        logger.warning(f"[init] ContinuumMemory initialization failed: {e}")
+        logger.warning("[init] ContinuumMemory initialization failed: %s", e)
         return None
 
 
@@ -493,7 +493,7 @@ def init_verification_manager() -> Any | None:
         return manager
     except (OSError, RuntimeError, ValueError) as e:
         # Z3/Lean backend or configuration errors - server continues without verification
-        logger.warning(f"[init] FormalVerificationManager initialization failed: {e}")
+        logger.warning("[init] FormalVerificationManager initialization failed: %s", e)
         return None
 
 
@@ -532,16 +532,17 @@ def init_translation_service(
         )
 
         logger.info(
-            f"[init] Translation service initialized "
-            f"(cache: {cache_max_entries} entries, {cache_ttl_seconds}s TTL)"
+            "[init] Translation service initialized (cache: %s entries, %ss TTL)",
+            cache_max_entries,
+            cache_ttl_seconds,
         )
         return service, manager
 
     except ImportError as e:
-        logger.debug(f"[init] Translation module not available: {e}")
+        logger.debug("[init] Translation module not available: %s", e)
         return None, None
     except (OSError, RuntimeError, ValueError, TypeError) as e:
-        logger.warning(f"[init] Translation service initialization failed: {e}")
+        logger.warning("[init] Translation service initialization failed: %s", e)
         return None, None
 
 

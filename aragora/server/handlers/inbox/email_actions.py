@@ -124,7 +124,15 @@ async def handle_send_email(
         else:
             return error_response(result.error or "Send failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to send email")
         return error_response(f"Send failed: {str(e)}", status=500)
 
@@ -174,7 +182,15 @@ async def handle_reply_email(
         else:
             return error_response(result.error or "Reply failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to reply to email")
         return error_response(f"Reply failed: {str(e)}", status=500)
 
@@ -226,7 +242,15 @@ async def handle_archive_message(
         else:
             return error_response(result.error or "Archive failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to archive message")
         return error_response(f"Archive failed: {str(e)}", status=500)
 
@@ -273,7 +297,15 @@ async def handle_trash_message(
         else:
             return error_response(result.error or "Trash failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to trash message")
         return error_response(f"Trash failed: {str(e)}", status=500)
 
@@ -314,7 +346,15 @@ async def handle_restore_message(
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to restore message")
         return error_response(f"Restore failed: {str(e)}", status=500)
 
@@ -396,7 +436,15 @@ async def handle_snooze_message(
         else:
             return error_response(result.error or "Snooze failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to snooze message")
         return error_response(f"Snooze failed: {str(e)}", status=500)
 
@@ -447,7 +495,15 @@ async def handle_mark_read(
         else:
             return error_response(result.error or "Mark read failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to mark message as read")
         return error_response(f"Mark read failed: {str(e)}", status=500)
 
@@ -488,7 +544,15 @@ async def handle_mark_unread(
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to mark message as unread")
         return error_response(f"Mark unread failed: {str(e)}", status=500)
 
@@ -534,7 +598,15 @@ async def handle_star_message(
         else:
             return error_response(result.error or "Star failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to star message")
         return error_response(f"Star failed: {str(e)}", status=500)
 
@@ -575,7 +647,15 @@ async def handle_unstar_message(
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to unstar message")
         return error_response(f"Unstar failed: {str(e)}", status=500)
 
@@ -634,7 +714,15 @@ async def handle_move_to_folder(
         else:
             return error_response(result.error or "Move failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to move message")
         return error_response(f"Move failed: {str(e)}", status=500)
 
@@ -681,7 +769,15 @@ async def handle_add_label(
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to add labels")
         return error_response(f"Add labels failed: {str(e)}", status=500)
 
@@ -728,7 +824,15 @@ async def handle_remove_label(
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to remove labels")
         return error_response(f"Remove labels failed: {str(e)}", status=500)
 
@@ -1025,7 +1129,15 @@ async def handle_get_action_logs(
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to get action logs")
         return error_response(f"Get logs failed: {str(e)}", status=500)
 
@@ -1083,7 +1195,15 @@ async def handle_export_action_logs(
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to export action logs")
         return error_response(f"Export failed: {str(e)}", status=500)
 

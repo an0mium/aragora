@@ -54,6 +54,15 @@ from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+# RBAC imports - optional dependency
+try:
+    from aragora.rbac.checker import check_permission  # noqa: F401
+    from aragora.rbac.models import AuthorizationContext  # noqa: F401
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Environment variables - None defaults make misconfiguration explicit
@@ -179,6 +188,34 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+
+    # ------------------------------------------------------------------
+    # RBAC helper
+    # ------------------------------------------------------------------
+
+    def _check_bot_permission(
+        self, permission: str, *, user_id: str = "", context: dict | None = None
+    ) -> None:
+        """Check RBAC permission if available.
+
+        Args:
+            permission: The permission string to check (e.g. "debates:create").
+            user_id: Platform-qualified user id (e.g. "gchat:12345").
+            context: Optional dict that may carry an ``auth_context`` key.
+
+        Raises:
+            PermissionError: When RBAC is available and the check fails.
+        """
+        if not RBAC_AVAILABLE:
+            return
+        auth_ctx = (context or {}).get("auth_context")
+        if auth_ctx is None and user_id:
+            auth_ctx = AuthorizationContext(
+                user_id=user_id,
+                roles={"bot_user"},
+            )
+        if auth_ctx:
+            check_permission(auth_ctx, permission)
 
     # BotHandlerMixin configuration
     bot_platform = "google_chat"
@@ -384,6 +421,13 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         if not debate_id:
             return self._card_response(body="Error: No debate ID provided")
 
+        # RBAC: check vote permission
+        try:
+            self._check_bot_permission("votes:record", user_id=f"gchat:{user_id}")
+        except PermissionError as exc:
+            logger.warning("RBAC denied votes:record for gchat:%s: %s", user_id, exc)
+            return self._card_response(body="Permission denied: you cannot vote.")
+
         logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
 
         try:
@@ -554,6 +598,14 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         event: dict[str, Any],
     ) -> HandlerResult:
         """Start a debate."""
+        # RBAC: check debate creation permission
+        user_id = user.get("name", "").split("/")[-1]
+        try:
+            self._check_bot_permission("debates:create", user_id=f"gchat:{user_id}")
+        except PermissionError as exc:
+            logger.warning("RBAC denied debates:create for gchat:%s: %s", user_id, exc)
+            return self._card_response(body="Permission denied: you cannot start debates.")
+
         if not topic.strip():
             return self._card_response(
                 body="Please provide a topic.\n\nExample: /debate Should AI be regulated?"
@@ -592,6 +644,14 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         event: dict[str, Any],
     ) -> HandlerResult:
         """Run gauntlet validation."""
+        # RBAC: check gauntlet permission
+        user_id = user.get("name", "").split("/")[-1]
+        try:
+            self._check_bot_permission("gauntlet:run", user_id=f"gchat:{user_id}")
+        except PermissionError as exc:
+            logger.warning("RBAC denied gauntlet:run for gchat:%s: %s", user_id, exc)
+            return self._card_response(body="Permission denied: you cannot run gauntlet.")
+
         if not statement.strip():
             return self._card_response(
                 body="Please provide a statement to stress-test.\n\n"

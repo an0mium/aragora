@@ -251,6 +251,18 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
                     status=503,
                 )
 
+            # RBAC: check permission for chat-related events
+            if event_type == "bot_notification":
+                payload = event.get("payload", {})
+                user_jid = payload.get("userJid", "")
+                try:
+                    self._check_bot_permission(
+                        "debates:create", user_id=f"zoom:{user_jid}" if user_jid else ""
+                    )
+                except PermissionError as exc:
+                    logger.warning("RBAC denied debates:create for zoom:%s: %s", user_jid, exc)
+                    return json_response({"error": "permission_denied"})
+
             # Process event
             result = await bot.handle_event(event)
             return json_response(result)
