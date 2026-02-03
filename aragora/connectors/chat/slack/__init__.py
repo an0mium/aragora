@@ -23,7 +23,10 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.connectors.chat.models import ChatUser
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +171,29 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
             max_retries=1,
         )
         return success
+
+    async def list_users(
+        self,
+        channel_id: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+        return_cursor: bool = False,
+        **kwargs: Any,
+    ) -> list["ChatUser"] | tuple[list["ChatUser"], str | None]:
+        """List users with an optional pagination cursor.
+
+        By default, return just the list of users for API parity with other
+        high-level connectors. Set return_cursor=True to get (users, cursor).
+        """
+        users, next_cursor = await super().list_users(
+            channel_id=channel_id,
+            limit=limit,
+            cursor=cursor,
+            **kwargs,
+        )
+        if return_cursor or cursor is not None:
+            return users, next_cursor
+        return users
 
     def _get_headers(self) -> dict[str, str]:
         """Get authorization headers with trace context for distributed tracing."""
@@ -397,6 +423,14 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
 
             except (_httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
                 # Unexpected error - don't retry, classify for metrics
+                last_error = f"Unexpected error: {e}"
+                classified = classify_connector_error(last_error, "slack")
+                logger.exception(
+                    f"[slack] {operation} unexpected error [{type(classified).__name__}]: {e}"
+                )
+                break
+            except Exception as e:
+                # Catch-all to avoid leaking unexpected exceptions to callers
                 last_error = f"Unexpected error: {e}"
                 classified = classify_connector_error(last_error, "slack")
                 logger.exception(

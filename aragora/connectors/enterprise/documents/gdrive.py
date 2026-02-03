@@ -27,7 +27,6 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
-from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -170,8 +169,8 @@ class GoogleDriveConnector(EnterpriseConnector):
             )
 
         # Refresh access token
-        pool = get_http_pool()
-        async with pool.get_session("google") as client:
+
+        async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
@@ -208,8 +207,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
         url = f"https://www.googleapis.com/drive/v3{endpoint}"
 
-        pool = get_http_pool()
-        async with pool.get_session("google") as client:
+        async with httpx.AsyncClient() as client:
             response = await client.request(
                 method,
                 url,
@@ -235,8 +233,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
             params = {"alt": "media"}
 
-        pool = get_http_pool()
-        async with pool.get_session("google") as client:
+        async with httpx.AsyncClient() as client:
             response = await client.get(
                 url,
                 headers=headers,
@@ -479,7 +476,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
             return content.decode("utf-8", errors="replace")[:10000]
 
-        except (httpx.HTTPStatusError, httpx.RequestError, UnicodeDecodeError) as e:
+        except Exception as e:
             logger.warning(f"[{self.name}] Failed to extract text from {file.name}: {e}")
             return ""
 
@@ -663,7 +660,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
             return results
 
-        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -714,7 +711,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                 },
             )
 
-        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
