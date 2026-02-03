@@ -32,6 +32,7 @@ from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.server.handlers.utils.url_security import validate_webhook_url
 from aragora.storage.integration_store import (
     IntegrationConfig,
     VALID_INTEGRATION_TYPES,
@@ -478,6 +479,20 @@ class IntegrationsHandler(SecureHandler):
             "reply_to",
         ]
         settings = {k: data[k] for k in provider_keys if k in data}
+
+        # SSRF protection: validate webhook URLs before storing
+        webhook_url = settings.get("webhook_url")
+        if webhook_url:
+            is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
+            if not is_valid:
+                return error_response(f"Invalid webhook URL: {url_error}", status=400)
+
+        # Also validate homeserver_url for Matrix integrations (potential SSRF target)
+        homeserver_url = settings.get("homeserver_url")
+        if homeserver_url:
+            is_valid, url_error = validate_webhook_url(homeserver_url, allow_localhost=False)
+            if not is_valid:
+                return error_response(f"Invalid homeserver URL: {url_error}", status=400)
 
         if existing:
             # Update existing

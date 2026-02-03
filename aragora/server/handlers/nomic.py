@@ -234,7 +234,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             return json_response(state)
         except json.JSONDecodeError as e:
             logger.error("Invalid JSON in nomic state file: %s", e)
-            return error_response(f"Invalid state file format: {e}", 500)
+            return error_response(safe_error_message(e, "read state"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to read nomic state: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "read state"), 500)
@@ -336,18 +336,20 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 }
             )
         except json.JSONDecodeError as e:
+            logger.error("Invalid JSON in nomic state file: %s", e)
             return json_response(
                 {
                     "status": "error",
-                    "error": f"Invalid state file: {e}",
+                    "error": safe_error_message(e, "nomic health"),
                     "cycle": 0,
                 }
             )
         except (OSError, PermissionError) as e:
+            logger.error("Failed to read nomic state for health check: %s", e)
             return json_response(
                 {
                     "status": "error",
-                    "error": f"{type(e).__name__}: {str(e)[:80]}",
+                    "error": safe_error_message(e, "nomic health"),
                     "cycle": 0,
                 }
             )
@@ -396,12 +398,12 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                     "summary": {},
                     "stuck_detection": {"is_stuck": False},
                     "status": "metrics_error",
-                    "message": f"Invalid metrics data: {e}",
+                    "message": safe_error_message(e, "nomic metrics"),
                 }
             )
         except (RuntimeError, OSError) as e:
             logger.exception("Unexpected error getting nomic metrics: %s", e)
-            return error_response(f"Failed to get nomic metrics: {e}", 500)
+            return error_response(safe_error_message(e, "nomic metrics"), 500)
 
     def _get_risk_register(self, limit: int) -> HandlerResult:
         """Get risk register entries.
@@ -580,7 +582,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             )
         except (RuntimeError, OSError, AttributeError, KeyError, TypeError) as e:
             logger.error(f"Failed to get witness status: {e}")
-            return error_response(f"Failed to get witness status: {e}", 500)
+            return error_response(safe_error_message(e, "witness status"), 500)
 
     def _get_mayor_current(self) -> HandlerResult:
         """Get current mayor information.
@@ -630,7 +632,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             )
         except (RuntimeError, OSError, AttributeError, KeyError, TypeError) as e:
             logger.error(f"Failed to get mayor info: {e}")
-            return error_response(f"Failed to get mayor info: {e}", 500)
+            return error_response(safe_error_message(e, "mayor info"), 500)
 
     # =========================================================================
     # POST Handlers - Control Operations
@@ -790,13 +792,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
-            return error_response(f"Invalid state file: {e}", 500)
+            return error_response(safe_error_message(e, "start nomic loop"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to start nomic loop due to file/process error: %s", e)
-            return error_response(f"Failed to start nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "start nomic loop"), 500)
         except (RuntimeError, subprocess.SubprocessError) as e:
             logger.exception("Unexpected error starting nomic loop: %s", e)
-            return error_response(f"Failed to start nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "start nomic loop"), 500)
 
     def _stop_nomic_loop(self, body: dict) -> HandlerResult:
         """Stop the running nomic loop."""
@@ -868,13 +870,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
-            return error_response(f"Invalid state file: {e}", 500)
+            return error_response(safe_error_message(e, "stop nomic loop"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to stop nomic loop due to file/process error: %s", e)
-            return error_response(f"Failed to stop nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "stop nomic loop"), 500)
         except (RuntimeError, ProcessLookupError) as e:
             logger.exception("Unexpected error stopping nomic loop: %s", e)
-            return error_response(f"Failed to stop nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "stop nomic loop"), 500)
 
     def _pause_nomic_loop(self) -> HandlerResult:
         """Pause the nomic loop at current phase."""
@@ -929,13 +931,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
-            return error_response(f"Invalid state file: {e}", 500)
+            return error_response(safe_error_message(e, "pause nomic loop"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to pause nomic loop due to file error: %s", e)
-            return error_response(f"Failed to pause nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "pause nomic loop"), 500)
         except RuntimeError as e:
             logger.exception("Unexpected error pausing nomic loop: %s", e)
-            return error_response(f"Failed to pause nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "pause nomic loop"), 500)
 
     def _resume_nomic_loop(self) -> HandlerResult:
         """Resume a paused nomic loop."""
@@ -987,13 +989,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
-            return error_response(f"Invalid state file: {e}", 500)
+            return error_response(safe_error_message(e, "resume nomic loop"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to resume nomic loop due to file error: %s", e)
-            return error_response(f"Failed to resume nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "resume nomic loop"), 500)
         except RuntimeError as e:
             logger.exception("Unexpected error resuming nomic loop: %s", e)
-            return error_response(f"Failed to resume nomic loop: {e}", 500)
+            return error_response(safe_error_message(e, "resume nomic loop"), 500)
 
     def _skip_phase(self) -> HandlerResult:
         """Skip the current phase and move to the next."""
@@ -1060,13 +1062,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
-            return error_response(f"Invalid state file: {e}", 500)
+            return error_response(safe_error_message(e, "skip phase"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to skip phase due to file error: %s", e)
-            return error_response(f"Failed to skip phase: {e}", 500)
+            return error_response(safe_error_message(e, "skip phase"), 500)
         except RuntimeError as e:
             logger.exception("Unexpected error skipping phase: %s", e)
-            return error_response(f"Failed to skip phase: {e}", 500)
+            return error_response(safe_error_message(e, "skip phase"), 500)
 
     def _get_proposals(self) -> HandlerResult:
         """Get pending improvement proposals."""
@@ -1095,13 +1097,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in proposals file: %s", e)
-            return error_response(f"Invalid proposals file: {e}", 500)
+            return error_response(safe_error_message(e, "get proposals"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to read proposals file: %s", e)
-            return error_response(f"Failed to get proposals: {e}", 500)
+            return error_response(safe_error_message(e, "get proposals"), 500)
         except (RuntimeError, KeyError, TypeError) as e:
             logger.exception("Unexpected error getting proposals: %s", e)
-            return error_response(f"Failed to get proposals: {e}", 500)
+            return error_response(safe_error_message(e, "get proposals"), 500)
 
     def _approve_proposal(self, body: dict) -> HandlerResult:
         """Approve a pending proposal."""
@@ -1162,13 +1164,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in proposals file: %s", e)
-            return error_response(f"Invalid proposals file: {e}", 500)
+            return error_response(safe_error_message(e, "approve proposal"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to write proposals file: %s", e)
-            return error_response(f"Failed to approve proposal: {e}", 500)
+            return error_response(safe_error_message(e, "approve proposal"), 500)
         except (RuntimeError, KeyError, TypeError) as e:
             logger.exception("Unexpected error approving proposal: %s", e)
-            return error_response(f"Failed to approve proposal: {e}", 500)
+            return error_response(safe_error_message(e, "approve proposal"), 500)
 
     def _reject_proposal(self, body: dict) -> HandlerResult:
         """Reject a pending proposal."""
@@ -1232,10 +1234,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in proposals file: %s", e)
-            return error_response(f"Invalid proposals file: {e}", 500)
+            return error_response(safe_error_message(e, "reject proposal"), 500)
         except (OSError, PermissionError) as e:
             logger.error("Failed to write proposals file: %s", e)
-            return error_response(f"Failed to reject proposal: {e}", 500)
+            return error_response(safe_error_message(e, "reject proposal"), 500)
         except (RuntimeError, KeyError, TypeError) as e:
             logger.exception("Unexpected error rejecting proposal: %s", e)
-            return error_response(f"Failed to reject proposal: {e}", 500)
+            return error_response(safe_error_message(e, "reject proposal"), 500)

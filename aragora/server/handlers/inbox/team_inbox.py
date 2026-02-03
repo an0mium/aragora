@@ -33,6 +33,7 @@ from typing import Any
 from aragora.server.handlers.base import (
     error_response,
     require_permission,
+    safe_error_message,
     success_response,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
@@ -158,7 +159,7 @@ async def handle_get_team_members(
 
     except Exception as e:
         logger.exception("Failed to get team members")
-        return error_response(f"Get team members failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "get team members"), status=500)
 
 
 @api_endpoint(
@@ -257,7 +258,7 @@ async def handle_add_team_member(
 
     except Exception as e:
         logger.exception("Failed to add team member")
-        return error_response(f"Add team member failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "add team member"), status=500)
 
 
 @require_permission("org:members")
@@ -318,7 +319,7 @@ async def handle_remove_team_member(
 
     except Exception as e:
         logger.exception("Failed to remove team member")
-        return error_response(f"Remove team member failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "remove team member"), status=500)
 
 
 # =============================================================================
@@ -371,7 +372,7 @@ async def handle_start_viewing(
 
     except Exception as e:
         logger.exception("Failed to start viewing")
-        return error_response(f"Start viewing failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "start viewing"), status=500)
 
 
 @require_permission("inbox:read")
@@ -413,7 +414,7 @@ async def handle_stop_viewing(
 
     except Exception as e:
         logger.exception("Failed to stop viewing")
-        return error_response(f"Stop viewing failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "stop viewing"), status=500)
 
 
 @require_permission("inbox:write")
@@ -458,7 +459,7 @@ async def handle_start_typing(
 
     except Exception as e:
         logger.exception("Failed to start typing")
-        return error_response(f"Start typing failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "start typing"), status=500)
 
 
 @require_permission("inbox:write")
@@ -500,7 +501,7 @@ async def handle_stop_typing(
 
     except Exception as e:
         logger.exception("Failed to stop typing")
-        return error_response(f"Stop typing failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "stop typing"), status=500)
 
 
 # =============================================================================
@@ -541,7 +542,7 @@ async def handle_get_notes(
 
     except Exception as e:
         logger.exception("Failed to get notes")
-        return error_response(f"Get notes failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "get notes"), status=500)
 
 
 @require_permission("inbox:create")
@@ -625,7 +626,7 @@ async def handle_add_note(
 
     except Exception as e:
         logger.exception("Failed to add note")
-        return error_response(f"Add note failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "add note"), status=500)
 
 
 # =============================================================================
@@ -684,7 +685,7 @@ async def handle_get_mentions(
 
     except Exception as e:
         logger.exception("Failed to get mentions")
-        return error_response(f"Get mentions failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "get mentions"), status=500)
 
 
 @api_endpoint(
@@ -736,7 +737,7 @@ async def handle_acknowledge_mention(
 
     except Exception as e:
         logger.exception("Failed to acknowledge mention")
-        return error_response(f"Acknowledge mention failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "acknowledge mention"), status=500)
 
 
 # =============================================================================
@@ -799,7 +800,7 @@ async def handle_get_activity_feed(
 
     except Exception as e:
         logger.exception("Failed to get activity feed")
-        return error_response(f"Get activity feed failed: {str(e)}", status=500)
+        return error_response(safe_error_message(e, "get activity feed"), status=500)
 
 
 # =============================================================================

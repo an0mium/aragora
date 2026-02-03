@@ -45,6 +45,7 @@ from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     error_response,
     json_response,
+    safe_error_message,
 )
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
@@ -217,12 +218,12 @@ class ExternalIntegrationsHandler(SecureHandler):
                     f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
                 )
                 record_rbac_check(permission_key, granted=False)
-                return error_response(f"Permission denied: {decision.reason}", 403)
+                return error_response("Permission denied", 403)
             record_rbac_check(permission_key, granted=True)
         except PermissionDeniedError as e:
             logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
             record_rbac_check(permission_key, granted=False)
-            return error_response(f"Permission denied: {str(e)}", 403)
+            return error_response(safe_error_message(e, "integration permission"), 403)
 
         return None
 

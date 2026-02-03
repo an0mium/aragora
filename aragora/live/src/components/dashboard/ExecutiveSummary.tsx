@@ -1,114 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { KPICard, KPIGrid, KPIMiniCard } from './KPICards';
-import { API_BASE_URL } from '@/config';
-
-interface DashboardStats {
-  debates: {
-    today: number;
-    week: number;
-    month: number;
-    total: number;
-  };
-  consensus: {
-    rate: number;
-    avgConfidence: number;
-    avgTimeToDecision: number; // seconds
-  };
-  agents: {
-    active: number;
-    total: number;
-    topPerformer: string;
-    avgUptime: number;
-  };
-  channels: {
-    active: number;
-    messagesProcessed: number;
-    avgResponseTime: number; // ms
-  };
-  costs: {
-    todayTokens: number;
-    weekTokens: number;
-    estimatedCost: number;
-  };
-  knowledge: {
-    totalNodes: number;
-    lastSync: string;
-    coverage: number;
-  };
-}
+import { useUsageDashboard, type TimeRange } from '@/hooks/useUsageDashboard';
 
 interface ExecutiveSummaryProps {
-  apiBase?: string;
-  refreshInterval?: number; // ms
+  refreshInterval?: number; // ms (now handled by hook)
 }
 
 export function ExecutiveSummary({
-  apiBase: _apiBase = API_BASE_URL,
-  refreshInterval = 30000,
+  refreshInterval: _refreshInterval = 30000,
 }: ExecutiveSummaryProps) {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const fetchStats = async () => {
-    try {
-      // In production, this would fetch from /api/dashboard/stats
-      // For now, we generate demo data
-      const demoStats: DashboardStats = {
-        debates: {
-          today: Math.floor(Math.random() * 20) + 5,
-          week: Math.floor(Math.random() * 100) + 50,
-          month: Math.floor(Math.random() * 400) + 200,
-          total: Math.floor(Math.random() * 2000) + 1000,
-        },
-        consensus: {
-          rate: 75 + Math.floor(Math.random() * 20),
-          avgConfidence: 70 + Math.floor(Math.random() * 25),
-          avgTimeToDecision: 45 + Math.floor(Math.random() * 60),
-        },
-        agents: {
-          active: Math.floor(Math.random() * 8) + 4,
-          total: 15,
-          topPerformer: ['Claude', 'GPT-4', 'Gemini', 'Mistral'][Math.floor(Math.random() * 4)],
-          avgUptime: 95 + Math.floor(Math.random() * 5),
-        },
-        channels: {
-          active: Math.floor(Math.random() * 4) + 2,
-          messagesProcessed: Math.floor(Math.random() * 500) + 100,
-          avgResponseTime: 200 + Math.floor(Math.random() * 300),
-        },
-        costs: {
-          todayTokens: Math.floor(Math.random() * 500000) + 100000,
-          weekTokens: Math.floor(Math.random() * 3000000) + 500000,
-          estimatedCost: Math.floor(Math.random() * 100) + 20,
-        },
-        knowledge: {
-          totalNodes: Math.floor(Math.random() * 50000) + 10000,
-          lastSync: new Date(Date.now() - Math.random() * 3600000).toISOString(),
-          coverage: 80 + Math.floor(Math.random() * 15),
-        },
-      };
-
-      setStats(demoStats);
-      setLastUpdated(new Date());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load stats');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-
-    // Set up refresh interval
-    const interval = setInterval(fetchStats, refreshInterval);
-    return () => clearInterval(interval);
-  }, [refreshInterval]);
+  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const { dashboardData, isLoading, error } = useUsageDashboard(timeRange);
 
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -126,63 +30,96 @@ export function ExecutiveSummary({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const getTimeRangeLabel = (range: TimeRange): string => {
+    switch (range) {
+      case '24h':
+        return '24 Hours';
+      case '7d':
+        return '7 Days';
+      case '30d':
+        return '30 Days';
+      case '90d':
+        return '90 Days';
+      default:
+        return range;
+    }
+  };
+
   if (error) {
     return (
       <div className="bg-red-500/10 border border-red-500/30 p-4 text-red-400 font-mono text-sm">
-        Error loading dashboard: {error}
+        Error loading dashboard: {error.message}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Last Updated */}
+      {/* Header with Time Range Selector */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-mono text-[var(--acid-green)]">
           {'>'} EXECUTIVE SUMMARY
         </h2>
-        {lastUpdated && (
-          <span className="text-xs font-mono text-[var(--text-muted)]">
-            Last updated: {formatTime(lastUpdated)} | Auto-refresh: {refreshInterval / 1000}s
-          </span>
-        )}
+        <div className="flex items-center gap-4">
+          {/* Time Range Selector */}
+          <div className="flex items-center gap-2">
+            {(['24h', '7d', '30d', '90d'] as TimeRange[]).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  timeRange === range
+                    ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/50'
+                    : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/30'
+                }`}
+              >
+                {range.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          {dashboardData?.lastUpdated && (
+            <span className="text-xs font-mono text-[var(--text-muted)]">
+              Updated: {formatTime(new Date(dashboardData.lastUpdated))}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Primary KPIs */}
       <KPIGrid columns={4}>
         <KPICard
           title="Debates Today"
-          value={stats?.debates.today ?? '-'}
-          subtitle={`${stats?.debates.week ?? 0} this week`}
-          change={stats ? { value: 12, direction: 'up', period: 'yesterday' } : undefined}
+          value={dashboardData?.debates.today ?? '-'}
+          subtitle={`${dashboardData?.debates.week ?? 0} this week`}
+          change={dashboardData ? { value: 12, direction: 'up', period: 'yesterday' } : undefined}
           color="green"
-          loading={loading}
+          loading={isLoading}
           icon=""
         />
         <KPICard
           title="Consensus Rate"
-          value={stats ? `${stats.consensus.rate}%` : '-'}
-          subtitle={`${stats?.consensus.avgConfidence ?? 0}% avg confidence`}
-          change={stats ? { value: 3, direction: 'up', period: 'last week' } : undefined}
+          value={dashboardData ? `${(dashboardData.consensus.rate * 100).toFixed(0)}%` : '-'}
+          subtitle={`${dashboardData ? (dashboardData.consensus.avgConfidence * 100).toFixed(0) : 0}% avg confidence`}
+          change={dashboardData ? { value: 3, direction: 'up', period: 'last week' } : undefined}
           color="cyan"
-          loading={loading}
+          loading={isLoading}
           icon=""
         />
         <KPICard
           title="Avg Decision Time"
-          value={stats ? formatDuration(stats.consensus.avgTimeToDecision) : '-'}
+          value={dashboardData ? formatDuration(dashboardData.consensus.avgTimeToDecision) : '-'}
           subtitle="time to consensus"
-          change={stats ? { value: 8, direction: 'down', period: 'last week' } : undefined}
+          change={dashboardData ? { value: 8, direction: 'down', period: 'last week' } : undefined}
           color="yellow"
-          loading={loading}
+          loading={isLoading}
           icon=""
         />
         <KPICard
           title="Est. Cost Today"
-          value={stats ? `$${stats.costs.estimatedCost}` : '-'}
-          subtitle={`${formatNumber(stats?.costs.todayTokens ?? 0)} tokens`}
+          value={dashboardData ? `$${dashboardData.costs.estimatedCost.toFixed(2)}` : '-'}
+          subtitle={`${formatNumber(dashboardData?.costs.todayTokens ?? 0)} tokens`}
           color="purple"
-          loading={loading}
+          loading={isLoading}
           icon=""
         />
       </KPIGrid>
@@ -197,70 +134,130 @@ export function ExecutiveSummary({
           <div className="space-y-1">
             <KPIMiniCard
               label="Active Agents"
-              value={`${stats?.agents.active ?? 0}/${stats?.agents.total ?? 0}`}
+              value={`${dashboardData?.agents.active ?? 0}/${dashboardData?.agents.total ?? 0}`}
               color="green"
             />
             <KPIMiniCard
               label="Avg Uptime"
-              value={`${stats?.agents.avgUptime ?? 0}%`}
+              value={`${dashboardData?.agents.avgUptime ?? 0}%`}
               color="cyan"
             />
             <KPIMiniCard
               label="Top Performer"
-              value={stats?.agents.topPerformer ?? '-'}
+              value={dashboardData?.agents.topPerformer ?? '-'}
               color="yellow"
             />
           </div>
         </div>
 
-        {/* Channel Activity */}
+        {/* ROI Summary */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
           <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
-            <span></span> CHANNEL ACTIVITY
+            <span>$</span> ROI SUMMARY
           </h3>
           <div className="space-y-1">
             <KPIMiniCard
-              label="Active Channels"
-              value={stats?.channels.active ?? 0}
+              label="ROI"
+              value={dashboardData?.roi ? `${dashboardData.roi.percentage.toFixed(0)}%` : '-'}
               color="green"
             />
             <KPIMiniCard
-              label="Messages Today"
-              value={formatNumber(stats?.channels.messagesProcessed ?? 0)}
+              label="Time Saved"
+              value={dashboardData?.roi ? `${dashboardData.roi.timeSavedHours.toFixed(0)} hrs` : '-'}
               color="cyan"
             />
             <KPIMiniCard
-              label="Avg Response"
-              value={`${stats?.channels.avgResponseTime ?? 0}ms`}
+              label="Cost Savings"
+              value={dashboardData?.roi ? `$${formatNumber(dashboardData.roi.costSavingsUsd)}` : '-'}
               color="yellow"
             />
           </div>
         </div>
 
-        {/* Knowledge Base */}
-        <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
+        {/* Budget Status */}
+        <div className={`bg-[var(--surface)] border p-4 ${
+          dashboardData?.budget?.alertLevel === 'critical'
+            ? 'border-red-500/50'
+            : dashboardData?.budget?.alertLevel === 'warning'
+            ? 'border-yellow-500/50'
+            : 'border-[var(--border)]'
+        }`}>
           <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
-            <span></span> KNOWLEDGE BASE
+            <span></span> BUDGET STATUS
+            {dashboardData?.budget?.alertLevel && dashboardData.budget.alertLevel !== 'normal' && (
+              <span className={`ml-auto px-2 py-0.5 text-xs uppercase ${
+                dashboardData.budget.alertLevel === 'critical'
+                  ? 'bg-red-500/20 text-red-400'
+                  : 'bg-yellow-500/20 text-yellow-400'
+              }`}>
+                {dashboardData.budget.alertLevel}
+              </span>
+            )}
           </h3>
           <div className="space-y-1">
             <KPIMiniCard
-              label="Total Nodes"
-              value={formatNumber(stats?.knowledge.totalNodes ?? 0)}
-              color="green"
+              label="Utilization"
+              value={dashboardData?.budget ? `${dashboardData.budget.utilization.toFixed(0)}%` : '-'}
+              color={
+                dashboardData?.budget?.alertLevel === 'critical' ? 'red' :
+                dashboardData?.budget?.alertLevel === 'warning' ? 'yellow' : 'green'
+              }
             />
             <KPIMiniCard
-              label="Coverage"
-              value={`${stats?.knowledge.coverage ?? 0}%`}
+              label="Remaining"
+              value={dashboardData?.budget ? `$${formatNumber(dashboardData.budget.remaining)}` : '-'}
               color="cyan"
             />
             <KPIMiniCard
-              label="Last Sync"
-              value={stats?.knowledge.lastSync ? new Date(stats.knowledge.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+              label="Days Left"
+              value={dashboardData?.budget?.daysRemaining ?? '-'}
               color="yellow"
             />
           </div>
         </div>
       </div>
+
+      {/* Forecast Banner */}
+      {dashboardData?.forecast && (
+        <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h3 className="text-sm font-mono text-[var(--acid-cyan)]">
+                MONTHLY FORECAST
+              </h3>
+              <span className={`text-xs font-mono px-2 py-0.5 ${
+                dashboardData.forecast.trend === 'increasing'
+                  ? 'bg-yellow-500/20 text-yellow-400'
+                  : dashboardData.forecast.trend === 'decreasing'
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-[var(--border)] text-[var(--text-muted)]'
+              }`}>
+                {dashboardData.forecast.trend.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex items-center gap-6 text-sm font-mono">
+              <div>
+                <span className="text-[var(--text-muted)]">Debates: </span>
+                <span className="text-[var(--acid-green)]">{formatNumber(dashboardData.forecast.monthlyDebates)}</span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)]">Tokens: </span>
+                <span className="text-[var(--acid-cyan)]">{formatNumber(dashboardData.forecast.monthlyTokens)}</span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)]">Cost: </span>
+                <span className="text-yellow-400">${formatNumber(dashboardData.forecast.monthlyCost)}</span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)]">Growth: </span>
+                <span className={dashboardData.forecast.growthRate >= 0 ? 'text-yellow-400' : 'text-green-400'}>
+                  {dashboardData.forecast.growthRate >= 0 ? '+' : ''}{dashboardData.forecast.growthRate.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="flex items-center gap-2 pt-2">
@@ -282,6 +279,12 @@ export function ExecutiveSummary({
           className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
         >
           CONTROL PLANE
+        </a>
+        <a
+          href="/usage"
+          className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+        >
+          DETAILED USAGE
         </a>
       </div>
     </div>

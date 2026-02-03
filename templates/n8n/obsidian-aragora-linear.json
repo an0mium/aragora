@@ -1,0 +1,271 @@
+{
+  "name": "Obsidian → Aragora → Linear Pipeline",
+  "description": "Complete workflow: Watch Obsidian vault for #ready tagged notes, run multi-agent debate via Aragora, create Linear issues from decisions, write receipts back to Obsidian.",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Obsidian Vault Watcher",
+      "type": "n8n-nodes-base.localFileTrigger",
+      "position": [100, 300],
+      "parameters": {
+        "path": "={{ $env.OBSIDIAN_VAULT_PATH }}",
+        "events": ["change"],
+        "options": {
+          "recursive": true,
+          "ignored": "**/.obsidian/**,**/templates/**"
+        }
+      },
+      "notes": "Watches the Obsidian vault for file changes. Configure OBSIDIAN_VAULT_PATH environment variable."
+    },
+    {
+      "id": "2",
+      "name": "Filter Ready Notes",
+      "type": "n8n-nodes-base.filter",
+      "position": [300, 300],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.path }}",
+              "operation": "endsWith",
+              "value2": ".md"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3",
+      "name": "Read Note Content",
+      "type": "n8n-nodes-base.readBinaryFiles",
+      "position": [500, 300],
+      "parameters": {
+        "fileSelector": "={{ $json.path }}"
+      }
+    },
+    {
+      "id": "4",
+      "name": "Parse Frontmatter",
+      "type": "n8n-nodes-base.code",
+      "position": [700, 300],
+      "parameters": {
+        "jsCode": "// Parse YAML frontmatter from markdown\nconst content = $input.first().binary.data.toString('utf-8');\n\nlet frontmatter = {};\nlet body = content;\n\nif (content.startsWith('---')) {\n  const parts = content.split('---');\n  if (parts.length >= 3) {\n    const yaml = parts[1].trim();\n    body = parts.slice(2).join('---').trim();\n    \n    // Simple YAML parsing\n    yaml.split('\\n').forEach(line => {\n      const [key, ...valueParts] = line.split(':');\n      if (key && valueParts.length) {\n        const value = valueParts.join(':').trim();\n        frontmatter[key.trim()] = value.replace(/^[\"']|[\"']$/g, '');\n      }\n    });\n  }\n}\n\n// Check for #ready tag\nconst hasReadyTag = body.includes('#ready') || \n                   (frontmatter.tags && frontmatter.tags.includes('ready'));\n\nreturn {\n  json: {\n    path: $input.first().json.path,\n    filename: $input.first().json.path.split('/').pop(),\n    frontmatter,\n    body,\n    hasReadyTag,\n    title: frontmatter.title || $input.first().json.path.split('/').pop().replace('.md', '')\n  }\n};"
+      }
+    },
+    {
+      "id": "5",
+      "name": "Check Ready Tag",
+      "type": "n8n-nodes-base.if",
+      "position": [900, 300],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasReadyTag }}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6",
+      "name": "Launch Aragora Debate",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1100, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ARAGORA_API_URL }}/api/v2/debates",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.ARAGORA_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "={{ $json.title }}: {{ $json.body.substring(0, 500) }}"
+            },
+            {
+              "name": "agents",
+              "value": "[\"claude\", \"gpt-4\", \"gemini\"]"
+            },
+            {
+              "name": "rounds",
+              "value": "3"
+            },
+            {
+              "name": "evidence_sources",
+              "value": "[\"knowledge_mound\"]"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify({ obsidian_path: $json.path, obsidian_title: $json.title }) }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "notes": "Launches multi-agent debate via Aragora API. Configure ARAGORA_API_URL and ARAGORA_API_KEY."
+    },
+    {
+      "id": "7",
+      "name": "Wait for Debate Completion",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1300, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.ARAGORA_API_URL }}/api/v2/debates/{{ $json.debate_id }}/receipt",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.ARAGORA_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "retry": {
+            "maxRetries": 10,
+            "retryInterval": 5000,
+            "retryOnStatus": [202]
+          }
+        }
+      },
+      "notes": "Polls for debate completion. Retries until receipt is available."
+    },
+    {
+      "id": "8",
+      "name": "Create Linear Issue",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1500, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linear.app/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "{{ $env.LINEAR_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"mutation CreateIssue($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url title } } }\",\n  \"variables\": {\n    \"input\": {\n      \"teamId\": \"{{ $env.LINEAR_TEAM_ID }}\",\n      \"title\": \"[Decision] {{ $node['Parse Frontmatter'].json.title }}\",\n      \"description\": \"## Decision Summary\\n\\n{{ $json.decision_summary }}\\n\\n### Consensus\\n- **Reached**: {{ $json.consensus ? 'Yes' : 'No' }}\\n- **Confidence**: {{ Math.round($json.confidence * 100) }}%\\n\\n### Source\\n- Obsidian Note: `{{ $node['Parse Frontmatter'].json.path }}`\\n- Debate ID: `{{ $json.debate_id }}`\\n\\n---\\n*Generated by Aragora Decision Engine*\",\n      \"priority\": {{ $json.confidence > 0.8 ? 2 : 3 }},\n      \"labelIds\": [\"{{ $env.LINEAR_DECISION_LABEL_ID }}\"]\n    }\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "notes": "Creates Linear issue from debate decision. Configure LINEAR_API_KEY, LINEAR_TEAM_ID, LINEAR_DECISION_LABEL_ID."
+    },
+    {
+      "id": "9",
+      "name": "Write Receipt to Obsidian",
+      "type": "n8n-nodes-base.code",
+      "position": [1700, 200],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\nconst receipt = $input.first().json;\nconst originalNote = $node['Parse Frontmatter'].json;\nconst linearIssue = $node['Create Linear Issue'].json.data?.issueCreate?.issue;\n\n// Generate receipt note content\nconst receiptContent = `---\ntitle: \"Decision Receipt - ${originalNote.title}\"\ndate: ${new Date().toISOString().split('T')[0]}\ntags:\n  - decision\n  - aragora\n  - receipt\naragora_id: ${receipt.debate_id}\nconsensus: ${receipt.consensus}\nconfidence: ${receipt.confidence}\nlinear_issue: ${linearIssue?.identifier || 'N/A'}\nrelated_notes:\n  - \"[[${originalNote.filename.replace('.md', '')}]]\"\n---\n\n# Decision Receipt: ${originalNote.title}\n\n## Summary\n\n${receipt.decision_summary || 'Decision reached through multi-agent deliberation.'}\n\n## Outcome\n\n| Metric | Value |\n|--------|-------|\n| Consensus Reached | ${receipt.consensus ? 'Yes ✓' : 'No ✗'} |\n| Confidence Score | ${Math.round((receipt.confidence || 0) * 100)}% |\n| Participating Agents | ${receipt.agents?.length || 3} |\n| Debate Rounds | ${receipt.rounds || 3} |\n\n## Linear Issue\n\n${linearIssue ? `[${linearIssue.identifier}](${linearIssue.url}) - ${linearIssue.title}` : 'No issue created'}\n\n## Dissent Trail\n\n${receipt.dissent_trail?.length > 0 \n  ? receipt.dissent_trail.map((d, i) => `${i + 1}. ${d}`).join('\\n')\n  : '_No dissent recorded_'}\n\n## Verification\n\n- **Debate ID**: \\`${receipt.debate_id}\\`\n- **Receipt ID**: \\`${receipt.receipt_id || 'N/A'}\\`\n- **Signature**: \\`${receipt.signature?.substring(0, 20) || 'N/A'}...\\`\n- **Timestamp**: ${receipt.timestamp || new Date().toISOString()}\n\n## Original Note\n\n![[${originalNote.filename.replace('.md', '')}]]\n\n---\n\n*This receipt was automatically generated by the Aragora Decision Engine.*\n*Verify at: ${process.env.ARAGORA_API_URL}/verify/${receipt.debate_id}*\n`;\n\n// Write receipt to decisions folder\nconst vaultPath = process.env.OBSIDIAN_VAULT_PATH;\nconst decisionsFolder = path.join(vaultPath, 'decisions');\nconst safeTitle = originalNote.title.replace(/[^a-zA-Z0-9\\s-]/g, '').substring(0, 50);\nconst receiptFilename = `${new Date().toISOString().split('T')[0]}-${safeTitle.replace(/\\s+/g, '-')}-receipt.md`;\nconst receiptPath = path.join(decisionsFolder, receiptFilename);\n\n// Ensure decisions folder exists\nif (!fs.existsSync(decisionsFolder)) {\n  fs.mkdirSync(decisionsFolder, { recursive: true });\n}\n\nfs.writeFileSync(receiptPath, receiptContent, 'utf-8');\n\n// Also update original note frontmatter to mark as processed\nconst originalPath = originalNote.path;\nlet originalContent = fs.readFileSync(originalPath, 'utf-8');\n\n// Remove #ready tag and add aragora_id to frontmatter\noriginalContent = originalContent.replace(/#ready/g, '#processed');\n\nif (originalContent.startsWith('---')) {\n  const parts = originalContent.split('---');\n  if (parts.length >= 3) {\n    let fm = parts[1];\n    if (!fm.includes('aragora_id:')) {\n      fm += `\\naragora_id: ${receipt.debate_id}`;\n      fm += `\\nlinear_issue: ${linearIssue?.identifier || 'N/A'}`;\n    }\n    originalContent = `---${fm}---${parts.slice(2).join('---')}`;\n  }\n}\n\nfs.writeFileSync(originalPath, originalContent, 'utf-8');\n\nreturn {\n  json: {\n    success: true,\n    receiptPath,\n    originalPath: originalNote.path,\n    debateId: receipt.debate_id,\n    linearIssue: linearIssue?.identifier,\n    linearUrl: linearIssue?.url\n  }\n};"
+      },
+      "notes": "Writes decision receipt to Obsidian vault and updates original note."
+    },
+    {
+      "id": "10",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "position": [1900, 200],
+      "parameters": {
+        "operation": "post",
+        "channel": "={{ $env.SLACK_CHANNEL }}",
+        "text": "🎯 *Decision Made*\n\n*Topic:* {{ $node['Parse Frontmatter'].json.title }}\n*Consensus:* {{ $node['Wait for Debate Completion'].json.consensus ? '✓ Reached' : '✗ Not reached' }}\n*Confidence:* {{ Math.round($node['Wait for Debate Completion'].json.confidence * 100) }}%\n\n📋 Linear Issue: {{ $node['Create Linear Issue'].json.data?.issueCreate?.issue?.url || 'N/A' }}\n📝 Receipt: `decisions/{{ $json.receiptPath.split('/').pop() }}`",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_credential_id",
+          "name": "Slack API"
+        }
+      },
+      "notes": "Optional: Send notification to Slack. Configure SLACK_CHANNEL and Slack credentials."
+    }
+  ],
+  "connections": {
+    "Obsidian Vault Watcher": {
+      "main": [[{"node": "Filter Ready Notes", "type": "main", "index": 0}]]
+    },
+    "Filter Ready Notes": {
+      "main": [[{"node": "Read Note Content", "type": "main", "index": 0}]]
+    },
+    "Read Note Content": {
+      "main": [[{"node": "Parse Frontmatter", "type": "main", "index": 0}]]
+    },
+    "Parse Frontmatter": {
+      "main": [[{"node": "Check Ready Tag", "type": "main", "index": 0}]]
+    },
+    "Check Ready Tag": {
+      "main": [
+        [{"node": "Launch Aragora Debate", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Launch Aragora Debate": {
+      "main": [[{"node": "Wait for Debate Completion", "type": "main", "index": 0}]]
+    },
+    "Wait for Debate Completion": {
+      "main": [[{"node": "Create Linear Issue", "type": "main", "index": 0}]]
+    },
+    "Create Linear Issue": {
+      "main": [[{"node": "Write Receipt to Obsidian", "type": "main", "index": 0}]]
+    },
+    "Write Receipt to Obsidian": {
+      "main": [[{"node": "Send Slack Notification", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["obsidian", "aragora", "linear", "decision-making", "automation"],
+  "pinData": {},
+  "versionId": "1.0.0"
+}

@@ -592,7 +592,7 @@ class SSOHandler(SecureHandler):
             logger.exception(f"Unexpected metadata generation error: {e}")
             return self._format_response(
                 handler,
-                error_response(f"Failed to generate metadata: {e}", 500, code="METADATA_ERROR"),
+                error_response(safe_error_message(e, "SAML metadata"), 500, code="METADATA_ERROR"),
             )
 
         return self._format_response(handler, error_response("Metadata not available", 400))

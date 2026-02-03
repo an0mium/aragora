@@ -105,7 +105,7 @@ class CreateOperationsMixin:
             "500": {"description": "Internal server error"},
         },
     )
-    @require_permission("debates.create")
+    @require_permission("debates:create")
     @with_timeout_sync(120.0)
     @user_rate_limit(action="debate_create")
     @rate_limit(requests_per_minute=5, limiter_name="debates_create")
@@ -301,7 +301,7 @@ class CreateOperationsMixin:
             "404": {"description": "Debate not found"},
         },
     )
-    @require_permission("debates.stop")
+    @require_permission("debates:stop")
     def _cancel_debate(
         self: _DebatesHandlerProtocol, handler: Any, debate_id: str
     ) -> HandlerResult:

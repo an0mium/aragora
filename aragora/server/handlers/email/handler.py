@@ -106,7 +106,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_post_prioritize(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/prioritize"""
         email_data = data.get("email", {})
@@ -138,7 +138,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_post_rank_inbox(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/rank-inbox"""
         emails = data.get("emails", [])
@@ -170,7 +170,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.update")
+    @require_permission("email:update")
     async def handle_post_feedback(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/feedback"""
         email_id = data.get("email_id")
@@ -207,7 +207,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.update")
+    @require_permission("email:update")
     async def handle_post_feedback_batch(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/feedback/batch"""
         items = data.get("items", [])
@@ -240,7 +240,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_post_categorize(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/categorize"""
         email_data = data.get("email", {})
@@ -270,7 +270,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_post_categorize_batch(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/categorize/batch"""
         emails = data.get("emails", [])
@@ -305,7 +305,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.update")
+    @require_permission("email:update")
     async def handle_post_categorize_apply_label(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/categorize/apply-label"""
         email_id = data.get("email_id")
@@ -345,7 +345,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=10)  # SYNC operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_get_inbox(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/email/inbox"""
         user_id = self._get_user_id()
@@ -380,7 +380,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_get_config(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/email/config"""
         user_id = self._get_user_id()
@@ -403,7 +403,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.update")
+    @require_permission("email:update")
     async def handle_put_config(self, data: dict[str, Any]) -> HandlerResult:
         """PUT /api/email/config"""
         user_id = self._get_user_id()
@@ -430,7 +430,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.update")
+    @require_permission("email:update")
     async def handle_post_vip(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/vip"""
         user_id = self._get_user_id()
@@ -462,7 +462,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.delete")
+    @require_permission("email:delete")
     async def handle_delete_vip(self, data: dict[str, Any]) -> HandlerResult:
         """DELETE /api/email/vip"""
         user_id = self._get_user_id()
@@ -494,7 +494,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.create")
+    @require_permission("email:create")
     async def handle_post_gmail_oauth_url(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/gmail/oauth/url"""
         redirect_uri = data.get("redirect_uri")
@@ -529,7 +529,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=20)  # WRITE operation
-    @require_permission("email.create")
+    @require_permission("email:create")
     async def handle_post_gmail_oauth_callback(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/gmail/oauth/callback"""
         code = data.get("code")
@@ -563,7 +563,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_get_gmail_status(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/email/gmail/status"""
         user_id = self._get_user_id()
@@ -594,7 +594,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_get_context(self, params: dict[str, Any], email_address: str) -> HandlerResult:
         """GET /api/email/context/:email_address"""
         user_id = self._get_user_id()
@@ -622,7 +622,7 @@ class EmailHandler(BaseHandler):
         },
     )
     @rate_limit(requests_per_minute=60)  # READ operation
-    @require_permission("email.read")
+    @require_permission("email:read")
     async def handle_post_context_boost(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/email/context/boost"""
         email_data = data.get("email", {})

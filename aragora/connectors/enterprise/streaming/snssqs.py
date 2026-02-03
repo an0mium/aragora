@@ -33,7 +33,10 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
+
+if TYPE_CHECKING:
+    from aragora.reasoning.provenance import SourceType
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -211,11 +214,11 @@ class SQSMessage:
             original_topic=f"sqs-{self.message_id[:16]}",
             original_key=self.message_id,
             original_value=json.dumps(self.body) if isinstance(self.body, dict) else str(self.body),
-            original_headers=self.message_attributes,
+            original_headers={},  # DLQMessage expects dict[str, str], not message attributes
+            original_timestamp=self.timestamp,
             error_message=str(error),
             error_type=type(error).__name__,
             retry_count=int(self.attributes.get("ApproximateReceiveCount", "1")),
-            timestamp=self.timestamp,
         )
 
 
@@ -235,6 +238,18 @@ class SNSSQSConnector(EnterpriseConnector):
 
     Uses aioboto3 for async operation.
     """
+
+    @property
+    def source_type(self) -> "SourceType":
+        """The source type for this connector."""
+        from aragora.reasoning.provenance import SourceType
+
+        return SourceType.EXTERNAL_API
+
+    @property
+    def name(self) -> str:
+        """Human-readable name for this connector."""
+        return "AWS SNS/SQS"
 
     def __init__(
         self,
@@ -752,11 +767,11 @@ class SNSSQSConnector(EnterpriseConnector):
 
         return HealthStatus(
             healthy=self._sqs_client is not None,
-            message="Connected" if self._sqs_client else "Not connected",
-            last_success_time=datetime.now(timezone.utc) if self._sqs_client else None,
+            last_check=datetime.now(timezone.utc),
             consecutive_failures=self._error_count,
-            total_successes=self._consumed_count,
-            total_failures=self._error_count,
+            last_error=None,
+            messages_processed=self._consumed_count,
+            messages_failed=self._error_count,
         )
 
     def get_stats(self) -> dict[str, Any]:

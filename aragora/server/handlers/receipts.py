@@ -46,6 +46,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.openapi_decorator import api_endpoint
@@ -192,7 +193,7 @@ class ReceiptsHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling receipt request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response(safe_error_message(e, "receipt request"), 500)
 
     @api_endpoint(
         method="GET",
@@ -528,7 +529,7 @@ class ReceiptsHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Export failed: {e}")
-            return error_response(f"Export failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "receipt export"), 500)
 
     @api_endpoint(
         method="POST",
@@ -696,10 +697,10 @@ class ReceiptsHandler(BaseHandler):
 
         except ImportError as e:
             logger.exception(f"Missing dependency for channel {channel_type}: {e}")
-            return error_response(f"Channel {channel_type} not available: {str(e)}", 501)
+            return error_response(safe_error_message(e, f"channel {channel_type}"), 501)
         except Exception as e:
             logger.exception(f"Failed to send receipt to channel: {e}")
-            return error_response(f"Failed to send: {str(e)}", 500)
+            return error_response(safe_error_message(e, "receipt send"), 500)
 
     async def _send_to_slack(
         self,
@@ -878,7 +879,7 @@ class ReceiptsHandler(BaseHandler):
             return error_response(str(e), 400)
         except Exception as e:
             logger.exception(f"Failed to format receipt: {e}")
-            return error_response(f"Formatting failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "receipt formatting"), 500)
 
     @require_permission("receipts:read")
     async def _get_retention_status(self) -> HandlerResult:

@@ -556,3 +556,153 @@ class TestSerializationRoundTrip:
         assert "Decision Plan" in summary
         assert "rate limiter" in summary.lower()
         assert "87%" in summary
+
+
+# ---------------------------------------------------------------------------
+# Test: HybridExecutor Bridge (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+class TestHybridExecutorBridge:
+    """Tests that PlanExecutor correctly bridges to HybridExecutor."""
+
+    @pytest.mark.asyncio
+    async def test_hybrid_mode_delegates_to_hybrid_executor(self):
+        """execution_mode='hybrid' should use HybridExecutor."""
+
+        from aragora.pipeline.executor import PlanExecutor
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+        tasks_count = len(plan.implement_plan.tasks)
+
+        # Mock HybridExecutor - return success for all tasks
+        mock_task_results = [
+            TaskResult(task_id=f"t{i}", success=True, model_used="claude", duration_seconds=5.0)
+            for i in range(tasks_count)
+        ]
+
+        executor = PlanExecutor(
+            execution_mode="hybrid",
+            repo_path=Path("/tmp/test-repo"),
+        )
+
+        with patch("aragora.implement.executor.HybridExecutor") as MockHybrid:
+            mock_instance = AsyncMock()
+            mock_instance.execute_plan.return_value = mock_task_results
+            MockHybrid.return_value = mock_instance
+
+            outcome = await executor.execute(plan, execution_mode="hybrid")
+
+        assert outcome.success is True
+        assert outcome.tasks_completed == tasks_count
+        mock_instance.execute_plan.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_hybrid_mode_handles_failures(self):
+        """Hybrid mode should handle task failures gracefully."""
+
+        from aragora.pipeline.executor import PlanExecutor
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+        tasks_count = len(plan.implement_plan.tasks)
+
+        # Most succeed, one fails with fallback
+        mock_task_results = [
+            TaskResult(task_id=f"t{i}", success=True, model_used="claude")
+            for i in range(tasks_count - 1)
+        ] + [
+            TaskResult(
+                task_id=f"t{tasks_count}",
+                success=False,
+                error="Timeout",
+                model_used="codex-fallback",
+            ),
+        ]
+
+        executor = PlanExecutor(
+            execution_mode="hybrid",
+            repo_path=Path("/tmp/test-repo"),
+        )
+
+        with patch("aragora.implement.executor.HybridExecutor") as MockHybrid:
+            mock_instance = AsyncMock()
+            mock_instance.execute_plan.return_value = mock_task_results
+            MockHybrid.return_value = mock_instance
+
+            outcome = await executor.execute(plan, execution_mode="hybrid")
+
+        assert outcome.success is False
+        assert outcome.tasks_completed == tasks_count - 1
+        assert "Timeout" in outcome.error
+        # Check that fallback lesson is recorded
+        assert any("fallback" in lesson.lower() for lesson in outcome.lessons)
+
+    @pytest.mark.asyncio
+    async def test_hybrid_mode_no_tasks_returns_error(self):
+        """Hybrid mode should fail gracefully when plan has no tasks."""
+
+        from aragora.pipeline.executor import PlanExecutor
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+        # Remove tasks
+        plan.implement_plan.tasks = []
+
+        executor = PlanExecutor(
+            execution_mode="hybrid",
+            repo_path=Path("/tmp/test-repo"),
+        )
+
+        outcome = await executor.execute(plan, execution_mode="hybrid")
+
+        assert outcome.success is False
+        assert "No implementation tasks" in outcome.error
+
+    @pytest.mark.asyncio
+    async def test_workflow_mode_still_works(self):
+        """Default workflow mode should still work."""
+        from aragora.pipeline.executor import PlanExecutor
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+
+        mock_engine_result = MagicMock()
+        mock_engine_result.success = True
+        mock_engine_result.error = None
+        mock_engine_result.step_results = []
+        mock_engine_result.outputs = {}
+
+        executor = PlanExecutor(execution_mode="workflow")
+
+        with patch("aragora.workflow.engine.WorkflowEngine") as MockEngine:
+            mock_eng = AsyncMock()
+            mock_eng.execute.return_value = mock_engine_result
+            MockEngine.return_value = mock_eng
+
+            outcome = await executor.execute(plan, execution_mode="workflow")
+
+        assert isinstance(outcome, PlanOutcome)
+        mock_eng.execute.assert_awaited_once()
+
+    def test_execution_mode_default_from_env(self):
+        """Execution mode should default from environment variable."""
+        import os
+
+        from aragora.pipeline.executor import DEFAULT_EXECUTION_MODE, PlanExecutor
+
+        # Default should be "workflow"
+        assert DEFAULT_EXECUTION_MODE == "workflow"
+
+        # Executor should respect default
+        executor = PlanExecutor(repo_path=Path("/tmp"))
+        assert executor._execution_mode == "workflow"
+
+        # Can override in constructor
+        executor2 = PlanExecutor(execution_mode="hybrid", repo_path=Path("/tmp"))
+        assert executor2._execution_mode == "hybrid"

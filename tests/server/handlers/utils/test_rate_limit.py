@@ -470,3 +470,74 @@ class TestLimiterRegistry:
         # Limiters should have been cleared
         assert limiter1.get_remaining("client") == 60
         assert limiter2.get_remaining("client") == 60
+
+
+# =============================================================================
+# Test Multi-Instance Strict Mode
+# =============================================================================
+
+
+class TestStrictModeDetection:
+    """Tests for automatic strict mode detection in multi-instance deployments."""
+
+    def test_strict_mode_enabled_when_explicitly_set(self, monkeypatch):
+        """Should enable strict mode when ARAGORA_RATE_LIMIT_STRICT=true."""
+        from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
+        monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "true")
+        monkeypatch.delenv("ARAGORA_ENV", raising=False)
+        monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
+
+        assert _should_use_strict_mode() is True
+
+    def test_strict_mode_disabled_when_explicitly_false(self, monkeypatch):
+        """Should disable strict mode when ARAGORA_RATE_LIMIT_STRICT=false."""
+        from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
+        monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "false")
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
+
+        assert _should_use_strict_mode() is False
+
+    def test_strict_mode_auto_enabled_in_production_multi_instance(self, monkeypatch):
+        """Should auto-enable strict mode in production + multi-instance."""
+        from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
+        monkeypatch.delenv("ARAGORA_RATE_LIMIT_STRICT", raising=False)
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
+
+        assert _should_use_strict_mode() is True
+
+    def test_strict_mode_disabled_in_development(self, monkeypatch):
+        """Should not auto-enable strict mode in development."""
+        from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
+        monkeypatch.delenv("ARAGORA_RATE_LIMIT_STRICT", raising=False)
+        monkeypatch.setenv("ARAGORA_ENV", "development")
+        monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
+
+        assert _should_use_strict_mode() is False
+
+    def test_strict_mode_disabled_in_single_instance(self, monkeypatch):
+        """Should not auto-enable strict mode in single-instance production."""
+        from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
+        monkeypatch.delenv("ARAGORA_RATE_LIMIT_STRICT", raising=False)
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
+        monkeypatch.setenv("ARAGORA_REPLICA_COUNT", "1")
+
+        assert _should_use_strict_mode() is False
+
+    def test_multi_instance_detected_via_replica_count(self, monkeypatch):
+        """Should detect multi-instance via ARAGORA_REPLICA_COUNT > 1."""
+        from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
+        monkeypatch.delenv("ARAGORA_RATE_LIMIT_STRICT", raising=False)
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
+        monkeypatch.setenv("ARAGORA_REPLICA_COUNT", "3")
+
+        assert _should_use_strict_mode() is True

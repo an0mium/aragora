@@ -145,14 +145,41 @@ def _is_production_mode() -> bool:
     return False
 
 
+def _should_use_strict_mode() -> bool:
+    """Determine if strict mode should be enabled.
+
+    Strict mode is enabled when:
+    - ARAGORA_RATE_LIMIT_STRICT=true is explicitly set, OR
+    - Production mode is detected AND multi-instance mode is detected
+
+    This makes Redis enforcement automatic in production multi-instance
+    deployments without requiring explicit configuration.
+
+    Returns:
+        True if strict mode should be enabled, False otherwise.
+    """
+    # Check explicit setting first
+    explicit_strict = os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "").lower()
+    if explicit_strict in ("1", "true", "yes"):
+        return True
+    if explicit_strict in ("0", "false", "no"):
+        return False
+
+    # Auto-enable strict mode in production + multi-instance
+    return _is_production_mode() and _is_multi_instance_mode()
+
+
 def validate_rate_limit_configuration() -> None:
     """Validate rate limit configuration for the current deployment mode.
 
     Checks if Redis is properly configured when running in multi-instance mode.
     Logs warnings or raises errors based on configuration.
 
+    Strict mode is automatically enabled in production multi-instance deployments
+    unless explicitly disabled via ARAGORA_RATE_LIMIT_STRICT=false.
+
     Raises:
-        RuntimeError: If ARAGORA_RATE_LIMIT_STRICT=true and Redis is not
+        RuntimeError: If strict mode is enabled and Redis is not
             configured in multi-instance mode.
 
     Warning Logged:
@@ -161,11 +188,7 @@ def validate_rate_limit_configuration() -> None:
     """
     is_multi_instance = _is_multi_instance_mode()
     is_redis_configured = _is_redis_configured()
-    is_strict_mode = os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
+    is_strict_mode = _should_use_strict_mode()
     is_production = _is_production_mode()
 
     if not is_multi_instance:
@@ -907,6 +930,7 @@ __all__ = [
     "_is_multi_instance_mode",
     "_is_redis_configured",
     "_is_production_mode",
+    "_should_use_strict_mode",
     "validate_rate_limit_configuration",
     # Re-exports from middleware for convenience
     "middleware_rate_limit",

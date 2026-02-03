@@ -265,7 +265,7 @@ async def handle_signup(
 
     except Exception as e:
         logger.exception("Signup failed")
-        return error_response(safe_error_message(e, "signup"), status=500)
+        return error_response(f"Signup failed: {safe_error_message(e, 'signup')}", status=500)
 
 
 @rate_limit(rpm=10, limiter_name="auth_verify")
@@ -338,7 +338,10 @@ async def handle_verify_email(
 
     except Exception as e:
         logger.exception("Email verification failed")
-        return error_response(safe_error_message(e, "email verification"), status=500)
+        return error_response(
+            f"Email verification failed: {safe_error_message(e, 'email verification')}",
+            status=500,
+        )
 
 
 @rate_limit(rpm=2, limiter_name="auth_resend")
@@ -475,7 +478,10 @@ async def handle_setup_organization(
 
     except Exception as e:
         logger.exception("Organization setup failed")
-        return error_response(safe_error_message(e, "org setup"), status=500)
+        return error_response(
+            f"Organization setup failed: {safe_error_message(e, 'org setup')}",
+            status=500,
+        )
 
 
 # =============================================================================
@@ -579,7 +585,10 @@ async def handle_invite(
 
     except Exception as e:
         logger.exception("Invite failed")
-        return error_response(safe_error_message(e, "invite"), status=500)
+        return error_response(
+            f"Invite failed: {safe_error_message(e, 'invite')}",
+            status=500,
+        )
 
 
 async def handle_check_invite(
