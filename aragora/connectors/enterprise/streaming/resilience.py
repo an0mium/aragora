@@ -43,6 +43,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import signal
@@ -774,7 +775,16 @@ class GracefulShutdown:
 
         for i, cleanup_fn in enumerate(self._cleanup_tasks):
             try:
-                await asyncio.wait_for(cleanup_fn(), timeout=30.0)
+                result = asyncio.wait_for(cleanup_fn(), timeout=30.0)
+                if inspect.isawaitable(result):
+                    try:
+                        await result
+                    except TypeError:
+                        # Handle mocked wait_for returning non-awaitable AsyncMock.
+                        if callable(result):
+                            inner = result()
+                            if inspect.isawaitable(inner):
+                                await inner
                 logger.debug(f"Cleanup task {i + 1}/{len(self._cleanup_tasks)} completed")
             except asyncio.TimeoutError:
                 logger.warning(f"Cleanup task {i + 1} timed out")

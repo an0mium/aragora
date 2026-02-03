@@ -211,7 +211,7 @@ class SessionMixin:
                     f"Routed debate {debate_id[:8]} result to {self.platform_name} "
                     f"channel {target_channel}"
                 )
-            except (RuntimeError, OSError, ValueError) as e:
+            except (RuntimeError, OSError, ValueError, Exception) as e:
                 logger.error(
                     f"Failed to route debate result to {self.platform_name} "
                     f"channel {target_channel}: {e}"

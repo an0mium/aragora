@@ -216,7 +216,13 @@ class JiraConnector(EnterpriseConnector):
                 timeout=60,
             )
             response.raise_for_status()
-            return response.json() if response.content else {}
+            content = getattr(response, "content", None)
+            if content is None:
+                try:
+                    return response.json()
+                except Exception:
+                    return {}
+            return response.json() if content else {}
 
     async def _get_projects(self) -> list[JiraProject]:
         """Get all accessible projects."""
@@ -469,7 +475,7 @@ class JiraConnector(EnterpriseConnector):
                     break
                 start_at += max_results
 
-            except (RuntimeError, ValueError, KeyError, OSError) as e:
+            except (RuntimeError, ValueError, KeyError, OSError, Exception) as e:
                 logger.warning(f"[{self.name}] Failed to get comments for {issue_key}: {e}")
                 break
 
@@ -684,6 +690,9 @@ class JiraConnector(EnterpriseConnector):
             issue_key = evidence_id[5:]
         else:
             issue_key = evidence_id
+        parts = issue_key.split("-", 1)
+        if len(parts) != 2 or not parts[0] or not parts[1].isdigit():
+            return None
 
         try:
             data = await self._api_request(

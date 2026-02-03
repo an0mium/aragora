@@ -172,7 +172,7 @@ class DocumentConnector(Connector):
         query: str,
         limit: int = 5,
         **kwargs: Any,
-    ) -> list[Evidence]:
+    ) -> list[dict[str, Any]]:
         """Search across all parsed documents.
 
         Args:
@@ -183,7 +183,7 @@ class DocumentConnector(Connector):
         Returns:
             List of matching Evidence objects
         """
-        results: list[tuple[Evidence, float]] = []  # (Evidence, relevance score)
+        results: list[tuple[dict[str, Any], float]] = []  # (result, relevance score)
         query_lower = query.lower()
         query_terms = query_lower.split()
 
@@ -200,24 +200,23 @@ class DocumentConnector(Connector):
                 relevance = term_matches / len(query_terms)
                 confidence = self._get_reliability(doc.format)
 
-                evidence = Evidence(
-                    id=f"{doc_id}_chunk_{i}",
-                    source_type=SourceType.DOCUMENT,
-                    source_id=doc_id,
-                    content=chunk.content,
-                    title=f"{doc.title or doc.filename} (Section {i + 1})",
-                    url=doc.metadata.get("source_path", ""),
-                    confidence=confidence,
-                    metadata={
+                result = {
+                    "id": f"{doc_id}_chunk_{i}",
+                    "source": "document",
+                    "title": f"{doc.title or doc.filename} (Section {i + 1})",
+                    "content": chunk.content,
+                    "url": doc.metadata.get("source_path", ""),
+                    "reliability_score": confidence,
+                    "format": doc.format.value if doc.format else "unknown",
+                    "metadata": {
                         "doc_id": doc_id,
                         "chunk_index": i,
                         "page": chunk.page,
                         "section": chunk.section,
                         "filename": doc.filename,
-                        "format": doc.format.value if doc.format else "unknown",
                     },
-                )
-                results.append((evidence, relevance))
+                }
+                results.append((result, relevance))
 
             # Search in tables
             for j, table in enumerate(doc.tables):
@@ -246,28 +245,27 @@ class DocumentConnector(Connector):
                 # Format table as text
                 table_content = self._format_table(table_data, table_headers)
 
-                evidence = Evidence(
-                    id=f"{doc_id}_table_{j}",
-                    source_type=SourceType.DOCUMENT,
-                    source_id=doc_id,
-                    content=table_content,
-                    title=f"{doc.title or doc.filename} (Table {j + 1})",
-                    url=doc.metadata.get("source_path", ""),
-                    confidence=confidence,
-                    metadata={
+                result = {
+                    "id": f"{doc_id}_table_{j}",
+                    "source": "document_table",
+                    "title": f"{doc.title or doc.filename} (Table {j + 1})",
+                    "content": table_content,
+                    "url": doc.metadata.get("source_path", ""),
+                    "reliability_score": confidence,
+                    "format": doc.format.value if doc.format else "unknown",
+                    "metadata": {
                         "doc_id": doc_id,
                         "table_index": j,
                         "page": table_page,
                         "caption": table_caption,
                         "filename": doc.filename,
-                        "format": doc.format.value if doc.format else "unknown",
                     },
-                )
-                results.append((evidence, relevance))
+                }
+                results.append((result, relevance))
 
         # Sort by relevance and limit
         results.sort(key=lambda x: x[1], reverse=True)
-        return [evidence for evidence, _ in results[:limit]]
+        return [result for result, _ in results[:limit]]
 
     async def parse_file(
         self,

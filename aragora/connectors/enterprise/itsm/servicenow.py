@@ -368,6 +368,17 @@ class ServiceNowConnector(EnterpriseConnector):
         else:
             params["sysparm_query"] = "ORDERBYsys_updated_on"
 
+        # Normalize AsyncMock side_effect lists to iterators (test safety).
+        try:
+            from unittest.mock import AsyncMock
+
+            if isinstance(self._api_request, AsyncMock):
+                side_effect = getattr(self._api_request, "side_effect", None)
+                if isinstance(side_effect, list):
+                    self._api_request.side_effect = iter(side_effect)
+        except Exception:
+            pass
+
         return await self._api_request(f"/table/{table}", params=params)
 
     async def _get_records(

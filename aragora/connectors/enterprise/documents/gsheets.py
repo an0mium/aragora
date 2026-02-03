@@ -152,8 +152,9 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 "Set GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, and GDRIVE_REFRESH_TOKEN"
             )
 
-        pool = get_http_pool()
-        async with pool.get_session("google") as client:
+        import httpx
+
+        async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
@@ -608,7 +609,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
             return results
 
-        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -641,7 +642,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 },
             )
 
-        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

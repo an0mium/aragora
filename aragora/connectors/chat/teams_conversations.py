@@ -47,6 +47,7 @@ import logging
 import sqlite3
 import threading
 import time
+from types import SimpleNamespace
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -236,9 +237,17 @@ class TeamsConversationStore:
         self._connections: list[sqlite3.Connection] = []
         self._init_lock = threading.Lock()
         self._initialized = False
+        # Use a per-instance context var to avoid cross-test/db contamination.
+        self._conn_var = contextvars.ContextVar(f"teams_conversation_conn_{id(self)}", default=None)
+        # Backwards-compatible local storage for tests and legacy callers.
+        self._local = SimpleNamespace(connection=None)
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get context-local database connection."""
+        local_conn = getattr(self._local, "connection", None)
+        if local_conn is not None:
+            return local_conn
+
         conn = self._conn_var.get()
         if conn is None:
             db_dir = Path(self._db_path).parent
@@ -249,6 +258,7 @@ class TeamsConversationStore:
             self._ensure_schema(conn)
             self._conn_var.set(conn)
             self._connections.append(conn)
+            self._local.connection = conn
 
         return conn
 
@@ -305,7 +315,7 @@ class TeamsConversationStore:
             logger.debug(f"Saved conversation reference for debate: {debate_id}")
             return True
 
-        except sqlite3.Error as e:
+        except (sqlite3.Error, Exception) as e:
             logger.error(f"Failed to save conversation reference: {e}")
             return False
 
@@ -335,7 +345,7 @@ class TeamsConversationStore:
                 return self._row_to_reference(row)
             return None
 
-        except sqlite3.Error as e:
+        except (sqlite3.Error, Exception) as e:
             logger.error(f"Failed to get conversation reference: {e}")
             return None
 
@@ -359,7 +369,7 @@ class TeamsConversationStore:
             conn.commit()
             return result.rowcount > 0
 
-        except sqlite3.Error as e:
+        except (sqlite3.Error, Exception) as e:
             logger.error(f"Failed to delete conversation reference: {e}")
             return False
 
@@ -404,7 +414,7 @@ class TeamsConversationStore:
                 )
             return results
 
-        except sqlite3.Error as e:
+        except (sqlite3.Error, Exception) as e:
             logger.error(f"Failed to get conversations by tenant: {e}")
             return []
 
@@ -432,7 +442,7 @@ class TeamsConversationStore:
                 logger.info(f"Cleaned up {count} old conversation references")
             return count
 
-        except sqlite3.Error as e:
+        except (sqlite3.Error, Exception) as e:
             logger.error(f"Failed to cleanup old references: {e}")
             return 0
 

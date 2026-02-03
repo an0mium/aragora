@@ -656,7 +656,8 @@ class SquareClient:
     async def create_payment(
         self,
         source_id: str,
-        amount: Money,
+        amount: Money | dict[str, Any] | None = None,
+        amount_money: Money | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         customer_id: str | None = None,
         location_id: str | None = None,
@@ -672,7 +673,8 @@ class SquareClient:
 
         Args:
             source_id: Payment source (card nonce, customer card ID, etc.)
-            amount: Payment amount
+            amount: Payment amount (Money or API dict)
+            amount_money: Alternate payment amount (Money or API dict)
             idempotency_key: Unique key for request (auto-generated if not provided)
             customer_id: Associated customer
             location_id: Location for the payment
@@ -686,9 +688,17 @@ class SquareClient:
         Returns:
             Created Payment
         """
+        money_source = amount_money if amount_money is not None else amount
+        if isinstance(money_source, Money):
+            money = money_source
+        elif isinstance(money_source, dict):
+            money = Money.from_api(money_source)
+        else:
+            raise ValueError("Payment amount is required")
+
         body: dict[str, Any] = {
             "source_id": source_id,
-            "amount_money": amount.to_api(),
+            "amount_money": money.to_api(),
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
             "autocomplete": autocomplete,
         }
@@ -762,7 +772,8 @@ class SquareClient:
     async def refund_payment(
         self,
         payment_id: str,
-        amount: Money,
+        amount: Money | dict[str, Any] | None = None,
+        amount_money: Money | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         reason: str | None = None,
     ) -> Refund:
@@ -771,16 +782,25 @@ class SquareClient:
 
         Args:
             payment_id: Payment to refund
-            amount: Refund amount
+            amount: Refund amount (Money or API dict)
+            amount_money: Alternate refund amount (Money or API dict)
             idempotency_key: Unique key for request
             reason: Refund reason
 
         Returns:
             Refund details
         """
+        money_source = amount_money if amount_money is not None else amount
+        if isinstance(money_source, Money):
+            money = money_source
+        elif isinstance(money_source, dict):
+            money = Money.from_api(money_source)
+        else:
+            raise ValueError("Refund amount is required")
+
         body: dict[str, Any] = {
             "payment_id": payment_id,
-            "amount_money": amount.to_api(),
+            "amount_money": money.to_api(),
             "idempotency_key": idempotency_key or _generate_idempotency_key(),
         }
 
@@ -1018,17 +1038,15 @@ class SquareClient:
         subscriptions = [Subscription.from_api(s) for s in data.get("subscriptions", [])]
         return subscriptions, data.get("cursor")
 
-    async def cancel_subscription(self, subscription_id: str) -> tuple[Subscription, list[str]]:
+    async def cancel_subscription(self, subscription_id: str) -> Subscription:
         """
         Cancel a subscription.
 
         Returns:
-            Tuple of (subscription, affected_actions)
+            Updated subscription
         """
         data = await self._request("POST", f"/v2/subscriptions/{subscription_id}/cancel")
-        subscription = Subscription.from_api(data["subscription"])
-        actions = data.get("actions", [])
-        return subscription, actions
+        return Subscription.from_api(data["subscription"])
 
     async def pause_subscription(
         self,
@@ -1205,18 +1223,24 @@ class SquareClient:
     # Webhooks
     # -------------------------------------------------------------------------
 
+    def parse_webhook_event(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse and normalize a webhook payload."""
+        return payload
+
     def verify_webhook_signature(
         self,
-        request_body: str,
-        signature: str,
+        request_body: str | bytes | None = None,
+        signature: str = "",
         signature_key: str | None = None,
         notification_url: str = "",
+        payload: str | bytes | None = None,
     ) -> bool:
         """
         Verify webhook signature.
 
         Args:
-            request_body: Raw request body
+            request_body: Raw request body (string or bytes)
+            payload: Alternate request body parameter (string or bytes)
             signature: X-Square-Signature header
             signature_key: Webhook signature key (from credentials if not provided)
             notification_url: Your webhook URL
@@ -1229,12 +1253,20 @@ class SquareClient:
             logger.warning("Webhook signature key not configured")
             return True
 
-        # Square uses HMAC-SHA1
+        body_value = payload if payload is not None else request_body
+        if body_value is None:
+            raise ValueError("Webhook payload is required")
+        if isinstance(body_value, (bytes, bytearray)):
+            body_text = body_value.decode("utf-8")
+        else:
+            body_text = body_value
+
+        # Square uses HMAC-SHA256
         expected_signature = base64.b64encode(
             hmac.new(
                 key.encode(),
-                (notification_url + request_body).encode(),
-                hashlib.sha1,
+                (notification_url + body_text).encode(),
+                hashlib.sha256,
             ).digest()
         ).decode()
 

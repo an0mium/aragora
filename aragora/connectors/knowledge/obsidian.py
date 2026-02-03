@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -60,6 +61,47 @@ class ObsidianConfig:
     ignore_folders: list[str] = field(default_factory=lambda: [".obsidian", ".trash", "templates"])
     sync_attachments: bool = False
     parse_dataview: bool = True  # Parse dataview inline fields
+
+    @classmethod
+    def from_env(cls, env: dict[str, str] | None = None) -> "ObsidianConfig | None":
+        """Create config from environment variables.
+
+        Supported variables:
+            ARAGORA_OBSIDIAN_VAULT_PATH or OBSIDIAN_VAULT_PATH
+            ARAGORA_OBSIDIAN_API_URL
+            ARAGORA_OBSIDIAN_API_KEY
+            ARAGORA_OBSIDIAN_TAGS (comma-separated)
+            ARAGORA_OBSIDIAN_IGNORE_FOLDERS (comma-separated)
+            ARAGORA_OBSIDIAN_SYNC_ATTACHMENTS (true/false)
+            ARAGORA_OBSIDIAN_PARSE_DATAVIEW (true/false)
+        """
+        env = env or dict(os.environ)
+        vault_path = env.get("ARAGORA_OBSIDIAN_VAULT_PATH") or env.get("OBSIDIAN_VAULT_PATH")
+        if not vault_path:
+            return None
+
+        def _parse_list(value: str | None) -> list[str]:
+            if not value:
+                return []
+            return [item.strip() for item in value.split(",") if item.strip()]
+
+        def _parse_bool(value: str | None, default: bool) -> bool:
+            if value is None:
+                return default
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+
+        watch_tags = _parse_list(env.get("ARAGORA_OBSIDIAN_TAGS"))
+        ignore_folders = _parse_list(env.get("ARAGORA_OBSIDIAN_IGNORE_FOLDERS"))
+
+        return cls(
+            vault_path=vault_path,
+            api_url=env.get("ARAGORA_OBSIDIAN_API_URL"),
+            api_key=env.get("ARAGORA_OBSIDIAN_API_KEY"),
+            watch_tags=watch_tags or ["#debate", "#decision", "#aragora"],
+            ignore_folders=ignore_folders or [".obsidian", ".trash", "templates"],
+            sync_attachments=_parse_bool(env.get("ARAGORA_OBSIDIAN_SYNC_ATTACHMENTS"), False),
+            parse_dataview=_parse_bool(env.get("ARAGORA_OBSIDIAN_PARSE_DATAVIEW"), True),
+        )
 
 
 @dataclass
@@ -250,8 +292,14 @@ class ObsidianNote:
             word_count=len(content.split()),
         )
 
-    def to_evidence(self) -> Evidence:
+    def to_evidence(self, vault_path: Path | None = None) -> Evidence:
         """Convert note to Evidence for Knowledge Mound."""
+        abs_path = None
+        if vault_path is not None:
+            try:
+                abs_path = str((vault_path / self.path).resolve())
+            except OSError:
+                abs_path = None
         return Evidence(
             id=f"obsidian-note-{hashlib.sha256(self.path.encode()).hexdigest()[:12]}",
             source_type=SourceType.DOCUMENT,
@@ -259,7 +307,7 @@ class ObsidianNote:
             content=self.content,
             title=self.frontmatter.title or self.name,
             created_at=self.created_at.isoformat() if self.created_at else None,
-            url=f"obsidian://open?vault={self.path}",
+            url=f"obsidian://open?path={abs_path or self.path}",
             metadata={
                 "type": "obsidian_note",
                 "note_type": self.note_type.value,
@@ -437,7 +485,7 @@ class ObsidianConnector(BaseConnector):
                 if not any(query_lower in t.lower() for t in note.tags):
                     continue
 
-            results.append(note.to_evidence())
+            results.append(note.to_evidence(self._vault_path))
 
             if len(results) >= limit:
                 break
@@ -463,7 +511,7 @@ class ObsidianConnector(BaseConnector):
         for note in self._iter_notes():
             path_hash = hashlib.sha256(note.path.encode()).hexdigest()[:12]
             if path_hash == target_hash:
-                return note.to_evidence()
+                return note.to_evidence(self._vault_path)
 
         return None
 
@@ -763,13 +811,14 @@ class ObsidianConnector(BaseConnector):
             if note.note_type == NoteType.TEMPLATE:
                 continue
 
+            abs_path = str((self._vault_path / note.path).resolve())
             yield SyncItem(
                 id=f"obsidian-note-{hashlib.sha256(note.path.encode()).hexdigest()[:12]}",
                 content=note.content,
                 source_type="obsidian_note",
                 source_id=note.path,
                 title=note.frontmatter.title or note.name,
-                url=f"obsidian://open?path={note.path}",
+                url=f"obsidian://open?path={abs_path}",
                 updated_at=note.modified_at,
                 created_at=note.created_at,
                 metadata={

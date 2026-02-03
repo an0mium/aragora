@@ -29,6 +29,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
+import aiohttp
+
 logger = logging.getLogger(__name__)
 
 
@@ -301,8 +303,6 @@ class DocuSignConnector:
 
         import jwt
 
-        from aragora.server.http_client_pool import get_http_pool
-
         if not self.private_key_path:
             raise ValueError("Private key path required for JWT authentication")
 
@@ -324,23 +324,22 @@ class DocuSignConnector:
         token = jwt.encode(payload, private_key, algorithm="RS256")
 
         # Exchange for access token
-        pool = get_http_pool()
-        async with pool.get_session("docusign") as client:
-            response = await client.post(
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
                 f"{self.auth_url}/token",
-                content=urllib.parse.urlencode(
+                data=urllib.parse.urlencode(
                     {
                         "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
                         "assertion": token,
                     }
                 ),
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if response.status_code != 200:
-                error_text = response.text
-                raise Exception(f"JWT auth failed: {error_text}")
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"JWT auth failed: {error_text}")
 
-            data = response.json()
+                data = await response.json()
 
             self._credentials = DocuSignCredentials(
                 access_token=data["access_token"],
@@ -363,18 +362,15 @@ class DocuSignConnector:
 
     async def _get_user_info(self) -> dict[str, Any]:
         """Get user info including accounts."""
-        from aragora.server.http_client_pool import get_http_pool
-
         if not self._credentials:
             raise Exception("Not authenticated")
 
-        pool = get_http_pool()
-        async with pool.get_session("docusign") as client:
-            response = await client.get(
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
                 f"{self.auth_url}/userinfo",
                 headers={"Authorization": f"Bearer {self._credentials.access_token}"},
-            )
-            return response.json()
+            ) as response:
+                return await response.json()
 
     async def _request(
         self,
@@ -384,8 +380,6 @@ class DocuSignConnector:
         raw_response: bool = False,
     ) -> Any:
         """Make authenticated API request."""
-        from aragora.server.http_client_pool import get_http_pool
-
         if not self._credentials:
             raise Exception("Not authenticated")
 
@@ -402,24 +396,23 @@ class DocuSignConnector:
             "Accept": "application/json",
         }
 
-        pool = get_http_pool()
-        async with pool.get_session("docusign") as client:
-            response = await client.request(
+        async with aiohttp.ClientSession() as session:
+            async with session.request(
                 method,
                 url,
                 headers=headers,
                 json=data,
-            )
-            if raw_response:
-                return response.content
+            ) as response:
+                if raw_response:
+                    return await response.read()
 
-            response_data = response.json()
+                response_data = await response.json()
 
-            if response.status_code >= 400:
-                error = response_data.get("message", "Unknown error")
-                raise Exception(f"DocuSign API error: {error}")
+                if response.status >= 400:
+                    error = response_data.get("message", "Unknown error")
+                    raise Exception(f"DocuSign API error: {error}")
 
-            return response_data
+                return response_data
 
     # =========================================================================
     # Envelope Operations
@@ -578,7 +571,7 @@ class DocuSignConnector:
                     else None
                 ),
             )
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to get envelope {envelope_id}: {e}")
             return None
 

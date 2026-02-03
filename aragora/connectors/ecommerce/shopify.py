@@ -397,6 +397,9 @@ class ShopifyConnector(EnterpriseConnector):
         except OSError as e:
             logger.error(f"Failed to connect to Shopify: {e}")
             return False
+        except Exception as e:
+            logger.error(f"Failed to connect to Shopify: {e}")
+            return False
 
     async def disconnect(self) -> None:
         """Close Shopify connection."""
@@ -607,7 +610,7 @@ class ShopifyConnector(EnterpriseConnector):
         try:
             data = await self._request("GET", f"/orders/{order_id}.json")
             return self._parse_order(data["order"])
-        except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
+        except (ConnectorAPIError, OSError, ValueError, KeyError, Exception) as e:
             logger.error(f"Failed to get order {order_id}: {e}")
             return None
 
@@ -646,7 +649,7 @@ class ShopifyConnector(EnterpriseConnector):
                 json_data=fulfillment_data,
             )
             return True
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, OSError, Exception) as e:
             logger.error(f"Failed to fulfill order {order_id}: {e}")
             return False
 
@@ -733,7 +736,7 @@ class ShopifyConnector(EnterpriseConnector):
         try:
             data = await self._request("GET", f"/products/{product_id}.json")
             return self._parse_product(data["product"])
-        except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
+        except (ConnectorAPIError, OSError, ValueError, KeyError, Exception) as e:
             logger.error(f"Failed to get product {product_id}: {e}")
             return None
 
@@ -764,7 +767,7 @@ class ShopifyConnector(EnterpriseConnector):
                 },
             )
             return True
-        except (ConnectorAPIError, OSError) as e:
+        except (ConnectorAPIError, OSError, Exception) as e:
             logger.error(f"Failed to adjust inventory: {e}")
             return False
 
@@ -838,7 +841,7 @@ class ShopifyConnector(EnterpriseConnector):
         try:
             data = await self._request("GET", f"/customers/{customer_id}.json")
             return self._parse_customer(data["customer"])
-        except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
+        except (ConnectorAPIError, OSError, ValueError, KeyError, Exception) as e:
             logger.error(f"Failed to get customer {customer_id}: {e}")
             return None
 
@@ -927,7 +930,7 @@ class ShopifyConnector(EnterpriseConnector):
         try:
             async for _ in self.incremental_sync():
                 items_synced += 1
-        except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
+        except (ConnectorAPIError, OSError, ValueError, KeyError, Exception) as e:
             errors.append(str(e))
 
         duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000

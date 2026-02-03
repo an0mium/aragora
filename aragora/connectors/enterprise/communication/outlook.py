@@ -280,7 +280,7 @@ class OutlookConnector(EnterpriseConnector):
             logger.info("[Outlook] Authentication successful")
             return True
 
-        except (OSError, ValueError, KeyError) as e:
+        except Exception as e:
             logger.error(f"[Outlook] Authentication failed: {e}")
             return False
 
@@ -752,7 +752,7 @@ class OutlookConnector(EnterpriseConnector):
                 },
             )
 
-        except (OSError, ValueError, KeyError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"[Outlook] Fetch failed: {e}")
             return None
 
@@ -940,7 +940,7 @@ class OutlookConnector(EnterpriseConnector):
                 "success": True,
                 "message": "Message sent",
             }
-        except (OSError, ConnectionError, RuntimeError) as e:
+        except Exception as e:
             raise RuntimeError(f"Failed to send email: {e}") from e
 
     async def reply_to_message(
@@ -994,7 +994,7 @@ class OutlookConnector(EnterpriseConnector):
                 "success": True,
                 "in_reply_to": original_message_id,
             }
-        except (OSError, ConnectionError, RuntimeError) as e:
+        except Exception as e:
             raise RuntimeError(f"Failed to send reply: {e}") from e
 
     def _message_to_sync_item(self, msg: EmailMessage) -> SyncItem:

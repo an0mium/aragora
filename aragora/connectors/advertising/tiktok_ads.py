@@ -379,10 +379,12 @@ class TikTokAdsConnector:
         client = await self._get_client()
         url = f"{self.BASE_URL}/{endpoint}"
 
-        if json_data and "advertiser_id" not in json_data:
+        if json_data is not None and "advertiser_id" not in json_data:
             json_data["advertiser_id"] = self.credentials.advertiser_id
 
-        if params and "advertiser_id" not in params:
+        if params is None:
+            params = {}
+        if "advertiser_id" not in params:
             params["advertiser_id"] = self.credentials.advertiser_id
 
         response = await client.request(

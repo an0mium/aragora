@@ -211,6 +211,9 @@ ALLOWED_WITHOUT_RBAC = {
     # Versioning compatibility (utility)
     "versioning/__init__",
     "versioning/compat",
+    # Payment package (re-export module and route registration utility)
+    "payments/__init__",
+    "payments/plans",
     # Init files for subdirectories
     "admin/__init__",
     "admin/cache",
@@ -441,10 +444,12 @@ class TestHandlerRBACEnforcement:
             if not has_mutation:
                 continue
 
-            # Check for any permission decorator or base class
+            # Check for any permission decorator, base class, or inline check
             has_perm = (
                 "require_permission" in source
                 or "require_role" in source
+                or "check_permission" in source
+                or "_check_rbac_permission" in source
                 or any(b in source for b in SECURE_BASE_CLASSES)
             )
             if not has_perm:

@@ -31,7 +31,6 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
-from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -195,8 +194,7 @@ class SharePointConnector(EnterpriseConnector):
         try:
             token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
 
-            pool = get_http_pool()
-            async with pool.get_session("microsoft") as client:
+            async with httpx.AsyncClient(timeout=60) as client:
                 response = await client.post(
                     token_url,
                     data={
@@ -232,15 +230,13 @@ class SharePointConnector(EnterpriseConnector):
         token = await self._get_access_token()
         url = f"https://graph.microsoft.com/v1.0{endpoint}"
 
-        pool = get_http_pool()
-        async with pool.get_session("microsoft") as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             response = await client.request(
                 method,
                 url,
                 headers={"Authorization": f"Bearer {token}"},
                 params=params,
                 json=json_data,
-                timeout=60,
             )
             response.raise_for_status()
             return response.json() if response.content else {}
@@ -292,7 +288,7 @@ class SharePointConnector(EnterpriseConnector):
 
             return sites
 
-        except (httpx.HTTPStatusError, httpx.RequestError, KeyError) as e:
+        except Exception as e:
             logger.warning(f"[{self.name}] Failed to get subsites: {e}")
             return []
 
@@ -416,12 +412,10 @@ class SharePointConnector(EnterpriseConnector):
         url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/content"
 
         try:
-            pool = get_http_pool()
-            async with pool.get_session("microsoft") as client:
+            async with httpx.AsyncClient(timeout=120) as client:
                 response = await client.get(
                     url,
                     headers={"Authorization": f"Bearer {token}"},
-                    timeout=120,
                     follow_redirects=True,
                 )
                 response.raise_for_status()
@@ -434,7 +428,7 @@ class SharePointConnector(EnterpriseConnector):
                     logger.debug(f"[{self.name}] Text decode failed, using base64: {e}")
                     return base64.b64encode(response.content).decode()[:1000] + "..."
 
-        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+        except Exception as e:
             logger.warning(f"[{self.name}] Failed to get file content: {e}")
             return ""
 
@@ -576,7 +570,7 @@ class SharePointConnector(EnterpriseConnector):
 
             return results
 
-        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -613,13 +607,13 @@ class SharePointConnector(EnterpriseConnector):
                         created_at=data.get("createdDateTime"),
                         confidence=0.8,
                     )
-                except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                except Exception as e:
                     logger.debug(f"[{self.name}] Failed to create fetch result: {e}")
                     continue
 
             return None
 
-        except (httpx.HTTPStatusError, httpx.RequestError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

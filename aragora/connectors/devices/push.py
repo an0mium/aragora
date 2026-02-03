@@ -35,6 +35,14 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+try:
+    from pywebpush import webpush as _webpush
+except ImportError:
+    _webpush = None
+
+# Expose for patching in tests
+webpush = _webpush
+
 
 class FCMConnector(DeviceConnector):
     """
@@ -681,20 +689,21 @@ class WebPushConnector(DeviceConnector):
                 error="Web Push connector not initialized",
             )
 
+        # Parse subscription from push_token (JSON string) before importing pywebpush
         try:
-            from pywebpush import webpush
+            subscription = json.loads(device.push_token)
+        except json.JSONDecodeError:
+            return SendResult(
+                success=False,
+                device_id=device.device_id,
+                status=DeliveryStatus.FAILED,
+                error="Invalid subscription format",
+                should_unregister=True,
+            )
 
-            # Parse subscription from push_token (JSON string)
-            try:
-                subscription = json.loads(device.push_token)
-            except json.JSONDecodeError:
-                return SendResult(
-                    success=False,
-                    device_id=device.device_id,
-                    status=DeliveryStatus.FAILED,
-                    error="Invalid subscription format",
-                    should_unregister=True,
-                )
+        try:
+            if webpush is None:
+                raise ImportError("pywebpush not installed")
 
             # Build payload
             payload = {

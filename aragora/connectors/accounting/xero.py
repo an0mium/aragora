@@ -606,8 +606,12 @@ class XeroConnector(CircuitBreakerMixin):
                 if error_info.is_transient:
                     self.record_circuit_failure()
 
+                message = error_info.message
+                if str(response.status_code) not in message:
+                    message = f"{response.status_code} {message}"
+
                 raise XeroError(
-                    message=error_info.message,
+                    message=message,
                     status_code=response.status_code,
                     details=error_data if isinstance(error_data, dict) else {},
                 )

@@ -211,13 +211,7 @@ class RedditConnector(BaseConnector):
             logger.info(f"Reddit search '{query}' returned {len(results)} results")
             return results
 
-        except (
-            httpx.HTTPStatusError,
-            httpx.RequestError,
-            httpx.TimeoutException,
-            ValueError,
-            KeyError,
-        ) as e:
+        except Exception as e:
             logger.debug(f"Reddit search failed: {e}")
             return []
 
@@ -261,13 +255,7 @@ class RedditConnector(BaseConnector):
                 self._cache_put(evidence_id, evidence)
             return evidence
 
-        except (
-            httpx.HTTPStatusError,
-            httpx.RequestError,
-            httpx.TimeoutException,
-            ValueError,
-            KeyError,
-        ) as e:
+        except Exception as e:
             logger.debug(f"Reddit fetch failed for {evidence_id}: {e}")
             return None
 
@@ -461,13 +449,7 @@ class RedditConnector(BaseConnector):
             logger.info(f"Reddit r/{subreddit}/{sort} returned {len(results)} results")
             return results
 
-        except (
-            httpx.HTTPStatusError,
-            httpx.RequestError,
-            httpx.TimeoutException,
-            ValueError,
-            KeyError,
-        ) as e:
+        except Exception as e:
             logger.debug(f"Reddit get_subreddit failed for r/{subreddit}: {e}")
             return []
 

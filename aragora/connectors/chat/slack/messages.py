@@ -90,7 +90,20 @@ class SlackMessagesMixin:
         self,
         message: ChatMessage,
         query: str | None = None,
-    ) -> float: ...
+    ) -> float:
+        """Compute a simple relevance score for a message."""
+        if not query:
+            return 1.0
+
+        query_lower = query.lower()
+        text_lower = (message.content or "").lower()
+
+        keywords = query_lower.split()
+        if not keywords or not text_lower:
+            return 0.0
+
+        matches = sum(1 for kw in keywords if kw in text_lower)
+        return matches / len(keywords)
 
     async def send_message(
         self,
@@ -716,7 +729,8 @@ class SlackMessagesMixin:
         self,
         channel_id: str,
         message_id: str,
-        reaction: str,
+        reaction: str | None = None,
+        emoji: str | None = None,
         **kwargs: Any,
     ) -> bool:
         """Remove an emoji reaction from a message.
@@ -732,13 +746,17 @@ class SlackMessagesMixin:
         Returns:
             True if successful, False otherwise
         """
+        reaction_name = reaction or emoji or kwargs.get("reaction") or kwargs.get("emoji")
+        if not reaction_name:
+            return False
+
         success, data, error = await self._slack_api_request(
             "reactions.remove",
             operation="remove_reaction",
             json_data={
                 "channel": channel_id,
                 "timestamp": message_id,
-                "name": reaction.strip(":"),
+                "name": reaction_name.strip(":"),
             },
         )
 

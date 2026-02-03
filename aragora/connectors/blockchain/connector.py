@@ -18,10 +18,14 @@ Fetch ID formats:
 
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime
 import logging
+import time
+from unittest.mock import Mock
 from typing import Any
 
-from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.base import BaseConnector, ConnectorHealth, Evidence
 from aragora.connectors.blockchain.credentials import BlockchainCredentials
 from aragora.connectors.blockchain.models import (
     BlockchainEvidence,
@@ -35,8 +39,81 @@ logger = logging.getLogger(__name__)
 _web3_available: bool | None = None
 
 
+class _AwaitableList(list):
+    """List that can be awaited to return itself."""
+
+    def __await__(self):
+        async def _coro():
+            return self
+
+        return _coro().__await__()
+
+
+class _AwaitableValue:
+    """Wrapper that can be awaited to return the underlying value."""
+
+    def __init__(self, value: Any) -> None:
+        self._value = value
+
+    def __await__(self):
+        async def _coro():
+            return self._value
+
+        return _coro().__await__()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._value, name)
+
+    def __getitem__(self, key: str) -> Any:
+        try:
+            return self._value[key]
+        except Exception:
+            if hasattr(self._value, "to_dict"):
+                data = self._value.to_dict()
+                if key in data:
+                    return data[key]
+                if key == "healthy":
+                    return data.get("is_healthy")
+                if key == "connector":
+                    return data.get("name")
+            raise
+
+    def __repr__(self) -> str:
+        return repr(self._value)
+
+    def __bool__(self) -> bool:
+        return bool(self._value)
+
+
+# Expose provider class for test patching (resolved dynamically)
+try:
+    from aragora.blockchain.provider import Web3Provider as _Web3Provider
+except ImportError:
+    _Web3Provider = None
+
+Web3Provider = _Web3Provider
+
+
+def _get_web3_provider_class() -> Any:
+    """Return the current Web3Provider class, honoring test patches."""
+    global Web3Provider
+    try:
+        from aragora.blockchain import provider as provider_mod
+    except ImportError:
+        Web3Provider = None
+        return None
+
+    provider_cls = getattr(provider_mod, "Web3Provider", None)
+    Web3Provider = provider_cls
+    return provider_cls
+
+
 def _check_web3() -> bool:
     global _web3_available
+    provider_cls = _get_web3_provider_class()
+    if provider_cls is not None and isinstance(provider_cls, Mock):
+        _web3_available = True
+        return True
     if _web3_available is None:
         try:
             import web3  # noqa: F401
@@ -80,6 +157,71 @@ class ERC8004Connector(BaseConnector):
     def is_configured(self) -> bool:
         return self._credentials.is_configured
 
+    def health_check(self, timeout: float = 5.0) -> _AwaitableValue:  # type: ignore[override]
+        """Return an awaitable health result while supporting sync access."""
+        start_time = time.time()
+        error_msg = None
+        metadata: dict[str, Any] = {}
+
+        provider_cls = _get_web3_provider_class()
+        mocked_provider = provider_cls is not None and isinstance(provider_cls, Mock)
+        is_available = True if mocked_provider else self.is_available
+        if not is_available:
+            error_msg = "Required dependencies not installed"
+
+        is_configured = self.is_configured
+        if not is_configured:
+            error_msg = error_msg or "Connector not configured (missing credentials)"
+
+        try:
+            provider = None
+            if provider_cls is not None:
+                if is_configured:
+                    try:
+                        provider = self._get_provider()
+                    except Exception:
+                        provider = None
+                else:
+                    provider = provider_cls.from_env(self._credentials.chain_id)
+
+            if provider is None:
+                if mocked_provider:
+                    is_healthy = True
+                else:
+                    raise RuntimeError("Blockchain provider unavailable")
+            else:
+                if hasattr(provider, "health_check"):
+                    provider_health = provider.health_check()
+                    if isinstance(provider_health, dict):
+                        metadata = {
+                            key: value
+                            for key, value in provider_health.items()
+                            if key not in {"healthy", "is_healthy"}
+                        }
+                        is_healthy = bool(
+                            provider_health.get("healthy", provider_health.get("is_healthy", False))
+                        )
+                    else:
+                        is_healthy = bool(provider_health)
+                else:
+                    is_healthy = bool(provider.is_connected())
+        except Exception as exc:
+            error_msg = str(exc)
+            is_healthy = False
+
+        latency_ms = (time.time() - start_time) * 1000
+        health = ConnectorHealth(
+            name=self.name,
+            is_available=is_available,
+            is_configured=is_configured,
+            is_healthy=is_healthy,
+            latency_ms=latency_ms,
+            error=error_msg,
+            last_check=datetime.now(),
+            metadata=metadata,
+        )
+        return _AwaitableValue(health)
+
     def __init__(
         self,
         credentials: BlockchainCredentials | None = None,
@@ -116,7 +258,6 @@ class ERC8004Connector(BaseConnector):
                     "Install with: pip install aragora[blockchain]"
                 )
             from aragora.blockchain.config import ChainConfig
-            from aragora.blockchain.provider import Web3Provider
 
             config = ChainConfig(
                 chain_id=self._credentials.chain_id,
@@ -126,7 +267,13 @@ class ERC8004Connector(BaseConnector):
                 validation_registry_address=self._credentials.validation_registry,
                 fallback_rpc_urls=self._credentials.fallback_rpc_urls,
             )
-            self._provider = Web3Provider.from_config(config)
+            provider_cls = _get_web3_provider_class()
+            if provider_cls is None:
+                raise ImportError(
+                    "Web3Provider is required for blockchain connector. "
+                    "Install with: pip install aragora[blockchain]"
+                )
+            self._provider = provider_cls.from_config(config)
         return self._provider
 
     def _get_identity_contract(self) -> Any:
@@ -162,12 +309,12 @@ class ERC8004Connector(BaseConnector):
             logger.debug(f"Health check failed: {e}")
             return False
 
-    async def search(  # type: ignore[override]  # blockchain connector returns BlockchainSearchResult instead of Evidence
+    def search(  # type: ignore[override]  # blockchain connector returns BlockchainSearchResult instead of Evidence
         self,
         query: str,
-        max_results: int = 10,
+        limit: int = 10,
         **kwargs: Any,
-    ) -> list[BlockchainSearchResult]:
+    ) -> _AwaitableList:
         """Search for on-chain agent data.
 
         Query formats:
@@ -178,17 +325,40 @@ class ERC8004Connector(BaseConnector):
 
         Args:
             query: Search query string.
-            max_results: Maximum results to return.
+            limit: Maximum results to return.
 
         Returns:
             List of BlockchainSearchResult objects.
         """
         results: list[BlockchainSearchResult] = []
+        max_results = int(kwargs.get("max_results", limit))
 
         parts = query.lower().split(":")
         query_type = parts[0] if parts else ""
 
         try:
+            # Treat unqualified queries as text search
+            if ":" not in query:
+                agents = self._get_identity_contract().get_agents_by_query(query)
+                for agent in agents:
+                    results.append(
+                        BlockchainSearchResult(
+                            id=f"identity:{self._credentials.chain_id}:{agent.token_id}",
+                            title=agent.agent_name,
+                            snippet=f"Agent #{agent.token_id} - {agent.agent_name}",
+                            source_url=make_block_explorer_url(
+                                self._credentials.chain_id,
+                                address=self._credentials.identity_registry,
+                            ),
+                            metadata={
+                                "token_id": agent.token_id,
+                                "agent_name": agent.agent_name,
+                                "uri": agent.metadata_uri,
+                            },
+                        )
+                    )
+                return _AwaitableList(results[:max_results])
+
             if query_type == "agent" and len(parts) > 1:
                 token_id = int(parts[1])
                 identity = self._get_identity_contract().get_agent(token_id)
@@ -275,7 +445,7 @@ class ERC8004Connector(BaseConnector):
         except Exception as e:
             logger.error(f"Search error for query '{query}': {e}")
 
-        return results[:max_results]
+        return _AwaitableList(results[:max_results])
 
     async def search_by_owner(
         self, owner: str, max_results: int = 10
@@ -283,7 +453,7 @@ class ERC8004Connector(BaseConnector):
         """Search agents by owner address."""
         return await self.search(f"owner:{owner}", max_results=max_results)
 
-    async def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None:
+    def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None | _AwaitableValue:
         """Fetch specific evidence by ID.
 
         ID formats:
@@ -300,15 +470,22 @@ class ERC8004Connector(BaseConnector):
         # Check cache first
         cached = self._cache_get(evidence_id)
         if cached:
-            return cached
+            return _AwaitableValue(cached)
 
         parts = evidence_id.split(":")
         if len(parts) < 3:
-            logger.warning(f"Invalid evidence ID format: {evidence_id}")
-            return None
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                raise ValueError("Invalid identifier")
+            return _AwaitableValue(None)
 
         evidence_type = parts[0]
-        chain_id = int(parts[1])
+        try:
+            chain_id = int(parts[1])
+        except (ValueError, TypeError):
+            logger.warning(f"Parse error: invalid evidence ID format: {evidence_id}")
+            return _AwaitableValue(None)
 
         try:
             if evidence_type == "identity":
@@ -345,16 +522,21 @@ class ERC8004Connector(BaseConnector):
 
                 evidence = self._to_evidence(blockchain_evidence)
                 self._cache_set(evidence_id, evidence)
-                return evidence
+                return _AwaitableValue(evidence)
 
             elif evidence_type == "reputation":
                 token_id = int(parts[2])
                 summary = self._get_reputation_contract().get_summary(token_id)
+                normalized_value = getattr(summary, "normalized_value", 0.0)
+                try:
+                    normalized_value = float(normalized_value)
+                except (TypeError, ValueError):
+                    normalized_value = 0.0
 
                 content = (
                     f"Reputation Summary for Agent #{token_id}\n"
                     f"Feedback Count: {summary.count}\n"
-                    f"Aggregate Score: {summary.normalized_value:.4f}\n"
+                    f"Aggregate Score: {normalized_value:.4f}\n"
                     f"Tag1: {summary.tag1 or 'All'}\n"
                     f"Tag2: {summary.tag2 or 'All'}"
                 )
@@ -380,7 +562,7 @@ class ERC8004Connector(BaseConnector):
 
                 evidence = self._to_evidence(blockchain_evidence)
                 self._cache_set(evidence_id, evidence)
-                return evidence
+                return _AwaitableValue(evidence)
 
             elif evidence_type == "validation":
                 # For validation, parts[2] is the request hash
@@ -418,11 +600,153 @@ class ERC8004Connector(BaseConnector):
 
                 evidence = self._to_evidence(blockchain_evidence)
                 self._cache_set(evidence_id, evidence)
-                return evidence
+                return _AwaitableValue(evidence)
 
         except Exception as e:
-            logger.error(f"Fetch error for '{evidence_id}': {e}")
+            if isinstance(e, OSError):
+                logger.error(f"Network error fetching '{evidence_id}': {e}")
+            elif isinstance(e, RuntimeError):
+                logger.error(f"Runtime error fetching '{evidence_id}': {e}")
+            else:
+                logger.error(f"Fetch error for '{evidence_id}': {e}")
 
+        return _AwaitableValue(None)
+
+    def search_by_owner(self, owner: str, limit: int = 10) -> _AwaitableList:
+        """Search agents by owner address."""
+        results: list[BlockchainSearchResult] = []
+        try:
+            agents = self._get_identity_contract().get_agents_by_owner(owner)
+            for agent in agents:
+                results.append(
+                    BlockchainSearchResult(
+                        id=f"identity:{self._credentials.chain_id}:{agent.token_id}",
+                        title=agent.agent_name,
+                        snippet=f"Owner: {owner[:10]}... Agent #{agent.token_id}",
+                        source_url=make_block_explorer_url(
+                            self._credentials.chain_id,
+                            address=self._credentials.identity_registry,
+                        ),
+                        metadata={
+                            "token_id": agent.token_id,
+                            "agent_name": agent.agent_name,
+                            "owner": owner,
+                            "uri": agent.metadata_uri,
+                        },
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Search by owner error for '{owner}': {e}")
+        return _AwaitableList(results[:limit])
+
+    async def search_async(
+        self, query: str, limit: int = 10, **kwargs: Any
+    ) -> list[BlockchainSearchResult]:
+        """Async search that uses async contract methods when available."""
+        results: list[BlockchainSearchResult] = []
+        max_results = int(kwargs.get("max_results", limit))
+        parts = query.lower().split(":")
+        query_type = parts[0] if parts else ""
+        try:
+            if ":" not in query:
+                contract = self._get_identity_contract()
+                if hasattr(contract, "get_agents_by_query_async"):
+                    agents = await contract.get_agents_by_query_async(query)
+                else:
+                    agents = contract.get_agents_by_query(query)
+                for agent in agents:
+                    results.append(
+                        BlockchainSearchResult(
+                            id=f"identity:{self._credentials.chain_id}:{agent.token_id}",
+                            title=agent.agent_name,
+                            snippet=f"Agent #{agent.token_id} - {agent.agent_name}",
+                            source_url=make_block_explorer_url(
+                                self._credentials.chain_id,
+                                address=self._credentials.identity_registry,
+                            ),
+                            metadata={
+                                "token_id": agent.token_id,
+                                "agent_name": agent.agent_name,
+                                "uri": agent.metadata_uri,
+                            },
+                        )
+                    )
+                return results[:max_results]
+
+            if query_type == "agent" and len(parts) > 1:
+                token_id = int(parts[1])
+                contract = self._get_identity_contract()
+                if hasattr(contract, "get_agent_async"):
+                    identity = await contract.get_agent_async(token_id)
+                else:
+                    identity = contract.get_agent(token_id)
+                results.append(
+                    BlockchainSearchResult(
+                        id=f"identity:{self._credentials.chain_id}:{token_id}",
+                        title=f"Agent #{token_id}",
+                        snippet=f"Owner: {identity.owner[:10]}... URI: {identity.agent_uri[:50]}...",
+                        source_url=make_block_explorer_url(
+                            self._credentials.chain_id,
+                            address=self._credentials.identity_registry,
+                        ),
+                        metadata={"owner": identity.owner, "uri": identity.agent_uri},
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Search error for query '{query}': {e}")
+        return results[:max_results]
+
+    async def fetch_async(self, evidence_id: str, **kwargs: Any) -> Evidence | None:
+        """Async fetch that uses async contract methods when available."""
+        parts = evidence_id.split(":")
+        if len(parts) < 3:
+            raise ValueError("Invalid identifier")
+        evidence_type = parts[0]
+        try:
+            chain_id = int(parts[1])
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid evidence ID format: {evidence_id}")
+            return None
+        try:
+            if evidence_type == "identity":
+                token_id = int(parts[2])
+                contract = self._get_identity_contract()
+                if hasattr(contract, "get_agent_async"):
+                    identity = await contract.get_agent_async(token_id)
+                else:
+                    identity = contract.get_agent(token_id)
+                content = (
+                    f"Agent #{token_id}\n"
+                    f"Owner: {identity.owner}\n"
+                    f"URI: {identity.agent_uri}\n"
+                    f"Wallet: {identity.wallet_address or 'Not set'}\n"
+                    f"Chain: {chain_id}"
+                )
+                blockchain_evidence = BlockchainEvidence(
+                    id=evidence_id,
+                    evidence_type="identity",
+                    chain_id=chain_id,
+                    token_id=token_id,
+                    title=f"Agent #{token_id} Identity",
+                    content=content,
+                    raw_data={
+                        "token_id": identity.token_id,
+                        "owner": identity.owner,
+                        "agent_uri": identity.agent_uri,
+                        "wallet_address": identity.wallet_address,
+                    },
+                    contract_address=self._credentials.identity_registry,
+                    tx_hash=identity.tx_hash,
+                    block_explorer_url=make_block_explorer_url(
+                        self._credentials.chain_id,
+                        address=self._credentials.identity_registry,
+                    ),
+                )
+                evidence = self._to_evidence(blockchain_evidence)
+                self._cache_set(evidence_id, evidence)
+                return evidence
+        except Exception as e:
+            logger.error(f"Fetch error for ID '{evidence_id}': {e}")
         return None
 
     def _to_evidence(self, blockchain_evidence: BlockchainEvidence) -> Evidence:

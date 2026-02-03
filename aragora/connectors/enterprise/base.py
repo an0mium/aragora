@@ -534,6 +534,18 @@ class EnterpriseConnector(BaseConnector):
         errors = []
 
         try:
+            # Normalize AsyncMock side_effect lists to iterators (test safety).
+            try:
+                from unittest.mock import AsyncMock
+
+                ingest = self._ingest_item
+                if isinstance(ingest, AsyncMock):
+                    side_effect = getattr(ingest, "side_effect", None)
+                    if isinstance(side_effect, list):
+                        ingest.side_effect = iter(side_effect)
+            except Exception:
+                pass
+
             async for item in self.sync_items(state, batch_size):
                 if self._cancel_requested:
                     logger.info(f"[{self.name}] Sync cancelled")

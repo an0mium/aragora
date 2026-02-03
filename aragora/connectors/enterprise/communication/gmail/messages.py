@@ -435,7 +435,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         try:
             data = await self._api_request("/history", params=params)
-        except (OSError, RuntimeError, ValueError) as e:
+        except Exception as e:
             # History ID may be expired - need full sync
             if "404" in str(e) or "historyId" in str(e).lower():
                 logger.warning("[Gmail] History ID expired, need full sync")

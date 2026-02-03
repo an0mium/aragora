@@ -450,8 +450,9 @@ class SalesforceConnector(EnterpriseConnector):
         """Refresh OAuth2 access token."""
         token_url = self.SANDBOX_TOKEN_URL if self.is_sandbox else self.TOKEN_URL
 
-        pool = get_http_pool()
-        async with pool.get_session("salesforce") as client:
+        import httpx
+
+        async with httpx.AsyncClient() as client:
             response = await client.post(
                 token_url,
                 data={
@@ -486,8 +487,9 @@ class SalesforceConnector(EnterpriseConnector):
         # Security token is appended to password
         full_password = password + (security_token or "")
 
-        pool = get_http_pool()
-        async with pool.get_session("salesforce") as client:
+        import httpx
+
+        async with httpx.AsyncClient() as client:
             response = await client.post(
                 token_url,
                 data={
@@ -771,7 +773,7 @@ class SalesforceConnector(EnterpriseConnector):
 
             return results
 
-        except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -810,7 +812,7 @@ class SalesforceConnector(EnterpriseConnector):
                 },
             )
 
-        except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

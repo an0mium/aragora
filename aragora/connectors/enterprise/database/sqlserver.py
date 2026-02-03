@@ -743,7 +743,7 @@ class SQLServerConnector(EnterpriseConnector):
                     "change_tracking_enabled": self.use_change_tracking,
                 },
             )
-        except (OSError, ConnectionError, asyncio.TimeoutError, RuntimeError) as e:
+        except Exception as e:
             return ConnectorHealth(
                 name=self.name,
                 is_available=False,

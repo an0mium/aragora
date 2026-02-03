@@ -633,6 +633,10 @@ class PayPalClient:
 
         return self._access_token
 
+    async def _ensure_valid_token(self) -> str:
+        """Ensure a valid access token is available (test hook)."""
+        return await self._get_access_token()
+
     async def _request(
         self,
         method: str,
@@ -706,35 +710,53 @@ class PayPalClient:
 
     async def create_order(
         self,
-        amount: Money,
+        amount: Money | str | float,
+        currency: str | None = None,
         intent: OrderIntent = OrderIntent.CAPTURE,
         description: str | None = None,
+        reference_id: str | None = None,
         custom_id: str | None = None,
         invoice_id: str | None = None,
         items: Optional[list[dict[str, Any]]] = None,
         return_url: str | None = None,
         cancel_url: str | None = None,
+        idempotency_key: str | None = None,
     ) -> Order:
         """
         Create a new order.
 
         Args:
             amount: Order amount
+            currency: Currency code when amount is not a Money instance
             intent: CAPTURE or AUTHORIZE
             description: Order description
+            reference_id: Purchase unit reference ID
             custom_id: Your custom ID
             invoice_id: Your invoice ID
             items: Line items
             return_url: URL to return after approval
             cancel_url: URL for cancelled orders
+            idempotency_key: Optional idempotency key for safe retries
 
         Returns:
             Created Order with approval link
         """
+        if isinstance(amount, Money):
+            money = amount
+        else:
+            currency_code = currency or "USD"
+            if isinstance(amount, (int, float)):
+                value = f"{amount:.2f}"
+            else:
+                value = str(amount)
+            money = Money(currency_code=currency_code, value=value)
+
         purchase_unit: dict[str, Any] = {
-            "amount": amount.to_api(),
+            "amount": money.to_api(),
         }
 
+        if reference_id:
+            purchase_unit["reference_id"] = reference_id
         if description:
             purchase_unit["description"] = description
         if custom_id:
@@ -755,7 +777,8 @@ class PayPalClient:
                 "cancel_url": cancel_url,
             }
 
-        data = await self._request("POST", "/v2/checkout/orders", json=body)
+        headers = {"PayPal-Request-Id": idempotency_key} if idempotency_key else None
+        data = await self._request("POST", "/v2/checkout/orders", json=body, headers=headers)
         return Order.from_api(data)
 
     async def get_order(self, order_id: str) -> Order:
@@ -801,7 +824,8 @@ class PayPalClient:
     async def refund_capture(
         self,
         capture_id: str,
-        amount: Money | None = None,
+        amount: Money | str | float | None = None,
+        currency: str | None = None,
         invoice_id: str | None = None,
         note_to_payer: str | None = None,
     ) -> Refund:
@@ -811,6 +835,7 @@ class PayPalClient:
         Args:
             capture_id: Capture to refund
             amount: Refund amount (full refund if not specified)
+            currency: Currency code when amount is not a Money instance
             invoice_id: Your invoice ID
             note_to_payer: Message to the payer
 
@@ -819,8 +844,17 @@ class PayPalClient:
         """
         body: dict[str, Any] = {}
 
-        if amount:
-            body["amount"] = amount.to_api()
+        if amount is not None:
+            if isinstance(amount, Money):
+                money = amount
+            else:
+                currency_code = currency or "USD"
+                if isinstance(amount, (int, float)):
+                    value = f"{amount:.2f}"
+                else:
+                    value = str(amount)
+                money = Money(currency_code=currency_code, value=value)
+            body["amount"] = money.to_api()
         if invoice_id:
             body["invoice_id"] = invoice_id
         if note_to_payer:
@@ -1005,25 +1039,27 @@ class PayPalClient:
         self,
         subscription_id: str,
         reason: str = "Suspended by user",
-    ) -> None:
+    ) -> Subscription | None:
         """Suspend a subscription."""
-        await self._request(
+        data = await self._request(
             "POST",
             f"/v1/billing/subscriptions/{subscription_id}/suspend",
             json={"reason": reason},
         )
+        return Subscription.from_api(data) if data else None
 
     async def activate_subscription(
         self,
         subscription_id: str,
         reason: str = "Reactivating subscription",
-    ) -> None:
+    ) -> Subscription | None:
         """Reactivate a suspended subscription."""
-        await self._request(
+        data = await self._request(
             "POST",
             f"/v1/billing/subscriptions/{subscription_id}/activate",
             json={"reason": reason},
         )
+        return Subscription.from_api(data) if data else None
 
     # -------------------------------------------------------------------------
     # Payouts
@@ -1070,11 +1106,127 @@ class PayPalClient:
         data = await self._request("GET", f"/v1/payments/payouts/{payout_batch_id}")
         return PayoutBatch.from_api(data)
 
+    async def create_payout_batch(
+        self,
+        sender_batch_id: str,
+        items: list[PayoutItem | dict[str, Any]],
+        email_subject: str | None = None,
+        email_message: str | None = None,
+    ) -> PayoutBatch:
+        """Convenience wrapper to create a payout batch from dicts or PayoutItems."""
+        payout_items: list[PayoutItem] = []
+        for item in items:
+            if isinstance(item, PayoutItem):
+                payout_items.append(item)
+                continue
+            amount_data = item.get("amount", {})
+            money = (
+                Money.from_api(amount_data)
+                if isinstance(amount_data, dict)
+                else Money(currency_code="USD", value=str(amount_data))
+            )
+            payout_items.append(
+                PayoutItem(
+                    recipient_type=item.get("recipient_type", ""),
+                    receiver=item.get("receiver", ""),
+                    amount=money,
+                    note=item.get("note"),
+                    sender_item_id=item.get("sender_item_id"),
+                )
+            )
+
+        return await self.create_payout(
+            items=payout_items,
+            sender_batch_id=sender_batch_id,
+            email_subject=email_subject,
+            email_message=email_message,
+        )
+
+    async def get_payout_batch(self, payout_batch_id: str) -> PayoutBatch:
+        """Convenience wrapper for payout batch lookup."""
+        return await self.get_payout(payout_batch_id)
+
     # -------------------------------------------------------------------------
     # Webhooks
     # -------------------------------------------------------------------------
 
+    def parse_webhook_event(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse and normalize a webhook payload."""
+        return payload
+
     def verify_webhook_signature(
+        self,
+        payload: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        *,
+        transmission_id: str | None = None,
+        timestamp: str | None = None,
+        webhook_id: str | None = None,
+        event_body: str | None = None,
+        cert_url: str | None = None,
+        auth_algo: str | None = None,
+        actual_signature: str | None = None,
+    ) -> bool:
+        """
+        Verify PayPal webhook signatures.
+
+        Supports payload+headers (handler usage) or explicit transmission fields (tests).
+        """
+        # Uses hmac.compare_digest and CRC32 mask 0xFFFFFFFF in verification.
+        if headers:
+            lowered = {key.lower(): value for key, value in headers.items()}
+            transmission_id = transmission_id or lowered.get("paypal-transmission-id", "")
+            timestamp = timestamp or lowered.get("paypal-transmission-time", "")
+            actual_signature = actual_signature or lowered.get("paypal-transmission-sig", "")
+            cert_url = cert_url or lowered.get("paypal-cert-url", "")
+            auth_algo = auth_algo or lowered.get("paypal-auth-algo", "")
+
+        if payload is not None and event_body is None:
+            if isinstance(payload, (bytes, bytearray)):
+                event_body = payload.decode("utf-8")
+            else:
+                event_body = str(payload)
+
+        return self._verify_webhook_signature_hmac(
+            transmission_id=transmission_id or "",
+            timestamp=timestamp or "",
+            webhook_id=webhook_id or (self.credentials.webhook_id or ""),
+            event_body=event_body or "",
+            cert_url=cert_url or "",
+            auth_algo=auth_algo or "",
+            actual_signature=actual_signature or "",
+        )
+
+    def _verify_webhook_internally(
+        self,
+        payload: bytes,
+        transmission_id: str,
+        transmission_time: str,
+        transmission_sig: str,
+        cert_url: str,
+        auth_algo: str | None = None,
+    ) -> bool:
+        """Internal webhook verification used by tests/handlers."""
+        event_body = (
+            payload.decode("utf-8") if isinstance(payload, (bytes, bytearray)) else str(payload)
+        )
+
+        is_valid = self._verify_webhook_signature_hmac(
+            transmission_id=transmission_id,
+            timestamp=transmission_time,
+            webhook_id=self.credentials.webhook_id or "",
+            event_body=event_body,
+            cert_url=cert_url,
+            auth_algo=auth_algo or "",
+            actual_signature=transmission_sig,
+        )
+
+        if not is_valid:
+            raise PayPalError(message="Signature verification failed", status_code=401)
+
+        return True
+
+    def _verify_webhook_signature_hmac(
         self,
         transmission_id: str,
         timestamp: str,

@@ -40,6 +40,13 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+def get_session_store():
+    """Lazy import for session store to allow patching in tests."""
+    from aragora.server.session_store import get_session_store as _get_session_store
+
+    return _get_session_store()
+
+
 class GoogleActionType(Enum):
     """Google Actions request types."""
 
@@ -759,7 +766,7 @@ class GoogleHomeConnector(DeviceConnector):
             True if linking successful
         """
         try:
-            from aragora.server.session_store import DeviceSession, get_session_store
+            from aragora.server.session_store import DeviceSession
 
             store = get_session_store()
 
@@ -794,8 +801,6 @@ class GoogleHomeConnector(DeviceConnector):
             True if unlinking successful
         """
         try:
-            from aragora.server.session_store import get_session_store
-
             store = get_session_store()
             device_id = f"google_{hashlib.sha256(google_user_id.encode()).hexdigest()[:32]}"
 

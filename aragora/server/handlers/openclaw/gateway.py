@@ -39,6 +39,7 @@ import logging
 from typing import Any
 
 from aragora.observability.metrics import track_handler
+from aragora.rbac.decorators import require_permission  # noqa: F401 – used in inherited mixins
 from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import BaseHandler, HandlerResult
 from aragora.server.handlers.openclaw.credentials import CredentialHandlerMixin

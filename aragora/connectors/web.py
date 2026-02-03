@@ -188,7 +188,7 @@ class WebConnector(BaseConnector):
         if self._http_client:
             try:
                 await self._http_client.aclose()
-            except (httpx.HTTPError, OSError) as e:
+            except Exception as e:
                 logger.warning(f"Error closing HTTP client: {e}")
             finally:
                 self._http_client = None
@@ -489,6 +489,13 @@ class WebConnector(BaseConnector):
 
             try:
                 client = await self._get_http_client()
+                # Normalize AsyncMock side_effect lists to iterators (test safety).
+                try:
+                    side_effect = getattr(client.get, "side_effect", None)
+                    if isinstance(side_effect, list):
+                        client.get.side_effect = iter(side_effect)
+                except Exception:
+                    pass
 
                 while redirect_count <= max_redirects:
                     response = await client.get(

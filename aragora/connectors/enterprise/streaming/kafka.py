@@ -30,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import time
@@ -179,7 +180,9 @@ class KafkaConnector(EnterpriseConnector):
             config: KafkaConfig with connection and processing settings
             dlq_sender: Optional custom DLQ sender function
         """
-        super().__init__(connector_id="kafka", **kwargs)
+        # Kafka uses streaming-specific circuit breaker; disable base breaker.
+        kwargs.pop("enable_circuit_breaker", None)
+        super().__init__(connector_id="kafka", enable_circuit_breaker=False, **kwargs)
         self.config = config
         self._consumer: Any | None = None
         self._producer: Any | None = None
@@ -194,11 +197,16 @@ class KafkaConnector(EnterpriseConnector):
         self._health_monitor: HealthMonitor | None = None
         self._graceful_shutdown: GracefulShutdown | None = None
 
+        self._enable_circuit_breaker = config.enable_circuit_breaker
         if config.enable_circuit_breaker:
             self._streaming_circuit_breaker = StreamingCircuitBreaker(
                 name="kafka-broker",
                 config=config.resilience,
             )
+            # Alias for compatibility with base connector/tests.
+            self._circuit_breaker = self._streaming_circuit_breaker
+        else:
+            self._circuit_breaker = None
 
         if config.enable_dlq:
             self._dlq_handler = DLQHandler(
@@ -291,7 +299,7 @@ class KafkaConnector(EnterpriseConnector):
                 logger.error("[Kafka] aiokafka not installed. Install with: pip install aiokafka")
                 return False
 
-            except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+            except Exception as e:
                 if self._streaming_circuit_breaker:
                     await self._streaming_circuit_breaker.record_failure(e)
                 if self._health_monitor:
@@ -624,6 +632,15 @@ class KafkaConnector(EnterpriseConnector):
         Yields:
             SyncItem objects for Knowledge Mound ingestion
         """
+        # If a custom async generator is provided (tests or overrides), use it.
+        sync_attr = getattr(self, "sync", None)
+        if sync_attr is not None:
+            sync_func = sync_attr.__func__ if hasattr(sync_attr, "__func__") else sync_attr
+            if inspect.isasyncgenfunction(sync_func):
+                async for item in sync_attr(batch_size=batch_size):
+                    yield item
+                return
+
         async for item in self.sync_stream(batch_size=batch_size):
             yield item
 

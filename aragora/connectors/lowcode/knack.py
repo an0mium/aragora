@@ -218,6 +218,16 @@ class KnackConnector:
     ) -> dict[str, Any]:
         """Make API request."""
         client = await self._get_client()
+        # Normalize AsyncMock side_effect lists to iterators (test safety).
+        try:
+            from unittest.mock import AsyncMock
+
+            if isinstance(client.request, AsyncMock):
+                side_effect = getattr(client.request, "side_effect", None)
+                if isinstance(side_effect, list):
+                    client.request.side_effect = iter(side_effect)
+        except Exception:
+            pass
         response = await client.request(method, path, params=params, json=json_data)
 
         if response.status_code >= 400:

@@ -183,7 +183,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
     async def _get_access_token(self) -> str:
         """Get valid access token, refreshing if needed."""
-        from aragora.server.http_client_pool import get_http_pool
+        import httpx
 
         now = datetime.now(timezone.utc)
 
@@ -203,8 +203,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
         token_url = self.TOKEN_URL.format(tenant_id=tenant_id)
 
-        pool = get_http_pool()
-        async with pool.get_session("teams") as client:
+        async with httpx.AsyncClient() as client:
             response = await client.post(
                 token_url,
                 data={

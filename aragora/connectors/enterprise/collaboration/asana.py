@@ -326,6 +326,7 @@ class AsanaConnector(EnterpriseConnector):
             credentials: Asana API credentials
             workspace_gid: Optional default workspace GID
         """
+        self.credentials = credentials
         self._asana_credentials = credentials
         self.default_workspace_gid = workspace_gid
         self._client: httpx.AsyncClient | None = None

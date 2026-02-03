@@ -209,7 +209,9 @@ class RabbitMQConnector(EnterpriseConnector):
             config: RabbitMQConfig with connection and processing settings
             dlq_sender: Optional custom DLQ sender function
         """
-        super().__init__(connector_id="rabbitmq", **kwargs)
+        # RabbitMQ uses streaming-specific circuit breaker; disable base breaker.
+        kwargs.pop("enable_circuit_breaker", None)
+        super().__init__(connector_id="rabbitmq", enable_circuit_breaker=False, **kwargs)
         self.config = config
         self._connection: RobustConnection | None = None
         self._channel: Channel | None = None
@@ -227,11 +229,16 @@ class RabbitMQConnector(EnterpriseConnector):
         self._health_monitor: HealthMonitor | None = None
         self._graceful_shutdown: GracefulShutdown | None = None
 
+        self._enable_circuit_breaker = config.enable_circuit_breaker
         if config.enable_circuit_breaker:
             self._streaming_circuit_breaker = StreamingCircuitBreaker(
                 name="rabbitmq-broker",
                 config=config.resilience,
             )
+            # Alias for compatibility with base connector/tests.
+            self._circuit_breaker = self._streaming_circuit_breaker
+        else:
+            self._circuit_breaker = None
 
         if config.enable_dlq:
             self._dlq_handler = DLQHandler(
@@ -322,7 +329,7 @@ class RabbitMQConnector(EnterpriseConnector):
                 )
                 return False
 
-            except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+            except Exception as e:
                 if self._streaming_circuit_breaker:
                     await self._streaming_circuit_breaker.record_failure(e)
                 if self._health_monitor:
@@ -707,7 +714,7 @@ class RabbitMQConnector(EnterpriseConnector):
             logger.debug(f"[RabbitMQ] Published message to {routing_key or self.config.queue}")
             return True
 
-        except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+        except Exception as e:
             if self._streaming_circuit_breaker:
                 await self._streaming_circuit_breaker.record_failure(e)
             if self._health_monitor:

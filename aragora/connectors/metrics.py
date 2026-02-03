@@ -175,6 +175,51 @@ def _init_metrics() -> bool:
         logger.info("Connector Prometheus metrics initialized")
         return True
 
+    except ValueError:
+        # Metrics already registered in the default registry; reuse existing collectors.
+        try:
+            from prometheus_client import REGISTRY
+
+            existing = getattr(REGISTRY, "_names_to_collectors", {})
+            CONNECTOR_SYNCS = existing.get("aragora_connector_syncs_total")
+            CONNECTOR_SYNC_DURATION = existing.get("aragora_connector_sync_duration_seconds")
+            CONNECTOR_SYNC_ITEMS = existing.get("aragora_connector_sync_items_total")
+            CONNECTOR_SYNC_ERRORS = existing.get("aragora_connector_sync_errors_total")
+            CONNECTOR_SYNC_LATENCY = existing.get("aragora_connector_item_latency_seconds")
+            CONNECTOR_ACTIVE_SYNCS = existing.get("aragora_connector_active_syncs")
+            CONNECTOR_LAST_SYNC = existing.get("aragora_connector_last_sync_timestamp")
+            CONNECTOR_HEALTH = existing.get("aragora_connector_health")
+            CONNECTOR_RATE_LIMITS = existing.get("aragora_connector_rate_limits_total")
+            CONNECTOR_AUTH_FAILURES = existing.get("aragora_connector_auth_failures_total")
+            CONNECTOR_CACHE_HITS = existing.get("aragora_connector_cache_hits_total")
+            CONNECTOR_CACHE_MISSES = existing.get("aragora_connector_cache_misses_total")
+            CONNECTOR_RETRIES = existing.get("aragora_connector_retries_total")
+
+            if any(
+                metric is None
+                for metric in [
+                    CONNECTOR_SYNCS,
+                    CONNECTOR_SYNC_DURATION,
+                    CONNECTOR_SYNC_ITEMS,
+                    CONNECTOR_SYNC_ERRORS,
+                    CONNECTOR_SYNC_LATENCY,
+                    CONNECTOR_ACTIVE_SYNCS,
+                    CONNECTOR_LAST_SYNC,
+                    CONNECTOR_HEALTH,
+                    CONNECTOR_RATE_LIMITS,
+                    CONNECTOR_AUTH_FAILURES,
+                    CONNECTOR_CACHE_HITS,
+                    CONNECTOR_CACHE_MISSES,
+                    CONNECTOR_RETRIES,
+                ]
+            ):
+                _init_noop_metrics()
+        except Exception:
+            _init_noop_metrics()
+
+        _initialized = True
+        return True
+
     except ImportError:
         logger.warning("prometheus_client not installed, connector metrics disabled")
         _init_noop_metrics()

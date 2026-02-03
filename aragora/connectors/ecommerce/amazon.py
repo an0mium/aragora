@@ -652,8 +652,8 @@ class AmazonConnector(EnterpriseConnector):
         logger.info(f"Searching catalog: {keywords}")
 
         if self.use_mock:
-            # Return mock products for testing
-            return get_mock_products(keywords, limit)
+            # Stubbed in mock mode unless explicitly integrated with catalog mocks.
+            return []
 
         if self._sp_api_available:
             from sp_api.api import CatalogItems

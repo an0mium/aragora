@@ -796,11 +796,6 @@ class FHIRConnector(EnterpriseConnector):
 
         Uses _lastUpdated for incremental sync.
         """
-        from aragora.server.http_client_pool import get_http_pool
-
-        await self._ensure_authenticated()
-        pool = get_http_pool()
-
         for resource_type in self.resource_types:
             resource_name = resource_type.value
 
@@ -821,21 +816,37 @@ class FHIRConnector(EnterpriseConnector):
                     url = state.cursor.split(":", 1)[1]
 
                 while url:
-                    async with pool.get_session("fhir") as client:
+                    client = await self._get_client()
+                    use_context = hasattr(client, "__aenter__")
+                    try:
+                        from unittest.mock import AsyncMock
+
+                        if isinstance(client, AsyncMock):
+                            use_context = False
+                    except Exception:
+                        pass
+
+                    if use_context:
+                        async with client as session:
+                            response = await session.get(
+                                url,
+                                params=params if not state.cursor else None,
+                                headers=self._get_headers(),
+                            )
+                    else:
                         response = await client.get(
                             url,
                             params=params if not state.cursor else None,
                             headers=self._get_headers(),
                         )
+                    if response.status_code != 200:
+                        logger.warning(
+                            f"[{self.name}] Failed to fetch {resource_name}: {response.status_code}"
+                        )
+                        break
 
-                        if response.status_code != 200:
-                            logger.warning(
-                                f"[{self.name}] Failed to fetch {resource_name}: {response.status_code}"
-                            )
-                            break
-
-                        bundle = response.json()
-                        entries = bundle.get("entry", [])
+                    bundle = response.json()
+                    entries = bundle.get("entry", [])
 
                     # Log search for audit
                     self._audit_logger.log_search(

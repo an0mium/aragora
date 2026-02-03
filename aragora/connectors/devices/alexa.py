@@ -39,6 +39,13 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+def get_session_store():
+    """Lazy import for session store to allow patching in tests."""
+    from aragora.server.session_store import get_session_store as _get_session_store
+
+    return _get_session_store()
+
+
 class AlexaRequestType(Enum):
     """Alexa request types."""
 
@@ -773,7 +780,7 @@ class AlexaConnector(DeviceConnector):
         """
         try:
             # Store the account link
-            from aragora.server.session_store import DeviceSession, get_session_store
+            from aragora.server.session_store import DeviceSession
 
             store = get_session_store()
 
@@ -808,8 +815,6 @@ class AlexaConnector(DeviceConnector):
             True if unlinking successful
         """
         try:
-            from aragora.server.session_store import get_session_store
-
             store = get_session_store()
             device_id = f"alexa_{hashlib.sha256(alexa_user_id.encode()).hexdigest()[:32]}"
 

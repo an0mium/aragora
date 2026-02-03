@@ -173,6 +173,29 @@ class ConnectorHealth:
             "metadata": self.metadata,
         }
 
+    def __getitem__(self, key: str) -> Any:
+        data = self.to_dict()
+        if key in data:
+            return data[key]
+        # Common aliases used by tests/callers.
+        if key == "healthy":
+            return self.is_healthy
+        if key == "available":
+            return self.is_available
+        if key == "configured":
+            return self.is_configured
+        # Allow direct access to metadata entries.
+        if key in self.metadata:
+            return self.metadata[key]
+        raise KeyError(key)
+
+    def __contains__(self, key: str) -> bool:
+        try:
+            _ = self[key]
+            return True
+        except KeyError:
+            return False
+
 
 @dataclass
 class ConnectorCapabilities:
@@ -766,6 +789,24 @@ class BaseConnector(ABC):
 
             except (ValueError, TypeError, KeyError, AttributeError) as e:
                 # Unexpected error - log and don't retry
+                if "json" in str(e).lower() or "decode" in str(e).lower():
+                    if metrics_available:
+                        record_sync_error(connector_type, "parse")
+                    raise ConnectorParseError(
+                        f"{operation} parse error: {e}",
+                        connector_name=self.name,
+                    ) from e
+
+                logger.error(f"[{self.name}] {operation} unexpected error: {e}")
+                if metrics_available:
+                    record_sync_error(connector_type, "unexpected")
+                raise ConnectorAPIError(
+                    f"{operation} failed unexpectedly: {e}",
+                    connector_name=self.name,
+                ) from e
+
+            except Exception as e:
+                # Generic error - treat JSON/decode as parse error, otherwise unexpected
                 if "json" in str(e).lower() or "decode" in str(e).lower():
                     if metrics_available:
                         record_sync_error(connector_type, "parse")

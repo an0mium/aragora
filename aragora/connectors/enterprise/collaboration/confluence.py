@@ -192,7 +192,13 @@ class ConfluenceConnector(EnterpriseConnector):
                 timeout=60,
             )
             response.raise_for_status()
-            return response.json() if response.content else {}
+            content = getattr(response, "content", None)
+            if content is None:
+                try:
+                    return response.json()
+                except Exception:
+                    return {}
+            return response.json() if content else {}
 
     async def _get_spaces(self) -> list[ConfluenceSpace]:
         """Get all accessible spaces."""
@@ -511,6 +517,8 @@ class ConfluenceConnector(EnterpriseConnector):
             page_id = evidence_id[11:]
         else:
             page_id = evidence_id
+        if not page_id.isdigit():
+            return None
 
         try:
             data = await self._api_request(

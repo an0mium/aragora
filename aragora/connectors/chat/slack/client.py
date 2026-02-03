@@ -16,6 +16,14 @@ import time as _time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorNetworkError,
+    ConnectorRateLimitError,
+    ConnectorTimeoutError,
+)
+
 if TYPE_CHECKING:
     pass
 
@@ -62,9 +70,49 @@ def _is_retryable_error(status_code: int, error: str | None = None) -> bool:
     return False
 
 
+def _classify_slack_error(
+    error: str,
+    status_code: int | None = None,
+    retry_after: float | None = None,
+) -> Exception:
+    """Classify Slack API errors into connector exception types."""
+    error_lower = (error or "").lower()
+
+    if status_code == 429 or "rate" in error_lower or "ratelimited" in error_lower:
+        return ConnectorRateLimitError(
+            error or "rate_limited",
+            connector_name="slack",
+            retry_after=retry_after,
+        )
+
+    auth_errors = {
+        "invalid_auth",
+        "token_expired",
+        "token_revoked",
+        "not_authed",
+        "account_inactive",
+    }
+    if error_lower in auth_errors:
+        return ConnectorAuthError(error or "auth_error", connector_name="slack")
+
+    if "timeout" in error_lower:
+        return ConnectorTimeoutError(error or "timeout", connector_name="slack")
+
+    if "connection" in error_lower or "network" in error_lower:
+        return ConnectorNetworkError(error or "network_error", connector_name="slack")
+
+    if status_code is not None:
+        return ConnectorAPIError(
+            error or "api_error", connector_name="slack", status_code=status_code
+        )
+
+    return ConnectorAPIError(error or "api_error", connector_name="slack")
+
+
 async def _exponential_backoff(attempt: int, base: float = 1.0, max_delay: float = 30.0) -> None:
     """Sleep with exponential backoff and jitter."""
-    delay = min(base * (2**attempt) + random.uniform(0, 1), max_delay)
+    # Jitter scales with base to keep early attempts short.
+    delay = min(base * (2**attempt) + random.uniform(0, base), max_delay)
     await asyncio.sleep(delay)
 
 

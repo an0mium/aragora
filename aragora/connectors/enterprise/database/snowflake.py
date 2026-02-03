@@ -605,7 +605,7 @@ class SnowflakeConnector(EnterpriseConnector):
             rows = await self._async_query(query)
             if rows:
                 return rows[0]
-        except (ValueError, RuntimeError, OSError) as e:
+        except Exception as e:
             logger.warning(f"Failed to get stats for {table}: {e}")
 
         return {"row_count": 0, "max_id": None}

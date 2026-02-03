@@ -29,6 +29,7 @@ class BlockchainCredentials:
     identity_registry: str = ""
     reputation_registry: str = ""
     validation_registry: str = ""
+    private_key: str = field(default="", repr=False)
     fallback_rpc_urls: list[str] = field(default_factory=list)
 
     @classmethod
@@ -47,6 +48,7 @@ class BlockchainCredentials:
             identity_registry=os.getenv("ERC8004_IDENTITY_REGISTRY", ""),
             reputation_registry=os.getenv("ERC8004_REPUTATION_REGISTRY", ""),
             validation_registry=os.getenv("ERC8004_VALIDATION_REGISTRY", ""),
+            private_key=os.getenv("ERC8004_WALLET_KEY", ""),
             fallback_rpc_urls=fallback_urls,
         )
 

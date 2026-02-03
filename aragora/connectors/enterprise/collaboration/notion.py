@@ -200,7 +200,7 @@ class NotionConnector(EnterpriseConnector):
         try:
             data = await self._api_request(f"/pages/{page_id}")
             return self._parse_page(data)
-        except (RuntimeError, ValueError, KeyError) as e:
+        except (RuntimeError, ValueError, KeyError, Exception) as e:
             logger.warning(f"[{self.name}] Failed to get page {page_id}: {e}")
             return None
 
@@ -209,7 +209,7 @@ class NotionConnector(EnterpriseConnector):
         try:
             data = await self._api_request(f"/databases/{database_id}")
             return self._parse_database(data)
-        except (RuntimeError, ValueError, KeyError) as e:
+        except (RuntimeError, ValueError, KeyError, Exception) as e:
             logger.warning(f"[{self.name}] Failed to get database {database_id}: {e}")
             return None
 
@@ -1004,7 +1004,7 @@ class NotionConnector(EnterpriseConnector):
 
             return page
 
-        except (RuntimeError, ValueError, KeyError, OSError) as e:
+        except Exception as e:
             logger.error(f"[{self.name}] Failed to create page: {e}")
             return None
 

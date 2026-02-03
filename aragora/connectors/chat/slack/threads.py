@@ -68,10 +68,10 @@ class SlackThreadManager:
         reply_count = int(root_msg.get("reply_count", 0))
         reply_users_count = len(root_msg.get("reply_users", []))
         created_ts = float(thread_ts.split(".")[0])
-        created_at = datetime.fromtimestamp(created_ts)
+        created_at = datetime.utcfromtimestamp(created_ts)
         latest_reply = root_msg.get("latest_reply")
         updated_at = (
-            datetime.fromtimestamp(float(latest_reply.split(".")[0]))
+            datetime.utcfromtimestamp(float(latest_reply.split(".")[0]))
             if latest_reply
             else created_at
         )
@@ -166,10 +166,10 @@ class SlackThreadManager:
                 continue
             ts = msg.get("ts", "")
             created_ts = float(ts.split(".")[0]) if ts else 0
-            created_at = datetime.fromtimestamp(created_ts)
+            created_at = datetime.utcfromtimestamp(created_ts)
             latest_reply = msg.get("latest_reply")
             updated_at = (
-                datetime.fromtimestamp(float(latest_reply.split(".")[0]))
+                datetime.utcfromtimestamp(float(latest_reply.split(".")[0]))
                 if latest_reply
                 else created_at
             )

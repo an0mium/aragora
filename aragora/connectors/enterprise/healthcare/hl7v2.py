@@ -1180,7 +1180,7 @@ class HL7v2Connector(EnterpriseConnector):
 
     async def sync_items(
         self,
-        state: SyncState,
+        state: SyncState | None = None,
         batch_size: int = 100,
     ) -> AsyncIterator[SyncItem]:
         """
@@ -1188,6 +1188,8 @@ class HL7v2Connector(EnterpriseConnector):
 
         Yields SyncItems for each processed message.
         """
+        if state is None:
+            state = SyncState(connector_id=self.connector_id)
         if self.hl7_source_type == "mllp":
             # Process messages from queue (populated by MLLP listener)
             while not self._message_queue.empty():

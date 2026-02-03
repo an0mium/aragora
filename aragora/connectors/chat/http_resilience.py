@@ -341,6 +341,12 @@ class HTTPResilienceMixin:
                 logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
                 # Don't retry on unexpected errors
                 break
+            except Exception as e:
+                last_error = f"Unexpected error: {e}"
+                self._record_failure()
+                logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
+                # Don't retry on unknown exceptions
+                break
 
         return False, None, last_error
 

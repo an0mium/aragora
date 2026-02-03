@@ -603,7 +603,7 @@ class MySQLConnector(EnterpriseConnector):
                     "binlog_cdc_enabled": self.enable_binlog_cdc,
                 },
             )
-        except (RuntimeError, OSError, ConnectionError) as e:
+        except Exception as e:
             error_msg = str(e)
             latency_ms = (time.time() - start_time) * 1000
 
