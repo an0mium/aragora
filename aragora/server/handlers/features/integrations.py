@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Literal, Protocol, cast, runtime_checkable
 
 from aragora.server.handlers.base import (
@@ -95,7 +95,15 @@ class IntegrationStatus:
     last_activity: str | None = None
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        """Convert to dict with camelCase keys for frontend compatibility."""
+        return {
+            "type": self.type,
+            "enabled": self.enabled,
+            "status": self.status,
+            "messagesSent": self.messages_sent,
+            "errors": self.errors,
+            "lastActivity": self.last_activity,
+        }
 
 
 # =============================================================================
