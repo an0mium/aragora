@@ -288,6 +288,37 @@ class SimpleCodeGenerator:
                 rationale = "Mock may need additional attributes configured"
                 confidence = 0.5
 
+        # Pattern: missing optional dependency (e.g., tiktoken)
+        if analysis.category == FailureCategory.ENV_DEPENDENCY:
+            missing_mod = None
+            match = re.search(r"No module named '([^']+)'", analysis.failure.error_message)
+            if match:
+                missing_mod = match.group(1)
+            if not missing_mod:
+                match = re.search(r"No module named '([^']+)'", analysis.failure.stack_trace)
+                if match:
+                    missing_mod = match.group(1)
+
+            if missing_mod and f"import {missing_mod}" in file_content:
+                if missing_mod == "tiktoken":
+                    try_block = (
+                        "try:\\n"
+                        "    import tiktoken\\n"
+                        "    TIKTOKEN_AVAILABLE = True\\n"
+                        "except Exception:\\n"
+                        "    tiktoken = None\\n"
+                        "    TIKTOKEN_AVAILABLE = False\\n"
+                    )
+                    if "TIKTOKEN_AVAILABLE" in file_content:
+                        fixed_content = file_content.replace(
+                            "import tiktoken\\n\\nTIKTOKEN_AVAILABLE = True",
+                            try_block,
+                        )
+                    else:
+                        fixed_content = file_content.replace("import tiktoken", try_block)
+                    rationale = "Make tiktoken optional with a safe fallback"
+                    confidence = 0.7
+
         return fixed_content, rationale, confidence
 
     async def critique_fix(

@@ -204,8 +204,12 @@ def determine_fix_target(category: FailureCategory, failure: TestFailure) -> Fix
     if category == FailureCategory.IMPL_API_CHANGE:
         return FixTarget.BOTH
 
-    # Environment -> config
+    # Environment -> config (or implementation if missing dependency is in app code)
     if category in [FailureCategory.ENV_DEPENDENCY, FailureCategory.ENV_CONFIG]:
+        if failure.involved_files:
+            for f in failure.involved_files:
+                if "test" not in f.lower():
+                    return FixTarget.IMPL_FILE
         return FixTarget.CONFIG
 
     # Complex issues might need human
