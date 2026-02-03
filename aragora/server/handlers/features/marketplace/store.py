@@ -9,7 +9,6 @@ from typing import Any, Optional
 import yaml
 
 from .circuit_breaker import (
-    _get_marketplace_circuit_breaker,
     _reset_circuit_breaker,
 )
 from .models import (
@@ -74,14 +73,16 @@ def _load_templates() -> dict[str, TemplateMetadata]:
     if _templates_cache:
         return _templates_cache
 
-    cb = _get_marketplace_circuit_breaker()
+    from aragora.server.handlers.features import marketplace as marketplace_module
+
+    cb = marketplace_module._get_marketplace_circuit_breaker()
 
     if not cb.is_allowed():
         logger.warning("Marketplace circuit breaker is open, returning cached templates")
         return _templates_cache
 
     try:
-        templates_dir = _get_templates_dir()
+        templates_dir = marketplace_module._get_templates_dir()
         if not templates_dir.exists():
             logger.warning(f"Templates directory not found: {templates_dir}")
             cb.record_success()

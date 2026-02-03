@@ -76,3 +76,4 @@ from .handler import handle_marketplace  # noqa: F401
 
 # Utilities (for test patching)
 from aragora.server.handlers.utils import parse_json_body  # noqa: F401
+from aragora.server.validation.core import sanitize_string  # noqa: F401
