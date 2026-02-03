@@ -1499,3 +1499,176 @@ export {
   type TaskInfo,
   type CancelResponse as ExternalAgentsCancelResponse,
 } from './external-agents';
+
+// New namespaces
+
+// Canvas (Live Collaboration)
+export {
+  CanvasNamespace,
+  type Canvas,
+  type CanvasNode,
+  type CanvasEdge,
+  type CreateCanvasRequest,
+  type CanvasActionRequest,
+} from './canvas';
+
+// Costs (Cost Tracking)
+export {
+  CostsNamespace,
+  type CostSummary as CostsNamespaceSummary,
+  type BudgetAlert as CostsNamespaceBudgetAlert,
+  type CostRecommendation as CostsNamespaceRecommendation,
+  type CostTimelineEntry,
+} from './costs';
+
+// Voice (TTS Integration)
+export {
+  VoiceNamespace,
+  type VoiceSession,
+  type SynthesizeRequest,
+  type SynthesizeResult,
+  type VoiceConfig,
+} from './voice';
+
+// Shared Inbox (Team Inbox)
+export {
+  SharedInboxNamespace,
+  type SharedInboxMessageStatus,
+  type SharedInboxMessage as SharedInboxNamespaceMessage,
+  type SharedInbox as SharedInboxNamespaceInbox,
+  type RoutingRule as SharedInboxRoutingRule,
+  type CreateSharedInboxRequest,
+} from './shared-inbox';
+
+// GitHub (Repository Integration)
+export {
+  GitHubNamespace,
+  type PullRequest,
+  type PRReviewResult,
+  type PRFinding,
+  type TriggerReviewRequest,
+} from './github';
+
+// Autonomous (Self-Learning)
+export {
+  AutonomousNamespace,
+  type ApprovalRequest,
+  type Trigger as AutonomousTrigger,
+  type AutonomousAlert,
+  type AutonomousMetrics,
+} from './autonomous';
+
+// OpenClaw (Legal Analysis)
+export {
+  OpenClawNamespace,
+  type SessionStatus as OpenClawSessionStatus,
+  type ActionStatus as OpenClawActionStatus,
+  type OpenClawSession,
+  type OpenClawAction,
+  type OpenClawCredential,
+  type CreateSessionRequest,
+} from './openclaw';
+
+// DevOps (Incident Management)
+export {
+  DevOpsNamespace,
+  type Incident,
+  type OnCallEntry,
+  type DevOpsService,
+  type CreateIncidentRequest,
+  type DevOpsStatus,
+} from './devops';
+
+// Search (Cross-Platform Search)
+export {
+  SearchNamespace,
+  type SearchResult as SearchNamespaceResult,
+  type SearchResponse,
+  type SearchFacet,
+  type SearchOptions as SearchNamespaceOptions,
+} from './search';
+
+// Status (Platform Status Page)
+export {
+  StatusNamespace,
+  type PlatformStatus,
+  type ServiceComponent,
+  type StatusIncident,
+  type MaintenanceWindow,
+  type StatusSummary,
+} from './status';
+
+// Reconciliation (Financial Reconciliation)
+export {
+  ReconciliationNamespace,
+  type ReconciliationStatus,
+  type ReconciliationJob,
+  type Discrepancy,
+  type CreateReconciliationRequest,
+} from './reconciliation';
+
+// Workspace Settings (Configuration)
+export {
+  WorkspaceSettingsNamespace,
+  type WorkspaceSettingsData,
+  type IntegrationConfig as WorkspaceIntegrationConfig,
+  type NotificationPreferences,
+  type UpdateSettingsRequest,
+} from './workspace-settings';
+
+// Quotas (Resource Limits)
+export {
+  QuotasNamespace,
+  type QuotaResource,
+  type Quota,
+  type QuotaPolicy,
+  type QuotaUsageEntry,
+} from './quotas';
+
+// Services (Service Discovery)
+export {
+  ServicesNamespace,
+  type ServiceHealthStatus,
+  type Service as DiscoveredService,
+  type ServiceDependency,
+  type RegisterServiceRequest,
+} from './services';
+
+// E-commerce (Product & Order Management)
+export {
+  EcommerceNamespace,
+  type Product,
+  type Order,
+  type OrderItem,
+  type EcommerceAnalytics,
+} from './ecommerce';
+
+// CRM (Customer Relationship Management)
+export {
+  CRMNamespace,
+  type Contact,
+  type Deal,
+  type Activity as CRMActivity,
+  type CreateContactRequest,
+} from './crm';
+
+// Support (Customer Support)
+export {
+  SupportNamespace,
+  type TicketPriority,
+  type TicketStatus,
+  type Ticket,
+  type TicketReply,
+  type CreateTicketRequest,
+  type SupportMetrics,
+} from './support';
+
+// Selection (Agent Selection)
+export {
+  SelectionNamespace,
+  type SelectionScore,
+  type SelectedTeamMember,
+  type SelectionHistoryItem,
+  type SelectTeamRequest as SelectionTeamRequest,
+  type SelectTeamResult as SelectionTeamResult,
+} from './selection';
