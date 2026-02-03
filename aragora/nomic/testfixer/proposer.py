@@ -353,7 +353,8 @@ class SimpleCodeGenerator:
                 attr_match
                 and attr_match.group(2) == "decorators"
                 and file_path.endswith("__init__.py")
-                and "decorators" not in file_content
+                and "from . import decorators" not in file_content
+                and "import decorators as decorators" not in file_content
             ):
                 insert_line = "from . import decorators as decorators\n"
                 lines = file_content.splitlines(keepends=True)
