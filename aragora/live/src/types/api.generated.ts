@@ -27086,7 +27086,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * GET violations for policy
+         * GET violations
          * @deprecated
          */
         get: {
@@ -27128,8 +27128,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** GET violations for policy */
-        get: operations["getPolicyViolationsById"];
+        /** GET violations */
+        get: operations["getPoliciesViolations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -100780,7 +100780,7 @@ export interface operations {
             };
         };
     };
-    getPolicyViolationsById: {
+    getPoliciesViolations: {
         parameters: {
             query?: never;
             header?: never;

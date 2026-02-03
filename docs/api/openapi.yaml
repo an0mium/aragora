@@ -74456,7 +74456,7 @@
         "tags": [
           "Policies"
         ],
-        "summary": "GET violations for policy",
+        "summary": "GET violations",
         "parameters": [
           {
             "name": "id",
@@ -74493,8 +74493,8 @@
         "tags": [
           "Policies"
         ],
-        "summary": "GET violations for policy",
-        "operationId": "getPolicyViolationsById",
+        "summary": "GET violations",
+        "operationId": "getPoliciesViolations",
         "parameters": [
           {
             "name": "id",
