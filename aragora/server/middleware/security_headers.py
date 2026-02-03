@@ -50,7 +50,15 @@ DEFAULT_X_CONTENT_TYPE_OPTIONS = "nosniff"
 DEFAULT_X_XSS_PROTECTION = "1; mode=block"
 DEFAULT_REFERRER_POLICY = "strict-origin-when-cross-origin"
 DEFAULT_CSP = (
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https:; "
+    "connect-src 'self'; "
+    "font-src 'self'; "
+    "frame-ancestors 'none'; "
+    "form-action 'self'; "
+    "base-uri 'self'"
 )
 DEFAULT_HSTS = "max-age=31536000; includeSubDomains"
 

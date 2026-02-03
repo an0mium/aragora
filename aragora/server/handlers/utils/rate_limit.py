@@ -152,9 +152,6 @@ def _should_use_strict_mode() -> bool:
     - ARAGORA_RATE_LIMIT_STRICT=true is explicitly set, OR
     - Production mode is detected AND multi-instance mode is detected
 
-    This makes Redis enforcement automatic in production multi-instance
-    deployments without requiring explicit configuration.
-
     Returns:
         True if strict mode should be enabled, False otherwise.
     """
@@ -175,11 +172,8 @@ def validate_rate_limit_configuration() -> None:
     Checks if Redis is properly configured when running in multi-instance mode.
     Logs warnings or raises errors based on configuration.
 
-    Strict mode is automatically enabled in production multi-instance deployments
-    unless explicitly disabled via ARAGORA_RATE_LIMIT_STRICT=false.
-
     Raises:
-        RuntimeError: If strict mode is enabled and Redis is not
+        RuntimeError: If strict mode is explicitly enabled and Redis is not
             configured in multi-instance mode.
 
     Warning Logged:
@@ -188,6 +182,8 @@ def validate_rate_limit_configuration() -> None:
     """
     is_multi_instance = _is_multi_instance_mode()
     is_redis_configured = _is_redis_configured()
+    explicit_strict = os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "").lower()
+    strict_explicitly_enabled = explicit_strict in ("1", "true", "yes")
     is_strict_mode = _should_use_strict_mode()
     is_production = _is_production_mode()
 
@@ -220,7 +216,7 @@ def validate_rate_limit_configuration() -> None:
         "To enforce this requirement, set ARAGORA_RATE_LIMIT_STRICT=true"
     )
 
-    if is_strict_mode:
+    if is_strict_mode and strict_explicitly_enabled:
         logger.critical(warning_message)
         raise RuntimeError(
             "Redis is required for rate limiting in multi-instance mode. "
