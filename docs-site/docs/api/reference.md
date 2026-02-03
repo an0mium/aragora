@@ -578,6 +578,15 @@ Threat intelligence endpoints live under `/api/v1/threat`.
 | POST | `/api/v1/threat/email` | Scan email content |
 | GET | `/api/v1/threat/status` | Service status |
 
+### New Endpoints (2026-02-03)
+
+| Endpoint | Description | Status |
+|----------|-------------|--------|
+| `POST /api/testfixer/analyze` | Analyze a failing test | NEW |
+| `POST /api/testfixer/propose` | Propose a fix via multi-agent debate | NEW |
+| `POST /api/testfixer/apply` | Apply a proposed fix | NEW |
+| `POST /api/testfixer/run` | Run the full fix loop | NEW |
+
 ### New Endpoints (2026-01-27)
 
 | Endpoint | Description | Status |

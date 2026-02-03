@@ -62,6 +62,7 @@ from aragora.server.startup.workers import (
     init_gauntlet_run_recovery,
     init_gauntlet_worker,
     init_notification_worker,
+    init_testfixer_task_worker,
     init_testfixer_worker,
     init_slo_webhooks,
     init_webhook_dispatcher,
@@ -444,6 +445,7 @@ async def run_startup_sequence(
 
     # Start TestFixer worker for automated test repair loop
     status["testfixer_worker"] = await init_testfixer_worker()
+    status["testfixer_task_worker"] = await init_testfixer_task_worker()
 
     # Start Slack token refresh scheduler for proactive token renewal
     status["slack_token_refresh_scheduler"] = await init_slack_token_refresh_scheduler()
@@ -564,6 +566,7 @@ __all__ = [
     "init_gauntlet_worker",
     "get_gauntlet_worker",
     "init_testfixer_worker",
+    "init_testfixer_task_worker",
     "init_redis_state_backend",
     "init_decision_router",
     "init_key_rotation_scheduler",
