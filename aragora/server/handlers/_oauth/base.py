@@ -469,7 +469,7 @@ class OAuthHandler(
             logger.error(f"Failed to create OAuth user: {e}")
             return None
 
-    async def _handle_account_linking(
+    def _handle_account_linking(
         self,
         user_store,
         user_id: str,
@@ -477,9 +477,22 @@ class OAuthHandler(
         state_data: dict,
     ) -> HandlerResult:
         """Handle linking OAuth account to existing user."""
+        return self._maybe_await(
+            self._handle_account_linking_async(user_store, user_id, user_info, state_data)
+        )
+
+    async def _handle_account_linking_async(
+        self,
+        user_store,
+        user_id: str,
+        user_info: OAuthUserInfo,
+        state_data: dict,
+    ) -> HandlerResult:
+        """Async implementation for linking OAuth account to existing user."""
         # Verify user exists
-        if hasattr(user_store, "get_user_by_id_async"):
-            user = await user_store.get_user_by_id_async(user_id)
+        get_user_async = getattr(user_store, "get_user_by_id_async", None)
+        if get_user_async and inspect.iscoroutinefunction(get_user_async):
+            user = await get_user_async(user_id)
         else:
             user = user_store.get_user_by_id(user_id)
         if not user:

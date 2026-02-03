@@ -781,7 +781,15 @@ async def handle_batch_archive(
         else:
             return error_response(result.error or "Batch archive failed", status=500)
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to batch archive")
         return error_response(f"Batch archive failed: {str(e)}", status=500)
 
@@ -799,6 +807,8 @@ async def handle_batch_trash(
         provider: str ("gmail" or "outlook"),
         message_ids: list[str]
     }
+
+    Returns partial success if some messages fail.
     """
     try:
         service = get_email_actions_service_instance()
@@ -811,20 +821,46 @@ async def handle_batch_trash(
 
         provider = data.get("provider", "gmail")
 
-        # Get connector and call batch_trash
         connector = await service._get_connector(provider, user_id)
-        await connector.batch_trash(message_ids)
+
+        # Try batch call first; fall back to per-item on failure
+        successful_ids: list[str] = []
+        failed_items: list[dict[str, str]] = []
+
+        try:
+            await connector.batch_trash(message_ids)
+            successful_ids = list(message_ids)
+        except (OSError, ConnectionError, RuntimeError, AttributeError) as batch_err:
+            logger.warning("Batch trash failed, falling back to per-item: %s", batch_err)
+            for msg_id in message_ids:
+                try:
+                    await connector.trash_message(msg_id)
+                    successful_ids.append(msg_id)
+                except (OSError, ConnectionError, RuntimeError, AttributeError) as item_err:
+                    failed_items.append({"id": msg_id, "error": str(item_err)})
 
         return success_response(
             {
                 "action": "batch_trash",
-                "message_ids": message_ids,
-                "count": len(message_ids),
-                "success": True,
+                "total_count": len(message_ids),
+                "successful_count": len(successful_ids),
+                "error_count": len(failed_items),
+                "successful_ids": successful_ids,
+                "failed_items": failed_items,
+                "success": len(failed_items) == 0,
+                "partial_success": len(successful_ids) > 0 and len(failed_items) > 0,
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to batch trash")
         return error_response(f"Batch trash failed: {str(e)}", status=500)
 
@@ -844,6 +880,8 @@ async def handle_batch_modify(
         add_labels: list[str] (optional),
         remove_labels: list[str] (optional)
     }
+
+    Returns partial success if some messages fail.
     """
     try:
         service = get_email_actions_service_instance()
@@ -865,26 +903,56 @@ async def handle_batch_modify(
 
         provider = data.get("provider", "gmail")
 
-        # Get connector and call batch_modify
         connector = await service._get_connector(provider, user_id)
-        await connector.batch_modify(
-            message_ids,
-            add_labels=add_labels or None,
-            remove_labels=remove_labels or None,
-        )
+
+        # Try batch call first; fall back to per-item on failure
+        successful_ids: list[str] = []
+        failed_items: list[dict[str, str]] = []
+
+        try:
+            await connector.batch_modify(
+                message_ids,
+                add_labels=add_labels or None,
+                remove_labels=remove_labels or None,
+            )
+            successful_ids = list(message_ids)
+        except (OSError, ConnectionError, RuntimeError, AttributeError) as batch_err:
+            logger.warning("Batch modify failed, falling back to per-item: %s", batch_err)
+            for msg_id in message_ids:
+                try:
+                    await connector.modify_labels(
+                        msg_id,
+                        add_labels=add_labels or None,
+                        remove_labels=remove_labels or None,
+                    )
+                    successful_ids.append(msg_id)
+                except (OSError, ConnectionError, RuntimeError, AttributeError) as item_err:
+                    failed_items.append({"id": msg_id, "error": str(item_err)})
 
         return success_response(
             {
                 "action": "batch_modify",
-                "message_ids": message_ids,
-                "count": len(message_ids),
+                "total_count": len(message_ids),
+                "successful_count": len(successful_ids),
+                "error_count": len(failed_items),
+                "successful_ids": successful_ids,
+                "failed_items": failed_items,
                 "add_labels": add_labels,
                 "remove_labels": remove_labels,
-                "success": True,
+                "success": len(failed_items) == 0,
+                "partial_success": len(successful_ids) > 0 and len(failed_items) > 0,
             }
         )
 
-    except Exception as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ConnectionError,
+    ) as e:
         logger.exception("Failed to batch modify")
         return error_response(f"Batch modify failed: {str(e)}", status=500)
 

@@ -24,6 +24,7 @@ from aragora.pipeline.decision_plan import (
     PlanStatus,
     record_plan_outcome,
 )
+from aragora.pipeline.executor import PlanExecutor, get_plan, list_plans, store_plan
 from aragora.pipeline.pr_generator import DecisionMemo, PatchPlan, PRGenerator
 from aragora.pipeline.risk_register import Risk, RiskRegister
 from aragora.pipeline.verification_plan import (
@@ -47,6 +48,11 @@ __all__ = [
     "ApprovalRecord",
     "BudgetAllocation",
     "record_plan_outcome",
+    # Executor
+    "PlanExecutor",
+    "get_plan",
+    "list_plans",
+    "store_plan",
     # Legacy artifacts
     "DecisionIntegrityPackage",
     "build_decision_integrity_package",

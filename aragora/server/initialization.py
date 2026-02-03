@@ -244,7 +244,7 @@ def init_insight_store(nomic_dir: Path) -> Any | None:
             except (OSError, ConnectionError, RuntimeError) as e:
                 # OSError: file/network issues, ConnectionError: DB connection,
                 # RuntimeError: pool/async issues - fallback to SQLite gracefully
-                logger.warning(f"[init] PostgresInsightStore failed, falling back: {e}")
+                logger.warning("[init] PostgresInsightStore failed, falling back: %s", e)
     except ImportError:
         pass
 

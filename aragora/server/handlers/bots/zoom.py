@@ -31,6 +31,15 @@ from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+# RBAC imports - optional dependency
+try:
+    from aragora.rbac.checker import check_permission  # noqa: F401
+    from aragora.rbac.models import AuthorizationContext  # noqa: F401
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Environment variables - None defaults make misconfiguration explicit
@@ -68,6 +77,34 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         super().__init__(ctx or {})
         self._bot: Any | None = None
         self._bot_initialized = False
+
+    # ------------------------------------------------------------------
+    # RBAC helper
+    # ------------------------------------------------------------------
+
+    def _check_bot_permission(
+        self, permission: str, *, user_id: str = "", context: dict | None = None
+    ) -> None:
+        """Check RBAC permission if available.
+
+        Args:
+            permission: The permission string to check (e.g. "debates:create").
+            user_id: Platform-qualified user id (e.g. "zoom:abc123").
+            context: Optional dict that may carry an ``auth_context`` key.
+
+        Raises:
+            PermissionError: When RBAC is available and the check fails.
+        """
+        if not RBAC_AVAILABLE:
+            return
+        auth_ctx = (context or {}).get("auth_context")
+        if auth_ctx is None and user_id:
+            auth_ctx = AuthorizationContext(
+                user_id=user_id,
+                roles={"bot_user"},
+            )
+        if auth_ctx:
+            check_permission(auth_ctx, permission)
 
     def _is_bot_enabled(self) -> bool:
         """Check if Zoom bot is configured."""

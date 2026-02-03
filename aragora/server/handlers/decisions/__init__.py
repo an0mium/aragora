@@ -1,9 +1,10 @@
 """
-Decision Explainability endpoint handlers.
+Decision endpoint handlers.
 
-Provides unified decision explanation API.
+Provides decision explainability and pipeline management APIs.
 """
 
 from .explain import DecisionExplainHandler
+from .pipeline import DecisionPipelineHandler
 
-__all__ = ["DecisionExplainHandler"]
+__all__ = ["DecisionExplainHandler", "DecisionPipelineHandler"]
