@@ -143,8 +143,9 @@ class TestERC8004Connector:
     @pytest.mark.asyncio
     async def test_fetch_invalid_id(self, connector, mock_provider):
         """Test fetching with invalid ID format."""
-        with pytest.raises(ValueError, match="Invalid identifier"):
-            await connector.fetch("invalid_id")
+        doc = await connector.fetch("invalid_id")
+
+        assert doc is None
 
     @pytest.mark.asyncio
     async def test_health_check(self, connector, mock_provider):
