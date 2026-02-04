@@ -1019,6 +1019,15 @@ REASONING: Some reasoning."""
 class TestLMStudioErrorHandling:
     """Tests for error handling."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_circuit_breaker(self):
+        from aragora.resilience import get_v2_circuit_breaker
+
+        breaker = get_v2_circuit_breaker("agent_lm-studio")
+        breaker.reset()
+        yield
+        breaker.reset()
+
     @pytest.mark.asyncio
     async def test_handles_api_error(self):
         """Should raise AgentAPIError on API failure."""
