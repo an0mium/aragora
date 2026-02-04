@@ -109,7 +109,8 @@ class TestCircuitBreaker:
         """Test getting circuit breaker status."""
         status = get_openclaw_circuit_breaker_status()
         assert isinstance(status, dict)
-        assert "name" in status or "state" in status or "failures" in status
+        # New circuit breaker status structure with nested keys
+        assert "config" in status or "single_mode" in status or "entity_mode" in status
 
     def test_circuit_breaker_singleton(self):
         """Test that circuit breaker is a singleton."""

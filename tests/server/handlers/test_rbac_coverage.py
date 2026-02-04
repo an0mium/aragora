@@ -62,6 +62,7 @@ EXEMPT_HANDLERS = frozenset(
         "StripeWebhookHandler",
         "SlackWebhookHandler",
         "GitHubWebhookHandler",
+        "EmailWebhookHandler",
         # CSP violation reports (browser-initiated, no auth)
         "CSPReportHandler",
         # Example handlers (documentation/testing only)

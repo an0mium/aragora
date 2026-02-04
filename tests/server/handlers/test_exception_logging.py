@@ -35,8 +35,9 @@ class TestIntegrationManagementLogging:
                 result = await handler._check_slack_health(mock_workspace)
 
             assert result["status"] == "error"
-            assert "Connection failed" in result["error"]
+            assert result["error"] == "Health check failed"
             assert "Slack health check failed" in caplog.text
+            assert "Connection failed" in caplog.text
 
     @pytest.mark.asyncio
     async def test_teams_health_check_logs_errors(self, caplog):
@@ -57,8 +58,9 @@ class TestIntegrationManagementLogging:
                 result = await handler._check_teams_health(mock_workspace)
 
             assert result["status"] == "error"
-            assert "Graph API error" in result["error"]
+            assert result["error"] == "Health check failed"
             assert "Teams health check failed" in caplog.text
+            assert "Graph API error" in caplog.text
 
     @pytest.mark.asyncio
     async def test_discord_health_check_logs_errors(self, caplog):
@@ -78,8 +80,9 @@ class TestIntegrationManagementLogging:
                     result = await handler._check_discord_health()
 
                 assert result["status"] == "error"
-                assert "Discord API error" in result["error"]
+                assert result["error"] == "Health check failed"
                 assert "Discord health check failed" in caplog.text
+                assert "Discord API error" in caplog.text
 
     @pytest.mark.asyncio
     async def test_email_health_check_logs_errors(self, caplog):
@@ -96,8 +99,9 @@ class TestIntegrationManagementLogging:
                     result = await handler._check_email_health()
 
                 assert result["status"] == "error"
-                assert "Socket error" in result["error"]
+                assert result["error"] == "Health check failed"
                 assert "Email health check failed" in caplog.text
+                assert "Socket error" in caplog.text
 
 
 class TestBackupHandlerLogging:

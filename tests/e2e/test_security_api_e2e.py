@@ -474,7 +474,7 @@ class TestSecurityHardeningVerification:
     def test_key_rotation_scheduler_available(self):
         """Verify key rotation scheduler is importable."""
         try:
-            from aragora.operations.key_rotation import (
+            from aragora.ops.key_rotation import (
                 KeyRotationScheduler,
                 KeyRotationConfig,
                 get_key_rotation_scheduler,

@@ -20,7 +20,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aragora.operations.key_rotation import (
+from aragora.ops.key_rotation import (
     KeyRotationConfig,
     KeyRotationResult,
     KeyRotationScheduler,
@@ -707,7 +707,7 @@ class TestKeyRotationIntegration:
 
     def test_all_components_importable(self):
         """Should import all components."""
-        from aragora.operations.key_rotation import (
+        from aragora.ops.key_rotation import (
             KeyRotationConfig,
             KeyRotationResult,
             KeyRotationScheduler,

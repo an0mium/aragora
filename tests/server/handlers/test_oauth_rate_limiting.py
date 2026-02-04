@@ -96,11 +96,11 @@ class TestOAuthRateLimitConfig:
 
         config = OAuthRateLimitConfig()
         assert config.token_limit == 5
-        assert config.callback_limit == 20  # Doubled for better UX during debugging
+        assert config.callback_limit == 30  # Tripled for better UX during debugging
         assert config.auth_start_limit == 15
-        assert config.window_seconds == 600  # 10 minutes
-        assert config.max_backoff_seconds == 900  # 15 minutes
-        assert config.initial_backoff_seconds == 30  # 30 seconds
+        assert config.window_seconds == 900  # 15 minutes
+        assert config.max_backoff_seconds == 3600  # 1 hour
+        assert config.initial_backoff_seconds == 60  # 1 minute
         assert config.backoff_multiplier == 2.0
         assert config.enable_audit_logging is True
 
