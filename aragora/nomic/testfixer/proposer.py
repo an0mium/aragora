@@ -498,11 +498,9 @@ class SimpleCodeGenerator:
                                 break
 
         # Pattern: circuit breaker open state assertion in tests
-        if "is_circuit_open" in analysis.failure.stack_trace and "assert True is False" in (
-            analysis.failure.error_message + analysis.failure.stack_trace
-        ):
+        if "is_circuit_open" in analysis.failure.stack_trace:
             test_name = analysis.failure.test_name.split("::")[-1]
-            if test_name.startswith("test_"):
+            if test_name.startswith("test_") or "circuit_breaker" in test_name:
                 lines = fixed_content.splitlines(keepends=True)
                 func_idx = None
                 for idx, line in enumerate(lines):
