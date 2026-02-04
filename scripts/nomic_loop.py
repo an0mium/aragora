@@ -150,6 +150,19 @@ try:
         NOMIC_TESTFIXER_PATTERN_STORE as _NOMIC_TESTFIXER_PATTERN_STORE,
         NOMIC_TESTFIXER_GENERATION_TIMEOUT as _NOMIC_TESTFIXER_GENERATION_TIMEOUT,
         NOMIC_TESTFIXER_CRITIQUE_TIMEOUT as _NOMIC_TESTFIXER_CRITIQUE_TIMEOUT,
+        NOMIC_SICA_ENABLED as _NOMIC_SICA_ENABLED,
+        NOMIC_SICA_IMPROVEMENT_TYPES as _NOMIC_SICA_IMPROVEMENT_TYPES,
+        NOMIC_SICA_GENERATOR_MODEL as _NOMIC_SICA_GENERATOR_MODEL,
+        NOMIC_SICA_REQUIRE_APPROVAL as _NOMIC_SICA_REQUIRE_APPROVAL,
+        NOMIC_SICA_RUN_TESTS as _NOMIC_SICA_RUN_TESTS,
+        NOMIC_SICA_RUN_TYPECHECK as _NOMIC_SICA_RUN_TYPECHECK,
+        NOMIC_SICA_RUN_LINT as _NOMIC_SICA_RUN_LINT,
+        NOMIC_SICA_TEST_COMMAND as _NOMIC_SICA_TEST_COMMAND,
+        NOMIC_SICA_TYPECHECK_COMMAND as _NOMIC_SICA_TYPECHECK_COMMAND,
+        NOMIC_SICA_LINT_COMMAND as _NOMIC_SICA_LINT_COMMAND,
+        NOMIC_SICA_VALIDATION_TIMEOUT as _NOMIC_SICA_VALIDATION_TIMEOUT,
+        NOMIC_SICA_MAX_OPPORTUNITIES as _NOMIC_SICA_MAX_OPPORTUNITIES,
+        NOMIC_SICA_MAX_ROLLBACKS as _NOMIC_SICA_MAX_ROLLBACKS,
     )
     from scripts.nomic.error_taxonomy import (
         classify_error as _classify_error,
@@ -287,6 +300,28 @@ NOMIC_TESTFIXER_GENERATION_TIMEOUT = float(
     os.environ.get("NOMIC_TESTFIXER_GENERATION_TIMEOUT", "600")
 )
 NOMIC_TESTFIXER_CRITIQUE_TIMEOUT = float(os.environ.get("NOMIC_TESTFIXER_CRITIQUE_TIMEOUT", "300"))
+
+
+# =============================================================================
+# SICA FLAGS - Self-Improving Code Assistant integration
+# =============================================================================
+
+NOMIC_SICA_ENABLED = os.environ.get("NOMIC_SICA_ENABLED", "0") == "1"
+NOMIC_SICA_IMPROVEMENT_TYPES = os.environ.get(
+    "NOMIC_SICA_IMPROVEMENT_TYPES",
+    "reliability,testability,readability",
+)
+NOMIC_SICA_GENERATOR_MODEL = os.environ.get("NOMIC_SICA_GENERATOR_MODEL", "codex")
+NOMIC_SICA_REQUIRE_APPROVAL = os.environ.get("NOMIC_SICA_REQUIRE_APPROVAL", "1") == "1"
+NOMIC_SICA_RUN_TESTS = os.environ.get("NOMIC_SICA_RUN_TESTS", "1") == "1"
+NOMIC_SICA_RUN_TYPECHECK = os.environ.get("NOMIC_SICA_RUN_TYPECHECK", "1") == "1"
+NOMIC_SICA_RUN_LINT = os.environ.get("NOMIC_SICA_RUN_LINT", "1") == "1"
+NOMIC_SICA_TEST_COMMAND = os.environ.get("NOMIC_SICA_TEST_COMMAND", "pytest")
+NOMIC_SICA_TYPECHECK_COMMAND = os.environ.get("NOMIC_SICA_TYPECHECK_COMMAND", "mypy")
+NOMIC_SICA_LINT_COMMAND = os.environ.get("NOMIC_SICA_LINT_COMMAND", "ruff check")
+NOMIC_SICA_VALIDATION_TIMEOUT = float(os.environ.get("NOMIC_SICA_VALIDATION_TIMEOUT", "300"))
+NOMIC_SICA_MAX_OPPORTUNITIES = int(os.environ.get("NOMIC_SICA_MAX_OPPORTUNITIES", "5"))
+NOMIC_SICA_MAX_ROLLBACKS = int(os.environ.get("NOMIC_SICA_MAX_ROLLBACKS", "3"))
 
 
 # =============================================================================
@@ -1614,6 +1649,19 @@ if _NOMIC_PACKAGE_AVAILABLE:
     NOMIC_TESTFIXER_PATTERN_STORE = _NOMIC_TESTFIXER_PATTERN_STORE
     NOMIC_TESTFIXER_GENERATION_TIMEOUT = _NOMIC_TESTFIXER_GENERATION_TIMEOUT
     NOMIC_TESTFIXER_CRITIQUE_TIMEOUT = _NOMIC_TESTFIXER_CRITIQUE_TIMEOUT
+    NOMIC_SICA_ENABLED = _NOMIC_SICA_ENABLED
+    NOMIC_SICA_IMPROVEMENT_TYPES = _NOMIC_SICA_IMPROVEMENT_TYPES
+    NOMIC_SICA_GENERATOR_MODEL = _NOMIC_SICA_GENERATOR_MODEL
+    NOMIC_SICA_REQUIRE_APPROVAL = _NOMIC_SICA_REQUIRE_APPROVAL
+    NOMIC_SICA_RUN_TESTS = _NOMIC_SICA_RUN_TESTS
+    NOMIC_SICA_RUN_TYPECHECK = _NOMIC_SICA_RUN_TYPECHECK
+    NOMIC_SICA_RUN_LINT = _NOMIC_SICA_RUN_LINT
+    NOMIC_SICA_TEST_COMMAND = _NOMIC_SICA_TEST_COMMAND
+    NOMIC_SICA_TYPECHECK_COMMAND = _NOMIC_SICA_TYPECHECK_COMMAND
+    NOMIC_SICA_LINT_COMMAND = _NOMIC_SICA_LINT_COMMAND
+    NOMIC_SICA_VALIDATION_TIMEOUT = _NOMIC_SICA_VALIDATION_TIMEOUT
+    NOMIC_SICA_MAX_OPPORTUNITIES = _NOMIC_SICA_MAX_OPPORTUNITIES
+    NOMIC_SICA_MAX_ROLLBACKS = _NOMIC_SICA_MAX_ROLLBACKS
 
 
 class NomicLoop:
@@ -8851,6 +8899,102 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         self._log(f"[testfixer] {result.summary()}")
         return result.to_dict()
 
+    def _select_sica_agent(self, model_name: str | None):
+        """Select an agent for SICA prompts based on model name."""
+        model = (model_name or "").lower()
+        candidates = [
+            ("codex", getattr(self, "codex", None)),
+            ("openai", getattr(self, "codex", None)),
+            ("gpt", getattr(self, "codex", None)),
+            ("claude", getattr(self, "claude", None)),
+            ("gemini", getattr(self, "gemini", None)),
+            ("grok", getattr(self, "grok", None)),
+        ]
+        for key, agent in candidates:
+            if agent and key in model:
+                return agent
+        for _, agent in candidates:
+            if agent:
+                return agent
+        return None
+
+    async def _run_sica_cycle(self) -> dict:
+        """Run the SICA improvement cycle if enabled."""
+        if not NOMIC_SICA_ENABLED:
+            return {"status": "disabled"}
+
+        try:
+            from aragora.nomic.sica_improver import (
+                ImprovementType,
+                SICAConfig,
+                SICAImprover,
+            )
+        except Exception as exc:
+            self._log(f"[sica] Unavailable: {exc}")
+            return {"status": "unavailable", "error": str(exc)}
+
+        improvement_types: list[ImprovementType] = []
+        raw_types = [t.strip() for t in NOMIC_SICA_IMPROVEMENT_TYPES.split(",") if t.strip()]
+        for t in raw_types:
+            try:
+                improvement_types.append(ImprovementType(t))
+            except Exception:
+                self._log(f"[sica] Unknown improvement type '{t}', skipping")
+
+        async def query_fn(model: str, prompt: str, max_tokens: int) -> str:
+            agent = self._select_sica_agent(model)
+            if not agent:
+                raise RuntimeError("No agent available for SICA")
+            return await agent.generate(prompt, context=[])
+
+        agent_for_sica = self._select_sica_agent(NOMIC_SICA_GENERATOR_MODEL)
+        query = query_fn if agent_for_sica else None
+        if not agent_for_sica:
+            self._log("[sica] No agent available; running heuristic-only cycle")
+
+        config = SICAConfig(
+            improvement_types=improvement_types or None,
+            generator_model=NOMIC_SICA_GENERATOR_MODEL,
+            require_human_approval=NOMIC_SICA_REQUIRE_APPROVAL,
+            run_tests=NOMIC_SICA_RUN_TESTS,
+            run_typecheck=NOMIC_SICA_RUN_TYPECHECK,
+            run_lint=NOMIC_SICA_RUN_LINT,
+            test_command=NOMIC_SICA_TEST_COMMAND,
+            typecheck_command=NOMIC_SICA_TYPECHECK_COMMAND,
+            lint_command=NOMIC_SICA_LINT_COMMAND,
+            validation_timeout_seconds=NOMIC_SICA_VALIDATION_TIMEOUT,
+            max_opportunities_per_cycle=NOMIC_SICA_MAX_OPPORTUNITIES,
+            max_rollbacks_per_cycle=NOMIC_SICA_MAX_ROLLBACKS,
+        )
+
+        if NOMIC_SICA_REQUIRE_APPROVAL:
+
+            async def approve(patch):
+                if not sys.stdin.isatty():
+                    self._log("[sica] Approval required but no TTY; rejecting.")
+                    return False
+                self._log(f"[sica] Proposed patch: {patch.description}")
+                if patch.diff:
+                    print("\n" + patch.diff)
+                response = input("Apply this patch? [y/N]: ").strip().lower()
+                return response in ("y", "yes")
+
+            config.approval_callback = approve
+
+        improver = SICAImprover(
+            repo_path=Path(self.aragora_path),
+            config=config,
+            query_fn=query,
+        )
+
+        result = await improver.run_improvement_cycle()
+        self._log(f"[sica] {result.summary()}")
+        return {
+            "status": "success" if result.patches_successful else "no_changes",
+            "summary": result.summary(),
+            "result": result.to_dict(),
+        }
+
     async def phase_commit(self, improvement: str) -> dict:
         """Phase 5: Commit changes if verification passes."""
         commit_phase = self._create_commit_phase()
@@ -9850,6 +9994,31 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                         iteration_result["verify_result"] = verify_result
                     except Exception as e:
                         self._log(f"  Re-verify crashed after TestFixer: {e}")
+                        verify_result = {"all_passed": False, "checks": [], "error": str(e)}
+                        cycle_result["phases"]["verify"] = verify_result
+                        iteration_result["verify_result"] = verify_result
+
+                    if verify_result.get("all_passed"):
+                        cycle_result["fix_iterations"].append(iteration_result)
+                        break
+
+            if NOMIC_SICA_ENABLED and "sica" not in cycle_result:
+                self._log("\n  SICA running automated improvement cycle...", agent="sica")
+                sica_result = await self._run_sica_cycle()
+                iteration_result["sica"] = sica_result
+                cycle_result["sica"] = sica_result
+
+                if sica_result.get("status") == "success":
+                    self._log("  SICA reported success; re-verifying...")
+                    try:
+                        verify_result = await self._run_with_phase_timeout(
+                            "verify", self.phase_verify()
+                        )
+                        verify_result = PhaseValidator.normalize_result("verify", verify_result)
+                        cycle_result["phases"]["verify"] = verify_result
+                        iteration_result["verify_result"] = verify_result
+                    except Exception as e:
+                        self._log(f"  Re-verify crashed after SICA: {e}")
                         verify_result = {"all_passed": False, "checks": [], "error": str(e)}
                         cycle_result["phases"]["verify"] = verify_result
                         iteration_result["verify_result"] = verify_result
