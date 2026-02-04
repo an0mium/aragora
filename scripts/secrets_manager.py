@@ -284,16 +284,31 @@ def _validate_xai(key: str) -> bool:
         return False
 
 
-def _validate_supermemory(key: str) -> bool:
-    """Validate Supermemory API key format."""
-    if not key:
-        return False
-    return key.startswith("sm_") and len(key) >= 16
-
-
 def _validate_nonempty(key: str) -> bool:
     """Validate key is non-empty."""
     return bool(key and len(key) >= 16)
+
+
+def _validate_supermemory(key: str) -> bool:
+    """Validate Supermemory API key."""
+    if not key or not key.startswith("sm_"):
+        return False
+    if len(key) < 16:
+        return False
+    try:
+        import httpx
+
+        resp = httpx.post(
+            "https://api.supermemory.ai/v3/search",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"q": "test", "limit": 1},
+            timeout=15.0,
+        )
+        # 200 = valid, 401 = invalid key, other = service issue (accept as valid format)
+        return resp.status_code != 401
+    except Exception:
+        # Network issues - assume valid format if prefix matches
+        return True
 
 
 # All managed secrets
@@ -469,7 +484,7 @@ SECRETS: list[SecretDefinition] = [
         aws_individual_path="aragora/api/supermemory",
         github_secret_name="SUPERMEMORY_API_KEY",
         provider="supermemory",
-        dashboard_url="https://console.supermemory.ai",
+        dashboard_url="https://supermemory.ai/dashboard",
         validator=_validate_supermemory,
         key_prefix="sm_",
         description="Supermemory API key for external memory sync",
