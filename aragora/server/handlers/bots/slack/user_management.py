@@ -109,7 +109,7 @@ def check_workspace_authorized(team_id: str) -> tuple[bool, str | None]:
         return True, None
     except (ImportError, AttributeError, RuntimeError) as e:
         # If workspace store is not available, allow access in dev mode
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         if env in ("development", "dev", "local", "test"):
             logger.debug("Workspace store not available in dev mode: %s", e)
             return True, None
@@ -186,7 +186,7 @@ def check_user_permission(
     context = build_auth_context_from_slack(team_id, user_id, channel_id)
     if context is None:
         # Can't build context - allow access in dev mode
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         if env in ("development", "dev", "local", "test"):
             return None
         return error_response("Authorization context not available", 500)
@@ -216,7 +216,7 @@ def check_user_permission(
     except Exception as e:
         logger.error("RBAC check failed for Slack request: %s", e)
         # Fail closed in production, open in dev
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         if env in ("development", "dev", "local", "test"):
             return None
         return error_response("Authorization check failed", 500)

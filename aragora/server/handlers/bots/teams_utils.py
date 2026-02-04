@@ -150,7 +150,7 @@ async def _verify_teams_token(auth_header: str, app_id: str) -> bool:
             return False
     except ImportError:
         # jwt_verify module itself not available - check environment
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             logger.error(

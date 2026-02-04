@@ -29,7 +29,7 @@ from urllib.request import Request, urlopen
 logger = logging.getLogger(__name__)
 
 # Environment check for security-sensitive operations
-_IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "development").lower() in ("production", "prod")
+_IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "production").lower() in ("production", "prod")
 
 # Pre-declare types for optional jwt import
 jwt: Any = None

@@ -1005,7 +1005,7 @@ class TelegramConnector(ChatPlatformConnector):
         """
         webhook_secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
         if not webhook_secret:
-            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            env = os.environ.get("ARAGORA_ENV", "production").lower()
             is_production = env not in ("development", "dev", "local", "test")
             if is_production:
                 logger.error(

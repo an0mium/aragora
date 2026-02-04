@@ -179,7 +179,7 @@ class BaseBotClient(ABC):
         # Validate and apply URL defaults based on environment
         import os
 
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env in ("production", "prod", "live")
 
         # Apply localhost defaults only in development

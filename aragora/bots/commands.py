@@ -37,7 +37,7 @@ def _get_api_base(ctx: "CommandContext") -> str:
         # Check environment as fallback
         api_base = os.environ.get("ARAGORA_API_BASE", "")
     if not api_base:
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         if env in ("production", "prod", "live"):
             raise ValueError("api_base not configured. Set ARAGORA_API_BASE environment variable.")
         # Development fallback only

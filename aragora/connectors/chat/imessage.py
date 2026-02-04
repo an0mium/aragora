@@ -480,7 +480,7 @@ class IMessageConnector(ChatPlatformConnector):
         network-level security. In production, this returns False unless
         ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is explicitly set.
         """
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             if os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() not in (

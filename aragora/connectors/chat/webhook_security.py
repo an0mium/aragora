@@ -51,7 +51,7 @@ class WebhookVerificationError(Exception):
 
 def get_environment() -> str:
     """Get the current environment."""
-    return os.environ.get("ARAGORA_ENV", "development").lower()
+    return os.environ.get("ARAGORA_ENV", "production").lower()
 
 
 def is_production_environment() -> bool:

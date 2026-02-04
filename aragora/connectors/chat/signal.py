@@ -526,7 +526,7 @@ class SignalConnector(ChatPlatformConnector):
         SECURITY: In production, returns False unless ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS
         is explicitly set, indicating network-level security is in place.
         """
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             if os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() not in (

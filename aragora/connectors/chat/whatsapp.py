@@ -950,7 +950,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             True if signature is valid
         """
         if not self.signing_secret:
-            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            env = os.environ.get("ARAGORA_ENV", "production").lower()
             is_production = env not in ("development", "dev", "local", "test")
             if is_production:
                 logger.error(

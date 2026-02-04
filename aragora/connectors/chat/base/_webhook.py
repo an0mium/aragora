@@ -67,7 +67,7 @@ class WebhookMixin:
         import os as _os
 
         if not self.signing_secret:
-            env = _os.environ.get("ARAGORA_ENV", "development").lower()
+            env = _os.environ.get("ARAGORA_ENV", "production").lower()
             is_production = env not in ("development", "dev", "local", "test")
             if is_production:
                 logger.error(

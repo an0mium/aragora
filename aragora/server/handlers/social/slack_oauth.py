@@ -53,7 +53,7 @@ CONNECTOR_AUTHORIZE = "connectors.authorize"
 SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID")
 SLACK_CLIENT_SECRET = os.environ.get("SLACK_CLIENT_SECRET")
 SLACK_REDIRECT_URI = os.environ.get("SLACK_REDIRECT_URI")
-ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
+ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "production")
 
 # Log warnings at module load time for missing secrets
 if not SLACK_CLIENT_ID:
@@ -1074,7 +1074,7 @@ class SlackOAuthHandler(SecureHandler):
         """
         # Verify signature - REQUIRED in production
         signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
 
         if not signing_secret:

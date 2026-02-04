@@ -705,6 +705,17 @@ class UnifiedServer:
         Configures the UnifiedHandler class with all required subsystems
         for full API functionality.
         """
+        # Warn if environment not explicitly configured
+        import os as _os
+
+        aragora_env = _os.environ.get("ARAGORA_ENV")
+        if not aragora_env:
+            logger.warning(
+                "[startup] ARAGORA_ENV is not set — defaulting behavior varies by module. "
+                "Set ARAGORA_ENV=production for production deployments or "
+                "ARAGORA_ENV=development for local development."
+            )
+
         from aragora.server.initialization import (
             init_handler_stores,
             initialize_subsystems,
@@ -737,7 +748,9 @@ class UnifiedServer:
                 config.storage_path = nomic_dir / "cross_debate_memory.json"
             UnifiedHandler.cross_debate_memory = CrossDebateMemory(config)
         except ImportError as e:
-            logger.debug("[init] CrossDebateMemory unavailable: %s", e)
+            logger.warning(
+                "[init] CrossDebateMemory unavailable — institutional context disabled: %s", e
+            )
             UnifiedHandler.cross_debate_memory = None
         except (OSError, RuntimeError, ValueError) as e:
             logger.warning("[init] CrossDebateMemory initialization failed: %s", e)
@@ -751,7 +764,9 @@ class UnifiedServer:
             workspace_id = os.environ.get("KM_WORKSPACE_ID", "default")
             UnifiedHandler.knowledge_mound = get_knowledge_mound(workspace_id=workspace_id)
         except ImportError as e:
-            logger.debug("[init] Knowledge Mound unavailable: %s", e)
+            logger.warning(
+                "[init] Knowledge Mound unavailable — organizational memory disabled: %s", e
+            )
             UnifiedHandler.knowledge_mound = None
         except (OSError, RuntimeError, ValueError) as e:
             logger.warning("[init] Knowledge Mound initialization failed: %s", e)
@@ -769,6 +784,26 @@ class UnifiedServer:
 
         # Initialize DecisionRouter for unified decision routing
         self._init_decision_router()
+
+        # Log subsystem initialization summary
+        subsystems = {
+            "cross_debate_memory": getattr(UnifiedHandler, "cross_debate_memory", None) is not None,
+            "knowledge_mound": getattr(UnifiedHandler, "knowledge_mound", None) is not None,
+            "decision_router": getattr(UnifiedHandler, "decision_router", None) is not None,
+            "continuum_memory": getattr(UnifiedHandler, "continuum_memory", None) is not None,
+        }
+        active = sum(1 for v in subsystems.values() if v)
+        total = len(subsystems)
+        if active < total:
+            missing = [k for k, v in subsystems.items() if not v]
+            logger.warning(
+                "[init] %d/%d core subsystems initialized. Missing: %s",
+                active,
+                total,
+                ", ".join(missing),
+            )
+        else:
+            logger.info("[init] All %d core subsystems initialized successfully", total)
 
     def _init_decision_router(self) -> None:
         """Initialize DecisionRouter for unified decision routing.

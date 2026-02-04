@@ -127,7 +127,7 @@ def verify_webhook_signature(
     if not effective_secret:
         import os
 
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             logger.error(

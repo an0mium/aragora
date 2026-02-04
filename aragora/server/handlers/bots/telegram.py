@@ -91,7 +91,7 @@ def _verify_telegram_secret(secret_token: str) -> bool:
     SECURITY: Fails closed in production if TELEGRAM_WEBHOOK_SECRET is not configured.
     """
     if not TELEGRAM_WEBHOOK_SECRET:
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             logger.error(
@@ -117,7 +117,7 @@ def _verify_webhook_token(token: str) -> bool:
     (since the webhook token is derived from it).
     """
     if not TELEGRAM_WEBHOOK_TOKEN:
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             logger.error(

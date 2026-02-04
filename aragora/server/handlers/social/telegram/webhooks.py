@@ -45,7 +45,7 @@ class TelegramWebhooksMixin:
         from aragora.server.handlers.social import telegram as telegram_module
 
         if not telegram_module.TELEGRAM_WEBHOOK_SECRET:
-            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            env = os.environ.get("ARAGORA_ENV", "production").lower()
             is_production = env not in ("development", "dev", "local", "test")
             if is_production:
                 logger.error(

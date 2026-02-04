@@ -42,7 +42,7 @@ def verify_signature(handler: Any) -> bool:
     SECURITY: Fails closed in production if WHATSAPP_APP_SECRET is not configured.
     """
     if not _config.WHATSAPP_APP_SECRET:
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             logger.error(

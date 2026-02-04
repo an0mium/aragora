@@ -1195,7 +1195,7 @@ class PayPalClient:
         auth_algo = auth_algo or ""
         actual_signature = actual_signature or ""
 
-        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        env = os.environ.get("ARAGORA_ENV", "production").lower()
         is_production = env not in ("development", "dev", "local", "test")
 
         # Check 1: Webhook ID must be configured in production
