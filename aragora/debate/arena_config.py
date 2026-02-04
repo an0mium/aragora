@@ -725,6 +725,11 @@ class ArenaConfig:
             "quality_gate_threshold": self.quality_gate_threshold,
             "enable_consensus_estimation": self.enable_consensus_estimation,
             "consensus_early_termination_threshold": self.consensus_early_termination_threshold,
+            "enable_stability_detection": self.enable_stability_detection,
+            "stability_threshold": self.stability_threshold,
+            "stability_min_rounds": self.stability_min_rounds,
+            "stability_agreement_threshold": self.stability_agreement_threshold,
+            "stability_conflict_confidence": self.stability_conflict_confidence,
             # RLM Cognitive Limiter
             "use_rlm_limiter": self.use_rlm_limiter,
             "rlm_limiter": self.rlm_limiter,

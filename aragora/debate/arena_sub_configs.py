@@ -235,6 +235,11 @@ class MLIntegrationConfig:
     quality_gate_threshold: float = 0.6  # Minimum quality score (0.0-1.0)
     enable_consensus_estimation: bool = True  # Use ConsensusEstimator for early termination
     consensus_early_termination_threshold: float = 0.85  # Probability threshold for early stop
+    enable_stability_detection: bool = False  # Use adaptive stability detection
+    stability_threshold: float = 0.85  # Stability threshold for early stop
+    stability_min_rounds: int = 2  # Minimum rounds before stability stop
+    stability_agreement_threshold: float = 0.75  # Agreement threshold per round
+    stability_conflict_confidence: float = 0.7  # ML confidence to override stability
 
 
 @dataclass

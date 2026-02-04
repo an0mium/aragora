@@ -98,6 +98,11 @@ class CoreComponents:
     quality_gate_threshold: float
     enable_consensus_estimation: bool
     consensus_early_termination_threshold: float
+    enable_stability_detection: bool
+    stability_threshold: float
+    stability_min_rounds: int
+    stability_agreement_threshold: float
+    stability_conflict_confidence: float
     ml_delegation_strategy: Any = None
     ml_quality_gate: Any = None
     ml_consensus_estimator: Any = None
@@ -197,6 +202,11 @@ class ArenaInitializer:
         quality_gate_threshold: float = 0.6,
         enable_consensus_estimation: bool = True,
         consensus_early_termination_threshold: float = 0.85,
+        enable_stability_detection: bool = False,
+        stability_threshold: float = 0.85,
+        stability_min_rounds: int = 2,
+        stability_agreement_threshold: float = 0.75,
+        stability_conflict_confidence: float = 0.7,
     ) -> CoreComponents:
         """Initialize core Arena components.
 
@@ -316,7 +326,12 @@ class ArenaInitializer:
         ml_quality = None
         ml_consensus = None
 
-        if enable_ml_delegation or enable_quality_gates or enable_consensus_estimation:
+        if (
+            enable_ml_delegation
+            or enable_quality_gates
+            or enable_consensus_estimation
+            or enable_stability_detection
+        ):
             ml_strategy, ml_quality, ml_consensus = self._init_ml_integration(
                 enable_ml_delegation=enable_ml_delegation,
                 ml_delegation_strategy=ml_delegation_strategy,
@@ -325,6 +340,11 @@ class ArenaInitializer:
                 quality_gate_threshold=quality_gate_threshold,
                 enable_consensus_estimation=enable_consensus_estimation,
                 consensus_early_termination_threshold=consensus_early_termination_threshold,
+                enable_stability_detection=enable_stability_detection,
+                stability_threshold=stability_threshold,
+                stability_min_rounds=stability_min_rounds,
+                stability_agreement_threshold=stability_agreement_threshold,
+                stability_conflict_confidence=stability_conflict_confidence,
                 elo_system=None,  # Set later in init_trackers
                 calibration_tracker=None,  # Set later in init_trackers
             )
@@ -374,6 +394,11 @@ class ArenaInitializer:
             quality_gate_threshold=quality_gate_threshold,
             enable_consensus_estimation=enable_consensus_estimation,
             consensus_early_termination_threshold=consensus_early_termination_threshold,
+            enable_stability_detection=enable_stability_detection,
+            stability_threshold=stability_threshold,
+            stability_min_rounds=stability_min_rounds,
+            stability_agreement_threshold=stability_agreement_threshold,
+            stability_conflict_confidence=stability_conflict_confidence,
             ml_delegation_strategy=ml_strategy,
             ml_quality_gate=ml_quality,
             ml_consensus_estimator=ml_consensus,
@@ -578,6 +603,11 @@ class ArenaInitializer:
         quality_gate_threshold: float,
         enable_consensus_estimation: bool,
         consensus_early_termination_threshold: float,
+        enable_stability_detection: bool,
+        stability_threshold: float,
+        stability_min_rounds: int,
+        stability_agreement_threshold: float,
+        stability_conflict_confidence: float,
         elo_system,
         calibration_tracker,
     ) -> tuple[Any, Any, Any]:
@@ -614,6 +644,11 @@ class ArenaInitializer:
             if enable_consensus_estimation:
                 consensus_estimator = ConsensusEstimator(
                     early_termination_threshold=consensus_early_termination_threshold,
+                    enable_stability_detection=enable_stability_detection,
+                    stability_threshold=stability_threshold,
+                    stability_min_rounds=stability_min_rounds,
+                    stability_agreement_threshold=stability_agreement_threshold,
+                    stability_conflict_confidence=stability_conflict_confidence,
                 )
                 logger.debug(
                     f"[ml] Initialized ConsensusEstimator with threshold="

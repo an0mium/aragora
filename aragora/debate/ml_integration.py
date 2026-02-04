@@ -415,6 +415,11 @@ class ConsensusEstimator:
         self,
         early_termination_threshold: float = 0.85,
         min_rounds: int = 2,
+        enable_stability_detection: bool = False,
+        stability_threshold: float = 0.85,
+        stability_min_rounds: int = 2,
+        stability_agreement_threshold: float = 0.75,
+        stability_conflict_confidence: float = 0.7,
     ):
         """Initialize consensus estimator.
 
@@ -424,8 +429,25 @@ class ConsensusEstimator:
         """
         self.threshold = early_termination_threshold
         self.min_rounds = min_rounds
+        self.enable_stability_detection = enable_stability_detection
+        self.stability_threshold = stability_threshold
+        self.stability_min_rounds = stability_min_rounds
+        self.stability_conflict_confidence = stability_conflict_confidence
         self._predictor: Any | None = None
         self._similarity_history: list[float] = []
+        self._agreement_history: list[float] = []
+        self._last_stability: Any | None = None
+        self._stability_detector: Any | None = None
+
+        if self.enable_stability_detection:
+            try:
+                from aragora.debate.stability_detector import BetaBinomialStabilityDetector
+
+                self._stability_detector = BetaBinomialStabilityDetector(
+                    agreement_threshold=stability_agreement_threshold
+                )
+            except ImportError:
+                logger.warning("Stability detector not available")
 
     def _get_predictor(self):
         """Lazy load consensus predictor."""
@@ -533,14 +555,49 @@ class ConsensusEstimator:
         if current_round < self.min_rounds:
             return False
 
+        stability_ok = False
+        if self.enable_stability_detection and current_round >= self.stability_min_rounds:
+            self._last_stability = self._calculate_stability(responses)
+            if self._last_stability:
+                stability_ok = self._last_stability.stability >= self.stability_threshold
+                try:
+                    from aragora.observability.metrics.debate import record_debate_stability
+
+                    record_debate_stability(self._last_stability.stability)
+                except Exception:
+                    pass
+
         estimate = self.estimate_consensus(
             responses=responses,
             context=context,
             current_round=current_round,
             total_rounds=total_rounds,
         )
+        if estimate["recommendation"] == "terminate":
+            try:
+                from aragora.observability.metrics.debate import record_early_termination
 
-        return estimate["recommendation"] == "terminate"
+                record_early_termination("ml")
+            except Exception:
+                pass
+            return True
+
+        if stability_ok and current_round >= self.min_rounds:
+            # If ML predictor is confident we should continue, respect it.
+            if (
+                estimate.get("confidence", 0.0) >= self.stability_conflict_confidence
+                and estimate.get("recommendation") != "terminate"
+            ):
+                return False
+            try:
+                from aragora.observability.metrics.debate import record_early_termination
+
+                record_early_termination("stability")
+            except Exception:
+                pass
+            return True
+
+        return False
 
     def record_outcome(
         self,
@@ -565,6 +622,32 @@ class ConsensusEstimator:
     def reset_history(self) -> None:
         """Reset similarity history for new debate."""
         self._similarity_history = []
+        self._agreement_history = []
+        self._last_stability = None
+
+    def _calculate_stability(self, responses: Sequence[tuple[str, str]]) -> Any | None:
+        if not self._stability_detector:
+            return None
+        agreement_score = self._calculate_agreement_score(responses)
+        self._agreement_history.append(agreement_score)
+        return self._stability_detector.calculate_stability(self._agreement_history)
+
+    def _calculate_agreement_score(self, responses: Sequence[tuple[str, str]]) -> float:
+        texts = [text for _, text in responses if text]
+        if len(texts) < 2:
+            return 1.0 if texts else 0.0
+
+        token_sets = [set(t.lower().split()) for t in texts]
+        similarities: list[float] = []
+        for i in range(len(token_sets)):
+            for j in range(i + 1, len(token_sets)):
+                union = token_sets[i] | token_sets[j]
+                if not union:
+                    similarities.append(0.0)
+                    continue
+                intersection = token_sets[i] & token_sets[j]
+                similarities.append(len(intersection) / len(union))
+        return sum(similarities) / len(similarities) if similarities else 0.0
 
 
 class MLEnhancedTeamSelector:

@@ -26,6 +26,8 @@ SLOW_ROUNDS_TOTAL: Any = None
 DEBATE_ROUND_LATENCY: Any = None
 ACTIVE_DEBATES: Any = None
 CONSENSUS_RATE: Any = None
+DEBATE_EARLY_TERMINATION_TOTAL: Any = None
+DEBATE_STABILITY_SCORE: Any = None
 
 _initialized = False
 
@@ -36,6 +38,7 @@ def init_debate_metrics() -> None:
     global DEBATE_DURATION, DEBATE_ROUNDS, DEBATE_PHASE_DURATION
     global AGENT_PARTICIPATION, SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL
     global DEBATE_ROUND_LATENCY, ACTIVE_DEBATES, CONSENSUS_RATE
+    global DEBATE_EARLY_TERMINATION_TOTAL, DEBATE_STABILITY_SCORE
 
     if _initialized:
         return
@@ -136,6 +139,19 @@ def init_debate_metrics() -> None:
             "Rolling consensus achievement rate",
         )
 
+        DEBATE_EARLY_TERMINATION_TOTAL = _get_or_create_counter(
+            "aragora_debate_early_termination_total",
+            "Early debate termination count",
+            ["reason"],
+        )
+
+        DEBATE_STABILITY_SCORE = _get_or_create_histogram(
+            "aragora_debate_stability_score",
+            "Debate stability score distribution",
+            None,
+            [0.1, 0.2, 0.4, 0.6, 0.75, 0.85, 0.9, 0.95, 1.0],
+        )
+
         _initialized = True
         logger.debug("Debate metrics initialized")
 
@@ -149,6 +165,7 @@ def _init_noop_metrics() -> None:
     global DEBATE_DURATION, DEBATE_ROUNDS, DEBATE_PHASE_DURATION
     global AGENT_PARTICIPATION, SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL
     global DEBATE_ROUND_LATENCY, ACTIVE_DEBATES, CONSENSUS_RATE
+    global DEBATE_EARLY_TERMINATION_TOTAL, DEBATE_STABILITY_SCORE
 
     DEBATE_DURATION = NoOpMetric()
     DEBATE_ROUNDS = NoOpMetric()
@@ -159,6 +176,8 @@ def _init_noop_metrics() -> None:
     DEBATE_ROUND_LATENCY = NoOpMetric()
     ACTIVE_DEBATES = NoOpMetric()
     CONSENSUS_RATE = NoOpMetric()
+    DEBATE_EARLY_TERMINATION_TOTAL = NoOpMetric()
+    DEBATE_STABILITY_SCORE = NoOpMetric()
 
 
 def _ensure_init() -> None:
@@ -268,6 +287,18 @@ def record_round_latency(latency_seconds: float) -> None:
     """
     _ensure_init()
     DEBATE_ROUND_LATENCY.observe(latency_seconds)
+
+
+def record_debate_stability(score: float) -> None:
+    """Record debate stability score."""
+    _ensure_init()
+    DEBATE_STABILITY_SCORE.observe(score)
+
+
+def record_early_termination(reason: str) -> None:
+    """Record early termination event."""
+    _ensure_init()
+    DEBATE_EARLY_TERMINATION_TOTAL.labels(reason=reason).inc()
 
 
 # Backwards-compatible aliases
