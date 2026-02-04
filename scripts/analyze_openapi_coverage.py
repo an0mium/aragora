@@ -55,6 +55,11 @@ def analyze_endpoint(method: str, path: str, operation: dict[str, Any]) -> dict[
             elif schema.get("type") not in (None, "object") or schema.get("properties"):
                 result["has_request_schema"] = True
                 result["request_schema_ref"] = "inline"
+            # Also count explicit "properties" key (even if empty) as a proper schema
+            # Empty properties means "no parameters required", which is valid
+            elif "properties" in schema:
+                result["has_request_schema"] = True
+                result["request_schema_ref"] = "inline (empty)"
 
         if not result["has_request_schema"]:
             result["issues"].append("Request body without schema definition")
@@ -92,7 +97,10 @@ def analyze_coverage(spec: dict[str, Any]) -> dict[str, Any]:
 
     # Compute statistics
     total = len(endpoints)
-    with_request = sum(1 for e in endpoints if e["has_request_schema"])
+    # Only count request schema coverage for methods that can have bodies
+    body_methods = [e for e in endpoints if e["method"].lower() in ("post", "put", "patch")]
+    with_request = sum(1 for e in body_methods if e["has_request_schema"])
+    total_body_methods = len(body_methods)
     with_response = sum(1 for e in endpoints if e["has_response_schema"])
     with_issues = sum(1 for e in endpoints if e["issues"])
 
@@ -114,10 +122,11 @@ def analyze_coverage(spec: dict[str, Any]) -> dict[str, Any]:
     return {
         "summary": {
             "total_operations": total,
+            "body_method_operations": total_body_methods,
             "with_request_schema": with_request,
             "with_response_schema": with_response,
             "with_issues": with_issues,
-            "request_coverage_pct": round(100 * with_request / max(total, 1), 1),
+            "request_coverage_pct": round(100 * with_request / max(total_body_methods, 1), 1),
             "response_coverage_pct": round(100 * with_response / max(total, 1), 1),
         },
         "by_tag": {
@@ -144,11 +153,12 @@ def print_report(analysis: dict[str, Any], verbose: bool = False) -> None:
     print("=" * 60)
     print()
     print(f"Total operations: {summary['total_operations']}")
+    print(f"  POST/PUT/PATCH (can have body): {summary.get('body_method_operations', 'N/A')}")
     print(
-        f"Request schema coverage: {summary['with_request_schema']} ({summary['request_coverage_pct']}%)"
+        f"Request schema coverage: {summary['with_request_schema']}/{summary.get('body_method_operations', '?')} ({summary['request_coverage_pct']}%)"
     )
     print(
-        f"Response schema coverage: {summary['with_response_schema']} ({summary['response_coverage_pct']}%)"
+        f"Response schema coverage: {summary['with_response_schema']}/{summary['total_operations']} ({summary['response_coverage_pct']}%)"
     )
     print(f"Operations with issues: {summary['with_issues']}")
     print()

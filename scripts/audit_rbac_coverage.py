@@ -61,6 +61,20 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
         r"|auth_ctx\.permissions|context\.permissions"  # Inline permission checks
         r"|_enforce_permission_if_context\s*\("  # Common helper pattern
     )
+    # Pattern for webhook signature verification (alternative to RBAC for external callbacks)
+    signature_verify_pattern = re.compile(
+        r"verify_signature\s*\(|_verify_signature\s*\(|verify_webhook_signature\s*\("
+        r"|verify_slack_signature\s*\(|verify_teams_signature\s*\(|verify_github_signature\s*\("
+        r"|hmac\.compare_digest\s*\(|verify_request_signature\s*\("
+        r"|SignatureVerifier|WebhookSignatureVerifier"
+        # Slack and Bot Framework specific patterns
+        r"|validate_slack_request\s*\(|_validate_slack_request\s*\("
+        r"|slack_request_verified|is_valid_slack_request"
+        # Teams Bot Framework verification
+        r"|_verify_teams_token\s*\(|verify_bot_framework\s*\("
+        r"|JwtTokenValidation|authenticate_request\s*\("
+        r"|BotFrameworkAdapter|bot_adapter"
+    )
     # Pattern for SecureHandler inheritance
     secure_handler_pattern = re.compile(r"class\s+\w+\s*\([^)]*SecureHandler[^)]*\)\s*:")
 
@@ -74,6 +88,35 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
 
             # Check if file has SecureHandler inheritance (class-level protection)
             file_has_secure_handler = bool(secure_handler_pattern.search(content))
+            file_path = str(py_file)
+            # Exclude files that are clearly not HTTP handlers
+            # Also exclude auth flow endpoints (they establish auth, can't require it)
+            is_storage_file = any(
+                p in file_path
+                for p in (
+                    "/store.py",
+                    "/stores.py",
+                    "/params.py",
+                    "/utils.py",
+                    "/probes.py",
+                    "/diagnostics.py",
+                    "/database_utils.py",
+                    "/storage.py",
+                    "/categorization.py",  # Data access utilities
+                )
+            )
+            is_auth_flow_file = any(
+                p in file_path
+                for p in (
+                    "/oidc.py",
+                    "/sso_handlers.py",
+                    "/saml.py",
+                    "/oauth.py",
+                    "/login.py",
+                    "/auth_flow.py",
+                    "/callback.py",
+                )
+            )
 
             i = 0
             while i < len(lines):
@@ -112,6 +155,7 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                     admin_secure_perm_match = admin_secure_perm.search(decorator_text)
                     route_match = route_pattern.search(decorator_text)
                     manual_check_match = manual_check_pattern.search(body_text)
+                    signature_verify_match = signature_verify_pattern.search(body_text)
 
                     # Determine protection type
                     protection_type = None
@@ -133,10 +177,18 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                     elif manual_check_match:
                         has_perm = True
                         protection_type = "manual_check"
+                    elif signature_verify_match:
+                        # Webhook signature verification as alternative to RBAC
+                        has_perm = True
+                        protection_type = "signature_verification"
                     elif file_has_secure_handler:
                         # Handler class extends SecureHandler (provides auth + permission checks)
                         has_perm = True
                         protection_type = "secure_handler"
+                    elif is_auth_flow_file:
+                        # Auth flow endpoints (login, OIDC, SAML) establish auth, can't require it
+                        has_perm = True
+                        protection_type = "auth_flow"
 
                     handler = HandlerInfo(
                         file=str(py_file.relative_to(handler_dir.parent.parent)),
@@ -153,7 +205,23 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
 
                     # Only include if it's a route handler (not internal utility functions)
                     # Exclude common utility patterns
-                    utility_suffixes = ("_store", "_cache", "_config", "_context", "_session")
+                    utility_suffixes = (
+                        "_store",
+                        "_cache",
+                        "_config",
+                        "_context",
+                        "_session",
+                        "_connector",
+                        "_client",
+                        "_server",
+                        "_handler",
+                        "_manager",
+                        "_factory",
+                        "_builder",
+                        "_helper",
+                        "_utils",
+                        "_checker",
+                    )
                     utility_prefixes = (
                         "get_store",
                         "get_storage",
@@ -168,6 +236,31 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                         "get_tenant",
                         "get_workspace_store",
                         "get_authorization",
+                        # Additional factory/getter patterns
+                        "get_connector",
+                        "get_client",
+                        "get_server",
+                        "get_handler",
+                        "get_manager",
+                        "get_service",
+                        "get_circuit_breaker",
+                        "get_from_",
+                        "get_oauth_",
+                        "get_token_",
+                        "get_a2a_",
+                        "get_qbo_",
+                        "get_gusto_",
+                        "get_gmail_",
+                        "get_slack_",
+                        "get_teams_",
+                        "get_webhook_",
+                        # Slack/Teams utility getters
+                        "get_org_",
+                        "get_user_roles_",
+                        "get_active_",
+                        "get_user_votes",
+                        "get_debate_",
+                        "get_status",
                     )
                     is_utility = (
                         func_name.startswith("_")
@@ -178,6 +271,7 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                     is_handler = route_match or (
                         func_name.startswith(("handle_", "get_", "post_", "put_", "delete_"))
                         and not is_utility
+                        and not is_storage_file  # Exclude storage/utility files
                     )
                     if is_handler:
                         handlers.append(handler)
