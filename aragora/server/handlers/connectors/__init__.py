@@ -23,6 +23,7 @@ from .legacy import (  # noqa: F401
     RBAC_AVAILABLE,
     check_permission,  # re-export for test patching
     _check_permission,
+    _create_connector,  # re-export for test patching
     _resolve_tenant_id,
     handle_connector_health,
     handle_create_connector,
@@ -54,6 +55,7 @@ __all__ = [
     "RBAC_AVAILABLE",
     "check_permission",
     "_check_permission",
+    "_create_connector",
     "_resolve_tenant_id",
     "handle_connector_health",
     "handle_create_connector",

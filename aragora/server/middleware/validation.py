@@ -868,7 +868,8 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
         max_body_size=0,  # No body expected
     ),
     # =========================================================================
-    # Billing Endpoints (Tier 3)
+    # Billing GET Endpoints (Tier 3)
+    # Note: POST endpoints (checkout, portal, cancel, resume) defined earlier
     # =========================================================================
     RouteValidation(
         r"^/api/(v1/)?billing/plans$",
@@ -881,34 +882,6 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
     RouteValidation(
         r"^/api/(v1/)?billing/subscription$",
         "GET",
-    ),
-    RouteValidation(
-        r"^/api/(v1/)?billing/checkout$",
-        "POST",
-        body_schema={
-            "tier": {"type": "string", "required": True, "max_length": 50},
-            "success_url": {"type": "string", "required": True, "max_length": 2000},
-            "cancel_url": {"type": "string", "required": True, "max_length": 2000},
-        },
-        max_body_size=10_000,
-    ),
-    RouteValidation(
-        r"^/api/(v1/)?billing/portal$",
-        "POST",
-        body_schema={
-            "return_url": {"type": "string", "max_length": 2000},
-        },
-        max_body_size=5_000,
-    ),
-    RouteValidation(
-        r"^/api/(v1/)?billing/cancel$",
-        "POST",
-        max_body_size=0,  # No body expected
-    ),
-    RouteValidation(
-        r"^/api/(v1/)?billing/resume$",
-        "POST",
-        max_body_size=0,  # No body expected
     ),
     RouteValidation(
         r"^/api/(v1/)?billing/invoices$",

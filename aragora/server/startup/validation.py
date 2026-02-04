@@ -399,6 +399,116 @@ async def validate_database_connectivity(timeout_seconds: float = 5.0) -> tuple[
         return False, f"PostgreSQL connection failed: {e}"
 
 
+async def validate_database_connectivity_with_retry(
+    timeout_seconds: float = 5.0,
+    max_retries: int = 3,
+    initial_backoff: float = 1.0,
+    max_backoff: float = 30.0,
+    backoff_multiplier: float = 2.0,
+) -> tuple[bool, str]:
+    """Test PostgreSQL connectivity with exponential backoff retry.
+
+    This is the recommended function for production startup. It provides
+    resilience against transient database connectivity issues during startup,
+    such as when the database is still initializing or network is settling.
+
+    Args:
+        timeout_seconds: Connection timeout per attempt
+        max_retries: Maximum number of retry attempts (0 = no retries)
+        initial_backoff: Initial backoff delay in seconds
+        max_backoff: Maximum backoff delay in seconds
+        backoff_multiplier: Multiplier for exponential backoff
+
+    Returns:
+        Tuple of (success: bool, message: str)
+
+    Example:
+        # At startup, use retry version for resilience
+        ok, msg = await validate_database_connectivity_with_retry(
+            max_retries=5,
+            initial_backoff=2.0,
+        )
+        if not ok:
+            raise StartupError(f"Database unavailable: {msg}")
+    """
+    last_error = ""
+    backoff = initial_backoff
+
+    for attempt in range(max_retries + 1):
+        success, message = await validate_database_connectivity(timeout_seconds)
+
+        if success:
+            if attempt > 0:
+                logger.info(
+                    f"[DB STARTUP] PostgreSQL connectivity validated after {attempt} retries"
+                )
+            return True, message
+
+        last_error = message
+
+        if attempt < max_retries:
+            logger.warning(
+                f"[DB STARTUP] Attempt {attempt + 1}/{max_retries + 1} failed: {message}. "
+                f"Retrying in {backoff:.1f}s..."
+            )
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * backoff_multiplier, max_backoff)
+
+    logger.error(
+        f"[DB STARTUP] PostgreSQL connectivity failed after {max_retries + 1} attempts: {last_error}"
+    )
+    return False, f"Failed after {max_retries + 1} attempts: {last_error}"
+
+
+async def validate_redis_connectivity_with_retry(
+    timeout_seconds: float = 5.0,
+    max_retries: int = 3,
+    initial_backoff: float = 1.0,
+    max_backoff: float = 30.0,
+    backoff_multiplier: float = 2.0,
+) -> tuple[bool, str]:
+    """Test Redis connectivity with exponential backoff retry.
+
+    This is the recommended function for production startup. It provides
+    resilience against transient Redis connectivity issues during startup.
+
+    Args:
+        timeout_seconds: Connection timeout per attempt
+        max_retries: Maximum number of retry attempts (0 = no retries)
+        initial_backoff: Initial backoff delay in seconds
+        max_backoff: Maximum backoff delay in seconds
+        backoff_multiplier: Multiplier for exponential backoff
+
+    Returns:
+        Tuple of (success: bool, message: str)
+    """
+    last_error = ""
+    backoff = initial_backoff
+
+    for attempt in range(max_retries + 1):
+        success, message = await validate_redis_connectivity(timeout_seconds)
+
+        if success:
+            if attempt > 0:
+                logger.info(f"[REDIS STARTUP] Redis connectivity validated after {attempt} retries")
+            return True, message
+
+        last_error = message
+
+        if attempt < max_retries:
+            logger.warning(
+                f"[REDIS STARTUP] Attempt {attempt + 1}/{max_retries + 1} failed: {message}. "
+                f"Retrying in {backoff:.1f}s..."
+            )
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * backoff_multiplier, max_backoff)
+
+    logger.error(
+        f"[REDIS STARTUP] Redis connectivity failed after {max_retries + 1} attempts: {last_error}"
+    )
+    return False, f"Failed after {max_retries + 1} attempts: {last_error}"
+
+
 async def validate_backend_connectivity(
     require_redis: bool = False,
     require_database: bool = False,
