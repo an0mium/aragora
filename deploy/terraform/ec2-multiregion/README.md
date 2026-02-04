@@ -184,6 +184,37 @@ Add as origin to Cloudflare pool (see `deploy/cloudflare-lb-setup.md`).
 | `health_check_url` | Direct health check URL |
 | `cloudflare_origin` | Origin config for Cloudflare |
 
+## Secrets (Optional)
+
+### Supermemory API Key (AWS Secrets Manager)
+
+Use a dedicated secret (`aragora/api/supermemory`) replicated across regions.
+
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_secretsmanager_secret" "supermemory" {
+  name                    = "aragora/api/supermemory"
+  recovery_window_in_days = 7
+
+  replica {
+    region = "us-east-2"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "supermemory" {
+  secret_id     = aws_secretsmanager_secret.supermemory.id
+  secret_string = jsonencode({ SUPERMEMORY_API_KEY = var.supermemory_api_key })
+}
+
+variable "supermemory_api_key" {
+  type      = string
+  sensitive = true
+}
+```
+
 ## Security
 
 ### Network Security

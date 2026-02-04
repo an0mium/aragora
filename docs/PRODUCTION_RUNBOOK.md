@@ -305,6 +305,23 @@ aws secretsmanager put-secret-value \
 # (Services read secrets at startup)
 ```
 
+### Supermemory API Key Rotation
+
+Supermemory keys are stored in AWS Secrets Manager (recommended path: `aragora/api/supermemory`)
+and replicated across `us-east-1` and `us-east-2`. Rotate manually and update both regions.
+
+```bash
+# Rotate via secrets manager script (prompts for new key)
+python scripts/secrets_manager.py rotate SUPERMEMORY_API_KEY
+
+# Optional: verify regions after rotation
+aws secretsmanager get-secret-value --region us-east-1 --secret-id aragora/api/supermemory
+aws secretsmanager get-secret-value --region us-east-2 --secret-id aragora/api/supermemory
+```
+
+If you still use the bundled secret (`aragora/production`), ensure the same key is also updated
+there for backward compatibility.
+
 ## Load Balancing
 
 ### Current Setup

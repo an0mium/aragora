@@ -54,6 +54,7 @@ Primary AI provider API keys. At least one is required.
 | `GROK_API_KEY` | Optional | Alias for `XAI_API_KEY` | - |
 | `MISTRAL_API_KEY` | Optional | Mistral AI API key | - |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter multi-model access | - |
+| `SUPERMEMORY_API_KEY` | Optional | Supermemory API key for external memory sync | - |
 | `DEEPSEEK_API_KEY` | Optional | DeepSeek API key | - |
 | `TINKER_API_KEY` | Optional | Tinker fine-tuning API key | - |
 

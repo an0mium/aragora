@@ -1,0 +1,21 @@
+[Unit]
+Description=Claude-Mem worker service (local memory search)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aragora
+Group=aragora
+WorkingDirectory=/opt/claude-mem
+Environment=NODE_ENV=production
+Environment=CLAUDE_MEM_WORKER_PORT=37777
+Environment=CLAUDE_MEM_DATA_DIR=/var/lib/claude-mem
+EnvironmentFile=-/etc/aragora/claude-mem.env
+ExecStart=/usr/bin/env npm run worker:start
+ExecStop=/usr/bin/env npm run worker:stop
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
