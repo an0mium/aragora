@@ -10,6 +10,7 @@ that heuristics cannot handle.
 from __future__ import annotations
 
 import asyncio
+import time
 import logging
 import re
 from dataclasses import dataclass, field
@@ -273,11 +274,14 @@ Your assessment of the analysis, including any issues or improvements...
         prompt: str,
     ) -> AgentAnalysis | None:
         """Get analysis from a single agent with timeout."""
+        start_time = time.perf_counter()
+        logger.info("llm_analyzer.analysis.start agent=%s", agent.name)
         try:
             response = await asyncio.wait_for(
                 agent.generate(prompt),
                 timeout=self.config.agent_timeout,
             )
+            duration = time.perf_counter() - start_time
 
             root_cause = self._extract_tag(_ROOT_CAUSE_RE, response)
             approach = self._extract_tag(_APPROACH_RE, response)
@@ -301,17 +305,21 @@ Your assessment of the analysis, including any issues or improvements...
             )
 
         except asyncio.TimeoutError:
+            duration = time.perf_counter() - start_time
             logger.warning(
-                "llm_analyzer.timeout agent=%s timeout=%.1f",
+                "llm_analyzer.timeout agent=%s timeout=%.1f duration=%.2fs",
                 agent.name,
                 self.config.agent_timeout,
+                duration,
             )
             return None
         except Exception as e:
+            duration = time.perf_counter() - start_time
             logger.warning(
-                "llm_analyzer.agent_error agent=%s error=%s",
+                "llm_analyzer.agent_error agent=%s error=%s duration=%.2fs",
                 agent.name,
                 str(e),
+                duration,
             )
             return None
 

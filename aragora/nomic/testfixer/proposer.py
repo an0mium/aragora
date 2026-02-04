@@ -13,6 +13,7 @@ The debate process ensures fixes are cross-checked before application.
 from __future__ import annotations
 
 import asyncio
+import time
 import difflib
 import logging
 import re
@@ -838,6 +839,14 @@ class PatchProposer:
             else CRITIQUE_TIMEOUT_SECONDS
         )
 
+    def _generator_label(self, generator: CodeGenerator, index: int) -> str:
+        """Best-effort label for generator logging."""
+        if hasattr(generator, "config") and hasattr(generator.config, "agent_type"):
+            return str(generator.config.agent_type)
+        if hasattr(generator, "agent_type"):
+            return str(generator.agent_type)
+        return f"agent_{index}"
+
     async def propose_fix(
         self,
         analysis: FailureAnalysis,
@@ -882,6 +891,13 @@ class PatchProposer:
         # Phase 1: Generate proposals from each agent
         proposals = []
         for i, generator in enumerate(self.generators):
+            agent_label = self._generator_label(generator, i)
+            start_time = time.perf_counter()
+            logger.info(
+                "proposal.generate.start id=%s agent=%s",
+                proposal_id,
+                agent_label,
+            )
             try:
                 fixed_content, rationale, confidence = await asyncio.wait_for(
                     generator.generate_fix(
@@ -891,45 +907,51 @@ class PatchProposer:
                     ),
                     timeout=self.generation_timeout_seconds,
                 )
+                duration = time.perf_counter() - start_time
                 logger.info(
-                    "proposal.generated id=%s agent=%s confidence=%.2f changed=%s",
+                    "proposal.generated id=%s agent=%s confidence=%.2f changed=%s duration=%.2fs",
                     proposal_id,
-                    f"agent_{i}",
+                    agent_label,
                     confidence,
                     fixed_content != original_content,
+                    duration,
                 )
                 proposals.append(
                     (
-                        f"agent_{i}",
+                        agent_label,
                         fixed_content,
                         rationale,
                         confidence,
                     )
                 )
             except asyncio.TimeoutError:
+                duration = time.perf_counter() - start_time
                 logger.warning(
-                    "proposal.generate_timeout id=%s agent=%s timeout=%.1fs",
+                    "proposal.generate_timeout id=%s agent=%s timeout=%.1fs duration=%.2fs",
                     proposal_id,
-                    f"agent_{i}",
+                    agent_label,
                     self.generation_timeout_seconds,
+                    duration,
                 )
                 proposals.append(
                     (
-                        f"agent_{i}",
+                        agent_label,
                         original_content,
                         "Failed to generate: timed out",
                         0.0,
                     )
                 )
             except Exception as e:
+                duration = time.perf_counter() - start_time
                 logger.exception(
-                    "proposal.generate_error id=%s agent=%s",
+                    "proposal.generate_error id=%s agent=%s duration=%.2fs",
                     proposal_id,
-                    f"agent_{i}",
+                    agent_label,
+                    duration,
                 )
                 proposals.append(
                     (
-                        f"agent_{i}",
+                        agent_label,
                         original_content,
                         f"Failed to generate: {e}",
                         0.0,
@@ -943,6 +965,14 @@ class PatchProposer:
                 if i == j:
                     continue  # Don't self-critique
 
+                critic_label = self._generator_label(critic_gen, j)
+                critique_start = time.perf_counter()
+                logger.info(
+                    "proposal.critique.start id=%s critic=%s target=%s",
+                    proposal_id,
+                    critic_label,
+                    agent,
+                )
                 try:
                     critique, is_ok = await asyncio.wait_for(
                         critic_gen.critique_fix(
@@ -953,34 +983,41 @@ class PatchProposer:
                         ),
                         timeout=self.critique_timeout_seconds,
                     )
+                    critique_duration = time.perf_counter() - critique_start
                     logger.debug(
-                        "proposal.critique id=%s critic=%s target=%s approved=%s",
+                        "proposal.critique id=%s critic=%s target=%s approved=%s duration=%.2fs",
                         proposal_id,
-                        f"agent_{j}",
+                        critic_label,
                         agent,
                         is_ok,
+                        critique_duration,
                     )
-                    all_critiques.append((f"agent_{j}", agent, critique, is_ok))
+                    all_critiques.append((critic_label, agent, critique, is_ok))
                 except asyncio.TimeoutError:
+                    critique_duration = time.perf_counter() - critique_start
                     logger.warning(
-                        "proposal.critique_timeout id=%s critic=%s timeout=%.1fs",
+                        "proposal.critique_timeout id=%s critic=%s timeout=%.1fs duration=%.2fs",
                         proposal_id,
-                        f"agent_{j}",
+                        critic_label,
                         self.critique_timeout_seconds,
+                        critique_duration,
                     )
-                    all_critiques.append((f"agent_{j}", agent, "Critique timed out", False))
+                    all_critiques.append((critic_label, agent, "Critique timed out", False))
                 except Exception as e:
+                    critique_duration = time.perf_counter() - critique_start
                     logger.exception(
-                        "proposal.critique_error id=%s critic=%s",
+                        "proposal.critique_error id=%s critic=%s duration=%.2fs",
                         proposal_id,
-                        f"agent_{j}",
+                        critic_label,
+                        critique_duration,
                     )
-                    all_critiques.append((f"agent_{j}", agent, f"Critique failed: {e}", False))
+                    all_critiques.append((critic_label, agent, f"Critique failed: {e}", False))
 
         # Phase 3: Synthesize
         synthesis_input = [(content, rationale, conf) for _, content, rationale, conf in proposals]
         critique_texts = [c[2] for c in all_critiques]
 
+        synth_start = time.perf_counter()
         try:
             (
                 final_content,
@@ -991,13 +1028,26 @@ class PatchProposer:
                 synthesis_input,
                 critique_texts,
             )
+            synth_duration = time.perf_counter() - synth_start
+            logger.info(
+                "proposal.synthesized id=%s confidence=%.2f duration=%.2fs",
+                proposal_id,
+                final_confidence,
+                synth_duration,
+            )
         except Exception as e:
+            synth_duration = time.perf_counter() - synth_start
             logger.exception("proposal.synthesis_error id=%s", proposal_id)
             # Fall back to highest confidence proposal
             best = max(proposals, key=lambda x: x[3])
             final_content = best[1]
             synthesis_notes = f"Synthesis failed ({e}), using best proposal"
             final_confidence = best[3]
+            logger.warning(
+                "proposal.synthesis_fallback id=%s duration=%.2fs",
+                proposal_id,
+                synth_duration,
+            )
 
         # Check consensus
         approvals = sum(1 for c in all_critiques if c[3])
