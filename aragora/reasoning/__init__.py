@@ -26,6 +26,7 @@ from aragora.reasoning.citations import (
     ScholarlyEvidence,
     create_citation_from_url,
 )
+from aragora.reasoning.claim_check import ClaimCheck, ClaimCheckConfig
 from aragora.reasoning.claims import (
     ArgumentChain,
     ClaimRelation,
@@ -127,6 +128,8 @@ __all__ = [
     "CitationExtractor",
     "CitationStore",
     "create_citation_from_url",
+    "ClaimCheck",
+    "ClaimCheckConfig",
     # Reliability Scoring
     "ReliabilityScorer",
     "ReliabilityLevel",

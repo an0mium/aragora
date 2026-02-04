@@ -19,12 +19,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.evidence.collector import EvidencePack
     from aragora.reasoning.citations import (
         CitationExtractor,
         GroundedVerdict,
         ScholarlyEvidence,
     )
+
+from aragora.reasoning.claim_check import ClaimCheck
+from aragora.evidence.collector import EvidencePack, EvidenceSnippet
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +71,9 @@ class EvidenceGrounder:
 
     def __init__(
         self,
-        evidence_pack: Optional["EvidencePack"] = None,
+        evidence_pack: Optional[EvidencePack] = None,
         citation_extractor: Optional["CitationExtractor"] = None,
+        claim_checker: Optional["ClaimCheck"] = None,
     ):
         """
         Initialize the evidence grounder.
@@ -78,17 +81,19 @@ class EvidenceGrounder:
         Args:
             evidence_pack: Collection of evidence snippets from research
             citation_extractor: Extractor for identifying claims needing citations
+            claim_checker: ClaimCheck instance for atomic claims + evidence matching
         """
         self.evidence_pack = evidence_pack
         self.citation_extractor = citation_extractor
+        self.claim_checker = claim_checker or ClaimCheck()
 
-    def set_evidence_pack(self, evidence_pack: "EvidencePack") -> None:
+    def set_evidence_pack(self, evidence_pack: EvidencePack) -> None:
         """Update the evidence pack."""
         self.evidence_pack = evidence_pack
 
     def link_evidence_to_claim(self, claim_text: str) -> GroundingResult:
         """
-        Link evidence snippets to a claim based on keyword matching.
+        Link evidence snippets to a claim based on ClaimCheck matching.
 
         Args:
             claim_text: The claim text to find evidence for
@@ -96,84 +101,109 @@ class EvidenceGrounder:
         Returns:
             GroundingResult with list of ScholarlyEvidence and grounding score
         """
+        if not self.evidence_pack or not self.evidence_pack.snippets:
+            return GroundingResult(citations=[], grounding_score=0.0)
+
+        if self.claim_checker:
+            matches = self.claim_checker.match_evidence(self.evidence_pack, claim_text)
+            citations = [
+                self._build_scholarly_evidence(
+                    snippet=match.snippet,
+                    relevance=match.score,
+                    claim_text=claim_text,
+                )
+                for match in matches
+            ]
+            return self._build_grounding_result(citations)
+
+        return self._link_evidence_with_keywords(claim_text)
+
+    def _link_evidence_with_keywords(self, claim_text: str) -> GroundingResult:
+        if not self.evidence_pack or not self.evidence_pack.snippets:
+            return GroundingResult(citations=[], grounding_score=0.0)
+
+        claim_lower = claim_text.lower()
+        claim_words = set(claim_lower.split())
+
+        matched_citations = []
+        for snippet in self.evidence_pack.snippets:
+            snippet_words = set(snippet.snippet.lower().split())
+            snippet_words.update(set(snippet.title.lower().split()))
+
+            overlap = claim_words.intersection(snippet_words)
+            if len(overlap) >= 2:
+                relevance = len(overlap) / max(len(claim_words), 1)
+                matched_citations.append(
+                    self._build_scholarly_evidence(
+                        snippet=snippet,
+                        relevance=relevance,
+                        claim_text=claim_text,
+                    )
+                )
+
+        matched_citations.sort(key=lambda e: e.relevance_score, reverse=True)
+        return self._build_grounding_result(matched_citations[:3])
+
+    def _build_scholarly_evidence(
+        self,
+        snippet: EvidenceSnippet,
+        relevance: float,
+        claim_text: str,
+    ) -> "ScholarlyEvidence":
         from aragora.reasoning.citations import (
             CitationQuality,
             CitationType,
             ScholarlyEvidence,
         )
 
-        if not self.evidence_pack or not self.evidence_pack.snippets:
+        source = snippet.source.lower()
+        if "github" in source:
+            citation_type = CitationType.CODE_REPOSITORY
+        elif "doc" in source or "local" in source:
+            citation_type = CitationType.DOCUMENTATION
+        else:
+            citation_type = CitationType.WEB_PAGE
+
+        if snippet.reliability_score >= 0.8:
+            quality = CitationQuality.AUTHORITATIVE
+        elif snippet.reliability_score >= 0.6:
+            quality = CitationQuality.REPUTABLE
+        elif snippet.reliability_score >= 0.4:
+            quality = CitationQuality.MIXED
+        else:
+            quality = CitationQuality.UNVERIFIED
+
+        return ScholarlyEvidence(
+            id=snippet.id,
+            citation_type=citation_type,
+            title=snippet.title,
+            url=snippet.url,
+            excerpt=snippet.snippet[:500],
+            relevance_score=relevance,
+            quality=quality,
+            claim_id=claim_text[:50],
+            metadata=snippet.metadata,
+        )
+
+    def _build_grounding_result(
+        self,
+        citations: list["ScholarlyEvidence"],
+    ) -> GroundingResult:
+        if not citations:
             return GroundingResult(citations=[], grounding_score=0.0)
 
-        # Extract keywords from claim
-        claim_lower = claim_text.lower()
-        claim_words = set(claim_lower.split())
-
-        matched_citations = []
-        for snippet in self.evidence_pack.snippets:
-            # Calculate relevance based on keyword overlap
-            snippet_words = set(snippet.snippet.lower().split())
-            snippet_words.update(set(snippet.title.lower().split()))
-
-            # Check for keyword overlap
-            overlap = claim_words.intersection(snippet_words)
-            if len(overlap) >= 2:  # At least 2 matching keywords
-                relevance = len(overlap) / max(len(claim_words), 1)
-
-                # Determine citation type based on source
-                source = snippet.source.lower()
-                if "github" in source:
-                    citation_type = CitationType.CODE_REPOSITORY
-                elif "doc" in source or "local" in source:
-                    citation_type = CitationType.DOCUMENTATION
-                else:
-                    citation_type = CitationType.WEB_PAGE
-
-                # Map reliability score to quality
-                if snippet.reliability_score >= 0.8:
-                    quality = CitationQuality.AUTHORITATIVE
-                elif snippet.reliability_score >= 0.6:
-                    quality = CitationQuality.REPUTABLE
-                elif snippet.reliability_score >= 0.4:
-                    quality = CitationQuality.MIXED
-                else:
-                    quality = CitationQuality.UNVERIFIED
-
-                evidence = ScholarlyEvidence(
-                    id=snippet.id,
-                    citation_type=citation_type,
-                    title=snippet.title,
-                    url=snippet.url,
-                    excerpt=snippet.snippet[:500],
-                    relevance_score=relevance,
-                    quality=quality,
-                    claim_id=claim_text[:50],  # Truncated claim as ID
-                    metadata=snippet.metadata,
-                )
-                matched_citations.append(evidence)
-
-        # Sort by relevance and take top 3
-        matched_citations.sort(key=lambda e: e.relevance_score, reverse=True)
-        top_citations = matched_citations[:3]
-
-        # Calculate grounding score based on evidence quality
-        if not top_citations:
-            return GroundingResult(citations=[], grounding_score=0.0)
-
-        # Average quality score weighted by relevance
-        total_weight = sum(e.relevance_score for e in top_citations)
+        total_weight = sum(c.relevance_score for c in citations)
         if total_weight == 0:
-            return GroundingResult(citations=top_citations, grounding_score=0.3)
+            return GroundingResult(citations=citations, grounding_score=0.3)
 
         weighted_score = (
             sum(
-                self.QUALITY_SCORES.get(e.quality.value, 0.3) * e.relevance_score
-                for e in top_citations
+                self.QUALITY_SCORES.get(c.quality.value, 0.3) * c.relevance_score for c in citations
             )
             / total_weight
         )
 
-        return GroundingResult(citations=top_citations, grounding_score=weighted_score)
+        return GroundingResult(citations=citations, grounding_score=weighted_score)
 
     def create_grounded_verdict(
         self,
@@ -199,7 +229,6 @@ class EvidenceGrounder:
         try:
             from aragora.reasoning.citations import CitedClaim, GroundedVerdict
 
-            # Extract claims from the final answer
             claims_text = self.citation_extractor.extract_claims(final_answer)
 
             if not claims_text:
@@ -210,7 +239,19 @@ class EvidenceGrounder:
                     grounding_score=1.0,  # No claims = fully grounded (nothing to cite)
                 )
 
-            # Create CitedClaim objects with linked evidence
+            if self.claim_checker:
+                expanded_claims: list[str] = []
+                seen: set[str] = set()
+                for claim_text in claims_text:
+                    atomic_claims = self.claim_checker.extract_atomic_claims(claim_text)
+                    if not atomic_claims:
+                        atomic_claims = [claim_text]
+                    for atomic in atomic_claims:
+                        if atomic not in seen:
+                            seen.add(atomic)
+                            expanded_claims.append(atomic)
+                claims_text = expanded_claims
+
             cited_claims = []
             all_citations = []
             total_grounding = 0.0
@@ -369,8 +410,9 @@ class EvidenceGrounder:
 
 
 def create_evidence_grounder(
-    evidence_pack: Optional["EvidencePack"] = None,
+    evidence_pack: Optional[EvidencePack] = None,
     citation_extractor: Optional["CitationExtractor"] = None,
+    claim_checker: Optional["ClaimCheck"] = None,
 ) -> EvidenceGrounder:
     """
     Factory function to create an EvidenceGrounder.
@@ -385,4 +427,5 @@ def create_evidence_grounder(
     return EvidenceGrounder(
         evidence_pack=evidence_pack,
         citation_extractor=citation_extractor,
+        claim_checker=claim_checker,
     )
