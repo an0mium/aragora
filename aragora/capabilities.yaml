@@ -19,7 +19,7 @@
 #   - experimental: Beta and experimental features
 
 version: "2.0"
-last_updated: "2026-02-03"
+last_updated: "2026-02-04"
 
 capabilities:
 
@@ -187,6 +187,51 @@ capabilities:
     feature_flags:
       - enable_belief_guidance
       - enable_provenance
+
+  graph_debates:
+    name: "Graph Debates (Branching)"
+    category: core
+    status: beta
+    description: |
+      Branching debate structure that splits into multiple lines of reasoning
+      when agents diverge, then optionally merges results.
+    activation:
+      api: "POST /api/v1/debates/graph"
+      cli: "aragora ask \"...\" --graph"
+    key_files:
+      - aragora/debate/graph.py
+      - aragora/server/handlers/debates/graph_debates.py
+      - aragora/client/resources/graph_debates.py
+
+  matrix_debates:
+    name: "Matrix Debates (Scenarios)"
+    category: core
+    status: beta
+    description: |
+      Parallel debates across multiple scenarios to derive universal vs
+      conditional conclusions.
+    activation:
+      api: "POST /api/v1/debates/matrix"
+      cli: "aragora ask \"...\" --matrix --scenario '{\"name\":\"baseline\"}'"
+    key_files:
+      - aragora/debate/scenarios.py
+      - aragora/server/handlers/debates/matrix_debates.py
+      - aragora/client/resources/matrix_debates.py
+
+  decision_integrity:
+    name: "Decision Integrity Packages"
+    category: core
+    status: stable
+    description: |
+      Generates decision receipts, implementation plans, and optional
+      context snapshots for auditable decision execution.
+    activation:
+      api: "POST /api/v1/debates/{id}/decision-integrity"
+      cli: "aragora ask \"...\" --decision-integrity"
+    key_files:
+      - aragora/pipeline/decision_integrity.py
+      - aragora/server/handlers/debates/implementation.py
+      - aragora/client/resources/debates.py
 
   # ============================================================================
   # MEMORY CAPABILITIES - Persistence and learning

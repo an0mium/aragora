@@ -14,7 +14,6 @@ from aragora.cli.commands.debate import cmd_ask
 from aragora.cli.commands.stats import (
     cmd_stats,
     cmd_patterns,
-    cmd_memory,
     cmd_elo,
     cmd_cross_pollination,
 )
@@ -127,6 +126,7 @@ Examples:
     _add_skills_parser(subparsers)
     _add_nomic_parser(subparsers)
     _add_workflow_parser(subparsers)
+    _add_deploy_parser(subparsers)
     _add_control_plane_parser(subparsers)
     _add_decide_parser(subparsers)
     _add_plans_parser(subparsers)
@@ -149,7 +149,20 @@ def _add_ask_parser(subparsers) -> None:
             "'provider:role' (e.g., anthropic-api:critic), "
             "'provider:persona' (e.g., anthropic-api:philosopher), "
             "'provider|model|persona|role' (full spec). "
-            "Valid roles: proposer, critic, synthesizer, judge"
+            "Valid roles: proposer, critic, synthesizer, judge. "
+            "Also accepts JSON list of dicts with provider/model/persona/role."
+        ),
+    )
+    ask_parser.add_argument(
+        "--auto-select",
+        action="store_true",
+        help="Auto-select an optimal agent team for the task",
+    )
+    ask_parser.add_argument(
+        "--auto-select-config",
+        help=(
+            "JSON config for auto-selection (e.g. "
+            '\'{"min_agents":3,"max_agents":5,"diversity_preference":0.5}\')'
         ),
     )
     ask_parser.add_argument(
@@ -788,29 +801,10 @@ def _add_badge_parser(subparsers) -> None:
 
 
 def _add_memory_parser(subparsers) -> None:
-    """Add the 'memory' subcommand parser."""
-    memory_parser = subparsers.add_parser(
-        "memory",
-        help="Inspect multi-tier memory system",
-        description="View and manage ContinuumMemory - the multi-tier learning system.",
-    )
-    memory_parser.add_argument(
-        "action",
-        nargs="?",
-        default="stats",
-        choices=["stats", "list", "consolidate", "cleanup"],
-        help="Action: stats (default), list, consolidate, cleanup",
-    )
-    memory_parser.add_argument(
-        "--tier",
-        "-t",
-        choices=["fast", "medium", "slow", "glacial"],
-        default="fast",
-        help="Memory tier to list (for 'list' action)",
-    )
-    memory_parser.add_argument("--limit", "-n", type=int, default=10, help="Max entries to show")
-    memory_parser.add_argument("--db", help="Database path (default: from config)")
-    memory_parser.set_defaults(func=cmd_memory)
+    """Add the 'memory' subcommand parser with API-backed sub-subcommands."""
+    from aragora.cli.commands.memory_ops import add_memory_ops_parser
+
+    add_memory_ops_parser(subparsers)
 
 
 def _add_elo_parser(subparsers) -> None:
@@ -928,6 +922,13 @@ def _add_workflow_parser(subparsers) -> None:
     add_workflow_parser(subparsers)
 
 
+def _add_deploy_parser(subparsers) -> None:
+    """Add the 'deploy' subcommand parser for deployment validation."""
+    from aragora.cli.commands.deploy import add_deploy_parser
+
+    add_deploy_parser(subparsers)
+
+
 def _add_control_plane_parser(subparsers) -> None:
     """Add the 'control-plane' subcommand parser."""
     cp_parser = subparsers.add_parser(
@@ -988,6 +989,18 @@ Examples:
         "-a",
         default=DEFAULT_AGENTS,
         help="Comma-separated agents for debate",
+    )
+    decide_parser.add_argument(
+        "--auto-select",
+        action="store_true",
+        help="Auto-select an optimal agent team for the task",
+    )
+    decide_parser.add_argument(
+        "--auto-select-config",
+        help=(
+            "JSON config for auto-selection (e.g. "
+            '\'{"min_agents":3,"max_agents":5,"diversity_preference":0.5}\')'
+        ),
     )
     decide_parser.add_argument(
         "--rounds",

@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
-from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
 
 
 class DebateStatus(str, Enum):
@@ -164,13 +164,19 @@ class DebateCreateRequest(BaseModel):
     """Request to create a new debate."""
 
     task: str
-    agents: list[str] = Field(
-        default_factory=lambda: [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
-    )
+    agents: list[Any] | None = None
     rounds: int = Field(default=DEFAULT_ROUNDS, ge=1, le=MAX_ROUNDS)
     consensus: ConsensusType = ConsensusType(DEFAULT_CONSENSUS)
     context: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    debate_format: str | None = None
+    auto_select: bool | None = None
+    auto_select_config: dict[str, Any] | None = None
+    use_trending: bool | None = None
+    trending_category: str | None = None
+    documents: list[str] | None = None
+    enable_verticals: bool | None = None
+    vertical_id: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class DebateCreateResponse(BaseModel):

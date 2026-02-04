@@ -28,8 +28,9 @@ DEPRECATED: String parsing is maintained for backward compatibility but discoura
 from __future__ import annotations
 
 import warnings
+import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -423,6 +424,82 @@ class AgentSpec:
 
         return specs
 
+    @classmethod
+    def _from_dict(cls, spec: dict[str, Any], index: int | None = None) -> "AgentSpec":
+        provider = (
+            spec.get("provider") or spec.get("agent_type") or spec.get("type") or spec.get("agent")
+        )
+        if not provider:
+            location = f" at index {index}" if index is not None else ""
+            raise ValueError(f"Agent spec{location} missing required 'provider' field")
+        return cls(
+            provider=str(provider),
+            model=spec.get("model"),
+            persona=spec.get("persona"),
+            role=spec.get("role"),
+            name=spec.get("name"),
+            hierarchy_role=spec.get("hierarchy_role"),
+        )
+
+    @classmethod
+    def coerce_list(cls, specs: Any, *, warn: bool = True) -> list["AgentSpec"]:
+        """Coerce flexible agent spec inputs into AgentSpec list.
+
+        Accepts:
+        - string (comma-separated or pipe format; JSON list/dict)
+        - list of strings
+        - list of dicts (explicit fields)
+        - list of AgentSpec
+        - single dict
+        """
+        if specs is None:
+            return []
+
+        if isinstance(specs, AgentSpec):
+            return [specs]
+
+        if isinstance(specs, dict):
+            return [cls._from_dict(specs)]
+
+        if isinstance(specs, list):
+            result: list[AgentSpec] = []
+            saw_string = False
+            for i, item in enumerate(specs):
+                if isinstance(item, AgentSpec):
+                    result.append(item)
+                elif isinstance(item, dict):
+                    result.append(cls._from_dict(item, index=i))
+                elif isinstance(item, str):
+                    saw_string = True
+                    result.append(cls.parse(item, _warn=False))
+                else:
+                    raise ValueError(
+                        f"Unsupported agent spec type at index {i}: {type(item).__name__}"
+                    )
+            if warn and saw_string:
+                warnings.warn(
+                    "AgentSpec.parse_list() is deprecated. Use AgentSpec.create_team() "
+                    "with explicit field dicts instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+            return result
+
+        if isinstance(specs, str):
+            spec_str = specs.strip()
+            if not spec_str:
+                return []
+            if spec_str.startswith("[") or spec_str.startswith("{"):
+                try:
+                    payload = json.loads(spec_str)
+                except json.JSONDecodeError:
+                    payload = None
+                if payload is not None:
+                    return cls.coerce_list(payload, warn=False)
+            return cls.parse_list(spec_str, _warn=warn)
+
+        raise ValueError(f"Unsupported agent spec type: {type(specs).__name__}")
+
     def to_string(self) -> str:
         """
         Serialize to new pipe-delimited format.
@@ -503,7 +580,7 @@ def parse_agents(agents_str: str) -> list[AgentSpec]:
     Returns:
         List of AgentSpec instances
     """
-    return AgentSpec.parse_list(agents_str)
+    return AgentSpec.coerce_list(agents_str, warn=True)
 
 
 __all__ = [

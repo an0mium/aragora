@@ -235,7 +235,7 @@ def main() -> int:
         pass
 
     # Parse and create agents
-    specs = AgentSpec.parse_list(args.agents)
+    specs = AgentSpec.coerce_list(args.agents, warn=False)
     agents = []
     failed_agents = []
 

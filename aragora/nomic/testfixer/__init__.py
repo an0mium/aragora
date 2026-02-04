@@ -54,6 +54,20 @@ from aragora.nomic.testfixer.proposer import (
 )
 from aragora.nomic.testfixer.store import TestFixerAttemptStore
 from aragora.nomic.testfixer.generators import AgentCodeGenerator, AgentGeneratorConfig
+from aragora.nomic.testfixer.analyzers import LLMFailureAnalyzer, LLMAnalyzerConfig
+from aragora.nomic.testfixer.validators import (
+    ArenaValidator,
+    ArenaValidatorConfig,
+    ValidationResult,
+    RedTeamValidator,
+    RedTeamValidatorConfig,
+    RedTeamResult,
+)
+from aragora.nomic.testfixer.learning import (
+    PatternLearner,
+    FixPattern,
+    PatternMatch,
+)
 
 __all__ = [
     "TestFixerOrchestrator",
@@ -72,4 +86,15 @@ __all__ = [
     "TestFixerAttemptStore",
     "AgentCodeGenerator",
     "AgentGeneratorConfig",
+    "LLMFailureAnalyzer",
+    "LLMAnalyzerConfig",
+    "ArenaValidator",
+    "ArenaValidatorConfig",
+    "ValidationResult",
+    "RedTeamValidator",
+    "RedTeamValidatorConfig",
+    "RedTeamResult",
+    "PatternLearner",
+    "FixPattern",
+    "PatternMatch",
 ]

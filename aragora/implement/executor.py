@@ -13,12 +13,15 @@ Research sources:
 - Codex excels at review/QA where latency isn't critical
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +60,26 @@ Working directory: {repo_path}
 IMPORTANT: Only make changes that are safe and reversible.
 """
 
+TASK_REVIEW_PROMPT_TEMPLATE = """Review this implementation for correctness and safety.
+
+## Task
+{description}
+
+## Files
+{files}
+
+## Git Diff
+```
+{diff}
+```
+
+## Response Format
+- APPROVED: yes/no
+- ISSUES: List any problems that MUST be fixed
+- SUGGESTIONS: Optional improvements
+
+Be concise and actionable."""
+
 
 class HybridExecutor:
     """
@@ -84,6 +107,11 @@ class HybridExecutor:
         claude_timeout: int = 1200,  # 20 min - doubled from 600
         codex_timeout: int = 1200,  # 20 min - doubled from 600
         max_retries: int = 2,
+        strategy: str | None = None,
+        implementers: list[str] | None = None,
+        critic: str | None = None,
+        reviser: str | None = None,
+        max_revisions: int | None = None,
     ):
         self.repo_path = repo_path
 
@@ -94,6 +122,28 @@ class HybridExecutor:
         self.claude_timeout = claude_timeout
         self.codex_timeout = codex_timeout
         self.max_retries = max_retries
+
+        # Strategy configuration
+        env_strategy = os.environ.get("IMPL_STRATEGY")
+        self._strategy = (strategy or env_strategy or "direct").strip().lower()
+        self._review_strict = self._strategy.endswith("strict")
+        self._max_revisions = (
+            max_revisions
+            if max_revisions is not None
+            else int(os.environ.get("IMPL_MAX_REVISIONS", "1"))
+        )
+
+        env_implementers = os.environ.get("IMPL_IMPLEMENTERS", "")
+        env_critic = os.environ.get("IMPL_CRITIC", "")
+        env_reviser = os.environ.get("IMPL_REVISER", "")
+        env_complexity_router = os.environ.get("IMPL_AGENT_BY_COMPLEXITY", "")
+
+        self._implementer_pool = self._parse_agent_list(implementers, env_implementers)
+        self._critic_type = (critic or env_critic or "codex").strip()
+        self._reviser_type = (reviser or env_reviser or "").strip()
+        self._complexity_router = self._parse_complexity_router(env_complexity_router)
+        self._implementer_index = 0
+        self._dynamic_agents: dict[tuple[str, str], Any] = {}
 
     @property
     def claude(self) -> ClaudeAgent:
@@ -122,16 +172,211 @@ Include proper type hints and docstrings."""
 Make only the changes specified. Follow existing code style."""
         return self._codex
 
-    def _select_agent(self, complexity: str):
-        """Select the appropriate agent based on task complexity.
+    @staticmethod
+    def _parse_agent_list(override: list[str] | None, raw: str) -> list[str]:
+        if override is not None:
+            return [item.strip() for item in override if item and item.strip()]
+        return [item.strip() for item in raw.split(",") if item.strip()]
 
-        Updated Dec 2025: Always use Claude for implementation.
-        Codex latency issues make it unsuitable for interactive implementation.
-        Codex is now used only for post-implementation review.
-        """
-        # Always use Claude for implementation (fastest, best quality)
-        # Complexity only affects timeout expectations
+    @staticmethod
+    def _parse_complexity_router(raw: str) -> dict[str, str]:
+        mapping: dict[str, str] = {}
+        if not raw:
+            return mapping
+        for entry in raw.split(","):
+            if ":" not in entry:
+                continue
+            key, value = entry.split(":", 1)
+            key = key.strip().lower()
+            value = value.strip()
+            if key and value:
+                mapping[key] = value
+        return mapping
+
+    def _get_dynamic_agent(
+        self, agent_type: str, role: str, timeout: int, system_prompt: str
+    ) -> Any | None:
+        if not agent_type:
+            return None
+        if agent_type == "claude":
+            agent = self.claude
+            if hasattr(agent, "timeout"):
+                agent.timeout = timeout
+            if system_prompt and hasattr(agent, "system_prompt"):
+                agent.system_prompt = system_prompt
+            return agent
+        if agent_type == "codex":
+            agent = self.codex
+            if hasattr(agent, "timeout"):
+                agent.timeout = timeout
+            if system_prompt and hasattr(agent, "system_prompt"):
+                agent.system_prompt = system_prompt
+            return agent
+
+        key = (agent_type, role)
+        agent = self._dynamic_agents.get(key)
+        if agent is None:
+            try:
+                from aragora.agents.registry import AgentRegistry, register_all_agents
+
+                register_all_agents()
+                spec = AgentRegistry.get_spec(agent_type)
+                if spec is None or spec.agent_type != "CLI":
+                    logger.warning(
+                        "Implementation agent %s is not a CLI agent; skipping.",
+                        agent_type,
+                    )
+                    return None
+                agent = AgentRegistry.create(
+                    model_type=agent_type,
+                    name=f"{agent_type}-{role}",
+                    role=role,
+                    timeout=timeout,
+                    use_cache=False,
+                )
+                self._dynamic_agents[key] = agent
+            except Exception as exc:
+                logger.warning("Failed to initialize agent %s: %s", agent_type, exc)
+                return None
+
+        if hasattr(agent, "timeout"):
+            agent.timeout = timeout
+        if hasattr(agent, "system_prompt") and system_prompt:
+            agent.system_prompt = system_prompt
+        return agent
+
+    def _select_implementer(self, task: "ImplementTask") -> tuple[Any, str]:
+        complexity_key = str(getattr(task, "complexity", "moderate")).lower()
+        if self._complexity_router and complexity_key in self._complexity_router:
+            agent_type = self._complexity_router[complexity_key]
+            agent = self._get_dynamic_agent(
+                agent_type,
+                role="implementer",
+                timeout=self.claude_timeout,
+                system_prompt="""You are implementing code changes in a repository.
+Be precise, follow existing patterns, and make only necessary changes.
+Include proper type hints and docstrings.""",
+            )
+            if agent is not None:
+                return agent, agent_type
+
+        if self._implementer_pool:
+            agent_type = self._implementer_pool[
+                self._implementer_index % len(self._implementer_pool)
+            ]
+            self._implementer_index += 1
+            agent = self._get_dynamic_agent(
+                agent_type,
+                role="implementer",
+                timeout=self.claude_timeout,
+                system_prompt="""You are implementing code changes in a repository.
+Be precise, follow existing patterns, and make only necessary changes.
+Include proper type hints and docstrings.""",
+            )
+            if agent is not None:
+                return agent, agent_type
+
         return self.claude, "claude"
+
+    def _get_critic(self, timeout: int) -> Any | None:
+        return self._get_dynamic_agent(
+            self._critic_type,
+            role="critic",
+            timeout=timeout,
+            system_prompt="""You are a senior code reviewer.
+Focus on correctness, security, and maintainability.
+Be constructive but thorough.""",
+        )
+
+    def _get_reviser(self, timeout: int) -> Any | None:
+        if not self._reviser_type:
+            return None
+        return self._get_dynamic_agent(
+            self._reviser_type,
+            role="implementer",
+            timeout=timeout,
+            system_prompt="""You are revising code based on review feedback.
+Make the minimal changes needed to address issues.
+Follow existing code style and tests.""",
+        )
+
+    def _select_agent(self, task: "ImplementTask" | str, use_fallback: bool = False):
+        """Select an agent based on strategy, routing, and fallback.
+
+        Accepts either an ImplementTask (preferred) or a legacy complexity
+        string for backward compatibility with tests and older callers.
+        """
+        if use_fallback:
+            return self.codex, "codex-fallback"
+
+        if isinstance(task, ImplementTask):
+            return self._select_implementer(task)
+
+        # Legacy fallback: always use Claude for implementation.
+        return self.claude, "claude"
+
+    @staticmethod
+    def _parse_review_response(response: str | None) -> tuple[bool | None, list[str], list[str]]:
+        if not response:
+            return None, [], []
+
+        approved: bool | None = None
+        issues: list[str] = []
+        suggestions: list[str] = []
+        current: str | None = None
+
+        for raw_line in response.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            upper = line.upper()
+            if upper.startswith("APPROVED"):
+                approved = "YES" in upper
+                current = None
+                continue
+            if upper.startswith("ISSUES"):
+                current = "issues"
+                tail = line.split(":", 1)[1].strip() if ":" in line else ""
+                if tail:
+                    issues.append(tail)
+                continue
+            if upper.startswith("SUGGESTIONS"):
+                current = "suggestions"
+                tail = line.split(":", 1)[1].strip() if ":" in line else ""
+                if tail:
+                    suggestions.append(tail)
+                continue
+
+            if current == "issues":
+                issues.append(line)
+            elif current == "suggestions":
+                suggestions.append(line)
+
+        if approved is None:
+            approved = len(issues) == 0
+        return approved, issues, suggestions
+
+    @staticmethod
+    def _format_review_feedback(issues: list[str], suggestions: list[str], fallback: str) -> str:
+        lines: list[str] = []
+        if issues:
+            lines.append("Issues to address:")
+            for issue in issues:
+                cleaned = issue.lstrip("-*• ").strip()
+                if cleaned:
+                    lines.append(f"- {cleaned}")
+        if suggestions:
+            lines.append("Suggested improvements:")
+            for suggestion in suggestions:
+                cleaned = suggestion.lstrip("-*• ").strip()
+                if cleaned:
+                    lines.append(f"- {cleaned}")
+        if lines:
+            return "\n".join(lines)
+        return fallback
+
+    def _should_review(self) -> bool:
+        return "review" in self._strategy or "critic" in self._strategy
 
     def _get_task_timeout(self, task: ImplementTask) -> int:
         """Calculate timeout based on task complexity and file count.
@@ -158,7 +403,7 @@ Make only the changes specified. Follow existing code style."""
 
         return min(base + file_bonus, 1800)  # Cap at 30 min
 
-    def _build_prompt(self, task: ImplementTask) -> str:
+    def _build_prompt(self, task: ImplementTask, feedback: str | None = None) -> str:
         """Build the implementation prompt for a task."""
         files_str = (
             "\n".join(f"- {f}" for f in task.files)
@@ -166,23 +411,41 @@ Make only the changes specified. Follow existing code style."""
             else "- (determine from description)"
         )
 
-        return TASK_PROMPT_TEMPLATE.format(
+        prompt = TASK_PROMPT_TEMPLATE.format(
             description=task.description,
             files=files_str,
             repo_path=str(self.repo_path),
         )
 
-    def _get_git_diff(self, *, stat_only: bool = True, max_chars: int | None = None) -> str:
+        if feedback:
+            prompt += "\n\n## Review Feedback\n"
+            prompt += feedback.strip() + "\n"
+
+        return prompt
+
+    def _get_git_diff(
+        self,
+        *,
+        stat_only: bool = True,
+        max_chars: int | None = None,
+        files: list[str] | None = None,
+    ) -> str:
         """Get the current git diff.
 
         Args:
             stat_only: If True, return --stat output (compact). If False, return full diff.
             max_chars: Optional truncation limit for large diffs.
+            files: Optional list of file paths to scope the diff.
         """
         try:
             args = ["git", "diff"]
             if stat_only:
                 args.append("--stat")
+            if files:
+                scoped_files = [f for f in files if f]
+                if scoped_files:
+                    args.append("--")
+                    args.extend(scoped_files)
             result = subprocess.run(
                 args,
                 cwd=self.repo_path,
@@ -206,11 +469,50 @@ Make only the changes specified. Follow existing code style."""
         """Get a full git diff for review purposes."""
         return self._get_git_diff(stat_only=False, max_chars=max_chars)
 
+    async def _run_review(self, task: ImplementTask, diff: str) -> dict[str, Any]:
+        """Run a critic review for an implementation diff."""
+        if not diff.strip():
+            return {"approved": True, "issues": [], "suggestions": [], "review": ""}
+
+        critic = self._get_critic(timeout=self.codex_timeout * 2)
+        if critic is None:
+            return {"approved": True, "issues": [], "suggestions": [], "review": ""}
+
+        files_str = "\n".join(f"- {f}" for f in task.files) if task.files else "- (unknown)"
+        review_prompt = TASK_REVIEW_PROMPT_TEMPLATE.format(
+            description=task.description,
+            files=files_str,
+            diff=diff,
+        )
+
+        try:
+            from aragora.server.stream.arena_hooks import streaming_task_context
+
+            critic_name = getattr(critic, "name", "critic")
+            task_id = f"{critic_name}:impl_review"
+            with streaming_task_context(task_id):
+                response = await critic.generate(review_prompt, context=[])
+        except Exception as exc:
+            logger.warning("Review failed: %s", exc)
+            return {"approved": None, "issues": [], "suggestions": [], "error": str(exc)}
+
+        approved, issues, suggestions = self._parse_review_response(response)
+        return {
+            "approved": approved,
+            "issues": issues,
+            "suggestions": suggestions,
+            "review": response,
+            "model": getattr(critic, "name", None),
+        }
+
     async def execute_task(
         self,
         task: ImplementTask,
         attempt: int = 1,
         use_fallback: bool = False,
+        feedback: str | None = None,
+        agent_override: Any | None = None,
+        model_label: str | None = None,
     ) -> TaskResult:
         """
         Execute a single implementation task with retry and fallback support.
@@ -226,29 +528,29 @@ Make only the changes specified. Follow existing code style."""
         # Calculate base timeout from task complexity
         base_timeout = self._get_task_timeout(task)
 
-        # Select agent - use fallback (Codex) if primary (Claude) failed
-        if use_fallback:
-            agent = self.codex
-            model_name = "codex-fallback"
-            # Use 2x timeout for fallback
-            agent.timeout = base_timeout * 2
+        # Select agent - use fallback (Codex) if primary failed
+        if agent_override is not None:
+            agent = agent_override
+            model_name = model_label or getattr(agent_override, "name", "override")
+        else:
+            agent, model_name = self._select_agent(task, use_fallback)
+
+        # Scale timeout by attempt number (fallback doubles)
+        if hasattr(agent, "timeout"):
+            agent.timeout = base_timeout * attempt
+            if use_fallback:
+                agent.timeout = base_timeout * 2
+
+        if attempt > 1:
             logger.info(
-                f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {agent.timeout}s)..."
+                f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {getattr(agent, 'timeout', base_timeout)}s)..."
             )
         else:
-            agent, model_name = self._select_agent(task.complexity)
-            # Scale timeout by attempt number
-            agent.timeout = base_timeout * attempt
-            if attempt > 1:
-                logger.info(
-                    f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {agent.timeout}s)..."
-                )
-            else:
-                logger.info(
-                    f"  Executing [{task.complexity}] {task.id} with {model_name} (timeout {agent.timeout}s)..."
-                )
+            logger.info(
+                f"  Executing [{task.complexity}] {task.id} with {model_name} (timeout {getattr(agent, 'timeout', base_timeout)}s)..."
+            )
 
-        prompt = self._build_prompt(task)
+        prompt = self._build_prompt(task, feedback=feedback)
         start_time = time.time()
 
         try:
@@ -261,7 +563,7 @@ Make only the changes specified. Follow existing code style."""
                 await agent.generate(prompt, context=[])
 
             # Get the diff to see what changed
-            diff = self._get_git_diff()
+            diff = self._get_git_diff(files=task.files)
             duration = time.time() - start_time
 
             logger.info(f"    Completed in {duration:.1f}s")
@@ -310,9 +612,11 @@ Make only the changes specified. Follow existing code style."""
         Returns:
             Best TaskResult from attempts
         """
-        # Attempt 1: Claude with normal timeout
+        # Attempt 1: primary agent with normal timeout
         result = await self.execute_task(task, attempt=1, use_fallback=False)
         if result.success:
+            if self._should_review():
+                return await self._review_and_revise(task, result)
             return result
 
         # Check if it was a timeout (worth retrying) vs other error
@@ -323,12 +627,92 @@ Make only the changes specified. Follow existing code style."""
             logger.info(f"    Retrying {task.id} with extended timeout...")
             result = await self.execute_task(task, attempt=2, use_fallback=False)
             if result.success:
+                if self._should_review():
+                    return await self._review_and_revise(task, result)
                 return result
 
         if is_timeout and self.max_retries >= 3:
             # Attempt 3: Fallback to Codex
             logger.info(f"    Falling back to Codex for {task.id}...")
             result = await self.execute_task(task, attempt=3, use_fallback=True)
+
+        if result.success and self._should_review():
+            return await self._review_and_revise(task, result)
+
+        return result
+
+    async def _review_and_revise(self, task: ImplementTask, result: TaskResult) -> TaskResult:
+        """Run review loop and optional revisions based on configured strategy."""
+        full_diff = self._get_git_diff(stat_only=False, max_chars=20000, files=task.files)
+        review = await self._run_review(task, full_diff)
+        approved = review.get("approved")
+        issues = review.get("issues") or []
+        suggestions = review.get("suggestions") or []
+
+        if approved is True:
+            return result
+
+        if not self._reviser_type or self._max_revisions <= 0:
+            if self._review_strict:
+                return TaskResult(
+                    task_id=result.task_id,
+                    success=False,
+                    diff=result.diff,
+                    error="Review failed",
+                    model_used=result.model_used,
+                    duration_seconds=result.duration_seconds,
+                )
+            return result
+
+        feedback = self._format_review_feedback(
+            issues,
+            suggestions,
+            review.get("review") or "Review requested changes.",
+        )
+
+        for revision_idx in range(self._max_revisions):
+            reviser = self._get_reviser(timeout=self.claude_timeout)
+            if reviser is None:
+                break
+            logger.info(
+                "  Revising %s based on review feedback (%d/%d)...",
+                task.id,
+                revision_idx + 1,
+                self._max_revisions,
+            )
+            result = await self.execute_task(
+                task,
+                attempt=1,
+                use_fallback=False,
+                feedback=feedback,
+                agent_override=reviser,
+                model_label=f"{self._reviser_type}-reviser",
+            )
+            if not result.success:
+                return result
+
+            full_diff = self._get_git_diff(stat_only=False, max_chars=20000, files=task.files)
+            review = await self._run_review(task, full_diff)
+            approved = review.get("approved")
+            issues = review.get("issues") or []
+            suggestions = review.get("suggestions") or []
+            if approved is True:
+                return result
+            feedback = self._format_review_feedback(
+                issues,
+                suggestions,
+                review.get("review") or feedback,
+            )
+
+        if self._review_strict:
+            return TaskResult(
+                task_id=result.task_id,
+                success=False,
+                diff=result.diff,
+                error="Review failed after revisions",
+                model_used=result.model_used,
+                duration_seconds=result.duration_seconds,
+            )
 
         return result
 
@@ -413,6 +797,50 @@ Make only the changes specified. Follow existing code style."""
 
         return results
 
+    @staticmethod
+    def _task_priority(task: ImplementTask) -> tuple[int, int]:
+        order = {"complex": 0, "moderate": 1, "simple": 2}
+        complexity_rank = order.get(task.complexity, 1)
+        file_count = len(task.files) if task.files else 0
+        return complexity_rank, -file_count
+
+    def _select_parallel_batch(
+        self, ready: list[ImplementTask], max_parallel: int
+    ) -> list[ImplementTask]:
+        if not ready:
+            return []
+
+        sorted_ready = sorted(ready, key=self._task_priority)
+        batch: list[ImplementTask] = []
+        used_files: set[str] = set()
+        has_unknown = False
+
+        for task in sorted_ready:
+            task_files = [f for f in (task.files or []) if f]
+            if not task_files:
+                if batch:
+                    continue
+                batch.append(task)
+                has_unknown = True
+                break
+
+            if has_unknown:
+                continue
+
+            task_file_set = set(task_files)
+            if task_file_set & used_files:
+                continue
+
+            batch.append(task)
+            used_files.update(task_file_set)
+            if len(batch) >= max_parallel:
+                break
+
+        if not batch:
+            batch = [sorted_ready[0]]
+
+        return batch
+
     async def execute_plan_parallel(
         self,
         tasks: list[ImplementTask],
@@ -459,7 +887,7 @@ Make only the changes specified. Follow existing code style."""
                 break
 
             # Execute up to max_parallel tasks concurrently
-            batch = ready[:max_parallel]
+            batch = self._select_parallel_batch(ready, max_parallel)
             logger.info(f"    Parallel batch: {[t.id for t in batch]}")
 
             batch_results = await asyncio.gather(

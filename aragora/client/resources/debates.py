@@ -42,10 +42,19 @@ class DebatesAPI:
     def create(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: list[Any] | None = None,
         rounds: int = DEFAULT_ROUNDS,
         consensus: str = DEFAULT_CONSENSUS,
         context: str | None = None,
+        auto_select: bool | None = None,
+        auto_select_config: dict[str, Any] | None = None,
+        debate_format: str | None = None,
+        use_trending: bool | None = None,
+        trending_category: str | None = None,
+        documents: list[str] | None = None,
+        enable_verticals: bool | None = None,
+        vertical_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> DebateCreateResponse:
         """
@@ -61,38 +70,87 @@ class DebatesAPI:
         Returns:
             DebateCreateResponse with debate_id and status.
         """
+        metadata_payload = dict(metadata or {})
+        if kwargs:
+            metadata_payload.update(kwargs)
+        if not metadata_payload:
+            metadata_payload = None
+
+        if agents is None:
+            agents_payload: list[Any] = [] if auto_select else _default_agent_list()
+        else:
+            agents_payload = agents
+
         request = DebateCreateRequest(
             task=task,
-            agents=agents or _default_agent_list(),
+            agents=agents_payload,
             rounds=rounds,
             consensus=ConsensusType(consensus),
             context=context,
-            metadata=kwargs,
+            debate_format=debate_format,
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
+            use_trending=use_trending,
+            trending_category=trending_category,
+            documents=documents,
+            enable_verticals=enable_verticals,
+            vertical_id=vertical_id,
+            metadata=metadata_payload,
         )
 
-        response = self._client._post("/api/debates", request.model_dump())
+        response = self._client._post("/api/debates", request.model_dump(exclude_none=True))
         return DebateCreateResponse(**response)
 
     async def create_async(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: list[Any] | None = None,
         rounds: int = DEFAULT_ROUNDS,
         consensus: str = DEFAULT_CONSENSUS,
         context: str | None = None,
+        auto_select: bool | None = None,
+        auto_select_config: dict[str, Any] | None = None,
+        debate_format: str | None = None,
+        use_trending: bool | None = None,
+        trending_category: str | None = None,
+        documents: list[str] | None = None,
+        enable_verticals: bool | None = None,
+        vertical_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> DebateCreateResponse:
         """Async version of create()."""
+        metadata_payload = dict(metadata or {})
+        if kwargs:
+            metadata_payload.update(kwargs)
+        if not metadata_payload:
+            metadata_payload = None
+
+        if agents is None:
+            agents_payload: list[Any] = [] if auto_select else _default_agent_list()
+        else:
+            agents_payload = agents
+
         request = DebateCreateRequest(
             task=task,
-            agents=agents or _default_agent_list(),
+            agents=agents_payload,
             rounds=rounds,
             consensus=ConsensusType(consensus),
             context=context,
-            metadata=kwargs,
+            debate_format=debate_format,
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
+            use_trending=use_trending,
+            trending_category=trending_category,
+            documents=documents,
+            enable_verticals=enable_verticals,
+            vertical_id=vertical_id,
+            metadata=metadata_payload,
         )
 
-        response = await self._client._post_async("/api/debates", request.model_dump())
+        response = await self._client._post_async(
+            "/api/debates", request.model_dump(exclude_none=True)
+        )
         return DebateCreateResponse(**response)
 
     def get(self, debate_id: str) -> Debate:
@@ -156,10 +214,19 @@ class DebatesAPI:
     def run(
         self,
         task: str,
-        agents: builtins.list[str] | None = None,
+        agents: builtins.list[Any] | None = None,
         rounds: int = DEFAULT_ROUNDS,
         consensus: str = DEFAULT_CONSENSUS,
         timeout: int = 600,
+        auto_select: bool | None = None,
+        auto_select_config: dict[str, Any] | None = None,
+        debate_format: str | None = None,
+        use_trending: bool | None = None,
+        trending_category: str | None = None,
+        documents: list[str] | None = None,
+        enable_verticals: bool | None = None,
+        vertical_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Debate:
         """
@@ -180,7 +247,22 @@ class DebatesAPI:
         """
         import time
 
-        response = self.create(task, agents, rounds, consensus, **kwargs)
+        response = self.create(
+            task=task,
+            agents=agents,
+            rounds=rounds,
+            consensus=consensus,
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
+            debate_format=debate_format,
+            use_trending=use_trending,
+            trending_category=trending_category,
+            documents=documents,
+            enable_verticals=enable_verticals,
+            vertical_id=vertical_id,
+            metadata=metadata,
+            **kwargs,
+        )
         debate_id = response.debate_id
 
         start = time.time()
@@ -195,16 +277,40 @@ class DebatesAPI:
     async def run_async(
         self,
         task: str,
-        agents: builtins.list[str] | None = None,
+        agents: builtins.list[Any] | None = None,
         rounds: int = DEFAULT_ROUNDS,
         consensus: str = DEFAULT_CONSENSUS,
         timeout: int = 600,
+        auto_select: bool | None = None,
+        auto_select_config: dict[str, Any] | None = None,
+        debate_format: str | None = None,
+        use_trending: bool | None = None,
+        trending_category: str | None = None,
+        documents: list[str] | None = None,
+        enable_verticals: bool | None = None,
+        vertical_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Debate:
         """Async version of run()."""
         import asyncio
 
-        response = await self.create_async(task, agents, rounds, consensus, **kwargs)
+        response = await self.create_async(
+            task=task,
+            agents=agents,
+            rounds=rounds,
+            consensus=consensus,
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
+            debate_format=debate_format,
+            use_trending=use_trending,
+            trending_category=trending_category,
+            documents=documents,
+            enable_verticals=enable_verticals,
+            vertical_id=vertical_id,
+            metadata=metadata,
+            **kwargs,
+        )
         debate_id = response.debate_id
 
         loop = asyncio.get_running_loop()

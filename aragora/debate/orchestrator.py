@@ -216,6 +216,120 @@ class Arena(ArenaDelegatesMixin):
     role_matcher: Any
     current_role_assignments: Any
 
+    # Core component attributes (initialized by orchestrator_init.apply_core_components)
+    env: Any
+    agents: list[Any]
+    protocol: Any
+    memory: Any
+    hooks: dict[str, Any]
+    hook_manager: Any
+    event_emitter: Any
+    spectator: Any
+    debate_embeddings: Any
+    insight_store: Any
+    recorder: Any
+    agent_weights: dict[str, float]
+    loop_id: str
+    strict_loop_scoping: bool
+    circuit_breaker: Any
+    agent_pool: Any
+    immune_system: Any
+    chaos_director: Any
+    performance_monitor: Any
+    prompt_evolver: Any
+    autonomic: Any
+    initial_messages: list[Any]
+    trending_topic: Any
+    pulse_manager: Any
+    auto_fetch_trending: bool
+    population_manager: Any
+    auto_evolve: bool
+    breeding_threshold: float
+    evidence_collector: Any
+    breakpoint_manager: Any
+    agent_selector: Any
+    use_performance_selection: bool
+    checkpoint_manager: Any
+    org_id: str
+    user_id: str
+    _budget_coordinator: Any
+    extensions: Any
+    cartographer: Any
+    event_bridge: Any
+    event_bus: Any
+    enable_ml_delegation: bool
+    ml_delegation_weight: float
+    enable_quality_gates: bool
+    quality_gate_threshold: float
+    enable_consensus_estimation: bool
+    consensus_early_termination_threshold: float
+    _ml_delegation_strategy: Any
+    _ml_quality_gate: Any
+    _ml_consensus_estimator: Any
+
+    # Tracker component attributes (initialized by orchestrator_init.apply_tracker_components)
+    position_tracker: Any
+    position_ledger: Any
+    elo_system: Any
+    persona_manager: Any
+    dissent_retriever: Any
+    consensus_memory: Any
+    flip_detector: Any
+    calibration_tracker: Any
+    continuum_memory: Any
+    relationship_tracker: Any
+    moment_detector: Any
+    tier_analytics_tracker: Any
+    knowledge_mound: Any
+    enable_knowledge_retrieval: bool
+    enable_knowledge_ingestion: bool
+    enable_knowledge_extraction: bool
+    extraction_min_confidence: float
+    enable_belief_guidance: bool
+    _trackers: Any
+    vertical: Any
+    vertical_persona_manager: Any
+
+    # Post-tracker config attributes (initialized by orchestrator_init.store_post_tracker_config)
+    enable_auto_revalidation: bool
+    revalidation_staleness_threshold: float
+    revalidation_check_interval_seconds: int
+    revalidation_scheduler: Any
+    document_store: Any
+    evidence_store: Any
+    enable_supermemory: bool
+    supermemory_adapter: Any
+    supermemory_inject_on_start: bool
+    supermemory_max_context_items: int
+    supermemory_context_container_tag: Optional[str]
+    supermemory_sync_on_conclusion: bool
+    supermemory_min_confidence_for_sync: float
+    supermemory_outcome_container_tag: Optional[str]
+    supermemory_enable_privacy_filter: bool
+    supermemory_enable_resilience: bool
+    supermemory_enable_km_adapter: bool
+    cross_debate_memory: Any
+    enable_cross_debate_memory: bool
+
+    # Setup attributes (initialized by orchestrator_setup helpers)
+    _fabric: Any
+    _fabric_config: Any
+    enable_adaptive_rounds: bool
+    debate_strategy: Any
+    enable_post_debate_workflow: bool
+    post_debate_workflow: Any
+    post_debate_workflow_threshold: float
+    enable_agent_hierarchy: bool
+    _hierarchy: Any
+    _knowledge_ops: Any
+    _km_coordinator: Any
+    _km_adapters: Any
+    knowledge_bridge_hub: Any
+    rlm_compression_threshold: int
+    rlm_max_recent_messages: int
+    rlm_summary_level: str
+    rlm_compression_round_threshold: int
+
     def __init__(
         self,
         environment: Environment,

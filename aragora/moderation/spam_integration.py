@@ -31,10 +31,13 @@ import hashlib
 import logging
 import os
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from threading import Lock
 from typing import Any, Optional, TYPE_CHECKING
+from uuid import uuid4
 
 if TYPE_CHECKING:
     from aragora.services.spam_classifier import SpamClassifier, SpamClassificationResult
@@ -110,6 +113,28 @@ class SpamCheckResult:
 
 
 @dataclass
+class ModerationQueueItem:
+    """Queued moderation item for manual review."""
+
+    id: str
+    content: str
+    content_hash: str
+    result: SpamCheckResult
+    queued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    context: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "content": self.content,
+            "content_hash": self.content_hash,
+            "result": self.result.to_dict(),
+            "queued_at": self.queued_at.isoformat(),
+            "context": self.context,
+        }
+
+
+@dataclass
 class SpamModerationConfig:
     """Configuration for spam moderation."""
 
@@ -142,6 +167,101 @@ class SpamModerationConfig:
             fail_open=os.getenv("ARAGORA_SPAM_FAIL_OPEN", "true").lower() == "true",
             log_all_checks=os.getenv("ARAGORA_SPAM_LOG_ALL", "false").lower() == "true",
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize config to dict for API responses."""
+        return {
+            "enabled": self.enabled,
+            "block_threshold": self.block_threshold,
+            "review_threshold": self.review_threshold,
+            "cache_enabled": self.cache_enabled,
+            "cache_ttl_seconds": self.cache_ttl_seconds,
+            "cache_max_size": self.cache_max_size,
+            "fail_open": self.fail_open,
+            "log_all_checks": self.log_all_checks,
+        }
+
+    def apply_updates(self, updates: dict[str, Any]) -> None:
+        """Apply config updates with basic validation."""
+        if "enabled" in updates:
+            self.enabled = bool(updates["enabled"])
+        if "block_threshold" in updates:
+            self.block_threshold = float(updates["block_threshold"])
+        if "review_threshold" in updates:
+            self.review_threshold = float(updates["review_threshold"])
+        if "cache_enabled" in updates:
+            self.cache_enabled = bool(updates["cache_enabled"])
+        if "cache_ttl_seconds" in updates:
+            self.cache_ttl_seconds = max(0, int(updates["cache_ttl_seconds"]))
+        if "cache_max_size" in updates:
+            self.cache_max_size = max(0, int(updates["cache_max_size"]))
+        if "fail_open" in updates:
+            self.fail_open = bool(updates["fail_open"])
+        if "log_all_checks" in updates:
+            self.log_all_checks = bool(updates["log_all_checks"])
+
+        # Ensure thresholds remain sane
+        self.block_threshold = min(max(self.block_threshold, 0.0), 1.0)
+        self.review_threshold = min(max(self.review_threshold, 0.0), 1.0)
+        if self.review_threshold > self.block_threshold:
+            self.review_threshold = self.block_threshold
+
+
+# =============================================================================
+# Moderation Review Queue (in-memory)
+# =============================================================================
+
+_REVIEW_QUEUE: "OrderedDict[str, ModerationQueueItem]" = OrderedDict()
+_REVIEW_QUEUE_LOCK = Lock()
+_REVIEW_QUEUE_MAX = int(os.getenv("ARAGORA_MODERATION_QUEUE_MAX", "1000"))
+
+
+def queue_for_review(
+    content: str,
+    result: SpamCheckResult,
+    context: dict[str, Any] | None = None,
+) -> ModerationQueueItem:
+    """Queue content for manual review."""
+    ctx = context or {}
+    content_hash = result.content_hash or hashlib.sha256(content.encode()).hexdigest()
+    item = ModerationQueueItem(
+        id=f"mod_{uuid4().hex}",
+        content=content,
+        content_hash=content_hash,
+        result=result,
+        context=ctx,
+    )
+
+    with _REVIEW_QUEUE_LOCK:
+        if _REVIEW_QUEUE_MAX > 0 and len(_REVIEW_QUEUE) >= _REVIEW_QUEUE_MAX:
+            _REVIEW_QUEUE.popitem(last=False)
+        _REVIEW_QUEUE[item.id] = item
+
+    return item
+
+
+def list_review_queue(limit: int = 100, offset: int = 0) -> list[ModerationQueueItem]:
+    """List queued moderation items, newest first."""
+    with _REVIEW_QUEUE_LOCK:
+        items = list(_REVIEW_QUEUE.values())
+    items = list(reversed(items))
+    if offset < 0:
+        offset = 0
+    if limit <= 0:
+        return items[offset:]
+    return items[offset : offset + limit]
+
+
+def pop_review_item(item_id: str) -> ModerationQueueItem | None:
+    """Remove and return a queued moderation item."""
+    with _REVIEW_QUEUE_LOCK:
+        return _REVIEW_QUEUE.pop(item_id, None)
+
+
+def review_queue_size() -> int:
+    """Return current queue size."""
+    with _REVIEW_QUEUE_LOCK:
+        return len(_REVIEW_QUEUE)
 
 
 class SpamModerationIntegration:
@@ -203,6 +323,14 @@ class SpamModerationIntegration:
     def statistics(self) -> dict[str, int]:
         """Get moderation statistics."""
         return dict(self._stats)
+
+    def update_config(self, updates: dict[str, Any]) -> SpamModerationConfig:
+        """Update moderation config with validation."""
+        prior_max = self._config.cache_max_size
+        self._config.apply_updates(updates)
+        if not self._config.cache_enabled or self._config.cache_max_size < prior_max:
+            self._cache.clear()
+        return self._config
 
     async def initialize(self) -> None:
         """
@@ -318,6 +446,9 @@ class SpamModerationIntegration:
                     f"duration={result.check_duration_ms:.1f}ms",
                 )
 
+            if result.should_flag_for_review:
+                queue_for_review(content, result, context)
+
             return result
 
         except Exception as e:
@@ -326,7 +457,7 @@ class SpamModerationIntegration:
 
             if self._config.fail_open:
                 # Allow content through on error
-                return SpamCheckResult(
+                fail_result = SpamCheckResult(
                     verdict=SpamVerdict.CLEAN,
                     confidence=0.0,
                     reasons=[f"Check failed (fail-open): {str(e)}"],
@@ -335,6 +466,8 @@ class SpamModerationIntegration:
                     check_duration_ms=(time.time() - start_time) * 1000,
                     content_hash=content_hash,
                 )
+                queue_for_review(content, fail_result, context)
+                return fail_result
             else:
                 raise ContentModerationError(
                     f"Spam check failed: {e}",
@@ -561,10 +694,15 @@ async def check_debate_content(
 __all__ = [
     "SpamVerdict",
     "SpamCheckResult",
+    "ModerationQueueItem",
     "SpamModerationConfig",
     "SpamModerationIntegration",
     "ContentModerationError",
     "get_spam_moderation",
     "set_spam_moderation",
     "check_debate_content",
+    "queue_for_review",
+    "list_review_queue",
+    "pop_review_item",
+    "review_queue_size",
 ]

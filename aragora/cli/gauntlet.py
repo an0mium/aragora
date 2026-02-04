@@ -65,7 +65,7 @@ def parse_agents(agents_str: str) -> list[tuple[str, str]]:
     """
     from aragora.agents.spec import AgentSpec
 
-    specs = AgentSpec.parse_list(agents_str)
+    specs = AgentSpec.coerce_list(agents_str, warn=False)
 
     # Assign roles based on position when not explicitly specified
     result = []

@@ -59,6 +59,8 @@ from aragora.cli.commands.receipt import (
     cmd_receipt_export,
     setup_receipt_parser,
 )
+from aragora.cli.commands.deploy import cmd_deploy, add_deploy_parser
+from aragora.cli.commands.memory_ops import cmd_memory_ops, add_memory_ops_parser
 
 __all__ = [
     # debate
@@ -117,4 +119,10 @@ __all__ = [
     "cmd_receipt_inspect",
     "cmd_receipt_export",
     "setup_receipt_parser",
+    # deployment CLI
+    "cmd_deploy",
+    "add_deploy_parser",
+    # memory operations (API-backed)
+    "cmd_memory_ops",
+    "add_memory_ops_parser",
 ]

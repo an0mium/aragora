@@ -79,6 +79,12 @@ PERM_MEMORY_DELETE = _permission(
 PERM_MEMORY_WRITE = _permission(
     ResourceType.MEMORY, Action.WRITE, "Write Memory", "Full write access to memory"
 )
+PERM_MEMORY_MANAGE = _permission(
+    ResourceType.MEMORY,
+    Action.MANAGE,
+    "Manage Memory",
+    "Admin memory operations: promote, consolidate, cleanup, archive",
+)
 
 # ============================================================================
 # REASONING PERMISSIONS
@@ -250,6 +256,7 @@ __all__ = [
     "PERM_MEMORY_UPDATE",
     "PERM_MEMORY_DELETE",
     "PERM_MEMORY_WRITE",
+    "PERM_MEMORY_MANAGE",
     # Reasoning
     "PERM_REASONING_READ",
     "PERM_REASONING_UPDATE",

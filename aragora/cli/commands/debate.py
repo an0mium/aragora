@@ -17,6 +17,7 @@ from typing import Any, Literal, cast
 from aragora.agents.base import AgentType, create_agent
 from aragora.agents.spec import AgentSpec
 from aragora.config import (
+    DEFAULT_AGENTS,
     DEFAULT_CONSENSUS,
     DEFAULT_ROUNDS,
     DEBATE_TIMEOUT_SECONDS,
@@ -73,7 +74,7 @@ def parse_agents(agents_str: str) -> list[AgentSpec]:
     """
     from aragora.agents.spec import AgentSpec
 
-    return AgentSpec.parse_list(agents_str)
+    return AgentSpec.coerce_list(agents_str, warn=False)
 
 
 def _split_agents_list(agents_str: str) -> list[str]:
@@ -90,6 +91,40 @@ def _agent_names_for_graph_matrix(agents_str: str) -> list[str]:
         return [spec.provider for spec in specs if spec.provider]
     except Exception:
         return _split_agents_list(agents_str)
+
+
+def _agents_payload_for_api(agents_str: str) -> list[Any]:
+    """Build API payload for agents (strings or dicts) from CLI input."""
+    try:
+        specs = parse_agents(agents_str)
+    except Exception:
+        return _split_agents_list(agents_str)
+
+    if not specs:
+        return []
+
+    advanced = any(
+        spec.model or spec.persona or spec.role or spec.name or spec.hierarchy_role
+        for spec in specs
+    )
+    if not advanced:
+        return [spec.provider for spec in specs if spec.provider]
+
+    payload: list[dict[str, Any]] = []
+    for spec in specs:
+        item: dict[str, Any] = {"provider": spec.provider}
+        if spec.model:
+            item["model"] = spec.model
+        if spec.persona:
+            item["persona"] = spec.persona
+        if spec.role:
+            item["role"] = spec.role
+        if spec.name:
+            item["name"] = spec.name
+        if spec.hierarchy_role:
+            item["hierarchy_role"] = spec.hierarchy_role
+        payload.append(item)
+    return payload
 
 
 def _is_server_available(server_url: str) -> bool:
@@ -132,6 +167,33 @@ def _parse_matrix_scenarios(raw: list[str] | None) -> list[dict[str, Any]]:
         else:
             scenarios.append({"name": value})
     return scenarios
+
+
+def _parse_auto_select_config(raw: str | None) -> dict[str, Any] | None:
+    """Parse auto-select config JSON string into a dict."""
+    if not raw:
+        return None
+    value = str(raw).strip()
+    if not value:
+        return None
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid auto-select config JSON: {e}") from e
+    if not isinstance(parsed, dict):
+        raise ValueError("Auto-select config must be a JSON object")
+    return parsed
+
+
+def _auto_select_agents_local(task: str, config: dict[str, Any] | None) -> str | None:
+    """Run local auto-selection using server selection logic (best-effort)."""
+    try:
+        from aragora.server.agent_selection import auto_select_agents
+
+        return auto_select_agents(task, config or {})
+    except Exception as e:
+        logger.warning("Auto-select failed: %s", e)
+        return None
 
 
 def _maybe_add_vertical_specialist_local(
@@ -366,11 +428,15 @@ def _run_debate_api(
     server_url: str,
     api_key: str | None,
     task: str,
-    agents: list[str],
+    agents: list[Any],
     rounds: int,
     consensus: str,
     context: str | None,
     metadata: dict[str, Any],
+    auto_select: bool | None,
+    auto_select_config: dict[str, Any] | None,
+    enable_verticals: bool,
+    vertical_id: str | None,
 ) -> Any:
     """Run a standard debate via API and wait for completion."""
     client = _build_api_client(server_url, api_key)
@@ -381,7 +447,11 @@ def _run_debate_api(
         consensus=consensus,
         timeout=DEBATE_TIMEOUT_SECONDS,
         context=context,
-        **metadata,
+        auto_select=auto_select,
+        auto_select_config=auto_select_config,
+        enable_verticals=enable_verticals,
+        vertical_id=vertical_id,
+        metadata=metadata,
     )
 
 
@@ -530,6 +600,8 @@ async def run_debate(
     mode: str | None = None,
     enable_verticals: bool = False,
     vertical_id: str | None = None,
+    auto_select: bool = False,
+    auto_select_config: dict[str, Any] | None = None,
 ):
     """Run a decision stress-test (debate engine)."""
 
@@ -543,6 +615,18 @@ async def run_debate(
         else:
             available = ", ".join(ModeRegistry.list_all())
             print(f"[mode] Warning: Mode '{mode}' not found. Available: {available}")
+
+    # Auto-select agents if requested and no explicit list provided
+    if auto_select:
+        if agents_str and agents_str != DEFAULT_AGENTS:
+            print("Warning: --auto-select ignores explicit --agents", file=sys.stderr)
+        if not agents_str or agents_str == DEFAULT_AGENTS:
+            selected = _auto_select_agents_local(task, auto_select_config)
+            if selected:
+                agents_str = selected
+                print(f"[auto-select] Selected agents: {agents_str}")
+            else:
+                agents_str = DEFAULT_AGENTS
 
     # Parse and create agents
     agent_specs = parse_agents(agents_str)
@@ -710,6 +794,14 @@ def cmd_ask(args: argparse.Namespace) -> None:
     graph_mode = getattr(args, "graph", False)
     matrix_mode = getattr(args, "matrix", False)
     decision_integrity = bool(getattr(args, "decision_integrity", False))
+    auto_select = bool(getattr(args, "auto_select", False))
+    try:
+        auto_select_config = _parse_auto_select_config(getattr(args, "auto_select_config", None))
+    except ValueError as e:
+        print(f"Invalid --auto-select-config: {e}", file=sys.stderr)
+        raise SystemExit(2)
+    if auto_select_config and not auto_select:
+        auto_select = True
 
     enable_verticals = bool(
         getattr(args, "enable_verticals", False) or getattr(args, "vertical", None)
@@ -725,6 +817,17 @@ def cmd_ask(args: argparse.Namespace) -> None:
             print("Graph/matrix debates require API mode. Remove --local.", file=sys.stderr)
             raise SystemExit(2)
         requested_api = True
+        if auto_select:
+            # Use local auto-select to choose a team, then pass to graph/matrix APIs
+            selected = _auto_select_agents_local(args.task, auto_select_config)
+            if selected:
+                agents = selected
+            else:
+                print(
+                    "Auto-select failed; provide --agents for graph/matrix debates.",
+                    file=sys.stderr,
+                )
+                raise SystemExit(2)
     if decision_integrity and (graph_mode or matrix_mode):
         print("Decision integrity is only supported for standard debates.", file=sys.stderr)
         raise SystemExit(2)
@@ -739,12 +842,6 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     if use_api:
         try:
-            agents_list = _split_agents_list(agents)
-            metadata = {
-                "enable_verticals": enable_verticals,
-                "vertical_id": vertical_id,
-            }
-
             if graph_mode:
                 graph_agents = _agent_names_for_graph_matrix(agents)
                 result = _run_graph_debate_api(
@@ -775,15 +872,26 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 _print_matrix_result(result, verbose=args.verbose)
                 return
 
+            if auto_select:
+                if agents and agents != DEFAULT_AGENTS:
+                    print("Warning: --auto-select ignores explicit --agents", file=sys.stderr)
+                agents_payload = []
+            else:
+                agents_payload = _agents_payload_for_api(agents)
+
             result = _run_debate_api(
                 server_url=server_url,
                 api_key=api_key,
                 task=args.task,
-                agents=agents_list,
+                agents=agents_payload,
                 rounds=rounds,
                 consensus=args.consensus,
                 context=args.context or None,
-                metadata=metadata,
+                metadata={},
+                auto_select=auto_select,
+                auto_select_config=auto_select_config,
+                enable_verticals=enable_verticals,
+                vertical_id=vertical_id,
             )
             _print_debate_result(result, verbose=args.verbose)
             if decision_integrity:
@@ -824,6 +932,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
             mode=getattr(args, "mode", None),
             enable_verticals=enable_verticals,
             vertical_id=vertical_id,
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
         )
     )
 

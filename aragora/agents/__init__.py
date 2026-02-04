@@ -102,6 +102,17 @@ from aragora.agents.learning import (
     integrate_sdpo_with_calibration,
 )
 
+# Unified Scheduler Protocol
+from aragora.agents.scheduler_protocol import (
+    SchedulerProtocol,
+    SchedulerType,
+    TaskInfo,
+    LocalSchedulerAdapter,
+    DistributedSchedulerAdapter,
+    get_scheduler,
+    reset_scheduler,
+)
+
 from aragora.agents.credential_validator import (
     CredentialStatus,
     filter_available_agents,
@@ -252,6 +263,14 @@ __all__ = [
     "SDPOCalibrationBridge",
     "SDPOCalibrationConfig",
     "integrate_sdpo_with_calibration",
+    # Unified Scheduler Protocol
+    "SchedulerProtocol",
+    "SchedulerType",
+    "TaskInfo",
+    "LocalSchedulerAdapter",
+    "DistributedSchedulerAdapter",
+    "get_scheduler",
+    "reset_scheduler",
 ]
 
 # Email-specific agents for inbox prioritization

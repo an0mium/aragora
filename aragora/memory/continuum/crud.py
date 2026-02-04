@@ -40,6 +40,7 @@ class CrudMixin:
         tier: MemoryTier = MemoryTier.SLOW,
         importance: float = 0.5,
         metadata: dict[str, Any] | None = None,
+        tenant_id: str | None = None,
     ) -> ContinuumMemoryEntry:
         """
         Add a new memory entry to the continuum.
@@ -50,11 +51,18 @@ class CrudMixin:
             tier: Initial memory tier
             importance: 0-1 importance score
             metadata: Optional additional data
+            tenant_id: Optional tenant ID for multi-tenant isolation.
+                       When provided, stored in metadata for filtering.
 
         Returns:
             The created memory entry
         """
         now: str = datetime.now().isoformat()
+
+        # Inject tenant_id into metadata for tenant isolation
+        if tenant_id is not None:
+            metadata = dict(metadata) if metadata else {}
+            metadata["tenant_id"] = tenant_id
 
         with self.connection() as conn:
             cursor: sqlite3.Cursor = conn.cursor()
@@ -156,8 +164,17 @@ class CrudMixin:
             ),
         )
 
-    def get(self: "ContinuumMemory", id: str) -> ContinuumMemoryEntry | None:
-        """Get a memory entry by ID."""
+    def get(
+        self: "ContinuumMemory", id: str, tenant_id: str | None = None
+    ) -> ContinuumMemoryEntry | None:
+        """Get a memory entry by ID.
+
+        Args:
+            id: Memory entry ID
+            tenant_id: Optional tenant ID for multi-tenant isolation.
+                       When provided, only returns the entry if it belongs
+                       to the specified tenant.
+        """
         with self.connection() as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
@@ -175,7 +192,7 @@ class CrudMixin:
         if not row:
             return None
 
-        return ContinuumMemoryEntry(
+        entry = ContinuumMemoryEntry(
             id=row[0],
             tier=MemoryTier(row[1]),
             content=row[2],
@@ -191,6 +208,15 @@ class CrudMixin:
             red_line=bool(row[12]),
             red_line_reason=row[13],
         )
+
+        # Enforce tenant isolation: if tenant_id is specified, only return
+        # entries belonging to that tenant
+        if tenant_id is not None:
+            entry_tenant = entry.metadata.get("tenant_id")
+            if entry_tenant != tenant_id:
+                return None
+
+        return entry
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def get_async(self: "ContinuumMemory", id: str) -> ContinuumMemoryEntry | None:

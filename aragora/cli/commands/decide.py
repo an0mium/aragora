@@ -24,6 +24,8 @@ async def run_decide(
     dry_run: bool = False,
     budget_limit: float | None = None,
     execution_mode: str | None = None,
+    auto_select: bool = False,
+    auto_select_config: dict[str, Any] | None = None,
     verbose: bool = False,
 ) -> dict[str, Any]:
     """Run the full decision pipeline: debate → plan → execute.
@@ -58,6 +60,8 @@ async def run_decide(
         task=task,
         agents_str=agents_str,
         rounds=rounds,
+        auto_select=auto_select,
+        auto_select_config=auto_select_config,
     )
     result["debate_result"] = debate_result
 
@@ -129,11 +133,23 @@ async def run_decide(
 
 def cmd_decide(args: argparse.Namespace) -> None:
     """Handle 'decide' command - full gold path."""
+    from aragora.cli.commands.debate import _parse_auto_select_config
+
     execution_mode = getattr(args, "execution_mode", None)
     if getattr(args, "computer_use", False):
         execution_mode = "computer_use"
     elif getattr(args, "hybrid", False):
         execution_mode = "hybrid"
+
+    auto_select = bool(getattr(args, "auto_select", False))
+    try:
+        auto_select_config = _parse_auto_select_config(getattr(args, "auto_select_config", None))
+    except ValueError as e:
+        print(f"Invalid --auto-select-config: {e}", file=sys.stderr)
+        raise SystemExit(2)
+    if auto_select_config and not auto_select:
+        auto_select = True
+
     result = asyncio.run(
         run_decide(
             task=args.task,
@@ -143,6 +159,8 @@ def cmd_decide(args: argparse.Namespace) -> None:
             dry_run=getattr(args, "dry_run", False),
             budget_limit=getattr(args, "budget_limit", None),
             execution_mode=execution_mode,
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
             verbose=getattr(args, "verbose", False),
         )
     )

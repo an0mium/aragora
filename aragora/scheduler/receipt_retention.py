@@ -12,7 +12,7 @@ Features:
 - Graceful shutdown support
 
 Usage:
-    from aragora.schedulers.receipt_retention import ReceiptRetentionScheduler
+    from aragora.scheduler.receipt_retention import ReceiptRetentionScheduler
     from aragora.storage.receipt_store import get_receipt_store
 
     scheduler = ReceiptRetentionScheduler(get_receipt_store())

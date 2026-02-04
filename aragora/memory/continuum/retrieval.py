@@ -38,6 +38,7 @@ class RetrievalMixin:
         min_importance: float = 0.0,
         include_glacial: bool = True,
         tier: str | MemoryTier | None = None,
+        tenant_id: str | None = None,
     ) -> list[ContinuumMemoryEntry]:
         """
         Retrieve memories ranked by importance, surprise, and recency.
@@ -53,6 +54,9 @@ class RetrievalMixin:
             limit: Maximum entries to return
             min_importance: Minimum importance threshold
             include_glacial: Whether to include glacial tier
+            tenant_id: Optional tenant ID for multi-tenant isolation.
+                       When provided, only returns entries belonging to
+                       this tenant. When None, returns all entries (backward compatible).
 
         Returns:
             List of memory entries sorted by retrieval score
@@ -74,6 +78,14 @@ class RetrievalMixin:
 
         tier_values: list[str] = [t.value for t in tiers]
         placeholders: str = ",".join("?" * len(tier_values))
+
+        # Build tenant_id filter clause for multi-tenant isolation
+        tenant_clause: str = ""
+        tenant_params: list[str] = []
+        if tenant_id is not None:
+            # Filter by tenant_id stored in metadata JSON
+            tenant_clause = " AND json_extract(metadata, '$.tenant_id') = ?"
+            tenant_params = [tenant_id]
 
         # Build keyword filter clause for SQL (more efficient than Python filtering)
         keyword_clause: str = ""
@@ -112,11 +124,12 @@ class RetrievalMixin:
                 FROM continuum_memory
                 WHERE tier IN ({placeholders})
                   AND importance >= ?
+                  {tenant_clause}
                   {keyword_clause}
                 ORDER BY score DESC
                 LIMIT ?
                 """,
-                (*tier_values, min_importance, *keyword_params, limit),
+                (*tier_values, min_importance, *tenant_params, *keyword_params, limit),
             )
 
             rows: list[tuple[Any, ...]] = cursor.fetchall()

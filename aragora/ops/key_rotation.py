@@ -9,7 +9,7 @@ Provides automated key rotation with:
 - Graceful key overlap periods
 
 Usage:
-    from aragora.operations.key_rotation import (
+    from aragora.ops.key_rotation import (
         KeyRotationScheduler,
         KeyRotationConfig,
         get_key_rotation_scheduler,

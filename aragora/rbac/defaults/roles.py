@@ -44,6 +44,7 @@ from .permissions import (
     PERM_MEMORY_READ,
     PERM_MEMORY_UPDATE,
     PERM_MEMORY_DELETE,
+    PERM_MEMORY_MANAGE,
     # Workflow
     PERM_WORKFLOW_CREATE,
     PERM_WORKFLOW_READ,
@@ -327,6 +328,7 @@ ROLE_ADMIN = Role(
         PERM_MEMORY_READ.key,
         PERM_MEMORY_UPDATE.key,
         PERM_MEMORY_DELETE.key,
+        PERM_MEMORY_MANAGE.key,
         # All workflows
         PERM_WORKFLOW_CREATE.key,
         PERM_WORKFLOW_READ.key,
