@@ -233,6 +233,12 @@ class QueryOperationsMixin(_QueryMixinBase):
                         route_decision.route,
                         route_decision.reason,
                     )
+                try:
+                    from aragora.observability.metrics.km import record_lara_route
+
+                    record_lara_route(route_decision.route)
+                except Exception:
+                    pass
 
             # Check cache first (include offset in cache key)
             cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}:{route_key}"

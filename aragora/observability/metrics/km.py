@@ -37,6 +37,7 @@ KM_REVERSE_QUERY_LATENCY: Any = None
 KM_SEMANTIC_SEARCH_TOTAL: Any = None
 KM_VALIDATION_FEEDBACK_TOTAL: Any = None
 KM_CROSS_DEBATE_REUSE_TOTAL: Any = None
+KM_LARA_ROUTING_TOTAL: Any = None
 
 # Calibration fusion metrics (Phase A3)
 KM_CALIBRATION_FUSIONS_TOTAL: Any = None
@@ -62,6 +63,7 @@ def init_km_metrics() -> None:
     global KM_FORWARD_SYNC_LATENCY, KM_REVERSE_QUERY_LATENCY
     global KM_SEMANTIC_SEARCH_TOTAL, KM_VALIDATION_FEEDBACK_TOTAL
     global KM_CROSS_DEBATE_REUSE_TOTAL
+    global KM_LARA_ROUTING_TOTAL
     # Calibration fusion metrics
     global KM_CALIBRATION_FUSIONS_TOTAL, KM_CALIBRATION_CONSENSUS_STRENGTH
     global KM_CALIBRATION_AGREEMENT_RATIO, KM_CALIBRATION_OUTLIERS_DETECTED
@@ -188,6 +190,12 @@ def init_km_metrics() -> None:
             ["source_type"],
         )
 
+        KM_LARA_ROUTING_TOTAL = Counter(
+            "aragora_km_lara_routing_total",
+            "LaRA routing decisions by route",
+            ["route"],
+        )
+
         # Calibration fusion metrics (Phase A3)
         KM_CALIBRATION_FUSIONS_TOTAL = Counter(
             "aragora_km_calibration_fusions_total",
@@ -234,6 +242,7 @@ def _init_noop_metrics() -> None:
     global KM_FORWARD_SYNC_LATENCY, KM_REVERSE_QUERY_LATENCY
     global KM_SEMANTIC_SEARCH_TOTAL, KM_VALIDATION_FEEDBACK_TOTAL
     global KM_CROSS_DEBATE_REUSE_TOTAL
+    global KM_LARA_ROUTING_TOTAL
     # Calibration fusion metrics
     global KM_CALIBRATION_FUSIONS_TOTAL, KM_CALIBRATION_CONSENSUS_STRENGTH
     global KM_CALIBRATION_AGREEMENT_RATIO, KM_CALIBRATION_OUTLIERS_DETECTED
@@ -258,6 +267,7 @@ def _init_noop_metrics() -> None:
     KM_SEMANTIC_SEARCH_TOTAL = NoOpMetric()
     KM_VALIDATION_FEEDBACK_TOTAL = NoOpMetric()
     KM_CROSS_DEBATE_REUSE_TOTAL = NoOpMetric()
+    KM_LARA_ROUTING_TOTAL = NoOpMetric()
     # Calibration fusion metrics
     KM_CALIBRATION_FUSIONS_TOTAL = NoOpMetric()
     KM_CALIBRATION_CONSENSUS_STRENGTH = NoOpMetric()
@@ -288,6 +298,12 @@ def record_km_operation(operation: str, success: bool, latency_seconds: float) -
     status = "success" if success else "error"
     KM_OPERATIONS_TOTAL.labels(operation=operation, status=status).inc()
     KM_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
+
+
+def record_lara_route(route: str) -> None:
+    """Record a LaRA routing decision."""
+    _ensure_init()
+    KM_LARA_ROUTING_TOTAL.labels(route=route).inc()
 
 
 def record_km_cache_access(hit: bool, adapter: str = "global") -> None:
