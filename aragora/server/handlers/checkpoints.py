@@ -448,15 +448,105 @@ class CheckpointHandler(BaseHandler):
 
         Pause a running debate and create a checkpoint.
 
-        Note: This requires integration with the debate lifecycle manager.
+        Request body (optional):
+        {
+            "note": "Pause reason",
+            "create_checkpoint": true
+        }
         """
-        # This would need to signal the running debate to pause
-        # For now, return implementation status
+        import datetime
+
+        from aragora.server.state import get_state_manager
+
+        # Get the running debate state
+        state_manager = get_state_manager()
+        debate_state = state_manager.get_debate(debate_id)
+
+        if debate_state is None:
+            return error_response(f"Debate not found: {debate_id}", 404)
+
+        if debate_state.status not in ("running", "initializing"):
+            return error_response(
+                f"Cannot pause debate in '{debate_state.status}' state. "
+                "Only running or initializing debates can be paused.",
+                400,
+            )
+
+        # Parse optional body
+        data = safe_json_parse(body) or {}
+        note = data.get("note", "")
+        create_checkpoint = data.get("create_checkpoint", True)
+
+        # Set pause flag using intervention system
+        try:
+            from aragora.server.handlers.debates.intervention import (
+                get_debate_state,
+                log_intervention,
+            )
+
+            intervention_state = get_debate_state(debate_id)
+            intervention_state["is_paused"] = True
+            intervention_state["paused_at"] = datetime.datetime.now().isoformat()
+
+            log_intervention(
+                debate_id,
+                "pause_with_checkpoint",
+                {"note": note, "create_checkpoint": create_checkpoint},
+                user_id=None,
+            )
+        except ImportError:
+            logger.warning("Intervention module not available, pause flag not set")
+
+        # Update debate status
+        state_manager.update_debate_status(debate_id, status="paused")
+
+        # Create checkpoint if requested
+        checkpoint_id = None
+        if create_checkpoint:
+            manager = self._get_checkpoint_manager()
+            try:
+                messages = []
+                for msg in debate_state.messages:
+                    if isinstance(msg, dict):
+                        messages.append(msg)
+                    elif hasattr(msg, "to_dict"):
+                        messages.append(msg.to_dict())
+                    else:
+                        messages.append({"content": str(msg)})
+
+                checkpoint = await manager.create_checkpoint(
+                    debate_id=debate_id,
+                    task=debate_state.task,
+                    current_round=debate_state.current_round,
+                    total_rounds=debate_state.total_rounds,
+                    phase="paused",
+                    messages=messages,
+                    critiques=[],
+                    votes=[],
+                    agents=[],
+                    current_consensus=None,
+                )
+                checkpoint_id = checkpoint.checkpoint_id
+
+                # Store note in metadata
+                if note:
+                    checkpoint.metadata = checkpoint.metadata or {}
+                    checkpoint.metadata["pause_note"] = note
+                    await manager.store.save(checkpoint)
+
+                logger.info(f"Paused debate {debate_id} with checkpoint {checkpoint_id}")
+
+            except (IOError, OSError, ValueError, TypeError, RuntimeError) as e:
+                logger.warning(f"Failed to create checkpoint during pause: {e}")
+
         return json_response(
             {
-                "message": "Debate pause functionality requires lifecycle manager integration",
-                "hint": "To pause a debate, cancel the running debate and it will "
-                "automatically checkpoint its current state if checkpointing is enabled.",
-            },
-            status=501,
+                "success": True,
+                "debate_id": debate_id,
+                "status": "paused",
+                "checkpoint_id": checkpoint_id,
+                "message": "Debate paused successfully",
+                "hint": "Use POST /api/checkpoints/{id}/resume to resume the debate "
+                "or POST /api/debates/{id}/intervention/resume to continue without checkpoint.",
+            }
         )
