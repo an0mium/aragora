@@ -398,8 +398,6 @@ function ExecutionOutput({ result }: { result: ExecutionResult }) {
 }
 
 function HistoryItem({ result }: { result: ExecutionResult }) {
-  const style = STATUS_STYLES[result.status] || STATUS_STYLES.pending;
-
   return (
     <div className="flex items-center gap-4 px-4 py-2 border border-acid-green/10 bg-surface/30 hover:bg-surface/50 transition-colors">
       <StatusBadge status={result.status} />
