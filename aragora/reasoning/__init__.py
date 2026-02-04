@@ -26,7 +26,8 @@ from aragora.reasoning.citations import (
     ScholarlyEvidence,
     create_citation_from_url,
 )
-from aragora.reasoning.claim_check import ClaimCheck, ClaimCheckConfig
+# ClaimCheck - lazy loaded to avoid circular imports with evidence.collector
+# Use: from aragora.reasoning.claim_check import ClaimCheck, ClaimCheckConfig
 from aragora.reasoning.claims import (
     ArgumentChain,
     ClaimRelation,
@@ -142,3 +143,11 @@ __all__ = [
     "SamplingResult",
     "sample_with_power_law",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy load ClaimCheck to avoid circular imports."""
+    if name in ("ClaimCheck", "ClaimCheckConfig", "EvidenceMatch"):
+        from aragora.reasoning import claim_check
+        return getattr(claim_check, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -146,11 +146,7 @@ class EvidenceGrounder:
 
     def _build_scholarly_evidence(
         self,
-<<<<<<< HEAD
-        snippet: EvidenceSnippet,
-=======
         snippet: "EvidenceSnippet",
->>>>>>> 75d2017b28 (reasoning: integrate claim checking)
         relevance: float,
         claim_text: str,
     ) -> "ScholarlyEvidence":

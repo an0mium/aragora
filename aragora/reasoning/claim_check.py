@@ -8,8 +8,8 @@ import re
 from aragora.evidence.collector import EvidencePack, EvidenceSnippet
 
 
-_BULLET_RE = re.compile(r"^\\s*[-*]\\s+(.*)$")
-_NUMBER_RE = re.compile(r"\\d+(?:\\.\\d+)?")
+_BULLET_RE = re.compile(r"^\s*[-*]\s+(.*)$")
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
 
 @dataclass
@@ -55,7 +55,7 @@ class ClaimCheck:
             return bullets
 
         # Split on common conjunctions as a simple heuristic.
-        parts = re.split(r"\\s+and\\s+|\\s+&\\s+", text)
+        parts = re.split(r"\s+and\s+|\s+&\s+", text)
         if len(parts) > 1:
             return [part.strip().strip(".") for part in parts if part.strip()]
 
