@@ -454,6 +454,7 @@ class AuditLog:
         self._last_hash = ""
         self._backend_type = "sqlite"
         self._backend: Any = None
+        self._persistence_backend: Any = None
 
         backend_type = os.environ.get("ARAGORA_AUDIT_STORE_BACKEND")
         if not backend_type:
@@ -466,7 +467,30 @@ class AuditLog:
             or os.environ.get("ARAGORA_DATABASE_URL")
         )
 
-        if backend_type in ("postgres", "postgresql"):
+        if backend_type == "file":
+            try:
+                from aragora.audit.persistence import get_backend as get_audit_backend
+
+                self._persistence_backend = get_audit_backend("file")
+                self._backend_type = "file"
+                try:
+                    require_distributed_store(
+                        "audit_log",
+                        StorageMode.FILE,
+                        "Audit log using file backend - configure PostgreSQL for multi-instance deployments.",
+                    )
+                except Exception as e:
+                    logger.debug("Failed to require distributed store for audit log: %s", e)
+                storage_path = getattr(self._persistence_backend, "storage_path", None)
+                if storage_path:
+                    logger.info("Audit log using file backend: %s", storage_path)
+                else:
+                    logger.info("Audit log using file backend")
+            except Exception as e:
+                logger.warning("File audit backend unavailable, falling back to SQLite: %s", e)
+                self._persistence_backend = None
+
+        if self._persistence_backend is None and backend_type in ("postgres", "postgresql"):
             if not POSTGRESQL_AVAILABLE:
                 logger.warning("PostgreSQL audit backend requested but psycopg2 is not installed")
             elif not database_url:
@@ -489,7 +513,7 @@ class AuditLog:
                     except Exception as e:
                         logger.debug("Failed to require distributed store for audit log: %s", e)
 
-        if self._backend is None:
+        if self._backend is None and self._persistence_backend is None:
             require_distributed_store(
                 "audit_log",
                 StorageMode.SQLITE,
@@ -504,6 +528,9 @@ class AuditLog:
 
     def _ensure_schema(self) -> None:
         """Create database schema."""
+        if self._backend_type == "file" and self._persistence_backend is not None:
+            self._persistence_backend.initialize()
+            return
         statements = (
             POSTGRES_SCHEMA_STATEMENTS
             if self._backend_type == "postgresql"
@@ -514,6 +541,9 @@ class AuditLog:
 
     def _load_last_hash(self) -> None:
         """Load the last event hash for chain continuity."""
+        if self._backend_type == "file" and self._persistence_backend is not None:
+            self._last_hash = self._persistence_backend.get_last_hash()
+            return
         row = self._backend.fetch_one(
             "SELECT event_hash FROM audit_events ORDER BY timestamp DESC LIMIT 1"
         )
@@ -554,6 +584,11 @@ class AuditLog:
         # Set hash chain
         event.previous_hash = self._last_hash
         event.event_hash = event.compute_hash()
+
+        if self._backend_type == "file" and self._persistence_backend is not None:
+            event_id = self._persistence_backend.store(event)
+            self._last_hash = event.event_hash
+            return event_id
 
         self._backend.execute_write(
             """
@@ -603,6 +638,9 @@ class AuditLog:
         Returns:
             List of matching events
         """
+        if self._backend_type == "file" and self._persistence_backend is not None:
+            return self._persistence_backend.query(query)
+
         conditions = []
         params: list[Any] = []
 
@@ -695,6 +733,9 @@ class AuditLog:
         Returns:
             Tuple of (is_valid, list of error messages)
         """
+        if self._backend_type == "file" and self._persistence_backend is not None:
+            return self._persistence_backend.verify_integrity(start_date, end_date)
+
         errors = []
 
         conditions = []
@@ -958,6 +999,16 @@ class AuditLog:
         """
         cutoff = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
 
+        if self._backend_type == "file" and self._persistence_backend is not None:
+            deleted = self._persistence_backend.delete_before(cutoff)
+            if deleted > 0:
+                logger.info(
+                    "audit_retention_applied deleted=%s cutoff=%s",
+                    deleted,
+                    cutoff.date(),
+                )
+            return deleted
+
         row = self._backend.fetch_one(
             "SELECT COUNT(*) FROM audit_events WHERE timestamp < ?",
             (cutoff.isoformat(),),
@@ -975,6 +1026,11 @@ class AuditLog:
 
     def get_stats(self) -> dict[str, Any]:
         """Get audit log statistics."""
+        if self._backend_type == "file" and self._persistence_backend is not None:
+            stats = self._persistence_backend.get_stats()
+            stats["retention_days"] = self.retention_days
+            return stats
+
         row = self._backend.fetch_one("""
             SELECT
                 COUNT(*) as total,
