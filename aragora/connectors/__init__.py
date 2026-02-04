@@ -15,6 +15,7 @@ with the provenance system for traceability:
 - SQLConnector: Query SQL databases (PostgreSQL, MySQL, SQLite)
 - NewsAPIConnector: News articles from multiple sources
 - SECConnector: SEC EDGAR financial filings
+- ConversationIngestorConnector: Parse ChatGPT/Claude exports for claim extraction
 
 All connectors record evidence through ProvenanceManager
 with proper source typing and confidence scoring.
@@ -150,6 +151,13 @@ from aragora.connectors.knowledge import (
     create_obsidian_connector,
 )
 from aragora.connectors.memory import ClaudeMemConnector, ClaudeMemConfig
+from aragora.connectors.conversation_ingestor import (
+    ConversationIngestorConnector,
+    Conversation,
+    ConversationMessage,
+    ConversationExport,
+    ClaimExtraction,
+)
 
 __all__ = [
     # Base classes
@@ -274,4 +282,10 @@ __all__ = [
     # Memory Connectors
     "ClaudeMemConnector",
     "ClaudeMemConfig",
+    # Conversation Ingestor
+    "ConversationIngestorConnector",
+    "Conversation",
+    "ConversationMessage",
+    "ConversationExport",
+    "ClaimExtraction",
 ]
