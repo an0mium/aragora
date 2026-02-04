@@ -1529,6 +1529,7 @@ class ContinuumMemory(
         archive: bool = True,
         reason: str = "user_deleted",
         force: bool = False,
+        tenant_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Delete a specific memory entry by ID.
@@ -1538,11 +1539,12 @@ class ContinuumMemory(
             archive: If True, archive before deletion; if False, delete permanently
             reason: Reason for deletion (stored in archive)
             force: If True, delete even if entry is red-lined (dangerous!)
+            tenant_id: Optional tenant ID for multi-tenant isolation.
 
         Returns:
             Dict with result: {"deleted": bool, "archived": bool, "id": str, "blocked": bool}
         """
-        return _stats.delete_memory(self, memory_id, archive, reason, force)
+        return _stats.delete_memory(self, memory_id, archive, reason, force, tenant_id)
 
     def enforce_tier_limits(
         self,

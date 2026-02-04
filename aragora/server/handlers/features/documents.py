@@ -466,12 +466,23 @@ class DocumentHandler(BaseHandler):
                 try:
                     from aragora.knowledge.integration import process_uploaded_document
 
+                    metadata = {
+                        "user_id": getattr(user, "user_id", None),
+                        "owner_id": getattr(user, "user_id", None),
+                        "org_id": getattr(user, "org_id", None),
+                        "workspace_id": workspace_id,
+                        "tenant_id": workspace_id or getattr(user, "org_id", None),
+                        "source": "documents_upload",
+                        "document_store_id": doc_id,
+                    }
+
                     knowledge_result = process_uploaded_document(
                         content=file_content,
                         filename=filename,
                         workspace_id=workspace_id,
                         document_id=doc_id,
                         async_processing=True,  # Queue for background processing
+                        metadata=metadata,
                     )
                     response_data.update(knowledge_result)
                     logger.info(

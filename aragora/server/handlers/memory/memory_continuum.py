@@ -79,18 +79,30 @@ class MemoryContinuumMixin:
 
         # Retrieve memories (tenant-scoped when available)
         try:
-            from aragora.memory.access import filter_entries, resolve_tenant_id
+            from aragora.memory.access import (
+                filter_entries,
+                resolve_tenant_id,
+                tenant_enforcement_enabled,
+            )
         except ImportError:
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
+            tenant_enforcement_enabled = None  # type: ignore[assignment]
 
+        enforce_tenant = tenant_enforcement_enabled() if tenant_enforcement_enabled else False
         tenant_id = resolve_tenant_id(self._auth_context) if resolve_tenant_id else None
+        if enforce_tenant and not tenant_id:
+            if self._auth_context is None:
+                enforce_tenant = False
+            else:
+                return error_response("Tenant/workspace context required for memory access", 400)
         memories = continuum.retrieve(
             query=query,
             tiers=tiers,
             limit=limit,
             min_importance=min_importance,
             tenant_id=tenant_id,
+            enforce_tenant_isolation=enforce_tenant,
         )
         if filter_entries:
             memories = filter_entries(memories, self._auth_context)
@@ -331,7 +343,23 @@ class MemoryContinuumMixin:
             return error_response("Memory deletion not supported", 501)
 
         try:
-            success = continuum.delete(memory_id)
+            try:
+                from aragora.memory.access import resolve_tenant_id, tenant_enforcement_enabled
+            except Exception:
+                resolve_tenant_id = None  # type: ignore[assignment]
+                tenant_enforcement_enabled = None  # type: ignore[assignment]
+
+            enforce_tenant = tenant_enforcement_enabled() if tenant_enforcement_enabled else False
+            tenant_id = resolve_tenant_id(self._auth_context) if resolve_tenant_id else None
+            if enforce_tenant and not tenant_id:
+                if self._auth_context is None:
+                    enforce_tenant = False
+                else:
+                    return error_response(
+                        "Tenant/workspace context required for memory deletion", 400
+                    )
+
+            success = continuum.delete(memory_id, tenant_id=tenant_id)
             if success:
                 return json_response(
                     {"success": True, "message": f"Memory {memory_id} deleted successfully"}

@@ -179,6 +179,28 @@ class TestKnowledgePipelineIntegration:
             await pipeline.stop()
 
     @pytest.mark.asyncio
+    async def test_full_pipeline_text_input(
+        self, pipeline: KnowledgePipeline, sample_contract_text: str
+    ):
+        """Test pipeline processing for raw text input."""
+        await pipeline.start()
+
+        try:
+            result = await pipeline.process_text(
+                text=sample_contract_text,
+                filename="contract-note.md",
+                metadata={"user_id": "user_123", "workspace_id": "ws_test"},
+            )
+
+            assert result.success
+            assert result.document_id
+            assert result.document is not None
+            assert result.document.filename == "contract-note.md"
+            assert result.document.metadata.get("user_id") == "user_123"
+        finally:
+            await pipeline.stop()
+
+    @pytest.mark.asyncio
     async def test_full_pipeline_batch_documents(
         self,
         pipeline: KnowledgePipeline,

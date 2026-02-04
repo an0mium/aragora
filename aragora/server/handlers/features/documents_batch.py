@@ -226,6 +226,23 @@ class DocumentBatchHandler(BaseHandler):
             except json.JSONDecodeError:
                 tags = []
 
+            auth_context = None
+            try:
+                from aragora.server.handlers.utils.auth import get_auth_context
+
+                auth_context = await get_auth_context(handler, require_auth=True)
+            except Exception:
+                auth_context = None
+
+            ingest_metadata = {
+                "user_id": getattr(auth_context, "user_id", None) if auth_context else None,
+                "owner_id": getattr(auth_context, "user_id", None) if auth_context else None,
+                "org_id": getattr(auth_context, "org_id", None) if auth_context else None,
+                "workspace_id": workspace_id,
+                "tenant_id": workspace_id or getattr(auth_context, "org_id", None),
+                "source": "documents_batch_upload",
+            }
+
             # Import batch processor
             from aragora.documents.ingestion.batch_processor import (
                 JobPriority,
@@ -295,6 +312,8 @@ class DocumentBatchHandler(BaseHandler):
                             content=content,
                             filename=filename,
                             workspace_id=workspace_id,
+                            tags=tags,
+                            metadata=ingest_metadata,
                         )
                         knowledge_job_ids.append(kp_job_id)
                     logger.info(

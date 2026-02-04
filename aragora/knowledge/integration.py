@@ -18,8 +18,8 @@ from aragora.knowledge.pipeline import KnowledgePipeline, PipelineConfig, Proces
 
 logger = logging.getLogger(__name__)
 
-# Global pipeline instance (lazily initialized)
-_pipeline: KnowledgePipeline | None = None
+# Global pipeline instances per workspace (lazily initialized)
+_pipelines: dict[str, KnowledgePipeline] = {}
 _pipeline_lock = asyncio.Lock()
 
 # Thread pool for running async code from sync context
@@ -53,6 +53,8 @@ class ProcessingJob:
     document_id: str
     filename: str
     workspace_id: str
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
     status: str = "pending"  # pending, processing, completed, failed
     result: ProcessingResult | None = None
     error: str | None = None
@@ -73,20 +75,21 @@ async def get_pipeline(workspace_id: str = "default") -> KnowledgePipeline:
     Returns:
         Initialized KnowledgePipeline
     """
-    global _pipeline
-
     async with _pipeline_lock:
-        if _pipeline is None:
+        pipeline = _pipelines.get(workspace_id)
+        if pipeline is None:
             config = PipelineConfig(
                 workspace_id=workspace_id,
                 use_weaviate=_should_use_weaviate(),
                 extract_facts=True,
+                use_knowledge_mound=_should_use_knowledge_mound(),
             )
-            _pipeline = KnowledgePipeline(config)
-            await _pipeline.start()
+            pipeline = KnowledgePipeline(config)
+            await pipeline.start()
+            _pipelines[workspace_id] = pipeline
             logger.info(f"Knowledge pipeline initialized for workspace {workspace_id}")
 
-        return _pipeline
+        return pipeline
 
 
 def _should_use_weaviate() -> bool:
@@ -96,11 +99,25 @@ def _should_use_weaviate() -> bool:
     return os.environ.get("ARAGORA_WEAVIATE_ENABLED", "false").lower() == "true"
 
 
+def _should_use_knowledge_mound() -> bool:
+    """Check if Knowledge Mound integration should be enabled."""
+    try:
+        from aragora.config import get_settings
+
+        return bool(get_settings().integration.knowledge_mound_enabled)
+    except Exception:
+        import os
+
+        return os.environ.get("ARAGORA_INTEGRATION_KNOWLEDGE_MOUND", "true").lower() == "true"
+
+
 async def process_document_async(
     content: bytes,
     filename: str,
     workspace_id: str = "default",
     document_id: str | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
     config: KnowledgeProcessingConfig | None = None,
 ) -> ProcessingResult:
     """Process a document through the knowledge pipeline.
@@ -122,7 +139,10 @@ async def process_document_async(
     result = await pipeline.process_document(
         content=content,
         filename=filename,
+        tags=tags,
         extract_facts=config.extract_facts,
+        document_id=document_id,
+        metadata=metadata,
     )
 
     if config.on_complete and result.success:
@@ -145,6 +165,8 @@ def process_document_sync(
     filename: str,
     workspace_id: str = "default",
     document_id: str | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
     config: KnowledgeProcessingConfig | None = None,
 ) -> ProcessingResult:
     """Synchronous wrapper for process_document_async.
@@ -169,6 +191,8 @@ def process_document_sync(
                 filename=filename,
                 workspace_id=workspace_id,
                 document_id=document_id,
+                tags=tags,
+                metadata=metadata,
                 config=config,
             )
         )
@@ -176,11 +200,156 @@ def process_document_sync(
         loop.close()
 
 
+async def process_text_async(
+    text: str,
+    filename: str = "text.txt",
+    workspace_id: str = "default",
+    document_id: str | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    config: KnowledgeProcessingConfig | None = None,
+) -> ProcessingResult:
+    """Process raw text through the knowledge pipeline.
+
+    Args:
+        text: Raw text content
+        filename: Logical filename for provenance
+        workspace_id: Workspace identifier
+        document_id: Optional existing document ID
+        tags: Optional tags for categorization
+        metadata: Optional metadata to attach to the document
+        config: Processing configuration
+
+    Returns:
+        ProcessingResult with chunks and facts
+    """
+    config = config or KnowledgeProcessingConfig()
+
+    pipeline = await get_pipeline(workspace_id)
+
+    result = await pipeline.process_text(
+        text=text,
+        filename=filename,
+        tags=tags,
+        extract_facts=config.extract_facts,
+        document_id=document_id,
+        metadata=metadata,
+    )
+
+    if config.on_complete and result.success:
+        try:
+            config.on_complete(result)
+        except Exception as e:
+            logger.warning(f"on_complete callback failed: {e}")
+
+    if config.on_error and not result.success:
+        try:
+            config.on_error(result.document_id, Exception(result.error or "Unknown error"))
+        except Exception as e:
+            logger.warning(f"on_error callback failed: {e}")
+
+    return result
+
+
+def process_text_sync(
+    text: str,
+    filename: str = "text.txt",
+    workspace_id: str = "default",
+    document_id: str | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    config: KnowledgeProcessingConfig | None = None,
+) -> ProcessingResult:
+    """Synchronous wrapper for process_text_async.
+
+    Runs the async processing in a thread pool.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(
+            process_text_async(
+                text=text,
+                filename=filename,
+                workspace_id=workspace_id,
+                document_id=document_id,
+                tags=tags,
+                metadata=metadata,
+                config=config,
+            )
+        )
+    finally:
+        loop.close()
+
+
+def queue_text_processing(
+    text: str,
+    filename: str = "text.txt",
+    workspace_id: str = "default",
+    document_id: str | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    config: KnowledgeProcessingConfig | None = None,
+) -> str:
+    """Queue raw text for background knowledge processing.
+
+    Returns immediately with a job ID that can be used to check status.
+    """
+    import uuid
+
+    job_id = f"kp_{uuid.uuid4().hex[:12]}"
+    doc_id = document_id or f"doc_{uuid.uuid4().hex[:12]}"
+
+    job = ProcessingJob(
+        job_id=job_id,
+        document_id=doc_id,
+        filename=filename,
+        workspace_id=workspace_id,
+        tags=tags or [],
+        metadata=metadata or {},
+    )
+    _jobs[job_id] = job
+
+    def run_processing():
+        try:
+            job.status = "processing"
+            result = process_text_sync(
+                text=text,
+                filename=filename,
+                workspace_id=workspace_id,
+                document_id=doc_id,
+                tags=tags,
+                metadata=metadata,
+                config=config,
+            )
+            job.result = result
+            job.status = "completed" if result.success else "failed"
+            job.error = result.error
+            job.completed_at = datetime.now(timezone.utc)
+
+            logger.info(
+                f"Knowledge processing completed: {job_id} "
+                f"chunks={result.chunk_count} facts={result.fact_count}"
+            )
+
+        except Exception as e:
+            job.status = "failed"
+            job.error = str(e)
+            job.completed_at = datetime.now(timezone.utc)
+            logger.error(f"Knowledge processing failed: {job_id} - {e}")
+
+    _executor.submit(run_processing)
+
+    logger.info(f"Queued knowledge processing: {job_id} for {filename}")
+    return job_id
+
+
 def queue_document_processing(
     content: bytes,
     filename: str,
     workspace_id: str = "default",
     document_id: str | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
     config: KnowledgeProcessingConfig | None = None,
 ) -> str:
     """Queue a document for background knowledge processing.
@@ -207,6 +376,8 @@ def queue_document_processing(
         document_id=doc_id,
         filename=filename,
         workspace_id=workspace_id,
+        tags=tags or [],
+        metadata=metadata or {},
     )
     _jobs[job_id] = job
 
@@ -218,6 +389,8 @@ def queue_document_processing(
                 filename=filename,
                 workspace_id=workspace_id,
                 document_id=doc_id,
+                tags=tags,
+                metadata=metadata,
                 config=config,
             )
             job.result = result
@@ -260,6 +433,8 @@ def get_job_status(job_id: str) -> dict[str, Any] | None:
         "document_id": job.document_id,
         "filename": job.filename,
         "workspace_id": job.workspace_id,
+        "tags": job.tags,
+        "metadata": job.metadata,
         "status": job.status,
         "error": job.error,
         "created_at": job.created_at.isoformat(),
@@ -308,13 +483,15 @@ def get_all_jobs(
 
 async def shutdown_pipeline() -> None:
     """Shutdown the knowledge pipeline gracefully."""
-    global _pipeline
-
     async with _pipeline_lock:
-        if _pipeline:
-            await _pipeline.stop()
-            _pipeline = None
-            logger.info("Knowledge pipeline shutdown complete")
+        if _pipelines:
+            for workspace_id, pipeline in list(_pipelines.items()):
+                try:
+                    await pipeline.stop()
+                    logger.info("Knowledge pipeline shutdown complete for workspace %s", workspace_id)
+                except Exception as e:
+                    logger.warning("Failed to shutdown pipeline for workspace %s: %s", workspace_id, e)
+            _pipelines.clear()
 
     _executor.shutdown(wait=True)
 
@@ -326,6 +503,8 @@ def process_uploaded_document(
     workspace_id: str = "default",
     document_id: str | None = None,
     async_processing: bool = True,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Process an uploaded document through the knowledge pipeline.
 
@@ -337,6 +516,8 @@ def process_uploaded_document(
         workspace_id: Workspace identifier
         document_id: Document ID from storage
         async_processing: If True, process in background and return job_id
+        tags: Optional tags for categorization
+        metadata: Optional metadata to attach to the document
 
     Returns:
         Dict with processing info:
@@ -349,6 +530,8 @@ def process_uploaded_document(
             filename=filename,
             workspace_id=workspace_id,
             document_id=document_id,
+            tags=tags,
+            metadata=metadata,
         )
         return {
             "knowledge_processing": {
@@ -362,6 +545,8 @@ def process_uploaded_document(
             filename=filename,
             workspace_id=workspace_id,
             document_id=document_id,
+            tags=tags,
+            metadata=metadata,
         )
         return {
             "knowledge_processing": {
@@ -372,3 +557,47 @@ def process_uploaded_document(
                 "error": result.error,
             }
         }
+
+
+def process_uploaded_text(
+    text: str,
+    filename: str = "text.txt",
+    workspace_id: str = "default",
+    document_id: str | None = None,
+    async_processing: bool = True,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Process uploaded text through the knowledge pipeline."""
+    if async_processing:
+        job_id = queue_text_processing(
+            text=text,
+            filename=filename,
+            workspace_id=workspace_id,
+            document_id=document_id,
+            tags=tags,
+            metadata=metadata,
+        )
+        return {
+            "knowledge_processing": {
+                "job_id": job_id,
+                "status": "queued",
+            }
+        }
+    result = process_text_sync(
+        text=text,
+        filename=filename,
+        workspace_id=workspace_id,
+        document_id=document_id,
+        tags=tags,
+        metadata=metadata,
+    )
+    return {
+        "knowledge_processing": {
+            "success": result.success,
+            "chunks": result.chunk_count,
+            "facts": result.fact_count,
+            "embedded": result.embedded_count,
+            "error": result.error,
+        }
+    }

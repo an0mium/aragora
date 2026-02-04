@@ -292,6 +292,8 @@ class RetrievalMixin:
         after: int = 3,
         tiers: list[MemoryTier] | None = None,
         min_importance: float = 0.0,
+        tenant_id: str | None = None,
+        enforce_tenant_isolation: bool = False,
     ) -> dict[str, Any] | None:
         """Get timeline entries around a specific memory ID.
 
@@ -301,11 +303,17 @@ class RetrievalMixin:
             after: Number of entries after the anchor.
             tiers: Optional tier filter.
             min_importance: Minimum importance filter.
+            tenant_id: Optional tenant ID for isolation.
+            enforce_tenant_isolation: If True, require tenant_id and raise
+                TenantRequiredError if not provided.
 
         Returns:
             Dict with "anchor", "before", "after" entries or None if anchor missing.
         """
-        anchor = self.get(anchor_id)
+        if enforce_tenant_isolation and tenant_id is None:
+            raise TenantRequiredError("timeline")
+
+        anchor = self.get(anchor_id, tenant_id=tenant_id)
         if anchor is None:
             return None
 
@@ -337,6 +345,12 @@ class RetrievalMixin:
                 )
             return entries
 
+        tenant_clause = ""
+        tenant_params: list[str] = []
+        if tenant_id is not None:
+            tenant_clause = " AND json_extract(metadata, '$.tenant_id') = ?"
+            tenant_params = [tenant_id]
+
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -349,10 +363,11 @@ class RetrievalMixin:
                   AND importance >= ?
                   AND id != ?
                   AND datetime(created_at) <= datetime(?)
+                  {tenant_clause}
                 ORDER BY datetime(created_at) DESC
                 LIMIT ?
                 """,
-                (*tier_values, min_importance, anchor_id, anchor.created_at, before),
+                (*tier_values, min_importance, anchor_id, anchor.created_at, *tenant_params, before),
             )
             before_rows = cursor.fetchall()
 
@@ -366,10 +381,11 @@ class RetrievalMixin:
                   AND importance >= ?
                   AND id != ?
                   AND datetime(created_at) >= datetime(?)
+                  {tenant_clause}
                 ORDER BY datetime(created_at) ASC
                 LIMIT ?
                 """,
-                (*tier_values, min_importance, anchor_id, anchor.created_at, after),
+                (*tier_values, min_importance, anchor_id, anchor.created_at, *tenant_params, after),
             )
             after_rows = cursor.fetchall()
 

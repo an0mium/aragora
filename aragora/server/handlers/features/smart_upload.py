@@ -29,6 +29,11 @@ from aragora.server.handlers.utils.file_validation import (
 
 logger = logging.getLogger(__name__)
 
+# Knowledge processing enabled by default (can be disabled via env var)
+KNOWLEDGE_PROCESSING_DEFAULT = (
+    os.environ.get("ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true").lower() == "true"
+)
+
 # Magic byte signatures for content-type validation
 # Maps file signatures to (expected_mime_type, expected_extensions)
 MAGIC_SIGNATURES: dict[bytes, tuple[str, list[str]]] = {
@@ -489,11 +494,132 @@ async def process_file(
             # Skip or unknown - just store the file
             result["stored"] = True
 
+        if _resolve_bool(options.get("process_knowledge"), KNOWLEDGE_PROCESSING_DEFAULT):
+            knowledge_result = await _queue_knowledge_from_result(
+                options=options,
+                category=category,
+                action=action,
+                filename=filename,
+                processing_result=result,
+            )
+            if knowledge_result and knowledge_result.get("knowledge_processing"):
+                result["knowledge_processing"] = knowledge_result.get("knowledge_processing")
+
     except Exception as e:
         logger.error(f"Error processing {filename}: {e}")
         result["error"] = str(e)
 
     return result
+
+
+def _resolve_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+    return default
+
+
+def _build_ingest_metadata(
+    options: dict[str, Any],
+    category: FileCategory,
+    action: ProcessingAction,
+    filename: str,
+    processing_result: dict[str, Any],
+) -> dict[str, Any]:
+    metadata = options.get("metadata")
+    base_metadata: dict[str, Any] = metadata if isinstance(metadata, dict) else {}
+
+    merged = dict(base_metadata)
+    merged.setdefault("source", "smart_upload")
+    merged.setdefault("source_category", category.value)
+    merged.setdefault("source_action", action.value)
+    merged.setdefault("filename", filename)
+    if options.get("mime_type"):
+        merged.setdefault("mime_type", options.get("mime_type"))
+
+    if action == ProcessingAction.TRANSCRIBE:
+        if processing_result.get("language"):
+            merged.setdefault("transcription_language", processing_result.get("language"))
+        if processing_result.get("duration"):
+            merged.setdefault("transcription_duration", processing_result.get("duration"))
+        if processing_result.get("segments"):
+            merged.setdefault("segment_count", len(processing_result.get("segments") or []))
+    elif action == ProcessingAction.OCR:
+        if processing_result.get("confidence") is not None:
+            merged.setdefault("ocr_confidence", processing_result.get("confidence"))
+
+    return merged
+
+
+def _build_knowledge_filename(filename: str, suffix: str) -> str:
+    if not suffix:
+        return filename
+    base = Path(filename).name
+    return f"{base}.{suffix}.txt"
+
+
+async def _queue_knowledge_from_result(
+    *,
+    options: dict[str, Any],
+    category: FileCategory,
+    action: ProcessingAction,
+    filename: str,
+    processing_result: dict[str, Any],
+) -> dict[str, Any] | None:
+    text: str | None = None
+    suffix = ""
+
+    if action == ProcessingAction.TRANSCRIBE:
+        text = processing_result.get("transcription")
+        suffix = "transcript"
+    elif action == ProcessingAction.EXTRACT:
+        text = processing_result.get("text")
+        suffix = "extracted"
+    elif action == ProcessingAction.OCR:
+        text = processing_result.get("text")
+        suffix = "ocr"
+
+    if not text or not isinstance(text, str) or not text.strip():
+        return None
+
+    if _resolve_bool(options.get("skip_placeholder_text"), True):
+        if text.strip().startswith("[") and text.strip().endswith("]"):
+            return None
+
+    workspace_id = options.get("workspace_id")
+    metadata = options.get("metadata")
+    if not workspace_id and isinstance(metadata, dict):
+        workspace_id = metadata.get("workspace_id")
+    if not workspace_id:
+        workspace_id = "default"
+
+    tags = options.get("knowledge_tags") or options.get("tags")
+    async_processing = _resolve_bool(options.get("async_knowledge"), True)
+    knowledge_filename = _build_knowledge_filename(filename, suffix)
+    ingest_metadata = _build_ingest_metadata(options, category, action, filename, processing_result)
+
+    try:
+        from aragora.knowledge.integration import process_uploaded_text
+
+        return process_uploaded_text(
+            text=text,
+            filename=knowledge_filename,
+            workspace_id=str(workspace_id),
+            async_processing=async_processing,
+            tags=tags,
+            metadata=ingest_metadata,
+        )
+    except ImportError:
+        logger.warning("Knowledge pipeline not available, skipping knowledge ingestion")
+    except Exception as e:
+        logger.warning("Knowledge ingestion failed: %s", e)
+
+    return None
 
 
 async def _transcribe_audio_video(
@@ -874,6 +1000,10 @@ async def smart_upload(
     _upload_results[upload_id] = result
 
     try:
+        options = dict(options or {})
+        if mime_type and "mime_type" not in options:
+            options["mime_type"] = mime_type
+
         # Process the file
         processing_result = await process_file(
             file_content,
@@ -921,6 +1051,39 @@ if HANDLER_BASE_AVAILABLE:
         def can_handle(self, path: str, method: str = "GET") -> bool:
             """Check if this handler can process the given path."""
             return path.startswith("/api/v1/upload/")
+
+        async def _attach_auth_metadata(
+            self,
+            handler: Any,
+            options: dict[str, Any] | None,
+        ) -> dict[str, Any]:
+            """Attach auth-derived metadata for knowledge ingestion."""
+            options = dict(options or {})
+            try:
+                from aragora.server.handlers.utils.auth import get_auth_context
+
+                auth_context = await get_auth_context(handler, require_auth=True)
+            except Exception:
+                return options
+
+            metadata = options.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
+
+            metadata.setdefault("user_id", getattr(auth_context, "user_id", None))
+            metadata.setdefault("org_id", getattr(auth_context, "org_id", None))
+            metadata.setdefault("workspace_id", getattr(auth_context, "workspace_id", None))
+            metadata.setdefault(
+                "tenant_id",
+                getattr(auth_context, "workspace_id", None) or getattr(auth_context, "org_id", None),
+            )
+
+            options["metadata"] = metadata
+
+            if metadata.get("workspace_id") and "workspace_id" not in options:
+                options["workspace_id"] = metadata.get("workspace_id")
+
+            return options
 
         def handle(
             self,
@@ -971,7 +1134,7 @@ if HANDLER_BASE_AVAILABLE:
             filename = body.get("filename", "unknown")
             mime_type = body.get("mime_type")
             action = body.get("action")
-            options = body.get("options", {})
+            options = await self._attach_auth_metadata(handler, body.get("options", {}))
 
             if not file_content:
                 return error_response("No file content provided", 400)
@@ -1016,12 +1179,13 @@ if HANDLER_BASE_AVAILABLE:
                 if isinstance(content, str):
                     content = base64.b64decode(content)
 
+                options = await self._attach_auth_metadata(handler, file_info.get("options"))
                 result = await smart_upload(
                     content,
                     file_info.get("filename", "unknown"),
                     file_info.get("mime_type"),
                     ProcessingAction(file_info["action"]) if file_info.get("action") else None,
-                    file_info.get("options"),
+                    options,
                 )
                 results.append(
                     {

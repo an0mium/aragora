@@ -31,6 +31,11 @@ def resolve_tenant_id(auth_context: AuthorizationContext | None) -> str | None:
     return workspace_id or org_id
 
 
+def tenant_enforcement_enabled() -> bool:
+    """Return True if tenant isolation enforcement is enabled."""
+    return _env_flag("ARAGORA_MEMORY_TENANT_ENFORCE", "1")
+
+
 def _has_permission(auth_context: AuthorizationContext | None, permission: str) -> bool:
     if auth_context is None:
         return False
@@ -123,6 +128,7 @@ def filter_entries(
 
 __all__ = [
     "resolve_tenant_id",
+    "tenant_enforcement_enabled",
     "is_admin_context",
     "can_view_entry",
     "filter_entries",

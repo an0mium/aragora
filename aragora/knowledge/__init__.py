@@ -70,8 +70,12 @@ from aragora.knowledge.integration import (
     get_pipeline,
     process_document_async,
     process_document_sync,
+    process_text_async,
+    process_text_sync,
     process_uploaded_document,
+    process_uploaded_text,
     queue_document_processing,
+    queue_text_processing,
     shutdown_pipeline,
 )
 
@@ -131,8 +135,12 @@ __all__ = [
     "get_pipeline",
     "process_document_async",
     "process_document_sync",
+    "process_text_async",
+    "process_text_sync",
     "process_uploaded_document",
+    "process_uploaded_text",
     "queue_document_processing",
+    "queue_text_processing",
     "shutdown_pipeline",
     # Knowledge Mound
     "KnowledgeMound",

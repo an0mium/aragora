@@ -329,6 +329,8 @@ class KnowledgePipeline:
         filename: str,
         tags: list[str] | None = None,
         extract_facts: bool | None = None,
+        document_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ProcessingResult:
         """
         Process a single document through the pipeline.
@@ -338,6 +340,8 @@ class KnowledgePipeline:
             filename: Original filename
             tags: Optional tags for categorization
             extract_facts: Override config setting for fact extraction
+            document_id: Optional externally supplied document ID
+            metadata: Optional metadata to attach to the document
 
         Returns:
             ProcessingResult with document, chunks, and facts
@@ -346,14 +350,20 @@ class KnowledgePipeline:
             await self.start()
 
         start_time = datetime.now()
-        document_id = f"doc_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename.replace('.', '_')}"
+        document_id = document_id or f"doc_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename.replace('.', '_')}"
 
         try:
             self._report_progress(document_id, 0.0, "Starting document processing...")
 
             # Step 1: Parse document (20%)
             self._report_progress(document_id, 0.1, "Parsing document...")
-            document, text = await self._parse_document(content, filename, document_id, tags)
+            document, text = await self._parse_document(
+                content=content,
+                filename=filename,
+                document_id=document_id,
+                tags=tags,
+                metadata=metadata,
+            )
 
             # Step 2: Chunk document (40%)
             self._report_progress(document_id, 0.3, "Chunking document...")
@@ -421,6 +431,114 @@ class KnowledgePipeline:
                 error=str(e),
             )
 
+    async def process_text(
+        self,
+        text: str,
+        filename: str = "text.txt",
+        tags: list[str] | None = None,
+        extract_facts: bool | None = None,
+        document_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ProcessingResult:
+        """
+        Process raw text through the pipeline without file parsing.
+
+        Args:
+            text: Text content to process
+            filename: Logical filename for provenance
+            tags: Optional tags for categorization
+            extract_facts: Override config setting for fact extraction
+            document_id: Optional externally supplied document ID
+            metadata: Optional metadata to attach to the document
+
+        Returns:
+            ProcessingResult with document, chunks, and facts
+        """
+        if not self._running:
+            await self.start()
+
+        start_time = datetime.now()
+        document_id = document_id or f"text_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename.replace('.', '_')}"
+
+        try:
+            self._report_progress(document_id, 0.0, "Starting text processing...")
+
+            # Step 1: Build document from text (20%)
+            self._report_progress(document_id, 0.1, "Preparing text document...")
+            document = self._build_document_from_text(
+                text=text,
+                filename=filename,
+                document_id=document_id,
+                tags=tags,
+                metadata=metadata,
+            )
+
+            # Step 2: Chunk document (40%)
+            self._report_progress(document_id, 0.3, "Chunking document...")
+            chunks = await self._chunk_document(document, text)
+
+            # Step 3: Embed chunks (70%)
+            self._report_progress(document_id, 0.5, "Embedding chunks...")
+            embedded_count = await self._embed_chunks(chunks, document_id)
+
+            # Step 4: Extract facts (70%)
+            facts = []
+            should_extract = (
+                extract_facts if extract_facts is not None else self.config.extract_facts
+            )
+            if should_extract and self._agents:
+                self._report_progress(document_id, 0.7, "Extracting facts...")
+                facts = await self._extract_facts(document, chunks)
+
+            # Step 5: Sync to Knowledge Mound (90%)
+            mound_synced = 0
+            if self._knowledge_mound and MOUND_AVAILABLE:
+                self._report_progress(document_id, 0.85, "Syncing to Knowledge Mound...")
+                mound_synced = await self._sync_to_mound(document, chunks, facts, tags)
+
+            # Finalize
+            self._report_progress(document_id, 1.0, "Processing complete")
+
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+
+            # Update stats
+            self._stats["documents_processed"] += 1
+            self._stats["chunks_embedded"] += embedded_count
+            self._stats["facts_extracted"] += len(facts)
+            self._stats["mound_synced"] += mound_synced
+
+            return ProcessingResult(
+                document_id=document_id,
+                filename=filename,
+                workspace_id=self.config.workspace_id,
+                chunk_count=len(chunks),
+                embedded_count=embedded_count,
+                fact_count=len(facts),
+                total_tokens=sum(c.token_count for c in chunks),
+                duration_ms=duration_ms,
+                success=True,
+                document=document,
+                chunks=chunks,
+                facts=facts,
+            )
+
+        except Exception as e:
+            logger.error(f"Text processing failed: {e}")
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+
+            return ProcessingResult(
+                document_id=document_id,
+                filename=filename,
+                workspace_id=self.config.workspace_id,
+                chunk_count=0,
+                embedded_count=0,
+                fact_count=0,
+                total_tokens=0,
+                duration_ms=duration_ms,
+                success=False,
+                error=str(e),
+            )
+
     async def process_batch(
         self,
         files: list[tuple[bytes, str]],
@@ -448,17 +566,28 @@ class KnowledgePipeline:
         filename: str,
         document_id: str,
         tags: list[str] | None,
+        metadata: dict[str, Any] | None,
     ) -> tuple[IngestedDocument, str]:
         """Parse document content and extract text."""
         if self._parser and UNSTRUCTURED_AVAILABLE:
+            uploaded_by = ""
+            if metadata:
+                uploaded_by = str(
+                    metadata.get("user_id")
+                    or metadata.get("owner_id")
+                    or metadata.get("uploaded_by")
+                    or ""
+                )
             document = self._parser.parse_to_document(
                 content=content,
                 filename=filename,
                 workspace_id=self.config.workspace_id,
+                uploaded_by=uploaded_by,
                 tags=tags or [],
             )
             # Override the auto-generated ID
             document.id = document_id
+            self._apply_metadata(document, metadata)
             return document, document.text
         else:
             # Fallback: treat as text
@@ -476,7 +605,52 @@ class KnowledgePipeline:
                 status=DocumentStatus.PROCESSING,
                 text=text,
             )
+            self._apply_metadata(document, metadata)
             return document, text
+
+    def _build_document_from_text(
+        self,
+        text: str,
+        filename: str,
+        document_id: str,
+        tags: list[str] | None,
+        metadata: dict[str, Any] | None,
+    ) -> IngestedDocument:
+        """Build an IngestedDocument from raw text."""
+        content_type = "text/plain"
+        ext = Path(filename).suffix.lower()
+        if ext in (".md", ".markdown"):
+            content_type = "text/markdown"
+
+        document = IngestedDocument(
+            id=document_id,
+            filename=filename,
+            workspace_id=self.config.workspace_id,
+            content_type=content_type,
+            file_size=len(text.encode("utf-8")),
+            status=DocumentStatus.PROCESSING,
+            text=text,
+            word_count=len(text.split()),
+            char_count=len(text),
+            tags=tags or [],
+        )
+        self._apply_metadata(document, metadata)
+        return document
+
+    def _apply_metadata(
+        self,
+        document: IngestedDocument,
+        metadata: dict[str, Any] | None,
+    ) -> None:
+        """Apply metadata and ownership fields to a document."""
+        if not metadata:
+            return
+        if not isinstance(document.metadata, dict):
+            document.metadata = {}
+        document.metadata.update(metadata)
+        uploaded_by = metadata.get("user_id") or metadata.get("owner_id") or metadata.get("uploaded_by")
+        if uploaded_by:
+            document.uploaded_by = str(uploaded_by)
 
     async def _chunk_document(
         self,
@@ -631,19 +805,33 @@ Include dates, numbers, names, and specific claims where possible."""
 
         synced = 0
         try:
+            base_metadata: dict[str, Any] = {}
+            if isinstance(document.metadata, dict):
+                base_metadata.update(document.metadata)
+
+            if tags:
+                base_metadata.setdefault("tags", tags)
+
+            user_id = base_metadata.get("user_id") or base_metadata.get("owner_id")
+            agent_id = base_metadata.get("agent_id")
+
             # Store the document as a knowledge item
             doc_request = IngestionRequest(
                 content=document.text or "",
                 source_type=KnowledgeSource.DOCUMENT,
-                workspace_id=self.config.workspace_id,
+                workspace_id=base_metadata.get("workspace_id") or self.config.workspace_id,
+                document_id=document.id,
+                user_id=str(user_id) if user_id else None,
+                agent_id=str(agent_id) if agent_id else None,
                 confidence=0.9,  # High confidence
                 metadata={
+                    **base_metadata,
                     "document_id": document.id,
                     "filename": document.filename,
                     "content_type": document.content_type,
                     "file_size": document.file_size,
                     "chunk_count": len(chunks),
-                    "tags": tags or [],
+                    "tags": tags or base_metadata.get("tags") or [],
                 },
             )
             result = await self._knowledge_mound.store(doc_request)
@@ -655,9 +843,13 @@ Include dates, numbers, names, and specific claims where possible."""
                 chunk_request = IngestionRequest(
                     content=chunk.content,
                     source_type=KnowledgeSource.DOCUMENT,
-                    workspace_id=self.config.workspace_id,
+                    workspace_id=base_metadata.get("workspace_id") or self.config.workspace_id,
+                    document_id=document.id,
+                    user_id=str(user_id) if user_id else None,
+                    agent_id=str(agent_id) if agent_id else None,
                     confidence=0.9,  # High confidence
                     metadata={
+                        **base_metadata,
                         "chunk_id": chunk.id,
                         "document_id": document.id,
                         "sequence": chunk.sequence,
@@ -674,9 +866,13 @@ Include dates, numbers, names, and specific claims where possible."""
                 fact_request = IngestionRequest(
                     content=fact.statement,
                     source_type=KnowledgeSource.EXTRACTION,
-                    workspace_id=self.config.workspace_id,
+                    workspace_id=base_metadata.get("workspace_id") or self.config.workspace_id,
+                    document_id=document.id,
+                    user_id=str(user_id) if user_id else None,
+                    agent_id=str(agent_id) if agent_id else None,
                     confidence=fact.confidence,  # Use fact's confidence directly
                     metadata={
+                        **base_metadata,
                         "fact_id": fact.id,
                         "document_id": document.id,
                         "validation_status": (

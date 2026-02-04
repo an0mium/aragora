@@ -419,7 +419,18 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 "document_id": request.document_id,
                 "agent_id": request.agent_id,
                 "user_id": request.user_id,
+                "owner_id": request.user_id,
                 "workspace_id": request.workspace_id,
+                "tenant_id": (
+                    request.metadata.get("tenant_id")
+                    if isinstance(request.metadata, dict)
+                    else None
+                ),
+                "org_id": (
+                    request.metadata.get("org_id")
+                    if isinstance(request.metadata, dict)
+                    else None
+                ),
                 "topics": request.topics,
                 "mound_metadata": request.metadata,
             },

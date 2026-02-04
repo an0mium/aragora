@@ -33,6 +33,11 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+# Knowledge processing enabled by default (can be disabled via env var)
+KNOWLEDGE_PROCESSING_DEFAULT = (
+    os.environ.get("ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true").lower() == "true"
+)
+
 # File size limits (Whisper API limit is 25MB)
 MAX_FILE_SIZE_MB = 25
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -113,6 +118,11 @@ class TranscriptionJob:
     language: str | None = None
     word_count: int = 0
     segments: list = field(default_factory=list)
+    workspace_id: str | None = None
+    user_id: str | None = None
+    org_id: str | None = None
+    tenant_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -331,14 +341,25 @@ class TranscriptionHandler(BaseHandler):
         """Get client IP address."""
         return handler.client_address[0] if hasattr(handler, "client_address") else "unknown"
 
-    def _create_job(self, filename: str, file_size: int) -> TranscriptionJob:
+    def _create_job(
+        self,
+        filename: str,
+        file_size: int,
+        metadata: dict[str, Any] | None = None,
+    ) -> TranscriptionJob:
         """Create and register a new transcription job."""
         job_id = f"trans_{uuid.uuid4().hex[:12]}"
+        metadata = metadata or {}
         job = TranscriptionJob(
             id=job_id,
             filename=filename,
             status=TranscriptionStatus.PENDING,
             file_size_bytes=file_size,
+            workspace_id=metadata.get("workspace_id"),
+            user_id=metadata.get("user_id"),
+            org_id=metadata.get("org_id"),
+            tenant_id=metadata.get("tenant_id"),
+            metadata=metadata,
         )
 
         with TranscriptionHandler._jobs_lock:
@@ -461,7 +482,21 @@ class TranscriptionHandler(BaseHandler):
             ).to_response(400)
 
         # Create job
-        job = self._create_job(filename, len(file_content))
+        workspace_id = None
+        if hasattr(handler, "headers"):
+            workspace_id = handler.headers.get("X-Workspace-ID")
+        workspace_id = workspace_id or "default"
+
+        ingest_metadata = {
+            "user_id": getattr(user, "user_id", None),
+            "owner_id": getattr(user, "user_id", None),
+            "org_id": getattr(user, "org_id", None),
+            "workspace_id": workspace_id,
+            "tenant_id": workspace_id or getattr(user, "org_id", None),
+            "source": "transcription_upload",
+        }
+
+        job = self._create_job(filename, len(file_content), metadata=ingest_metadata)
 
         # Queue for async processing
         asyncio.create_task(self._process_transcription(job.id, file_content, filename))
@@ -522,6 +557,31 @@ class TranscriptionHandler(BaseHandler):
                 f"Transcription completed: {job_id} - "
                 f"{result.word_count} words, {result.duration_seconds:.1f}s duration"
             )
+
+            if KNOWLEDGE_PROCESSING_DEFAULT:
+                job = None
+                with TranscriptionHandler._jobs_lock:
+                    job = TranscriptionHandler._jobs.get(job_id)
+
+                if job and job.text:
+                    ingest_metadata = dict(job.metadata) if isinstance(job.metadata, dict) else {}
+                    ingest_metadata.setdefault("source_action", "transcription")
+                    ingest_metadata.setdefault("filename", job.filename)
+
+                    try:
+                        from aragora.knowledge.integration import process_uploaded_text
+
+                        process_uploaded_text(
+                            text=job.text,
+                            filename=f"{job.filename}.transcript.txt",
+                            workspace_id=job.workspace_id or "default",
+                            async_processing=True,
+                            metadata=ingest_metadata,
+                        )
+                    except ImportError:
+                        logger.warning("Knowledge pipeline not available, skipping transcript ingestion")
+                    except Exception as e:
+                        logger.warning("Transcript knowledge ingestion failed: %s", e)
 
         except Exception as e:
             logger.error(f"Transcription failed for {job_id}: {e}")

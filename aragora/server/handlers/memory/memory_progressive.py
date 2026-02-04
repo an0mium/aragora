@@ -76,12 +76,23 @@ class MemoryProgressiveMixin:
         use_hybrid = self._parse_bool_param(params, "use_hybrid", False)
 
         try:
-            from aragora.memory.access import filter_entries, resolve_tenant_id
+            from aragora.memory.access import (
+                filter_entries,
+                resolve_tenant_id,
+                tenant_enforcement_enabled,
+            )
         except Exception:
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
+            tenant_enforcement_enabled = None  # type: ignore[assignment]
 
+        enforce_tenant = tenant_enforcement_enabled() if tenant_enforcement_enabled else False
         tenant_id = resolve_tenant_id(self._get_auth_context()) if resolve_tenant_id else None
+        if enforce_tenant and not tenant_id:
+            if self._get_auth_context() is None:
+                enforce_tenant = False
+            else:
+                return error_response("Tenant/workspace context required for memory access", 400)
         results: list[dict[str, Any]] = []
         hybrid_used = False
 
@@ -103,7 +114,7 @@ class MemoryProgressiveMixin:
             ids = [r.memory_id for r in hybrid_results if getattr(r, "memory_id", None)]
             entries_by_id = {}
             if ids and hasattr(continuum, "get_many"):
-                entries = continuum.get_many(ids)
+                entries = continuum.get_many(ids, tenant_id=tenant_id)
                 if filter_entries:
                     entries = filter_entries(entries, self._get_auth_context())
                 entries_by_id = {entry.id: entry for entry in entries}
@@ -125,6 +136,7 @@ class MemoryProgressiveMixin:
                 limit=limit,
                 min_importance=min_importance,
                 tenant_id=tenant_id,
+                enforce_tenant_isolation=enforce_tenant,
             )
             if filter_entries:
                 memories = filter_entries(memories, self._get_auth_context())
@@ -199,6 +211,20 @@ class MemoryProgressiveMixin:
         )
         tiers = self._parse_tiers_param(params)
 
+        try:
+            from aragora.memory.access import resolve_tenant_id, tenant_enforcement_enabled
+        except Exception:
+            resolve_tenant_id = None  # type: ignore[assignment]
+            tenant_enforcement_enabled = None  # type: ignore[assignment]
+
+        enforce_tenant = tenant_enforcement_enabled() if tenant_enforcement_enabled else False
+        tenant_id = resolve_tenant_id(self._get_auth_context()) if resolve_tenant_id else None
+        if enforce_tenant and not tenant_id:
+            if self._get_auth_context() is None:
+                enforce_tenant = False
+            else:
+                return error_response("Tenant/workspace context required for memory access", 400)
+
         if not hasattr(continuum, "get_timeline_entries"):
             return error_response("Timeline retrieval not supported", 501)
 
@@ -208,6 +234,8 @@ class MemoryProgressiveMixin:
             after=after,
             tiers=tiers,
             min_importance=min_importance,
+            tenant_id=tenant_id,
+            enforce_tenant_isolation=enforce_tenant,
         )
         if timeline is None:
             return error_response("Anchor memory not found", 404)
@@ -265,11 +293,26 @@ class MemoryProgressiveMixin:
         if not hasattr(continuum, "get_many"):
             return error_response("Bulk entry retrieval not supported", 501)
 
-        entries = continuum.get_many(ids)
         try:
-            from aragora.memory.access import filter_entries
+            from aragora.memory.access import (
+                filter_entries,
+                resolve_tenant_id,
+                tenant_enforcement_enabled,
+            )
         except Exception:
             filter_entries = None  # type: ignore[assignment]
+            resolve_tenant_id = None  # type: ignore[assignment]
+            tenant_enforcement_enabled = None  # type: ignore[assignment]
+
+        enforce_tenant = tenant_enforcement_enabled() if tenant_enforcement_enabled else False
+        tenant_id = resolve_tenant_id(self._get_auth_context()) if resolve_tenant_id else None
+        if enforce_tenant and not tenant_id:
+            if self._get_auth_context() is None:
+                enforce_tenant = False
+            else:
+                return error_response("Tenant/workspace context required for memory access", 400)
+
+        entries = continuum.get_many(ids, tenant_id=tenant_id)
         if filter_entries:
             entries = filter_entries(entries, self._get_auth_context())
 
@@ -326,18 +369,30 @@ class MemoryProgressiveMixin:
 
         # Search memories (tenant-scoped when available)
         try:
-            from aragora.memory.access import filter_entries, resolve_tenant_id
+            from aragora.memory.access import (
+                filter_entries,
+                resolve_tenant_id,
+                tenant_enforcement_enabled,
+            )
         except Exception:
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
+            tenant_enforcement_enabled = None  # type: ignore[assignment]
 
+        enforce_tenant = tenant_enforcement_enabled() if tenant_enforcement_enabled else False
         tenant_id = resolve_tenant_id(self._get_auth_context()) if resolve_tenant_id else None
+        if enforce_tenant and not tenant_id:
+            if self._get_auth_context() is None:
+                enforce_tenant = False
+            else:
+                return error_response("Tenant/workspace context required for memory access", 400)
         memories = continuum.retrieve(
             query=query,
             tiers=tiers,
             limit=limit,
             min_importance=min_importance,
             tenant_id=tenant_id,
+            enforce_tenant_isolation=enforce_tenant,
         )
         if filter_entries:
             memories = filter_entries(memories, self._get_auth_context())
