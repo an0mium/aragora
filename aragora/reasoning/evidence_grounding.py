@@ -18,15 +18,15 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+from aragora.evidence.collector import EvidencePack, EvidenceSnippet
+from aragora.reasoning.claim_check import ClaimCheck
+
 if TYPE_CHECKING:
     from aragora.reasoning.citations import (
         CitationExtractor,
         GroundedVerdict,
         ScholarlyEvidence,
     )
-
-from aragora.reasoning.claim_check import ClaimCheck
-from aragora.evidence.collector import EvidencePack, EvidenceSnippet
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,11 @@ class EvidenceGrounder:
 
     def _build_scholarly_evidence(
         self,
+<<<<<<< HEAD
         snippet: EvidenceSnippet,
+=======
+        snippet: "EvidenceSnippet",
+>>>>>>> 75d2017b28 (reasoning: integrate claim checking)
         relevance: float,
         claim_text: str,
     ) -> "ScholarlyEvidence":
