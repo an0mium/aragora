@@ -274,6 +274,15 @@ Execution Results:
                 "total_cost_usd": outcome.total_cost_usd,
                 "duration_seconds": outcome.duration_seconds,
                 "receipt_id": outcome.receipt_id,
+                "review_passed": outcome.review_passed,
+                "review_model": outcome.review.get("model")
+                if isinstance(outcome.review, dict)
+                else None,
+                "review_duration_seconds": (
+                    outcome.review.get("duration_seconds")
+                    if isinstance(outcome.review, dict)
+                    else None
+                ),
                 "ingested_at": now.isoformat(),
                 "tags": [
                     "decision_plan",

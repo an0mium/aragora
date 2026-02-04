@@ -92,11 +92,13 @@ async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
         True if scheduler was started, False otherwise
     """
     try:
-        from aragora.config.legacy import (
-            PULSE_SCHEDULER_AUTOSTART,
-            PULSE_SCHEDULER_MAX_PER_HOUR,
-            PULSE_SCHEDULER_POLL_INTERVAL,
+        import os
+
+        PULSE_SCHEDULER_AUTOSTART = (
+            os.environ.get("PULSE_SCHEDULER_AUTOSTART", "true").lower() == "true"
         )
+        PULSE_SCHEDULER_MAX_PER_HOUR = int(os.environ.get("PULSE_SCHEDULER_MAX_PER_HOUR", "6"))
+        PULSE_SCHEDULER_POLL_INTERVAL = int(os.environ.get("PULSE_SCHEDULER_POLL_INTERVAL", "300"))
 
         if not PULSE_SCHEDULER_AUTOSTART:
             return False

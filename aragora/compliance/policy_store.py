@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.config.legacy import get_db_path
+from aragora.persistence.db_config import get_default_data_dir
 from aragora.storage.backends import POSTGRESQL_AVAILABLE, PostgreSQLBackend
 from aragora.storage.base_store import SQLiteStore
 
@@ -27,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 def _get_default_db_path() -> Path:
     """Get the default database path for policy store."""
-    return get_db_path("compliance/policy_store.db")
+    path = get_default_data_dir() / "compliance" / "policy_store.db"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 @dataclass

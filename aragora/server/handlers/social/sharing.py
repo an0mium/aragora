@@ -279,10 +279,10 @@ def get_share_store() -> Any:
             # Double-check after acquiring lock
             if _share_store is None:
                 try:
-                    from aragora.config.legacy import DATA_DIR
+                    from aragora.persistence.db_config import get_default_data_dir
                     from aragora.storage.share_store import ShareLinkStore
 
-                    db_path = DATA_DIR / "share_links.db"
+                    db_path = get_default_data_dir() / "share_links.db"
                     _share_store = ShareLinkStore(db_path)
                     logger.info(f"Using SQLite ShareLinkStore: {db_path}")
                 except Exception as e:

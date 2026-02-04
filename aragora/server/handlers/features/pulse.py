@@ -106,10 +106,10 @@ def get_scheduled_debate_store() -> Any:
         with _pulse_lock:
             if _shared_debate_store is None:
                 try:
-                    from aragora.config.legacy import DATA_DIR
+                    from aragora.persistence.db_config import get_default_data_dir
                     from aragora.pulse.store import ScheduledDebateStore
 
-                    db_path = DATA_DIR / "scheduled_debates.db"
+                    db_path = get_default_data_dir() / "scheduled_debates.db"
                     _shared_debate_store = ScheduledDebateStore(db_path)
                 except (ImportError, OSError, sqlite3.Error) as e:
                     logger.warning(f"Failed to initialize ScheduledDebateStore: {e}")

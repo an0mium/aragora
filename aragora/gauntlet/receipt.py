@@ -212,6 +212,64 @@ class DecisionReceipt:
         data.pop("signed_at", None)
         return data
 
+    def _signature_verification_html(self) -> str:
+        """Generate HTML signature verification block for PDF embedding.
+
+        Returns an empty string if the receipt is not signed.
+        When signed, returns a styled verification section with:
+        - Signature algorithm and key ID
+        - Timestamp of signing
+        - Truncated signature for visual verification
+        - QR-code placeholder for verification URL
+        """
+        if not self.signature:
+            return ""
+
+        # Truncate signature for display (show first and last 16 chars)
+        sig_display = self.signature
+        if len(sig_display) > 40:
+            sig_display = f"{sig_display[:16]}...{sig_display[-16:]}"
+
+        verification_url = f"https://aragora.ai/verify/{escape(self.receipt_id)}"
+
+        return f"""
+    <div class="section" style="margin-top: 32px; padding-top: 20px; border-top: 2px solid #28a745;">
+        <h2 style="color: #28a745;">
+            <span style="margin-right: 8px;">&#x2714;</span>
+            Cryptographically Signed Document
+        </h2>
+        <div style="background: #f0fff0; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin-top: 12px;">
+            <table style="width: 100%; border: none; margin: 0;">
+                <tr style="border: none;">
+                    <td style="border: none; padding: 4px 8px; width: 140px;"><strong>Algorithm:</strong></td>
+                    <td style="border: none; padding: 4px 8px;"><code>{escape(self.signature_algorithm or "Unknown")}</code></td>
+                </tr>
+                <tr style="border: none;">
+                    <td style="border: none; padding: 4px 8px;"><strong>Key ID:</strong></td>
+                    <td style="border: none; padding: 4px 8px;"><code>{escape(self.signature_key_id or "N/A")}</code></td>
+                </tr>
+                <tr style="border: none;">
+                    <td style="border: none; padding: 4px 8px;"><strong>Signed At:</strong></td>
+                    <td style="border: none; padding: 4px 8px;">{escape(self.signed_at or "Unknown")}</td>
+                </tr>
+                <tr style="border: none;">
+                    <td style="border: none; padding: 4px 8px;"><strong>Signature:</strong></td>
+                    <td style="border: none; padding: 4px 8px;"><code style="font-size: 11px; word-break: break-all;">{escape(sig_display)}</code></td>
+                </tr>
+            </table>
+        </div>
+        <p style="margin-top: 12px; font-size: 12px; color: #666;">
+            <strong>Verification:</strong> To verify this document's authenticity, visit
+            <a href="{verification_url}" style="color: #007bff;">{verification_url}</a>
+            or use the Aragora CLI: <code>aragora verify {escape(self.receipt_id)}</code>
+        </p>
+        <p style="margin-top: 8px; font-size: 11px; color: #999;">
+            This signature cryptographically binds the receipt content to the signing key.
+            Any modification to the document will invalidate the signature.
+        </p>
+    </div>
+"""
+
     @classmethod
     def from_result(cls, result: GauntletResult) -> "DecisionReceipt":
         """Create receipt from GauntletResult."""
@@ -1209,6 +1267,7 @@ class DecisionReceipt:
             Artifact Hash: <code>{escape(self.artifact_hash[:32])}...</code>
         </p>
     </div>
+{self._signature_verification_html()}
 </body>
 </html>
 """

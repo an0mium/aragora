@@ -251,13 +251,16 @@ def _print_graph_result(debate: Any, verbose: bool = False) -> None:
 
 def _print_matrix_result(debate: Any, verbose: bool = False) -> None:
     """Print a matrix debate result summary."""
-    scenarios = getattr(debate, "scenarios", []) or []
+    scenarios = getattr(debate, "scenarios", None) or getattr(debate, "results", None) or []
     conclusions = getattr(debate, "conclusions", None)
+    status = getattr(debate, "status", "unknown")
+    if hasattr(status, "value"):
+        status = status.value
 
     print("\n" + "=" * 60)
     print("MATRIX DEBATE RESULT:")
     print("=" * 60)
-    print(f"Status: {getattr(debate, 'status', 'unknown')}")
+    print(f"Status: {status}")
     print(f"Scenarios: {len(scenarios)}")
 
     if conclusions:
@@ -278,15 +281,85 @@ def _print_matrix_result(debate: Any, verbose: bool = False) -> None:
             print("CONTRADICTIONS:")
             for item in conclusions.contradictions:
                 print(f"- {item}")
+    else:
+        universal = getattr(debate, "universal_conclusions", []) or []
+        conditional = getattr(debate, "conditional_conclusions", {}) or {}
+        if universal:
+            print("\n" + "-" * 60)
+            print("UNIVERSAL CONCLUSIONS:")
+            for item in universal:
+                print(f"- {item}")
+        if conditional:
+            print("\n" + "-" * 60)
+            print("CONDITIONAL CONCLUSIONS:")
+            if isinstance(conditional, dict):
+                for scenario, items in conditional.items():
+                    print(f"{scenario}:")
+                    for item in items:
+                        print(f"- {item}")
+            else:
+                for item in conditional:
+                    if isinstance(item, dict):
+                        condition = item.get("condition") or item.get("scenario")
+                        conclusion = item.get("conclusion")
+                        confidence = item.get("confidence")
+                        if condition:
+                            print(f"{condition}:")
+                        if conclusion:
+                            suffix = (
+                                f" (confidence {confidence:.2f})" if confidence is not None else ""
+                            )
+                            print(f"- {conclusion}{suffix}")
+                    else:
+                        print(f"- {item}")
 
     if verbose and scenarios:
         print("\n" + "-" * 60)
         print("SCENARIO RESULTS:")
         for scenario in scenarios:
-            print(f"- {scenario.scenario_name}")
-            if scenario.key_findings:
-                for finding in scenario.key_findings:
+            if isinstance(scenario, dict):
+                name = scenario.get("scenario_name") or scenario.get("name", "")
+                key_findings = scenario.get("key_findings") or scenario.get("key_claims") or []
+                conclusion = scenario.get("conclusion")
+            else:
+                name = getattr(scenario, "scenario_name", "")
+                key_findings = getattr(scenario, "key_findings", []) or []
+                conclusion = getattr(scenario, "consensus", None)
+                if hasattr(conclusion, "final_answer"):
+                    conclusion = conclusion.final_answer
+
+            print(f"- {name}")
+            if conclusion:
+                print(f"  Conclusion: {conclusion}")
+            if key_findings:
+                for finding in key_findings:
                     print(f"  {finding}")
+
+
+def _print_decision_integrity_summary(package: dict[str, Any]) -> None:
+    """Print a decision integrity package summary."""
+    receipt = package.get("receipt") or {}
+    plan = package.get("plan") or package.get("decision_plan") or {}
+    receipt_id = package.get("receipt_id") or receipt.get("receipt_id") or receipt.get("id")
+    plan_id = package.get("plan_id") or plan.get("id")
+    approval = package.get("approval") or {}
+    execution = package.get("execution") or package.get("workflow_execution") or {}
+
+    print("\n" + "=" * 60)
+    print("DECISION INTEGRITY PACKAGE")
+    print("=" * 60)
+    if receipt_id:
+        print(f"Receipt ID: {receipt_id}")
+    if plan_id:
+        print(f"Plan ID: {plan_id}")
+    if approval:
+        status = approval.get("status") or approval.get("approval_status")
+        if status:
+            print(f"Approval: {status}")
+    if execution:
+        status = execution.get("status")
+        if status:
+            print(f"Execution: {status}")
 
 
 def _run_debate_api(
@@ -372,6 +445,8 @@ def _run_matrix_debate_api(
         scenarios=scenarios,
         max_rounds=max_rounds,
     )
+    if getattr(response, "results", None) or getattr(response, "universal_conclusions", None):
+        return response
     matrix_id = response.matrix_id
 
     start = time.time()
@@ -388,6 +463,57 @@ def _run_matrix_debate_api(
         time.sleep(2)
 
     raise TimeoutError(f"Matrix debate {matrix_id} did not complete within timeout")
+
+
+def _build_decision_integrity_api(
+    server_url: str,
+    api_key: str | None,
+    debate_id: str,
+    *,
+    include_context: bool = False,
+    plan_strategy: str = "single_task",
+    execution_mode: str | None = None,
+) -> dict[str, Any]:
+    """Build a decision integrity package via API."""
+    client = _build_api_client(server_url, api_key)
+    return client.debates.decision_integrity(
+        debate_id=debate_id,
+        include_context=include_context,
+        plan_strategy=plan_strategy,
+        execution_mode=execution_mode,
+    )
+
+
+def _build_decision_integrity_local(
+    result: Any,
+    *,
+    include_context: bool = False,
+    plan_strategy: str = "single_task",
+) -> dict[str, Any]:
+    """Build a decision integrity package locally from a DebateResult."""
+    from aragora.pipeline.decision_integrity import build_decision_integrity_package
+
+    if hasattr(result, "to_dict"):
+        debate_payload = result.to_dict()
+    else:
+        debate_payload = {
+            "debate_id": getattr(result, "debate_id", ""),
+            "task": getattr(result, "task", ""),
+            "final_answer": getattr(result, "final_answer", ""),
+            "confidence": getattr(result, "confidence", 0.0),
+            "consensus_reached": getattr(result, "consensus_reached", False),
+            "rounds_used": getattr(result, "rounds_used", 0),
+            "participants": getattr(result, "participants", []),
+        }
+
+    package = asyncio.run(
+        build_decision_integrity_package(
+            debate_payload,
+            include_context=include_context,
+            plan_strategy=plan_strategy,
+        )
+    )
+    return package.to_dict()
 
 
 async def run_debate(
@@ -583,6 +709,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
     requested_local = getattr(args, "local", False)
     graph_mode = getattr(args, "graph", False)
     matrix_mode = getattr(args, "matrix", False)
+    decision_integrity = bool(getattr(args, "decision_integrity", False))
 
     enable_verticals = bool(
         getattr(args, "enable_verticals", False) or getattr(args, "vertical", None)
@@ -598,6 +725,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
             print("Graph/matrix debates require API mode. Remove --local.", file=sys.stderr)
             raise SystemExit(2)
         requested_api = True
+    if decision_integrity and (graph_mode or matrix_mode):
+        print("Decision integrity is only supported for standard debates.", file=sys.stderr)
+        raise SystemExit(2)
+
+    di_include_context = bool(getattr(args, "di_include_context", False))
+    di_plan_strategy = getattr(args, "di_plan_strategy", "single_task")
+    di_execution_mode = getattr(args, "di_execution_mode", None)
 
     use_api = requested_api
     if not requested_api and not requested_local:
@@ -652,6 +786,16 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 metadata=metadata,
             )
             _print_debate_result(result, verbose=args.verbose)
+            if decision_integrity:
+                package = _build_decision_integrity_api(
+                    server_url=server_url,
+                    api_key=api_key,
+                    debate_id=result.debate_id,
+                    include_context=di_include_context,
+                    plan_strategy=di_plan_strategy,
+                    execution_mode=di_execution_mode,
+                )
+                _print_decision_integrity_summary(package)
             return
         except Exception as e:
             if requested_api or graph_mode or matrix_mode:
@@ -693,3 +837,17 @@ def cmd_ask(args: argparse.Namespace) -> None:
         print("DISSENTING VIEWS:")
         for view in result.dissenting_views:
             print(f"\n{view}")
+
+    if decision_integrity:
+        if di_execution_mode and di_execution_mode != "plan_only":
+            print(
+                "Decision integrity execution is only supported in API mode. "
+                "Generating plan-only package.",
+                file=sys.stderr,
+            )
+        package = _build_decision_integrity_local(
+            result,
+            include_context=di_include_context,
+            plan_strategy=di_plan_strategy,
+        )
+        _print_decision_integrity_summary(package)

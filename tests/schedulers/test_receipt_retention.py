@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.schedulers.receipt_retention import (
+from aragora.scheduler.receipt_retention import (
     CleanupResult,
     CleanupStats,
     ReceiptRetentionScheduler,

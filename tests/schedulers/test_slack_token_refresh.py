@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.schedulers.slack_token_refresh import (
+from aragora.scheduler.slack_token_refresh import (
     RefreshResult,
     RefreshStats,
     SlackTokenRefreshScheduler,

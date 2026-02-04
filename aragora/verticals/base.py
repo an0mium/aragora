@@ -17,7 +17,7 @@ from jinja2 import Template
 from aragora.core import Critique, Message
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.base import AgentType, create_agent
-from aragora.config.legacy import ALLOWED_AGENT_TYPES
+from aragora.config.settings import ALLOWED_AGENT_TYPES
 from aragora.core_types import AgentRole
 from aragora.verticals.config import (
     ComplianceConfig,
@@ -327,7 +327,6 @@ class VerticalSpecialistAgent(APIAgent):
             **kwargs,
         )
 
-    @abstractmethod
     async def _generate_response(
         self,
         task: str,
@@ -336,7 +335,10 @@ class VerticalSpecialistAgent(APIAgent):
         **kwargs: Any,
     ) -> Message:
         """
-        Generate a response (implemented by subclasses).
+        Generate a response using the delegate LLM agent.
+
+        This default implementation uses the delegate agent created during
+        initialization. Subclasses can override for custom behavior.
 
         Args:
             task: The task or question
@@ -347,7 +349,38 @@ class VerticalSpecialistAgent(APIAgent):
         Returns:
             Response message
         """
-        pass
+        if self._delegate is None:
+            logger.warning(f"[verticals] No delegate agent for {self.name}, returning placeholder")
+            return Message(
+                role="assistant",
+                content=f"[{self._config.display_name}] Delegate agent not available. "
+                f"Task: {task[:200]}...",
+                agent=self.name,
+            )
+
+        try:
+            # Update delegate's system prompt if different
+            if hasattr(self._delegate, "system_prompt"):
+                self._delegate.system_prompt = system_prompt
+
+            # Generate response using the delegate
+            response_text = await self._delegate.generate(
+                prompt=task,
+                context=context,
+            )
+
+            return Message(
+                role="assistant",
+                content=response_text,
+                agent=self.name,
+            )
+        except Exception as e:
+            logger.error(f"[verticals] Generation failed for {self.name}: {e}")
+            return Message(
+                role="assistant",
+                content=f"[{self._config.display_name}] Error generating response: {e}",
+                agent=self.name,
+            )
 
     def get_tool_call_history(self) -> list[dict[str, Any]]:
         """Get history of tool calls for audit."""

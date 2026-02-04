@@ -10,7 +10,9 @@ Usage:
     aragora marketplace get devil-advocate
     aragora marketplace export devil-advocate -o template.json
     aragora marketplace import template.json
-    aragora marketplace list --local  # Use local registry instead of API
+    aragora marketplace list --local   # Use local registry (offline mode)
+    aragora marketplace list --api     # Force API mode (explicit)
+    aragora marketplace list --api-url http://host:8080  # Custom server
 """
 
 from __future__ import annotations
@@ -23,16 +25,19 @@ from typing import Any
 
 import click
 
+# Default API server URL
+DEFAULT_API_URL = "http://localhost:8080"
 
-def _get_api_client():
+
+def _get_api_client(api_url: str | None = None, api_key: str | None = None):
     """Get API client if available and server is reachable."""
     try:
         from aragora.client import AragoraClient
 
-        client = AragoraClient(
-            base_url=os.environ.get("ARAGORA_API_URL", "http://localhost:8080"),
-            api_key=os.environ.get("ARAGORA_API_KEY"),
-        )
+        url = api_url or os.environ.get("ARAGORA_API_URL", DEFAULT_API_URL)
+        key = api_key or os.environ.get("ARAGORA_API_KEY")
+
+        client = AragoraClient(base_url=url, api_key=key)
         # Quick health check
         client.system.health()
         return client
@@ -40,31 +45,83 @@ def _get_api_client():
         return None
 
 
-def _use_local_registry(local_flag: bool) -> bool:
-    """Determine if we should use local registry."""
-    if local_flag:
-        return True
-    # If ARAGORA_MARKETPLACE_LOCAL is set, use local
+def _is_server_available(api_url: str | None = None, api_key: str | None = None) -> bool:
+    """Check if API server is reachable."""
+    return _get_api_client(api_url, api_key) is not None
+
+
+def _determine_mode(
+    use_api: bool,
+    use_local: bool,
+    api_url: str | None = None,
+    api_key: str | None = None,
+) -> tuple[bool, Any | None]:
+    """
+    Determine whether to use local or API mode.
+
+    Returns:
+        Tuple of (use_local, client_or_none)
+    """
+    # Explicit flags take precedence
+    if use_local:
+        return True, None
+    if use_api:
+        client = _get_api_client(api_url, api_key)
+        if client is None:
+            click.echo("Error: --api specified but server is not reachable", err=True)
+            sys.exit(1)
+        return False, client
+
+    # Environment variable override
     if os.environ.get("ARAGORA_MARKETPLACE_LOCAL", "").lower() in ("1", "true", "yes"):
-        return True
-    return False
+        return True, None
+
+    # Auto-detect: try API first, fall back to local
+    client = _get_api_client(api_url, api_key)
+    if client is None:
+        click.echo("Info: Server unavailable, using local registry", err=True)
+        return True, None
+    return False, client
 
 
 @click.group()
-@click.option("--local", is_flag=True, help="Use local registry instead of server API")
+@click.option(
+    "--api",
+    "use_api",
+    is_flag=True,
+    help="Force API mode (fail if server unavailable)",
+)
+@click.option(
+    "--local",
+    "use_local",
+    is_flag=True,
+    help="Force local registry mode (offline/air-gapped)",
+)
+@click.option(
+    "--api-url",
+    default=None,
+    help=f"API server URL (default: {DEFAULT_API_URL} or ARAGORA_API_URL)",
+)
+@click.option(
+    "--api-key",
+    default=None,
+    help="API key for authentication (default: ARAGORA_API_KEY env)",
+)
 @click.pass_context
-def marketplace(ctx, local: bool):
+def marketplace(ctx, use_api: bool, use_local: bool, api_url: str | None, api_key: str | None):
     """Manage agent template marketplace."""
     ctx.ensure_object(dict)
-    ctx.obj["use_local"] = _use_local_registry(local)
 
-    if not ctx.obj["use_local"]:
-        client = _get_api_client()
-        if client is None:
-            click.echo("Warning: Server unavailable, falling back to local registry", err=True)
-            ctx.obj["use_local"] = True
-        else:
-            ctx.obj["client"] = client
+    # Mutually exclusive check
+    if use_api and use_local:
+        click.echo("Error: --api and --local are mutually exclusive", err=True)
+        sys.exit(1)
+
+    use_local_mode, client = _determine_mode(use_api, use_local, api_url, api_key)
+    ctx.obj["use_local"] = use_local_mode
+    ctx.obj["client"] = client
+    ctx.obj["api_url"] = api_url
+    ctx.obj["api_key"] = api_key
 
 
 @marketplace.command("list")

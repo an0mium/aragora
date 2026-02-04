@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
-from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
 from aragora.verticals.config import (
     ComplianceConfig,
@@ -451,20 +450,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
 
         return violations
 
-    async def _generate_response(
-        self,
-        task: str,
-        system_prompt: str,
-        context: Optional[list[Message]] = None,
-        **kwargs: Any,
-    ) -> Message:
-        """Generate a research analysis response."""
-        return Message(
-            role="assistant",
-            content=f"[Research Specialist Response for: {task}]\n\n"
-            f"This would contain expert research methodology guidance.",
-            agent=self.name,
-        )
+    # _generate_response() inherited from base class - uses delegate LLM agent
 
     async def analyze_methodology(
         self,

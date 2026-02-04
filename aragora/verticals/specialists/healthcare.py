@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
-from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
 from aragora.verticals.config import (
     ComplianceConfig,
@@ -368,22 +367,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         content_lower = content.lower()
         return any(term in content_lower for term in self.CLINICAL_TERMS)
 
-    async def _generate_response(
-        self,
-        task: str,
-        system_prompt: str,
-        context: Optional[list[Message]] = None,
-        **kwargs: Any,
-    ) -> Message:
-        """Generate a healthcare analysis response."""
-        return Message(
-            role="assistant",
-            content=f"[Healthcare Specialist Response for: {task}]\n\n"
-            f"DISCLAIMER: This information is for educational purposes only "
-            f"and does not constitute medical advice.\n\n"
-            f"This would contain expert healthcare analysis.",
-            agent=self.name,
-        )
+    # _generate_response() inherited from base class - uses delegate LLM agent
 
     async def analyze_clinical_document(
         self,

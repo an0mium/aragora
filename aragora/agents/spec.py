@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 
 
 # Import ALLOWED_AGENT_TYPES for validation
-from aragora.config.legacy import ALLOWED_AGENT_TYPES
+from aragora.config.settings import ALLOWED_AGENT_TYPES
 
 # Valid debate roles (from core.py)
 AgentRole = Literal[

@@ -172,24 +172,39 @@ Make only the changes specified. Follow existing code style."""
             repo_path=str(self.repo_path),
         )
 
-    def _get_git_diff(self) -> str:
-        """Get the current git diff."""
+    def _get_git_diff(self, *, stat_only: bool = True, max_chars: int | None = None) -> str:
+        """Get the current git diff.
+
+        Args:
+            stat_only: If True, return --stat output (compact). If False, return full diff.
+            max_chars: Optional truncation limit for large diffs.
+        """
         try:
+            args = ["git", "diff"]
+            if stat_only:
+                args.append("--stat")
             result = subprocess.run(
-                ["git", "diff", "--stat"],
+                args,
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
                 timeout=180,  # Minimum 3 min (was 30)
                 shell=False,
             )
-            return result.stdout
+            diff = result.stdout
+            if max_chars and len(diff) > max_chars:
+                diff = diff[:max_chars].rstrip() + "\n...diff truncated...\n"
+            return diff
         except subprocess.TimeoutExpired:
             logger.warning("Git diff timed out after 3 minutes")
             return ""
         except (subprocess.SubprocessError, OSError) as e:
             logger.debug(f"Git diff failed: {e}")
             return ""
+
+    def get_review_diff(self, max_chars: int | None = None) -> str:
+        """Get a full git diff for review purposes."""
+        return self._get_git_diff(stat_only=False, max_chars=max_chars)
 
     async def execute_task(
         self,

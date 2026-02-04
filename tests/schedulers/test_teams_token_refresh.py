@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.schedulers.teams_token_refresh import (
+from aragora.scheduler.teams_token_refresh import (
     RefreshResult,
     RefreshStats,
     TeamsTokenRefreshScheduler,

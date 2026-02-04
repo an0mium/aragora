@@ -251,6 +251,36 @@ def _add_ask_parser(subparsers) -> None:
         action="append",
         help="Matrix scenario JSON or name (repeatable)",
     )
+    ask_parser.add_argument(
+        "--decision-integrity",
+        action="store_true",
+        help="Build decision integrity package (receipt + plan) after debate completes",
+    )
+    ask_parser.add_argument(
+        "--di-include-context",
+        action="store_true",
+        help="Include memory/knowledge snapshot in decision integrity package",
+    )
+    ask_parser.add_argument(
+        "--di-plan-strategy",
+        choices=["single_task", "gemini"],
+        default="single_task",
+        help="Decision integrity plan strategy (default: single_task)",
+    )
+    ask_parser.add_argument(
+        "--di-execution-mode",
+        choices=[
+            "plan_only",
+            "request_approval",
+            "execute",
+            "workflow",
+            "workflow_execute",
+            "execute_workflow",
+            "hybrid",
+            "computer_use",
+        ],
+        help="Decision integrity execution mode (API mode only)",
+    )
     # Cross-pollination feature flags
     ask_parser.add_argument(
         "--no-elo-weighting",

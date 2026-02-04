@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from aragora.core import Message
 from aragora.verticals.base import VerticalSpecialistAgent
 from aragora.verticals.config import (
     ComplianceConfig,
@@ -437,22 +436,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
 
         return violations
 
-    async def _generate_response(
-        self,
-        task: str,
-        system_prompt: str,
-        context: Optional[list[Message]] = None,
-        **kwargs: Any,
-    ) -> Message:
-        """Generate a software engineering response."""
-        # For now, return a placeholder
-        # In production, this would call the actual API
-        return Message(
-            role="assistant",
-            content=f"[Software Specialist Response for: {task}]\n\n"
-            f"This would contain expert software engineering guidance.",
-            agent=self.name,
-        )
+    # _generate_response() inherited from base class - uses delegate LLM agent
 
     async def review_code(
         self,

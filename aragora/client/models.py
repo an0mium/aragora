@@ -424,9 +424,15 @@ class MatrixDebateCreateResponse(BaseModel):
     """Response from creating a matrix debate."""
 
     matrix_id: str
-    status: str
-    task: str
-    scenario_count: int
+    status: str = "completed"
+    task: str | None = None
+    scenario_count: int | None = None
+    results: list[dict[str, Any]] = Field(default_factory=list)
+    universal_conclusions: list[str] = Field(default_factory=list)
+    conditional_conclusions: dict[str, list[str]] | list[dict[str, Any]] = Field(
+        default_factory=dict
+    )
+    comparison_matrix: dict[str, Any] | None = None
 
 
 class MatrixDebate(BaseModel):

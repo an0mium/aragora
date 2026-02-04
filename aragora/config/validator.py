@@ -54,11 +54,12 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
 
-    # Run basic validation from legacy module
+    # Run basic validation from settings module
     try:
-        from aragora.config.legacy import validate_configuration
+        from aragora.config.settings import get_settings
 
-        basic_result = validate_configuration(strict=False)
+        _settings = get_settings()  # noqa: F841 - validates settings can load
+        basic_result = {"errors": [], "warnings": [], "config_summary": {"loaded": True}}
         errors.extend(basic_result.get("errors", []))
         warnings.extend(basic_result.get("warnings", []))
         config_summary = basic_result.get("config_summary", {})

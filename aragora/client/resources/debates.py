@@ -312,6 +312,126 @@ class DebatesAPI:
 
         return await asyncio.gather(*[self.get_async(debate_id) for debate_id in debate_ids])
 
+    def decision_integrity(
+        self,
+        debate_id: str,
+        *,
+        include_receipt: bool | None = None,
+        include_plan: bool | None = None,
+        include_context: bool | None = None,
+        plan_strategy: str | None = None,
+        execution_mode: str | None = None,
+        execution_engine: str | None = None,
+        parallel_execution: bool | None = None,
+        notify_origin: bool | None = None,
+        risk_level: str | None = None,
+        approval_mode: str | None = None,
+        max_auto_risk: str | None = None,
+        budget_limit_usd: float | None = None,
+        openclaw_actions: list[dict[str, Any]] | None = None,
+        computer_use_actions: list[dict[str, Any]] | None = None,
+        openclaw_session: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Build a Decision Integrity package for a completed debate.
+
+        Returns receipt + implementation plan + optional context snapshot.
+        """
+        body: dict[str, Any] = {}
+        if include_receipt is not None:
+            body["include_receipt"] = include_receipt
+        if include_plan is not None:
+            body["include_plan"] = include_plan
+        if include_context is not None:
+            body["include_context"] = include_context
+        if plan_strategy is not None:
+            body["plan_strategy"] = plan_strategy
+        if execution_mode is not None:
+            body["execution_mode"] = execution_mode
+        if execution_engine is not None:
+            body["execution_engine"] = execution_engine
+        if parallel_execution is not None:
+            body["parallel_execution"] = parallel_execution
+        if notify_origin is not None:
+            body["notify_origin"] = notify_origin
+        if risk_level is not None:
+            body["risk_level"] = risk_level
+        if approval_mode is not None:
+            body["approval_mode"] = approval_mode
+        if max_auto_risk is not None:
+            body["max_auto_risk"] = max_auto_risk
+        if budget_limit_usd is not None:
+            body["budget_limit_usd"] = budget_limit_usd
+        if openclaw_actions is not None:
+            body["openclaw_actions"] = openclaw_actions
+        if computer_use_actions is not None:
+            body["computer_use_actions"] = computer_use_actions
+        if openclaw_session is not None:
+            body["openclaw_session"] = openclaw_session
+
+        return self._client._post(
+            f"/api/v1/debates/{debate_id}/decision-integrity",
+            body,
+        )
+
+    async def decision_integrity_async(
+        self,
+        debate_id: str,
+        *,
+        include_receipt: bool | None = None,
+        include_plan: bool | None = None,
+        include_context: bool | None = None,
+        plan_strategy: str | None = None,
+        execution_mode: str | None = None,
+        execution_engine: str | None = None,
+        parallel_execution: bool | None = None,
+        notify_origin: bool | None = None,
+        risk_level: str | None = None,
+        approval_mode: str | None = None,
+        max_auto_risk: str | None = None,
+        budget_limit_usd: float | None = None,
+        openclaw_actions: list[dict[str, Any]] | None = None,
+        computer_use_actions: list[dict[str, Any]] | None = None,
+        openclaw_session: str | None = None,
+    ) -> dict[str, Any]:
+        """Async version of decision_integrity()."""
+        body: dict[str, Any] = {}
+        if include_receipt is not None:
+            body["include_receipt"] = include_receipt
+        if include_plan is not None:
+            body["include_plan"] = include_plan
+        if include_context is not None:
+            body["include_context"] = include_context
+        if plan_strategy is not None:
+            body["plan_strategy"] = plan_strategy
+        if execution_mode is not None:
+            body["execution_mode"] = execution_mode
+        if execution_engine is not None:
+            body["execution_engine"] = execution_engine
+        if parallel_execution is not None:
+            body["parallel_execution"] = parallel_execution
+        if notify_origin is not None:
+            body["notify_origin"] = notify_origin
+        if risk_level is not None:
+            body["risk_level"] = risk_level
+        if approval_mode is not None:
+            body["approval_mode"] = approval_mode
+        if max_auto_risk is not None:
+            body["max_auto_risk"] = max_auto_risk
+        if budget_limit_usd is not None:
+            body["budget_limit_usd"] = budget_limit_usd
+        if openclaw_actions is not None:
+            body["openclaw_actions"] = openclaw_actions
+        if computer_use_actions is not None:
+            body["computer_use_actions"] = computer_use_actions
+        if openclaw_session is not None:
+            body["openclaw_session"] = openclaw_session
+
+        return await self._client._post_async(
+            f"/api/v1/debates/{debate_id}/decision-integrity",
+            body,
+        )
+
     def batch_get(
         self,
         debate_ids: builtins.list[str],
