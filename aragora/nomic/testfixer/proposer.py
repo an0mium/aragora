@@ -261,6 +261,9 @@ class SimpleCodeGenerator:
     For common issues, applies known fix patterns without AI.
     """
 
+    def __init__(self, repo_path: Path | None = None) -> None:
+        self.repo_path = Path(repo_path) if repo_path else None
+
     async def generate_fix(
         self,
         analysis: FailureAnalysis,
@@ -378,6 +381,183 @@ class SimpleCodeGenerator:
                     fixed_content = "".join(lines)
                     rationale = "Expose decorators submodule on package"
                     confidence = 0.65
+
+        # Pattern: missing symbol import (cannot import name 'X' from 'module')
+        if analysis.category == FailureCategory.IMPL_MISSING:
+            missing_match = re.search(
+                r"cannot import name '([^']+)' from '([\w\.]+)'",
+                analysis.failure.error_message,
+            )
+            if not missing_match:
+                missing_match = re.search(
+                    r"cannot import name '([^']+)' from '([\w\.]+)'",
+                    analysis.failure.stack_trace,
+                )
+            if missing_match and self.repo_path:
+                symbol = missing_match.group(1)
+                module_name = missing_match.group(2)
+                module_path = Path(module_name.replace(".", "/") + ".py")
+                module_init = Path(module_name.replace(".", "/") + "/__init__.py")
+                target_path = None
+                if file_path.endswith(str(module_path)) or file_path.endswith(str(module_init)):
+                    target_path = self.repo_path / module_path
+                    if not target_path.exists():
+                        target_path = self.repo_path / module_init
+                if target_path and target_path.exists():
+                    search_dir = target_path.parent
+                    candidate_module = None
+                    for py_file in search_dir.glob("*.py"):
+                        if py_file.name == target_path.name:
+                            continue
+                        try:
+                            content = py_file.read_text()
+                        except Exception:
+                            continue
+                        if re.search(rf"\b{re.escape(symbol)}\b", content):
+                            candidate_module = py_file.stem
+                            break
+                    if candidate_module:
+                        import_line = f"from .{candidate_module} import {symbol}\n"
+                        if import_line not in file_content:
+                            lines = file_content.splitlines(keepends=True)
+                            insert_idx = 0
+                            if lines and lines[0].lstrip().startswith(('"""', "'''")):
+                                quote = lines[0].lstrip()[:3]
+                                for idx, line in enumerate(lines[1:], start=1):
+                                    if quote in line:
+                                        insert_idx = idx + 1
+                                        break
+                            last_future = None
+                            for idx in range(insert_idx, len(lines)):
+                                if lines[idx].strip().startswith("from __future__ import"):
+                                    last_future = idx
+                                elif last_future is not None:
+                                    break
+                            if last_future is not None:
+                                lines.insert(last_future + 1, import_line)
+                            else:
+                                for idx in range(insert_idx, len(lines)):
+                                    if lines[idx].strip().startswith(("from ", "import ")):
+                                        lines.insert(idx, import_line)
+                                        break
+                                else:
+                                    lines.insert(insert_idx, import_line)
+                            fixed_content = "".join(lines)
+                            rationale = (
+                                f"Re-export {symbol} from {candidate_module} to satisfy import"
+                            )
+                            confidence = 0.6
+
+        # Pattern: circuit breaker open in tests (disable for test scope)
+        if (
+            "AgentCircuitOpenError" in analysis.failure.error_message
+            or "Circuit breaker is open"
+            in (analysis.failure.error_message + analysis.failure.stack_trace)
+        ):
+            test_name = analysis.failure.test_name.split("::")[-1]
+            if test_name.startswith("test_"):
+                lines = fixed_content.splitlines(keepends=True)
+                func_idx = None
+                for idx, line in enumerate(lines):
+                    stripped = line.lstrip()
+                    if stripped.startswith("async def ") or stripped.startswith("def "):
+                        if stripped.split("(")[0].endswith(test_name):
+                            func_idx = idx
+                            break
+                if func_idx is not None:
+                    indent = None
+                    for idx in range(func_idx + 1, len(lines)):
+                        if lines[idx].strip():
+                            indent = lines[idx][: len(lines[idx]) - len(lines[idx].lstrip())]
+                            break
+                    indent = indent or "    "
+                    block_end = len(lines)
+                    for idx in range(func_idx + 1, len(lines)):
+                        if lines[idx].startswith(indent) and lines[idx].lstrip().startswith(
+                            ("def ", "async def ", "class ")
+                        ):
+                            block_end = idx
+                            break
+                    has_override = any(
+                        "_circuit_breaker" in line for line in lines[func_idx:block_end]
+                    )
+                    if not has_override:
+                        for idx in range(func_idx + 1, block_end):
+                            assign_match = re.match(
+                                rf"{re.escape(indent)}(\w+)\s*=\s*.*Agent\(",
+                                lines[idx],
+                            )
+                            if assign_match:
+                                var_name = assign_match.group(1)
+                                lines.insert(
+                                    idx + 1, f"{indent}{var_name}._circuit_breaker = None\n"
+                                )
+                                fixed_content = "".join(lines)
+                                rationale = "Disable circuit breaker for isolated test"
+                                confidence = max(confidence, 0.6)
+                                break
+
+        # Pattern: mock patch expects module-level attribute that isn't exported
+        attr_match = re.search(
+            r"does not have the attribute '([\w_]+)'",
+            analysis.failure.error_message,
+        )
+        if not attr_match:
+            attr_match = re.search(
+                r"module '([\w\.]+)' has no attribute '([\w_]+)'",
+                analysis.failure.error_message,
+            )
+        if attr_match:
+            attr_name = attr_match.group(1) if attr_match.lastindex == 1 else attr_match.group(2)
+            if attr_name:
+                defined_pattern = re.compile(
+                    rf"^\s*(def|class)\s+{re.escape(attr_name)}\b|^\s*{re.escape(attr_name)}\s*=",
+                    re.MULTILINE,
+                )
+                if not defined_pattern.search(file_content):
+                    prefix_match = re.search(rf"\b(\w+)\.{re.escape(attr_name)}\b", file_content)
+                    if prefix_match:
+                        prefix = prefix_match.group(1)
+                        alias_line = f"{attr_name} = {prefix}.{attr_name}\n"
+                        if alias_line not in file_content:
+                            updated_content = file_content.replace(
+                                f"{prefix}.{attr_name}", attr_name
+                            )
+                            lines = updated_content.splitlines(keepends=True)
+                            import_idx = None
+                            for idx, line in enumerate(lines):
+                                stripped = line.strip()
+                                if stripped.startswith(("import ", "from ")) and prefix in stripped:
+                                    import_idx = idx
+                                    break
+                            if import_idx is not None:
+                                lines.insert(import_idx + 1, alias_line)
+                            else:
+                                insert_idx = 0
+                                if lines and lines[0].lstrip().startswith(('"""', "'''")):
+                                    quote = lines[0].lstrip()[:3]
+                                    for idx, line in enumerate(lines[1:], start=1):
+                                        if quote in line:
+                                            insert_idx = idx + 1
+                                            break
+                                last_future = None
+                                for idx in range(insert_idx, len(lines)):
+                                    if lines[idx].strip().startswith("from __future__ import"):
+                                        last_future = idx
+                                    elif last_future is not None:
+                                        break
+                                if last_future is not None:
+                                    lines.insert(last_future + 1, alias_line)
+                                else:
+                                    for idx in range(insert_idx, len(lines)):
+                                        if lines[idx].strip().startswith(("from ", "import ")):
+                                            lines.insert(idx, alias_line)
+                                            break
+                                    else:
+                                        lines.insert(insert_idx, alias_line)
+                            fixed_content = "".join(lines)
+                            rationale = f"Expose {attr_name} at module level for patching"
+                            confidence = max(confidence, 0.55)
 
         return fixed_content, rationale, confidence
 
@@ -588,7 +768,7 @@ class PatchProposer:
             require_consensus: Whether all critics must approve
         """
         self.repo_path = Path(repo_path)
-        self.generators = generators or [SimpleCodeGenerator()]
+        self.generators = generators or [SimpleCodeGenerator(repo_path=self.repo_path)]
         self.synthesizer = synthesizer or self.generators[0]
         self.require_consensus = require_consensus
         self._proposal_counter = 0
@@ -660,7 +840,9 @@ class PatchProposer:
                 )
             except Exception as e:
                 logger.exception(
-                    "proposal.generate_error id=%s agent=%s", proposal_id, f"agent_{i}"
+                    "proposal.generate_error id=%s agent=%s",
+                    proposal_id,
+                    f"agent_{i}",
                 )
                 proposals.append(
                     (
@@ -695,7 +877,9 @@ class PatchProposer:
                     all_critiques.append((f"agent_{j}", agent, critique, is_ok))
                 except Exception as e:
                     logger.exception(
-                        "proposal.critique_error id=%s critic=%s", proposal_id, f"agent_{j}"
+                        "proposal.critique_error id=%s critic=%s",
+                        proposal_id,
+                        f"agent_{j}",
                     )
                     all_critiques.append((f"agent_{j}", agent, f"Critique failed: {e}", False))
 

@@ -6,7 +6,6 @@ debate protocols and consensus mechanisms.
 """
 
 from __future__ import annotations
-
 import asyncio
 from collections import deque
 from types import TracebackType

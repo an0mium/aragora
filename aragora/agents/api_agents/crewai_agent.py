@@ -25,6 +25,8 @@ from typing import Any
 import aiohttp
 
 from aragora.agents.api_agents import common as api_common
+
+create_client_session = api_common.create_client_session
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
@@ -396,7 +398,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
         url = f"{self.base_url}{self.config.generate_endpoint}"
 
         try:
-            async with api_common.create_client_session(
+            async with create_client_session(
                 timeout=float(self.crewai_config.crew_timeout)
             ) as session:
                 async with session.post(
@@ -494,7 +496,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
             status_url += f"/{crew_id}"
 
         try:
-            async with api_common.create_client_session(timeout=30.0) as session:
+            async with create_client_session(timeout=30.0) as session:
                 async with session.get(status_url, headers=self._build_headers()) as response:
                     if response.status == 404:
                         return {

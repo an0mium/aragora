@@ -498,18 +498,6 @@ class TestFixerOrchestrator:
                             "diff": proposal.as_diff(),
                         }
                     )
-
-                if self.config.on_fix_applied:
-                    await self.config.on_fix_applied(attempt)
-                if self.config.attempt_store:
-                    self.config.attempt_store.record_attempt(attempt)
-
-                    if self.config.stop_on_first_success:
-                        result.attempts.append(attempt)
-                        result.status = LoopStatus.SUCCESS
-                        result.final_test_result = retest_result
-                        break
-
                 else:
                     logger.info(
                         "testfixer.fix.failed run_id=%s iteration=%s test=%s",
@@ -534,6 +522,17 @@ class TestFixerOrchestrator:
                         )
                         proposal.revert_all(self.repo_path)
                         result.fixes_reverted += 1
+
+                if self.config.on_fix_applied:
+                    await self.config.on_fix_applied(attempt)
+                if self.config.attempt_store:
+                    self.config.attempt_store.record_attempt(attempt)
+
+                if fix_worked and self.config.stop_on_first_success:
+                    result.attempts.append(attempt)
+                    result.status = LoopStatus.SUCCESS
+                    result.final_test_result = retest_result
+                    break
 
                 result.attempts.append(attempt)
                 if self.config.attempt_store:

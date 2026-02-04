@@ -137,6 +137,10 @@ CATEGORY_PATTERNS: dict[FailureCategory, list[tuple[str, float]]] = {
         (r"call_args.*None", 0.8),
         (r"AssertionError.*mock", 0.75),
     ],
+    FailureCategory.TEST_SETUP: [
+        (r"AgentCircuitOpenError", 0.85),
+        (r"Circuit breaker is open", 0.8),
+    ],
     FailureCategory.IMPL_MISSING: [
         (r"AttributeError.*has no attribute", 0.9),
         (r"NameError.*not defined", 0.9),
@@ -465,6 +469,41 @@ class FailureAnalyzer:
             candidate_path = self.repo_path / candidate
             if candidate_path.exists():
                 root_cause_file = str(candidate)
+                fix_target = FixTarget.IMPL_FILE
+        patch_match = re.search(
+            r"<module '([\w\.]+)'.*?> does not have the attribute '([\w_]+)'",
+            failure.error_message,
+        )
+        if patch_match:
+            module_name = patch_match.group(1)
+            module_path = Path(module_name.replace(".", "/") + ".py")
+            module_init = Path(module_name.replace(".", "/") + "/__init__.py")
+            if (self.repo_path / module_path).exists():
+                root_cause_file = str(module_path)
+                fix_target = FixTarget.IMPL_FILE
+            elif (self.repo_path / module_init).exists():
+                root_cause_file = str(module_init)
+                fix_target = FixTarget.IMPL_FILE
+        # ImportError cannot import name 'X' from 'module' -> target module file.
+        import_match = re.search(
+            r"cannot import name '([^']+)' from '([\w\.]+)'",
+            failure.error_message,
+        )
+        if not import_match:
+            import_match = re.search(
+                r"cannot import name '([^']+)' from '([\w\.]+)'",
+                failure.stack_trace,
+            )
+        if import_match:
+            module_name = import_match.group(2)
+            module_path = Path(module_name.replace(".", "/") + ".py")
+            module_init = Path(module_name.replace(".", "/") + "/__init__.py")
+            if (self.repo_path / module_path).exists():
+                root_cause_file = str(module_path)
+                fix_target = FixTarget.IMPL_FILE
+            elif (self.repo_path / module_init).exists():
+                root_cause_file = str(module_init)
+                fix_target = FixTarget.IMPL_FILE
 
         # Estimate complexity
         fix_complexity = "low"

@@ -273,6 +273,18 @@ def parse_pytest_output(stdout: str, stderr: str) -> tuple[dict[str, int], list[
                         )
                     )
 
+    # Backfill missing error details from combined output
+    if failures:
+        error_lines = re.findall(r"([\w.]+Error|[\w.]+Exception):\s*(.+)", combined)
+        if error_lines:
+            last_error_type, last_error_msg = error_lines[-1]
+            for failure in failures:
+                if not failure.error_message:
+                    failure.error_type = last_error_type
+                    failure.error_message = last_error_msg.strip()
+                if not failure.stack_trace:
+                    failure.stack_trace = combined
+
     return stats, failures
 
 

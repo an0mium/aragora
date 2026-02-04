@@ -27,6 +27,8 @@ from typing import Any, AsyncGenerator
 import aiohttp
 
 from aragora.agents.api_agents import common as api_common
+
+create_client_session = api_common.create_client_session
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
@@ -309,7 +311,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
         # Remove streaming to get synchronous response
         del payload["stream_mode"]
 
-        async with api_common.create_client_session(timeout=float(self.timeout)) as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
                 async with session.post(
                     url, json=payload, headers=self._build_headers()
@@ -442,7 +444,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
         url = f"{self.base_url}/runs"
         payload = self._build_run_payload(input_data, thread_id)
 
-        async with api_common.create_client_session(timeout=float(self.timeout)) as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
                 async with session.post(
                     url, json=payload, headers=self._build_headers()
@@ -502,7 +504,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
         url = f"{self.base_url}{self.config.generate_endpoint}"
         payload = self._build_run_payload(input_data, thread_id)
 
-        async with api_common.create_client_session(timeout=float(self.timeout)) as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
                 async with session.post(
                     url, json=payload, headers=self._build_headers()
@@ -584,7 +586,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
             extra={"thread_id": tid},
         )
 
-        async with api_common.create_client_session(timeout=float(self.timeout)) as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
                 async with session.get(url, headers=self._build_headers()) as response:
                     if response.status != 200:
@@ -654,7 +656,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
             extra={"thread_id": tid, "as_node": as_node},
         )
 
-        async with api_common.create_client_session(timeout=float(self.timeout)) as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
                 async with session.post(
                     url, json=payload, headers=self._build_headers()

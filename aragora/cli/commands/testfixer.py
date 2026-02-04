@@ -44,6 +44,35 @@ def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Pat
     return log_path
 
 
+def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Path | None:
+    level_name = (log_level or "info").upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    if log_file == "-":
+        handlers = [logging.StreamHandler()]
+        log_path = None
+    else:
+        if log_file:
+            log_path = Path(log_file)
+        else:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_path = repo_path / ".testfixer" / "logs" / f"testfixer_{ts}.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers = [
+            logging.StreamHandler(),
+            logging.FileHandler(log_path, encoding="utf-8"),
+        ]
+
+    logging.basicConfig(
+        level=level,
+        handlers=handlers,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        force=True,
+    )
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    return log_path
+
+
 def _parse_agents(agents: str) -> list[AgentCodeGenerator]:
     if not agents or agents.strip().lower() in ("none", "false", "off", "0"):
         return []
