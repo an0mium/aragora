@@ -209,6 +209,12 @@ class MoundConfig:
     default_query_limit: int = 20
     max_query_limit: int = 100
     parallel_queries: bool = True
+    enable_lara_routing: bool = False
+    lara_min_nodes_for_routing: int = 200
+    lara_query_length_threshold: int = 120
+    lara_graph_hint_prefixes: tuple[str, ...] = ("graph:", "node:", "id:")
+    lara_force_route: str | None = None
+    lara_log_decisions: bool = False
 
     # Staleness settings
     staleness_check_interval: timedelta = timedelta(hours=1)

@@ -219,8 +219,23 @@ class QueryOperationsMixin(_QueryMixinBase):
             start_time = time.time()
             limit = min(limit, self.config.max_query_limit)
 
+            route_decision = await self._decide_lara_route(query, ws_id)
+            route_key = route_decision.route if route_decision else "default"
+            span.set_tag("lara_route", route_key)
+            if route_decision:
+                span.add_event(
+                    "lara_route_decision",
+                    {"route": route_decision.route, "reason": route_decision.reason},
+                )
+                if self.config.lara_log_decisions:
+                    logger.info(
+                        "LaRA route: %s (%s)",
+                        route_decision.route,
+                        route_decision.reason,
+                    )
+
             # Check cache first (include offset in cache key)
-            cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}"
+            cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}:{route_key}"
             if self._cache:
                 cached = await self._cache.get_query(cache_key)
                 if cached:
@@ -232,8 +247,45 @@ class QueryOperationsMixin(_QueryMixinBase):
             span.add_event("cache_miss")
 
             # Query local mound
-            items = await self._query_local(query, filters, limit, ws_id)
-            span.add_event("local_query_complete", {"count": len(items)})
+            items: list[KnowledgeItem]
+            if route_decision:
+                if route_decision.route == "graph" and route_decision.start_id:
+                    try:
+                        graph_result = await self.query_graph(
+                            route_decision.start_id, depth=2, max_nodes=limit
+                        )
+                        items = list(graph_result.nodes)
+                    except Exception as e:
+                        logger.warning("Graph route failed, falling back: %s", e)
+                        items = await self._query_local(query, filters, limit, ws_id)
+                elif route_decision.route in ("semantic", "rlm", "long_context"):
+                    semantic_limit = limit
+                    if route_decision.route == "long_context":
+                        semantic_limit = min(limit * 2, self.config.max_query_limit)
+                    items = await self.query_semantic(
+                        query,
+                        limit=semantic_limit,
+                        workspace_id=ws_id,
+                        allow_fallback=False,
+                    )
+                    if route_decision.route == "rlm":
+                        rlm_fn = getattr(self, "query_with_rlm", None)
+                        if callable(rlm_fn):
+                            try:
+                                await rlm_fn(query, limit=semantic_limit, workspace_id=ws_id)
+                                span.add_event("lara_rlm_context_built")
+                            except Exception as e:
+                                logger.debug("LaRA RLM route failed: %s", e)
+                    if not items:
+                        items = await self._query_local(query, filters, limit, ws_id)
+                else:
+                    items = await self._query_local(query, filters, limit, ws_id)
+            else:
+                items = await self._query_local(query, filters, limit, ws_id)
+            span.add_event(
+                "local_query_complete",
+                {"count": len(items), "route": route_key},
+            )
 
             # Query connected memory systems in parallel
             if self.config.parallel_queries:
@@ -293,6 +345,43 @@ class QueryOperationsMixin(_QueryMixinBase):
 
             return result
 
+    async def _decide_lara_route(
+        self,
+        query: str,
+        workspace_id: str,
+    ) -> Any | None:
+        if not self.config.enable_lara_routing:
+            return None
+
+        from aragora.knowledge.mound.api.router import DocumentFeatures, LaRARouter
+
+        total_nodes = 0
+        if self._meta_store:
+            if hasattr(self._meta_store, "count_nodes_async"):
+                total_nodes = await self._meta_store.count_nodes_async(workspace_id)
+            elif hasattr(self._meta_store, "count_nodes"):
+                total_nodes = self._meta_store.count_nodes(workspace_id)
+
+        supports_rlm = False
+        rlm_check = getattr(self, "is_rlm_available", None)
+        if callable(rlm_check):
+            try:
+                supports_rlm = bool(rlm_check())
+            except Exception:
+                supports_rlm = False
+
+        router = LaRARouter(
+            min_nodes_for_routing=self.config.lara_min_nodes_for_routing,
+            query_length_threshold=self.config.lara_query_length_threshold,
+            graph_hint_prefixes=self.config.lara_graph_hint_prefixes,
+        )
+        return router.route(
+            query,
+            DocumentFeatures(total_nodes=total_nodes),
+            supports_rlm=supports_rlm,
+            force_route=self.config.lara_force_route,
+        )
+
     async def get_recent_nodes(
         self,
         workspace_id: str | None = None,
@@ -337,6 +426,7 @@ class QueryOperationsMixin(_QueryMixinBase):
         limit: int = 10,
         min_confidence: float = 0.0,
         workspace_id: str | None = None,
+        allow_fallback: bool = True,
     ) -> list["KnowledgeItem"]:
         """Semantic similarity search using vector embeddings."""
         self._ensure_initialized()
@@ -373,6 +463,9 @@ class QueryOperationsMixin(_QueryMixinBase):
                 return items
             except Exception as e:
                 logger.warning(f"Semantic store search failed: {e}, falling back")
+
+        if not allow_fallback:
+            return []
 
         # Fall back to keyword search
         result = await self.query(text, limit=limit, workspace_id=workspace_id)
