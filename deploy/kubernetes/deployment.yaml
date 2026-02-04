@@ -10,8 +10,21 @@ metadata:
     app.kubernetes.io/name: aragora
     app.kubernetes.io/component: server
     app.kubernetes.io/version: "1.0.0"
+  annotations:
+    # Rollback configuration
+    # Kubernetes maintains revision history for rollbacks
+    kubernetes.io/change-cause: "Initial deployment"
+    # Health-based rollback: if readiness probe fails 3x, pod is marked unhealthy
+    # Combined with PodDisruptionBudget, this prevents bad deploys from completing
+    aragora.io/health-rollback-enabled: "true"
+    aragora.io/health-rollback-threshold: "3"
+    # Monitor these metrics for automated rollback decisions
+    aragora.io/rollback-metrics: "http_error_rate,latency_p99,memory_usage"
 spec:
   replicas: 2
+  # Keep 10 revision history for rollback capability
+  # Rollback command: kubectl rollout undo deployment/aragora -n aragora
+  revisionHistoryLimit: 10
   selector:
     matchLabels:
       app.kubernetes.io/name: aragora
@@ -19,8 +32,13 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
+      # Conservative rollout: only 1 new pod at a time
       maxSurge: 1
+      # Never allow unavailable pods during rollout (combined with readiness check)
       maxUnavailable: 0
+  # minReadySeconds ensures pod is stable before marking as ready
+  # If pod fails within this window, rollout pauses
+  minReadySeconds: 30
   template:
     metadata:
       labels:

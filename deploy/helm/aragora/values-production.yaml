@@ -17,8 +17,8 @@ replicaCount: 3
 image:
   repository: aragora/aragora
   # IMPORTANT: Replace with a specific version tag or SHA digest
-  # Example: tag: "v2.5.0" or tag: "v2.5.0@sha256:abc123..."
-  tag: "v2.5.0"
+  # Example: tag: "v2.6.3" or tag: "v2.6.3@sha256:abc123..."
+  tag: "v2.6.3"
   pullPolicy: IfNotPresent
 
 # Autoscaling - enabled for production

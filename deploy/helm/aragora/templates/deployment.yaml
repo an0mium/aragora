@@ -4,10 +4,19 @@ metadata:
   name: {{ include "aragora.fullname" . }}
   labels:
     {{- include "aragora.labels" . | nindent 4 }}
+  annotations:
+    # Rollback configuration
+    kubernetes.io/change-cause: {{ .Values.changeDescription | default "Helm deployment" | quote }}
+    aragora.io/health-rollback-enabled: {{ .Values.rollback.enabled | default "true" | quote }}
+    aragora.io/health-rollback-threshold: {{ .Values.rollback.healthThreshold | default "3" | quote }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  # Keep revision history for rollbacks
+  revisionHistoryLimit: {{ .Values.rollback.historyLimit | default 10 }}
+  # minReadySeconds ensures pod stability before marking ready
+  minReadySeconds: {{ .Values.rollback.minReadySeconds | default 30 }}
   selector:
     matchLabels:
       {{- include "aragora.selectorLabels" . | nindent 6 }}

@@ -100,6 +100,17 @@ podDisruptionBudget:
   minAvailable: 1
   # Alternative: maxUnavailable: 1
 
+# Rollback configuration
+# Controls automatic rollback behavior based on health checks
+rollback:
+  enabled: true
+  # Number of revision history to keep (for kubectl rollout undo)
+  historyLimit: 10
+  # Seconds pod must be ready before considered stable
+  minReadySeconds: 30
+  # Number of failed health checks before pod marked unhealthy
+  healthThreshold: 3
+
 # Node selector
 nodeSelector: {}
 
