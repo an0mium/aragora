@@ -399,11 +399,20 @@ class DecisionPlanFactory:
             implement_plan=implement_plan,
         )
 
-        # Enrich risks with historical data from Knowledge Mound
-        if enrich_from_history and plan.risk_register:
-            await DecisionPlanFactory._enrich_risks_from_history(
-                plan.risk_register, result.task, knowledge_mound
+        if enrich_from_history:
+            # Enrich risks with historical data from Knowledge Mound
+            if plan.risk_register:
+                await DecisionPlanFactory._enrich_risks_from_history(
+                    plan.risk_register, result.task, knowledge_mound
+                )
+
+            # Retrieve and attach historical lessons to plan metadata
+            lessons = await DecisionPlanFactory._retrieve_historical_lessons(
+                result.task, knowledge_mound
             )
+            if lessons:
+                plan.metadata["historical_lessons"] = lessons
+                plan.metadata["historical_lessons_count"] = len(lessons)
 
         return plan
 

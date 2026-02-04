@@ -402,6 +402,158 @@ class BillingHandler(SecureHandler):
 
         return json_response({"subscription": subscription_data})
 
+    @handle_errors("get trial status")
+    @require_permission("org:billing")
+    def _get_trial_status(self, handler: Any, user: Any | None = None) -> HandlerResult:
+        """Get trial status for the organization.
+
+        Requires org:billing permission (owner only).
+
+        Returns:
+            Trial status including days remaining, debates used, and expiration.
+        """
+        from aragora.billing.trial_manager import get_trial_manager
+
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
+            return error_response("User not found", 404)
+
+        org = None
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
+
+        if not org:
+            return error_response("No organization found", 404)
+
+        # Get trial status from TrialManager
+        trial_mgr = get_trial_manager()
+        status = trial_mgr.get_trial_status(org)
+
+        # Build response with conversion options
+        trial_data = status.to_dict()
+
+        # Add upgrade options if in trial or trial expired
+        if status.is_active or status.is_expired:
+            trial_data["upgrade_options"] = [
+                {
+                    "tier": "starter",
+                    "name": "Starter",
+                    "price": "$99/month",
+                    "debates_per_month": 100,
+                },
+                {
+                    "tier": "professional",
+                    "name": "Professional",
+                    "price": "$249/month",
+                    "debates_per_month": 500,
+                },
+                {
+                    "tier": "enterprise",
+                    "name": "Enterprise",
+                    "price": "Contact us",
+                    "debates_per_month": "Unlimited",
+                },
+            ]
+
+        # Add warning if trial expiring soon (3 days or less)
+        if status.is_active and status.days_remaining <= 3:
+            trial_data["warning"] = (
+                f"Your trial expires in {status.days_remaining} day(s). "
+                "Upgrade now to continue using all features."
+            )
+
+        return json_response({"trial": trial_data})
+
+    @handle_errors("start trial")
+    @log_request("start trial")
+    def _start_trial(self, handler: Any, user: Any | None = None) -> HandlerResult:
+        """Start a free trial for a new organization.
+
+        This endpoint can be called by newly registered users to start
+        their 7-day free trial with 10 free debates.
+        """
+        from aragora.billing.trial_manager import TrialManager, get_trial_manager
+
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        # Get user from JWT if available (for authenticated requests)
+        # or create a new user from request body (for signup flow)
+        db_user = None
+        if user:
+            db_user = user_store.get_user_by_id(user.user_id)
+
+        if not db_user:
+            # Check for signup flow - body should contain user info
+            body = self.read_json_body(handler)
+            if body is None:
+                return error_response("User authentication required", 401)
+
+            user_id = body.get("user_id")
+            if user_id:
+                db_user = user_store.get_user_by_id(user_id)
+
+        if not db_user:
+            return error_response("User not found", 404)
+
+        org = None
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
+
+        if not org:
+            return error_response("No organization found", 404)
+
+        # Check if trial already started
+        if org.trial_started_at is not None:
+            # Return current trial status instead of error
+            trial_mgr = get_trial_manager()
+            status = trial_mgr.get_trial_status(org)
+            return json_response(
+                {
+                    "trial": status.to_dict(),
+                    "message": "Trial already active",
+                }
+            )
+
+        # Check if organization has a paid subscription
+        if org.tier != SubscriptionTier.FREE:
+            return error_response(
+                "Cannot start trial - organization already has a paid subscription", 400
+            )
+
+        # Start the trial
+        trial_mgr = TrialManager(user_store=user_store)
+        status = trial_mgr.start_trial(org)
+
+        logger.info(f"Started trial for org {org.id} (user: {db_user.email})")
+        audit_data(
+            user_id=db_user.id,
+            resource_type="trial",
+            resource_id=org.id,
+            action="start",
+            org_id=org.id,
+        )
+
+        emit_handler_event(
+            "billing",
+            CREATED,
+            {"action": "trial_started", "org_id": org.id},
+            user_id=db_user.id,
+        )
+
+        return json_response(
+            {
+                "trial": status.to_dict(),
+                "message": f"Trial started! You have {status.days_remaining} days and "
+                f"{status.debates_remaining} debates.",
+            }
+        )
+
     @handle_errors("create checkout")
     @log_request("create checkout session")
     @require_permission("org:billing")
