@@ -107,52 +107,16 @@ from aragora.server.startup.validation_runner import (  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
-async def run_startup_sequence(
-    nomic_dir: Path | None = None,
-    stream_emitter: Any | None = None,
-    graceful_degradation: bool = True,
-) -> dict:
-    """Run the full server startup sequence.
-
-    Args:
-        nomic_dir: Path to nomic directory
-        stream_emitter: Optional event emitter for debates
-        graceful_degradation: If True, enter degraded mode on failure instead of crashing.
-            The server will start but return 503 for most endpoints until the issue is resolved.
-            Defaults to True for production resilience.
-
-    Environment Variables:
-        ARAGORA_STRICT_STARTUP: If set to "true", overrides graceful_degradation to False,
-            causing the server to fail fast if dependencies are unavailable.
-            Useful for Kubernetes deployments where you want pods to restart on failure.
-
-    Returns:
-        Dictionary with startup status for each component. If graceful_degradation is True
-        and startup fails, returns a minimal status dict with degraded=True.
-
-    Raises:
-        RuntimeError: If production requirements are not met AND graceful_degradation is False
-    """
-    import os
-
-    # STRICT_STARTUP mode: Override graceful_degradation to fail fast
-    # This is useful for K8s deployments where you want pods to restart on failure
-    strict_startup = os.environ.get("ARAGORA_STRICT_STARTUP", "").lower() in ("1", "true", "yes")
-    if strict_startup:
-        logger.info("ARAGORA_STRICT_STARTUP enabled: server will fail fast on dependency errors")
-        graceful_degradation = False
-
-    # Run comprehensive configuration validation FIRST (fail fast on misconfigurations)
+async def _validate_config(graceful_degradation: bool) -> None:
+    """Phase 1: Run configuration validation (fail fast on misconfigurations)."""
     try:
         from aragora.server.config_validator import ConfigValidator
 
         config_result = ConfigValidator.validate_all()
 
-        # Log warnings
         for warning in config_result.warnings:
             logger.warning(f"Configuration warning: {warning}")
 
-        # Handle errors based on graceful_degradation setting
         if config_result.errors:
             for error in config_result.errors:
                 logger.error(f"Configuration error: {error}")
@@ -169,13 +133,24 @@ async def run_startup_sequence(
     except ImportError:
         logger.debug("ConfigValidator not available - skipping configuration validation")
 
-    from aragora.control_plane.leader import is_distributed_state_required
-    from aragora.server.degraded_mode import (
-        set_degraded,
-        DegradedErrorCode,
-    )
 
-    # Check production requirements first (fail fast or enter degraded mode)
+async def _validate_prerequisites(
+    graceful_degradation: bool,
+) -> dict[str, Any] | None:
+    """Phase 2: Validate production requirements, OAuth, connectivity, storage.
+
+    Returns a dict with ``connectivity``, ``storage_backend``, ``migration_results``,
+    and ``schema_validation`` keys on success, or ``None`` if degraded mode was
+    entered (the degraded status has already been set).
+
+    Raises ``RuntimeError`` when ``graceful_degradation`` is False and a check fails.
+    """
+    import os
+
+    from aragora.control_plane.leader import is_distributed_state_required
+    from aragora.server.degraded_mode import DegradedErrorCode, set_degraded
+
+    # --- Production requirements ---
     missing_requirements = check_production_requirements()
     if missing_requirements:
         for req in missing_requirements:
@@ -184,7 +159,6 @@ async def run_startup_sequence(
         error_msg = f"Production requirements not met: {', '.join(missing_requirements)}"
 
         if graceful_degradation:
-            # Determine the error code based on what's missing
             error_code = DegradedErrorCode.CONFIG_ERROR
             if any("ENCRYPTION_KEY" in r for r in missing_requirements):
                 error_code = DegradedErrorCode.ENCRYPTION_KEY_MISSING
@@ -198,11 +172,11 @@ async def run_startup_sequence(
                 error_code=error_code,
                 details={"missing_requirements": missing_requirements},
             )
-            return _get_degraded_status()
+            return None
 
         raise RuntimeError(error_msg)
 
-    # Validate OAuth configuration early (warns about missing JWT secret etc.)
+    # --- OAuth configuration ---
     try:
         from aragora.server.handlers.oauth.config import validate_oauth_config
 
@@ -214,7 +188,7 @@ async def run_startup_sequence(
     except ImportError:
         logger.debug("OAuth config module not available - skipping OAuth validation")
 
-    # Validate actual backend connectivity (not just config presence)
+    # --- Backend connectivity ---
     env = os.environ.get("ARAGORA_ENV", "development")
     is_production = env == "production"
     distributed_required = is_distributed_state_required()
@@ -237,7 +211,6 @@ async def run_startup_sequence(
         error_msg = f"Backend connectivity validation failed: {'; '.join(connectivity['errors'])}"
 
         if graceful_degradation:
-            # Determine error code based on what failed
             error_code = DegradedErrorCode.BACKEND_CONNECTIVITY
             if any("Redis" in e for e in connectivity["errors"]):
                 error_code = DegradedErrorCode.REDIS_UNAVAILABLE
@@ -253,11 +226,11 @@ async def run_startup_sequence(
                     "require_database": require_database,
                 },
             )
-            return _get_degraded_status()
+            return None
 
         raise RuntimeError(error_msg)
 
-    # Validate storage backend configuration
+    # --- Storage backend ---
     storage_backend = validate_storage_backend()
     if not storage_backend["valid"]:
         for error in storage_backend["errors"]:
@@ -271,11 +244,28 @@ async def run_startup_sequence(
                 error_code=DegradedErrorCode.DATABASE_UNAVAILABLE,
                 details={"storage_backend": storage_backend},
             )
-            return _get_degraded_status()
+            return None
 
         raise RuntimeError(error_msg)
 
-    # Run auto-migrations if enabled
+    # --- Auto-migrations ---
+    migration_results = await _run_migrations(os)
+
+    # --- Schema validation ---
+    schema_validation = await _validate_schema(os, graceful_degradation)
+    if schema_validation is None:
+        return None
+
+    return {
+        "connectivity": connectivity,
+        "storage_backend": storage_backend,
+        "migration_results": migration_results,
+        "schema_validation": schema_validation,
+    }
+
+
+async def _run_migrations(os: Any) -> dict[str, Any]:
+    """Phase 2b: Run auto-migrations if enabled."""
     migration_results: dict[str, Any] = {"skipped": True}
     if os.environ.get("ARAGORA_AUTO_MIGRATE_ON_STARTUP", "").lower() == "true":
         try:
@@ -289,9 +279,17 @@ async def run_startup_sequence(
         except Exception as e:
             logger.error(f"Auto-migration failed: {e}")
             migration_results = {"error": str(e), "skipped": False}
+    return migration_results
 
-    # Validate database schema (in consolidated mode)
-    schema_validation = {"success": True, "errors": [], "warnings": []}
+
+async def _validate_schema(
+    os: Any,
+    graceful_degradation: bool,
+) -> dict[str, Any] | None:
+    """Phase 2c: Validate database schema. Returns None if degraded mode entered."""
+    from aragora.server.degraded_mode import DegradedErrorCode, set_degraded
+
+    schema_validation: dict[str, Any] = {"success": True, "errors": [], "warnings": []}
     try:
         from aragora.persistence.validator import validate_consolidated_schema
 
@@ -306,7 +304,6 @@ async def run_startup_sequence(
             for error in schema_result.errors:
                 logger.error(f"Database schema validation error: {error}")
 
-            # Only fail if explicitly required (production environments may need migration)
             require_valid_schema = os.environ.get("ARAGORA_REQUIRE_VALID_SCHEMA", "").lower() in (
                 "true",
                 "1",
@@ -322,7 +319,7 @@ async def run_startup_sequence(
                         error_code=DegradedErrorCode.DATABASE_UNAVAILABLE,
                         details={"schema_validation": schema_validation},
                     )
-                    return _get_degraded_status()
+                    return None
 
                 raise RuntimeError(error_msg)
             else:
@@ -338,17 +335,21 @@ async def run_startup_sequence(
     except ImportError:
         logger.debug("Database validator not available - skipping schema validation")
 
-    import time as time_mod
+    return schema_validation
 
-    # Initialize structured logging early (before other components log)
-    structured_logging = init_structured_logging()
 
-    status: dict[str, Any] = {
-        "_startup_start_time": time_mod.time(),  # For duration calculation
-        "backend_connectivity": connectivity,
-        "storage_backend": storage_backend,
-        "migrations": migration_results,
-        "schema_validation": schema_validation,
+def _build_initial_status(
+    prereqs: dict[str, Any],
+    structured_logging: Any,
+    start_time: float,
+) -> dict[str, Any]:
+    """Build the initial status dict with defaults for all component keys."""
+    return {
+        "_startup_start_time": start_time,
+        "backend_connectivity": prereqs["connectivity"],
+        "storage_backend": prereqs["storage_backend"],
+        "migrations": prereqs["migration_results"],
+        "schema_validation": prereqs["schema_validation"],
         "structured_logging": structured_logging,
         "redis_ha": {"enabled": False, "mode": "standalone", "healthy": False},
         "error_monitoring": False,
@@ -385,22 +386,26 @@ async def run_startup_sequence(
         "slack_token_refresh_scheduler": False,
     }
 
-    # Initialize PostgreSQL connection pool FIRST (event-loop bound)
-    # This MUST happen before any subsystems that need database access
+
+async def _init_all_components(
+    status: dict[str, Any],
+    nomic_dir: Path | None,
+    stream_emitter: Any | None,
+) -> None:
+    """Phase 3: Initialize all server components sequentially."""
+    # PostgreSQL connection pool FIRST (event-loop bound, needed by subsystems)
     status["postgres_pool"] = await init_postgres_pool()
 
-    # --- Pool diagnostic: check health immediately after creation ---
-
-    # Initialize Redis HA early (other components may depend on it)
+    # Redis HA early (other components may depend on it)
     status["redis_ha"] = await init_redis_ha()
 
-    # Initialize in parallel where possible
+    # Observability
     status["error_monitoring"] = await init_error_monitoring()
     status["opentelemetry"] = await init_opentelemetry()
     status["otlp_exporter"] = await init_otlp_exporter()
     status["prometheus"] = await init_prometheus_metrics()
 
-    # Sequential initialization for components with dependencies
+    # Core services with dependencies
     status["circuit_breakers"] = init_circuit_breaker_persistence(nomic_dir)
     status["background_tasks"] = init_background_tasks(nomic_dir)
     status["pulse_scheduler"] = await init_pulse_scheduler(stream_emitter)
@@ -409,54 +414,41 @@ async def run_startup_sequence(
     status["control_plane_coordinator"] = await init_control_plane_coordinator()
     status["shared_control_plane_state"] = await init_shared_control_plane_state()
 
-    # Initialize Witness Patrol for Gas Town agent monitoring
+    # Witness Patrol for Gas Town agent monitoring
     status["witness_patrol"] = await init_witness_patrol()
 
-    # Initialize Mayor Coordinator for distributed leadership
+    # Mayor Coordinator for distributed leadership
     status["mayor_coordinator"] = await init_mayor_coordinator()
 
+    # Knowledge and workflow
     status["km_adapters"] = await init_km_adapters()
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
     status["tts_integration"] = await init_tts_integration()
     status["persistent_task_queue"] = await init_persistent_task_queue()
 
-    # Initialize webhooks (dispatcher must be initialized before SLO webhooks)
+    # Webhooks (dispatcher must be initialized before SLO webhooks)
     status["webhook_dispatcher"] = init_webhook_dispatcher()
     status["slo_webhooks"] = init_slo_webhooks()
 
-    # Recover stale gauntlet runs from previous session
+    # Recovery
     status["gauntlet_runs_recovered"] = init_gauntlet_run_recovery()
-
-    # Recover and re-enqueue interrupted jobs from durable queue (if enabled)
     status["durable_jobs_recovered"] = await init_durable_job_queue_recovery()
 
-    # Start gauntlet worker for durable queue processing (if enabled)
+    # Workers and schedulers
     status["gauntlet_worker"] = await init_gauntlet_worker()
-
-    # Start backup scheduler for automated backups and DR drills (if enabled)
     status["backup_scheduler"] = await init_backup_scheduler()
-
-    # Start DR drill scheduler for SOC 2 CC9 compliance (if enabled)
     dr_scheduler = await start_dr_drilling()
     status["dr_drill_scheduler"] = dr_scheduler is not None
-
-    # Start notification dispatcher worker for queue processing
     status["notification_worker"] = await init_notification_worker()
-
-    # Start TestFixer worker for automated test repair loop
     status["testfixer_worker"] = await init_testfixer_worker()
     status["testfixer_task_worker"] = await init_testfixer_task_worker()
-
-    # Start Slack token refresh scheduler for proactive token renewal
     status["slack_token_refresh_scheduler"] = await init_slack_token_refresh_scheduler()
 
-    # Initialize Redis state backend for horizontal scaling
+    # Scaling and routing
     status["redis_state_backend"] = await init_redis_state_backend()
-
-    # Initialize DecisionRouter with platform response handlers
     status["decision_router"] = await init_decision_router()
 
-    # Validate required secrets before starting more components
+    # Security and secrets
     secrets_validation = validate_required_secrets()
     status["secrets_validation"] = secrets_validation
     if not secrets_validation["valid"]:
@@ -465,28 +457,19 @@ async def run_startup_sequence(
     for warning in secrets_validation.get("warnings", []):
         logger.warning(f"Secrets validation: {warning}")
 
-    # Initialize key rotation scheduler for automated encryption key management
     status["key_rotation_scheduler"] = await init_key_rotation_scheduler()
-
-    # Initialize secrets rotation scheduler for automated API key management
     status["secrets_rotation_scheduler"] = await init_secrets_rotation_scheduler()
-
-    # Initialize access review scheduler for SOC 2 CC6.1/CC6.2 compliance
     status["access_review_scheduler"] = await init_access_review_scheduler()
-
-    # Initialize RBAC distributed cache for horizontal scaling
     status["rbac_distributed_cache"] = await init_rbac_distributed_cache()
-
-    # Recover pending approval requests from governance store
     status["approval_gate_recovery"] = await init_approval_gate_recovery()
 
-    # Initialize GraphQL API routes (if enabled)
+    # API and deployment
     status["graphql"] = init_graphql_routes(None)
-
-    # Run comprehensive deployment validation and log results
     status["deployment_validation"] = await init_deployment_validation()
 
-    # Record startup completion time and store report
+
+def _generate_startup_report(status: dict[str, Any]) -> None:
+    """Phase 4: Record startup metrics and generate a report."""
     import time as time_mod
 
     startup_end_time = time_mod.time()
@@ -498,7 +481,6 @@ async def run_startup_sequence(
             set_last_startup_report,
         )
 
-        # Generate report from status
         components_initialized = [k for k, v in status.items() if v and not k.startswith("_")]
         components_failed = [k for k, v in status.items() if v is False]
 
@@ -529,6 +511,58 @@ async def run_startup_sequence(
     except ImportError:
         logger.debug("startup_transaction module not available - skipping report")
         status["startup_duration_seconds"] = round(startup_duration, 2)
+
+
+async def run_startup_sequence(
+    nomic_dir: Path | None = None,
+    stream_emitter: Any | None = None,
+    graceful_degradation: bool = True,
+) -> dict:
+    """Run the full server startup sequence.
+
+    Args:
+        nomic_dir: Path to nomic directory
+        stream_emitter: Optional event emitter for debates
+        graceful_degradation: If True, enter degraded mode on failure instead of crashing.
+            The server will start but return 503 for most endpoints until the issue is resolved.
+            Defaults to True for production resilience.
+
+    Environment Variables:
+        ARAGORA_STRICT_STARTUP: If set to "true", overrides graceful_degradation to False,
+            causing the server to fail fast if dependencies are unavailable.
+            Useful for Kubernetes deployments where you want pods to restart on failure.
+
+    Returns:
+        Dictionary with startup status for each component. If graceful_degradation is True
+        and startup fails, returns a minimal status dict with degraded=True.
+
+    Raises:
+        RuntimeError: If production requirements are not met AND graceful_degradation is False
+    """
+    import os
+    import time as time_mod
+
+    # STRICT_STARTUP mode: Override graceful_degradation to fail fast
+    strict_startup = os.environ.get("ARAGORA_STRICT_STARTUP", "").lower() in ("1", "true", "yes")
+    if strict_startup:
+        logger.info("ARAGORA_STRICT_STARTUP enabled: server will fail fast on dependency errors")
+        graceful_degradation = False
+
+    # Phase 1: Configuration validation
+    await _validate_config(graceful_degradation)
+
+    # Phase 2: Prerequisites (requirements, connectivity, storage, migrations, schema)
+    prereqs = await _validate_prerequisites(graceful_degradation)
+    if prereqs is None:
+        return _get_degraded_status()
+
+    # Phase 3: Initialize all components
+    structured_logging = init_structured_logging()
+    status = _build_initial_status(prereqs, structured_logging, time_mod.time())
+    await _init_all_components(status, nomic_dir, stream_emitter)
+
+    # Phase 4: Generate startup report
+    _generate_startup_report(status)
 
     return status
 

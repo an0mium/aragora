@@ -34,7 +34,7 @@ class ConnectorInfo:
     """Metadata and live status for a single connector."""
 
     name: str
-    connector_type: str  # "chat", "payment", "ecommerce", "enterprise", "ai"
+    connector_type: str  # "chat", "payment", "ecommerce", "enterprise", "ai", "memory"
     module_path: str
     status: ConnectorStatus = ConnectorStatus.UNKNOWN
     last_health_check: float | None = None
@@ -173,6 +173,14 @@ class ConnectorRegistry:
         )
         self._try_register("twitter", "ai", "aragora.connectors.twitter", ["search", "posts"])
         self._try_register("web", "ai", "aragora.connectors.web", ["search"])
+
+        # Memory connectors
+        self._try_register(
+            "claude_mem",
+            "memory",
+            "aragora.connectors.memory.claude_mem",
+            ["search", "observations"],
+        )
 
     def _try_register(
         self,

@@ -285,6 +285,203 @@ def command(
     return get_default_registry().command(name, description, **kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Debate routing helpers (used by builtin commands)
+# ---------------------------------------------------------------------------
+
+
+def _register_debate_origin_best_effort(debate_id: str, ctx: CommandContext, topic: str) -> None:
+    """Register debate origin for bidirectional routing (best-effort)."""
+    try:
+        from aragora.server.debate_origin import register_debate_origin
+
+        register_debate_origin(
+            debate_id=debate_id,
+            platform=ctx.platform.value,
+            channel_id=ctx.channel_id,
+            user_id=ctx.user_id,
+            thread_id=ctx.thread_id,
+            metadata={"topic": topic, "source": ctx.platform.value},
+        )
+    except Exception as exc:
+        logger.debug("Failed to register debate origin: %s", exc)
+
+
+def _format_debate_success(
+    mode_label: str, topic: str, debate_id: str, api_base: str
+) -> CommandResult:
+    """Format a successful debate start response."""
+    return CommandResult.ok(
+        f"{mode_label} started on: **{topic}**\n"
+        f"Debate ID: `{debate_id}`\n"
+        f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
+        data={"debate_id": debate_id},
+    )
+
+
+async def _route_via_decision_router(
+    ctx: CommandContext,
+    topic: str,
+    api_base: str,
+    decision_integrity: dict[str, Any] | None,
+    mode_label: str,
+) -> CommandResult | None:
+    """Attempt to route debate via DecisionRouter.
+
+    Returns a ``CommandResult`` on success or failure, or ``None`` if the
+    router is unavailable and the caller should fall back to HTTP.
+    """
+    from aragora.core import (
+        DecisionConfig,
+        DecisionRequest,
+        DecisionType,
+        InputSource,
+        RequestContext,
+        ResponseChannel,
+        get_decision_router,
+    )
+
+    platform_to_source: dict[Platform, InputSource] = {
+        Platform.DISCORD: InputSource.DISCORD,
+        Platform.TEAMS: InputSource.TEAMS,
+        Platform.SLACK: InputSource.SLACK,
+        Platform.TELEGRAM: InputSource.TELEGRAM,
+        Platform.WHATSAPP: InputSource.WHATSAPP,
+    }
+    source = platform_to_source.get(ctx.platform, InputSource.HTTP_API)
+
+    response_channel = ResponseChannel(
+        platform=ctx.platform.value,
+        channel_id=ctx.channel_id,
+        user_id=ctx.user_id,
+        thread_id=ctx.thread_id,
+    )
+
+    request_context = RequestContext(
+        user_id=ctx.user_id,
+        session_id=f"{ctx.platform.value}:{ctx.channel_id}",
+    )
+
+    config = None
+    if decision_integrity is not None:
+        config = DecisionConfig(decision_integrity=decision_integrity)
+
+    request_kwargs: dict[str, Any] = {
+        "content": topic,
+        "decision_type": DecisionType.DEBATE,
+        "source": source,
+        "response_channels": [response_channel],
+        "context": request_context,
+        "attachments": ctx.message.attachments or [],
+    }
+    if config is not None:
+        request_kwargs["config"] = config
+
+    request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
+
+    _register_debate_origin_best_effort(request.request_id, ctx, topic)
+
+    router = get_decision_router()
+    result = await router.route(request)
+
+    if result.request_id and result.request_id != request.request_id:
+        _register_debate_origin_best_effort(result.request_id, ctx, topic)
+
+    debate_id = ""
+    if result.debate_result and hasattr(result.debate_result, "debate_id"):
+        debate_id = str(result.debate_result.debate_id)
+
+    if debate_id:
+        return _format_debate_success(mode_label, topic, debate_id, api_base)
+    return CommandResult.fail(result.error or "Failed to start debate via router")
+
+
+async def _route_via_http_api(
+    ctx: CommandContext,
+    topic: str,
+    api_base: str,
+    mode_label: str,
+) -> CommandResult:
+    """Route debate via HTTP API fallback."""
+    from aragora.server.http_client_pool import get_http_pool
+
+    try:
+        pool = get_http_pool()
+        async with pool.get_session("aragora") as client:
+            from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
+
+            resp = await client.post(
+                f"{api_base}/api/debate",
+                json={
+                    "question": topic,
+                    "agents": DEFAULT_AGENTS,
+                    "rounds": DEFAULT_ROUNDS,
+                    "metadata": {
+                        "source": ctx.platform.value,
+                        "channel_id": ctx.channel_id,
+                        "user_id": ctx.user_id,
+                        "thread_id": ctx.thread_id,
+                    },
+                },
+                timeout=30,
+            )
+            data = resp.json()
+
+            if resp.status_code == 200 and data.get("success"):
+                debate_id = data.get("debate_id")
+                return _format_debate_success(mode_label, topic, debate_id, api_base)
+            error = data.get("error", "Unknown error")
+            return CommandResult.fail(f"Failed to start debate: {error}")
+
+    except asyncio.TimeoutError:
+        return CommandResult.fail("Request timed out. Please try again.")
+    except OSError as e:
+        return CommandResult.fail(f"Failed to start debate: {str(e)}")
+
+
+async def _run_debate(
+    ctx: CommandContext,
+    *,
+    decision_integrity: dict[str, Any] | None = None,
+    require_integrity: bool = False,
+    mode_label: str = "Debate",
+    topic_override: str | None = None,
+) -> CommandResult:
+    """Run a debate via DecisionRouter (primary) or HTTP API (fallback)."""
+    topic = topic_override if topic_override is not None else ctx.raw_args
+    if not topic:
+        return CommandResult.fail("Please provide a debate topic.")
+
+    try:
+        api_base = _get_api_base(ctx)
+    except ValueError as e:
+        return CommandResult.fail(f"Configuration error: {e}")
+
+    # Primary path: DecisionRouter
+    try:
+        result = await _route_via_decision_router(
+            ctx, topic, api_base, decision_integrity, mode_label
+        )
+        if result is not None:
+            return result
+    except ImportError:
+        logger.debug("DecisionRouter not available, falling back to HTTP")
+        if require_integrity:
+            return CommandResult.fail("Decision integrity is unavailable without DecisionRouter.")
+    except (ValueError, RuntimeError, OSError) as e:
+        logger.warning(f"DecisionRouter failed, falling back to HTTP: {e}")
+        if require_integrity:
+            return CommandResult.fail("Decision integrity failed to start.")
+
+    # Fallback: HTTP API
+    return await _route_via_http_api(ctx, topic, api_base, mode_label)
+
+
+# ---------------------------------------------------------------------------
+# Built-in command registration
+# ---------------------------------------------------------------------------
+
+
 def _register_builtin_commands(registry: CommandRegistry) -> None:
     """Register built-in commands."""
 
@@ -297,7 +494,6 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
     async def cmd_help(ctx: CommandContext) -> CommandResult:
         """Show help for commands."""
         if ctx.args:
-            # Help for specific command
             cmd_name = ctx.args[0].lower()
             cmd = registry.get(cmd_name)
             if not cmd:
@@ -313,7 +509,6 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
 
             return CommandResult.ok(message)
 
-        # List all commands for this platform
         commands = registry.list_for_platform(ctx.platform)
         if not commands:
             return CommandResult.ok("No commands available.")
@@ -352,186 +547,13 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         except OSError as e:
             return CommandResult.fail(f"Health check failed: {str(e)}")
 
-    async def _run_debate(
-        ctx: CommandContext,
-        *,
-        decision_integrity: dict[str, Any] | None = None,
-        require_integrity: bool = False,
-        mode_label: str = "Debate",
-        topic_override: str | None = None,
-    ) -> CommandResult:
-        topic = topic_override if topic_override is not None else ctx.raw_args
-        if not topic:
-            return CommandResult.fail("Please provide a debate topic.")
-
-        try:
-            api_base = _get_api_base(ctx)
-        except ValueError as e:
-            return CommandResult.fail(f"Configuration error: {e}")
-
-        # Try to use DecisionRouter for unified routing with deduplication
-        try:
-            from aragora.core import (
-                DecisionConfig,
-                DecisionRequest,
-                DecisionType,
-                InputSource,
-                RequestContext,
-                ResponseChannel,
-                get_decision_router,
-            )
-
-            # Map platform to InputSource
-            platform_to_source: dict[Platform, InputSource] = {
-                Platform.DISCORD: InputSource.DISCORD,
-                Platform.TEAMS: InputSource.TEAMS,
-                Platform.SLACK: InputSource.SLACK,
-                Platform.TELEGRAM: InputSource.TELEGRAM,
-                Platform.WHATSAPP: InputSource.WHATSAPP,
-            }
-            source = platform_to_source.get(ctx.platform, InputSource.HTTP_API)
-
-            response_channel = ResponseChannel(
-                platform=ctx.platform.value,
-                channel_id=ctx.channel_id,
-                user_id=ctx.user_id,
-                thread_id=ctx.thread_id,
-            )
-
-            request_context = RequestContext(
-                user_id=ctx.user_id,
-                session_id=f"{ctx.platform.value}:{ctx.channel_id}",
-            )
-
-            config = None
-            if decision_integrity is not None:
-                config = DecisionConfig(decision_integrity=decision_integrity)
-
-            request_kwargs = {
-                "content": topic,
-                "decision_type": DecisionType.DEBATE,
-                "source": source,
-                "response_channels": [response_channel],
-                "context": request_context,
-                "attachments": ctx.message.attachments or [],
-            }
-            if config is not None:
-                request_kwargs["config"] = config
-
-            request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
-
-            # Register debate origin for routing (best-effort)
-            try:
-                from aragora.server.debate_origin import register_debate_origin
-
-                register_debate_origin(
-                    debate_id=request.request_id,
-                    platform=ctx.platform.value,
-                    channel_id=ctx.channel_id,
-                    user_id=ctx.user_id,
-                    thread_id=ctx.thread_id,
-                    metadata={
-                        "topic": topic,
-                        "source": ctx.platform.value,
-                    },
-                )
-            except Exception as exc:
-                logger.debug("Failed to register debate origin: %s", exc)
-
-            router = get_decision_router()
-            result = await router.route(request)
-
-            if result.request_id and result.request_id != request.request_id:
-                try:
-                    from aragora.server.debate_origin import register_debate_origin
-
-                    register_debate_origin(
-                        debate_id=result.request_id,
-                        platform=ctx.platform.value,
-                        channel_id=ctx.channel_id,
-                        user_id=ctx.user_id,
-                        thread_id=ctx.thread_id,
-                        metadata={
-                            "topic": topic,
-                            "source": ctx.platform.value,
-                        },
-                    )
-                except Exception as exc:
-                    logger.debug("Failed to register dedup debate origin: %s", exc)
-
-            # Extract debate_id from debate_result if available
-            debate_id = ""
-            if result.debate_result and hasattr(result.debate_result, "debate_id"):
-                debate_id = str(result.debate_result.debate_id)
-
-            if debate_id:
-                return CommandResult.ok(
-                    f"{mode_label} started on: **{topic}**\n"
-                    f"Debate ID: `{debate_id}`\n"
-                    f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
-                    data={"debate_id": debate_id},
-                )
-            return CommandResult.fail(result.error or "Failed to start debate via router")
-
-        except ImportError:
-            logger.debug("DecisionRouter not available, falling back to HTTP")
-            if require_integrity:
-                return CommandResult.fail(
-                    "Decision integrity is unavailable without DecisionRouter."
-                )
-        except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"DecisionRouter failed, falling back to HTTP: {e}")
-            if require_integrity:
-                return CommandResult.fail("Decision integrity failed to start.")
-
-        # Fallback to HTTP API if DecisionRouter unavailable
-        from aragora.server.http_client_pool import get_http_pool
-
-        try:
-            pool = get_http_pool()
-            async with pool.get_session("aragora") as client:
-                from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
-
-                resp = await client.post(
-                    f"{api_base}/api/debate",
-                    json={
-                        "question": topic,
-                        "agents": DEFAULT_AGENTS,
-                        "rounds": DEFAULT_ROUNDS,
-                        "metadata": {
-                            "source": ctx.platform.value,
-                            "channel_id": ctx.channel_id,
-                            "user_id": ctx.user_id,
-                            "thread_id": ctx.thread_id,
-                        },
-                    },
-                    timeout=30,
-                )
-                data = resp.json()
-
-                if resp.status_code == 200 and data.get("success"):
-                    debate_id = data.get("debate_id")
-                    return CommandResult.ok(
-                        f"{mode_label} started on: **{topic}**\n"
-                        f"Debate ID: `{debate_id}`\n"
-                        f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
-                        data={"debate_id": debate_id},
-                    )
-                error = data.get("error", "Unknown error")
-                return CommandResult.fail(f"Failed to start debate: {error}")
-
-        except asyncio.TimeoutError:
-            return CommandResult.fail("Request timed out. Please try again.")
-        except OSError as e:
-            return CommandResult.fail(f"Failed to start debate: {str(e)}")
-
     @registry.command(
         "debate",
         description="Start a multi-agent debate",
         usage="debate <topic>",
         requires_args=True,
         min_args=1,
-        cooldown=30,  # 30 second cooldown to prevent spam
+        cooldown=30,
     )
     async def cmd_debate(ctx: CommandContext) -> CommandResult:
         """Start a multi-agent debate on a topic via DecisionRouter."""
@@ -598,7 +620,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         usage="gauntlet <statement or decision>",
         requires_args=True,
         min_args=1,
-        cooldown=60,  # 60 second cooldown
+        cooldown=60,
     )
     async def cmd_gauntlet(ctx: CommandContext) -> CommandResult:
         """Run gauntlet validation on a statement."""

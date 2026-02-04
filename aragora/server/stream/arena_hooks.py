@@ -136,64 +136,17 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
     return agent
 
 
-def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str, Callable]:
-    """
-    Create hook functions for Arena event emission.
-
-    These hooks are called synchronously by Arena at key points during debate.
-    They emit events to the emitter queue for async WebSocket broadcast.
-
-    Args:
-        emitter: The SyncEventEmitter to emit events to
-        loop_id: Debate ID to attach to all events (required for correct routing)
-
-    Returns:
-        dict of hook name -> callback function
-    """
+def _create_lifecycle_hooks(
+    emitter: SyncEventEmitter,
+    loop_id: str,
+) -> dict[str, Callable]:
+    """Create debate lifecycle hooks (start, end, rounds, messages)."""
 
     def on_debate_start(task: str, agents: list[str]) -> None:
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.DEBATE_START,
                 data={"task": task, "agents": agents},
-                loop_id=loop_id,
-            )
-        )
-
-    def on_agent_preview(agents: list[dict]) -> None:
-        """Emit agent preview with roles, stances, and brief descriptions.
-
-        Called early in debate initialization to show agent info while
-        proposals are being generated.
-
-        Args:
-            agents: List of dicts with name, role, stance, description, strengths
-        """
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.AGENT_PREVIEW,
-                data={"agents": agents, "topology": "collaborative"},
-                loop_id=loop_id,
-            )
-        )
-
-    def on_context_preview(
-        trending_topics: list[dict],
-        research_status: str = "gathering context...",
-        evidence_sources: list[str] | None = None,
-    ) -> None:
-        """Emit context preview with trending topics and research status.
-
-        Called when context gathering begins to show relevant background info.
-        """
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.CONTEXT_PREVIEW,
-                data={
-                    "trending_topics": trending_topics,
-                    "research_status": research_status,
-                    "evidence_sources": evidence_sources or [],
-                },
                 loop_id=loop_id,
             )
         )
@@ -219,32 +172,81 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
             )
         )
 
-    def on_critique(
-        agent: str,
-        target: str,
-        issues: list[str],
-        severity: float,
-        round_num: int,
-        full_content: str | None = None,
-        error: str | None = None,
-    ) -> None:
-        data = {
-            "target": target,
-            "issues": issues,  # Full issue list
-            "severity": severity,
-            "content": full_content or "\n".join(f"• {issue}" for issue in issues),
-        }
-        if error:
-            data["error"] = error
+    def on_debate_end(duration: float, rounds: int) -> None:
         emitter.emit(
             StreamEvent(
-                type=StreamEventType.CRITIQUE,
-                data=data,
-                round=round_num,
-                agent=agent,
+                type=StreamEventType.DEBATE_END,
+                data={"duration": duration, "rounds": rounds},
                 loop_id=loop_id,
             )
         )
+
+    return {
+        "on_debate_start": on_debate_start,
+        "on_round_start": on_round_start,
+        "on_message": on_message,
+        "on_debate_end": on_debate_end,
+    }
+
+
+def _create_preview_hooks(
+    emitter: SyncEventEmitter,
+    loop_id: str,
+) -> dict[str, Callable]:
+    """Create preview and synthesis hooks."""
+
+    def on_agent_preview(agents: list[dict]) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_PREVIEW,
+                data={"agents": agents, "topology": "collaborative"},
+                loop_id=loop_id,
+            )
+        )
+
+    def on_context_preview(
+        trending_topics: list[dict],
+        research_status: str = "gathering context...",
+        evidence_sources: list[str] | None = None,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.CONTEXT_PREVIEW,
+                data={
+                    "trending_topics": trending_topics,
+                    "research_status": research_status,
+                    "evidence_sources": evidence_sources or [],
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_synthesis(content: str, confidence: float = 0.0) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.SYNTHESIS,
+                data={
+                    "content": content,
+                    "confidence": confidence,
+                    "agent": "synthesis-agent",
+                },
+                agent="synthesis-agent",
+                loop_id=loop_id,
+            )
+        )
+
+    return {
+        "on_agent_preview": on_agent_preview,
+        "on_context_preview": on_context_preview,
+        "on_synthesis": on_synthesis,
+    }
+
+
+def _create_consensus_hooks(
+    emitter: SyncEventEmitter,
+    loop_id: str,
+) -> dict[str, Callable]:
+    """Create consensus, voting, and convergence hooks."""
 
     def on_vote(agent: str, vote: str, confidence: float) -> None:
         emitter.emit(
@@ -270,8 +272,8 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
                 data={
                     "reached": reached,
                     "confidence": confidence,
-                    "answer": answer,  # Full answer - no truncation
-                    "synthesis": synthesis,  # Fallback synthesis in case SYNTHESIS event is missed
+                    "answer": answer,
+                    "synthesis": synthesis,
                     "status": status,
                     "agent_failures": agent_failures or {},
                 },
@@ -279,151 +281,29 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
             )
         )
 
-    def on_synthesis(content: str, confidence: float = 0.0) -> None:
-        """Emit explicit synthesis event for guaranteed delivery."""
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.SYNTHESIS,
-                data={
-                    "content": content,
-                    "confidence": confidence,
-                    "agent": "synthesis-agent",
-                },
-                agent="synthesis-agent",
-                loop_id=loop_id,
-            )
-        )
-
-    def on_debate_end(duration: float, rounds: int) -> None:
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.DEBATE_END,
-                data={"duration": duration, "rounds": rounds},
-                loop_id=loop_id,
-            )
-        )
-
-    def on_agent_error(
+    def on_critique(
         agent: str,
-        error_type: str,
-        message: str,
-        recoverable: bool = True,
-        phase: str = "",
-    ) -> None:
-        """Emit agent error event when an agent fails but debate continues.
-
-        This helps frontends understand why an agent produced placeholder output.
-        """
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.AGENT_ERROR,
-                data={
-                    "error_type": error_type,  # "timeout", "connection", "internal"
-                    "message": message,
-                    "recoverable": recoverable,
-                    "phase": phase,
-                },
-                agent=agent,
-                loop_id=loop_id,
-            )
-        )
-
-    def on_phase_progress(
-        phase: str,
-        completed: int,
-        total: int,
-        current_agent: str = "",
-    ) -> None:
-        """Emit progress within a phase (e.g., 3/8 agents have generated proposals).
-
-        This helps frontends show progress and detect stalls.
-        """
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.PHASE_PROGRESS,
-                data={
-                    "phase": phase,
-                    "completed": completed,
-                    "total": total,
-                    "current_agent": current_agent,
-                    "progress_pct": (completed / total * 100) if total > 0 else 0,
-                },
-                loop_id=loop_id,
-            )
-        )
-
-    def on_heartbeat(phase: str = "", status: str = "alive") -> None:
-        """Emit periodic heartbeat to indicate debate is still running.
-
-        Should be called every ~30 seconds during long-running phases.
-        """
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.HEARTBEAT,
-                data={
-                    "phase": phase,
-                    "status": status,
-                },
-                loop_id=loop_id,
-            )
-        )
-
-    def on_trickster_intervention(
-        intervention_type: str,
-        targets: list[str],
-        challenge: str,
+        target: str,
+        issues: list[str],
+        severity: float,
         round_num: int,
+        full_content: str | None = None,
+        error: str | None = None,
     ) -> None:
-        """Emit trickster intervention event when hollow consensus is challenged."""
+        data = {
+            "target": target,
+            "issues": issues,
+            "severity": severity,
+            "content": full_content or "\n".join(f"• {issue}" for issue in issues),
+        }
+        if error:
+            data["error"] = error
         emitter.emit(
             StreamEvent(
-                type=StreamEventType.TRICKSTER_INTERVENTION,
-                data={
-                    "intervention_type": intervention_type,
-                    "targets": targets,
-                    "challenge": challenge[:500],  # Truncate for WebSocket
-                },
+                type=StreamEventType.CRITIQUE,
+                data=data,
                 round=round_num,
-                loop_id=loop_id,
-            )
-        )
-
-    def on_hollow_consensus(
-        confidence: float,
-        indicators: list[str],
-        recommendation: str,
-    ) -> None:
-        """Emit hollow consensus warning from trickster."""
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.HOLLOW_CONSENSUS,
-                data={
-                    "confidence": confidence,
-                    "indicators": indicators[:5],  # Limit indicators
-                    "recommendation": recommendation[:200],
-                },
-                loop_id=loop_id,
-            )
-        )
-
-    def on_rhetorical_observation(
-        agent: str,
-        patterns: list[str],
-        round_num: int,
-        analysis: str = "",
-    ) -> None:
-        """Emit rhetorical observation event when patterns are detected."""
-        emitter.emit(
-            StreamEvent(
-                type=StreamEventType.RHETORICAL_OBSERVATION,
-                data={
-                    "agent": agent,
-                    "patterns": patterns,
-                    "round": round_num,
-                    "analysis": analysis[:200],
-                },
                 agent=agent,
-                round=round_num,
                 loop_id=loop_id,
             )
         )
@@ -434,10 +314,9 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         per_agent: dict[str, float],
         round_num: int,
     ) -> None:
-        """Emit convergence check result."""
         emitter.emit(
             StreamEvent(
-                type=StreamEventType.CONSENSUS,  # Reuse CONSENSUS for convergence
+                type=StreamEventType.CONSENSUS,
                 data={
                     "status": status,
                     "similarity": similarity,
@@ -455,10 +334,9 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         low_novelty_agents: list[str],
         round_num: int,
     ) -> None:
-        """Emit novelty check result."""
         emitter.emit(
             StreamEvent(
-                type=StreamEventType.PHASE_PROGRESS,  # Use PHASE_PROGRESS for novelty
+                type=StreamEventType.PHASE_PROGRESS,
                 data={
                     "phase": "novelty_check",
                     "avg_novelty": avg_novelty,
@@ -471,26 +349,160 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         )
 
     return {
-        "on_debate_start": on_debate_start,
-        "on_agent_preview": on_agent_preview,
-        "on_context_preview": on_context_preview,
-        "on_round_start": on_round_start,
-        "on_message": on_message,
-        "on_critique": on_critique,
         "on_vote": on_vote,
         "on_consensus": on_consensus,
-        "on_synthesis": on_synthesis,
-        "on_debate_end": on_debate_end,
-        "on_agent_error": on_agent_error,
-        "on_phase_progress": on_phase_progress,
-        "on_heartbeat": on_heartbeat,
-        # Trickster and rhetorical observation hooks
-        "on_trickster_intervention": on_trickster_intervention,
-        "on_hollow_consensus": on_hollow_consensus,
-        "on_rhetorical_observation": on_rhetorical_observation,
+        "on_critique": on_critique,
         "on_convergence_check": on_convergence_check,
         "on_novelty_check": on_novelty_check,
     }
+
+
+def _create_monitoring_hooks(
+    emitter: SyncEventEmitter,
+    loop_id: str,
+) -> dict[str, Callable]:
+    """Create error, progress, heartbeat, trickster, and rhetorical hooks."""
+
+    def on_agent_error(
+        agent: str,
+        error_type: str,
+        message: str,
+        recoverable: bool = True,
+        phase: str = "",
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_ERROR,
+                data={
+                    "error_type": error_type,
+                    "message": message,
+                    "recoverable": recoverable,
+                    "phase": phase,
+                },
+                agent=agent,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_phase_progress(
+        phase: str,
+        completed: int,
+        total: int,
+        current_agent: str = "",
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.PHASE_PROGRESS,
+                data={
+                    "phase": phase,
+                    "completed": completed,
+                    "total": total,
+                    "current_agent": current_agent,
+                    "progress_pct": (completed / total * 100) if total > 0 else 0,
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_heartbeat(phase: str = "", status: str = "alive") -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.HEARTBEAT,
+                data={
+                    "phase": phase,
+                    "status": status,
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_trickster_intervention(
+        intervention_type: str,
+        targets: list[str],
+        challenge: str,
+        round_num: int,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.TRICKSTER_INTERVENTION,
+                data={
+                    "intervention_type": intervention_type,
+                    "targets": targets,
+                    "challenge": challenge[:500],
+                },
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_hollow_consensus(
+        confidence: float,
+        indicators: list[str],
+        recommendation: str,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.HOLLOW_CONSENSUS,
+                data={
+                    "confidence": confidence,
+                    "indicators": indicators[:5],
+                    "recommendation": recommendation[:200],
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_rhetorical_observation(
+        agent: str,
+        patterns: list[str],
+        round_num: int,
+        analysis: str = "",
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.RHETORICAL_OBSERVATION,
+                data={
+                    "agent": agent,
+                    "patterns": patterns,
+                    "round": round_num,
+                    "analysis": analysis[:200],
+                },
+                agent=agent,
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    return {
+        "on_agent_error": on_agent_error,
+        "on_phase_progress": on_phase_progress,
+        "on_heartbeat": on_heartbeat,
+        "on_trickster_intervention": on_trickster_intervention,
+        "on_hollow_consensus": on_hollow_consensus,
+        "on_rhetorical_observation": on_rhetorical_observation,
+    }
+
+
+def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str, Callable]:
+    """
+    Create hook functions for Arena event emission.
+
+    These hooks are called synchronously by Arena at key points during debate.
+    They emit events to the emitter queue for async WebSocket broadcast.
+
+    Args:
+        emitter: The SyncEventEmitter to emit events to
+        loop_id: Debate ID to attach to all events (required for correct routing)
+
+    Returns:
+        dict of hook name -> callback function
+    """
+    hooks: dict[str, Callable] = {}
+    hooks.update(_create_lifecycle_hooks(emitter, loop_id))
+    hooks.update(_create_preview_hooks(emitter, loop_id))
+    hooks.update(_create_consensus_hooks(emitter, loop_id))
+    hooks.update(_create_monitoring_hooks(emitter, loop_id))
+    return hooks
 
 
 def create_hook_manager_from_emitter(

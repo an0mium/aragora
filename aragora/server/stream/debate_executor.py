@@ -257,6 +257,172 @@ async def fetch_trending_topic_async(category: str | None = None) -> Any | None:
         return None
 
 
+def _set_debate_error(
+    debate_id: str,
+    error_msg: str,
+    emitter: "SyncEventEmitter | None" = None,
+) -> None:
+    """Record an error state for a debate and optionally emit an error event."""
+    with _active_debates_lock:
+        _active_debates[debate_id]["status"] = "error"
+        _active_debates[debate_id]["error"] = error_msg
+        _active_debates[debate_id]["completed_at"] = time.time()
+    if emitter is not None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.ERROR,
+                data={"error": error_msg, "debate_id": debate_id},
+                loop_id=debate_id,
+            )
+        )
+
+
+def _filter_agent_specs_with_fallback(
+    agent_specs: list[Any],
+    emitter: "SyncEventEmitter",
+    debate_id: str,
+) -> tuple[list[Any], list[str], list[str]]:
+    """Filter agent specs, applying OpenRouter fallback for missing API keys.
+
+    Returns:
+        Tuple of (filtered_specs, actual_agent_names, missing_agent_names).
+    """
+    from aragora.agents.registry import AgentRegistry
+
+    requested_agents = [spec.name or spec.provider for spec in agent_specs]
+    filtered_specs = []
+    missing_agents: list[str] = []
+    openrouter_available = _openrouter_key_available()
+
+    for spec in agent_specs:
+        registry_spec = AgentRegistry.get_spec(spec.provider)
+        missing_env = []
+        if registry_spec and registry_spec.env_vars:
+            missing_env = _missing_required_env_vars(registry_spec.env_vars)
+        if missing_env:
+            fallback_model = _OPENROUTER_FALLBACK_MODELS.get(
+                spec.provider, _OPENROUTER_GENERIC_FALLBACK_MODEL
+            )
+            if openrouter_available and fallback_model:
+                from aragora.agents.spec import AgentSpec
+
+                fallback_spec = AgentSpec(
+                    provider="openrouter",
+                    model=fallback_model,
+                    persona=spec.persona,
+                    role=spec.role,
+                    name=spec.name or spec.provider,
+                )
+                emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.AGENT_ERROR,
+                        data={
+                            "error_type": "missing_env_fallback",
+                            "message": (
+                                f"Missing {spec.provider} key(s); using OpenRouter model "
+                                f"{fallback_model}"
+                            ),
+                            "recoverable": True,
+                            "phase": "setup",
+                        },
+                        agent=spec.name or spec.provider,
+                        loop_id=debate_id,
+                    )
+                )
+                logger.warning(
+                    f"[debate] {debate_id}: {spec.provider} missing key(s), "
+                    f"fallback to openrouter:{fallback_model}"
+                )
+                filtered_specs.append(fallback_spec)
+                continue
+            message = f"Missing required API key(s) for {spec.provider}: {', '.join(missing_env)}"
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AGENT_ERROR,
+                    data={
+                        "error_type": "missing_env",
+                        "message": message,
+                        "recoverable": False,
+                        "phase": "setup",
+                    },
+                    agent=spec.name or spec.provider,
+                    loop_id=debate_id,
+                )
+            )
+            logger.warning(f"[debate] {debate_id}: {message}")
+            missing_agents.append(spec.name or spec.provider)
+            continue
+        filtered_specs.append(spec)
+
+    actual_agents = [spec.name or spec.provider for spec in filtered_specs]
+    try:
+        from aragora.server.state import get_state_manager
+
+        get_state_manager().update_debate_agents(debate_id, actual_agents)
+    except (ImportError, AttributeError, KeyError, RuntimeError) as e:
+        logger.debug(
+            "[debate] %s: unable to update active agent list: %s",
+            debate_id,
+            e,
+        )
+
+    return filtered_specs, requested_agents, missing_agents
+
+
+def _create_debate_agents(
+    agent_specs: list[Any],
+    emitter: "SyncEventEmitter",
+    debate_id: str,
+) -> "list[Agent]":
+    """Create and wrap agents from filtered specs, assigning roles by position."""
+    agents: list[Agent] = []
+    for i, spec in enumerate(agent_specs):
+        role = spec.role
+        if role is None:
+            if i == 0:
+                role = "proposer"
+            elif i == len(agent_specs) - 1 and len(agent_specs) > 1:
+                role = "synthesizer"
+            else:
+                role = "critic"
+        try:
+            agent = create_agent(
+                model_type=cast("AgentType", spec.provider),
+                name=spec.name,
+                role=role,
+                model=spec.model,
+            )
+        except (ValueError, TypeError, RuntimeError, ImportError, OSError) as e:
+            msg = _safe_error_message(e, "agent_init")
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AGENT_ERROR,
+                    data={
+                        "error_type": "init",
+                        "message": f"{spec.provider} init failed: {msg}",
+                        "recoverable": False,
+                        "phase": "setup",
+                    },
+                    agent=spec.name or spec.provider,
+                    loop_id=debate_id,
+                )
+            )
+            logger.warning(f"[debate] {debate_id}: {spec.provider} init failed: {e}")
+            continue
+
+        if spec.persona:
+            try:
+                from aragora.agents.personas import apply_persona_to_agent
+
+                apply_persona_to_agent(agent, spec.persona)
+            except ImportError:
+                pass
+
+        agent = wrap_agent_for_streaming(agent, emitter, debate_id)
+        agents.append(agent)
+    return agents
+
+
 def execute_debate_thread(
     debate_id: str,
     question: str,
@@ -285,7 +451,6 @@ def execute_debate_thread(
     """
     import asyncio as _asyncio
 
-    # Debug: Log thread start
     logger.info(
         f"[debate] Thread started for {debate_id}: "
         f"question={question[:50]}..., agents={agents_str}, rounds={rounds}"
@@ -297,116 +462,30 @@ def execute_debate_thread(
         from aragora.agents.spec import AgentSpec
 
         agent_specs = AgentSpec.coerce_list(agents_str, warn=False)
-        _agent_list = [spec.name or spec.provider for spec in agent_specs]  # noqa: F841
         if len(agent_specs) > MAX_AGENTS_PER_DEBATE:
-            with _active_debates_lock:
-                _active_debates[debate_id]["status"] = "error"
-                _active_debates[debate_id]["error"] = (
-                    f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
-                )
-                _active_debates[debate_id]["completed_at"] = time.time()
+            _set_debate_error(debate_id, f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}")
             return
         if len(agent_specs) < 2:
-            with _active_debates_lock:
-                _active_debates[debate_id]["status"] = "error"
-                _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
-                _active_debates[debate_id]["completed_at"] = time.time()
+            _set_debate_error(debate_id, "At least 2 agents required for a debate")
             return
 
-        # Parse agent specs using unified AgentSpec (validates provider against allowlist)
-        from aragora.agents.registry import AgentRegistry
-
-        requested_agents = [spec.name or spec.provider for spec in agent_specs]
-        filtered_specs = []
-        missing_agents: list[str] = []
-        openrouter_available = _openrouter_key_available()
-        for spec in agent_specs:
-            registry_spec = AgentRegistry.get_spec(spec.provider)
-            missing_env = []
-            if registry_spec and registry_spec.env_vars:
-                missing_env = _missing_required_env_vars(registry_spec.env_vars)
-            if missing_env:
-                fallback_model = _OPENROUTER_FALLBACK_MODELS.get(
-                    spec.provider, _OPENROUTER_GENERIC_FALLBACK_MODEL
-                )
-                if openrouter_available and fallback_model:
-                    fallback_spec = AgentSpec(
-                        provider="openrouter",
-                        model=fallback_model,
-                        persona=spec.persona,
-                        role=spec.role,
-                        name=spec.name or spec.provider,
-                    )
-                    emitter.emit(
-                        StreamEvent(
-                            type=StreamEventType.AGENT_ERROR,
-                            data={
-                                "error_type": "missing_env_fallback",
-                                "message": (
-                                    f"Missing {spec.provider} key(s); using OpenRouter model "
-                                    f"{fallback_model}"
-                                ),
-                                "recoverable": True,
-                                "phase": "setup",
-                            },
-                            agent=spec.name or spec.provider,
-                            loop_id=debate_id,
-                        )
-                    )
-                    logger.warning(
-                        f"[debate] {debate_id}: {spec.provider} missing key(s), "
-                        f"fallback to openrouter:{fallback_model}"
-                    )
-                    filtered_specs.append(fallback_spec)
-                    continue
-                message = (
-                    f"Missing required API key(s) for {spec.provider}: {', '.join(missing_env)}"
-                )
-                emitter.emit(
-                    StreamEvent(
-                        type=StreamEventType.AGENT_ERROR,
-                        data={
-                            "error_type": "missing_env",
-                            "message": message,
-                            "recoverable": False,
-                            "phase": "setup",
-                        },
-                        agent=spec.name or spec.provider,
-                        loop_id=debate_id,
-                    )
-                )
-                logger.warning(f"[debate] {debate_id}: {message}")
-                missing_agents.append(spec.name or spec.provider)
-                continue
-            filtered_specs.append(spec)
-        agent_specs = filtered_specs
+        # Filter specs with OpenRouter fallback for missing keys
+        agent_specs, requested_agents, missing_agents = _filter_agent_specs_with_fallback(
+            agent_specs,
+            emitter,
+            debate_id,
+        )
         actual_agents = [spec.name or spec.provider for spec in agent_specs]
-        try:
-            from aragora.server.state import get_state_manager
 
-            get_state_manager().update_debate_agents(debate_id, actual_agents)
-        except (ImportError, AttributeError, KeyError, RuntimeError) as e:
-            logger.debug(
-                "[debate] %s: unable to update active agent list: %s",
-                debate_id,
-                e,
-            )
         if len(agent_specs) < 2:
-            error_msg = "Not enough configured agents available to start the debate"
-            with _active_debates_lock:
-                _active_debates[debate_id]["status"] = "error"
-                _active_debates[debate_id]["error"] = error_msg
-                _active_debates[debate_id]["completed_at"] = time.time()
-            emitter.emit(
-                StreamEvent(
-                    type=StreamEventType.ERROR,
-                    data={"error": error_msg, "debate_id": debate_id},
-                    loop_id=debate_id,
-                )
+            _set_debate_error(
+                debate_id,
+                "Not enough configured agents available to start the debate",
+                emitter,
             )
             return
 
-        filtered = len(filtered_specs) != len(requested_agents)
+        filtered = len(agent_specs) != len(requested_agents)
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.DEBATE_START,
@@ -422,72 +501,15 @@ def execute_debate_thread(
         )
 
         # Create agents with streaming support
-        # Assign roles based on position for diverse debate dynamics
-        agents: list[Agent] = []
-        for i, spec in enumerate(agent_specs):
-            # Assign role based on position if not explicitly specified
-            role = spec.role
-            if role is None:
-                if i == 0:
-                    role = "proposer"
-                elif i == len(agent_specs) - 1 and len(agent_specs) > 1:
-                    role = "synthesizer"
-                else:
-                    role = "critic"
-            try:
-                agent = create_agent(
-                    model_type=cast("AgentType", spec.provider),
-                    name=spec.name,
-                    role=role,
-                    model=spec.model,  # Pass model from spec
-                )
-            except (ValueError, TypeError, RuntimeError, ImportError, OSError) as e:
-                msg = _safe_error_message(e, "agent_init")
-                emitter.emit(
-                    StreamEvent(
-                        type=StreamEventType.AGENT_ERROR,
-                        data={
-                            "error_type": "init",
-                            "message": f"{spec.provider} init failed: {msg}",
-                            "recoverable": False,
-                            "phase": "setup",
-                        },
-                        agent=spec.name or spec.provider,
-                        loop_id=debate_id,
-                    )
-                )
-                logger.warning(f"[debate] {debate_id}: {spec.provider} init failed: {e}")
-                continue
-
-            # Apply persona as system prompt modifier if specified
-            if spec.persona:
-                try:
-                    from aragora.agents.personas import apply_persona_to_agent
-
-                    apply_persona_to_agent(agent, spec.persona)
-                except ImportError:
-                    pass  # Personas module not available
-
-            # Wrap agent for token streaming if supported
-            agent = wrap_agent_for_streaming(agent, emitter, debate_id)
-            agents.append(agent)
-
+        agents = _create_debate_agents(agent_specs, emitter, debate_id)
         if len(agents) < 2:
-            error_msg = "Not enough agents could be initialized to start the debate"
-            with _active_debates_lock:
-                _active_debates[debate_id]["status"] = "error"
-                _active_debates[debate_id]["error"] = error_msg
-                _active_debates[debate_id]["completed_at"] = time.time()
-            emitter.emit(
-                StreamEvent(
-                    type=StreamEventType.ERROR,
-                    data={"error": error_msg, "debate_id": debate_id},
-                    loop_id=debate_id,
-                )
+            _set_debate_error(
+                debate_id,
+                "Not enough agents could be initialized to start the debate",
+                emitter,
             )
             return
 
-        # Debug: Log agent creation complete
         agent_names = [a.name for a in agents]
         logger.info(f"[debate] {debate_id}: Created {len(agents)} agents: {agent_names}")
 
@@ -496,19 +518,16 @@ def execute_debate_thread(
         protocol = DebateProtocol(
             rounds=rounds,
             consensus=cast("ConsensusType", consensus),
-            proposer_count=len(agents),  # All agents propose initially
-            topology="all-to-all",  # Everyone critiques everyone
-            # Disable early termination to ensure full rounds with all phases
+            proposer_count=len(agents),
+            topology="all-to-all",
             early_stopping=False,
             convergence_detection=False,
             min_rounds_before_early_stop=rounds,
         )
 
-        # Create arena with hooks and available context systems
-        # Pass loop_id explicitly to prevent race conditions with concurrent debates
+        # Create arena with hooks
         hooks = create_arena_hooks(emitter, loop_id=debate_id)
 
-        # Initialize usage tracking if user/org context is available
         usage_tracker = None
         if user_id or org_id:
             try:
@@ -531,14 +550,12 @@ def execute_debate_thread(
             usage_tracker=usage_tracker,
         )
 
-        # Debug: Log arena creation
         setup_time = time.time() - thread_start_time
         logger.info(
             f"[debate] {debate_id}: Arena created in {setup_time:.2f}s, starting execution..."
         )
 
         # Run debate with timeout protection
-        # Use protocol timeout if configured, otherwise use global default
         protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
         timeout = (
             protocol_timeout
@@ -553,7 +570,6 @@ def execute_debate_thread(
 
         result = _asyncio.run(run_with_timeout())
 
-        # Debug: Log successful completion
         total_time = time.time() - thread_start_time
         logger.info(
             f"[debate] {debate_id}: Completed in {total_time:.2f}s, "
@@ -582,12 +598,8 @@ def execute_debate_thread(
 
         safe_msg = _safe_error_message(e, "debate_execution")
         error_trace = traceback.format_exc()
-        with _active_debates_lock:
-            _active_debates[debate_id]["status"] = "error"
-            _active_debates[debate_id]["completed_at"] = time.time()
-            _active_debates[debate_id]["error"] = safe_msg
+        _set_debate_error(debate_id, safe_msg)
         logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
-        # Emit error event to client
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.ERROR,

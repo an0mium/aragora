@@ -156,6 +156,9 @@ class ResourceType(str, Enum):
     # External gateway integrations
     GATEWAY = "gateway"  # External AI runtime gateways (OpenClaw, etc.)
 
+    # Security operations
+    SECURITY = "security"  # CVE, SAST, SBOM, secrets, vulnerability scanning
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

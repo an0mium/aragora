@@ -3,14 +3,17 @@ Aragora Setup Wizard - Interactive configuration tool.
 
 Guides users through initial setup including:
 - API key configuration
-- Integration setup (optional)
+- Database configuration (SQLite/PostgreSQL migration)
+- Integration setup (Slack, Teams, Stripe)
+- OAuth configuration
 - .env file generation
-- Connectivity testing
+- Connectivity and health check verification
 """
 
 from __future__ import annotations
 
 import os
+import secrets as secrets_mod
 import sys
 from pathlib import Path
 from typing import Any
@@ -220,7 +223,21 @@ def _generate_env_content(config: dict[str, Any]) -> str:
         )
 
     # Integrations
-    if any(config.get(k) for k in ["slack_token", "github_token", "telegram_token"]):
+    has_integrations = any(
+        config.get(k)
+        for k in [
+            "slack_client_id",
+            "slack_client_secret",
+            "slack_token",
+            "teams_client_id",
+            "teams_client_secret",
+            "teams_tenant_id",
+            "github_token",
+            "telegram_token",
+            "stripe_secret_key",
+        ]
+    )
+    if has_integrations:
         lines.extend(
             [
                 "# =============================================================================",
@@ -229,15 +246,154 @@ def _generate_env_content(config: dict[str, Any]) -> str:
                 "",
             ]
         )
-        if config.get("slack_token"):
+
+        # Slack OAuth
+        if config.get("slack_client_id"):
+            lines.append("# Slack OAuth Configuration")
+            lines.append(f"SLACK_CLIENT_ID={config['slack_client_id']}")
+            lines.append(f"SLACK_CLIENT_SECRET={config.get('slack_client_secret', '')}")
+            if config.get("slack_signing_secret"):
+                lines.append(f"SLACK_SIGNING_SECRET={config['slack_signing_secret']}")
+            if config.get("slack_token"):
+                lines.append(f"SLACK_BOT_TOKEN={config['slack_token']}")
+            lines.append("")
+        elif config.get("slack_token"):
             lines.append(f"SLACK_BOT_TOKEN={config['slack_token']}")
+            lines.append("")
+
+        # Teams OAuth
+        if config.get("teams_client_id"):
+            lines.append("# Microsoft Teams Configuration")
+            lines.append(f"TEAMS_CLIENT_ID={config['teams_client_id']}")
+            lines.append(f"TEAMS_CLIENT_SECRET={config.get('teams_client_secret', '')}")
+            if config.get("teams_tenant_id"):
+                lines.append(f"TEAMS_TENANT_ID={config['teams_tenant_id']}")
+            if config.get("teams_bot_id"):
+                lines.append(f"TEAMS_BOT_ID={config['teams_bot_id']}")
+            lines.append("")
+
+        # GitHub
         if config.get("github_token"):
             lines.append(f"GITHUB_TOKEN={config['github_token']}")
+            lines.append("")
+
+        # Telegram
         if config.get("telegram_token"):
             lines.append(f"TELEGRAM_BOT_TOKEN={config['telegram_token']}")
-        lines.append("")
+            lines.append("")
+
+        # Stripe Billing
+        if config.get("stripe_secret_key"):
+            lines.append("# Stripe Billing Configuration")
+            lines.append(f"STRIPE_SECRET_KEY={config['stripe_secret_key']}")
+            if config.get("stripe_publishable_key"):
+                lines.append(f"STRIPE_PUBLISHABLE_KEY={config['stripe_publishable_key']}")
+            if config.get("stripe_webhook_secret"):
+                lines.append(f"STRIPE_WEBHOOK_SECRET={config['stripe_webhook_secret']}")
+            if config.get("stripe_price_id"):
+                lines.append(f"STRIPE_PRICE_ID={config['stripe_price_id']}")
+            lines.append("")
 
     return "\n".join(lines)
+
+
+def _run_health_checks(config: dict[str, Any]) -> None:
+    """Run health check verification after setup."""
+    print("\n  Running health checks...")
+    checks_passed = 0
+    checks_total = 0
+
+    # Check 1: Database connectivity
+    checks_total += 1
+    if config.get("database_mode") == "postgres":
+        db_url = config.get("database_url", "")
+        print("    Checking PostgreSQL connectivity...", end=" ", flush=True)
+        try:
+            import psycopg2
+
+            # Parse connection string
+            conn = psycopg2.connect(db_url)
+            conn.close()
+            print("OK")
+            checks_passed += 1
+        except ImportError:
+            print("SKIP (psycopg2 not installed)")
+            checks_passed += 1  # Not a failure, just not testable
+        except Exception as e:
+            print(f"FAILED ({str(e)[:40]})")
+    else:
+        print("    Checking SQLite availability...", end=" ", flush=True)
+        try:
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.close()
+            print("OK")
+            checks_passed += 1
+        except Exception as e:
+            print(f"FAILED ({e})")
+
+    # Check 2: Redis connectivity (if configured)
+    if config.get("redis_url"):
+        checks_total += 1
+        print("    Checking Redis connectivity...", end=" ", flush=True)
+        try:
+            import redis
+
+            r = redis.from_url(config["redis_url"])
+            r.ping()
+            print("OK")
+            checks_passed += 1
+        except ImportError:
+            print("SKIP (redis not installed)")
+            checks_passed += 1
+        except Exception as e:
+            print(f"FAILED ({str(e)[:40]})")
+
+    # Check 3: Stripe API (if configured)
+    if config.get("stripe_secret_key"):
+        checks_total += 1
+        print("    Checking Stripe API...", end=" ", flush=True)
+        try:
+            import httpx
+
+            response = httpx.get(
+                "https://api.stripe.com/v1/balance",
+                headers={"Authorization": f"Bearer {config['stripe_secret_key']}"},
+                timeout=10.0,
+            )
+            if response.status_code == 200:
+                print("OK")
+                checks_passed += 1
+            elif response.status_code == 401:
+                print("FAILED (invalid key)")
+            else:
+                print(f"FAILED (HTTP {response.status_code})")
+        except ImportError:
+            print("SKIP (httpx not installed)")
+            checks_passed += 1
+        except Exception as e:
+            print(f"FAILED ({str(e)[:40]})")
+
+    # Check 4: Required Python packages
+    checks_total += 1
+    print("    Checking required packages...", end=" ", flush=True)
+    missing_packages = []
+    for pkg in ["httpx", "pydantic", "aiohttp"]:
+        try:
+            __import__(pkg)
+        except ImportError:
+            missing_packages.append(pkg)
+    if missing_packages:
+        print(f"MISSING: {', '.join(missing_packages)}")
+    else:
+        print("OK")
+        checks_passed += 1
+
+    # Summary
+    print(f"\n    Health checks: {checks_passed}/{checks_total} passed")
+    if checks_passed < checks_total:
+        print("    Some checks failed - review the output above.")
 
 
 def run_setup(
@@ -362,9 +518,61 @@ def run_setup(
         _print_step(4, total_steps, "Integrations (Optional)")
         print("  Configure integrations to connect Aragora with external services.\n")
 
+        # Slack OAuth Configuration
         if _confirm("  Configure Slack integration?", default=False):
-            config["slack_token"] = _prompt("    Slack Bot Token", secret=True)
+            print("\n    Slack OAuth Setup")
+            print("    -----------------")
+            print("    To set up Slack OAuth, you'll need to create a Slack app at:")
+            print("    https://api.slack.com/apps\n")
+            print("    Options:")
+            print("      1. Full OAuth (recommended for production)")
+            print("      2. Simple bot token (for development)")
+            slack_mode = _prompt("    Select mode [1/2]", "2")
 
+            if slack_mode == "1":
+                config["slack_client_id"] = _prompt("    Slack Client ID")
+                config["slack_client_secret"] = _prompt("    Slack Client Secret", secret=True)
+                config["slack_signing_secret"] = _prompt("    Slack Signing Secret", secret=True)
+                print("\n    Configure OAuth redirect URL in Slack app settings:")
+                print("    https://your-domain/api/v1/oauth/slack/callback\n")
+            else:
+                config["slack_token"] = _prompt("    Slack Bot Token (xoxb-...)", secret=True)
+
+        # Teams OAuth Configuration
+        if _confirm("  Configure Microsoft Teams integration?", default=False):
+            print("\n    Microsoft Teams Setup")
+            print("    ----------------------")
+            print("    To set up Teams, you'll need:")
+            print("    1. Azure AD app registration (https://portal.azure.com)")
+            print("    2. Bot Framework registration (https://dev.botframework.com)\n")
+
+            config["teams_client_id"] = _prompt("    Azure AD Client ID")
+            config["teams_client_secret"] = _prompt("    Azure AD Client Secret", secret=True)
+            config["teams_tenant_id"] = _prompt(
+                "    Azure Tenant ID (or 'common' for multi-tenant)", "common"
+            )
+            config["teams_bot_id"] = _prompt("    Bot Framework Bot ID (optional)")
+
+            print("\n    Configure redirect URL in Azure AD:")
+            print("    https://your-domain/api/v1/oauth/teams/callback\n")
+
+        # Stripe Billing Configuration
+        if _confirm("  Configure Stripe billing?", default=False):
+            print("\n    Stripe Billing Setup")
+            print("    ---------------------")
+            print("    To enable billing, you'll need a Stripe account at:")
+            print("    https://dashboard.stripe.com\n")
+
+            config["stripe_secret_key"] = _prompt("    Stripe Secret Key (sk_...)", secret=True)
+            config["stripe_publishable_key"] = _prompt("    Stripe Publishable Key (pk_...)")
+            config["stripe_webhook_secret"] = _prompt(
+                "    Stripe Webhook Secret (whsec_...)", secret=True
+            )
+
+            print("\n    Configure webhook endpoint in Stripe:")
+            print("    https://your-domain/api/v1/billing/stripe/webhook\n")
+
+        # Other integrations
         if _confirm("  Configure GitHub integration?", default=False):
             config["github_token"] = _prompt("    GitHub Token", secret=True)
 
@@ -375,8 +583,6 @@ def run_setup(
         _print_step(5, total_steps, "Security Configuration")
 
         if _confirm("  Generate encryption key for secrets?", default=True):
-            import secrets as secrets_mod
-
             config["encryption_key"] = secrets_mod.token_hex(32)
             print(f"    Generated key: {config['encryption_key'][:16]}...")
 
@@ -417,8 +623,12 @@ def run_setup(
     print(f"  - HTTP Port: {config.get('http_port', 8080)}")
 
     integrations = []
-    if config.get("slack_token"):
+    if config.get("slack_token") or config.get("slack_client_id"):
         integrations.append("Slack")
+    if config.get("teams_client_id"):
+        integrations.append("Teams")
+    if config.get("stripe_secret_key"):
+        integrations.append("Stripe")
     if config.get("github_token"):
         integrations.append("GitHub")
     if config.get("telegram_token"):
@@ -426,10 +636,18 @@ def run_setup(
     if integrations:
         print(f"  - Integrations: {', '.join(integrations)}")
 
+    # Health check verification (optional)
+    if not non_interactive and _confirm("\n  Run health check verification?", default=True):
+        _run_health_checks(config)
+
     print("\nNext steps:")
     print("  1. Review .env file and adjust settings if needed")
     print("  2. Start the server: aragora serve")
     print("  3. Run a debate: aragora ask 'Your question here'")
+    if config.get("slack_client_id"):
+        print("  4. Install Slack app: https://your-domain/api/v1/oauth/slack/install")
+    if config.get("teams_client_id"):
+        print("  5. Deploy Teams app: see docs/integrations/TEAMS_SETUP.md")
     print("\nFor more help, run: aragora --help")
 
     return config

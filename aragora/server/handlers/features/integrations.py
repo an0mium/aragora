@@ -263,7 +263,13 @@ class IntegrationsHandler(SecureHandler):
             perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
             if perm_error:
                 return perm_error
-            return error_response("Sync not implemented for integrations", status=501)
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            integration_type, err = self._extract_integration_type(normalized.rsplit("/sync", 1)[0])
+            if err:
+                return err
+            return await self.sync_integration(integration_type, user_id=user_id or "default")
 
         return error_response("Not found", status=404)
 
@@ -670,6 +676,193 @@ class IntegrationsHandler(SecureHandler):
                     "error": str(e),
                 }
             )
+
+    async def sync_integration(
+        self, integration_type: str, user_id: str = "default", handler: Any = None
+    ) -> HandlerResult:
+        """Sync integration state with external service.
+
+        Refreshes configuration and status from the external service,
+        updates local state, and returns sync results.
+
+        Args:
+            integration_type: Type of integration (slack, discord, etc.)
+            user_id: User/workspace ID
+            handler: Optional request handler for RBAC
+
+        Returns:
+            Sync result with updated state
+        """
+        # RBAC: Require integrations:write permission
+        if handler:
+            error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if error:
+                return error
+
+        if integration_type not in VALID_INTEGRATION_TYPES:
+            return error_response(f"Invalid integration type: {integration_type}", status=400)
+
+        store = get_integration_store()
+        config = await store.get(integration_type, user_id)
+
+        if not config:
+            return error_response(f"Integration not configured: {integration_type}", status=404)
+
+        sync_result: dict[str, Any] = {
+            "integration_type": integration_type,
+            "user_id": user_id,
+            "synced_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "changes": [],
+        }
+
+        try:
+            # Test connectivity first
+            connection_ok = await self._test_connection(integration_type, config.settings)
+
+            if not connection_ok:
+                config.status = "disconnected"
+                config.errors_24h += 1
+                config.last_error = "Sync failed: connection test failed"
+                await store.save(config)
+                return json_response(
+                    {
+                        "success": False,
+                        "error": "Connection test failed during sync",
+                        **sync_result,
+                    }
+                )
+
+            # Sync based on integration type
+            old_status = config.status
+            config.status = "connected"
+            config.last_activity = time.time()
+            config.updated_at = time.time()
+
+            if old_status != "connected":
+                sync_result["changes"].append(
+                    {"field": "status", "old": old_status, "new": "connected"}
+                )
+
+            # Perform provider-specific sync if available
+            provider_changes = await self._sync_provider(integration_type, config)
+            sync_result["changes"].extend(provider_changes)
+
+            await store.save(config)
+
+            logger.info(
+                f"Integration synced: {integration_type} for user {user_id}, "
+                f"{len(sync_result['changes'])} changes"
+            )
+
+            return json_response(
+                {
+                    "success": True,
+                    "message": f"{integration_type} synced successfully",
+                    **sync_result,
+                    "integration": config.to_dict(),
+                }
+            )
+
+        except Exception as e:
+            config.errors_24h += 1
+            config.last_error = f"Sync failed: {str(e)}"
+            config.status = "degraded"
+            await store.save(config)
+            logger.error(f"Integration sync failed for {integration_type}: {e}")
+            return json_response(
+                {
+                    "success": False,
+                    "error": str(e),
+                    **sync_result,
+                }
+            )
+
+    async def _sync_provider(
+        self, integration_type: str, config: IntegrationConfig
+    ) -> list[dict[str, Any]]:
+        """Perform provider-specific sync operations.
+
+        Args:
+            integration_type: Type of integration
+            config: Current integration configuration
+
+        Returns:
+            List of changes made during sync
+        """
+        changes: list[dict[str, Any]] = []
+
+        try:
+            if integration_type == "slack":
+                # Slack: verify bot token and get workspace info
+                bot_token = config.settings.get("bot_token")
+                if bot_token:
+                    from aragora.integrations.slack import SlackConfig, SlackIntegration
+
+                    slack = SlackIntegration(SlackConfig(bot_token=bot_token))
+                    if hasattr(slack, "get_workspace_info"):
+                        info = await slack.get_workspace_info()
+                        if info:
+                            old_workspace = config.settings.get("workspace_name")
+                            config.settings["workspace_name"] = info.get("name", "")
+                            if old_workspace != config.settings["workspace_name"]:
+                                changes.append(
+                                    {
+                                        "field": "workspace_name",
+                                        "old": old_workspace,
+                                        "new": config.settings["workspace_name"],
+                                    }
+                                )
+
+            elif integration_type == "teams":
+                # Teams: verify connection and get tenant info
+                access_token = config.settings.get("access_token")
+                if access_token and hasattr(config, "tenant_id"):
+                    # Refresh tenant metadata if available
+                    pass  # Teams sync would go here
+
+            elif integration_type == "telegram":
+                # Telegram: verify bot and get updates count
+                bot_token = config.settings.get("bot_token")
+                if bot_token:
+                    from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
+
+                    telegram = TelegramIntegration(
+                        TelegramConfig(
+                            bot_token=bot_token, chat_id=config.settings.get("chat_id", "")
+                        )
+                    )
+                    if hasattr(telegram, "get_me"):
+                        bot_info = await telegram.get_me()
+                        if bot_info:
+                            old_username = config.settings.get("bot_username")
+                            config.settings["bot_username"] = bot_info.get("username", "")
+                            if old_username != config.settings["bot_username"]:
+                                changes.append(
+                                    {
+                                        "field": "bot_username",
+                                        "old": old_username,
+                                        "new": config.settings["bot_username"],
+                                    }
+                                )
+
+            # Generic sync: reset error counters on successful sync
+            if config.errors_24h > 0:
+                old_errors = config.errors_24h
+                config.errors_24h = 0
+                changes.append(
+                    {
+                        "field": "errors_24h",
+                        "old": old_errors,
+                        "new": 0,
+                    }
+                )
+
+        except ImportError as e:
+            logger.debug(f"Provider sync not available for {integration_type}: {e}")
+        except Exception as e:
+            logger.warning(f"Provider-specific sync failed for {integration_type}: {e}")
+
+        return changes
 
     async def _test_connection(self, integration_type: str, settings: dict[str, Any]) -> bool:
         """Test connection to integration provider.

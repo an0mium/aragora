@@ -55,393 +55,369 @@ def register_adapter_spec(spec: AdapterSpec) -> None:
     ADAPTER_SPECS[spec.name] = spec
 
 
-# Import and register adapter specs
+# ---------------------------------------------------------------------------
+# Data-driven adapter registry
+# ---------------------------------------------------------------------------
+# Each entry: (module_path, class_name, AdapterSpec kwargs)
+# module_path is relative to this package (e.g. ".continuum_adapter")
+_ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
+    # --- Core memory adapters ---
+    (
+        ".continuum_adapter",
+        "ContinuumAdapter",
+        {
+            "name": "continuum",
+            "required_deps": ["continuum_memory"],
+            "forward_method": "store",
+            "reverse_method": "sync_validations_to_continuum",
+            "priority": 100,
+            "config_key": "km_continuum_adapter",
+        },
+    ),
+    (
+        ".consensus_adapter",
+        "ConsensusAdapter",
+        {
+            "name": "consensus",
+            "required_deps": ["consensus_memory"],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_validations_from_km",
+            "priority": 90,
+            "config_key": "km_consensus_adapter",
+        },
+    ),
+    (
+        ".critique_adapter",
+        "CritiqueAdapter",
+        {
+            "name": "critique",
+            "required_deps": ["memory"],
+            "forward_method": "store",
+            "reverse_method": "sync_validations_from_km",
+            "priority": 80,
+            "config_key": "km_critique_adapter",
+        },
+    ),
+    # --- Bidirectional integration adapters ---
+    (
+        ".evidence_adapter",
+        "EvidenceAdapter",
+        {
+            "name": "evidence",
+            "required_deps": ["evidence_store"],
+            "forward_method": "store",
+            "reverse_method": "update_reliability_from_km",
+            "priority": 70,
+            "config_key": "km_evidence_adapter",
+        },
+    ),
+    (
+        ".belief_adapter",
+        "BeliefAdapter",
+        {
+            "name": "belief",
+            "required_deps": [],
+            "forward_method": "store_converged_belief",
+            "reverse_method": "sync_validations_from_km",
+            "priority": 60,
+            "config_key": "km_belief_adapter",
+        },
+    ),
+    (
+        ".insights_adapter",
+        "InsightsAdapter",
+        {
+            "name": "insights",
+            "required_deps": ["insight_store"],
+            "forward_method": "store_insight",
+            "reverse_method": "sync_validations_from_km",
+            "priority": 50,
+            "config_key": "km_insights_adapter",
+        },
+    ),
+    (
+        ".performance_adapter",
+        "EloAdapter",
+        {
+            "name": "elo",
+            "required_deps": ["elo_system"],
+            "forward_method": "store_match",
+            "reverse_method": "sync_km_to_elo",
+            "priority": 40,
+            "config_key": "km_elo_bridge",
+        },
+    ),
+    (
+        ".performance_adapter",
+        "PerformanceAdapter",
+        {
+            "name": "performance",
+            "required_deps": ["elo_system"],
+            "forward_method": "store_match",
+            "reverse_method": "sync_km_to_elo",
+            "priority": 45,
+            "enabled_by_default": False,
+            "config_key": "km_performance_adapter",
+        },
+    ),
+    # --- Operational adapters ---
+    (
+        ".pulse_adapter",
+        "PulseAdapter",
+        {
+            "name": "pulse",
+            "required_deps": ["pulse_manager"],
+            "forward_method": "store_trending_topic",
+            "reverse_method": "sync_validations_from_km",
+            "priority": 30,
+            "config_key": "km_pulse_adapter",
+        },
+    ),
+    (
+        ".cost_adapter",
+        "CostAdapter",
+        {
+            "name": "cost",
+            "required_deps": ["cost_tracker"],
+            "forward_method": "store_anomaly",
+            "reverse_method": "sync_validations_from_km",
+            "priority": 10,
+            "enabled_by_default": False,
+            "config_key": "km_cost_adapter",
+        },
+    ),
+    (
+        ".provenance_adapter",
+        "ProvenanceAdapter",
+        {
+            "name": "provenance",
+            "required_deps": ["provenance_store"],
+            "forward_method": "ingest_provenance",
+            "reverse_method": None,
+            "priority": 75,
+            "config_key": "km_provenance_adapter",
+        },
+    ),
+    # --- Extension module adapters ---
+    (
+        ".fabric_adapter",
+        "FabricAdapter",
+        {
+            "name": "fabric",
+            "required_deps": ["fabric"],
+            "forward_method": "sync_from_fabric",
+            "reverse_method": "get_pool_recommendations",
+            "priority": 35,
+            "config_key": "km_fabric_adapter",
+        },
+    ),
+    (
+        ".workspace_adapter",
+        "WorkspaceAdapter",
+        {
+            "name": "workspace",
+            "required_deps": ["workspace_manager"],
+            "forward_method": "sync_from_workspace",
+            "reverse_method": "get_rig_recommendations",
+            "priority": 34,
+            "config_key": "km_workspace_adapter",
+        },
+    ),
+    (
+        ".computer_use_adapter",
+        "ComputerUseAdapter",
+        {
+            "name": "computer_use",
+            "required_deps": ["computer_use_orchestrator"],
+            "forward_method": "sync_from_orchestrator",
+            "reverse_method": "get_similar_tasks",
+            "priority": 33,
+            "config_key": "km_computer_use_adapter",
+        },
+    ),
+    (
+        ".gateway_adapter",
+        "GatewayAdapter",
+        {
+            "name": "gateway",
+            "required_deps": ["gateway"],
+            "forward_method": "sync_from_gateway",
+            "reverse_method": "get_routing_recommendations",
+            "priority": 32,
+            "config_key": "km_gateway_adapter",
+        },
+    ),
+    # --- Advanced integration adapters ---
+    (
+        ".calibration_fusion_adapter",
+        "CalibrationFusionAdapter",
+        {
+            "name": "calibration_fusion",
+            "required_deps": [],
+            "forward_method": "sync_from_calibration",
+            "reverse_method": "get_calibration_insights",
+            "priority": 55,
+            "config_key": "km_calibration_fusion_adapter",
+        },
+    ),
+    (
+        ".control_plane_adapter",
+        "ControlPlaneAdapter",
+        {
+            "name": "control_plane",
+            "required_deps": ["control_plane"],
+            "forward_method": "sync_from_control_plane",
+            "reverse_method": "get_policy_recommendations",
+            "priority": 85,
+            "config_key": "km_control_plane_adapter",
+        },
+    ),
+    (
+        ".culture_adapter",
+        "CultureAdapter",
+        {
+            "name": "culture",
+            "required_deps": [],
+            "forward_method": "sync_to_mound",
+            "reverse_method": "load_from_mound",
+            "priority": 25,
+            "config_key": "km_culture_adapter",
+        },
+    ),
+    (
+        ".receipt_adapter",
+        "ReceiptAdapter",
+        {
+            "name": "receipt",
+            "required_deps": [],
+            "forward_method": "ingest_receipt",
+            "reverse_method": "find_related_decisions",
+            "priority": 65,
+            "config_key": "km_receipt_adapter",
+        },
+    ),
+    (
+        ".decision_plan_adapter",
+        "DecisionPlanAdapter",
+        {
+            "name": "decision_plan",
+            "required_deps": [],
+            "forward_method": "ingest_plan_outcome",
+            "reverse_method": "query_similar_plans",
+            "priority": 64,
+            "config_key": "km_decision_plan_adapter",
+        },
+    ),
+    (
+        ".supermemory_adapter",
+        "SupermemoryAdapter",
+        {
+            "name": "supermemory",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 15,
+            "enabled_by_default": False,
+        },
+    ),
+    (
+        ".rlm_adapter",
+        "RlmAdapter",
+        {
+            "name": "rlm",
+            "required_deps": ["compressor"],
+            "forward_method": "sync_to_mound",
+            "reverse_method": "load_from_mound",
+            "priority": 20,
+            "config_key": "km_rlm_adapter",
+        },
+    ),
+    (
+        ".trickster_adapter",
+        "TricksterAdapter",
+        {
+            "name": "trickster",
+            "required_deps": ["trickster"],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 55,
+            "config_key": "km_trickster_adapter",
+        },
+    ),
+    (
+        ".erc8004_adapter",
+        "ERC8004Adapter",
+        {
+            "name": "erc8004",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_from_km",
+            "priority": 80,
+            "enabled_by_default": False,
+            "config_key": "km_erc8004_adapter",
+        },
+    ),
+    (
+        ".obsidian_adapter",
+        "ObsidianAdapter",
+        {
+            "name": "obsidian",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 5,
+            "enabled_by_default": False,
+            "config_key": "km_obsidian_adapter",
+        },
+    ),
+    # --- High-level domain adapters ---
+    (
+        ".debate_adapter",
+        "DebateAdapter",
+        {
+            "name": "debate",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 88,
+            "config_key": "km_debate_adapter",
+        },
+    ),
+    (
+        ".workflow_adapter",
+        "WorkflowAdapter",
+        {
+            "name": "workflow",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 50,
+            "config_key": "km_workflow_adapter",
+        },
+    ),
+    (
+        ".compliance_adapter",
+        "ComplianceAdapter",
+        {
+            "name": "compliance",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 75,
+            "config_key": "km_compliance_adapter",
+        },
+    ),
+]
+
+
 def _init_specs() -> None:
-    """Initialize adapter specifications."""
-    from .continuum_adapter import ContinuumAdapter
-    from .consensus_adapter import ConsensusAdapter
-    from .critique_adapter import CritiqueAdapter
-    from .evidence_adapter import EvidenceAdapter
-    from .belief_adapter import BeliefAdapter
-    from .insights_adapter import InsightsAdapter
-    from .performance_adapter import PerformanceAdapter, EloAdapter
-    from .pulse_adapter import PulseAdapter
-    from .cost_adapter import CostAdapter
-    from .provenance_adapter import ProvenanceAdapter
+    """Initialize adapter specifications from the data-driven registry."""
+    import importlib
 
-    # Core memory adapters
-    register_adapter_spec(
-        AdapterSpec(
-            name="continuum",
-            adapter_class=ContinuumAdapter,
-            required_deps=["continuum_memory"],
-            forward_method="store",
-            reverse_method="sync_validations_to_continuum",
-            priority=100,  # High priority - core memory
-            config_key="km_continuum_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="consensus",
-            adapter_class=ConsensusAdapter,
-            required_deps=["consensus_memory"],
-            forward_method="sync_to_km",  # Sync pending consensus records to KM
-            reverse_method="sync_validations_from_km",  # KM validations update consensus metadata
-            priority=90,
-            config_key="km_consensus_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="critique",
-            adapter_class=CritiqueAdapter,
-            required_deps=["memory"],  # CritiqueStore is called "memory" in Arena
-            forward_method="store",
-            reverse_method="sync_validations_from_km",
-            priority=80,
-            config_key="km_critique_adapter",
-        )
-    )
-
-    # Bidirectional integration adapters
-    register_adapter_spec(
-        AdapterSpec(
-            name="evidence",
-            adapter_class=EvidenceAdapter,
-            required_deps=["evidence_store"],
-            forward_method="store",
-            reverse_method="update_reliability_from_km",
-            priority=70,
-            config_key="km_evidence_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="belief",
-            adapter_class=BeliefAdapter,
-            required_deps=[],  # No external dep required, uses internal storage
-            forward_method="store_converged_belief",
-            reverse_method="sync_validations_from_km",
-            priority=60,
-            config_key="km_belief_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="insights",
-            adapter_class=InsightsAdapter,
-            required_deps=["insight_store"],
-            forward_method="store_insight",
-            reverse_method="sync_validations_from_km",
-            priority=50,
-            config_key="km_insights_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="elo",
-            adapter_class=EloAdapter,
-            required_deps=["elo_system"],
-            forward_method="store_match",
-            reverse_method="sync_km_to_elo",
-            priority=40,
-            config_key="km_elo_bridge",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="performance",
-            adapter_class=PerformanceAdapter,
-            required_deps=["elo_system"],
-            forward_method="store_match",
-            reverse_method="sync_km_to_elo",
-            priority=45,
-            enabled_by_default=False,  # Avoid double-writes with EloAdapter unless explicitly enabled
-            config_key="km_performance_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="pulse",
-            adapter_class=PulseAdapter,
-            required_deps=["pulse_manager"],
-            forward_method="store_trending_topic",
-            reverse_method="sync_validations_from_km",
-            priority=30,
-            config_key="km_pulse_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="cost",
-            adapter_class=CostAdapter,
-            required_deps=["cost_tracker"],
-            forward_method="store_anomaly",
-            reverse_method="sync_validations_from_km",
-            priority=10,  # Low priority - operational
-            enabled_by_default=False,  # Opt-in
-            config_key="km_cost_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="provenance",
-            adapter_class=ProvenanceAdapter,
-            required_deps=["provenance_store"],
-            forward_method="ingest_provenance",
-            reverse_method=None,  # No reverse sync (provenance is append-only)
-            priority=75,  # High priority - core evidence tracking
-            config_key="km_provenance_adapter",
-        )
-    )
-
-    # Extension module adapters
-    from .fabric_adapter import FabricAdapter
-    from .workspace_adapter import WorkspaceAdapter
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="fabric",
-            adapter_class=FabricAdapter,
-            required_deps=["fabric"],  # AgentFabric instance
-            forward_method="sync_from_fabric",
-            reverse_method="get_pool_recommendations",
-            priority=35,  # Medium priority - extension module
-            config_key="km_fabric_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="workspace",
-            adapter_class=WorkspaceAdapter,
-            required_deps=["workspace_manager"],  # WorkspaceManager instance
-            forward_method="sync_from_workspace",
-            reverse_method="get_rig_recommendations",
-            priority=34,  # Medium priority - extension module
-            config_key="km_workspace_adapter",
-        )
-    )
-
-    from .computer_use_adapter import ComputerUseAdapter
-    from .gateway_adapter import GatewayAdapter
-    from .calibration_fusion_adapter import CalibrationFusionAdapter
-    from .control_plane_adapter import ControlPlaneAdapter
-    from .culture_adapter import CultureAdapter
-    from .receipt_adapter import ReceiptAdapter
-    from .rlm_adapter import RlmAdapter
-    from .erc8004_adapter import ERC8004Adapter
-    from .supermemory_adapter import SupermemoryAdapter
-    from .trickster_adapter import TricksterAdapter
-    from .obsidian_adapter import ObsidianAdapter
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="computer_use",
-            adapter_class=ComputerUseAdapter,
-            required_deps=["computer_use_orchestrator"],  # ComputerUseOrchestrator instance
-            forward_method="sync_from_orchestrator",
-            reverse_method="get_similar_tasks",
-            priority=33,  # Medium priority - extension module
-            config_key="km_computer_use_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="gateway",
-            adapter_class=GatewayAdapter,
-            required_deps=["gateway"],  # LocalGateway instance
-            forward_method="sync_from_gateway",
-            reverse_method="get_routing_recommendations",
-            priority=32,  # Medium priority - extension module
-            config_key="km_gateway_adapter",
-        )
-    )
-
-    # Additional integration adapters
-    register_adapter_spec(
-        AdapterSpec(
-            name="calibration_fusion",
-            adapter_class=CalibrationFusionAdapter,
-            required_deps=[],  # Uses KM singleton internally
-            forward_method="sync_from_calibration",
-            reverse_method="get_calibration_insights",
-            priority=55,  # High priority - calibration data
-            config_key="km_calibration_fusion_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="control_plane",
-            adapter_class=ControlPlaneAdapter,
-            required_deps=["control_plane"],  # ControlPlane coordinator instance
-            forward_method="sync_from_control_plane",
-            reverse_method="get_policy_recommendations",
-            priority=85,  # High priority - control plane integration
-            config_key="km_control_plane_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="culture",
-            adapter_class=CultureAdapter,
-            required_deps=[],  # Uses KM singleton internally
-            forward_method="sync_to_mound",
-            reverse_method="load_from_mound",
-            priority=25,  # Lower priority - derived patterns
-            config_key="km_culture_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="receipt",
-            adapter_class=ReceiptAdapter,
-            required_deps=[],  # KM mound set via set_mound()
-            forward_method="ingest_receipt",
-            reverse_method="find_related_decisions",
-            priority=65,  # Medium-high priority - decision audit trail
-            config_key="km_receipt_adapter",
-        )
-    )
-
-    # Decision Plan adapter (Gold Path → Knowledge Mound)
-    from .decision_plan_adapter import DecisionPlanAdapter
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="decision_plan",
-            adapter_class=DecisionPlanAdapter,
-            required_deps=[],  # Uses KM singleton internally
-            forward_method="ingest_plan_outcome",
-            reverse_method="query_similar_plans",
-            priority=64,  # Just below receipt - same tier
-            config_key="km_decision_plan_adapter",
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="supermemory",
-            adapter_class=SupermemoryAdapter,
-            required_deps=[],  # Uses env-configured client
-            forward_method="sync_to_km",
-            reverse_method=None,
-            priority=15,  # Low priority - external memory persistence
-            enabled_by_default=False,  # Opt-in
-        )
-    )
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="rlm",
-            adapter_class=RlmAdapter,
-            required_deps=["compressor"],  # RLM Compressor instance
-            forward_method="sync_to_mound",
-            reverse_method="load_from_mound",
-            priority=20,  # Lower priority - compression optimization
-            config_key="km_rlm_adapter",
-        )
-    )
-
-    # Trickster adapter (Hollow consensus detection → Knowledge Mound)
-    register_adapter_spec(
-        AdapterSpec(
-            name="trickster",
-            adapter_class=TricksterAdapter,
-            required_deps=["trickster"],  # EvidencePoweredTrickster instance
-            forward_method="sync_to_km",
-            reverse_method=None,  # No reverse sync (read patterns via search_by_topic)
-            priority=55,  # Same as calibration_fusion - debate quality
-            config_key="km_trickster_adapter",
-        )
-    )
-
-    # Blockchain adapter (ERC-8004)
-    register_adapter_spec(
-        AdapterSpec(
-            name="erc8004",
-            adapter_class=ERC8004Adapter,
-            required_deps=[],  # Uses Web3Provider from env
-            forward_method="sync_to_km",
-            reverse_method="sync_from_km",
-            priority=80,  # Between receipt (90) and evidence (70)
-            enabled_by_default=False,  # Opt-in (requires blockchain deps)
-            config_key="km_erc8004_adapter",
-        )
-    )
-
-    # Obsidian vault adapter (local knowledge ingestion)
-    register_adapter_spec(
-        AdapterSpec(
-            name="obsidian",
-            adapter_class=ObsidianAdapter,
-            required_deps=[],
-            forward_method="sync_to_km",
-            reverse_method=None,
-            priority=5,  # Low priority - optional ingestion
-            enabled_by_default=False,  # Opt-in
-            config_key="km_obsidian_adapter",
-        )
-    )
-
-    # Debate adapter (full debate outcomes → Knowledge Mound)
-    from .debate_adapter import DebateAdapter
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="debate",
-            adapter_class=DebateAdapter,
-            required_deps=[],  # Accepts DebateResult objects directly
-            forward_method="sync_to_km",
-            reverse_method=None,
-            priority=88,  # High priority - core debate persistence
-            config_key="km_debate_adapter",
-        )
-    )
-
-    # Workflow adapter (workflow executions → Knowledge Mound)
-    from .workflow_adapter import WorkflowAdapter
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="workflow",
-            adapter_class=WorkflowAdapter,
-            required_deps=[],  # Accepts WorkflowResult objects directly
-            forward_method="sync_to_km",
-            reverse_method=None,
-            priority=50,  # Medium priority - workflow analytics
-            config_key="km_workflow_adapter",
-        )
-    )
-
-    # Compliance adapter (compliance results/violations → Knowledge Mound)
-    from .compliance_adapter import ComplianceAdapter
-
-    register_adapter_spec(
-        AdapterSpec(
-            name="compliance",
-            adapter_class=ComplianceAdapter,
-            required_deps=[],  # Accepts ComplianceCheckResult/Violation objects
-            forward_method="sync_to_km",
-            reverse_method=None,
-            priority=75,  # High priority - compliance audit trail
-            config_key="km_compliance_adapter",
-        )
-    )
+    for module_path, class_name, spec_kwargs in _ADAPTER_DEFS:
+        mod = importlib.import_module(module_path, package=__package__)
+        adapter_class = getattr(mod, class_name)
+        register_adapter_spec(AdapterSpec(adapter_class=adapter_class, **spec_kwargs))
 
 
 # Initialize specs on import

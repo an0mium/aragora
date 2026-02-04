@@ -231,22 +231,22 @@ class AuthHandler(SecureHandler):
             return self._handle_change_password(handler)
 
         if path == "/api/auth/password/forgot" and method == "POST":
-            if not self.ctx.get("enable_password_reset_routes", False):
+            if not self.ctx.get("enable_password_reset_routes", True):
                 return error_response("Password reset not implemented", 501)
             return self._handle_forgot_password(handler)
 
         if path == "/api/auth/password/reset" and method == "POST":
-            if not self.ctx.get("enable_password_reset_routes", False):
+            if not self.ctx.get("enable_password_reset_routes", True):
                 return error_response("Password reset not implemented", 501)
             return self._handle_reset_password(handler)
 
         if path == "/api/auth/forgot-password" and method == "POST":
-            if not self.ctx.get("enable_password_reset_routes", False):
+            if not self.ctx.get("enable_password_reset_routes", True):
                 return error_response("Password reset not implemented", 501)
             return self._handle_forgot_password(handler)
 
         if path == "/api/auth/reset-password" and method == "POST":
-            if not self.ctx.get("enable_password_reset_routes", False):
+            if not self.ctx.get("enable_password_reset_routes", True):
                 return error_response("Password reset not implemented", 501)
             return self._handle_reset_password(handler)
 

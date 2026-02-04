@@ -426,11 +426,12 @@ class ReceiptsHandler(BaseHandler):
             {"name": "signed", "in": "query", "schema": {"type": "boolean", "default": True}},
         ],
         responses={
-            "200": {"description": "Export returned in requested format"},
+            "200": {
+                "description": "Export returned in requested format. PDF format falls back to printable HTML if weasyprint unavailable (check X-PDF-Fallback header)"
+            },
             "400": {"description": "Unsupported format"},
             "404": {"description": "Receipt not found"},
             "500": {"description": "Export failed"},
-            "501": {"description": "PDF export requires weasyprint package"},
         },
     )
     @require_permission("receipts:read")
@@ -496,7 +497,40 @@ class ReceiptsHandler(BaseHandler):
                         },
                     )
                 except ImportError:
-                    return error_response("PDF export requires weasyprint package", 501)
+                    # Fallback to print-friendly HTML when weasyprint not available
+                    logger.info("PDF export unavailable, falling back to printable HTML")
+                    html_content = decision_receipt.to_html()
+                    # Add print-friendly wrapper
+                    printable_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Receipt {receipt_id}</title>
+    <style>
+        @media print {{
+            body {{ font-size: 12pt; }}
+            .no-print {{ display: none; }}
+        }}
+        body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        .print-notice {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 20px; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class="print-notice no-print">
+        <strong>Note:</strong> PDF export is unavailable. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
+    </div>
+    {html_content}
+</body>
+</html>"""
+                    body = printable_html.encode("utf-8")
+                    return HandlerResult(
+                        status_code=200,
+                        content_type="text/html",
+                        body=body,
+                        headers={
+                            "X-PDF-Fallback": "true",
+                        },
+                    )
 
             elif export_format == "sarif":
                 from aragora.gauntlet.api.export import export_receipt, ReceiptExportFormat

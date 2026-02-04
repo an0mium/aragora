@@ -56,6 +56,86 @@ def _parse_json_body(handler: Any) -> dict[str, Any]:
         return {}
 
 
+# ---------------------------------------------------------------------------
+# Handler call-signature registry
+# ---------------------------------------------------------------------------
+# Maps handler method names to their expected argument pattern:
+#   "none" = ()
+#   "q"    = (query_params)
+#   "h"    = (handler)          [default if not listed]
+#   "qh"   = (query_params, handler)
+#   "pqh"  = (path, query_params, handler)
+#   "id"   = (entity_id)
+#   "id_q" = (entity_id, query_params)
+#   "id_h" = (entity_id, handler)
+#   "id_qh"= (entity_id, query_params, handler)
+_HANDLER_SIGNATURES: dict[str, str] = {
+    # query_params only
+    "_handle_mound_stats": "q",
+    "_handle_list_nodes": "q",
+    "_handle_get_culture": "q",
+    "_handle_get_stale": "q",
+    "_handle_export_d3": "q",
+    "_handle_export_graphml": "q",
+    "_handle_get_system_facts": "q",
+    "_handle_get_duplicate_clusters": "q",
+    "_handle_get_dedup_report": "q",
+    "_handle_get_prunable_items": "q",
+    "_handle_get_prune_history": "q",
+    "_handle_list_contradictions": "q",
+    "_handle_query_audit": "q",
+    "_handle_analyze_coverage": "q",
+    "_handle_analyze_usage": "q",
+    "_handle_get_quality_trend": "q",
+    "_handle_get_confidence_history": "q",
+    "_handle_curation_status": "q",
+    "_handle_curation_history": "q",
+    "_handle_curation_scores": "q",
+    "_handle_curation_tiers": "q",
+    # query_params + handler
+    "_handle_shared_with_me": "qh",
+    "_handle_my_shares": "qh",
+    "_handle_query_global": "qh",
+    "_handle_list_regions": "qh",
+    "_handle_get_federation_status": "qh",
+    # no args
+    "_handle_get_system_workspace_id": "none",
+    "_handle_contradiction_stats": "none",
+    "_handle_governance_stats": "none",
+    "_handle_analytics_stats": "none",
+    "_handle_extraction_stats": "none",
+    "_handle_decay_stats": "none",
+    # path + query_params + handler (routing dispatchers)
+    "_route_nodes": "pqh",
+    "_route_share": "pqh",
+    "_route_global": "pqh",
+    "_route_federation_regions": "pqh",
+    "_route_governance_roles": "pqh",
+    "_route_curation_policy": "pqh",
+    # entity_id only
+    "_handle_get_node": "id",
+    # entity_id + query_params
+    "_handle_get_node_relationships": "id_q",
+    "_handle_graph_lineage": "id_q",
+    "_handle_graph_related": "id_q",
+    "_handle_graph_traversal": "id_q",
+    "_handle_get_visibility": "id_q",
+    "_handle_list_access_grants": "id_q",
+    "_handle_get_user_permissions": "id_q",
+    "_handle_get_user_activity": "id_q",
+    # entity_id + handler
+    "_handle_revalidate_node": "id_h",
+    "_handle_set_visibility": "id_h",
+    "_handle_grant_access": "id_h",
+    "_handle_revoke_access": "id_h",
+    "_handle_unregister_region": "id_h",
+    "_handle_resolve_contradiction": "id_h",
+    # entity_id + query_params + handler (routing dispatchers with ID)
+    "_route_node_visibility": "id_qh",
+    "_route_node_access": "id_qh",
+}
+
+
 class RoutingMixin:
     """Mixin providing URL routing via dispatch table pattern."""
 
@@ -576,162 +656,43 @@ class RoutingMixin:
         handler: Any,
         path_params: tuple = (),
     ) -> HandlerResult | None:
-        """Invoke a handler method with appropriate arguments."""
-        # Determine which arguments the handler expects based on its name
-        method_name = getattr(handler_method, "__name__", None)
-        if not method_name:
-            method_name = getattr(handler_method, "_mock_name", None)
-        if not method_name:
-            method_name = getattr(handler_method, "__qualname__", None)
-        if not method_name:
-            method_name = handler_method.__class__.__name__
+        """Invoke a handler method with the correct argument pattern.
 
-        # Methods that only need query_params
-        if method_name in {
-            "_handle_mound_stats",
-            "_handle_list_nodes",
-            "_handle_get_culture",
-            "_handle_get_stale",
-            "_handle_export_d3",
-            "_handle_export_graphml",
-            "_handle_get_system_facts",
-            "_handle_get_duplicate_clusters",
-            "_handle_get_dedup_report",
-            "_handle_get_prunable_items",
-            "_handle_get_prune_history",
-            "_handle_list_contradictions",
-            "_handle_query_audit",
-            "_handle_analyze_coverage",
-            "_handle_analyze_usage",
-            "_handle_get_quality_trend",
-            "_handle_get_confidence_history",
-            "_handle_curation_status",
-            "_handle_curation_history",
-            "_handle_curation_scores",
-            "_handle_curation_tiers",
-        }:
-            return handler_method(query_params)
+        Uses the module-level ``_HANDLER_SIGNATURES`` dict for O(1) lookup
+        instead of sequential set-membership checks.
+        """
+        method_name = (
+            getattr(handler_method, "__name__", None)
+            or getattr(handler_method, "_mock_name", None)
+            or getattr(handler_method, "__qualname__", None)
+            or handler_method.__class__.__name__
+        )
 
-        # Methods that only need handler
-        if method_name in {
-            "_handle_mound_query",
-            "_handle_create_node",
-            "_handle_create_relationship",
-            "_handle_index_repository",
-            "_handle_add_culture_document",
-            "_handle_promote_to_culture",
-            "_handle_schedule_revalidation",
-            "_handle_sync_continuum",
-            "_handle_sync_consensus",
-            "_handle_sync_facts",
-            "_handle_store_verified_fact",
-            "_handle_promote_to_global",
-            "_handle_register_region",
-            "_handle_sync_to_region",
-            "_handle_pull_from_region",
-            "_handle_sync_all_regions",
-            "_handle_merge_duplicate_cluster",
-            "_handle_auto_merge_exact_duplicates",
-            "_handle_execute_prune",
-            "_handle_auto_prune",
-            "_handle_restore_pruned_item",
-            "_handle_apply_confidence_decay",
-            "_handle_detect_contradictions",
-            "_handle_create_role",
-            "_handle_assign_role",
-            "_handle_revoke_role",
-            "_handle_check_permission",
-            "_handle_record_usage_event",
-            "_handle_capture_quality_snapshot",
-            "_handle_extract_from_debate",
-            "_handle_promote_extracted",
-            "_handle_apply_confidence_decay_new",
-            "_handle_record_confidence_event",
-            "_handle_curation_run",
-        }:
-            return handler_method(handler)
+        sig = _HANDLER_SIGNATURES.get(method_name, "h")
 
-        # Methods that need query_params and handler
-        if method_name in {
-            "_handle_shared_with_me",
-            "_handle_my_shares",
-            "_handle_query_global",
-            "_handle_list_regions",
-            "_handle_get_federation_status",
-        }:
-            return handler_method(query_params, handler)
-
-        # Methods that need no arguments (stats endpoints)
-        if method_name in {
-            "_handle_get_system_workspace_id",
-            "_handle_contradiction_stats",
-            "_handle_governance_stats",
-            "_handle_analytics_stats",
-            "_handle_extraction_stats",
-            "_handle_decay_stats",
-        }:
+        if sig == "none":
             return handler_method()
-
-        # Dashboard methods that need handler.request
-        if method_name in {
-            "_handle_dashboard_health",
-            "_handle_dashboard_metrics",
-            "_handle_dashboard_metrics_reset",
-            "_handle_dashboard_adapters",
-            "_handle_dashboard_queries",
-            "_handle_dashboard_batcher_stats",
-        }:
+        if sig == "q":
+            return handler_method(query_params)
+        if sig == "h":
             return handler_method(handler)
-
-        # Routing methods that need path, query_params, and handler
-        if method_name in {
-            "_route_nodes",
-            "_route_share",
-            "_route_global",
-            "_route_federation_regions",
-            "_route_governance_roles",
-            "_route_curation_policy",
-        }:
+        if sig == "qh":
+            return handler_method(query_params, handler)
+        if sig == "pqh":
             return handler_method(path, query_params, handler)
 
-        # Methods with path parameters (from regex groups)
-        if path_params:
-            # Single ID parameter
-            if len(path_params) == 1:
-                node_id = path_params[0]
-                # Methods that take ID only
-                if method_name in {"_handle_get_node"}:
-                    return handler_method(node_id)
-                # Methods that take ID and query_params
-                if method_name in {
-                    "_handle_get_node_relationships",
-                    "_handle_graph_lineage",
-                    "_handle_graph_related",
-                    "_handle_graph_traversal",
-                    "_handle_get_visibility",
-                    "_handle_list_access_grants",
-                    "_handle_get_user_permissions",
-                    "_handle_get_user_activity",
-                }:
-                    return handler_method(node_id, query_params)
-                # Methods that take ID and handler
-                if method_name in {
-                    "_handle_revalidate_node",
-                    "_handle_set_visibility",
-                    "_handle_grant_access",
-                    "_handle_revoke_access",
-                    "_handle_unregister_region",
-                    "_handle_resolve_contradiction",
-                }:
-                    return handler_method(node_id, handler)
-                # Routing methods with ID
-                if method_name in {
-                    "_route_node_visibility",
-                    "_route_node_access",
-                }:
-                    return handler_method(node_id, query_params, handler)
+        # Signatures that require a path parameter
+        entity_id = path_params[0] if path_params else ""
+        if sig == "id":
+            return handler_method(entity_id)
+        if sig == "id_q":
+            return handler_method(entity_id, query_params)
+        if sig == "id_h":
+            return handler_method(entity_id, handler)
+        if sig == "id_qh":
+            return handler_method(entity_id, query_params, handler)
 
-        # Fallback: try to call with all common args
+        # Fallback: try common arg patterns
         logger.warning(f"Unknown handler method signature: {method_name}")
         try:
             return handler_method(path, query_params, handler)

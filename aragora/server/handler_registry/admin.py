@@ -114,6 +114,9 @@ FeatureIntegrationsHandler = _safe_import(
     "aragora.server.handlers.features.integrations", "IntegrationsHandler"
 )
 ConnectorsHandler = _safe_import("aragora.server.handlers", "ConnectorsHandler")
+StreamingConnectorHandler = _safe_import(
+    "aragora.server.handlers.streaming", "StreamingConnectorHandler"
+)
 MarketplaceHandler = _safe_import("aragora.server.handlers", "MarketplaceHandler")
 AutomationHandler = _safe_import(
     "aragora.server.handlers.integrations.automation", "AutomationHandler"
@@ -344,6 +347,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_integration_management_handler", IntegrationManagementHandler),
     ("_feature_integrations_handler", FeatureIntegrationsHandler),
     ("_connectors_handler", ConnectorsHandler),
+    ("_streaming_connector_handler", StreamingConnectorHandler),
     ("_marketplace_handler", MarketplaceHandler),
     ("_automation_handler", AutomationHandler),
     # Workflow
@@ -474,6 +478,7 @@ __all__ = [
     "IntegrationManagementHandler",
     "FeatureIntegrationsHandler",
     "ConnectorsHandler",
+    "StreamingConnectorHandler",
     "MarketplaceHandler",
     "AutomationHandler",
     # Workflow
