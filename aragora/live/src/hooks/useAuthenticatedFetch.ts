@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
+import { createErrorFromResponse, isRetryableError } from '@/lib/api-error';
 
 interface FetchState<T> {
   data: T | null;
@@ -57,7 +58,7 @@ export function useAuthenticatedFetch<T>(
     manual = false,
   } = options;
 
-  const { tokens, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { tokens, isAuthenticated, isLoading: authLoading, refreshToken } = useAuth();
   const [state, setState] = useState<FetchState<T>>({
     data: defaultData,
     loading: !manual,
@@ -66,6 +67,7 @@ export function useAuthenticatedFetch<T>(
   });
 
   const mountedRef = useRef(true);
+  const isRefreshingRef = useRef(false);
 
   const fetchData = useCallback(async () => {
     // Wait for auth to finish loading
@@ -86,20 +88,55 @@ export function useAuthenticatedFetch<T>(
 
     setState(prev => ({ ...prev, loading: true, error: null, skipped: false }));
 
-    try {
+    const makeRequest = async (token: string): Promise<Response> => {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       };
 
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+      return fetch(url, { headers });
+    };
+
+    try {
+      let response = await makeRequest(tokens!.access_token);
+
+      // 401 Interceptor: Try to refresh token and retry once
+      if (response.status === 401 && requireAuth && !isRefreshingRef.current) {
+        isRefreshingRef.current = true;
+        logger.debug(`[useAuthenticatedFetch] 401 on ${endpoint}, attempting token refresh...`);
+
+        try {
+          const refreshed = await refreshToken();
+
+          if (refreshed) {
+            // Get fresh tokens from storage after refresh
+            const storedTokens = localStorage.getItem('aragora_tokens');
+            if (storedTokens) {
+              const newTokens = JSON.parse(storedTokens);
+              logger.debug(`[useAuthenticatedFetch] Token refreshed, retrying ${endpoint}...`);
+              response = await makeRequest(newTokens.access_token);
+            }
+          } else {
+            // Refresh failed - user will be logged out by AuthContext
+            logger.warn(`[useAuthenticatedFetch] Token refresh failed for ${endpoint}`);
+            if (mountedRef.current) {
+              setState({
+                data: defaultData,
+                loading: false,
+                error: null,
+                skipped: true,
+              });
+            }
+            return;
+          }
+        } finally {
+          isRefreshingRef.current = false;
+        }
       }
 
-      const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-      const response = await fetch(url, { headers });
-
       if (!response.ok) {
-        // Handle auth errors silently when requireAuth is true
+        // Handle auth errors silently when requireAuth is true (after refresh attempt)
         if (response.status === 401 && requireAuth) {
           if (mountedRef.current) {
             setState({
@@ -112,8 +149,7 @@ export function useAuthenticatedFetch<T>(
           return;
         }
 
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Request failed: ${response.status}`);
+        throw await createErrorFromResponse(response);
       }
 
       const data = await response.json();
@@ -128,7 +164,9 @@ export function useAuthenticatedFetch<T>(
         onSuccess?.(data);
       }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Unknown error');
+      const error = err instanceof Error ? err : new Error(String(err));
+      const canRetry = isRetryableError(error);
+
       if (mountedRef.current) {
         setState(prev => ({
           ...prev,
@@ -137,10 +175,15 @@ export function useAuthenticatedFetch<T>(
           skipped: false,
         }));
         onError?.(error);
+
+        // Log retryable errors at debug level since they may auto-resolve
+        if (canRetry) {
+          logger.debug(`[useAuthenticatedFetch] Retryable error on ${endpoint}:`, error.message);
+        }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, tokens?.access_token, isAuthenticated, authLoading, requireAuth, ...deps]);
+  }, [endpoint, tokens?.access_token, isAuthenticated, authLoading, requireAuth, refreshToken, ...deps]);
 
   // Auto-fetch on mount (unless manual)
   useEffect(() => {
@@ -178,7 +221,8 @@ export function useAuthenticatedFetch<T>(
  * };
  */
 export function useAuthFetch() {
-  const { tokens, isAuthenticated, isLoading } = useAuth();
+  const { tokens, isAuthenticated, isLoading, refreshToken } = useAuth();
+  const isRefreshingRef = useRef(false);
 
   const authFetch = useCallback(
     async <T>(
@@ -190,23 +234,52 @@ export function useAuthFetch() {
         return null;
       }
 
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tokens.access_token}`,
-        ...init.headers,
+      const makeRequest = async (token: string): Promise<Response> => {
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          ...init.headers,
+        };
+
+        const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+        return fetch(url, { ...init, headers });
       };
 
-      const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-      const response = await fetch(url, { ...init, headers });
+      let response = await makeRequest(tokens.access_token);
+
+      // 401 Interceptor: Try to refresh token and retry once
+      if (response.status === 401 && !isRefreshingRef.current) {
+        isRefreshingRef.current = true;
+        logger.debug(`[useAuthFetch] 401 on ${endpoint}, attempting token refresh...`);
+
+        try {
+          const refreshed = await refreshToken();
+
+          if (refreshed) {
+            // Get fresh tokens from storage after refresh
+            const storedTokens = localStorage.getItem('aragora_tokens');
+            if (storedTokens) {
+              const newTokens = JSON.parse(storedTokens);
+              logger.debug(`[useAuthFetch] Token refreshed, retrying ${endpoint}...`);
+              response = await makeRequest(newTokens.access_token);
+            }
+          } else {
+            // Refresh failed - user will be logged out by AuthContext
+            logger.warn(`[useAuthFetch] Token refresh failed for ${endpoint}`);
+            return null;
+          }
+        } finally {
+          isRefreshingRef.current = false;
+        }
+      }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Request failed: ${response.status}`);
+        throw await createErrorFromResponse(response);
       }
 
       return response.json();
     },
-    [tokens?.access_token, isAuthenticated]
+    [tokens?.access_token, isAuthenticated, refreshToken]
   );
 
   const getAuthHeaders = useCallback((): HeadersInit => {

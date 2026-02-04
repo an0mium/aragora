@@ -74,28 +74,26 @@ export default function WorkflowRuntimePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedExecution, setSelectedExecution] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [usingMockData, setUsingMockData] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
 
   const fetchExecutions = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/workflow-executions`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/workflows/executions`);
       if (!response.ok) {
-        // Demo mode: use mock data if API not available
-        setExecutions(getMockExecutions());
-        setUsingMockData(true);
-        setError(null);
+        // API error - show empty state with error message
+        setExecutions([]);
+        setError(`Failed to load executions: ${response.status}`);
         return;
       }
       const data = await response.json();
       setExecutions(data.executions || []);
-      setUsingMockData(false);
       setError(null);
-    } catch {
-      // Demo mode: use mock data on error
-      setExecutions(getMockExecutions());
-      setUsingMockData(true);
+    } catch (err) {
+      // Network error - show empty state
+      setExecutions([]);
+      setError('Unable to connect to workflow service');
+      logger.error('Error fetching executions:', err);
     } finally {
       setLoading(false);
     }
@@ -127,7 +125,7 @@ export default function WorkflowRuntimePage() {
 
   const handleApprove = async (executionId: string, stepId: string) => {
     try {
-      await fetch(`${API_BASE_URL}/api/workflow-executions/${executionId}/approve`, {
+      await fetch(`${API_BASE_URL}/api/v1/workflows/executions/${executionId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stepId, approved: true }),
@@ -140,7 +138,7 @@ export default function WorkflowRuntimePage() {
 
   const handleReject = async (executionId: string, stepId: string) => {
     try {
-      await fetch(`${API_BASE_URL}/api/workflow-executions/${executionId}/approve`, {
+      await fetch(`${API_BASE_URL}/api/v1/workflows/executions/${executionId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stepId, approved: false }),
@@ -153,7 +151,7 @@ export default function WorkflowRuntimePage() {
 
   const handleRetry = async (executionId: string) => {
     try {
-      await fetch(`${API_BASE_URL}/api/workflow-executions/${executionId}/retry`, {
+      await fetch(`${API_BASE_URL}/api/v1/workflows/executions/${executionId}/retry`, {
         method: 'POST',
       });
       fetchExecutions();
@@ -168,17 +166,9 @@ export default function WorkflowRuntimePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-mono font-bold text-text">
-                Workflow Runtime
-              </h1>
-              {usingMockData && (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-900/20 border border-yellow-600/30 rounded text-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                  <span className="font-mono text-yellow-400">DEMO MODE</span>
-                </div>
-              )}
-            </div>
+            <h1 className="text-3xl font-mono font-bold text-text mb-2">
+              Workflow Runtime
+            </h1>
             <p className="text-text-muted">Monitor active workflow executions</p>
           </div>
           <Link
@@ -467,73 +457,4 @@ export default function WorkflowRuntimePage() {
       </div>
     </main>
   );
-}
-
-// Mock data for development
-function getMockExecutions(): WorkflowExecution[] {
-  return [
-    {
-      id: 'exec_001',
-      workflowId: 'wf_contract_review',
-      workflowName: 'Contract Review Pipeline',
-      status: 'running',
-      progress: 60,
-      currentStep: 'Legal Analysis',
-      startedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-      steps: [
-        { id: 's1', name: 'Document Ingestion', type: 'task', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 12).toISOString() },
-        { id: 's2', name: 'Clause Extraction', type: 'agent', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString() },
-        { id: 's3', name: 'Legal Analysis', type: 'agent', status: 'running', startedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString() },
-        { id: 's4', name: 'Risk Assessment', type: 'parallel', status: 'pending' },
-        { id: 's5', name: 'Partner Review', type: 'human_checkpoint', status: 'pending', approvalRequired: true, approvalMessage: 'Senior partner must approve high-risk clauses' },
-      ],
-    },
-    {
-      id: 'exec_002',
-      workflowId: 'wf_code_audit',
-      workflowName: 'Security Code Audit',
-      status: 'waiting_approval',
-      progress: 80,
-      currentStep: 'Security Review',
-      startedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      steps: [
-        { id: 's1', name: 'Code Analysis', type: 'agent', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString() },
-        { id: 's2', name: 'Vulnerability Scan', type: 'task', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString() },
-        { id: 's3', name: 'Security Review', type: 'human_checkpoint', status: 'waiting_approval', approvalRequired: true, approvalMessage: '3 critical vulnerabilities found. Approve to proceed with remediation recommendations.' },
-        { id: 's4', name: 'Generate Report', type: 'task', status: 'pending' },
-      ],
-    },
-    {
-      id: 'exec_003',
-      workflowId: 'wf_hipaa_check',
-      workflowName: 'HIPAA Compliance Check',
-      status: 'failed',
-      progress: 40,
-      currentStep: 'PHI Detection',
-      startedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-      error: 'Connection to document store timed out after 30 seconds',
-      steps: [
-        { id: 's1', name: 'Document Scan', type: 'task', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 40).toISOString() },
-        { id: 's2', name: 'PHI Detection', type: 'agent', status: 'failed', startedAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(), error: 'Connection to document store timed out' },
-        { id: 's3', name: 'Compliance Report', type: 'task', status: 'pending' },
-      ],
-    },
-    {
-      id: 'exec_004',
-      workflowId: 'wf_financial_audit',
-      workflowName: 'Q4 Financial Audit',
-      status: 'completed',
-      progress: 100,
-      currentStep: 'Complete',
-      startedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-      completedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-      steps: [
-        { id: 's1', name: 'Data Import', type: 'task', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 110).toISOString() },
-        { id: 's2', name: 'Transaction Analysis', type: 'agent', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 110).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString() },
-        { id: 's3', name: 'Anomaly Detection', type: 'parallel', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 70).toISOString() },
-        { id: 's4', name: 'Final Review', type: 'human_checkpoint', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 70).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 65).toISOString() },
-        { id: 's5', name: 'Generate Report', type: 'task', status: 'completed', startedAt: new Date(Date.now() - 1000 * 60 * 65).toISOString(), completedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString() },
-      ],
-    },
-  ];
 }

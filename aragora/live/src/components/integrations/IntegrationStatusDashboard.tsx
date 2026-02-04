@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useBackend } from '@/components/BackendSelector';
+import { useAuth } from '@/context/AuthContext';
 import { IntegrationType, INTEGRATION_CONFIGS } from './IntegrationSetupWizard';
+import { DEMO_INTEGRATIONS } from '@/fixtures';
 
 interface IntegrationStatus {
   type: IntegrationType;
@@ -37,6 +39,7 @@ function StatusIndicator({ status }: { status: IntegrationStatus['status'] }) {
 
 export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationStatusDashboardProps) {
   const { config: backendConfig } = useBackend();
+  const { tokens } = useAuth();
   const [integrations, setIntegrations] = useState<IntegrationStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +49,12 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${backendConfig.api}/api/integrations/status`);
+      const headers: HeadersInit = {};
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+
+      const res = await fetch(`${backendConfig.api}/api/integrations/status`, { headers });
 
       if (res.ok) {
         const data = await res.json();
@@ -54,6 +62,10 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       } else if (res.status === 404) {
         // API not implemented yet, use mock data
         setIntegrations(getMockIntegrations());
+      } else if (res.status === 401) {
+        // Not authenticated - show demo mode
+        setIntegrations(getMockIntegrations());
+        setError('Sign in to see your integrations');
       } else {
         throw new Error('Failed to fetch integration status');
       }
@@ -64,7 +76,7 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api]);
+  }, [backendConfig.api, tokens?.access_token]);
 
   useEffect(() => {
     fetchStatus();
@@ -77,9 +89,14 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     if (!confirm(`Disable ${INTEGRATION_CONFIGS[type].title} integration?`)) return;
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ enabled: false }),
       });
 
@@ -95,8 +112,14 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     if (!confirm(`Delete ${INTEGRATION_CONFIGS[type].title} configuration? This cannot be undone.`)) return;
 
     try {
+      const headers: HeadersInit = {};
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
         method: 'DELETE',
+        headers,
       });
 
       if (res.ok) {
@@ -109,8 +132,14 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
   const handleTestConnection = async (type: IntegrationType) => {
     try {
+      const headers: HeadersInit = {};
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}/test`, {
         method: 'POST',
+        headers,
       });
 
       if (res.ok) {
@@ -264,15 +293,8 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
 // Mock data for development/demo
 function getMockIntegrations(): IntegrationStatus[] {
-  return [
-    { type: 'slack', enabled: true, status: 'connected', messagesSent: 142, errors: 0, lastActivity: new Date().toISOString() },
-    { type: 'discord', enabled: true, status: 'connected', messagesSent: 87, errors: 2, lastActivity: new Date(Date.now() - 3600000).toISOString() },
-    { type: 'telegram', enabled: false, status: 'not_configured', messagesSent: 0, errors: 0 },
-    { type: 'email', enabled: true, status: 'connected', messagesSent: 256, errors: 1, lastActivity: new Date(Date.now() - 7200000).toISOString() },
-    { type: 'teams', enabled: false, status: 'not_configured', messagesSent: 0, errors: 0 },
-    { type: 'whatsapp', enabled: false, status: 'not_configured', messagesSent: 0, errors: 0 },
-    { type: 'matrix', enabled: false, status: 'not_configured', messagesSent: 0, errors: 0 },
-  ];
+  // Use centralized demo data from @/fixtures
+  return DEMO_INTEGRATIONS as IntegrationStatus[];
 }
 
 export default IntegrationStatusDashboard;

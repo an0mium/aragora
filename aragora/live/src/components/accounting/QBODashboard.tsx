@@ -5,6 +5,12 @@ import { API_BASE_URL } from '@/config';
 import { TransactionList } from './TransactionList';
 import { ReportGenerator } from './ReportGenerator';
 import { useAuth } from '@/context/AuthContext';
+import {
+  DEMO_COMPANY,
+  DEMO_DASHBOARD_STATS,
+  DEMO_CUSTOMERS,
+  DEMO_TRANSACTIONS,
+} from '@/fixtures';
 
 type DashboardTab = 'overview' | 'transactions' | 'customers' | 'reports';
 
@@ -47,37 +53,7 @@ interface Transaction {
   status: string;
 }
 
-const MOCK_COMPANY: CompanyInfo = {
-  name: 'Demo Company',
-  legalName: 'Demo Company LLC',
-  country: 'US',
-  email: 'accounting@demo.com',
-};
-
-const MOCK_STATS: DashboardStats = {
-  receivables: 46270.50,
-  payables: 12340.00,
-  revenue: 125000.00,
-  expenses: 78500.00,
-  netIncome: 46500.00,
-  openInvoices: 8,
-  overdueInvoices: 2,
-};
-
-const MOCK_CUSTOMERS: Customer[] = [
-  { id: '1', displayName: 'Acme Corporation', companyName: 'Acme Corp', email: 'billing@acme.com', balance: 15420.50, active: true },
-  { id: '2', displayName: 'TechStart Inc', companyName: 'TechStart', email: 'ap@techstart.io', balance: 8750.00, active: true },
-  { id: '3', displayName: 'Green Energy Solutions', companyName: 'Green Energy', email: 'finance@greenenergy.com', balance: 22100.00, active: true },
-  { id: '4', displayName: 'Metro Retail Group', companyName: 'Metro Retail', email: 'payments@metroretail.com', balance: 0, active: true },
-];
-
-const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: '1001', type: 'Invoice', docNumber: 'INV-1001', txnDate: '2025-01-17', dueDate: '2025-02-16', totalAmount: 5250.00, balance: 5250.00, customerName: 'Acme Corporation', status: 'Open' },
-  { id: '1002', type: 'Invoice', docNumber: 'INV-1002', txnDate: '2025-01-10', dueDate: '2025-02-09', totalAmount: 3800.00, balance: 0, customerName: 'TechStart Inc', status: 'Paid' },
-  { id: '1003', type: 'Invoice', docNumber: 'INV-1003', txnDate: '2025-01-05', dueDate: '2025-01-20', totalAmount: 8750.00, balance: 8750.00, customerName: 'TechStart Inc', status: 'Overdue' },
-  { id: '2001', type: 'Expense', docNumber: 'EXP-2001', txnDate: '2025-01-19', totalAmount: 1250.00, balance: 0, vendorName: 'Office Supplies Co', status: 'Paid' },
-  { id: '2002', type: 'Expense', docNumber: 'EXP-2002', txnDate: '2025-01-15', totalAmount: 4500.00, balance: 0, vendorName: 'Cloud Services Inc', status: 'Paid' },
-];
+// Demo data imported from @/fixtures - see DEMO_COMPANY, DEMO_DASHBOARD_STATS, etc.
 
 export function QBODashboard() {
   const { tokens, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -94,10 +70,10 @@ export function QBODashboard() {
     // Skip API call if not authenticated - use mock data instead
     if (!isAuthenticated || authLoading) {
       setConnected(true);
-      setCompany(MOCK_COMPANY);
-      setStats(MOCK_STATS);
-      setCustomers(MOCK_CUSTOMERS);
-      setTransactions(MOCK_TRANSACTIONS);
+      setCompany(DEMO_COMPANY);
+      setStats(DEMO_DASHBOARD_STATS);
+      setCustomers(DEMO_CUSTOMERS);
+      setTransactions(DEMO_TRANSACTIONS);
       setLoading(false);
       return;
     }
@@ -121,18 +97,18 @@ export function QBODashboard() {
       } else {
         // Use mock data for demo
         setConnected(true);
-        setCompany(MOCK_COMPANY);
-        setStats(MOCK_STATS);
-        setCustomers(MOCK_CUSTOMERS);
-        setTransactions(MOCK_TRANSACTIONS);
+        setCompany(DEMO_COMPANY);
+        setStats(DEMO_DASHBOARD_STATS);
+        setCustomers(DEMO_CUSTOMERS);
+        setTransactions(DEMO_TRANSACTIONS);
       }
     } catch {
       // Use mock data on error
       setConnected(true);
-      setCompany(MOCK_COMPANY);
-      setStats(MOCK_STATS);
-      setCustomers(MOCK_CUSTOMERS);
-      setTransactions(MOCK_TRANSACTIONS);
+      setCompany(DEMO_COMPANY);
+      setStats(DEMO_DASHBOARD_STATS);
+      setCustomers(DEMO_CUSTOMERS);
+      setTransactions(DEMO_TRANSACTIONS);
     } finally {
       setLoading(false);
     }

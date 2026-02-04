@@ -1,7 +1,7 @@
 /**
  * Knowledge Mound Types and Constants
  *
- * Shared types, interfaces, constants, and mock data for the Knowledge page.
+ * Shared types, interfaces, constants, and helpers for the Knowledge page.
  */
 
 // =============================================================================
@@ -112,119 +112,4 @@ export function formatRelativeDate(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
-}
-
-// =============================================================================
-// Mock Data
-// =============================================================================
-
-export function getMockNodes(): KnowledgeNode[] {
-  return [
-    {
-      id: 'mock-1',
-      nodeType: 'memory',
-      content: 'Claude demonstrates strong performance in reasoning tasks',
-      confidence: 0.92,
-      tier: 'slow',
-      sourceType: 'continuum',
-      topics: ['claude', 'reasoning', 'performance'],
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-      updatedAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: 'mock-2',
-      nodeType: 'consensus',
-      content: 'Multi-agent debates produce more nuanced answers than single-agent responses',
-      confidence: 0.88,
-      tier: 'slow',
-      sourceType: 'consensus',
-      debateId: 'debate-123',
-      topics: ['multi-agent', 'debate', 'quality'],
-      createdAt: new Date(Date.now() - 7200000).toISOString(),
-      updatedAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: 'mock-3',
-      nodeType: 'fact',
-      content: 'GPT-4 was trained using RLHF techniques',
-      confidence: 0.99,
-      tier: 'glacial',
-      sourceType: 'fact',
-      topics: ['gpt-4', 'training', 'rlhf'],
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    },
-    {
-      id: 'mock-4',
-      nodeType: 'evidence',
-      content: 'DeepSeek R1 shows improved mathematical reasoning capabilities',
-      confidence: 0.85,
-      tier: 'medium',
-      sourceType: 'evidence',
-      documentId: 'doc-456',
-      topics: ['deepseek', 'r1', 'math', 'reasoning'],
-      createdAt: new Date(Date.now() - 172800000).toISOString(),
-      updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    },
-    {
-      id: 'mock-5',
-      nodeType: 'critique',
-      content: 'Current LLM benchmarks may not accurately reflect real-world task performance',
-      confidence: 0.72,
-      tier: 'medium',
-      sourceType: 'critique',
-      agentId: 'claude-3',
-      topics: ['benchmarks', 'evaluation', 'llm'],
-      createdAt: new Date(Date.now() - 259200000).toISOString(),
-      updatedAt: new Date(Date.now() - 172800000).toISOString(),
-    },
-  ];
-}
-
-export function getMockStats(): KnowledgeStats {
-  return {
-    totalNodes: 1247,
-    nodesByType: {
-      memory: 523,
-      consensus: 312,
-      fact: 156,
-      evidence: 189,
-      critique: 67,
-    },
-    nodesByTier: {
-      fast: 89,
-      medium: 456,
-      slow: 512,
-      glacial: 190,
-    },
-    nodesBySource: {
-      continuum: 523,
-      consensus: 312,
-      fact: 156,
-      evidence: 189,
-      critique: 67,
-    },
-    totalRelationships: 3456,
-  };
-}
-
-export function getMockRelationships(nodeId: string): KnowledgeRelationship[] {
-  return [
-    {
-      id: `rel-1-${nodeId}`,
-      sourceId: nodeId,
-      targetId: 'mock-2',
-      relationshipType: 'supports',
-      strength: 0.85,
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: `rel-2-${nodeId}`,
-      sourceId: 'mock-3',
-      targetId: nodeId,
-      relationshipType: 'references',
-      strength: 0.72,
-      createdAt: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ];
 }

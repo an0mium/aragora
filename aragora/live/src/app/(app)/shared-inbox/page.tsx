@@ -143,58 +143,18 @@ export default function SharedInboxPage() {
         const data = await response.json();
         setInboxes(data.inboxes || []);
       } else {
-        // Use mock data
-        setMockInboxes();
+        // API error - show empty state (component handles this gracefully)
+        setInboxes([]);
+        console.error('Failed to fetch inboxes:', response.status);
       }
-    } catch {
-      setMockInboxes();
+    } catch (error) {
+      // Network error - show empty state
+      setInboxes([]);
+      console.error('Error fetching inboxes:', error);
     } finally {
       setLoading(false);
     }
   }, [backendConfig.api, tokens?.access_token, workspaceId]);
-
-  const setMockInboxes = () => {
-    setInboxes([
-      {
-        id: 'inbox-001',
-        workspace_id: 'default',
-        name: 'Support',
-        description: 'Customer support inquiries',
-        email_address: 'support@company.com',
-        connector_type: 'gmail',
-        team_members: ['user1', 'user2', 'user3'],
-        admins: ['admin1'],
-        message_count: 24,
-        unread_count: 8,
-        created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-      },
-      {
-        id: 'inbox-002',
-        workspace_id: 'default',
-        name: 'Sales',
-        description: 'Sales inquiries and leads',
-        email_address: 'sales@company.com',
-        connector_type: 'gmail',
-        team_members: ['user4', 'user5'],
-        admins: ['admin1'],
-        message_count: 15,
-        unread_count: 3,
-        created_at: new Date(Date.now() - 86400000 * 15).toISOString(),
-      },
-      {
-        id: 'inbox-003',
-        workspace_id: 'default',
-        name: 'HR',
-        description: 'Human resources',
-        email_address: 'hr@company.com',
-        team_members: ['user6'],
-        admins: ['admin2'],
-        message_count: 7,
-        unread_count: 2,
-        created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
-      },
-    ]);
-  };
 
   const fetchMessages = useCallback(
     async (inboxId: string) => {
@@ -212,50 +172,14 @@ export default function SharedInboxPage() {
           const data = await response.json();
           setMessages(data.messages || []);
         } else {
-          // Mock messages
-          setMessages([
-            {
-              id: 'msg-001',
-              inbox_id: inboxId,
-              email_id: 'email-001',
-              subject: 'Need help with billing',
-              from_address: 'customer@example.com',
-              snippet: 'Hi, I was charged twice for my subscription last month...',
-              received_at: new Date(Date.now() - 3600000).toISOString(),
-              status: 'open',
-              tags: ['billing', 'urgent'],
-              priority: 'high',
-            },
-            {
-              id: 'msg-002',
-              inbox_id: inboxId,
-              email_id: 'email-002',
-              subject: 'Feature request: Dark mode',
-              from_address: 'user@example.com',
-              snippet: 'Would love to see a dark mode option in the app...',
-              received_at: new Date(Date.now() - 7200000).toISOString(),
-              status: 'assigned',
-              assigned_to: 'user1',
-              tags: ['feature-request'],
-              priority: 'medium',
-            },
-            {
-              id: 'msg-003',
-              inbox_id: inboxId,
-              email_id: 'email-003',
-              subject: 'Account access issue',
-              from_address: 'blocked@example.com',
-              snippet: "I can't log into my account after the update...",
-              received_at: new Date(Date.now() - 14400000).toISOString(),
-              status: 'in_progress',
-              assigned_to: 'user2',
-              tags: ['account', 'bug'],
-              priority: 'critical',
-            },
-          ]);
+          // API error - show empty state (component handles this gracefully)
+          setMessages([]);
+          console.error('Failed to fetch messages:', response.status);
         }
-      } catch {
+      } catch (error) {
+        // Network error - show empty state
         setMessages([]);
+        console.error('Error fetching messages:', error);
       }
     },
     [backendConfig.api, tokens?.access_token, statusFilter]
@@ -273,48 +197,14 @@ export default function SharedInboxPage() {
         const data = await response.json();
         setRules(data.rules || []);
       } else {
-        // Mock rules
-        setRules([
-          {
-            id: 'rule-001',
-            name: 'Urgent Issues',
-            workspace_id: 'default',
-            conditions: [{ field: 'subject', operator: 'contains', value: 'urgent' }],
-            actions: [
-              { type: 'label', target: 'urgent' },
-              { type: 'assign', target: 'support-lead' },
-            ],
-            priority: 1,
-            enabled: true,
-            stats: { total_matches: 45 },
-          },
-          {
-            id: 'rule-002',
-            name: 'Billing Inquiries',
-            workspace_id: 'default',
-            conditions: [{ field: 'subject', operator: 'contains', value: 'billing' }],
-            actions: [
-              { type: 'label', target: 'billing' },
-              { type: 'assign', target: 'billing-team' },
-            ],
-            priority: 2,
-            enabled: true,
-            stats: { total_matches: 128 },
-          },
-          {
-            id: 'rule-003',
-            name: 'Newsletter Signups',
-            workspace_id: 'default',
-            conditions: [{ field: 'from', operator: 'contains', value: 'newsletter' }],
-            actions: [{ type: 'archive' }],
-            priority: 10,
-            enabled: false,
-            stats: { total_matches: 0 },
-          },
-        ]);
+        // API error - show empty state (component handles this gracefully)
+        setRules([]);
+        console.error('Failed to fetch rules:', response.status);
       }
-    } catch {
+    } catch (error) {
+      // Network error - show empty state
       setRules([]);
+      console.error('Error fetching rules:', error);
     }
   }, [backendConfig.api, tokens?.access_token, workspaceId]);
 

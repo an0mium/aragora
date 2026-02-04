@@ -599,6 +599,10 @@ function PublishModal({ onClose }: PublishModalProps) {
       downloads: 0,
       stars: 0,
       license: 'MIT',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      repository_url: '',
+      documentation_url: '',
     };
 
     // Basic template structure based on type

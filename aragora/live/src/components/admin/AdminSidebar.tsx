@@ -12,12 +12,14 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Overview', href: '/admin', icon: '~' },
+  { label: 'ROI Dashboard', href: '/admin/roi-dashboard', icon: '$' },
+  { label: 'Usage', href: '/admin/usage', icon: '%' },
   { label: 'Users', href: '/admin/users', icon: '@' },
   { label: 'Organizations', href: '/admin/organizations', icon: '#' },
-  { label: 'Billing', href: '/admin/billing', icon: '$' },
+  { label: 'Workspaces', href: '/admin/workspaces', icon: '+' },
+  { label: 'Billing', href: '/admin/billing', icon: '=' },
   { label: 'Audit Logs', href: '/admin/audit', icon: '!' },
   { label: 'Security', href: '/admin/security', icon: '*' },
-  { label: 'Revenue', href: '/admin/revenue', icon: '%' },
   { label: 'Queue', href: '/admin/queue', icon: '>' },
   { label: 'Training', href: '/admin/training', icon: '^' },
   { label: 'Personas', href: '/admin/personas', icon: '&' },

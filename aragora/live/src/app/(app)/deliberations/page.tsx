@@ -29,7 +29,13 @@ export default function DeliberationsPage() {
   const fetchDeliberations = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/v1/deliberations/active`);
-      if (!response.ok) throw new Error('Failed to fetch vetted decisionmaking sessions');
+      if (!response.ok) {
+        // API error - show empty state (component handles gracefully)
+        console.error('Failed to fetch deliberations:', response.status);
+        setDeliberations([]);
+        setAgentInfluence([]);
+        return;
+      }
       const data = await response.json();
       setDeliberations(data.deliberations || []);
 
@@ -49,52 +55,11 @@ export default function DeliberationsPage() {
         });
       });
       setAgentInfluence(Array.from(agentMap.values()));
-    } catch {
-      // Demo mode with mock data
-      setDeliberations([
-        {
-          id: 'demo-1',
-          task: 'Should we adopt a microservices architecture for the payment system?',
-          status: 'active',
-          agents: ['claude-sonnet', 'gpt-4o', 'gemini-pro'],
-          current_round: 3,
-          total_rounds: 5,
-          consensus_score: 0.65,
-          started_at: new Date(Date.now() - 300000).toISOString(),
-          updated_at: new Date().toISOString(),
-          message_count: 12,
-        },
-        {
-          id: 'demo-2',
-          task: 'Evaluate the security implications of the new API rate limiting strategy',
-          status: 'consensus_forming',
-          agents: ['claude-sonnet', 'grok-2', 'mistral-large'],
-          current_round: 4,
-          total_rounds: 5,
-          consensus_score: 0.82,
-          started_at: new Date(Date.now() - 600000).toISOString(),
-          updated_at: new Date().toISOString(),
-          message_count: 18,
-        },
-        {
-          id: 'demo-3',
-          task: 'Is the proposed database migration plan sufficiently robust?',
-          status: 'complete',
-          agents: ['claude-sonnet', 'gpt-4o'],
-          current_round: 5,
-          total_rounds: 5,
-          consensus_score: 0.91,
-          started_at: new Date(Date.now() - 1200000).toISOString(),
-          updated_at: new Date(Date.now() - 60000).toISOString(),
-          message_count: 24,
-        },
-      ]);
-      setAgentInfluence([
-        { agent_id: 'claude-sonnet', influence_score: 0.85, message_count: 34, consensus_contributions: 0.9, average_confidence: 0.88 },
-        { agent_id: 'gpt-4o', influence_score: 0.78, message_count: 28, consensus_contributions: 0.82, average_confidence: 0.85 },
-        { agent_id: 'gemini-pro', influence_score: 0.72, message_count: 18, consensus_contributions: 0.75, average_confidence: 0.8 },
-        { agent_id: 'grok-2', influence_score: 0.65, message_count: 12, consensus_contributions: 0.7, average_confidence: 0.78 },
-      ]);
+    } catch (error) {
+      // Network error - show empty state
+      console.error('Error fetching deliberations:', error);
+      setDeliberations([]);
+      setAgentInfluence([]);
     }
   }, [backendConfig.api]);
 
@@ -102,18 +67,18 @@ export default function DeliberationsPage() {
   const fetchStats = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/v1/deliberations/stats`);
-      if (!response.ok) throw new Error('Failed to fetch stats');
+      if (!response.ok) {
+        // API error - show null stats (component handles gracefully)
+        console.error('Failed to fetch deliberation stats:', response.status);
+        setStats(null);
+        return;
+      }
       const data = await response.json();
       setStats(data);
-    } catch {
-      // Demo mode
-      setStats({
-        active_count: 2,
-        completed_today: 7,
-        average_consensus_time: 420,
-        average_rounds: 4.2,
-        top_agents: [],
-      });
+    } catch (error) {
+      // Network error - show null stats
+      console.error('Error fetching deliberation stats:', error);
+      setStats(null);
     } finally {
       setLoading(false);
     }

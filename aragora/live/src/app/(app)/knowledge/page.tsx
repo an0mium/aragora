@@ -18,9 +18,6 @@ import {
   NODE_TYPE_ICONS,
   getConfidenceColor,
   formatRelativeDate,
-  getMockNodes,
-  getMockStats,
-  getMockRelationships,
 } from './types';
 import { KnowledgeGraphView } from './KnowledgeGraphView';
 
@@ -144,7 +141,9 @@ export default function KnowledgeMoundPage() {
           }),
         });
         if (!response.ok) {
-          setNodes(getMockNodes());
+          // API error - show empty state
+          setNodes([]);
+          logger.error('Failed to query knowledge mound:', response.status);
           return;
         }
         const data = await response.json();
@@ -152,14 +151,18 @@ export default function KnowledgeMoundPage() {
       } else {
         const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/nodes?${params}`);
         if (!response.ok) {
-          setNodes(getMockNodes());
+          // API error - show empty state
+          setNodes([]);
+          logger.error('Failed to fetch knowledge nodes:', response.status);
           return;
         }
         const data = await response.json();
         setNodes(data.nodes || []);
       }
-    } catch {
-      setNodes(getMockNodes());
+    } catch (err) {
+      // Network error - show empty state
+      setNodes([]);
+      logger.error('Error fetching knowledge nodes:', err);
     } finally {
       setLoading(false);
     }
@@ -170,13 +173,17 @@ export default function KnowledgeMoundPage() {
       // Use mound stats endpoint
       const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/stats`);
       if (!response.ok) {
-        setStats(getMockStats());
+        // API error - show null stats (component handles gracefully)
+        setStats(null);
+        logger.error('Failed to fetch knowledge stats:', response.status);
         return;
       }
       const data = await response.json();
       setStats(data);
-    } catch {
-      setStats(getMockStats());
+    } catch (err) {
+      // Network error - show null stats
+      setStats(null);
+      logger.error('Error fetching knowledge stats:', err);
     }
   }, []);
 
@@ -185,13 +192,17 @@ export default function KnowledgeMoundPage() {
       // Use the mound API for node relationships
       const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/nodes/${nodeId}/relationships`);
       if (!response.ok) {
-        setRelationships(getMockRelationships(nodeId));
+        // API error - show empty relationships (component handles gracefully)
+        setRelationships([]);
+        logger.error('Failed to fetch relationships:', response.status);
         return;
       }
       const data = await response.json();
       setRelationships(data.relationships || []);
-    } catch {
-      setRelationships(getMockRelationships(nodeId));
+    } catch (err) {
+      // Network error - show empty relationships
+      setRelationships([]);
+      logger.error('Error fetching relationships:', err);
     }
   }, []);
 

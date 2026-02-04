@@ -1,120 +1,240 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { WorkspaceMemberManager, WorkspaceMember, WorkspaceRole } from '@/components/admin/WorkspaceMemberManager';
 import { RoleMatrixViewer, Role, Permission } from '@/components/admin/RoleMatrixViewer';
 import { CostBreakdownChart, CostItem, BreakdownType, TimeRange } from '@/components/admin/CostBreakdownChart';
+import { useAuthenticatedFetch, useAuthFetch } from '@/hooks/useAuthenticatedFetch';
+import { useAuth } from '@/context/AuthContext';
 
-// Mock data for demonstration
-const MOCK_ROLES: WorkspaceRole[] = [
-  { id: 'owner', name: 'Owner', description: 'Full workspace control', permissions: ['*'], isDefault: false },
-  { id: 'admin', name: 'Admin', description: 'Manage members and settings', permissions: ['admin:*', 'debates:*', 'knowledge:*'], isDefault: false },
-  { id: 'member', name: 'Member', description: 'Create and participate in debates', permissions: ['debates:create', 'debates:read', 'knowledge:read'], isDefault: true },
-  { id: 'viewer', name: 'Viewer', description: 'Read-only access', permissions: ['debates:read', 'knowledge:read'], isDefault: false },
-];
+// ============================================================================
+// Types for API responses
+// ============================================================================
 
-const MOCK_MEMBERS: WorkspaceMember[] = [
-  { id: '1', name: 'Alice Chen', email: 'alice@example.com', role: 'owner', status: 'active', joinedAt: '2024-01-15', workspaceId: 'ws1', permissions: ['*'] },
-  { id: '2', name: 'Bob Smith', email: 'bob@example.com', role: 'admin', status: 'active', joinedAt: '2024-02-20', workspaceId: 'ws1', permissions: ['admin:*'] },
-  { id: '3', name: 'Carol Davis', email: 'carol@example.com', role: 'member', status: 'active', joinedAt: '2024-03-10', workspaceId: 'ws1', permissions: ['debates:create'] },
-  { id: '4', name: 'Dan Wilson', email: 'dan@example.com', role: 'member', status: 'pending', joinedAt: '2024-06-01', workspaceId: 'ws1', permissions: ['debates:create'] },
-  { id: '5', name: 'Eve Johnson', email: 'eve@example.com', role: 'viewer', status: 'inactive', joinedAt: '2024-04-15', workspaceId: 'ws1', permissions: ['debates:read'] },
-];
+interface RBACRole {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  is_default?: boolean;
+  is_builtin?: boolean;
+  parent_role?: string;
+}
 
-const MOCK_PERMISSIONS: Permission[] = [
-  { id: 'debates:create', resource: 'debates', action: 'create', description: 'Create new debates' },
-  { id: 'debates:read', resource: 'debates', action: 'read', description: 'View debates' },
-  { id: 'debates:update', resource: 'debates', action: 'update', description: 'Edit debates' },
-  { id: 'debates:delete', resource: 'debates', action: 'delete', description: 'Delete debates' },
-  { id: 'knowledge:read', resource: 'knowledge', action: 'read', description: 'View knowledge base' },
-  { id: 'knowledge:write', resource: 'knowledge', action: 'write', description: 'Edit knowledge base' },
-  { id: 'users:read', resource: 'users', action: 'read', description: 'View user profiles' },
-  { id: 'users:manage', resource: 'users', action: 'manage', description: 'Manage users' },
-  { id: 'admin:settings', resource: 'admin', action: 'settings', description: 'Manage workspace settings' },
-  { id: 'admin:billing', resource: 'admin', action: 'billing', description: 'Manage billing' },
-  { id: 'analytics:read', resource: 'analytics', action: 'read', description: 'View analytics' },
-  { id: 'workflows:create', resource: 'workflows', action: 'create', description: 'Create workflows' },
-  { id: 'workflows:execute', resource: 'workflows', action: 'execute', description: 'Execute workflows' },
-];
+interface RBACPermission {
+  id: string;
+  resource: string;
+  action: string;
+  description: string;
+}
 
-const MOCK_MATRIX_ROLES: Role[] = [
-  { id: 'owner', name: 'Owner', description: 'Full access', permissions: MOCK_PERMISSIONS.map(p => p.id), isBuiltin: true },
-  { id: 'admin', name: 'Admin', description: 'Administrative access', permissions: ['debates:create', 'debates:read', 'debates:update', 'debates:delete', 'knowledge:read', 'knowledge:write', 'users:read', 'users:manage', 'admin:settings', 'analytics:read'], isBuiltin: true, parentRole: 'owner' },
-  { id: 'member', name: 'Member', description: 'Standard access', permissions: ['debates:create', 'debates:read', 'debates:update', 'knowledge:read', 'analytics:read', 'workflows:create', 'workflows:execute'], isBuiltin: true },
-  { id: 'viewer', name: 'Viewer', description: 'Read-only', permissions: ['debates:read', 'knowledge:read', 'analytics:read'], isBuiltin: true },
-];
+interface WorkspaceMemberResponse {
+  id: string;
+  user_id: string;
+  name?: string;
+  email?: string;
+  role: string;
+  status: 'active' | 'pending' | 'inactive';
+  joined_at: string;
+  permissions: string[];
+}
 
-const MOCK_COSTS: CostItem[] = [
-  { id: '1', label: 'Claude Debates', cost: 1250.50, category: 'agent', subcategory: 'anthropic' },
-  { id: '2', label: 'GPT-4 Analysis', cost: 890.25, category: 'agent', subcategory: 'openai' },
-  { id: '3', label: 'Knowledge Ingestion', cost: 450.00, category: 'knowledge' },
-  { id: '4', label: 'Workflow Execution', cost: 380.75, category: 'workflow' },
-  { id: '5', label: 'Document Storage', cost: 125.00, category: 'storage' },
-  { id: '6', label: 'API Requests', cost: 95.50, category: 'api' },
-  { id: '7', label: 'Gemini Critiques', cost: 560.00, category: 'agent', subcategory: 'google' },
-  { id: '8', label: 'Analytics Processing', cost: 220.00, category: 'analytics' },
-  { id: '9', label: 'Gauntlet Runs', cost: 340.00, category: 'debate' },
-  { id: '10', label: 'Evidence Collection', cost: 180.00, category: 'knowledge' },
-];
+interface CostDataResponse {
+  items: Array<{
+    id: string;
+    label: string;
+    cost: number;
+    category: string;
+    subcategory?: string;
+  }>;
+  total: number;
+  period: string;
+}
 
 type Tab = 'members' | 'roles' | 'costs';
 
 export default function WorkspaceAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('members');
-  const [members, setMembers] = useState<WorkspaceMember[]>(MOCK_MEMBERS);
-  const [loading, setLoading] = useState(false);
   const [breakdownType, setBreakdownType] = useState<BreakdownType>('feature');
-  const [_timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
-  // Simulate loading
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, [activeTab]);
+  const { organization } = useAuth();
+  const { authFetch } = useAuthFetch();
+
+  // Fetch workspace ID from current context
+  const workspaceId = organization?.id || 'default';
+
+  // =========================================================================
+  // API Data Fetching
+  // =========================================================================
+
+  // Fetch workspace members
+  const {
+    data: membersData,
+    loading: membersLoading,
+    error: membersError,
+    refetch: refetchMembers,
+  } = useAuthenticatedFetch<{ members: WorkspaceMemberResponse[] }>(
+    `/api/v1/workspaces/${workspaceId}/members`,
+    { defaultData: { members: [] } }
+  );
+
+  // Fetch RBAC roles
+  const {
+    data: rolesData,
+    loading: rolesLoading,
+    error: rolesError,
+  } = useAuthenticatedFetch<{ roles: RBACRole[] }>(
+    '/api/v1/rbac/roles',
+    { defaultData: { roles: [] } }
+  );
+
+  // Fetch RBAC permissions
+  const {
+    data: permissionsData,
+    loading: permissionsLoading,
+  } = useAuthenticatedFetch<{ permissions: RBACPermission[] }>(
+    '/api/v1/rbac/permissions',
+    { defaultData: { permissions: [] } }
+  );
+
+  // Fetch cost breakdown
+  const {
+    data: costData,
+    loading: costLoading,
+  } = useAuthenticatedFetch<CostDataResponse>(
+    `/api/v1/billing/costs?workspace_id=${workspaceId}&period=${timeRange}`,
+    {
+      defaultData: { items: [], total: 0, period: timeRange },
+      deps: [timeRange, workspaceId],
+    }
+  );
+
+  // =========================================================================
+  // Transform API data to component props
+  // =========================================================================
+
+  const members: WorkspaceMember[] = useMemo(() => {
+    if (!membersData?.members) return [];
+    return membersData.members.map((m) => ({
+      id: m.id,
+      name: m.name || m.email?.split('@')[0] || 'Unknown',
+      email: m.email || `${m.user_id}@workspace`,
+      role: m.role,
+      status: m.status,
+      joinedAt: m.joined_at,
+      workspaceId,
+      permissions: m.permissions,
+    }));
+  }, [membersData, workspaceId]);
+
+  const workspaceRoles: WorkspaceRole[] = useMemo(() => {
+    if (!rolesData?.roles) return [];
+    return rolesData.roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      permissions: r.permissions,
+      isDefault: r.is_default || false,
+    }));
+  }, [rolesData]);
+
+  const matrixRoles: Role[] = useMemo(() => {
+    if (!rolesData?.roles) return [];
+    return rolesData.roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      permissions: r.permissions,
+      isBuiltin: r.is_builtin || false,
+      parentRole: r.parent_role,
+    }));
+  }, [rolesData]);
+
+  const permissions: Permission[] = useMemo(() => {
+    if (!permissionsData?.permissions) return [];
+    return permissionsData.permissions.map((p) => ({
+      id: p.id,
+      resource: p.resource,
+      action: p.action,
+      description: p.description,
+    }));
+  }, [permissionsData]);
+
+  const costItems: CostItem[] = useMemo(() => {
+    if (!costData?.items) return [];
+    return costData.items.map((c) => ({
+      id: c.id,
+      label: c.label,
+      cost: c.cost,
+      category: c.category,
+      subcategory: c.subcategory,
+    }));
+  }, [costData]);
+
+  // =========================================================================
+  // Member actions (use real API calls)
+  // =========================================================================
 
   const handleRoleChange = async (memberId: string, newRole: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setMembers(prev =>
-      prev.map(m => (m.id === memberId ? { ...m, role: newRole } : m))
-    );
+    try {
+      await authFetch(`/api/v1/workspaces/${workspaceId}/members/${memberId}/role`, {
+        method: 'PUT',
+        body: JSON.stringify({ role: newRole }),
+      });
+      await refetchMembers();
+    } catch (error) {
+      console.error('Failed to change role:', error);
+    }
   };
 
   const handleInvite = async (email: string, role: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const newMember: WorkspaceMember = {
-      id: `new-${Date.now()}`,
-      name: email.split('@')[0],
-      email,
-      role,
-      status: 'pending',
-      joinedAt: new Date().toISOString(),
-      workspaceId: 'ws1',
-      permissions: [],
-    };
-    setMembers(prev => [...prev, newMember]);
+    try {
+      await authFetch(`/api/v1/workspaces/${workspaceId}/invites`, {
+        method: 'POST',
+        body: JSON.stringify({ email, role }),
+      });
+      await refetchMembers();
+    } catch (error) {
+      console.error('Failed to invite member:', error);
+    }
   };
 
   const handleRemove = async (memberId: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setMembers(prev => prev.filter(m => m.id !== memberId));
+    try {
+      await authFetch(`/api/v1/workspaces/${workspaceId}/members/${memberId}`, {
+        method: 'DELETE',
+      });
+      await refetchMembers();
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+    }
   };
 
   const handleBulkAction = async (action: string, memberIds: string[]) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (action === 'remove') {
-      setMembers(prev => prev.filter(m => !memberIds.includes(m.id)));
-    } else if (action === 'deactivate') {
-      setMembers(prev =>
-        prev.map(m => (memberIds.includes(m.id) ? { ...m, status: 'inactive' as const } : m))
-      );
+    try {
+      await authFetch(`/api/v1/workspaces/${workspaceId}/members/bulk`, {
+        method: 'POST',
+        body: JSON.stringify({ action, member_ids: memberIds }),
+      });
+      await refetchMembers();
+    } catch (error) {
+      console.error('Failed to perform bulk action:', error);
     }
   };
+
+  // =========================================================================
+  // Loading states
+  // =========================================================================
+
+  const loading = activeTab === 'members'
+    ? membersLoading
+    : activeTab === 'roles'
+    ? rolesLoading || permissionsLoading
+    : costLoading;
+
+  const error = membersError || rolesError;
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'members', label: 'MEMBERS' },
@@ -124,6 +244,13 @@ export default function WorkspaceAdminPage() {
 
   return (
     <AdminLayout title="Workspace Management">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-3 border border-red-500/30 bg-red-500/10 text-red-400 text-sm font-mono">
+          {error}
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="flex items-center gap-1 mb-6 border-b border-acid-green/20">
         {tabs.map((tab) => (
@@ -146,39 +273,75 @@ export default function WorkspaceAdminPage() {
 
       {/* Tab Content */}
       {activeTab === 'members' && (
-        <WorkspaceMemberManager
-          workspaceId="ws1"
-          members={members}
-          roles={MOCK_ROLES}
-          loading={loading}
-          onRoleChange={handleRoleChange}
-          onInvite={handleInvite}
-          onRemove={handleRemove}
-          onBulkAction={handleBulkAction}
-        />
+        <>
+          {members.length === 0 && !loading && (
+            <div className="p-8 text-center border border-acid-green/20 bg-surface/30">
+              <p className="text-text-muted text-sm font-mono mb-2">No members found</p>
+              <p className="text-text-muted/60 text-xs font-mono">
+                Invite team members to collaborate on debates and decisions.
+              </p>
+            </div>
+          )}
+          {(members.length > 0 || loading) && (
+            <WorkspaceMemberManager
+              workspaceId={workspaceId}
+              members={members}
+              roles={workspaceRoles}
+              loading={loading}
+              onRoleChange={handleRoleChange}
+              onInvite={handleInvite}
+              onRemove={handleRemove}
+              onBulkAction={handleBulkAction}
+            />
+          )}
+        </>
       )}
 
       {activeTab === 'roles' && (
-        <RoleMatrixViewer
-          roles={MOCK_MATRIX_ROLES}
-          permissions={MOCK_PERMISSIONS}
-          loading={loading}
-          groupByResource={true}
-          onRoleClick={(role) => console.log('Role clicked:', role)}
-          onPermissionClick={(perm) => console.log('Permission clicked:', perm)}
-        />
+        <>
+          {matrixRoles.length === 0 && !loading && (
+            <div className="p-8 text-center border border-acid-green/20 bg-surface/30">
+              <p className="text-text-muted text-sm font-mono mb-2">No roles configured</p>
+              <p className="text-text-muted/60 text-xs font-mono">
+                Role-based access control is not configured for this workspace.
+              </p>
+            </div>
+          )}
+          {(matrixRoles.length > 0 || loading) && (
+            <RoleMatrixViewer
+              roles={matrixRoles}
+              permissions={permissions}
+              loading={loading}
+              groupByResource={true}
+              onRoleClick={(role) => console.log('Role clicked:', role)}
+              onPermissionClick={(perm) => console.log('Permission clicked:', perm)}
+            />
+          )}
+        </>
       )}
 
       {activeTab === 'costs' && (
-        <CostBreakdownChart
-          data={MOCK_COSTS}
-          title="WORKSPACE COST BREAKDOWN"
-          breakdownType={breakdownType}
-          onBreakdownTypeChange={setBreakdownType}
-          onTimeRangeChange={setTimeRange}
-          onItemClick={(item) => console.log('Cost item clicked:', item)}
-          loading={loading}
-        />
+        <>
+          {costItems.length === 0 && !loading && (
+            <div className="p-8 text-center border border-acid-green/20 bg-surface/30">
+              <p className="text-text-muted text-sm font-mono mb-2">No cost data available</p>
+              <p className="text-text-muted/60 text-xs font-mono">
+                Cost tracking will appear once debates and workflows are executed.
+              </p>
+            </div>
+          )}
+          {(costItems.length > 0 || loading) && (
+            <CostBreakdownChart
+              data={costItems}
+              title="WORKSPACE COST BREAKDOWN"
+              breakdownType={breakdownType}
+              onBreakdownTypeChange={setBreakdownType}
+              onTimeRangeChange={setTimeRange}
+              onItemClick={(item) => console.log('Cost item clicked:', item)}
+              loading={loading}
+            />
+          )}
+        </>
       )}
     </AdminLayout>
   );

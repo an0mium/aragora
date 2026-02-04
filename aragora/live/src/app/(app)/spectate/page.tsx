@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
-import { fetchWithRetry } from '@/utils/fetchWithRetry';
+import { fetchWithRetry } from '@/utils/retry';
 
 interface LiveDebate {
   id: string;
