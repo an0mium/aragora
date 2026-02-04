@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -35,6 +36,8 @@ logger = logging.getLogger(__name__)
 _shared_pool: Optional["Pool"] = None
 _pool_event_loop: asyncio.AbstractEventLoop | None = None
 _pool_config: dict[str, Any] = {}
+_dedicated_loop_thread: threading.Thread | None = None
+_pool_heal_lock = threading.Lock()
 
 
 def _is_shared_pool_enabled() -> bool:
@@ -267,15 +270,92 @@ def is_pool_initialized() -> bool:
 
 
 def get_pool_event_loop() -> asyncio.AbstractEventLoop | None:
-    """Get the event loop the shared pool was created in (the main event loop).
+    """Get a running event loop suitable for pool operations.
 
-    This is used by handler_registry to schedule async handler coroutines
-    on the correct event loop via asyncio.run_coroutine_threadsafe().
+    If the original event loop is still running, returns it directly.
+    If it's stale (not running), transparently creates a dedicated background
+    loop, reinitializes the pool on it, and returns that loop.
 
     Returns:
-        The main event loop if pool is initialized, None otherwise.
+        A running event loop with a valid pool, or None if pool is not configured.
     """
-    return _pool_event_loop
+    return _ensure_pool_loop()
+
+
+def _ensure_pool_loop() -> asyncio.AbstractEventLoop | None:
+    """Get or create a running event loop for pool operations.
+
+    Fast path: if _pool_event_loop is alive, return it.
+    Slow path: if stale, create a dedicated daemon thread with a persistent
+    event loop, reinitialize the pool on it, and return it.
+
+    Thread-safe via double-checked locking with _pool_heal_lock.
+    """
+    global _pool_event_loop, _dedicated_loop_thread
+
+    loop = _pool_event_loop
+    if loop is None:
+        return None  # Pool was never initialized
+
+    # Fast path: loop is healthy
+    if not loop.is_closed() and loop.is_running():
+        return loop
+
+    # Slow path: loop is stale, need to heal
+    with _pool_heal_lock:
+        # Double-check after acquiring lock
+        loop = _pool_event_loop
+        if loop is not None and not loop.is_closed() and loop.is_running():
+            return loop
+
+        logger.warning(
+            "[pool_manager] Pool event loop is stale (not running). "
+            "Creating dedicated background event loop for pool operations."
+        )
+
+        # Create a new event loop in a dedicated daemon thread
+        new_loop = asyncio.new_event_loop()
+        ready_event = threading.Event()
+
+        def _run_dedicated_loop() -> None:
+            asyncio.set_event_loop(new_loop)
+            ready_event.set()
+            new_loop.run_forever()
+
+        thread = threading.Thread(
+            target=_run_dedicated_loop,
+            name="aragora-pool-loop",
+            daemon=True,
+        )
+        thread.start()
+
+        # Wait for the loop to actually start running
+        if not ready_event.wait(timeout=10.0):
+            logger.error("[pool_manager] Dedicated event loop failed to start within 10s")
+            return None
+
+        # Reinitialize the pool on the new loop
+        try:
+            future = asyncio.run_coroutine_threadsafe(initialize_shared_pool(force=True), new_loop)
+            result = future.result(timeout=30.0)
+            if result is None:
+                logger.error("[pool_manager] Pool reinitialization returned None on dedicated loop")
+                new_loop.call_soon_threadsafe(new_loop.stop)
+                return None
+        except Exception as e:
+            logger.error("[pool_manager] Failed to reinitialize pool on dedicated loop: %s", e)
+            new_loop.call_soon_threadsafe(new_loop.stop)
+            return None
+
+        _dedicated_loop_thread = thread
+        # _pool_event_loop is already updated by initialize_shared_pool(force=True)
+        logger.warning(
+            "[pool_manager] Self-healed: pool reinitialized on dedicated loop "
+            "(event_loop: %d, thread: %s)",
+            id(_pool_event_loop),
+            thread.name,
+        )
+        return _pool_event_loop
 
 
 def get_pool_info() -> dict[str, Any]:
@@ -309,7 +389,7 @@ async def close_shared_pool() -> None:
 
     Safe to call multiple times or when pool is not initialized.
     """
-    global _shared_pool, _pool_event_loop, _pool_config
+    global _shared_pool, _pool_event_loop, _pool_config, _dedicated_loop_thread
 
     if _shared_pool is None:
         logger.debug("[pool_manager] No shared pool to close")
@@ -321,9 +401,15 @@ async def close_shared_pool() -> None:
     except Exception as e:
         logger.warning(f"[pool_manager] Error closing shared pool: {e}")
     finally:
+        old_loop = _pool_event_loop
         _shared_pool = None
         _pool_event_loop = None
         _pool_config = {}
+        # Stop the dedicated loop thread if one was created during self-healing
+        if _dedicated_loop_thread is not None:
+            if old_loop is not None and old_loop.is_running():
+                old_loop.call_soon_threadsafe(old_loop.stop)
+            _dedicated_loop_thread = None
 
 
 def reset_shared_pool() -> None:
@@ -332,10 +418,11 @@ def reset_shared_pool() -> None:
 
     WARNING: This does NOT close the pool properly. Only use in tests.
     """
-    global _shared_pool, _pool_event_loop, _pool_config
+    global _shared_pool, _pool_event_loop, _pool_config, _dedicated_loop_thread
     _shared_pool = None
     _pool_event_loop = None
     _pool_config = {}
+    _dedicated_loop_thread = None
 
 
 __all__ = [
