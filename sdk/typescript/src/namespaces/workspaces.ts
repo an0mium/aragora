@@ -585,6 +585,106 @@ export class WorkspacesAPI {
     );
   }
 
+  /**
+   * Update a member's role in a workspace.
+   */
+  async updateMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: 'viewer' | 'member' | 'admin'
+  ): Promise<WorkspaceMember> {
+    return this.client.put(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}/role`,
+      { role }
+    );
+  }
+
+  /**
+   * Get available roles for a workspace.
+   */
+  async getWorkspaceRoles(workspaceId: string): Promise<{
+    roles: Array<{ name: string; description: string; permissions: string[] }>;
+  }> {
+    return this.client.get(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/roles`
+    );
+  }
+
+  // ===========================================================================
+  // Invite Management
+  // ===========================================================================
+
+  /**
+   * Create an invite to join a workspace.
+   */
+  async createInvite(
+    workspaceId: string,
+    body: { email: string; role?: 'viewer' | 'member' | 'admin' }
+  ): Promise<{
+    invite_id: string;
+    token: string;
+    email: string;
+    expires_at: string;
+  }> {
+    return this.client.post(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`,
+      body
+    );
+  }
+
+  /**
+   * List pending invites for a workspace.
+   */
+  async listInvites(workspaceId: string): Promise<{
+    invites: Array<{
+      invite_id: string;
+      email: string;
+      role: string;
+      created_at: string;
+      expires_at: string;
+    }>;
+  }> {
+    return this.client.get(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`
+    );
+  }
+
+  /**
+   * Cancel a pending invite.
+   */
+  async cancelInvite(
+    workspaceId: string,
+    inviteId: string
+  ): Promise<{ success: boolean }> {
+    return this.client.delete(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}`
+    );
+  }
+
+  /**
+   * Resend an invite email.
+   */
+  async resendInvite(
+    workspaceId: string,
+    inviteId: string
+  ): Promise<{ success: boolean }> {
+    return this.client.post(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/resend`
+    );
+  }
+
+  /**
+   * Accept a workspace invite.
+   */
+  async acceptInvite(
+    workspaceId: string,
+    inviteId: string
+  ): Promise<{ success: boolean; workspace_id: string }> {
+    return this.client.post(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/accept`
+    );
+  }
+
   // ===========================================================================
   // Profiles
   // ===========================================================================

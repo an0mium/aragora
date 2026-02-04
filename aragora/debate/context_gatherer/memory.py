@@ -33,6 +33,7 @@ class MemoryMixin:
         domain: str,
         task: str,
         include_glacial_insights: bool = True,
+        tenant_id: str | None = None,
     ) -> tuple[str, list[str], dict[str, Any]]:
         """Retrieve relevant memories from ContinuumMemory for debate context.
 
@@ -71,15 +72,21 @@ class MemoryMixin:
                 limit=5,
                 min_importance=0.3,
                 include_glacial=False,  # Get recent memories first
+                tenant_id=tenant_id,
             )
             all_memories.extend(memories)
 
             # 2. Also retrieve glacial tier insights for cross-session learning
-            if include_glacial_insights and hasattr(continuum_memory, "get_glacial_insights"):
-                glacial_insights = continuum_memory.get_glacial_insights(
-                    topic=task[:100],
+            if include_glacial_insights:
+                from aragora.memory.tier_manager import MemoryTier
+
+                glacial_insights = continuum_memory.retrieve(
+                    query=task[:100],
+                    tiers=[MemoryTier.GLACIAL],
                     limit=3,
                     min_importance=0.4,  # Higher threshold for long-term patterns
+                    include_glacial=True,
+                    tenant_id=tenant_id,
                 )
                 if glacial_insights:
                     logger.info(

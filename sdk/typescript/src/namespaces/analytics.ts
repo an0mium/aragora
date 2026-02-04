@@ -200,13 +200,58 @@ export class AnalyticsAPI {
    * Get multi-agent comparison.
    */
   async compareAgents(agents: string[]): Promise<unknown> {
-    return this.client.request('GET', '/api/analytics/agents/comparison', { params: { agents: agents.join(',') } });
+    return this.client.request('GET', '/api/analytics/agents/comparison', {
+      params: { agents: agents.join(',') },
+    });
+  }
+
+  /**
+   * Get aggregate performance metrics for all agents.
+   */
+  async getAgentsPerformanceSummary(options?: {
+    time_range?: string;
+    org_id?: string;
+    limit?: number;
+  }): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/agents/performance', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get summary statistics for debates.
+   */
+  async getDebatesSummary(options?: {
+    time_range?: string;
+    org_id?: string;
+  }): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/debates/summary', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get workspace-level usage metrics.
+   */
+  async getWorkspaceUsage(
+    workspaceId: string,
+    options?: { time_range?: string }
+  ): Promise<unknown> {
+    return this.client.request(
+      'GET',
+      `/api/v1/analytics/workspace/${workspaceId}/usage`,
+      { params: options }
+    );
   }
 
   /**
    * Get agent performance trends over time.
    */
-  async getAgentTrends(options?: { agents?: string[]; time_range?: string; granularity?: string }): Promise<unknown> {
+  async getAgentTrends(options?: {
+    agents?: string[];
+    time_range?: string;
+    granularity?: string;
+  }): Promise<unknown> {
     const params: Record<string, unknown> = { ...options };
     if (options?.agents) params.agents = options.agents.join(',');
     return this.client.request('GET', '/api/analytics/agents/trends', { params });

@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -327,6 +329,7 @@ def get_gateway_stream_server() -> GatewayStreamServer:
     global _gateway_stream_server
     if _gateway_stream_server is None:
         _gateway_stream_server = GatewayStreamServer()
+        _maybe_register_tool_capture(_gateway_stream_server)
     return _gateway_stream_server
 
 
@@ -338,6 +341,82 @@ def set_gateway_stream_server(server: GatewayStreamServer) -> None:
     """
     global _gateway_stream_server
     _gateway_stream_server = server
+
+
+_tool_capture_registered = False
+
+
+def _maybe_register_tool_capture(server: GatewayStreamServer) -> None:
+    """Register tool usage capture callback if enabled."""
+    global _tool_capture_registered
+    if _tool_capture_registered:
+        return
+    if os.environ.get("ARAGORA_MEMORY_CAPTURE_ENABLED", "false").lower() != "true":
+        return
+
+    try:
+        from aragora.memory.capture import ToolMemoryCapture
+
+        capture = ToolMemoryCapture()
+    except Exception:
+        return
+
+    async def _capture_tool_event(event: GatewayEvent) -> None:
+        if event.event_type != GatewayEventType.AGENT_CAPABILITY_USED:
+            return
+
+        try:
+            from aragora.memory.continuum import MemoryTier, get_continuum_memory
+        except Exception:
+            return
+
+        tool_name = event.data.get("capability")
+        if not capture.should_capture(tool_name):
+            return
+
+        def _store() -> None:
+            memory = get_continuum_memory()
+            try:
+                tier_value = capture.config.tier
+                tier = MemoryTier(tier_value) if tier_value else MemoryTier.FAST
+            except Exception:
+                tier = MemoryTier.FAST
+
+            content = capture.format_content(
+                tool_name=str(tool_name),
+                agent_name=event.agent_name,
+                debate_id=event.debate_id,
+                details=event.data.get("details"),
+            )
+            metadata = {
+                "type": "tool_usage",
+                "tool": tool_name,
+                "agent": event.agent_name,
+                "debate_id": event.debate_id,
+                "timestamp": event.timestamp,
+                "source": "gateway_stream",
+            }
+            memory.add(
+                id=f"tool:{uuid.uuid4().hex[:12]}",
+                content=content,
+                tier=tier,
+                importance=capture.config.importance,
+                metadata=metadata,
+            )
+
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _store)
+
+    async def _register() -> None:
+        await server.subscribe(_capture_tool_event)
+
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_register())
+    except RuntimeError:
+        asyncio.run(_register())
+
+    _tool_capture_registered = True
 
 
 __all__ = [

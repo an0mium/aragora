@@ -7,15 +7,25 @@ flags, and running subsystem initialization sequences.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from aragora.container import try_resolve, BudgetCoordinatorProtocol
 from aragora.debate.budget_coordinator import BudgetCoordinator
+from aragora.debate.convergence import ConvergenceDetector, cleanup_embedding_cache
 from aragora.debate.event_bus import EventBus
+from aragora.debate.prompt_context import PromptContextBuilder
+from aragora.debate.context_delegation import ContextDelegator
+from aragora.debate.roles_manager import RolesManager
+from aragora.debate.termination_checker import TerminationChecker
+from aragora.debate.audience_manager import AudienceManager
 from aragora.logging_config import get_logger as get_structured_logger
 
 if TYPE_CHECKING:
+    from aragora.core_types import Agent, Message
     from aragora.debate.orchestrator import Arena
+
+_conv_logger = logging.getLogger("aragora.debate.convergence")
 
 logger = get_structured_logger(__name__)
 
@@ -208,3 +218,180 @@ def run_init_subsystems(arena: Arena) -> None:
 
     # Initialize cross-subscriber bridge for event cross-pollination
     arena._init_cross_subscriber_bridge()
+
+
+# =============================================================================
+# Role rotation initialization (from orchestrator_roles.py)
+# =============================================================================
+
+
+def init_roles_and_stances(arena: Arena) -> None:
+    """Initialize cognitive role rotation and agent stances."""
+    arena.roles_manager = RolesManager(
+        agents=arena.agents,
+        protocol=arena.protocol,
+        prompt_builder=arena.prompt_builder if hasattr(arena, "prompt_builder") else None,
+        calibration_tracker=(
+            arena.calibration_tracker if hasattr(arena, "calibration_tracker") else None
+        ),
+        persona_manager=arena.persona_manager if hasattr(arena, "persona_manager") else None,
+    )
+    arena.role_rotator = arena.roles_manager.role_rotator
+    arena.role_matcher = arena.roles_manager.role_matcher
+    arena.current_role_assignments = arena.roles_manager.current_role_assignments
+    arena.roles_manager.assign_initial_roles()
+    arena.roles_manager.assign_stances(round_num=0)
+    arena.roles_manager.apply_agreement_intensity()
+
+
+# =============================================================================
+# User participation initialization (from orchestrator_participation.py)
+# =============================================================================
+
+
+def init_user_participation(arena: Arena) -> None:
+    """Initialize user participation tracking and event subscription."""
+    arena.audience_manager = AudienceManager(
+        loop_id=arena.loop_id,
+        strict_loop_scoping=arena.strict_loop_scoping,
+    )
+    arena.audience_manager.set_notify_callback(arena._notify_spectator)
+    if arena.event_emitter:
+        arena.audience_manager.subscribe_to_emitter(arena.event_emitter)
+
+
+def init_event_bus(arena: Arena) -> None:
+    """Initialize EventBus for pub/sub event handling."""
+    arena.event_bus = EventBus(
+        event_bridge=arena.event_bridge,
+        audience_manager=arena.audience_manager,
+        immune_system=arena.immune_system,
+        spectator=arena.spectator,
+    )
+
+
+# =============================================================================
+# Context building initialization (from orchestrator_context.py)
+# =============================================================================
+
+
+def init_prompt_context_builder(arena: Arena) -> None:
+    """Initialize PromptContextBuilder for agent prompt context."""
+    arena._prompt_context = PromptContextBuilder(
+        persona_manager=arena.persona_manager,
+        flip_detector=arena.flip_detector,
+        protocol=arena.protocol,
+        prompt_builder=arena.prompt_builder,
+        audience_manager=arena.audience_manager,
+        spectator=arena.spectator,
+        notify_callback=arena._notify_spectator,
+        vertical=getattr(arena, "vertical", None),
+        vertical_persona_manager=getattr(arena, "vertical_persona_manager", None),
+    )
+
+
+def init_context_delegator(arena: Arena) -> None:
+    """Initialize ContextDelegator for context gathering operations."""
+    arena._context_delegator = ContextDelegator(
+        context_gatherer=arena.context_gatherer,
+        memory_manager=arena.memory_manager,
+        cache=arena._cache,
+        evidence_grounder=getattr(arena, "evidence_grounder", None),
+        continuum_memory=arena.continuum_memory,
+        env=arena.env,
+        auth_context=getattr(arena, "auth_context", None),
+        extract_domain_fn=arena._extract_debate_domain,
+    )
+
+
+# =============================================================================
+# Termination checking initialization (from orchestrator_termination.py)
+# =============================================================================
+
+
+def init_termination_checker(arena: Arena) -> None:
+    """Initialize the termination checker for early debate termination."""
+
+    async def generate_fn(agent: Agent, prompt: str, ctx: list[Message]) -> str:
+        return await arena.autonomic.generate(agent, prompt, ctx)
+
+    async def select_judge_fn(proposals: dict[str, str], context: list[Message]) -> Agent:
+        return await arena._select_judge(proposals, context)
+
+    arena.termination_checker = TerminationChecker(
+        protocol=arena.protocol,
+        agents=arena._require_agents() if arena.agents else [],
+        generate_fn=generate_fn,
+        task=arena.env.task if arena.env else "",
+        select_judge_fn=select_judge_fn,
+        hooks=arena.hooks,
+    )
+
+
+# =============================================================================
+# Convergence detection initialization (from orchestrator_convergence.py)
+# =============================================================================
+
+
+def init_convergence(arena: Arena, debate_id: str | None = None) -> None:
+    """Initialize convergence detection if enabled."""
+    arena.convergence_detector = None
+    arena._convergence_debate_id = debate_id
+    if arena.protocol.convergence_detection:
+        arena.convergence_detector = ConvergenceDetector(
+            convergence_threshold=arena.protocol.convergence_threshold,
+            divergence_threshold=arena.protocol.divergence_threshold,
+            min_rounds_before_check=1,
+            debate_id=debate_id,
+        )
+    arena._previous_round_responses = {}
+
+
+def reinit_convergence_for_debate(arena: Arena, debate_id: str) -> None:
+    """Reinitialize convergence detector with debate-specific cache."""
+    if arena._convergence_debate_id == debate_id:
+        return
+    arena._convergence_debate_id = debate_id
+    if arena.protocol.convergence_detection:
+        arena.convergence_detector = ConvergenceDetector(
+            convergence_threshold=arena.protocol.convergence_threshold,
+            divergence_threshold=arena.protocol.divergence_threshold,
+            min_rounds_before_check=1,
+            debate_id=debate_id,
+        )
+        _conv_logger.debug(f"Reinitialized convergence detector for debate {debate_id}")
+
+
+def cleanup_convergence(arena: Arena) -> None:
+    """Cleanup embedding cache for the current debate."""
+    if arena._convergence_debate_id:
+        cleanup_embedding_cache(arena._convergence_debate_id)
+        _conv_logger.debug(f"Cleaned up embedding cache for debate {arena._convergence_debate_id}")
+
+
+# =============================================================================
+# Exports
+# =============================================================================
+
+__all__ = [
+    # Constructor delegation
+    "apply_core_components",
+    "apply_tracker_components",
+    "store_post_tracker_config",
+    "run_init_subsystems",
+    "_KNOWLEDGE_MOUND_UNSET",
+    # Roles
+    "init_roles_and_stances",
+    # Participation
+    "init_user_participation",
+    "init_event_bus",
+    # Context
+    "init_prompt_context_builder",
+    "init_context_delegator",
+    # Termination
+    "init_termination_checker",
+    # Convergence
+    "init_convergence",
+    "reinit_convergence_for_debate",
+    "cleanup_convergence",
+]
