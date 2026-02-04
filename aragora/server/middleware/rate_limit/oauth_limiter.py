@@ -12,7 +12,7 @@ Security Rationale:
     implements defense-in-depth with multiple layers:
 
     1. Low base limits: Token endpoints limited to 5 requests per 15 minutes,
-       callback handlers to 10 requests per 15 minutes (vs 60/min for normal endpoints)
+       callback handlers to 30 requests per 15 minutes (vs 60/min for normal endpoints)
 
     2. Exponential backoff: Repeated violations trigger exponentially longer
        cooldowns (1min, 2min, 4min, 8min, up to 1 hour max)
@@ -182,7 +182,7 @@ class OAuthRateLimitConfig:
     """
 
     token_limit: int = 5
-    callback_limit: int = 10
+    callback_limit: int = 30
     auth_start_limit: int = 15
     window_seconds: int = 900  # 15 minutes
     max_backoff_seconds: int = 3600  # 1 hour
@@ -196,7 +196,7 @@ def _get_default_config() -> OAuthRateLimitConfig:
     """Get default OAuth rate limit configuration from environment."""
     return OAuthRateLimitConfig(
         token_limit=int(os.environ.get("ARAGORA_OAUTH_TOKEN_LIMIT", "5")),
-        callback_limit=int(os.environ.get("ARAGORA_OAUTH_CALLBACK_LIMIT", "10")),
+        callback_limit=int(os.environ.get("ARAGORA_OAUTH_CALLBACK_LIMIT", "30")),
         auth_start_limit=int(os.environ.get("ARAGORA_OAUTH_AUTH_START_LIMIT", "15")),
         window_seconds=int(os.environ.get("ARAGORA_OAUTH_WINDOW_SECONDS", "900")),
         max_backoff_seconds=int(os.environ.get("ARAGORA_OAUTH_MAX_BACKOFF", "3600")),

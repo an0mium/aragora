@@ -132,7 +132,7 @@ class TestOAuthRateLimitConfig:
         config = OAuthRateLimitConfig()
 
         assert config.token_limit == 5
-        assert config.callback_limit == 10
+        assert config.callback_limit == 30
         assert config.auth_start_limit == 15
         assert config.window_seconds == 900
         assert config.max_backoff_seconds == 3600

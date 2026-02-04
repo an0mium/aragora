@@ -154,6 +154,7 @@ class AuthHandler(SecureHandler):
         "/api/auth/invite",
         "/api/auth/check-invite",
         "/api/auth/accept-invite",
+        "/api/auth/health",
         # SDK aliases for API key management
         "/api/keys",
         "/api/keys/*",
@@ -331,6 +332,9 @@ class AuthHandler(SecureHandler):
             if err:
                 return err
             return await handle_accept_invite(data, user_id=user_id)
+
+        if path == "/api/auth/health" and method == "GET":
+            return self._handle_health(handler)
 
         return error_response("Method not allowed", 405)
 
@@ -606,28 +610,80 @@ class AuthHandler(SecureHandler):
         "Expires": "0",
     }
 
+    def _handle_health(self, handler: Any) -> HandlerResult:
+        """Lightweight diagnostic endpoint - no auth or DB required."""
+        import time
+
+        info: dict[str, Any] = {"status": "ok", "timestamp": time.time()}
+
+        # Pool status
+        try:
+            from aragora.storage.pool_manager import (
+                get_shared_pool,
+                is_pool_initialized,
+                get_pool_event_loop,
+            )
+
+            pool = get_shared_pool() if is_pool_initialized() else None
+            main_loop = get_pool_event_loop()
+            info["pool"] = {
+                "initialized": is_pool_initialized(),
+                "size": getattr(pool, "get_size", lambda: None)() if pool else None,
+                "free": getattr(pool, "get_idle_size", lambda: None)() if pool else None,
+                "main_loop_running": main_loop.is_running() if main_loop else None,
+                "main_loop_id": id(main_loop) if main_loop else None,
+            }
+        except Exception as e:
+            info["pool"] = {"error": str(e)}
+
+        # JWT decode check (no DB needed)
+        try:
+            from aragora.server.middleware.auth import extract_token
+            from aragora.billing.jwt_auth import decode_jwt
+
+            token = extract_token(handler)
+            if token:
+                payload = decode_jwt(token)
+                info["jwt"] = {
+                    "valid": payload is not None,
+                    "user_id": getattr(payload, "user_id", None) if payload else None,
+                }
+            else:
+                info["jwt"] = {"provided": False}
+        except Exception as e:
+            info["jwt"] = {"error": str(e)}
+
+        return json_response(info, headers=self.AUTH_NO_CACHE_HEADERS)
+
     @rate_limit(requests_per_minute=30, limiter_name="auth_get_me")
     @handle_errors("get user info")
     def _handle_get_me(self, handler: Any) -> HandlerResult:
         """Get current user information."""
+        logger.info("[/me] Step 1: Checking authentication.read permission")
         # RBAC check: authentication.read permission required
         if error := self._check_permission(handler, "authentication.read"):
+            logger.warning("[/me] Permission check failed")
             return error
 
         # Get current user (already verified by _check_permission)
+        logger.info("[/me] Step 2: Permission OK, extracting auth context")
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
-        logger.debug(
-            f"Auth /me: authenticated={auth_ctx.is_authenticated}, user_id={auth_ctx.user_id}"
+        logger.info(
+            "[/me] Step 3: Auth context: authenticated=%s, user_id=%s",
+            auth_ctx.is_authenticated,
+            auth_ctx.user_id,
         )
 
         # Get user store
         if not user_store:
+            logger.error("[/me] No user_store in context")
             return error_response(
                 "Authentication service unavailable", 503, headers=self.AUTH_NO_CACHE_HEADERS
             )
 
         # Get full user data (use async method if available)
+        logger.info("[/me] Step 4: Looking up user by ID")
         get_user_by_id = getattr(user_store, "get_user_by_id", None)
         if callable(get_user_by_id):
             user = get_user_by_id(auth_ctx.user_id)
@@ -635,7 +691,7 @@ class AuthHandler(SecureHandler):
             user = _run_maybe_async(user_store.get_user_by_id_async(auth_ctx.user_id))
         else:
             user = None
-        logger.debug(f"Auth /me: user lookup {'found' if user else 'not found'}")
+        logger.info("[/me] Step 5: User lookup result: %s", "found" if user else "not found")
         if not user:
             return error_response("User not found", 404, headers=self.AUTH_NO_CACHE_HEADERS)
 

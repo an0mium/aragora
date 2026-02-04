@@ -26,6 +26,10 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     If called from an async context, it will raise RuntimeError to prevent
     event loop cross-contamination that breaks asyncpg connection pools.
 
+    When a shared asyncpg pool exists (server mode), this dispatches the
+    coroutine to the main event loop via run_coroutine_threadsafe(). This
+    ensures the coroutine runs on the same loop the pool was created on.
+
     For async code, use `await coro` directly instead of `run_async(coro)`.
 
     Args:
@@ -55,13 +59,25 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
             f"Current event loop: {loop}"
         )
     except RuntimeError as e:
-        if "no running event loop" in str(e).lower():
-            # No running loop - safe to use asyncio.run()
-            return asyncio.run(coro)
-        # Re-raise other RuntimeErrors (including our own from above)
-        # Close the coroutine to prevent warnings
-        coro.close()
-        raise
+        if "no running event loop" not in str(e).lower():
+            # Re-raise other RuntimeErrors (including our own from above)
+            coro.close()
+            raise
+
+    # No running loop in this thread - we're in sync context.
+    # Try to dispatch to the main event loop where the asyncpg pool lives.
+    try:
+        from aragora.storage.pool_manager import get_pool_event_loop
+
+        main_loop = get_pool_event_loop()
+        if main_loop is not None and main_loop.is_running():
+            future = asyncio.run_coroutine_threadsafe(coro, main_loop)
+            return future.result(timeout=timeout)
+    except ImportError:
+        pass
+
+    # Fallback: no shared pool / CLI mode - create temporary event loop
+    return asyncio.run(coro)
 
 
 # Semaphore to limit concurrent subprocess calls (prevent resource exhaustion)

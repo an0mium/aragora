@@ -641,9 +641,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // Other error (500, 404, etc.) - keep tokens but report error
         // User may be able to retry or the backend may recover
-        logger.error('[AuthContext] Unexpected /me response:', response.status);
+        let body = '';
+        try {
+          body = await response.text();
+        } catch { /* ignore */ }
+        logger.error('[AuthContext] /me error response:', { status: response.status, body });
         // Don't clear tokens on server errors - let user retry
-        throw new Error(`Server error (${response.status}). Please try again.`);
+        throw new Error(`Server error (${response.status}): ${body || 'No details'}. Please try again.`);
       }
     } catch (err) {
       logger.error('[AuthContext] setTokens error:', err);
