@@ -171,4 +171,23 @@ __all__ = [
     "set_security_dispatcher",
     "start_security_dispatcher",
     "stop_security_dispatcher",
+    # Event registry (unified)
+    "EventRegistry",
+    "EventCategory",
+    "EventSeverity",
+    "EventSource",
+    "EventMetadata",
+    "get_event_registry",
+    "reset_event_registry",
 ]
+
+# Event registry (late import to avoid circular dependencies)
+from .registry import (
+    EventRegistry,
+    EventCategory,
+    EventSeverity,
+    EventSource,
+    EventMetadata,
+    get_event_registry,
+    reset_event_registry,
+)

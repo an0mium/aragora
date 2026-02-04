@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from aragora.config.legacy import get_db_path
+from aragora.persistence.db_config import get_default_data_dir
 from aragora.observability import get_logger
 from aragora.storage.backends import POSTGRESQL_AVAILABLE, PostgreSQLBackend
 from aragora.storage.base_store import SQLiteStore
@@ -104,7 +104,9 @@ logger = get_logger(__name__)
 
 def _get_default_db_path() -> Path:
     """Get the default database path for control plane policy store."""
-    return get_db_path("control_plane/policies.db")
+    path = get_default_data_dir() / "control_plane" / "policies.db"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 class ControlPlanePolicyStore(SQLiteStore):

@@ -263,9 +263,11 @@ def get_followup_store(db_path: str | None = None) -> FollowUpStore:
     """Get or create the follow-up store singleton."""
     global _store_instance
     if _store_instance is None:
-        from aragora.config.legacy import get_db_path
+        from aragora.persistence.db_config import get_default_data_dir
 
         if db_path is None:
-            db_path = str(get_db_path("followups.db"))
+            data_dir = get_default_data_dir()
+            data_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(data_dir / "followups.db")
         _store_instance = FollowUpStore(db_path)
     return _store_instance

@@ -23,7 +23,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from aragora.config.legacy import DATA_DIR
+from aragora.persistence.db_config import get_default_data_dir
+
+DATA_DIR = get_default_data_dir()
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 

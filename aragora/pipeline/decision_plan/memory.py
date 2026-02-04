@@ -41,6 +41,8 @@ class PlanOutcome:
     duration_seconds: float = 0.0
     lessons: list[str] = field(default_factory=list)
     receipt_id: str | None = None  # Cryptographic receipt ID for audit trail
+    review: dict[str, Any] | None = None
+    review_passed: bool | None = None
 
     @property
     def completion_rate(self) -> float:
@@ -71,6 +73,8 @@ class PlanOutcome:
             "verification_rate": self.verification_rate,
             "lessons": self.lessons,
             "receipt_id": self.receipt_id,
+            "review": self.review,
+            "review_passed": self.review_passed,
         }
 
     def to_memory_content(self) -> str:
@@ -84,6 +88,9 @@ class PlanOutcome:
             f"Verification: {self.verification_passed}/{self.verification_total} cases",
             f"Cost: ${self.total_cost_usd:.4f}",
         ]
+        if self.review_passed is not None:
+            review_status = "PASS" if self.review_passed else "FAIL"
+            lines.append(f"Review: {review_status}")
         if self.error:
             lines.append(f"Error: {self.error}")
         if self.lessons:

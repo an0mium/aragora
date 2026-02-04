@@ -34,7 +34,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aragora.config import resolve_db_path
-from aragora.persistence.db_config import get_default_data_dir
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -1039,9 +1038,9 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
         # Preserve legacy data directory when configured
         data_dir = None
         try:
-            from aragora.config.legacy import DATA_DIR
+            from aragora.persistence.db_config import get_default_data_dir
 
-            data_dir = DATA_DIR
+            data_dir = get_default_data_dir()
         except ImportError:
             data_dir = None
 

@@ -6,7 +6,7 @@ and channels. Aragora orchestrates 15+ AI models to debate your organization's
 knowledge and deliver defensible decisions to any channel.
 Deliberation is the engine; the product is a defensible decision record.
 
-=== CORE FEATURES (v2.5.0) ===
+=== CORE FEATURES (v2.6.3) ===
 
 DECISION STRESS-TEST ENGINE:
 - Multi-agent debate with propose/critique/synthesize protocol (engine)

@@ -419,8 +419,9 @@ testpaths = ["tests"]
 timeout = 60
 timeout_method = "thread"
 filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
+    # Show deprecation warnings once per location (don't suppress — catch regressions early)
+    "default::DeprecationWarning",
+    "default::PendingDeprecationWarning",
     # Ignore pytest collection warnings for non-test classes in pipeline/test_plan.py
     "ignore:cannot collect test class.*:pytest.PytestCollectionWarning",
     # Ignore unawaited coroutine warnings from AsyncMock cleanup during tests

@@ -319,6 +319,270 @@ def sync_backend(async_backend: AsyncStoreBackend) -> StoreBackend:
     return SyncBackendWrapper(async_backend)  # type: ignore
 
 
+# =============================================================================
+# Redis Fallback Mixin (Reduces duplication across Redis-backed stores)
+# =============================================================================
+
+
+class RedisStoreMixin:
+    """
+    Mixin providing Redis connection management with SQLite fallback.
+
+    This mixin eliminates ~200 LOC of duplicated Redis fallback logic
+    per store. Subclasses only need to define their domain-specific
+    methods and table schema.
+
+    Usage:
+        class MyRedisStore(RedisStoreMixin, MyStoreBackend):
+            REDIS_PREFIX = "aragora:my_store:"
+
+            def __init__(self, fallback_db_path=None, redis_url=None):
+                # Initialize fallback first (required by mixin)
+                self._fallback = SQLiteMyStore(fallback_db_path)
+                self._init_redis(redis_url)
+
+            async def my_domain_method(self) -> list[dict]:
+                if self._using_fallback:
+                    return await self._fallback.my_domain_method()
+                try:
+                    # Redis-specific implementation
+                    ...
+                except Exception as e:
+                    self._log_redis_fallback("my_domain_method", e)
+                    return await self._fallback.my_domain_method()
+
+    Attributes:
+        REDIS_PREFIX: Key prefix for this store (must be set by subclass)
+        _fallback: SQLite fallback store instance
+        _redis_client: Redis client (or None if unavailable)
+        _using_fallback: True if Redis unavailable
+    """
+
+    import json
+    import logging
+    import os
+    import threading
+
+    REDIS_PREFIX: str = "aragora:store:"  # Override in subclass
+
+    _redis_client: Any = None
+    _fallback: AsyncStoreBackend
+    _using_fallback: bool = False
+    _redis_lock: Any = None
+
+    def _init_redis(self, redis_url: str | None = None) -> None:
+        """
+        Initialize Redis connection with fallback.
+
+        Call this in __init__ after setting self._fallback.
+
+        Args:
+            redis_url: Redis URL (defaults to ARAGORA_REDIS_URL env var)
+        """
+        import logging
+        import os
+        import threading
+
+        self._redis_lock = threading.RLock()
+        self._redis_url = redis_url or os.getenv("ARAGORA_REDIS_URL", "")
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+        if not self._redis_url:
+            self._logger.info("No Redis URL configured, using SQLite fallback")
+            self._using_fallback = True
+            return
+
+        try:
+            import redis
+
+            self._redis_client = redis.from_url(self._redis_url)
+            self._redis_client.ping()
+            self._logger.info(f"Connected to Redis for {self.__class__.__name__}")
+            self._using_fallback = False
+        except Exception as e:
+            self._logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
+            self._using_fallback = True
+            self._redis_client = None
+
+    def _redis_key(self, item_id: str) -> str:
+        """Build Redis key for an item."""
+        return f"{self.REDIS_PREFIX}{item_id}"
+
+    def _index_key(self, index_name: str, value: str) -> str:
+        """Build Redis key for an index set."""
+        return f"{self.REDIS_PREFIX}idx:{index_name}:{value}"
+
+    def _log_redis_fallback(self, operation: str, error: Exception) -> None:
+        """Log Redis failure and fallback."""
+        self._logger.warning(f"Redis {operation} failed, using fallback: {error}")
+
+    async def _redis_get(self, item_id: str) -> dict[str, Any] | None:
+        """Get item from Redis with fallback."""
+        import json
+
+        if self._using_fallback:
+            return await self._fallback.get(item_id)
+        try:
+            data = self._redis_client.get(self._redis_key(item_id))
+            if data:
+                return json.loads(data)
+            return None
+        except Exception as e:
+            self._log_redis_fallback("get", e)
+            return await self._fallback.get(item_id)
+
+    async def _redis_save(
+        self,
+        data: dict[str, Any],
+        primary_key: str,
+        indexes: dict[str, str] | None = None,
+    ) -> None:
+        """
+        Save item to Redis with fallback.
+
+        Always saves to SQLite fallback for durability.
+
+        Args:
+            data: Item data to save
+            primary_key: Key name for the primary ID field
+            indexes: Dict mapping index names to data field names
+        """
+        import json
+
+        item_id = data.get(primary_key)
+        if not item_id:
+            raise ValueError(f"{primary_key} is required")
+
+        # Always save to SQLite fallback for durability
+        await self._fallback.save(data)
+
+        if self._using_fallback:
+            return
+
+        try:
+            data_json = json.dumps(data)
+            pipe = self._redis_client.pipeline()
+            pipe.set(self._redis_key(item_id), data_json)
+
+            # Update indexes
+            if indexes:
+                for index_name, field_name in indexes.items():
+                    field_value = data.get(field_name)
+                    if field_value:
+                        pipe.sadd(self._index_key(index_name, field_value), item_id)
+
+            pipe.execute()
+        except Exception as e:
+            self._log_redis_fallback("save", e)
+
+    async def _redis_delete(
+        self,
+        item_id: str,
+        primary_key: str,
+        indexes: dict[str, str] | None = None,
+    ) -> bool:
+        """
+        Delete item from Redis with fallback.
+
+        Args:
+            item_id: ID of item to delete
+            primary_key: Key name for the primary ID field
+            indexes: Dict mapping index names to data field names
+        """
+        import json
+
+        result = await self._fallback.delete(item_id)
+
+        if self._using_fallback:
+            return result
+
+        try:
+            data_bytes = self._redis_client.get(self._redis_key(item_id))
+            if data_bytes:
+                data = json.loads(data_bytes)
+                pipe = self._redis_client.pipeline()
+
+                # Remove from indexes
+                if indexes:
+                    for index_name, field_name in indexes.items():
+                        field_value = data.get(field_name)
+                        if field_value:
+                            pipe.srem(self._index_key(index_name, field_value), item_id)
+
+                pipe.delete(self._redis_key(item_id))
+                pipe.execute()
+                return True
+            return result
+        except Exception as e:
+            self._log_redis_fallback("delete", e)
+            return result
+
+    async def _redis_list_all(self) -> list[dict[str, Any]]:
+        """List all items from Redis with fallback."""
+        import json
+
+        if self._using_fallback:
+            return await self._fallback.list_all()
+
+        try:
+            results = []
+            cursor = "0"
+            while cursor != 0:
+                cursor, keys = self._redis_client.scan(
+                    cursor=cursor,
+                    match=f"{self.REDIS_PREFIX}*",
+                    count=100,
+                )
+                if keys:
+                    # Filter out index keys
+                    data_keys = [k for k in keys if b":idx:" not in k and b"idx:" not in k]
+                    if data_keys:
+                        values = self._redis_client.mget(data_keys)
+                        for v in values:
+                            if v:
+                                results.append(json.loads(v))
+            return results
+        except Exception as e:
+            self._log_redis_fallback("list_all", e)
+            return await self._fallback.list_all()
+
+    async def _redis_list_by_index(
+        self,
+        index_name: str,
+        value: str,
+    ) -> list[dict[str, Any]]:
+        """
+        List items by index value from Redis with fallback.
+
+        This assumes a corresponding fallback method exists.
+        """
+        import json
+
+        if self._using_fallback:
+            # Delegate to fallback - subclass should implement domain method
+            raise NotImplementedError("Subclass must handle fallback for indexed queries")
+
+        try:
+            item_ids = self._redis_client.smembers(self._index_key(index_name, value))
+            if not item_ids:
+                return []
+            keys = [self._redis_key(rid.decode()) for rid in item_ids]
+            values = self._redis_client.mget(keys)
+            return [json.loads(v) for v in values if v]
+        except Exception as e:
+            self._log_redis_fallback(f"list_by_{index_name}", e)
+            raise
+
+    async def _redis_close(self) -> None:
+        """Close Redis connection and fallback."""
+        await self._fallback.close()
+        if self._redis_client:
+            try:
+                self._redis_client.close()
+            except Exception:
+                pass
+
+
 __all__ = [
     # Legacy protocols
     "StorageInterface",
@@ -332,4 +596,6 @@ __all__ = [
     # Utilities
     "SyncBackendWrapper",
     "sync_backend",
+    # Redis mixin
+    "RedisStoreMixin",
 ]

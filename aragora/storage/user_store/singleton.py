@@ -38,9 +38,9 @@ def get_user_store() -> UserStore | PostgresUserStore | None:
     # Preserve legacy data directory if configured
     data_dir = None
     try:
-        from aragora.config.legacy import DATA_DIR
+        from aragora.persistence.db_config import get_default_data_dir
 
-        data_dir = DATA_DIR
+        data_dir = get_default_data_dir()
     except ImportError:
         data_dir = None
 
