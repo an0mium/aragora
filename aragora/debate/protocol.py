@@ -395,6 +395,9 @@ class DebateProtocol:
     # Process-based evaluation: Multi-criteria rubric scoring
     # Evaluate reasoning quality, not just final answer
     enable_process_evaluation: bool = False  # Enable rubric evaluation
+    enable_process_verification: bool = False  # Gate consensus on process score
+    process_verification_threshold: float = 0.6  # Minimum avg process score
+    process_verification_hard_gate: bool = False  # Block consensus if below threshold
 
     # Formal proof verification: Use Lean4/Z3 to verify consensus claims
     # When enabled, attempts machine-checkable proof of final consensus

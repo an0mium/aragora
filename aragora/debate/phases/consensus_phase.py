@@ -597,6 +597,9 @@ class ConsensusPhase:
             threshold_override=threshold_override,
         )
 
+        # Apply process verification gate if enabled
+        self._apply_process_verification_gate(ctx)
+
         # Analyze belief network for cruxes
         self._winner_selector.analyze_belief_network(ctx)
 
@@ -660,6 +663,29 @@ class ConsensusPhase:
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
             result.confidence = 0.5
+
+    def _apply_process_verification_gate(self, ctx: "DebateContext") -> None:
+        """Gate consensus based on process verification scores."""
+        if not self.protocol or not getattr(self.protocol, "enable_process_verification", False):
+            return
+        result = ctx.result
+        if not result or not result.metadata:
+            return
+        metadata = result.metadata.get("process_verification", {})
+        average = metadata.get("average")
+        if average is None:
+            return
+
+        threshold = float(getattr(self.protocol, "process_verification_threshold", 0.6))
+        metadata["threshold"] = threshold
+        metadata["passed"] = average >= threshold
+
+        if not metadata["passed"] and getattr(
+            self.protocol, "process_verification_hard_gate", False
+        ):
+            result.consensus_reached = False
+            result.consensus_strength = "process_blocked"
+            result.status = "process_verification_failed"
 
     async def _handle_judge_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'judge' consensus mode - single judge synthesis with fallback."""

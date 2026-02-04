@@ -196,6 +196,7 @@ class VoteBonusCalculator:
 
         # Evaluate each proposal
         process_scores: dict[str, float] = {}
+        process_notes: dict[str, list[str]] = {}
         process_bonus = 0.2  # Max bonus for perfect process score
 
         for agent_name, proposal in proposals.items():
@@ -208,6 +209,7 @@ class VoteBonusCalculator:
                 )
 
                 process_scores[agent_name] = result.weighted_total
+                process_notes[agent_name] = result.evaluation_notes
                 canonical = choice_mapping.get(agent_name, agent_name)
 
                 if canonical in vote_counts:
@@ -229,6 +231,18 @@ class VoteBonusCalculator:
                 # No bonus on error
 
         if process_scores:
+            if result is not None:
+                avg_score = sum(process_scores.values()) / len(process_scores)
+                metadata = result.metadata.setdefault("process_verification", {})
+                metadata.update(
+                    {
+                        "scores": process_scores,
+                        "average": avg_score,
+                        "min": min(process_scores.values()),
+                        "max": max(process_scores.values()),
+                        "notes": process_notes,
+                    }
+                )
             logger.info(
                 f"process_evaluation applied: {len(process_scores)} proposals scored, "
                 f"avg={sum(process_scores.values()) / len(process_scores):.2f}"
