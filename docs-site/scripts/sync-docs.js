@@ -420,6 +420,30 @@ function fixContent(content, destPath) {
   return content;
 }
 
+function injectConnectorCatalogBanner(content, relSrcPath) {
+  if (relSrcPath !== 'CONNECTORS.md') {
+    return content;
+  }
+
+  const banner = [
+    ':::tip',
+    'Looking for the full inventory? See the [Connector Catalog](./connector-catalog).',
+    ':::',
+    '',
+    '',
+  ].join('\n');
+
+  if (content.startsWith('---')) {
+    const match = content.match(/^---\n[\s\S]*?\n---\n/);
+    if (match) {
+      const end = match[0].length;
+      return content.slice(0, end) + '\n' + banner + content.slice(end);
+    }
+  }
+
+  return banner + content;
+}
+
 // Process a single file
 function processFile(srcPath, destPath) {
   if (!fs.existsSync(srcPath)) {
@@ -440,6 +464,7 @@ function processFile(srcPath, destPath) {
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');
   content = fixContent(content, relDestPath);
+  content = injectConnectorCatalogBanner(content, relSrcPath);
 
   // Ensure destination directory exists
   const destDir = path.dirname(destPath);

@@ -1,80 +1,217 @@
 # Agents Module
 
-Multi-provider agent management for AI model orchestration.
+Multi-provider AI agent orchestration with intelligent fallback and resilience.
+
+## Overview
+
+The agents module supports 25+ AI model providers through a unified interface. It handles CLI-based agents (subprocess invocation) and API agents (direct HTTP calls) with automatic fallback, circuit breakers, and performance tracking.
 
 ## Quick Start
 
 ```python
-from aragora.agents import create_agent, wrap_agent, AirlockConfig
+from aragora.agents import create_agent
 
-# Create agent with automatic fallback
-agent = create_agent("anthropic-api", name="claude-debate")
+# Create an agent
+agent = create_agent("anthropic-api", name="claude", role="proposer")
 
-# Wrap with resilience layer
-config = AirlockConfig(generate_timeout=240.0)
-resilient = wrap_agent(agent, config)
+# Generate a response
+response = await agent.generate("Explain quantum computing")
 
-# Generate with automatic fallback on quota
-response = await resilient.generate("Analyze this problem...")
+# Critique a proposal
+critique = await agent.critique(proposal, task)
 ```
 
-## Key Components
+### With Fallback Chain
 
-| Component | Purpose |
-|-----------|---------|
-| `Agent` | Abstract base with `generate()` and `critique()` methods |
-| `APIAgent` | Base for API agents with circuit breaker and rate limiting |
-| `CLIAgent` | Base for CLI agents with subprocess management |
-| `AirlockProxy` | Resilience wrapper with timeouts and fallback |
-| `QuotaFallbackMixin` | Automatic OpenRouter fallback on rate limits |
-| `AgentPerformanceMonitor` | Tracks success rates, latency, tokens |
+```python
+from aragora.agents import AgentFallbackChain
 
-## Supported Providers
+chain = AgentFallbackChain(
+    providers=["openai", "anthropic", "openrouter"],
+)
+chain.register_provider("openai", lambda: OpenAIAPIAgent())
+chain.register_provider("anthropic", lambda: AnthropicAPIAgent())
+chain.register_provider("openrouter", lambda: OpenRouterAgent())
 
-| Provider | Type | Key Models |
-|----------|------|------------|
-| Anthropic | CLI/API | Claude Opus, Sonnet, Haiku |
-| OpenAI | CLI/API | GPT-4o, GPT-4 Turbo |
-| Google | CLI/API | Gemini 2.0 Flash, Pro |
-| xAI | CLI/API | Grok 2, Grok 4 |
-| Mistral | API | Large, Codestral |
-| Deepseek | OpenRouter | v3, Reasoner, Coder |
-| Meta | OpenRouter | Llama 3.1, 4 variants |
-| Alibaba | OpenRouter | Qwen 2.5-Coder, Max |
-| OpenRouter | API | 50+ models (unified fallback) |
-| Ollama | API | Local models |
-| LM Studio | API | Local inference |
-
-## Architecture
-
-```
-agents/
-├── base.py           # Agent, CritiqueMixin, BaseDebateAgent
-├── cli_agents.py     # CLI wrappers (Claude, Codex, Gemini, Grok)
-├── fallback.py       # QuotaFallbackMixin, AgentFallbackChain
-├── airlock.py        # AirlockProxy resilience wrapper
-├── api_agents/       # Direct API implementations
-│   ├── base.py       # APIAgent base class
-│   ├── anthropic.py  # Anthropic Claude API
-│   ├── openai.py     # OpenAI GPT API
-│   ├── gemini.py     # Google Gemini API
-│   ├── grok.py       # xAI Grok API
-│   ├── mistral.py    # Mistral API
-│   ├── openrouter.py # 40+ OpenRouter models
-│   ├── ollama.py     # Local Ollama models
-│   └── lm_studio.py  # LM Studio local
-├── configs/          # YAML team configurations
-└── errors/           # Error classification
+# Automatic fallback on provider failure
+result = await chain.generate(prompt, context)
 ```
 
-## Key Patterns
+## Key Files
 
-- **Fallback Chain**: Automatic provider switching on quotas
-- **Circuit Breaker**: Prevents cascading failures
-- **Rate Limiting**: Per-provider adaptive backoff
-- **Performance Monitoring**: Latency and success tracking
+| File | Purpose |
+|------|---------|
+| `cli_agents.py` | CLI-based agent wrappers (Claude, Gemini, Grok, etc.) |
+| `api_agents/` | Direct HTTP API implementations (18 agent types) |
+| `fallback.py` | Quota detection, OpenRouter fallback, chain orchestration |
+| `airlock.py` | Resilience wrapper with timeouts and sanitization |
+| `registry.py` | Factory pattern agent creation with LRU caching |
+| `base.py` | Abstract Agent class, CritiqueMixin, debate interfaces |
+| `performance_monitor.py` | Agent metrics tracking |
+| `personas/` | Persona management for agent specialization |
 
-## Related Documentation
+## Agent Types
 
-- [CLAUDE.md](../../CLAUDE.md) - Project overview
-- [docs/AGENT_DEVELOPMENT.md](../../docs/AGENT_DEVELOPMENT.md) - Agent development guide
+### CLI Agents
+
+Invoke external CLI tools with automatic fallback to OpenRouter API:
+
+| Agent | CLI Tool | Installation |
+|-------|----------|--------------|
+| `ClaudeAgent` | claude | `npm install -g @anthropic-ai/claude-code` |
+| `GeminiCLIAgent` | gemini | `npm install -g @google/gemini-cli` |
+| `GrokCLIAgent` | grok | `npm install -g grok-cli` |
+| `QwenCLIAgent` | qwen | `npm install -g @qwen-code/qwen-code` |
+| `DeepseekCLIAgent` | deepseek | `pip install deepseek-cli` |
+| `CodexAgent` | codex | (built-in) |
+| `OpenAIAgent` | openai | `pip install openai` |
+
+### API Agents
+
+Direct HTTP integrations without CLI overhead:
+
+**Cloud Providers:**
+- `AnthropicAPIAgent` - Claude models
+- `OpenAIAPIAgent` - GPT models
+- `GeminiAgent` - Gemini models
+- `GrokAgent` - xAI Grok
+- `MistralAPIAgent` - Mistral Large, Codestral
+
+**OpenRouter Gateway (40+ models):**
+- `DeepSeekAgent`, `DeepSeekReasonerAgent` - DeepSeek V3/R1
+- `LlamaAgent`, `Llama4MaverickAgent` - Meta Llama 3.3/4
+- `QwenAgent`, `QwenMaxAgent` - Alibaba Qwen
+- `KimiK2Agent` - Moonshot Kimi (1T MoE)
+- `SonarAgent` - Perplexity (reasoning + web search)
+- `CommandRAgent` - Cohere (RAG-optimized)
+
+**Local Inference:**
+- `OllamaAgent` - Local Ollama
+- `LMStudioAgent` - LM Studio
+
+## Resilience Patterns
+
+### Circuit Breaker
+
+Prevents cascade failures when providers are degraded:
+
+```python
+# CLI agents: failure_threshold=15, cooldown=120s
+# API agents: failure_threshold=5, cooldown=60s
+
+agent = create_agent("gemini", name="gemini")
+# Circuit breaker auto-opens after threshold failures
+```
+
+### Airlock Proxy
+
+Wraps agents with timeout protection and response sanitization:
+
+```python
+from aragora.agents import AirlockProxy, AirlockConfig
+
+config = AirlockConfig(
+    generate_timeout=240.0,
+    critique_timeout=180.0,
+    extract_json=True,
+    strip_markdown_fences=True,
+    fallback_on_timeout=True,
+)
+safe_agent = AirlockProxy(agent, config)
+```
+
+### Quota Fallback
+
+Automatic fallback to OpenRouter when primary provider fails:
+
+```python
+# Detected conditions:
+# - HTTP 429: Rate limit
+# - HTTP 403 with "quota exceeded": Quota exhausted
+# - HTTP 400 with "credit balance": Billing exhaustion
+```
+
+## Adding a New Agent
+
+1. **Create the agent class:**
+
+```python
+# aragora/agents/api_agents/replicate.py
+from aragora.agents.api_agents.base import APIAgent
+from aragora.agents.registry import AgentRegistry
+
+@AgentRegistry.register(
+    "replicate",
+    default_model="replicate/model",
+    agent_type="API",
+    env_vars="REPLICATE_API_KEY",
+)
+class ReplicateAgent(APIAgent):
+    async def generate(self, prompt: str, context=None) -> str:
+        # Implementation
+        pass
+
+    async def critique(self, proposal: str, task: str, context=None) -> Critique:
+        # Implementation
+        pass
+```
+
+2. **Export in `__init__.py`:**
+
+```python
+# aragora/agents/api_agents/__init__.py
+from aragora.agents.api_agents.replicate import ReplicateAgent
+```
+
+3. **Use via factory:**
+
+```python
+agent = create_agent("replicate", name="my-replicate")
+```
+
+## CLI vs API Agents
+
+| Aspect | CLI Agents | API Agents |
+|--------|-----------|-----------|
+| Invocation | Subprocess | HTTP requests |
+| Overhead | Higher (process spawn) | Lower (connection pooling) |
+| Latency | 100-500ms+ | 10-100ms |
+| Concurrency | Semaphore limited (10) | Unlimited with pooling |
+| Circuit Breaker | 15 failures, 120s cooldown | 5 failures, 60s cooldown |
+| Use Case | Local tools, CLI workflows | Production, concurrent debates |
+
+## Environment Variables
+
+**Required (at least one):**
+- `ANTHROPIC_API_KEY` - Anthropic Claude
+- `OPENAI_API_KEY` - OpenAI GPT
+
+**Fallback:**
+- `OPENROUTER_API_KEY` - Fallback when primary fails
+- `ARAGORA_OPENROUTER_FALLBACK_ENABLED` - Enable fallback (opt-in)
+
+**Optional:**
+- `GEMINI_API_KEY` - Google Gemini
+- `XAI_API_KEY` - xAI Grok
+- `MISTRAL_API_KEY` - Mistral API
+
+**Performance:**
+- `ARAGORA_MAX_CLI_SUBPROCESSES` - CLI subprocess limit (default: 10)
+- `ARAGORA_MAX_CLI_PROMPT_CHARS` - Stdin threshold (default: 100KB)
+
+## Token Tracking
+
+```python
+agent = create_agent("openai-api", name="gpt")
+await agent.generate(prompt)
+
+print(f"Input tokens: {agent.last_tokens_in}")
+print(f"Output tokens: {agent.last_tokens_out}")
+print(f"Total: {agent.total_tokens_in + agent.total_tokens_out}")
+```
+
+## Related Modules
+
+- `aragora.debate` - Uses agents for debate orchestration
+- `aragora.resilience` - CircuitBreaker implementation
+- `aragora.ranking` - ELO tracking for agent selection

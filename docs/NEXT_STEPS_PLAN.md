@@ -1,7 +1,7 @@
-# Aragora v2.5.0+ Comprehensive Development Plan
+# Aragora v2.6.3+ Comprehensive Development Plan
 
 *Generated: January 29, 2026*
-*Current Version: v2.5.0*
+*Current Version: v2.6.3*
 
 ## Executive Summary
 
@@ -22,7 +22,7 @@ Based on comprehensive analysis across 6 dimensions (features, tests, docs, DX, 
 
 ## Priority Matrix
 
-### Tier 1: Critical (v2.5.0 Release Blockers)
+### Tier 1: Critical (v2.6.3 Release Blockers)
 *Timeline: 1-2 weeks*
 
 | # | Task | Impact | Effort | Owner |
@@ -33,7 +33,7 @@ Based on comprehensive analysis across 6 dimensions (features, tests, docs, DX, 
 | 1.4 | Document SLA/SLO targets | Commercial | Low | Docs |
 | 1.5 | Add container image vulnerability scanning | Security | Low | DevOps |
 
-### Tier 2: High Priority (v2.5.0 Quality)
+### Tier 2: High Priority (v2.6.3 Quality)
 *Timeline: 2-3 weeks*
 
 | # | Task | Impact | Effort | Owner |
@@ -282,7 +282,7 @@ async def run_startup_migrations():
 1. Redis Sentinel (3 nodes) - Simpler, automatic failover
 2. Redis Cluster (6 nodes) - Sharding, higher throughput
 
-**Recommendation:** Start with Sentinel for v2.5.0
+**Recommendation:** Start with Sentinel for v2.6.3
 
 ---
 
@@ -342,7 +342,7 @@ key = await kms_client.get_data_key(
 
 ## Success Metrics
 
-### v2.5.0 Release Criteria
+### v2.6.3 Release Criteria
 - [ ] 100% RBAC handler coverage
 - [ ] Input validation blocking enabled
 - [ ] All 174 SDK tests pass

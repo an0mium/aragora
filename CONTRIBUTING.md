@@ -68,6 +68,25 @@ make typecheck
 make check
 ```
 
+### Connector Registry Updates
+
+If you add or modify connectors (including email sync services), regenerate the
+connector registry artifacts:
+
+```bash
+python scripts/update_connector_registry.py
+```
+
+This updates:
+- `docs/connectors/CONNECTOR_REGISTRY.json`
+- `docs/connectors/CONNECTOR_CATALOG.md`
+
+If you touch docs or the catalog, also resync the docs site:
+
+```bash
+node docs-site/scripts/sync-docs.js
+```
+
 ### Development Server
 
 ```bash

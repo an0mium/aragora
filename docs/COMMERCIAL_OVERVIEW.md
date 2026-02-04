@@ -1,6 +1,6 @@
 # Aragora -- The Decision Integrity Platform
 
-*Version 2.5.0 | Commercial Overview*
+*Version 2.6.3 | Commercial Overview*
 *Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
 
 ## Executive Summary

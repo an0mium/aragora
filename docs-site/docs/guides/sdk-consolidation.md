@@ -16,7 +16,7 @@ Two packages exist with different focuses:
 
 | Aspect | `@aragora/sdk` | `@aragora/client` |
 |--------|---------------|-------------------|
-| **Version** | 2.5.0 | 2.5.0 (deprecated) |
+| **Version** | 2.6.3 | 2.6.3 (deprecated) |
 | **Location** | `sdk/typescript/` | `aragora-js/` |
 | **API Style** | Flat (`client.createDebate()`) | Namespaced (`client.debates.create()`) |
 | **Build** | tsup (ESM + CJS) | tsc (CJS only) |

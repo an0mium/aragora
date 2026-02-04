@@ -412,7 +412,7 @@ GET /api/v1/admin/health
 ```json
 {
   "status": "healthy",
-  "version": "2.5.0",
+  "version": "2.6.3",
   "uptime_seconds": 86400,
   "components": {
     "database": "ok",

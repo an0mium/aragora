@@ -11,7 +11,7 @@ Two packages exist with different focuses:
 
 | Aspect | `aragora` | `aragora-client` |
 |--------|-----------|------------------|
-| **Version** | 2.5.0 | 2.4.0 |
+| **Version** | 2.6.3 | 2.4.0 |
 | **Location** | `sdk/python/aragora/` | `aragora-py/aragora_client/` |
 | **API Style** | Both sync + async (`AragoraClient`, `AragoraAsyncClient`) | Async-only (`AragoraClient`) |
 | **Namespaces** | 125 namespace modules | 26 modules |
@@ -158,7 +158,7 @@ async for event in async_client.stream.subscribe("debate-id"):
 
 ## Migration Timeline
 
-### v2.5.0 (Q1 2026) - COMPLETE
+### v2.6.3 (Q1 2026) - COMPLETE
 
 **Goal**: Prepare for consolidation
 

@@ -56,9 +56,9 @@ The architectural analysis was thorough and identified real opportunities, but s
 | SDK | Purpose | Status |
 |-----|---------|--------|
 | `aragora/client/` | Internal server-side type-safe client | Active |
-| `aragora-py/` (aragora-client) | Lightweight public SDK | Active v2.5.0 |
-| `sdk/python/` (aragora-sdk) | Full-featured public SDK (135 namespaces) | Active v2.5.0 |
-| `sdk/typescript/` (@aragora/sdk) | TypeScript public SDK | Active v2.5.0 |
+| `aragora-py/` (aragora-client) | Lightweight public SDK | Active v2.6.3 |
+| `sdk/python/` (aragora-sdk) | Full-featured public SDK (135 namespaces) | Active v2.6.3 |
+| `sdk/typescript/` (@aragora/sdk) | TypeScript public SDK | Active v2.6.3 |
 
 **No consolidation needed.** Documentation should clarify when to use each.
 
