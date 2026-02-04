@@ -118,6 +118,7 @@ class SecretCategory(Enum):
     DATABASE = "database"  # Database credentials
     BILLING = "billing"  # Payment provider keys
     INFRASTRUCTURE = "infrastructure"  # Cloud provider keys
+    CONNECTORS = "connectors"  # Research/data source connector API keys
 
 
 @dataclass
@@ -309,6 +310,60 @@ def _validate_supermemory(key: str) -> bool:
     except Exception:
         # Network issues - assume valid format if prefix matches
         return True
+
+
+def _validate_govinfo(key: str) -> bool:
+    """Validate GovInfo API key (api.data.gov)."""
+    if not key or len(key) < 20:
+        return False
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "https://api.govinfo.gov/collections",
+            params={"api_key": key, "pageSize": 1},
+            timeout=15.0,
+        )
+        return resp.status_code == 200
+    except Exception:
+        # Network issues - assume valid if format looks OK
+        return len(key) >= 20
+
+
+def _validate_courtlistener(key: str) -> bool:
+    """Validate CourtListener API key."""
+    if not key or len(key) < 20:
+        return False
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "https://www.courtlistener.com/api/rest/v3/courts/",
+            headers={"Authorization": f"Token {key}"},
+            params={"page_size": 1},
+            timeout=15.0,
+        )
+        return resp.status_code == 200
+    except Exception:
+        return len(key) >= 20
+
+
+def _validate_nice_api(key: str) -> bool:
+    """Validate NICE Guidance API key."""
+    if not key or len(key) < 10:
+        return False
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "https://api.nice.org.uk/services/guidance/published",
+            headers={"Ocp-Apim-Subscription-Key": key},
+            params={"pageSize": 1},
+            timeout=15.0,
+        )
+        return resp.status_code == 200
+    except Exception:
+        return len(key) >= 10
 
 
 # All managed secrets
@@ -588,6 +643,122 @@ SECRETS: list[SecretDefinition] = [
         provider="stripe",
         dashboard_url="https://dashboard.stripe.com/webhooks",
         description="Stripe webhook signing secret",
+    ),
+    # === CONNECTORS (Research/Data Sources) ===
+    SecretDefinition(
+        name="GovInfo API Key",
+        env_var="GOVINFO_API_KEY",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="GOVINFO_API_KEY",
+        aws_individual_path="aragora/api/govinfo",
+        github_secret_name="GOVINFO_API_KEY",
+        provider="govinfo",
+        dashboard_url="https://api.data.gov/signup/",
+        validator=_validate_govinfo,
+        description="GovInfo API key for US government documents (free at api.data.gov)",
+        rotation_days=365,
+    ),
+    SecretDefinition(
+        name="CourtListener API Key",
+        env_var="COURTLISTENER_API_KEY",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="COURTLISTENER_API_KEY",
+        aws_individual_path="aragora/api/courtlistener",
+        github_secret_name="COURTLISTENER_API_KEY",
+        provider="courtlistener",
+        dashboard_url="https://www.courtlistener.com/profile/api/",
+        validator=_validate_courtlistener,
+        description="CourtListener API key for US case law (optional, increases rate limits)",
+        rotation_days=365,
+    ),
+    SecretDefinition(
+        name="NICE Guidance API Key",
+        env_var="NICE_API_KEY",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="NICE_API_KEY",
+        aws_individual_path="aragora/api/nice",
+        github_secret_name="NICE_API_KEY",
+        provider="nice",
+        dashboard_url="https://developer.nice.org.uk/",
+        validator=_validate_nice_api,
+        description="NICE API key for UK clinical guidelines (free with registration)",
+        rotation_days=365,
+    ),
+    SecretDefinition(
+        name="Westlaw API Base URL",
+        env_var="WESTLAW_API_BASE",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="WESTLAW_API_BASE",
+        github_secret_name="WESTLAW_API_BASE",
+        description="Westlaw API base URL (enterprise license required)",
+    ),
+    SecretDefinition(
+        name="Westlaw API Key",
+        env_var="WESTLAW_API_KEY",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="WESTLAW_API_KEY",
+        aws_individual_path="aragora/api/westlaw",
+        github_secret_name="WESTLAW_API_KEY",
+        provider="westlaw",
+        dashboard_url="https://developer.thomsonreuters.com/",
+        description="Westlaw API key (enterprise license required)",
+        rotation_days=90,
+    ),
+    SecretDefinition(
+        name="LexisNexis API Base URL",
+        env_var="LEXIS_API_BASE",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="LEXIS_API_BASE",
+        github_secret_name="LEXIS_API_BASE",
+        description="LexisNexis API base URL (enterprise license required)",
+    ),
+    SecretDefinition(
+        name="LexisNexis API Key",
+        env_var="LEXIS_API_KEY",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="LEXIS_API_KEY",
+        aws_individual_path="aragora/api/lexis",
+        github_secret_name="LEXIS_API_KEY",
+        provider="lexis",
+        dashboard_url="https://developer.lexisnexis.com/",
+        description="LexisNexis API key (enterprise license required)",
+        rotation_days=90,
+    ),
+    SecretDefinition(
+        name="FASB GAAP API Base URL",
+        env_var="FASB_API_BASE",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="FASB_API_BASE",
+        github_secret_name="FASB_API_BASE",
+        description="FASB GAAP content API base URL (internal proxy or enterprise license)",
+    ),
+    SecretDefinition(
+        name="FASB GAAP API Key",
+        env_var="FASB_API_KEY",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="FASB_API_KEY",
+        aws_individual_path="aragora/api/fasb",
+        github_secret_name="FASB_API_KEY",
+        description="FASB GAAP API key (internal proxy or enterprise license)",
+        rotation_days=90,
+    ),
+    SecretDefinition(
+        name="IRS Tax Guidance API Base URL",
+        env_var="IRS_API_BASE",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="IRS_API_BASE",
+        github_secret_name="IRS_API_BASE",
+        description="IRS tax guidance API base URL (internal proxy)",
+    ),
+    SecretDefinition(
+        name="IRS Tax Guidance API Key",
+        env_var="IRS_API_KEY",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="IRS_API_KEY",
+        aws_individual_path="aragora/api/irs",
+        github_secret_name="IRS_API_KEY",
+        description="IRS tax guidance API key (internal proxy)",
+        rotation_days=90,
     ),
 ]
 
