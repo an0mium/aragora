@@ -77,7 +77,6 @@ class TestSendGridWebhook:
     """Tests for SendGrid webhook handling."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="EmailReplyLoop class not yet implemented in email_reply_loop module")
     async def test_handle_sendgrid_inbound(self, handler, mock_request):
         """Test handling SendGrid Inbound Parse webhook."""
         mock_request.headers = {"Content-Type": "multipart/form-data; boundary=----"}
@@ -96,10 +95,11 @@ class TestSendGridWebhook:
 
         mock_request.post = AsyncMock(return_value=form_data)
 
-        with patch("aragora.integrations.email_reply_loop.EmailReplyLoop") as MockLoop:
-            mock_loop = MockLoop.return_value
-            mock_loop.process_email = AsyncMock(return_value={"debate_id": "debate_123"})
-
+        with patch(
+            "aragora.integrations.email_reply_loop.process_inbound_email",
+            new_callable=AsyncMock,
+            return_value={"debate_id": "debate_123"},
+        ):
             response = await handler.handle_sendgrid(mock_request)
 
             assert response.status == 200
@@ -161,7 +161,6 @@ class TestMailgunWebhook:
     """Tests for Mailgun webhook handling."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="EmailReplyLoop class not yet implemented in email_reply_loop module")
     async def test_handle_mailgun_valid(self, handler, mock_request):
         """Test handling valid Mailgun webhook."""
         form_data = MagicMock()
@@ -182,12 +181,14 @@ class TestMailgunWebhook:
         mock_request.post = AsyncMock(return_value=form_data)
 
         with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature", return_value=True
+            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+            return_value=True,
         ):
-            with patch("aragora.integrations.email_reply_loop.EmailReplyLoop") as MockLoop:
-                mock_loop = MockLoop.return_value
-                mock_loop.process_email = AsyncMock(return_value={"debate_id": "debate_456"})
-
+            with patch(
+                "aragora.integrations.email_reply_loop.process_inbound_email",
+                new_callable=AsyncMock,
+                return_value={"debate_id": "debate_456"},
+            ):
                 response = await handler.handle_mailgun(mock_request)
 
                 assert response.status == 200
@@ -195,9 +196,6 @@ class TestMailgunWebhook:
                 assert body["status"] == "processed"
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(
-        reason="EmailReplyLoop import in handler prevents testing signature validation alone"
-    )
     async def test_handle_mailgun_invalid_signature(self, handler, mock_request):
         """Test handling Mailgun webhook with invalid signature."""
         form_data = MagicMock()
@@ -210,7 +208,8 @@ class TestMailgunWebhook:
         mock_request.post = AsyncMock(return_value=form_data)
 
         with patch(
-            "aragora.integrations.email_reply_loop.verify_mailgun_signature", return_value=False
+            "aragora.integrations.email_reply_loop.verify_mailgun_signature",
+            return_value=False,
         ):
             response = await handler.handle_mailgun(mock_request)
 
@@ -278,7 +277,6 @@ class TestSESWebhook:
         assert response.status == 400
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="EmailReplyLoop class not yet implemented in email_reply_loop module")
     async def test_handle_ses_notification(self, handler, mock_request):
         """Test handling SES notification."""
         message = {
@@ -292,13 +290,15 @@ class TestSESWebhook:
         }
         mock_request.read = AsyncMock(return_value=json.dumps(message).encode())
 
-        with patch("aragora.integrations.email_reply_loop.verify_ses_signature", return_value=True):
+        with patch(
+            "aragora.integrations.email_reply_loop.verify_ses_signature",
+            return_value=True,
+        ):
             response = await handler.handle_ses(mock_request)
 
             assert response.status == 200
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="EmailReplyLoop class not yet implemented in email_reply_loop module")
     async def test_handle_ses_bounce(self, handler, mock_request):
         """Test handling SES bounce notification."""
         message = {
@@ -315,7 +315,10 @@ class TestSESWebhook:
         }
         mock_request.read = AsyncMock(return_value=json.dumps(message).encode())
 
-        with patch("aragora.integrations.email_reply_loop.verify_ses_signature", return_value=True):
+        with patch(
+            "aragora.integrations.email_reply_loop.verify_ses_signature",
+            return_value=True,
+        ):
             response = await handler.handle_ses(mock_request)
 
             assert response.status == 200
@@ -351,7 +354,6 @@ class TestHandlerStats:
     """Tests for handler statistics."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="EmailReplyLoop class not yet implemented in email_reply_loop module")
     async def test_stats_tracking(self, handler, mock_request):
         """Test that stats are tracked correctly."""
         assert handler._processed_count == 0
@@ -367,10 +369,11 @@ class TestHandlerStats:
         }.get(key, default)
         mock_request.post = AsyncMock(return_value=form_data)
 
-        with patch("aragora.integrations.email_reply_loop.EmailReplyLoop") as MockLoop:
-            mock_loop = MockLoop.return_value
-            mock_loop.process_email = AsyncMock(return_value={})
-
+        with patch(
+            "aragora.integrations.email_reply_loop.process_inbound_email",
+            new_callable=AsyncMock,
+            return_value={},
+        ):
             await handler.handle_sendgrid(mock_request)
 
             stats = handler.get_stats()

@@ -13,6 +13,8 @@ import hashlib
 import logging
 from typing import Any, TYPE_CHECKING, Optional
 
+from aragora.debate.context_budgeter import ContextBudgeter, ContextSection
+
 # Import QuestionClassifier for LLM-based classification
 QuestionClassifier: Any
 QuestionClassification: Any
@@ -353,6 +355,9 @@ class PromptBuilder:
         self._evidence_cache: dict[str, str] = {}
         self._trending_cache: dict[str, str] = {}
         self._cache_max_size: int = 100
+
+        # Context budgeter for mixed input types
+        self._context_budgeter = ContextBudgeter()
 
         # Supermemory external memory integration (cross-session context)
         self.supermemory_adapter = supermemory_adapter
@@ -698,6 +703,39 @@ class PromptBuilder:
     def get_continuum_context(self) -> str:
         """Get cached continuum memory context."""
         return self._continuum_context_cache
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        if not text:
+            return 0
+        return max(1, len(text) // 4)
+
+    def _apply_context_budget(
+        self,
+        *,
+        env_context: str,
+        sections: list[ContextSection],
+    ) -> tuple[str, str]:
+        """Apply context budgets and return (context_block, env_context_str)."""
+        budgeter = self._context_budgeter
+
+        trimmed_env = env_context
+        remaining = budgeter.total_tokens
+        if trimmed_env:
+            trimmed_env = budgeter.truncate_section("env_context", trimmed_env)
+            remaining = max(remaining - self._estimate_tokens(trimmed_env), 0)
+
+        budgeted_sections = budgeter.apply(sections, total_tokens=remaining)
+        context_block = "\n\n".join(
+            section.content for section in budgeted_sections if section.content
+        )
+        if context_block:
+            context_block = f"\n\n{context_block}"
+
+        if trimmed_env:
+            trimmed_env = f"\n\n{trimmed_env}"
+
+        return context_block, trimmed_env
 
     async def inject_supermemory_context(
         self,
@@ -1249,7 +1287,7 @@ The system will provide relevant details from the full history."""
             audience_section: Optional pre-formatted audience suggestions section
             all_agents: Optional list of all agents for ELO context injection
         """
-        context_str = f"\n\nContext: {self.env.context}" if self.env.context else ""
+        env_context = f"Context: {self.env.context}" if self.env.context else ""
 
         # Add research status indicator
         research_status = ""
@@ -1285,7 +1323,7 @@ The system will provide relevant details from the full history."""
             # Use RLM abstract which preserves semantic content
             rlm_abstract = self.get_rlm_abstract(max_chars=800)
             if rlm_abstract:
-                historical_section = f"\n\n## Prior Context (Compressed)\n{rlm_abstract}"
+                historical_section = f"## Prior Context (Compressed)\n{rlm_abstract}"
                 # Add hint about drill-down capability
                 rlm_hint = self.get_rlm_context_hint()
                 if rlm_hint:
@@ -1293,25 +1331,25 @@ The system will provide relevant details from the full history."""
         elif self._historical_context_cache:
             # Fallback to simple truncation if RLM not available
             historical = self._historical_context_cache[:800]
-            historical_section = f"\n\n{historical}"
+            historical_section = f"{historical}"
 
         # Include continuum memory context (cross-debate learnings)
         continuum_section = ""
         continuum_context = self.get_continuum_context()
         if continuum_context:
-            continuum_section = f"\n\n{continuum_context}"
+            continuum_section = f"{continuum_context}"
 
         # Include supermemory external context (cross-session learnings)
         supermemory_section = ""
         supermemory_context = self.get_supermemory_context()
         if supermemory_context:
-            supermemory_section = f"\n\n{supermemory_context}"
+            supermemory_section = f"{supermemory_context}"
 
         # Include historical belief cruxes (key disagreement points from past debates)
         belief_section = ""
         belief_context = self._inject_belief_context(limit=3)
         if belief_context:
-            belief_section = f"\n\n{belief_context}"
+            belief_section = f"{belief_context}"
 
         # Include historical dissents and minority views
         # RLM pattern: register full dissent context, show summary in prompt
@@ -1330,12 +1368,10 @@ The system will provide relevant details from the full history."""
                             content_type="dissent",
                             include_hint=self._enable_rlm_hints,
                         )
-                        dissent_section = f"\n\n## Historical Minority Views\n{formatted}"
+                        dissent_section = f"## Historical Minority Views\n{formatted}"
                     else:
                         # Fallback: simple truncation
-                        dissent_section = (
-                            f"\n\n## Historical Minority Views\n{dissent_context[:600]}"
-                        )
+                        dissent_section = f"## Historical Minority Views\n{dissent_context[:600]}"
             except (AttributeError, TypeError, KeyError) as e:
                 logger.debug(f"Dissent retrieval error: {e}")
             except Exception as e:
@@ -1345,39 +1381,58 @@ The system will provide relevant details from the full history."""
         patterns_section = ""
         patterns = self.format_successful_patterns(limit=3)
         if patterns:
-            patterns_section = f"\n\n{patterns}"
+            patterns_section = f"{patterns}"
 
         # Include calibration feedback for poorly calibrated agents
         calibration_section = ""
         calibration_context = self._inject_calibration_context(agent)
         if calibration_context:
-            calibration_section = f"\n\n{calibration_context}"
+            calibration_section = f"{calibration_context}"
 
         # Include ELO ranking context for agent awareness of relative expertise (B3)
         elo_section = ""
         if all_agents:
             elo_context = self.get_elo_context(agent, all_agents)
             if elo_context:
-                elo_section = f"\n\n{elo_context}"
+                elo_section = f"{elo_context}"
 
         # Include evidence citations if available
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=5)
         if evidence_context:
-            evidence_section = f"\n\n{evidence_context}"
+            evidence_section = f"{evidence_context}"
 
         # Include trending topics for timely context (Pulse integration)
         trending_section = ""
         trending_context = self.format_trending_for_prompt(max_topics=3)
         if trending_context:
-            trending_section = f"\n\n{trending_context}"
+            trending_section = f"{trending_context}"
 
         # Format audience section if provided
         if audience_section:
-            audience_section = f"\n\n{audience_section}"
+            audience_section = f"{audience_section}"
+
+        sections = [
+            ContextSection("historical", historical_section.strip()),
+            ContextSection("continuum", continuum_section.strip()),
+            ContextSection("supermemory", supermemory_section.strip()),
+            ContextSection("belief", belief_section.strip()),
+            ContextSection("dissent", dissent_section.strip()),
+            ContextSection("patterns", patterns_section.strip()),
+            ContextSection("calibration", calibration_section.strip()),
+            ContextSection("elo", elo_section.strip()),
+            ContextSection("evidence", evidence_section.strip()),
+            ContextSection("trending", trending_section.strip()),
+            ContextSection("audience", audience_section.strip()),
+        ]
+
+        context_block, context_str = self._apply_context_budget(
+            env_context=env_context,
+            sections=sections,
+        )
 
         return f"""You are acting as a {agent.role} in a multi-agent debate (decision stress-test).{stance_section}{role_section}{persona_section}{flip_section}
-{historical_section}{continuum_section}{supermemory_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{elo_section}{evidence_section}{trending_section}{audience_section}
+{context_block}
 Task: {self.env.task}{context_str}{research_status}
 
 IMPORTANT: If this task mentions a specific website, company, product, or current topic, you MUST:

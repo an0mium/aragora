@@ -11,6 +11,7 @@ from aragora.events.subscribers.config import (
 )
 from aragora.events.subscribers.mound_handlers import MoundHandlersMixin
 from aragora.events.subscribers.debate_handlers import DebateHandlersMixin
+from aragora.events.subscribers.testfixer_handlers import TestFixerHandlersMixin
 
 __all__ = [
     "RetryConfig",
@@ -18,4 +19,5 @@ __all__ = [
     "AsyncDispatchConfig",
     "MoundHandlersMixin",
     "DebateHandlersMixin",
+    "TestFixerHandlersMixin",
 ]

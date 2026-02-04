@@ -93,7 +93,8 @@ capabilities:
   knowledge_mound:
     api:
       - "GET /api/v1/knowledge/search"
-    cli: []
+    cli:
+      - "aragora knowledge search"
     sdk:
       python:
         - "knowledge"
@@ -106,6 +107,7 @@ capabilities:
     api:
       - "GET /api/v1/memory/query"
     cli:
+      - "aragora memory"
       - "aragora stats"
     sdk:
       python:

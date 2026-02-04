@@ -126,6 +126,9 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Memory Streams** | Stable | Event-based memory updates | `aragora/memory/streams.py` | |
 | **Embeddings** | Stable | Semantic embedding for retrieval (OpenAI, Gemini, Ollama) | `aragora/memory/embeddings.py` | |
 | **Critique Store** | Stable | Critique pattern storage | `aragora/memory/store.py` | |
+| **Progressive Memory Search** | Stable | Staged retrieval (index → timeline → entries) | `aragora/server/handlers/memory/memory.py` | |
+| **Memory Viewer** | Stable | HTML viewer for memory inspection | `aragora/server/handlers/memory/memory.py` | |
+| **Tool Usage Capture** | Optional | Opt-in tool usage capture into FAST tier | `aragora/memory/capture.py` | |
 
 ### Memory Tiers
 

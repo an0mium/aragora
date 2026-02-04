@@ -544,6 +544,7 @@ Return JSON with these exact fields:
         # Create config for factory
         config = DebateConfig(
             question=request.question,
+            context=request.context,
             agents_str=agents_str,
             rounds=request.rounds,
             consensus=request.consensus,

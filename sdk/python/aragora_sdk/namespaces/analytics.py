@@ -330,6 +330,80 @@ class AnalyticsAPI:
             params={"agents": ",".join(agents)},
         )
 
+    def agents_performance_summary(
+        self,
+        time_range: str = "30d",
+        org_id: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """
+        Get aggregate performance metrics for all agents.
+
+        Args:
+            time_range: Time range (e.g., '7d', '30d', '90d')
+            org_id: Organization ID filter
+            limit: Maximum number of agents to include
+
+        Returns:
+            Aggregate agent performance data including:
+            - Total debates participated
+            - Average consensus contribution
+            - Win rates by agent
+            - Performance trends
+        """
+        params: dict[str, Any] = {"time_range": time_range, "limit": limit}
+        if org_id:
+            params["org_id"] = org_id
+        return self._client.request("GET", "/api/v1/analytics/agents/performance", params=params)
+
+    def debates_summary(
+        self,
+        time_range: str = "30d",
+        org_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get summary statistics for debates.
+
+        Args:
+            time_range: Time range (e.g., '7d', '30d', '90d')
+            org_id: Organization ID filter
+
+        Returns:
+            Debate summary including:
+            - Total debates
+            - Consensus rate
+            - Average rounds
+            - Outcomes distribution
+        """
+        params: dict[str, Any] = {"time_range": time_range}
+        if org_id:
+            params["org_id"] = org_id
+        return self._client.request("GET", "/api/v1/analytics/debates/summary", params=params)
+
+    def workspace_usage(
+        self,
+        workspace_id: str,
+        time_range: str = "30d",
+    ) -> dict[str, Any]:
+        """
+        Get workspace-level usage metrics.
+
+        Args:
+            workspace_id: Workspace ID
+            time_range: Time range (e.g., '7d', '30d', '90d')
+
+        Returns:
+            Workspace usage data including:
+            - Total debates
+            - Total tokens used
+            - Active users count
+            - Cost estimates
+        """
+        params: dict[str, Any] = {"time_range": time_range}
+        return self._client.request(
+            "GET", f"/api/v1/analytics/workspace/{workspace_id}/usage", params=params
+        )
+
     def calibration_stats(self, agent: str | None = None) -> dict[str, Any]:
         """
         Get calibration statistics.
@@ -686,6 +760,42 @@ class AsyncAnalyticsAPI:
             "GET",
             "/api/analytics/agents/comparison",
             params={"agents": ",".join(agents)},
+        )
+
+    async def agents_performance_summary(
+        self,
+        time_range: str = "30d",
+        org_id: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """Get aggregate performance metrics for all agents."""
+        params: dict[str, Any] = {"time_range": time_range, "limit": limit}
+        if org_id:
+            params["org_id"] = org_id
+        return await self._client.request(
+            "GET", "/api/v1/analytics/agents/performance", params=params
+        )
+
+    async def debates_summary(
+        self,
+        time_range: str = "30d",
+        org_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get summary statistics for debates."""
+        params: dict[str, Any] = {"time_range": time_range}
+        if org_id:
+            params["org_id"] = org_id
+        return await self._client.request("GET", "/api/v1/analytics/debates/summary", params=params)
+
+    async def workspace_usage(
+        self,
+        workspace_id: str,
+        time_range: str = "30d",
+    ) -> dict[str, Any]:
+        """Get workspace-level usage metrics."""
+        params: dict[str, Any] = {"time_range": time_range}
+        return await self._client.request(
+            "GET", f"/api/v1/analytics/workspace/{workspace_id}/usage", params=params
         )
 
     # ===========================================================================

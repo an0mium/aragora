@@ -20,12 +20,21 @@ async def run_decide(
     task: str,
     agents_str: str,
     rounds: int = 9,
+    context: str = "",
+    documents: list[str] | None = None,
     auto_approve: bool = False,
     dry_run: bool = False,
     budget_limit: float | None = None,
     execution_mode: str | None = None,
     auto_select: bool = False,
     auto_select_config: dict[str, Any] | None = None,
+    enable_knowledge_retrieval: bool | None = None,
+    enable_knowledge_ingestion: bool | None = None,
+    enable_cross_debate_memory: bool | None = None,
+    enable_supermemory: bool | None = None,
+    supermemory_context_container_tag: str | None = None,
+    supermemory_max_context_items: int | None = None,
+    enable_belief_guidance: bool | None = None,
     verbose: bool = False,
 ) -> dict[str, Any]:
     """Run the full decision pipeline: debate → plan → execute.
@@ -60,8 +69,17 @@ async def run_decide(
         task=task,
         agents_str=agents_str,
         rounds=rounds,
+        context=context,
+        documents=documents,
         auto_select=auto_select,
         auto_select_config=auto_select_config,
+        enable_knowledge_retrieval=enable_knowledge_retrieval,
+        enable_knowledge_ingestion=enable_knowledge_ingestion,
+        enable_cross_debate_memory=enable_cross_debate_memory,
+        enable_supermemory=enable_supermemory,
+        supermemory_context_container_tag=supermemory_context_container_tag,
+        supermemory_max_context_items=supermemory_max_context_items,
+        enable_belief_guidance=enable_belief_guidance,
     )
     result["debate_result"] = debate_result
 
@@ -133,7 +151,11 @@ async def run_decide(
 
 def cmd_decide(args: argparse.Namespace) -> None:
     """Handle 'decide' command - full gold path."""
-    from aragora.cli.commands.debate import _parse_auto_select_config
+    from aragora.cli.commands.debate import (
+        _append_context_file,
+        _parse_auto_select_config,
+        _parse_document_ids,
+    )
 
     execution_mode = getattr(args, "execution_mode", None)
     if getattr(args, "computer_use", False):
@@ -150,17 +172,50 @@ def cmd_decide(args: argparse.Namespace) -> None:
     if auto_select_config and not auto_select:
         auto_select = True
 
+    context = getattr(args, "context", None) or ""
+    context_file = getattr(args, "context_file", None)
+    if context_file:
+        try:
+            context = _append_context_file(context, context_file)
+        except (OSError, UnicodeDecodeError, ValueError) as e:
+            print(f"Failed to read --context-file: {e}", file=sys.stderr)
+            raise SystemExit(2)
+
+    documents = _parse_document_ids(
+        getattr(args, "document", None),
+        getattr(args, "documents", None),
+    )
+
+    no_knowledge = bool(getattr(args, "no_knowledge", False))
+    no_cross_memory = bool(getattr(args, "no_cross_memory", False))
+    enable_supermemory = bool(getattr(args, "enable_supermemory", False))
+    supermemory_container = getattr(args, "supermemory_container", None)
+    supermemory_max_items = getattr(args, "supermemory_max_items", None)
+    enable_belief_guidance = bool(getattr(args, "enable_belief_guidance", False))
+
+    if supermemory_container or supermemory_max_items is not None:
+        enable_supermemory = True
+
     result = asyncio.run(
         run_decide(
             task=args.task,
             agents_str=args.agents,
             rounds=args.rounds,
+            context=context,
+            documents=documents or None,
             auto_approve=getattr(args, "auto_approve", False),
             dry_run=getattr(args, "dry_run", False),
             budget_limit=getattr(args, "budget_limit", None),
             execution_mode=execution_mode,
             auto_select=auto_select,
             auto_select_config=auto_select_config,
+            enable_knowledge_retrieval=None if not no_knowledge else False,
+            enable_knowledge_ingestion=None if not no_knowledge else False,
+            enable_cross_debate_memory=None if not no_cross_memory else False,
+            enable_supermemory=True if enable_supermemory else None,
+            supermemory_context_container_tag=supermemory_container,
+            supermemory_max_context_items=supermemory_max_items,
+            enable_belief_guidance=True if enable_belief_guidance else None,
             verbose=getattr(args, "verbose", False),
         )
     )

@@ -88,6 +88,44 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     return asyncio.run(coro)
 
 
+def sync_wrapper(async_method):
+    """Decorator that creates a sync wrapper for an async method.
+
+    Use this to eliminate boilerplate sync/async pairs in store classes.
+    The generated sync method calls run_async() to bridge to the async impl.
+
+    Usage::
+
+        class MyStore:
+            async def get_async(self, id: str) -> Item | None:
+                ...
+
+            # Instead of writing:
+            #   def get(self, id): return run_async(self.get_async(id))
+            # Just do:
+            get = sync_wrapper(get_async)
+
+    Or as a class decorator helper::
+
+        class MyStore:
+            async def save_async(self, data): ...
+            async def delete_async(self, id): ...
+
+            save = sync_wrapper(save_async)
+            delete = sync_wrapper(delete_async)
+    """
+    import functools
+
+    @functools.wraps(async_method)
+    def wrapper(self, *args, **kwargs):
+        return run_async(async_method(self, *args, **kwargs))
+
+    # Mark as auto-generated for introspection
+    wrapper._is_sync_wrapper = True
+    wrapper._async_method = async_method
+    return wrapper
+
+
 # Semaphore to limit concurrent subprocess calls (prevent resource exhaustion)
 _subprocess_semaphore = asyncio.Semaphore(10)
 

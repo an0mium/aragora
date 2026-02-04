@@ -20,7 +20,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Awaitable
+from typing import TYPE_CHECKING, Any, Callable, Awaitable
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+    LLMAnalyzerConfig: TypeAlias = Any
+    ArenaValidatorConfig: TypeAlias = Any
+    RedTeamValidatorConfig: TypeAlias = Any
 
 from aragora.nomic.testfixer.runner import TestRunner, TestResult, TestFailure
 from aragora.nomic.testfixer.analyzer import FailureAnalyzer, FailureAnalysis, FixTarget
@@ -131,6 +138,16 @@ class FixLoopConfig:
     min_confidence_to_apply: float = 0.5
     min_confidence_for_auto: float = 0.7  # Higher threshold for fully auto
 
+    # LLM analysis & validation
+    use_llm_analyzer: bool = False
+    llm_analyzer_config: "LLMAnalyzerConfig | None" = None
+    enable_arena_validation: bool = False
+    arena_validator_config: "ArenaValidatorConfig | None" = None
+    enable_redteam_validation: bool = False
+    redteam_validator_config: "RedTeamValidatorConfig | None" = None
+    enable_pattern_learning: bool = False
+    pattern_store_path: Path | None = None
+
     # Behavior
     revert_on_failure: bool = True
     require_debate_consensus: bool = False
@@ -202,12 +219,57 @@ class TestFixerOrchestrator:
             artifacts_dir=self.config.artifacts_dir,
             enable_diagnostics=self.config.enable_diagnostics,
         )
-        self.analyzer = FailureAnalyzer(repo_path=self.repo_path)
+        ai_analyzer = None
+        if self.config.use_llm_analyzer:
+            try:
+                from aragora.nomic.testfixer.analyzers import LLMAnalyzerConfig, LLMFailureAnalyzer
+
+                llm_config = self.config.llm_analyzer_config or LLMAnalyzerConfig()
+                ai_analyzer = LLMFailureAnalyzer(llm_config)
+            except Exception as exc:
+                logger.warning("testfixer.llm_analyzer_unavailable error=%s", exc)
+
+        self.analyzer = FailureAnalyzer(repo_path=self.repo_path, ai_analyzer=ai_analyzer)
         self.proposer = PatchProposer(
             repo_path=self.repo_path,
             generators=generators,
             require_consensus=self.config.require_debate_consensus,
         )
+
+        self.arena_validator = None
+        if self.config.enable_arena_validation:
+            try:
+                from aragora.nomic.testfixer.validators import ArenaValidator, ArenaValidatorConfig
+
+                arena_config = self.config.arena_validator_config or ArenaValidatorConfig()
+                self.arena_validator = ArenaValidator(arena_config)
+            except Exception as exc:
+                logger.warning("testfixer.arena_validator_unavailable error=%s", exc)
+
+        self.redteam_validator = None
+        if self.config.enable_redteam_validation:
+            try:
+                from aragora.nomic.testfixer.validators import (
+                    RedTeamValidator,
+                    RedTeamValidatorConfig,
+                )
+
+                redteam_config = self.config.redteam_validator_config or RedTeamValidatorConfig()
+                self.redteam_validator = RedTeamValidator(redteam_config)
+            except Exception as exc:
+                logger.warning("testfixer.redteam_validator_unavailable error=%s", exc)
+
+        self.pattern_learner = None
+        if self.config.enable_pattern_learning:
+            try:
+                from aragora.nomic.testfixer.learning import PatternLearner
+
+                store_path = self.config.pattern_store_path
+                if store_path is None:
+                    store_path = self.repo_path / ".testfixer" / "patterns.json"
+                self.pattern_learner = PatternLearner(store_path)
+            except Exception as exc:
+                logger.warning("testfixer.pattern_learner_unavailable error=%s", exc)
 
         # State
         self._failure_history: list[str] = []  # Track failure patterns to detect loops

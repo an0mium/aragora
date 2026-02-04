@@ -198,6 +198,13 @@ class ArenaBuilder:
         self._trending_topic: Optional["TrendingTopic"] = None
         self._consensus_memory: Any = None
         self._tier_analytics_tracker: Any = None
+        self._enable_knowledge_retrieval: bool | None = None
+        self._enable_knowledge_ingestion: bool | None = None
+        self._enable_cross_debate_memory: bool | None = None
+        self._enable_supermemory: bool | None = None
+        self._supermemory_context_container_tag: str | None = None
+        self._supermemory_max_context_items: int | None = None
+        self._enable_belief_guidance: bool | None = None
 
         # Loop configuration
         self._loop_id: str = ""
@@ -360,6 +367,34 @@ class ArenaBuilder:
             memory: ContinuumMemory instance
         """
         self._continuum_memory = memory
+        return self
+
+    def with_memory_options(
+        self,
+        *,
+        enable_knowledge_retrieval: bool | None = None,
+        enable_knowledge_ingestion: bool | None = None,
+        enable_cross_debate_memory: bool | None = None,
+        enable_supermemory: bool | None = None,
+        supermemory_context_container_tag: str | None = None,
+        supermemory_max_context_items: int | None = None,
+        enable_belief_guidance: bool | None = None,
+    ) -> ArenaBuilder:
+        """Set optional memory and knowledge flags."""
+        if enable_knowledge_retrieval is not None:
+            self._enable_knowledge_retrieval = enable_knowledge_retrieval
+        if enable_knowledge_ingestion is not None:
+            self._enable_knowledge_ingestion = enable_knowledge_ingestion
+        if enable_cross_debate_memory is not None:
+            self._enable_cross_debate_memory = enable_cross_debate_memory
+        if enable_supermemory is not None:
+            self._enable_supermemory = enable_supermemory
+        if supermemory_context_container_tag is not None:
+            self._supermemory_context_container_tag = supermemory_context_container_tag
+        if supermemory_max_context_items is not None:
+            self._supermemory_max_context_items = supermemory_max_context_items
+        if enable_belief_guidance is not None:
+            self._enable_belief_guidance = enable_belief_guidance
         return self
 
     # =========================================================================
@@ -1054,67 +1089,86 @@ class ArenaBuilder:
 
         from aragora.debate.protocol import resolve_default_protocol
 
-        return Arena(
-            environment=self._environment,
-            agents=self._agents,
-            protocol=resolve_default_protocol(self._protocol),
-            memory=self._memory,
-            event_hooks=event_hooks,
-            hook_manager=self._hook_manager,
-            event_emitter=self._event_emitter,
-            spectator=self._spectator,
-            debate_embeddings=self._debate_embeddings,
-            insight_store=self._insight_store,
-            recorder=self._recorder,
-            agent_weights=self._agent_weights,
-            position_tracker=self._position_tracker,
-            position_ledger=self._position_ledger,
-            enable_position_ledger=self._enable_position_ledger,
-            elo_system=self._elo_system,
-            persona_manager=self._persona_manager,
-            dissent_retriever=self._dissent_retriever,
-            consensus_memory=self._consensus_memory,
-            flip_detector=self._flip_detector,
-            calibration_tracker=self._calibration_tracker,
-            continuum_memory=self._continuum_memory,
-            relationship_tracker=self._relationship_tracker,
-            moment_detector=self._moment_detector,
-            tier_analytics_tracker=self._tier_analytics_tracker,
-            document_store=self._document_store,
-            evidence_store=self._evidence_store,
-            loop_id=self._loop_id,
-            strict_loop_scoping=self._strict_loop_scoping,
-            circuit_breaker=self._circuit_breaker,
-            initial_messages=self._initial_messages,
-            trending_topic=self._trending_topic,
-            pulse_manager=self._pulse_manager,
-            auto_fetch_trending=self._auto_fetch_trending,
-            population_manager=self._population_manager,
-            auto_evolve=self._auto_evolve,
-            breeding_threshold=self._breeding_threshold,
-            evidence_collector=self._evidence_collector,
-            breakpoint_manager=self._breakpoint_manager,
-            checkpoint_manager=self._checkpoint_manager,
-            enable_checkpointing=self._enable_checkpointing,
-            performance_monitor=self._performance_monitor,
-            enable_performance_monitor=self._enable_performance_monitor,
-            enable_telemetry=self._enable_telemetry,
-            use_airlock=self._use_airlock,
-            airlock_config=self._airlock_config,
-            agent_selector=self._agent_selector,
-            use_performance_selection=self._use_performance_selection,
-            prompt_evolver=self._prompt_evolver,
-            enable_prompt_evolution=self._enable_prompt_evolution,
-            org_id=self._org_id,
-            user_id=self._user_id,
-            usage_tracker=self._usage_tracker,
-            broadcast_pipeline=self._broadcast_pipeline,
-            auto_broadcast=self._auto_broadcast,
-            broadcast_min_confidence=self._broadcast_min_confidence,
-            training_exporter=self._training_exporter,
-            auto_export_training=self._auto_export_training,
-            training_export_min_confidence=self._training_export_min_confidence,
-        )
+        arena_kwargs: dict[str, Any] = {
+            "environment": self._environment,
+            "agents": self._agents,
+            "protocol": resolve_default_protocol(self._protocol),
+            "memory": self._memory,
+            "event_hooks": event_hooks,
+            "hook_manager": self._hook_manager,
+            "event_emitter": self._event_emitter,
+            "spectator": self._spectator,
+            "debate_embeddings": self._debate_embeddings,
+            "insight_store": self._insight_store,
+            "recorder": self._recorder,
+            "agent_weights": self._agent_weights,
+            "position_tracker": self._position_tracker,
+            "position_ledger": self._position_ledger,
+            "enable_position_ledger": self._enable_position_ledger,
+            "elo_system": self._elo_system,
+            "persona_manager": self._persona_manager,
+            "dissent_retriever": self._dissent_retriever,
+            "consensus_memory": self._consensus_memory,
+            "flip_detector": self._flip_detector,
+            "calibration_tracker": self._calibration_tracker,
+            "continuum_memory": self._continuum_memory,
+            "relationship_tracker": self._relationship_tracker,
+            "moment_detector": self._moment_detector,
+            "tier_analytics_tracker": self._tier_analytics_tracker,
+            "document_store": self._document_store,
+            "evidence_store": self._evidence_store,
+            "loop_id": self._loop_id,
+            "strict_loop_scoping": self._strict_loop_scoping,
+            "circuit_breaker": self._circuit_breaker,
+            "initial_messages": self._initial_messages,
+            "trending_topic": self._trending_topic,
+            "pulse_manager": self._pulse_manager,
+            "auto_fetch_trending": self._auto_fetch_trending,
+            "population_manager": self._population_manager,
+            "auto_evolve": self._auto_evolve,
+            "breeding_threshold": self._breeding_threshold,
+            "evidence_collector": self._evidence_collector,
+            "breakpoint_manager": self._breakpoint_manager,
+            "checkpoint_manager": self._checkpoint_manager,
+            "enable_checkpointing": self._enable_checkpointing,
+            "performance_monitor": self._performance_monitor,
+            "enable_performance_monitor": self._enable_performance_monitor,
+            "enable_telemetry": self._enable_telemetry,
+            "use_airlock": self._use_airlock,
+            "airlock_config": self._airlock_config,
+            "agent_selector": self._agent_selector,
+            "use_performance_selection": self._use_performance_selection,
+            "prompt_evolver": self._prompt_evolver,
+            "enable_prompt_evolution": self._enable_prompt_evolution,
+            "org_id": self._org_id,
+            "user_id": self._user_id,
+            "usage_tracker": self._usage_tracker,
+            "broadcast_pipeline": self._broadcast_pipeline,
+            "auto_broadcast": self._auto_broadcast,
+            "broadcast_min_confidence": self._broadcast_min_confidence,
+            "training_exporter": self._training_exporter,
+            "auto_export_training": self._auto_export_training,
+            "training_export_min_confidence": self._training_export_min_confidence,
+        }
+
+        if self._enable_knowledge_retrieval is not None:
+            arena_kwargs["enable_knowledge_retrieval"] = self._enable_knowledge_retrieval
+        if self._enable_knowledge_ingestion is not None:
+            arena_kwargs["enable_knowledge_ingestion"] = self._enable_knowledge_ingestion
+        if self._enable_cross_debate_memory is not None:
+            arena_kwargs["enable_cross_debate_memory"] = self._enable_cross_debate_memory
+        if self._enable_supermemory is not None:
+            arena_kwargs["enable_supermemory"] = self._enable_supermemory
+        if self._supermemory_context_container_tag is not None:
+            arena_kwargs["supermemory_context_container_tag"] = (
+                self._supermemory_context_container_tag
+            )
+        if self._supermemory_max_context_items is not None:
+            arena_kwargs["supermemory_max_context_items"] = self._supermemory_max_context_items
+        if self._enable_belief_guidance is not None:
+            arena_kwargs["enable_belief_guidance"] = self._enable_belief_guidance
+
+        return Arena(**arena_kwargs)
 
 
 # Convenience function for minimal Arena creation

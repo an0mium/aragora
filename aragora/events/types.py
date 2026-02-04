@@ -318,6 +318,16 @@ class StreamEventType(Enum):
     CONNECTOR_PLAID_TRANSACTION_SYNC = "connector_plaid_transaction_sync"  # New transactions synced
     CONNECTOR_QBO_WEBHOOK = "connector_qbo_webhook"  # QuickBooks webhook received
 
+    # TestFixer Events (autonomous test repair)
+    TESTFIXER_FAILURE_DETECTED = "testfixer_failure_detected"  # Test failure discovered
+    TESTFIXER_ANALYSIS_COMPLETE = "testfixer_analysis_complete"  # Failure analysis done
+    TESTFIXER_FIX_PROPOSED = "testfixer_fix_proposed"  # Fix candidate generated
+    TESTFIXER_FIX_APPLIED = "testfixer_fix_applied"  # Fix applied to codebase
+    TESTFIXER_FIX_REVERTED = "testfixer_fix_reverted"  # Fix reverted (failed verification)
+    TESTFIXER_ITERATION_COMPLETE = "testfixer_iteration_complete"  # One fix cycle done
+    TESTFIXER_LOOP_COMPLETE = "testfixer_loop_complete"  # Full fix loop finished
+    TESTFIXER_PATTERN_LEARNED = "testfixer_pattern_learned"  # New fix pattern learned
+
 
 @dataclass
 class StreamEvent:

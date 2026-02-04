@@ -163,6 +163,147 @@ class WorkspacesAPI:
             "DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}"
         )
 
+    def list_members(
+        self,
+        workspace_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List workspace members.
+
+        Args:
+            workspace_id: Workspace ID
+            limit: Maximum results (default: 50)
+            offset: Pagination offset
+
+        Returns:
+            Dict with members array and count
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request(
+            "GET", f"/api/v1/workspaces/{workspace_id}/members", params=params
+        )
+
+    def update_member_role(
+        self,
+        workspace_id: str,
+        user_id: str,
+        role: str,
+    ) -> dict[str, Any]:
+        """
+        Update a member's role in a workspace.
+
+        Args:
+            workspace_id: Workspace ID
+            user_id: User ID
+            role: New role to assign
+
+        Returns:
+            Dict with updated membership info
+        """
+        return self._client.request(
+            "PUT",
+            f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role",
+            json={"role": role},
+        )
+
+    def get_workspace_roles(self, workspace_id: str) -> dict[str, Any]:
+        """
+        Get available roles for a workspace.
+
+        Args:
+            workspace_id: Workspace ID
+
+        Returns:
+            Dict with available roles
+        """
+        return self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/roles")
+
+    # ===========================================================================
+    # Invite Management
+    # ===========================================================================
+
+    def create_invite(
+        self,
+        workspace_id: str,
+        email: str,
+        role: str = "member",
+    ) -> dict[str, Any]:
+        """
+        Create an invite to join a workspace.
+
+        Args:
+            workspace_id: Workspace ID
+            email: Email address to invite
+            role: Role to assign (default: "member")
+
+        Returns:
+            Dict with invite info including token
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/workspaces/{workspace_id}/invites",
+            json={"email": email, "role": role},
+        )
+
+    def list_invites(self, workspace_id: str) -> dict[str, Any]:
+        """
+        List pending invites for a workspace.
+
+        Args:
+            workspace_id: Workspace ID
+
+        Returns:
+            Dict with invites array
+        """
+        return self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/invites")
+
+    def cancel_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
+        """
+        Cancel a pending invite.
+
+        Args:
+            workspace_id: Workspace ID
+            invite_id: Invite ID to cancel
+
+        Returns:
+            Dict with success status
+        """
+        return self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}"
+        )
+
+    def resend_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
+        """
+        Resend an invite email.
+
+        Args:
+            workspace_id: Workspace ID
+            invite_id: Invite ID
+
+        Returns:
+            Dict with success status
+        """
+        return self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/resend"
+        )
+
+    def accept_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
+        """
+        Accept a workspace invite.
+
+        Args:
+            workspace_id: Workspace ID
+            invite_id: Invite ID
+
+        Returns:
+            Dict with success status and workspace info
+        """
+        return self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/accept"
+        )
+
     # ===========================================================================
     # Retention Policies
     # ===========================================================================
@@ -453,6 +594,74 @@ class AsyncWorkspacesAPI:
         """Remove a member from a workspace."""
         return await self._client.request(
             "DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}"
+        )
+
+    async def list_members(
+        self,
+        workspace_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List workspace members."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request(
+            "GET", f"/api/v1/workspaces/{workspace_id}/members", params=params
+        )
+
+    async def update_member_role(
+        self,
+        workspace_id: str,
+        user_id: str,
+        role: str,
+    ) -> dict[str, Any]:
+        """Update a member's role in a workspace."""
+        return await self._client.request(
+            "PUT",
+            f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role",
+            json={"role": role},
+        )
+
+    async def get_workspace_roles(self, workspace_id: str) -> dict[str, Any]:
+        """Get available roles for a workspace."""
+        return await self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/roles")
+
+    # ===========================================================================
+    # Invite Management
+    # ===========================================================================
+
+    async def create_invite(
+        self,
+        workspace_id: str,
+        email: str,
+        role: str = "member",
+    ) -> dict[str, Any]:
+        """Create an invite to join a workspace."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/workspaces/{workspace_id}/invites",
+            json={"email": email, "role": role},
+        )
+
+    async def list_invites(self, workspace_id: str) -> dict[str, Any]:
+        """List pending invites for a workspace."""
+        return await self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/invites")
+
+    async def cancel_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
+        """Cancel a pending invite."""
+        return await self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}"
+        )
+
+    async def resend_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
+        """Resend an invite email."""
+        return await self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/resend"
+        )
+
+    async def accept_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
+        """Accept a workspace invite."""
+        return await self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/accept"
         )
 
     # ===========================================================================
