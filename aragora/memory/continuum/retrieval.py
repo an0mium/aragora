@@ -57,6 +57,7 @@ class RetrievalMixin:
         include_glacial: bool = True,
         tier: str | MemoryTier | None = None,
         tenant_id: str | None = None,
+        enforce_tenant_isolation: bool = False,
     ) -> list[ContinuumMemoryEntry]:
         """
         Retrieve memories ranked by importance, surprise, and recency.
@@ -75,10 +76,20 @@ class RetrievalMixin:
             tenant_id: Optional tenant ID for multi-tenant isolation.
                        When provided, only returns entries belonging to
                        this tenant. When None, returns all entries (backward compatible).
+            enforce_tenant_isolation: If True, require tenant_id and raise
+                       TenantRequiredError if not provided. Use this in multi-tenant
+                       deployments to prevent accidental cross-tenant data access.
 
         Returns:
             List of memory entries sorted by retrieval score
+
+        Raises:
+            TenantRequiredError: If enforce_tenant_isolation=True and tenant_id is None
         """
+        # Enforce tenant isolation in multi-tenant mode
+        if enforce_tenant_isolation and tenant_id is None:
+            raise TenantRequiredError("retrieve")
+
         if tier is not None:
             target_tier: MemoryTier = MemoryTier(tier) if isinstance(tier, str) else tier
             if query:

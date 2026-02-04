@@ -139,11 +139,13 @@ class TierOpsMixin:
         Promote a memory to a faster tier.
 
         Uses TierManager for decision logic and records metrics.
-        Thread-safe: uses lock to prevent TOCTOU race conditions.
+        Thread-safe: uses immediate_transaction to prevent TOCTOU race conditions
+        across processes/pods. The Python lock provides in-process protection,
+        while BEGIN IMMEDIATE provides cross-process protection.
 
         Returns the new tier if promoted, None otherwise.
         """
-        with self._tier_lock, self.connection() as conn:
+        with self._tier_lock, self.immediate_transaction() as conn:
             cursor: sqlite3.Cursor = conn.cursor()
 
             cursor.execute(
@@ -202,7 +204,7 @@ class TierOpsMixin:
                 (id, current_tier.value, new_tier.value, surprise_score),
             )
 
-            conn.commit()
+            # Note: commit is handled by immediate_transaction() context manager
 
         # Record metrics in TierManager
         self._tier_manager.record_promotion(tm_current, tm_new)
@@ -217,11 +219,13 @@ class TierOpsMixin:
         Demote a memory to a slower tier.
 
         Uses TierManager for decision logic and records metrics.
-        Thread-safe: uses lock to prevent TOCTOU race conditions.
+        Thread-safe: uses immediate_transaction to prevent TOCTOU race conditions
+        across processes/pods. The Python lock provides in-process protection,
+        while BEGIN IMMEDIATE provides cross-process protection.
 
         Returns the new tier if demoted, None otherwise.
         """
-        with self._tier_lock, self.connection() as conn:
+        with self._tier_lock, self.immediate_transaction() as conn:
             cursor: sqlite3.Cursor = conn.cursor()
 
             cursor.execute(
@@ -280,7 +284,7 @@ class TierOpsMixin:
                 (id, current_tier.value, new_tier.value, surprise_score),
             )
 
-            conn.commit()
+            # Note: commit is handled by immediate_transaction() context manager
 
         # Record metrics in TierManager
         self._tier_manager.record_demotion(tm_current, tm_new)

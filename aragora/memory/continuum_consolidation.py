@@ -69,7 +69,9 @@ def promote_batch(
     Batch promote memories from one tier to another.
 
     Uses executemany for efficient batch updates instead of N+1 queries.
-    Thread-safe: uses lock to prevent race conditions with single-item operations.
+    Thread-safe: uses immediate_transaction to prevent race conditions across
+    processes/pods. The Python lock provides in-process protection,
+    while BEGIN IMMEDIATE provides cross-process protection.
 
     Args:
         cms: ContinuumMemory instance
@@ -87,7 +89,7 @@ def promote_batch(
     cooldown_hours = cms.hyperparams["promotion_cooldown_hours"]
     cutoff_time = (datetime.now() - timedelta(hours=cooldown_hours)).isoformat()
 
-    with cms._tier_lock, cms.connection() as conn:
+    with cms._tier_lock, cms.immediate_transaction() as conn:
         cursor = conn.cursor()
 
         # Batch UPDATE with cooldown check
@@ -130,7 +132,7 @@ def promote_batch(
                     ],
                 )
 
-        conn.commit()
+        # Note: commit is handled by immediate_transaction() context manager
 
     if promoted_count > 0:
         logger.info(
@@ -151,7 +153,9 @@ def demote_batch(
     Batch demote memories from one tier to another.
 
     Uses executemany for efficient batch updates instead of N+1 queries.
-    Thread-safe: uses lock to prevent race conditions with single-item operations.
+    Thread-safe: uses immediate_transaction to prevent race conditions across
+    processes/pods. The Python lock provides in-process protection,
+    while BEGIN IMMEDIATE provides cross-process protection.
 
     Args:
         cms: ContinuumMemory instance
@@ -167,7 +171,7 @@ def demote_batch(
 
     now = datetime.now().isoformat()
 
-    with cms._tier_lock, cms.connection() as conn:
+    with cms._tier_lock, cms.immediate_transaction() as conn:
         cursor = conn.cursor()
 
         # Batch UPDATE - update_count check is already done in candidate selection

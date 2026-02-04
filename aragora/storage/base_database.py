@@ -114,6 +114,53 @@ class BaseDatabase:
                 conn.execute("ROLLBACK")
                 raise
 
+    @contextmanager
+    def immediate_transaction(self) -> Generator[sqlite3.Connection, None, None]:
+        """Immediate transaction context manager for TOCTOU-safe read-modify-write.
+
+        Uses BEGIN IMMEDIATE to acquire a RESERVED lock before reading data.
+        This prevents other writers from modifying data between our read and write,
+        eliminating Time-Of-Check-Time-Of-Use (TOCTOU) race conditions.
+
+        Use this when you need to:
+        1. Read data to make a decision
+        2. Write based on that decision
+        3. Ensure no one else modifies the data between steps 1 and 2
+
+        For PostgreSQL compatibility, this would use SELECT ... FOR UPDATE.
+        For SQLite, BEGIN IMMEDIATE provides equivalent protection.
+
+        Note: Uses a dedicated connection with isolation_level=None (manual mode)
+        to have full control over transaction lifecycle without interference from
+        the connection pool's automatic commit/rollback behavior.
+
+        Yields:
+            sqlite3.Connection within an immediate transaction
+        """
+        # Create a dedicated connection with manual transaction control
+        # This avoids conflicts with the connection pool's auto-commit behavior
+        conn = sqlite3.connect(
+            str(self.db_path),
+            timeout=self._timeout,
+            check_same_thread=False,
+            isolation_level=None,  # Manual transaction control
+        )
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            yield conn
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except (sqlite3.ProgrammingError, sqlite3.OperationalError):
+                # No transaction active (BEGIN IMMEDIATE might have failed,
+                # or the transaction was already committed/rolled back)
+                pass
+            raise
+        finally:
+            conn.close()
+
     def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         """Execute query and fetch single row.
 
