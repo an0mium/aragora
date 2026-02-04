@@ -25,6 +25,7 @@ from aragora.verification.formal import (
     Z3Backend,
     get_formal_verification_manager,
 )
+from aragora.verification.hilbert import HilbertProver
 from aragora.verification.proofs import (
     ClaimVerifier,
     ProofBuilder,
@@ -63,6 +64,7 @@ __all__ = [
     "LeanBackend",
     "Z3Backend",
     "get_formal_verification_manager",
+    "HilbertProver",
     # DeepSeek-Prover integration
     "DeepSeekProverTranslator",
     "TranslationResult",

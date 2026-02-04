@@ -415,6 +415,9 @@ class DebateProtocol:
         default_factory=lambda: ["z3_smt"]
     )  # Languages to try: z3_smt, lean4
     formal_verification_timeout: float = 30.0  # Timeout for proof search (seconds)
+    enable_hilbert_proofing: bool = False  # Enable recursive proof decomposition
+    hilbert_max_depth: int = 2  # Max recursion depth for proofing
+    hilbert_min_subclaims: int = 2  # Min subclaims to branch
 
     # Byzantine consensus configuration (for consensus="byzantine")
     # PBFT-style fault-tolerant consensus tolerating f faulty nodes where n >= 3f+1

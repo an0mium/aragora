@@ -1362,23 +1362,55 @@ class ConsensusPhase:
                 }
                 return
 
-            verification_result = await asyncio.wait_for(
-                manager.attempt_formal_verification(
-                    claim=result.final_answer,
-                    claim_type="DEBATE_CONSENSUS",
-                    context=ctx.env.task if ctx.env else "",
-                    timeout_seconds=timeout,
-                ),
-                timeout=timeout + 5.0,
-            )
+            if getattr(self.protocol, "enable_hilbert_proofing", False):
+                from aragora.verification.hilbert import HilbertProver
 
-            result.formal_verification = verification_result.to_dict()
+                prover = HilbertProver(
+                    manager=manager,
+                    max_depth=getattr(self.protocol, "hilbert_max_depth", 2),
+                    min_subclaims=getattr(self.protocol, "hilbert_min_subclaims", 2),
+                    timeout_seconds=timeout,
+                )
+                proof_tree = await asyncio.wait_for(
+                    prover.prove(
+                        claim=result.final_answer,
+                        claim_type="DEBATE_CONSENSUS",
+                        context=ctx.env.task if ctx.env else "",
+                    ),
+                    timeout=timeout + 5.0,
+                )
+                result.formal_verification = proof_tree.to_dict()
+                verification_result = proof_tree.result
+                verification_status = proof_tree.status
+                verification_is_verified = proof_tree.is_verified
+                verification_language = (
+                    verification_result.language.value
+                    if verification_result and verification_result.language
+                    else None
+                )
+            else:
+                verification_result = await asyncio.wait_for(
+                    manager.attempt_formal_verification(
+                        claim=result.final_answer,
+                        claim_type="DEBATE_CONSENSUS",
+                        context=ctx.env.task if ctx.env else "",
+                        timeout_seconds=timeout,
+                    ),
+                    timeout=timeout + 5.0,
+                )
+
+                result.formal_verification = verification_result.to_dict()
+                verification_status = verification_result.status.value
+                verification_is_verified = verification_result.is_verified
+                verification_language = (
+                    verification_result.language.value if verification_result.language else None
+                )
 
             logger.info(
                 "formal_verification_complete status=%s language=%s verified=%s",
-                verification_result.status.value,
-                verification_result.language.value if verification_result.language else "none",
-                verification_result.is_verified,
+                verification_status,
+                verification_language or "none",
+                verification_is_verified,
             )
 
             if ctx.event_emitter:
@@ -1391,16 +1423,12 @@ class ConsensusPhase:
                             loop_id=ctx.loop_id,
                             data={
                                 "debate_id": ctx.debate_id,
-                                "status": verification_result.status.value,
-                                "is_verified": verification_result.is_verified,
-                                "language": (
-                                    verification_result.language.value
-                                    if verification_result.language
-                                    else None
-                                ),
+                                "status": verification_status,
+                                "is_verified": verification_is_verified,
+                                "language": verification_language,
                                 "formal_statement": (
                                     verification_result.formal_statement[:500]
-                                    if verification_result.formal_statement
+                                    if verification_result and verification_result.formal_statement
                                     else None
                                 ),
                             },
