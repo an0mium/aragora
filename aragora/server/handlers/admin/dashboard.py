@@ -67,7 +67,7 @@ PERM_ADMIN_METRICS_READ = "admin:metrics:read"
 DASHBOARD_PERMISSION = PERM_ADMIN_DASHBOARD_READ
 
 
-class DashboardHandler(DashboardViewsMixin, DashboardActionsMixin, SecureHandler):
+class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler):
     """Handler for dashboard endpoint.
 
     Requires authentication and dashboard.read permission (RBAC).
