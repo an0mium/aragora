@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from aragora.workflow.types import WorkflowDefinition
 
 from aragora.core_types import DebateResult
-from aragora.implement.types import ImplementPlan
+from aragora.implement.types import ImplementPlan, ImplementTask
 from aragora.pipeline.risk_register import RiskLevel, RiskRegister
 from aragora.pipeline.verification_plan import (
     CasePriority,
@@ -304,6 +304,8 @@ class ImplementationProfile:
     parallel_execution: bool | None = None
     max_parallel: int | None = None
     complexity_router: dict[str, str] | None = None
+    task_type_router: dict[str, str] | None = None
+    capability_router: dict[str, str] | None = None
 
     # Fabric orchestration options
     fabric_pool_id: str | None = None
@@ -355,6 +357,24 @@ class ImplementationProfile:
                 if key is not None and value is not None
             }
 
+        raw_type_router = data.get("task_type_router") or data.get("agent_by_task_type")
+        task_type_router = None
+        if isinstance(raw_type_router, dict):
+            task_type_router = {
+                str(key).lower(): str(value)
+                for key, value in raw_type_router.items()
+                if key is not None and value is not None
+            }
+
+        raw_cap_router = data.get("capability_router") or data.get("agent_by_capability")
+        capability_router = None
+        if isinstance(raw_cap_router, dict):
+            capability_router = {
+                str(key).lower(): str(value)
+                for key, value in raw_cap_router.items()
+                if key is not None and value is not None
+            }
+
         return cls(
             execution_mode=data.get("execution_mode"),
             implementers=implementers,
@@ -365,6 +385,8 @@ class ImplementationProfile:
             parallel_execution=data.get("parallel_execution"),
             max_parallel=data.get("max_parallel"),
             complexity_router=complexity_router,
+            task_type_router=task_type_router,
+            capability_router=capability_router,
             fabric_pool_id=data.get("fabric_pool_id") or data.get("pool_id"),
             fabric_models=fabric_models,
             fabric_min_agents=data.get("fabric_min_agents"),
@@ -387,6 +409,8 @@ class ImplementationProfile:
             "parallel_execution": self.parallel_execution,
             "max_parallel": self.max_parallel,
             "complexity_router": self.complexity_router,
+            "task_type_router": self.task_type_router,
+            "capability_router": self.capability_router,
             "fabric_pool_id": self.fabric_pool_id,
             "fabric_models": self.fabric_models,
             "fabric_min_agents": self.fabric_min_agents,
@@ -714,17 +738,42 @@ class DecisionPlan:
         task_steps: list[StepDefinition] = []
         critical_task_ids = self._find_critical_task_ids()
 
+        def _normalize_task_flags(task: ImplementTask) -> tuple[str, set[str]]:
+            task_type = str(getattr(task, "task_type", "") or "").lower()
+            caps = {str(c).lower() for c in (getattr(task, "capabilities", []) or []) if c}
+            return task_type, caps
+
+        def _needs_serial(task: ImplementTask) -> bool:
+            task_type, caps = _normalize_task_flags(task)
+            if getattr(task, "requires_approval", False):
+                return True
+            if task_type in {"computer_use", "manual", "browser", "ui"}:
+                return True
+            if "computer_use" in caps or "manual" in caps or "browser" in caps:
+                return True
+            return False
+
+        has_special_tasks = any(_needs_serial(t) for t in self.implement_plan.tasks)
+
         parallel_impl = (
             parallelize
             and len(self.implement_plan.tasks) > 1
             and not any(task.dependencies for task in self.implement_plan.tasks)
             and not critical_task_ids
+            and not has_special_tasks
         )
 
         for task in self.implement_plan.tasks:
             impl_step_id = ctx.next_step_id()
             task_to_step[task.id] = impl_step_id
             task_has_critical_risk = task.id in critical_task_ids
+            task_type, caps = _normalize_task_flags(task)
+            is_computer_use = (
+                task_type in {"computer_use", "browser", "ui"}
+                or "computer_use" in caps
+                or "browser" in caps
+            )
+            is_manual = task_type in {"manual", "human"} or "manual" in caps
 
             # Risk checkpoint before high-risk tasks (sequential only)
             if task_has_critical_risk and not parallel_impl:
@@ -743,19 +792,75 @@ class DecisionPlan:
                 )
                 ctx.advance(risk_checkpoint_id)
 
-            task_step = StepDefinition(
-                id=impl_step_id,
-                name=f"Implement: {task.description[:50]}",
-                step_type="implementation",
-                config={
-                    "task_id": task.id,
-                    "description": task.description,
-                    "files": task.files,
-                    "complexity": task.complexity,
-                },
-                description=task.description,
-                timeout_seconds=300.0 if task.complexity == "complex" else 120.0,
-            )
+            # Optional approval checkpoint for sensitive tasks (sequential only)
+            if getattr(task, "requires_approval", False) and not parallel_impl and not is_manual:
+                approval_id = ctx.next_step_id()
+                ctx.add_step(
+                    StepDefinition(
+                        id=approval_id,
+                        name=f"Approval: {task.description[:40]}",
+                        step_type="human_checkpoint",
+                        config={
+                            "prompt": f"Approve task execution: {task.description}",
+                            "risk_level": "moderate",
+                        },
+                        description="Approve task execution",
+                    )
+                )
+                ctx.advance(approval_id)
+
+            step_name = f"Implement: {task.description[:50]}"
+
+            if is_manual:
+                task_step = StepDefinition(
+                    id=impl_step_id,
+                    name=step_name,
+                    step_type="human_checkpoint",
+                    config={
+                        "prompt": f"Complete manual task: {task.description}",
+                        "risk_level": "manual",
+                        "context": {
+                            "task_id": task.id,
+                            "task_type": task_type,
+                            "capabilities": list(caps),
+                        },
+                    },
+                    description=task.description,
+                    timeout_seconds=86400.0,
+                )
+            elif is_computer_use:
+                task_step = StepDefinition(
+                    id=impl_step_id,
+                    name=step_name,
+                    step_type="computer_use_task",
+                    config={
+                        "goal": task.description,
+                        "initial_context": f"Debate {self.debate_id} plan {self.id}",
+                        "task_id": task.id,
+                        "task_type": task_type,
+                        "capabilities": list(caps),
+                        "requires_approval": getattr(task, "requires_approval", False),
+                    },
+                    description=task.description,
+                    timeout_seconds=600.0 if task.complexity == "complex" else 300.0,
+                )
+            else:
+                task_step = StepDefinition(
+                    id=impl_step_id,
+                    name=step_name,
+                    step_type="implementation",
+                    config={
+                        "task_id": task.id,
+                        "description": task.description,
+                        "files": task.files,
+                        "complexity": task.complexity,
+                        "task_type": task_type,
+                        "capabilities": list(caps),
+                        "requires_approval": getattr(task, "requires_approval", False),
+                    },
+                    description=task.description,
+                    timeout_seconds=300.0 if task.complexity == "complex" else 120.0,
+                )
 
             if parallel_impl:
                 task_steps.append(task_step)

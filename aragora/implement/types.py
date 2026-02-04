@@ -24,24 +24,47 @@ class ImplementTask:
     files: list[str]  # files to create/modify
     complexity: Literal["simple", "moderate", "complex"]
     dependencies: list[str] = field(default_factory=list)  # task IDs that must complete first
+    task_type: str | None = None
+    capabilities: list[str] = field(default_factory=list)
+    requires_approval: bool = False
 
     def to_dict(self) -> dict:
-        return {
+        payload = {
             "id": self.id,
             "description": self.description,
             "files": self.files,
             "complexity": self.complexity,
             "dependencies": self.dependencies,
         }
+        if self.task_type:
+            payload["task_type"] = self.task_type
+        if self.capabilities:
+            payload["capabilities"] = self.capabilities
+        if self.requires_approval:
+            payload["requires_approval"] = True
+        return payload
 
     @classmethod
     def from_dict(cls, data: dict) -> "ImplementTask":
+        raw_caps = data.get("capabilities", [])
+        caps: list[str] = []
+        if isinstance(raw_caps, str):
+            caps = [c.strip() for c in raw_caps.split(",") if c.strip()]
+        elif isinstance(raw_caps, (list, tuple)):
+            caps = [str(c).strip() for c in raw_caps if str(c).strip()]
+        task_type = data.get("task_type")
+        if task_type is not None:
+            task_type = str(task_type)
+        requires_approval = bool(data.get("requires_approval", False))
         return cls(
             id=data["id"],
             description=data["description"],
             files=data.get("files", []),
             complexity=data.get("complexity", "moderate"),
             dependencies=data.get("dependencies", []),
+            task_type=task_type,
+            capabilities=caps,
+            requires_approval=requires_approval,
         )
 
 

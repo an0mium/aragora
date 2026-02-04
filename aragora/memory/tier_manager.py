@@ -451,9 +451,7 @@ class GlacialPromotionScheduler:
 
                 cms = get_continuum_memory()
                 result = await self.run_once(cms)
-                logger.info(
-                    "GlacialPromotionScheduler cycle complete: %s", result
-                )
+                logger.info("GlacialPromotionScheduler cycle complete: %s", result)
             except Exception:
                 logger.exception("GlacialPromotionScheduler cycle failed")
 
@@ -506,9 +504,7 @@ class GlacialPromotionScheduler:
 
         # Batch demote to glacial
         try:
-            await cms._demote_batch(
-                MemoryTier.SLOW, MemoryTier.GLACIAL, candidate_ids
-            )
+            await cms._demote_batch(MemoryTier.SLOW, MemoryTier.GLACIAL, candidate_ids)
             num_promoted = num_candidates
         except Exception:
             logger.exception("Failed to demote batch to glacial tier")
@@ -517,9 +513,7 @@ class GlacialPromotionScheduler:
         # Record metrics
         if num_promoted > 0:
             for _ in range(num_promoted):
-                self._tier_manager.record_demotion(
-                    MemoryTier.SLOW, MemoryTier.GLACIAL
-                )
+                self._tier_manager.record_demotion(MemoryTier.SLOW, MemoryTier.GLACIAL)
             self.entries_promoted += num_promoted
 
         self.last_run_at = datetime.now().isoformat()

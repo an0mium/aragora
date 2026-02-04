@@ -725,7 +725,7 @@ class CloudStorageHandler(BaseHandler):
 
         try:
             data = base64.b64decode(content_b64)
-        except Exception:
+        except (ValueError, TypeError):
             return error_response("Invalid base64 content", 400)
 
         # Check file size

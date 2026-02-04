@@ -173,6 +173,127 @@ async def pubmed_search(
     }
 
 
+async def courtlistener_search(
+    query: str,
+    *,
+    limit: int = 10,
+    search_type: str = "o",
+    order_by: str | None = None,
+    court: str | None = None,
+) -> dict[str, Any]:
+    """Search CourtListener for case law."""
+    query = (query or "").strip()
+    if not query:
+        return {"cases": [], "error": "query is required"}
+
+    try:
+        from aragora.connectors import CourtListenerConnector
+    except Exception as e:  # pragma: no cover
+        logger.warning("CourtListener connector unavailable: %s", e)
+        return {"cases": [], "error": "courtlistener connector unavailable"}
+
+    connector = CourtListenerConnector()
+    if not getattr(connector, "is_available", True):
+        return {"cases": [], "error": "courtlistener connector unavailable (missing httpx)"}
+
+    try:
+        results = await connector.search(
+            query=query,
+            limit=limit,
+            search_type=search_type,
+            order_by=order_by,
+            court=court,
+        )
+    except Exception as e:
+        logger.warning("CourtListener search failed: %s", e)
+        return {"cases": [], "error": f"courtlistener search failed: {e}"}
+
+    return {
+        "query": query,
+        "count": len(results),
+        "cases": _evidence_list(results),
+        "search_type": search_type,
+        "order_by": order_by,
+        "court": court,
+    }
+
+
+async def govinfo_search(
+    query: str,
+    *,
+    limit: int = 10,
+    collection: str | None = None,
+    sort_field: str = "relevance",
+    sort_order: str = "DESC",
+) -> dict[str, Any]:
+    """Search GovInfo for statutes and federal documents."""
+    query = (query or "").strip()
+    if not query:
+        return {"results": [], "error": "query is required"}
+
+    try:
+        from aragora.connectors import GovInfoConnector
+    except Exception as e:  # pragma: no cover
+        logger.warning("GovInfo connector unavailable: %s", e)
+        return {"results": [], "error": "govinfo connector unavailable"}
+
+    connector = GovInfoConnector()
+    if not getattr(connector, "is_available", True):
+        return {"results": [], "error": "govinfo connector unavailable (missing httpx)"}
+
+    try:
+        results = await connector.search(
+            query=query,
+            limit=limit,
+            collection=collection,
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+    except Exception as e:
+        logger.warning("GovInfo search failed: %s", e)
+        return {"results": [], "error": f"govinfo search failed: {e}"}
+
+    return {
+        "query": query,
+        "count": len(results),
+        "collection": collection,
+        "results": _evidence_list(results),
+    }
+
+
+async def nice_guidance_search(
+    query: str,
+    *,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Search NICE clinical guidance documents."""
+    query = (query or "").strip()
+    if not query:
+        return {"guidelines": [], "error": "query is required"}
+
+    try:
+        from aragora.connectors import NICEGuidanceConnector
+    except Exception as e:  # pragma: no cover
+        logger.warning("NICE guidance connector unavailable: %s", e)
+        return {"guidelines": [], "error": "nice guidance connector unavailable"}
+
+    connector = NICEGuidanceConnector()
+    if not getattr(connector, "is_available", True):
+        return {"guidelines": [], "error": "nice guidance connector unavailable (missing httpx)"}
+
+    try:
+        results = await connector.search(query=query, limit=limit)
+    except Exception as e:
+        logger.warning("NICE guidance search failed: %s", e)
+        return {"guidelines": [], "error": f"nice guidance search failed: {e}"}
+
+    return {
+        "query": query,
+        "count": len(results),
+        "guidelines": _evidence_list(results),
+    }
+
+
 async def semantic_scholar_search(
     query: str,
     *,

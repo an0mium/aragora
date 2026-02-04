@@ -8,6 +8,7 @@ specialized prompts, tools, and compliance checking.
 from __future__ import annotations
 
 import logging
+import os
 from abc import abstractmethod
 from datetime import datetime, timezone
 from typing import Any, Optional, cast
@@ -17,7 +18,7 @@ from jinja2 import Template
 from aragora.core import Critique, Message
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.base import AgentType, create_agent
-from aragora.config.settings import ALLOWED_AGENT_TYPES
+from aragora.config.settings import ALLOWED_AGENT_TYPES, get_settings
 from aragora.core_types import AgentRole
 from aragora.verticals.config import (
     ComplianceConfig,
@@ -215,6 +216,13 @@ class VerticalSpecialistAgent(APIAgent):
                     "policy": policy_result,
                 }
             )
+            await self._record_tool_audit(
+                tool=tool,
+                parameters=parameters,
+                status="blocked",
+                policy=policy_result,
+                result=None,
+            )
             return {
                 "error": policy_result.get("reason", "Tool invocation blocked by policy"),
                 "policy": policy_result,
@@ -234,7 +242,59 @@ class VerticalSpecialistAgent(APIAgent):
         # Invoke the actual tool implementation
         result = await self._execute_tool(tool, parameters)
 
+        await self._record_tool_audit(
+            tool=tool,
+            parameters=parameters,
+            status="allowed",
+            policy=policy_result,
+            result=result,
+        )
+
         return result
+
+    def _should_record_tool_audit(self) -> bool:
+        """Check if vertical tool audit ingestion is enabled."""
+        try:
+            settings = get_settings()
+            return bool(
+                settings.integration.knowledge_mound_enabled
+                and settings.integration.vertical_tool_audit_enabled
+            )
+        except Exception:
+            return False
+
+    async def _record_tool_audit(
+        self,
+        *,
+        tool: ToolConfig,
+        parameters: dict[str, Any],
+        status: str,
+        policy: dict[str, Any] | None,
+        result: dict[str, Any] | None,
+    ) -> None:
+        """Record vertical tool invocation to Knowledge Mound (best-effort)."""
+        if not self._should_record_tool_audit():
+            return
+
+        try:
+            from aragora.knowledge.bridges import ToolAuditBridge
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            workspace_id = os.environ.get("ARAGORA_WORKSPACE_ID", "default")
+            mound = get_knowledge_mound(workspace_id=workspace_id)
+            bridge = ToolAuditBridge(mound)
+            await bridge.record_tool_call(
+                vertical_id=self.vertical_id,
+                tool_name=tool.name,
+                agent_name=self.name,
+                connector_type=tool.connector_type,
+                parameters=parameters,
+                status=status,
+                policy=policy,
+                result=result,
+            )
+        except Exception as e:
+            logger.debug("Tool audit record failed for %s: %s", tool.name, e)
 
     @abstractmethod
     async def _execute_tool(

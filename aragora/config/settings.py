@@ -826,6 +826,13 @@ class IntegrationSettings(BaseSettings):
         description="Automatically register evidence during debates",
     )
 
+    # Vertical tool audit bridge
+    vertical_tool_audit_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_VERTICAL_TOOL_AUDIT",
+        description="Enable Knowledge Mound ingestion for vertical tool invocations",
+    )
+
     # KM Bidirectional Handler Flags
     # Inbound handlers (subsystem → KM)
     km_memory_to_mound_enabled: bool = Field(

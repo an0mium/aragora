@@ -364,6 +364,7 @@ def _build_initial_status(
         "control_plane_coordinator": None,
         "knowledge_mound": False,
         "km_adapters": False,
+        "cost_tracker": False,
         "workflow_checkpoint_persistence": False,
         "shared_control_plane_state": False,
         "tts_integration": False,
@@ -424,6 +425,24 @@ async def _init_all_components(
     # Knowledge and workflow
     status["knowledge_mound"] = await init_knowledge_mound_from_env()
     status["km_adapters"] = await init_km_adapters()
+
+    # Cost tracking (after KM so it can wire the KM adapter)
+    try:
+        from aragora.billing.cost_tracker import get_cost_tracker
+
+        tracker = get_cost_tracker()
+        status["cost_tracker"] = tracker.km_adapter is not None
+        if tracker.km_adapter:
+            logger.info("CostTracker initialized with KM adapter")
+        else:
+            logger.info("CostTracker initialized (without KM adapter)")
+    except ImportError:
+        logger.debug("CostTracker not available")
+        status["cost_tracker"] = False
+    except Exception as e:
+        logger.warning(f"CostTracker initialization failed: {e}")
+        status["cost_tracker"] = False
+
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
     status["tts_integration"] = await init_tts_integration()
     status["persistent_task_queue"] = await init_persistent_task_queue()

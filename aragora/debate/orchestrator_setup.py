@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.event_emission import EventEmitter
 from aragora.debate.grounded_operations import GroundedOperations
-from aragora.debate.hierarchy import AgentHierarchy, HierarchyConfig
+from aragora.debate.hierarchy import HierarchyConfig
 from aragora.debate.knowledge_manager import ArenaKnowledgeManager
 from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.state_cache import DebateStateCache
@@ -231,9 +231,7 @@ def init_agent_hierarchy(
     )
 
     arena.enable_agent_hierarchy = enable_agent_hierarchy
-    arena._hierarchy: AgentHierarchy | None = _agents_init_agent_hierarchy(
-        enable_agent_hierarchy, hierarchy_config
-    )
+    arena._hierarchy = _agents_init_agent_hierarchy(enable_agent_hierarchy, hierarchy_config)
 
 
 def init_rlm_limiter(
@@ -288,13 +286,14 @@ async def setup_agent_channels(arena: Arena, ctx: DebateContext, debate_id: str)
     try:
         from aragora.debate.channel_integration import create_channel_integration
 
-        arena._channel_integration = create_channel_integration(
+        channel_integration = create_channel_integration(
             debate_id=debate_id,
             agents=arena.agents,
             protocol=arena.protocol,
         )
-        if await arena._channel_integration.setup():
-            ctx.channel_integration = arena._channel_integration
+        if await channel_integration.setup():
+            arena._channel_integration = channel_integration  # type: ignore[assignment]
+            ctx.channel_integration = channel_integration
         else:
             arena._channel_integration = None
     except (ImportError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:

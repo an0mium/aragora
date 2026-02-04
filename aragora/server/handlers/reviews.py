@@ -18,7 +18,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import BaseHandler, HandlerResult, error_response, json_response
@@ -52,7 +51,6 @@ class ReviewsHandler(BaseHandler):
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/reviews")
 
-    @require_permission("reviews:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle the request."""
         # Rate limit check

@@ -173,6 +173,7 @@ class WriteStatus(Enum):
     SUCCESS = "success"
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
+    SKIPPED = "skipped"  # Operation intentionally not executed (e.g., low confidence)
 
 
 @dataclass
@@ -197,6 +198,51 @@ class WriteOperation:
         self.status = WriteStatus.FAILED
         self.error = error
 
+    def mark_skipped(self, reason: str) -> None:
+        """Mark operation as skipped (not executed due to conditions not met)."""
+        self.status = WriteStatus.SKIPPED
+        self.error = reason
+
+
+@dataclass
+class SkippedOperation:
+    """
+    Record of an operation that was intentionally not executed.
+
+    This provides visibility into why certain operations were skipped,
+    such as confidence thresholds not being met.
+    """
+
+    target: str  # Which system would have been written to
+    reason: str  # Why the operation was skipped
+    threshold: float | None = None  # Threshold that wasn't met
+    actual_value: float | None = None  # The actual value that was below threshold
+    timestamp: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class SupermemoryRollbackMarker:
+    """
+    Marker for supermemory entries that should be deleted on next sync.
+
+    Since Supermemory is an external service, rollback cannot be immediate.
+    These markers are persisted and processed on the next sync cycle.
+
+    Attributes:
+        memory_id: The Supermemory ID of the entry to delete
+        transaction_id: The transaction that triggered the rollback
+        marked_at: When the entry was marked for deletion
+        reason: Why the entry needs to be deleted
+        retry_count: Number of deletion attempts (for retry logic)
+    """
+
+    memory_id: str
+    transaction_id: str
+    marked_at: datetime = field(default_factory=datetime.now)
+    reason: str = "transaction_rollback"
+    retry_count: int = 0
+    max_retries: int = 3
+
 
 @dataclass
 class MemoryTransaction:
@@ -205,20 +251,28 @@ class MemoryTransaction:
     id: str
     debate_id: str
     operations: list[WriteOperation] = field(default_factory=list)
+    skipped_operations: list[SkippedOperation] = field(default_factory=list)
     started_at: datetime = field(default_factory=datetime.now)
     completed_at: datetime | None = None
     rolled_back: bool = False
 
     @property
     def success(self) -> bool:
-        """Check if all operations succeeded."""
-        return all(op.status == WriteStatus.SUCCESS for op in self.operations)
+        """Check if all operations succeeded (skipped operations don't count as failures)."""
+        return all(
+            op.status in (WriteStatus.SUCCESS, WriteStatus.SKIPPED) for op in self.operations
+        )
 
     @property
     def partial_failure(self) -> bool:
         """Check if some but not all operations failed."""
         statuses = {op.status for op in self.operations}
         return WriteStatus.FAILED in statuses and WriteStatus.SUCCESS in statuses
+
+    @property
+    def has_skipped(self) -> bool:
+        """Check if any operations were skipped."""
+        return len(self.skipped_operations) > 0
 
     def get_failed_operations(self) -> list[WriteOperation]:
         """Get all failed operations."""
@@ -227,6 +281,10 @@ class MemoryTransaction:
     def get_successful_operations(self) -> list[WriteOperation]:
         """Get all successful operations."""
         return [op for op in self.operations if op.status == WriteStatus.SUCCESS]
+
+    def get_skipped_operations(self) -> list[SkippedOperation]:
+        """Get all skipped operations with reasons."""
+        return self.skipped_operations
 
 
 @dataclass
@@ -325,6 +383,9 @@ class MemoryCoordinator:
         self.supermemory_adapter = supermemory_adapter
         self.options = options or CoordinatorOptions()
         self.metrics = CoordinatorMetrics()
+
+        # Supermemory entries marked for deletion (processed on next sync)
+        self._supermemory_rollback_markers: list[SupermemoryRollbackMarker] = []
 
         # Rollback handlers for each target
         self._rollback_handlers: dict[str, Callable[[WriteOperation], Awaitable[bool]]] = {}
@@ -433,18 +494,100 @@ class MemoryCoordinator:
     async def _rollback_supermemory(self, op: WriteOperation) -> bool:
         """Rollback a supermemory write.
 
-        Note: Supermemory is an external service, so rollback may not be possible.
-        We log a warning but accept that external state cannot always be undone.
+        Since Supermemory is an external service, immediate rollback may not be possible.
+        Instead, we create a rollback marker that will be processed on the next sync cycle.
+        This ensures eventual consistency even if the external service is unavailable.
+
+        Returns:
+            True if marker was created, False if no action needed.
         """
         if not self.supermemory_adapter or not op.result:
             return False
 
-        # External services don't support rollback - log and return False
-        logger.warning(
-            "[coordinator] Supermemory write cannot be rolled back (external service): %s",
-            op.result,
+        # Create a rollback marker for deferred deletion
+        marker = SupermemoryRollbackMarker(
+            memory_id=str(op.result),
+            transaction_id=op.id,
+            reason="transaction_rollback",
         )
-        return False
+        self._supermemory_rollback_markers.append(marker)
+
+        logger.info(
+            "[coordinator] Supermemory rollback marker created for %s (transaction %s). "
+            "Entry will be deleted on next sync cycle.",
+            op.result,
+            op.id,
+        )
+        return True
+
+    def get_pending_supermemory_rollbacks(self) -> list[SupermemoryRollbackMarker]:
+        """Get list of supermemory entries pending deletion.
+
+        Use this to check for entries that need to be cleaned up on the next sync.
+        """
+        return list(self._supermemory_rollback_markers)
+
+    async def process_supermemory_rollbacks(self) -> tuple[int, int]:
+        """Process pending supermemory rollback markers.
+
+        Attempts to delete entries marked for rollback. Entries that fail
+        to delete are kept in the marker list for retry (up to max_retries).
+
+        Returns:
+            Tuple of (successful_deletions, failed_deletions)
+        """
+        if not self.supermemory_adapter:
+            return 0, 0
+
+        successful = 0
+        failed = 0
+        remaining_markers: list[SupermemoryRollbackMarker] = []
+
+        for marker in self._supermemory_rollback_markers:
+            try:
+                # Attempt to delete from supermemory
+                if hasattr(self.supermemory_adapter, "delete_memory"):
+                    await self.supermemory_adapter.delete_memory(marker.memory_id)
+                    successful += 1
+                    logger.info(
+                        "[coordinator] Successfully deleted supermemory entry %s",
+                        marker.memory_id,
+                    )
+                else:
+                    # Adapter doesn't support deletion - mark as failed
+                    marker.retry_count += 1
+                    if marker.retry_count < marker.max_retries:
+                        remaining_markers.append(marker)
+                    failed += 1
+                    logger.warning("[coordinator] Supermemory adapter does not support deletion")
+            except (ConnectionError, TimeoutError, OSError) as e:
+                # Network error - retry later
+                marker.retry_count += 1
+                if marker.retry_count < marker.max_retries:
+                    remaining_markers.append(marker)
+                    logger.warning(
+                        "[coordinator] Supermemory deletion failed (attempt %d/%d): %s",
+                        marker.retry_count,
+                        marker.max_retries,
+                        e,
+                    )
+                else:
+                    logger.error(
+                        "[coordinator] Supermemory deletion abandoned after %d attempts: %s",
+                        marker.max_retries,
+                        marker.memory_id,
+                    )
+                failed += 1
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
+                # Data error - don't retry
+                failed += 1
+                logger.error(
+                    "[coordinator] Supermemory deletion failed (data error): %s",
+                    e,
+                )
+
+        self._supermemory_rollback_markers = remaining_markers
+        return successful, failed
 
     async def commit_debate_outcome(
         self,
@@ -474,9 +617,19 @@ class MemoryCoordinator:
             logger.warning("Cannot commit outcome: no result in context")
             return transaction
 
-        # Build operations based on options
-        operations = self._build_operations(ctx, result, opts)
+        # Build operations based on options (returns both operations and skipped)
+        operations, skipped = self._build_operations(ctx, result, opts)
         transaction.operations = operations
+        transaction.skipped_operations = skipped
+
+        # Log skipped operations for visibility
+        if skipped:
+            logger.info(
+                "Transaction %s: %d operations skipped due to thresholds: %s",
+                transaction.id,
+                len(skipped),
+                ", ".join(f"{s.target} ({s.reason})" for s in skipped),
+            )
 
         try:
             if opts.parallel_writes:
@@ -520,9 +673,15 @@ class MemoryCoordinator:
         ctx: "DebateContext",
         result: "DebateResult",
         opts: CoordinatorOptions,
-    ) -> list[WriteOperation]:
-        """Build write operations based on configuration."""
-        operations = []
+    ) -> tuple[list[WriteOperation], list[SkippedOperation]]:
+        """Build write operations based on configuration.
+
+        Returns:
+            Tuple of (operations_to_execute, skipped_operations).
+            Skipped operations include details about why they were not executed.
+        """
+        operations: list[WriteOperation] = []
+        skipped: list[SkippedOperation] = []
 
         if opts.write_continuum and self.continuum_memory:
             operations.append(
@@ -570,47 +729,61 @@ class MemoryCoordinator:
                 )
             )
 
-        # Only write to mound if confidence meets threshold
-        if (
-            opts.write_mound
-            and self.knowledge_mound
-            and result.confidence >= opts.min_confidence_for_mound
-        ):
-            operations.append(
-                WriteOperation(
-                    id=str(uuid.uuid4()),
-                    target="mound",
-                    data={
-                        "debate_id": ctx.debate_id,
-                        "task": ctx.env.task,
-                        "conclusion": result.final_answer or "",
-                        "confidence": result.confidence,
-                        "domain": ctx.domain,
-                        "consensus_reached": result.consensus_reached,
-                        "winner": result.winner,
-                        "key_claims": getattr(result, "key_claims", []),
-                    },
+        # Write to mound only if confidence meets threshold
+        if opts.write_mound and self.knowledge_mound:
+            if result.confidence >= opts.min_confidence_for_mound:
+                operations.append(
+                    WriteOperation(
+                        id=str(uuid.uuid4()),
+                        target="mound",
+                        data={
+                            "debate_id": ctx.debate_id,
+                            "task": ctx.env.task,
+                            "conclusion": result.final_answer or "",
+                            "confidence": result.confidence,
+                            "domain": ctx.domain,
+                            "consensus_reached": result.consensus_reached,
+                            "winner": result.winner,
+                            "key_claims": getattr(result, "key_claims", []),
+                        },
+                    )
                 )
-            )
-
-        # Only write to Supermemory if enabled and confidence meets threshold
-        if (
-            opts.write_supermemory
-            and self.supermemory_adapter
-            and result.confidence >= opts.min_confidence_for_supermemory
-        ):
-            operations.append(
-                WriteOperation(
-                    id=str(uuid.uuid4()),
-                    target="supermemory",
-                    data={
-                        "debate_result": result,
-                        "container_tag": opts.supermemory_container_tag,
-                    },
+            else:
+                # Track why mound write was skipped
+                skipped.append(
+                    SkippedOperation(
+                        target="mound",
+                        reason=f"Confidence {result.confidence:.2f} below threshold {opts.min_confidence_for_mound}",
+                        threshold=opts.min_confidence_for_mound,
+                        actual_value=result.confidence,
+                    )
                 )
-            )
 
-        return operations
+        # Write to Supermemory only if enabled and confidence meets threshold
+        if opts.write_supermemory and self.supermemory_adapter:
+            if result.confidence >= opts.min_confidence_for_supermemory:
+                operations.append(
+                    WriteOperation(
+                        id=str(uuid.uuid4()),
+                        target="supermemory",
+                        data={
+                            "debate_result": result,
+                            "container_tag": opts.supermemory_container_tag,
+                        },
+                    )
+                )
+            else:
+                # Track why supermemory write was skipped
+                skipped.append(
+                    SkippedOperation(
+                        target="supermemory",
+                        reason=f"Confidence {result.confidence:.2f} below threshold {opts.min_confidence_for_supermemory}",
+                        threshold=opts.min_confidence_for_supermemory,
+                        actual_value=result.confidence,
+                    )
+                )
+
+        return operations, skipped
 
     async def _execute_sequential(
         self,

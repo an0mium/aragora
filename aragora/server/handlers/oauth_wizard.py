@@ -850,6 +850,17 @@ class OAuthWizardHandler(SecureHandler):
                 if not tenant_id:
                     return error_response("tenant_id is required", 400)
                 result = await self._disconnect_teams_tenant(tenant_id)
+            elif provider_id == "discord":
+                guild_id = body.get("guild_id")
+                if not guild_id:
+                    return error_response("guild_id is required", 400)
+                result = await self._disconnect_discord_guild(guild_id)
+            elif provider_id == "gmail":
+                user_id = body.get("user_id", "default")
+                result = await self._disconnect_gmail_account(user_id)
+            elif provider_id == "email":
+                # SMTP email doesn't have OAuth tokens - just remove config
+                result = {"success": True, "message": "Email configuration cleared"}
             else:
                 return error_response(f"Disconnect not implemented for {provider_id}", 501)
 
@@ -881,6 +892,30 @@ class OAuthWizardHandler(SecureHandler):
         store.deactivate(tenant_id)
         logger.info(f"Disconnected Teams tenant: {tenant_id}")
         return {"success": True, "message": f"Tenant {tenant_id} disconnected"}
+
+    async def _disconnect_discord_guild(self, guild_id: str) -> dict[str, Any]:
+        """Disconnect a Discord guild (server)."""
+        from aragora.storage.discord_guild_store import get_discord_guild_store
+
+        store = get_discord_guild_store()
+        success = store.deactivate(guild_id)
+        if success:
+            logger.info(f"Disconnected Discord guild: {guild_id}")
+            return {"success": True, "message": f"Guild {guild_id} disconnected"}
+        else:
+            return {"success": False, "message": f"Guild {guild_id} not found"}
+
+    async def _disconnect_gmail_account(self, user_id: str) -> dict[str, Any]:
+        """Disconnect a Gmail account integration."""
+        from aragora.storage.integration_store import get_integration_store
+
+        store = get_integration_store()
+        success = await store.delete("gmail", user_id)
+        if success:
+            logger.info(f"Disconnected Gmail account for user: {user_id}")
+            return {"success": True, "message": f"Gmail disconnected for user {user_id}"}
+        else:
+            return {"success": False, "message": f"Gmail integration not found for user {user_id}"}
 
 
 # Handler factory function for registration

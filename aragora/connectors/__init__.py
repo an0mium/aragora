@@ -70,6 +70,9 @@ from aragora.connectors.newsapi import (
     MEDIUM_CREDIBILITY_SOURCES,
     NewsAPIConnector,
 )
+from aragora.connectors.courtlistener import CourtListenerConnector
+from aragora.connectors.govinfo import GovInfoConnector
+from aragora.connectors.nice_guidance import NICEGuidanceConnector
 from aragora.connectors.pubmed import PubMedConnector
 from aragora.connectors.semantic_scholar import SemanticScholarConnector
 from aragora.connectors.crossref import CrossRefConnector
@@ -164,6 +167,9 @@ __all__ = [
     "MEDIUM_CREDIBILITY_SOURCES",
     "SECConnector",
     "FORM_TYPES",
+    "CourtListenerConnector",
+    "GovInfoConnector",
+    "NICEGuidanceConnector",
     "PubMedConnector",
     "SemanticScholarConnector",
     "CrossRefConnector",

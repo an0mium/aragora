@@ -497,11 +497,11 @@ class ConsensusHandler(BaseHandler):
             {
                 "views": [
                     {
-                        "agent": r.agent_id,
-                        "position": r.content,
-                        "confidence": r.confidence,
-                        "reasoning": r.reasoning,
-                        "debate_id": r.debate_id,
+                        "agent": r.agent_id or "unknown",
+                        "position": r.content or "",
+                        "confidence": r.confidence if r.confidence is not None else 0.0,
+                        "reasoning": r.reasoning or "",
+                        "debate_id": r.debate_id or "",
                     }
                     for r in records
                 ],
@@ -545,6 +545,24 @@ class ConsensusHandler(BaseHandler):
                 except Exception as e:
                     logger.debug(f"Failed to parse risk warning record: {e}")
 
+        def _safe_dissent_type_str(dt: Any) -> str:
+            """Safely extract dissent type as string."""
+            if dt is None:
+                return "unknown"
+            if hasattr(dt, "value"):
+                return dt.value
+            return str(dt)
+
+        def _safe_timestamp_str(ts: Any) -> str:
+            """Safely convert timestamp to ISO string."""
+            if ts is None:
+                from datetime import datetime
+
+                return datetime.now().isoformat()
+            if hasattr(ts, "isoformat"):
+                return ts.isoformat()
+            return str(ts)
+
         def infer_severity(confidence: float, dissent_type: str) -> str:
             if dissent_type == "risk_warning":
                 if confidence >= 0.8:
@@ -559,12 +577,16 @@ class ConsensusHandler(BaseHandler):
             {
                 "warnings": [
                     {
-                        "domain": r.metadata.get("domain", "general"),
-                        "risk_type": r.dissent_type.value.replace("_", " ").title(),
-                        "severity": infer_severity(r.confidence, r.dissent_type.value),
-                        "description": r.content,
+                        "domain": (r.metadata or {}).get("domain", "general"),
+                        "risk_type": _safe_dissent_type_str(r.dissent_type)
+                        .replace("_", " ")
+                        .title(),
+                        "severity": infer_severity(
+                            r.confidence, _safe_dissent_type_str(r.dissent_type)
+                        ),
+                        "description": r.content or "",
                         "mitigation": r.rebuttal if r.rebuttal else None,
-                        "detected_at": r.timestamp.isoformat(),
+                        "detected_at": _safe_timestamp_str(r.timestamp),
                     }
                     for r in records
                 ],

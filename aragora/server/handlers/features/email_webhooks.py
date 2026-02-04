@@ -951,7 +951,7 @@ class EmailWebhooksHandler(BaseHandler):
             if callable(request.json):
                 try:
                     return await request.json()
-                except Exception:
+                except (ValueError, TypeError):
                     body, _err = await parse_json_body(
                         request, context="email_webhooks._get_json_body"
                     )

@@ -159,6 +159,20 @@ class PlanExecutor:
         self._execution_mode: ExecutionMode = execution_mode or DEFAULT_EXECUTION_MODE
         self._repo_path = repo_path or Path.cwd()
 
+    @staticmethod
+    def _requires_workflow(plan: DecisionPlan) -> bool:
+        """Return True if plan tasks require workflow-only steps."""
+        if not plan.implement_plan:
+            return False
+        for task in plan.implement_plan.tasks:
+            task_type = str(getattr(task, "task_type", "") or "").lower()
+            caps = {str(c).lower() for c in (getattr(task, "capabilities", []) or []) if c}
+            if task_type in {"computer_use", "manual", "browser", "ui"}:
+                return True
+            if "computer_use" in caps or "manual" in caps or "browser" in caps:
+                return True
+        return False
+
     async def execute(
         self,
         plan: DecisionPlan,
@@ -249,6 +263,12 @@ class PlanExecutor:
         mode = (
             execution_mode or (profile.execution_mode if profile else None) or self._execution_mode
         )
+        if mode in {"hybrid", "fabric"} and self._requires_workflow(plan):
+            logger.info(
+                "Plan %s contains computer-use/manual tasks; switching execution mode to workflow",
+                plan.id,
+            )
+            mode = "workflow"
 
         notifier = None
         if on_task_complete is None and mode in {"hybrid", "fabric"}:

@@ -158,7 +158,7 @@ def track_checkpoint_operation(operation: str) -> Generator[dict, None, None]:
     success = True
     try:
         yield ctx
-    except Exception:
+    except BaseException:
         success = False
         raise
     finally:

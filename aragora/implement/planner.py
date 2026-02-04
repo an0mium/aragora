@@ -50,14 +50,20 @@ Output ONLY valid JSON with this structure:
       "description": "Clear description of what to implement",
       "files": ["path/to/file1.py", "path/to/file2.py"],
       "complexity": "simple|moderate|complex",
-      "dependencies": []
+      "dependencies": [],
+      "task_type": "code|tests|docs|computer_use|analysis|infra|manual",
+      "capabilities": ["code_generation", "testing", "computer_use"],
+      "requires_approval": false
     }},
     {{
       "id": "task-2",
       "description": "Second task description",
       "files": ["path/to/file3.py"],
       "complexity": "simple",
-      "dependencies": ["task-1"]
+      "dependencies": ["task-1"],
+      "task_type": "code",
+      "capabilities": ["code_generation"],
+      "requires_approval": false
     }}
   ]
 }}
@@ -67,6 +73,16 @@ Output ONLY valid JSON with this structure:
 - **simple**: Single file, <50 lines, straightforward logic (e.g., add a function, create a dataclass)
 - **moderate**: 2-3 files, some coordination needed (e.g., add a feature with tests)
 - **complex**: 4+ files, architectural changes, or intricate logic (e.g., new module, refactor)
+
+## Task Type Guidelines
+
+- **code**: code changes in repo (default)
+- **tests**: add or update tests
+- **docs**: documentation changes
+- **computer_use**: requires browser/UI automation
+- **analysis**: research/analysis-only tasks
+- **infra**: ops/deployment/config changes
+- **manual**: requires human action (checkpoint)
 
 ## Important Rules
 
@@ -132,6 +148,18 @@ def validate_plan(plan_data: dict) -> list[str]:
         complexity = task.get("complexity", "")
         if complexity not in ("simple", "moderate", "complex"):
             errors.append(f"Task {i} has invalid complexity: {complexity}")
+
+        if "capabilities" in task and not isinstance(task.get("capabilities"), list):
+            errors.append(f"Task {i} has invalid capabilities (must be list)")
+
+        if "task_type" in task and task.get("task_type") is not None:
+            if not isinstance(task.get("task_type"), str):
+                errors.append(f"Task {i} has invalid task_type (must be string)")
+
+        if "requires_approval" in task and not isinstance(
+            task.get("requires_approval"), (bool, int)
+        ):
+            errors.append(f"Task {i} has invalid requires_approval (must be bool)")
 
         # Check dependencies reference valid task IDs
         for dep in task.get("dependencies", []):
@@ -314,12 +342,20 @@ async def decompose_failed_task(
         for st in data["subtasks"]:
             # Inherit dependencies from original task
             deps = list(task.dependencies) + st.get("dependencies", [])
+            task_type = st.get("task_type") or task.task_type
+            caps = st.get("capabilities")
+            if caps is None:
+                caps = task.capabilities
+            requires_approval = bool(st.get("requires_approval", task.requires_approval))
             subtask = ImplementTask(
                 id=st["id"],
                 description=st["description"],
                 files=st.get("files", []),
                 complexity=st.get("complexity", "moderate"),
                 dependencies=deps,
+                task_type=task_type,
+                capabilities=caps or [],
+                requires_approval=requires_approval,
             )
             subtasks.append(subtask)
 

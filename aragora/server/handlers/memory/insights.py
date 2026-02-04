@@ -142,7 +142,6 @@ class InsightsHandler(SecureHandler):
 
         return None
 
-    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("recent insights retrieval")
     def _get_recent_insights(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent insights from InsightStore.
@@ -179,7 +178,6 @@ class InsightsHandler(SecureHandler):
             }
         )
 
-    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("recent flips retrieval")
     def _get_recent_flips(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent position flips/reversals.

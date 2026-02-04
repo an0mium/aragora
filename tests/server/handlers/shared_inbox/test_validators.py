@@ -433,9 +433,7 @@ class TestDetectCircularRouting:
         # Check inbox-b: forward_graph["inbox-b"] = {"inbox-a"}.
         # "inbox-a" == target "inbox-a" -> cycle
         actions = [{"type": "forward", "target": "inbox-a"}]
-        has_cycle, error = detect_circular_routing(
-            actions, [rule_a, rule_b], "ws-1"
-        )
+        has_cycle, error = detect_circular_routing(actions, [rule_a, rule_b], "ws-1")
         assert has_cycle is True
         assert "Circular routing detected" in error
 
@@ -560,8 +558,7 @@ class TestValidateRoutingRule:
 
     def test_too_many_conditions(self):
         conditions = [
-            {"field": "subject", "operator": "contains", "value": f"v{i}"}
-            for i in range(21)
+            {"field": "subject", "operator": "contains", "value": f"v{i}"} for i in range(21)
         ]
         result = validate_routing_rule(
             name="Rule",
@@ -646,16 +643,12 @@ class TestValidateInboxInput:
         assert error is None
 
     def test_valid_with_email(self):
-        is_valid, error = validate_inbox_input(
-            name="Support", email_address="support@example.com"
-        )
+        is_valid, error = validate_inbox_input(name="Support", email_address="support@example.com")
         assert is_valid is True
         assert error is None
 
     def test_valid_with_description(self):
-        is_valid, error = validate_inbox_input(
-            name="Support", description="Main support inbox"
-        )
+        is_valid, error = validate_inbox_input(name="Support", description="Main support inbox")
         assert is_valid is True
         assert error is None
 
@@ -670,23 +663,17 @@ class TestValidateInboxInput:
         assert "exceeds maximum length" in error
 
     def test_description_too_long(self):
-        is_valid, error = validate_inbox_input(
-            name="Support", description="a" * 1001
-        )
+        is_valid, error = validate_inbox_input(name="Support", description="a" * 1001)
         assert is_valid is False
         assert "exceeds maximum length" in error
 
     def test_invalid_email_no_at(self):
-        is_valid, error = validate_inbox_input(
-            name="Support", email_address="not-an-email"
-        )
+        is_valid, error = validate_inbox_input(name="Support", email_address="not-an-email")
         assert is_valid is False
         assert "Invalid email" in error
 
     def test_invalid_email_no_domain_dot(self):
-        is_valid, error = validate_inbox_input(
-            name="Support", email_address="user@localhost"
-        )
+        is_valid, error = validate_inbox_input(name="Support", email_address="user@localhost")
         assert is_valid is False
         assert "Invalid email" in error
 

@@ -377,10 +377,10 @@ class AHMADRoleSpecializer:
 
         for agent_id in agents:
             # Get historical role performance
-            role_perf = {}
+            role_perf: dict[str, float] = {}
             for role, scores in self._agent_role_history[agent_id].items():
                 if scores:
-                    role_perf[role] = np.mean(scores[-10:])  # Last 10 performances
+                    role_perf[role] = float(np.mean(scores[-10:]))  # Last 10 performances
 
             capabilities[agent_id] = AgentCapability(
                 agent_id=agent_id,
@@ -495,7 +495,7 @@ class AHMADRoleSpecializer:
         if not assignments:
             return 0.0
 
-        return np.mean([a.confidence for a in assignments])
+        return float(np.mean([a.confidence for a in assignments]))
 
     def record_performance(
         self,

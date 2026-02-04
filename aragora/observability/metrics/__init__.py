@@ -1095,7 +1095,7 @@ def _init_metrics() -> bool:  # type: ignore[no-redef]
     try:
         init_core_metrics()
         return True
-    except Exception:
+    except (ImportError, ValueError, RuntimeError):
         return False
 
 

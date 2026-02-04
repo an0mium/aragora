@@ -20,7 +20,13 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
-from aragora.verticals.tooling import drug_lookup, icd_lookup, pubmed_search, web_search_fallback
+from aragora.verticals.tooling import (
+    drug_lookup,
+    icd_lookup,
+    nice_guidance_search,
+    pubmed_search,
+    web_search_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +115,7 @@ qualified healthcare professionals for clinical decisions.""",
         ToolConfig(
             name="clinical_guidelines",
             description="Search clinical practice guidelines",
-            connector_type="web",
+            connector_type="nice_guidance",
         ),
     ],
     compliance_frameworks=[
@@ -317,16 +323,26 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         """Search clinical practice guidelines."""
         topic = parameters.get("topic") or parameters.get("query") or parameters.get("q") or ""
         limit = int(parameters.get("limit", 5))
-        note = "Clinical guidelines connector not yet integrated; using web search fallback."
-        query = f"{topic} clinical guidelines" if topic else ""
-        result = await web_search_fallback(query, limit=limit, note=note)
+        query = topic
+        result = await nice_guidance_search(query, limit=limit)
+        if result.get("error"):
+            note = "NICE guidance connector unavailable; using web search fallback."
+            fallback_query = f"{topic} clinical guidelines" if topic else ""
+            fallback = await web_search_fallback(fallback_query, limit=limit, note=note)
+            return {
+                "guidelines": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", fallback_query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
+
         return {
-            "guidelines": result.get("results", []),
+            "guidelines": result.get("guidelines", []),
             "count": result.get("count", 0),
             "query": result.get("query", query),
-            "mode": result.get("mode", "web_fallback"),
-            "note": result.get("note"),
-            "error": result.get("error"),
+            "mode": "connector",
         }
 
     async def _check_framework_compliance(

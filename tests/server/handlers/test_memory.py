@@ -96,6 +96,7 @@ class MockContinuumMemory:
         tiers: list = None,
         limit: int = 10,
         min_importance: float = 0.0,
+        tenant_id: str | None = None,
     ) -> list[MockMemory]:
         """Retrieve memories matching criteria."""
         result = self.memories.copy()

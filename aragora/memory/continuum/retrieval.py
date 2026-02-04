@@ -23,6 +23,22 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+class TenantRequiredError(Exception):
+    """Raised when tenant_id is required but not provided.
+
+    In multi-tenant environments, operations must be scoped to a specific tenant.
+    This exception prevents accidental cross-tenant data access.
+    """
+
+    def __init__(self, operation: str = "retrieve"):
+        self.operation = operation
+        super().__init__(
+            f"tenant_id is required for {operation} in multi-tenant mode. "
+            "Pass tenant_id parameter or disable enforce_tenant_isolation."
+        )
+
+
 # Retry configuration for memory operations
 _MEMORY_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["memory"]
 

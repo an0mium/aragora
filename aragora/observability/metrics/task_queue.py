@@ -175,7 +175,7 @@ def track_task_queue_operation(operation: str) -> Generator[None, None, None]:
     success = True
     try:
         yield
-    except Exception:
+    except BaseException:
         success = False
         raise
     finally:

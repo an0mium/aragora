@@ -38,7 +38,7 @@ def _is_isinstance_safe() -> bool:
         import types
 
         return type(builtins.isinstance) is types.BuiltinFunctionType
-    except Exception:
+    except (ImportError, AttributeError):
         return False
 
 

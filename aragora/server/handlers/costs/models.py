@@ -30,7 +30,7 @@ def _is_demo_mode() -> bool:
         from aragora.config.settings import get_settings
 
         return get_settings().features.demo_mode
-    except Exception:
+    except (ImportError, AttributeError):
         return False
 
 

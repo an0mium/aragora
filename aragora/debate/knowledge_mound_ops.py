@@ -81,6 +81,7 @@ class KnowledgeMoundOperations:
 
         try:
             # Query mound for semantically related knowledge
+            results: Any = None
             try:
                 if auth_context and hasattr(self.knowledge_mound, "query_with_visibility"):
                     actor_id = getattr(auth_context, "user_id", "") or ""

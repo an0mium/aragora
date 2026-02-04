@@ -132,13 +132,12 @@ class TestBotEnabled:
 class TestStatusEndpoint:
     """Tests for GET /status endpoint."""
 
-    @pytest.mark.asyncio
-    async def test_status_endpoint_returns_json(self, handler):
+    def test_status_endpoint_returns_json(self, handler):
         """Test status endpoint returns valid JSON."""
         mock_handler = MagicMock()
         mock_handler.command = "GET"
 
-        result = await handler.handle("/api/v1/bots/slack/status", {}, mock_handler)
+        result = handler.handle("/api/v1/bots/slack/status", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -151,114 +150,77 @@ class TestEventsEndpoint:
     """Tests for POST /events endpoint."""
 
     @pytest.mark.asyncio
-    async def test_url_verification_challenge(self, handler, mock_request):
-        """Test URL verification challenge response."""
-        challenge_data = {
-            "type": "url_verification",
-            "challenge": "test-challenge-token",
-        }
-        request = mock_request(
-            body_data=json.dumps(challenge_data).encode(),
-            headers={
-                "X-Slack-Signature": "v0=test",
-                "X-Slack-Request-Timestamp": "1234567890",
-            },
-        )
+    async def test_url_verification_challenge(self):
+        """Test URL verification challenge response via events handler."""
+        from aragora.server.handlers.bots.slack.events import handle_slack_events
 
-        # Skip signature verification for this test
-        with patch(
-            "aragora.server.handlers.bots.slack.handler.verify_slack_signature",
-            return_value=True,
-        ):
-            result = await handler.handle_post(
-                "/api/v1/bots/slack/events",
-                challenge_data,
-                {},
-                request,
-            )
+        class MockRequest:
+            async def body(self):
+                return json.dumps(
+                    {"type": "url_verification", "challenge": "test-challenge-token"}
+                ).encode()
+
+        request = MockRequest()
+        result = await handle_slack_events(request)
 
         assert result is not None
-        # URL verification should return the challenge
-        if result.status_code == 200:
-            body = json.loads(result.body)
-            # Challenge can be in body or directly returned
-            assert body.get("challenge") == "test-challenge-token" or "challenge" in str(body)
+        assert result.status_code == 200
+
+        body = json.loads(result.body)
+        assert body.get("challenge") == "test-challenge-token"
 
     @pytest.mark.asyncio
-    async def test_events_invalid_json(self, handler, mock_request):
+    async def test_events_invalid_json(self):
         """Test events endpoint with invalid JSON."""
-        request = mock_request(
-            body_data=b"not-valid-json",
-            headers={
-                "X-Slack-Signature": "v0=test",
-                "X-Slack-Request-Timestamp": "1234567890",
-            },
-        )
+        from aragora.server.handlers.bots.slack.events import handle_slack_events
 
-        with patch(
-            "aragora.server.handlers.bots.slack.handler.verify_slack_signature",
-            return_value=True,
-        ):
-            result = await handler.handle_post(
-                "/api/v1/bots/slack/events",
-                {},
-                {},
-                request,
-            )
+        class MockRequest:
+            async def body(self):
+                return b"not-valid-json"
+
+        request = MockRequest()
+        result = await handle_slack_events(request)
 
         assert result is not None
         # Should handle gracefully (400 or 500)
-        assert result.status_code in (200, 400, 500)
+        assert result.status_code in (400, 500)
 
 
 class TestSignatureVerification:
     """Tests for Slack signature verification."""
 
-    @pytest.mark.asyncio
-    async def test_missing_signature_rejected(self, handler, mock_request):
-        """Test requests without signature are rejected."""
-        request = mock_request(
-            body_data=b'{"type": "event_callback"}',
-            headers={},  # No signature headers
+    def test_verify_slack_signature_function_exists(self):
+        """Test verify_slack_signature function is importable."""
+        from aragora.server.handlers.bots.slack.signature import verify_slack_signature
+
+        assert callable(verify_slack_signature)
+
+    def test_verify_slack_signature_with_missing_headers(self):
+        """Test signature verification with missing headers."""
+        from aragora.server.handlers.bots.slack.signature import verify_slack_signature
+
+        # Without proper headers, should return False
+        result = verify_slack_signature(
+            body=b'{"type": "event_callback"}',
+            timestamp="",
+            signature="",
+            signing_secret="test-secret",
         )
 
-        result = await handler.handle_post(
-            "/api/v1/bots/slack/events",
-            {"type": "event_callback"},
-            {},
-            request,
+        assert result is False
+
+    def test_verify_slack_signature_with_invalid_signature(self):
+        """Test signature verification with invalid signature."""
+        from aragora.server.handlers.bots.slack.signature import verify_slack_signature
+
+        result = verify_slack_signature(
+            body=b'{"type": "event_callback"}',
+            timestamp="1234567890",
+            signature="v0=invalid",
+            signing_secret="test-secret",
         )
 
-        # Should reject without signature (401 or 403)
-        assert result is not None
-        if "signature" in str(result.body).lower():
-            assert result.status_code in (401, 403)
-
-    @pytest.mark.asyncio
-    async def test_invalid_signature_rejected(self, handler, mock_request):
-        """Test requests with invalid signature are rejected."""
-        request = mock_request(
-            body_data=b'{"type": "event_callback"}',
-            headers={
-                "X-Slack-Signature": "v0=invalid",
-                "X-Slack-Request-Timestamp": "1234567890",
-            },
-        )
-
-        with patch(
-            "aragora.server.handlers.bots.slack.handler.verify_slack_signature",
-            return_value=False,
-        ):
-            result = await handler.handle_post(
-                "/api/v1/bots/slack/events",
-                {"type": "event_callback"},
-                {},
-                request,
-            )
-
-        assert result is not None
-        # Should reject invalid signature
-        assert result.status_code in (200, 401, 403)
+        assert result is False
 
 
 class TestInputValidation:
@@ -450,9 +412,11 @@ class TestBlockKit:
         from aragora.server.handlers.bots.slack.blocks import build_debate_message_blocks
 
         blocks = build_debate_message_blocks(
-            question="Test question?",
             debate_id="debate-123",
-            channel_id="C123",
+            task="Test question?",
+            agents=["claude", "gpt"],
+            current_round=1,
+            total_rounds=3,
         )
 
         assert blocks is not None
@@ -465,8 +429,13 @@ class TestBlockKit:
         )
 
         blocks = build_consensus_message_blocks(
-            consensus_text="The consensus is X",
             debate_id="debate-123",
+            task="Test question?",
+            consensus_reached=True,
+            confidence=0.85,
+            winner="claude",
+            final_answer="The consensus is X",
+            vote_counts={"claude": 3, "gpt": 2},
         )
 
         assert blocks is not None
@@ -476,7 +445,7 @@ class TestBlockKit:
         """Test start debate modal building."""
         from aragora.server.handlers.bots.slack.blocks import build_start_debate_modal
 
-        modal = build_start_debate_modal(channel_id="C123")
+        modal = build_start_debate_modal()
 
         assert modal is not None
         # Modal should have type and blocks

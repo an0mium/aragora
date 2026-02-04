@@ -300,7 +300,7 @@ class ASCoTFragilityAnalyzer:
             }
 
         fragilities = [f.combined_fragility for f in self._fragility_history]
-        scrutiny_counts = {}
+        scrutiny_counts: dict[str, int] = {}
         for f in self._fragility_history:
             scrutiny_counts[f.scrutiny_level] = scrutiny_counts.get(f.scrutiny_level, 0) + 1
 

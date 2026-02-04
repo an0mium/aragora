@@ -255,17 +255,17 @@ The vertical specialists system (Software, Legal, Healthcare, Accounting, Resear
 
 ### Remaining Enhancements (8-16 hours)
 1. Add dedicated legal case law and statute connectors (6-10 hrs)
-2. Add clinical guideline connector (2-4 hrs)
-3. Expand tool audit telemetry into Knowledge Mound (2 hrs)
+2. Add GAAP lookup connector (4-6 hrs)
+3. Add tax reference connector (4-6 hrs)
+4. Optional: premium legal sources (Westlaw/Lexis) integration
 
 ### Remaining Connector Gaps
 | Vertical | Tool | Suggested Source | Effort |
 |----------|------|------------------|--------|
-| Legal | Case Search | CourtListener / GovInfo | 6-10 hrs |
-| Legal | Statute Lookup | GovInfo / US Code | 6 hrs |
-| Healthcare | Clinical Guidelines | NICE / AHRQ / NIH | 2-4 hrs |
 | Accounting | GAAP Lookup | FASB / curated KB | 4-6 hrs |
 | Accounting | Tax Reference | IRS / jurisdiction KB | 4-6 hrs |
+| Legal | Premium Case Law | Westlaw / Lexis (optional) | 8-16 hrs |
+| Healthcare | US Guidelines | AHRQ / NIH (optional) | 4-8 hrs |
 
 ---
 

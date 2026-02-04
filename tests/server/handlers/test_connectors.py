@@ -580,7 +580,7 @@ class TestTriggerSync:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.get_scheduler")
+    @patch("aragora.server.handlers.connectors.legacy.get_scheduler")
     async def test_trigger_sync_success_mocked(self, mock_get_scheduler, reset_scheduler):
         """Triggers sync successfully with mocked scheduler."""
         from aragora.server.handlers.connectors import handle_trigger_sync
@@ -602,7 +602,7 @@ class TestTriggerSync:
         assert result["status"] == "started"
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.get_scheduler")
+    @patch("aragora.server.handlers.connectors.legacy.get_scheduler")
     async def test_trigger_full_sync_mocked(self, mock_get_scheduler, reset_scheduler):
         """Triggers full sync with mocked scheduler."""
         from aragora.server.handlers.connectors import handle_trigger_sync
@@ -734,7 +734,7 @@ class TestWebhookHandler:
         assert result["handled"] is False
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.get_scheduler")
+    @patch("aragora.server.handlers.connectors.legacy.get_scheduler")
     async def test_webhook_success_mocked(self, mock_get_scheduler, reset_scheduler):
         """Handles webhook for registered connector with mocked scheduler."""
         from aragora.server.handlers.connectors import handle_webhook
@@ -1188,7 +1188,7 @@ class TestAuditLogging:
     """Tests for audit logging in handlers."""
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.audit_data")
+    @patch("aragora.server.handlers.connectors.legacy.audit_data")
     async def test_create_connector_audits(self, mock_audit, reset_scheduler):
         """Create connector logs audit event."""
         from aragora.server.handlers.connectors import handle_create_connector
@@ -1206,8 +1206,8 @@ class TestAuditLogging:
         assert call_kwargs["user_id"] == "test-user"
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.audit_data")
-    @patch("aragora.server.handlers.connectors.get_scheduler")
+    @patch("aragora.server.handlers.connectors.legacy.audit_data")
+    @patch("aragora.server.handlers.connectors.legacy.get_scheduler")
     async def test_trigger_sync_audits(self, mock_get_scheduler, mock_audit, reset_scheduler):
         """Trigger sync logs audit event."""
         from aragora.server.handlers.connectors import handle_trigger_sync
@@ -1323,7 +1323,7 @@ class TestResponseFormats:
         assert "status" in result
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.get_scheduler")
+    @patch("aragora.server.handlers.connectors.legacy.get_scheduler")
     async def test_trigger_sync_response_format_mocked(self, mock_get_scheduler, reset_scheduler):
         """Trigger sync has correct response format with mocked scheduler."""
         from aragora.server.handlers.connectors import handle_trigger_sync

@@ -259,6 +259,7 @@ class CrudMixin:
         metadata: Optional[dict[str, Any]] = None,
         surprise_score: float | None = None,
         consolidation_score: float | None = None,
+        tenant_id: str | None = None,
     ) -> bool:
         """Update specific fields of a memory entry.
 
@@ -272,10 +273,27 @@ class CrudMixin:
             metadata: New metadata dict (optional, replaces existing)
             surprise_score: New surprise score (optional)
             consolidation_score: New consolidation score (optional)
+            tenant_id: Optional tenant ID for multi-tenant isolation.
+                       When provided, validates that the entry belongs to
+                       the specified tenant before updating.
 
         Returns:
-            True if the entry was updated, False if not found
+            True if the entry was updated, False if not found or tenant mismatch
         """
+        # Validate tenant isolation before update
+        if tenant_id is not None:
+            existing = self.get(memory_id)
+            if existing is None:
+                return False
+            entry_tenant = existing.metadata.get("tenant_id")
+            if entry_tenant and entry_tenant != tenant_id:
+                logger.warning(
+                    "Cross-tenant update blocked: memory=%s entry_tenant=%s request_tenant=%s",
+                    memory_id,
+                    entry_tenant,
+                    tenant_id,
+                )
+                return False
         # Build update clauses dynamically
         updates: list[str] = []
         params: list[Any] = []
@@ -328,6 +346,7 @@ class CrudMixin:
         metadata: Optional[dict[str, Any]] = None,
         surprise_score: float | None = None,
         consolidation_score: float | None = None,
+        tenant_id: str | None = None,
     ) -> bool:
         """Async wrapper for update() - offloads blocking I/O to executor."""
         loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
@@ -340,14 +359,45 @@ class CrudMixin:
                 metadata=metadata,
                 surprise_score=surprise_score,
                 consolidation_score=consolidation_score,
+                tenant_id=tenant_id,
             ),
         )
 
-    def promote_entry(self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier) -> bool:
+    def promote_entry(
+        self: "ContinuumMemory",
+        memory_id: str,
+        new_tier: MemoryTier,
+        tenant_id: str | None = None,
+    ) -> bool:
         """Promote an entry to a specific tier.
 
         Interface compatibility method for OutcomeMemoryBridge.
+
+        Args:
+            memory_id: The ID of the memory entry to promote
+            new_tier: The target tier to promote to
+            tenant_id: Optional tenant ID for multi-tenant isolation.
+                       When provided, validates that the entry belongs to
+                       the specified tenant before promoting.
+
+        Returns:
+            True if the entry was promoted, False if not found or tenant mismatch
         """
+        # Validate tenant isolation before promotion
+        if tenant_id is not None:
+            existing = self.get(memory_id)
+            if existing is None:
+                return False
+            entry_tenant = existing.metadata.get("tenant_id")
+            if entry_tenant and entry_tenant != tenant_id:
+                logger.warning(
+                    "Cross-tenant promotion blocked: memory=%s entry_tenant=%s request_tenant=%s",
+                    memory_id,
+                    entry_tenant,
+                    tenant_id,
+                )
+                return False
+
         with self.connection() as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
@@ -362,17 +412,52 @@ class CrudMixin:
             return cursor.rowcount > 0
 
     async def promote_entry_async(
-        self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier
+        self: "ContinuumMemory",
+        memory_id: str,
+        new_tier: MemoryTier,
+        tenant_id: str | None = None,
     ) -> bool:
         """Async wrapper for promote_entry() - offloads blocking I/O to executor."""
         loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, lambda: self.promote_entry(memory_id, new_tier))
+        return await loop.run_in_executor(
+            None, lambda: self.promote_entry(memory_id, new_tier, tenant_id)
+        )
 
-    def demote_entry(self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier) -> bool:
+    def demote_entry(
+        self: "ContinuumMemory",
+        memory_id: str,
+        new_tier: MemoryTier,
+        tenant_id: str | None = None,
+    ) -> bool:
         """Demote an entry to a specific tier.
 
         Interface compatibility method for OutcomeMemoryBridge.
+
+        Args:
+            memory_id: The ID of the memory entry to demote
+            new_tier: The target tier to demote to
+            tenant_id: Optional tenant ID for multi-tenant isolation.
+                       When provided, validates that the entry belongs to
+                       the specified tenant before demoting.
+
+        Returns:
+            True if the entry was demoted, False if not found or tenant mismatch
         """
+        # Validate tenant isolation before demotion
+        if tenant_id is not None:
+            existing = self.get(memory_id)
+            if existing is None:
+                return False
+            entry_tenant = existing.metadata.get("tenant_id")
+            if entry_tenant and entry_tenant != tenant_id:
+                logger.warning(
+                    "Cross-tenant demotion blocked: memory=%s entry_tenant=%s request_tenant=%s",
+                    memory_id,
+                    entry_tenant,
+                    tenant_id,
+                )
+                return False
+
         with self.connection() as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
@@ -387,11 +472,16 @@ class CrudMixin:
             return cursor.rowcount > 0
 
     async def demote_entry_async(
-        self: "ContinuumMemory", memory_id: str, new_tier: MemoryTier
+        self: "ContinuumMemory",
+        memory_id: str,
+        new_tier: MemoryTier,
+        tenant_id: str | None = None,
     ) -> bool:
         """Async wrapper for demote_entry() - offloads blocking I/O to executor."""
         loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, lambda: self.demote_entry(memory_id, new_tier))
+        return await loop.run_in_executor(
+            None, lambda: self.demote_entry(memory_id, new_tier, tenant_id)
+        )
 
 
 __all__ = ["CrudMixin"]

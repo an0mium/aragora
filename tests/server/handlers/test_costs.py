@@ -292,16 +292,17 @@ class TestGetCostSummary:
 
     @pytest.mark.asyncio
     async def test_get_cost_summary_no_tracker(self):
-        """Get summary when tracker unavailable returns mock."""
+        """Get summary when tracker unavailable returns mock in demo mode."""
         with patch("aragora.server.handlers.costs.models._get_cost_tracker", return_value=None):
-            summary = await get_cost_summary(workspace_id="test", time_range="7d")
+            with patch("aragora.server.handlers.costs.models._is_demo_mode", return_value=True):
+                summary = await get_cost_summary(workspace_id="test", time_range="7d")
 
-            assert summary.budget == 500.00
-            assert len(summary.daily_costs) == 7
+                assert summary.budget == 500.00
+                assert len(summary.daily_costs) == 7
 
     @pytest.mark.asyncio
     async def test_get_cost_summary_with_tracker_empty_data(self):
-        """Get summary with tracker but no data returns mock."""
+        """Get summary with tracker but no data returns mock in demo mode."""
         mock_report = MagicMock()
         mock_report.total_cost_usd = Decimal("0")
         mock_report.cost_over_time = []
@@ -318,10 +319,11 @@ class TestGetCostSummary:
         with patch(
             "aragora.server.handlers.costs.models._get_cost_tracker", return_value=mock_tracker
         ):
-            summary = await get_cost_summary(workspace_id="test", time_range="7d")
+            with patch("aragora.server.handlers.costs.models._is_demo_mode", return_value=True):
+                summary = await get_cost_summary(workspace_id="test", time_range="7d")
 
-            # Should fall back to mock when no real data
-            assert summary.budget == 500.00
+                # In demo mode, returns mock budget when no real data
+                assert summary.budget == 500.0
 
     @pytest.mark.asyncio
     async def test_get_cost_summary_with_tracker_real_data(self):

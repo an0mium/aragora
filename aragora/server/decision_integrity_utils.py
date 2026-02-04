@@ -76,6 +76,8 @@ def _extract_implementation_profile(cfg: dict[str, Any]) -> dict[str, Any] | Non
         "fabric_min_agents",
         "fabric_max_agents",
         "fabric_timeout_seconds",
+        "task_type_router",
+        "capability_router",
         "channel_targets",
         "thread_id",
         "thread_id_by_platform",

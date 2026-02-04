@@ -394,7 +394,7 @@ def track_fabric_task(
     success = True
     try:
         yield
-    except Exception:
+    except BaseException:
         success = False
         raise
     finally:

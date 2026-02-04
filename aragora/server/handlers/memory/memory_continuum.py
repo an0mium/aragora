@@ -74,7 +74,7 @@ class MemoryContinuumMixin:
         # Retrieve memories (tenant-scoped when available)
         try:
             from aragora.memory.access import filter_entries, resolve_tenant_id
-        except Exception:
+        except ImportError:
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
 

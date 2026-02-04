@@ -101,8 +101,6 @@ class AuthChecksMixin:
             "/api/v1/verticals",
             "/api/evolution",
             "/api/v1/evolution",
-            "/api/debates",
-            "/api/v1/debates",
         ]
     )
 

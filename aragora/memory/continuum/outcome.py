@@ -285,6 +285,7 @@ class OutcomeMixin:
                     row = cursor.fetchone()
                     if row and row[0]:
                         import json
+
                         meta = json.loads(row[0]) if isinstance(row[0], str) else row[0]
                         pattern_id = meta.get("pattern_id")
             except Exception:

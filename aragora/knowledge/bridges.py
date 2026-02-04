@@ -61,6 +61,7 @@ __all__ = [
     "MetaLearnerBridge",
     "EvidenceBridge",
     "PatternBridge",
+    "ToolAuditBridge",
     "KnowledgeBridgeHub",
 ]
 
@@ -238,6 +239,118 @@ class EvidenceBridge:
 
     This connects the evidence system to the unified knowledge store.
     """
+
+
+class ToolAuditBridge:
+    """
+    Bridge between vertical tool calls and KnowledgeMound.
+
+    Captures vertical tool invocation metadata as evidence nodes to
+    enable long-term auditability and cross-debate reuse.
+    """
+
+    def __init__(self, mound: KnowledgeMoundProtocol) -> None:
+        self.mound = mound
+
+    async def record_tool_call(
+        self,
+        *,
+        vertical_id: str,
+        tool_name: str,
+        agent_name: str,
+        connector_type: str | None,
+        parameters: dict[str, Any],
+        status: str,
+        policy: dict[str, Any] | None = None,
+        result: dict[str, Any] | None = None,
+    ) -> str | None:
+        """Record a vertical tool invocation as a KnowledgeNode."""
+        if not tool_name:
+            return None
+
+        from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+        from aragora.memory.tier_manager import MemoryTier
+
+        parameter_keys = list(parameters.keys())
+        parameter_types = {key: type(value).__name__ for key, value in parameters.items()}
+        result_summary = _summarize_tool_result(result)
+
+        content_lines = [
+            f"Vertical tool invocation: {vertical_id}.{tool_name}",
+            f"Status: {status}",
+        ]
+        if connector_type:
+            content_lines.append(f"Connector: {connector_type}")
+        if result_summary:
+            content_lines.append(f"Summary: {result_summary}")
+        content = "\n".join(content_lines)
+
+        provenance = ProvenanceChain(
+            source_type=ProvenanceType.AGENT,
+            source_id=f"vertical_tool:{vertical_id}.{tool_name}",
+            agent_id=agent_name,
+        )
+        provenance.add_transformation(
+            "tool_invocation",
+            agent_id=agent_name,
+            details={
+                "vertical_id": vertical_id,
+                "tool": tool_name,
+                "status": status,
+                "connector_type": connector_type,
+                "parameter_keys": parameter_keys,
+                "parameter_types": parameter_types,
+                "policy": policy or {},
+                "result_summary": result_summary,
+            },
+        )
+
+        confidence = 0.75 if status == "allowed" else 0.4
+
+        node = KnowledgeNode(
+            node_type="evidence",
+            content=content,
+            confidence=confidence,
+            provenance=provenance,
+            tier=MemoryTier.MEDIUM,
+            workspace_id=self.mound.workspace_id,
+        )
+
+        node_id = await self.mound.add_node(node)
+        logger.info("Recorded vertical tool invocation to KM: %s", node_id)
+        return node_id
+
+
+def _summarize_tool_result(result: dict[str, Any] | None) -> dict[str, Any]:
+    """Summarize a tool result payload without storing full content."""
+    if not result:
+        return {}
+
+    summary: dict[str, Any] = {}
+    for key in ("count", "mode", "status", "decision", "query", "error"):
+        if key in result and result[key] is not None:
+            summary[key] = result[key]
+
+    for key in (
+        "results",
+        "articles",
+        "papers",
+        "cases",
+        "statutes",
+        "guidelines",
+        "filings",
+        "matches",
+        "codes",
+        "interactions",
+    ):
+        value = result.get(key)
+        if isinstance(value, list):
+            summary[f"{key}_count"] = len(value)
+
+    if "drug_info" in result and result.get("drug_info"):
+        summary["drug_info"] = "present"
+
+    return summary
 
     def __init__(self, mound: KnowledgeMoundProtocol) -> None:
         """
@@ -550,6 +663,7 @@ class KnowledgeBridgeHub:
         self._meta_learner: MetaLearnerBridge | None = None
         self._evidence: EvidenceBridge | None = None
         self._patterns: PatternBridge | None = None
+        self._tool_audit: ToolAuditBridge | None = None
 
     @property
     def meta_learner(self) -> MetaLearnerBridge:
@@ -571,3 +685,10 @@ class KnowledgeBridgeHub:
         if self._patterns is None:
             self._patterns = PatternBridge(self.mound)
         return self._patterns
+
+    @property
+    def tool_audit(self) -> ToolAuditBridge:
+        """Get ToolAudit bridge (lazy initialization)."""
+        if self._tool_audit is None:
+            self._tool_audit = ToolAuditBridge(self.mound)
+        return self._tool_audit

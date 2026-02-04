@@ -441,11 +441,13 @@ class ConsensusEstimator:
 
         if self.enable_stability_detection:
             try:
-                from aragora.debate.stability_detector import BetaBinomialStabilityDetector
-
-                self._stability_detector = BetaBinomialStabilityDetector(
-                    agreement_threshold=stability_agreement_threshold
+                from aragora.debate.stability_detector import (
+                    BetaBinomialStabilityDetector,
+                    StabilityConfig,
                 )
+
+                config = StabilityConfig(stability_threshold=stability_agreement_threshold)
+                self._stability_detector = BetaBinomialStabilityDetector(config=config)
             except ImportError:
                 logger.warning("Stability detector not available")
 

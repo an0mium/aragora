@@ -123,6 +123,22 @@ Include proper type hints and docstrings.""",
         return mapping
 
     @staticmethod
+    def _normalize_router_value(value: Any) -> str | None:
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                if item:
+                    cleaned = str(item).strip()
+                    if cleaned:
+                        return cleaned
+        if value is not None:
+            cleaned = str(value).strip()
+            return cleaned or None
+        return None
+
+    @staticmethod
     def _resolve_task(task: Task | ImplementTask) -> ImplementTask:
         if isinstance(task, ImplementTask):
             return task
@@ -241,6 +257,26 @@ Include proper type hints and docstrings.""",
                 _os.environ.get("IMPL_AGENT_BY_COMPLEXITY", "")
             )
 
+        task_type_router: dict[str, str] = {}
+        if self.profile and self.profile.task_type_router:
+            task_type_router = dict(self.profile.task_type_router)
+        else:
+            import os as _os
+
+            task_type_router = self._parse_complexity_router(
+                _os.environ.get("IMPL_AGENT_BY_TASK_TYPE", "")
+            )
+
+        capability_router: dict[str, str] = {}
+        if self.profile and self.profile.capability_router:
+            capability_router = dict(self.profile.capability_router)
+        else:
+            import os as _os
+
+            capability_router = self._parse_complexity_router(
+                _os.environ.get("IMPL_AGENT_BY_CAPABILITY", "")
+            )
+
         rr_index: dict[str, int] = {}
         default_index = 0
 
@@ -248,7 +284,19 @@ Include proper type hints and docstrings.""",
         handles: list[TaskHandle] = []
         for idx, task in enumerate(task_list):
             complexity_key = str(task.complexity or "moderate").lower()
-            desired_model = complexity_router.get(complexity_key)
+            desired_model: str | None = None
+            task_type = str(getattr(task, "task_type", "") or "").lower()
+            if task_type_router and task_type:
+                desired_model = self._normalize_router_value(task_type_router.get(task_type))
+            if desired_model is None and capability_router:
+                for cap in getattr(task, "capabilities", []) or []:
+                    cap_key = str(cap).lower()
+                    if cap_key in capability_router:
+                        desired_model = self._normalize_router_value(capability_router.get(cap_key))
+                        if desired_model:
+                            break
+            if desired_model is None:
+                desired_model = complexity_router.get(complexity_key)
             candidates = agent_ids
             if desired_model:
                 candidates = [
@@ -314,6 +362,9 @@ Include proper type hints and docstrings.""",
                             "task_id": impl_task.id,
                             "complexity": impl_task.complexity,
                             "files": len(impl_task.files),
+                            "task_type": getattr(impl_task, "task_type", None),
+                            "capabilities": getattr(impl_task, "capabilities", []) or [],
+                            "requires_approval": getattr(impl_task, "requires_approval", False),
                         },
                     )
                     if enforce_policy:

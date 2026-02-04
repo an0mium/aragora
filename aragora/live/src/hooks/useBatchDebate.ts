@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '@/config';
+import { useAuthFetch } from '@/hooks/useAuthenticatedFetch';
 
 const API_BASE = API_BASE_URL;
 
@@ -114,6 +115,7 @@ interface UseBatchDebateState {
  * batch.pollBatchStatus(result.batch_id, 5000);
  */
 export function useBatchDebate() {
+  const { getAuthHeaders, isAuthenticated, isLoading: authLoading } = useAuthFetch();
   const [state, setState] = useState<UseBatchDebateState>({
     submitting: false,
     submitError: null,
@@ -144,12 +146,17 @@ export function useBatchDebate() {
   // ---------------------------------------------------------------------------
 
   const submitBatch = useCallback(async (request: BatchSubmitRequest): Promise<BatchSubmitResponse | null> => {
+    if (!isAuthenticated && !authLoading) {
+      setState(s => ({ ...s, submitError: 'Authentication required' }));
+      return null;
+    }
+
     setState(s => ({ ...s, submitting: true, submitError: null }));
 
     try {
       const response = await fetch(`${API_BASE}/api/debates/batch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(request),
       });
 
@@ -174,7 +181,7 @@ export function useBatchDebate() {
       setState(s => ({ ...s, submitting: false, submitError: errorMsg }));
       return null;
     }
-  }, []);
+  }, [isAuthenticated, authLoading, getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Get Batch Status
@@ -184,7 +191,9 @@ export function useBatchDebate() {
     setState(s => ({ ...s, batchLoading: true, batchError: null }));
 
     try {
-      const response = await fetch(`${API_BASE}/api/debates/batch/${batchId}/status`);
+      const response = await fetch(`${API_BASE}/api/debates/batch/${batchId}/status`, {
+        headers: getAuthHeaders(),
+      });
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -208,7 +217,7 @@ export function useBatchDebate() {
       setState(s => ({ ...s, batchLoading: false, batchError: errorMsg }));
       return null;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Poll Batch Status

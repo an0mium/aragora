@@ -204,7 +204,7 @@ def _observe_metric(metric: Any, value: float, labels: dict[str, str] | None = N
                     metric.labels(**fallback).observe(value)
                 else:
                     metric.observe(value)
-            except Exception:
+            except (ValueError, TypeError, AttributeError):
                 logger.debug("Metric observe failed for %s", getattr(metric, "_name", "unknown"))
             return
         try:

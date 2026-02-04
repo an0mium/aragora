@@ -171,7 +171,7 @@ def track_workflow_template_execution(pattern: str) -> Generator[None, None, Non
     success = True
     try:
         yield
-    except Exception:
+    except BaseException:
         success = False
         raise
     finally:

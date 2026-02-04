@@ -577,6 +577,7 @@ class RetentionEnforcementScheduler:
         self._running = True
 
         import asyncio
+
         self._task = asyncio.create_task(self._run_loop())
         logger.info(
             "Started retention enforcement scheduler (interval=%ds, workspaces=%s)",
@@ -590,6 +591,7 @@ class RetentionEnforcementScheduler:
         if self._task:
             self._task.cancel()
             import asyncio
+
             try:
                 await self._task
             except asyncio.CancelledError:
@@ -612,7 +614,8 @@ class RetentionEnforcementScheduler:
         policies = self._manager.list_policies()
         if self._workspace_ids:
             policies = [
-                p for p in policies
+                p
+                for p in policies
                 if p.workspace_ids is None
                 or any(ws in p.workspace_ids for ws in self._workspace_ids)
             ]
@@ -654,6 +657,7 @@ class RetentionEnforcementScheduler:
     async def _run_loop(self) -> None:
         """Background loop for periodic enforcement."""
         import asyncio
+
         while self._running:
             try:
                 await self.run_once()
@@ -681,9 +685,7 @@ def get_enforcement_scheduler() -> RetentionEnforcementScheduler:
     """Get or create the global enforcement scheduler."""
     global _enforcement_scheduler
     if _enforcement_scheduler is None:
-        _enforcement_scheduler = RetentionEnforcementScheduler(
-            manager=get_retention_manager()
-        )
+        _enforcement_scheduler = RetentionEnforcementScheduler(manager=get_retention_manager())
     return _enforcement_scheduler
 
 

@@ -834,7 +834,7 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
             event = await connector.construct_webhook_event(payload, sig_header)
         except ValueError:
             return web_error_response("Invalid payload", 400)
-        except Exception:
+        except (KeyError, TypeError, AttributeError):
             return web_error_response("Webhook signature verification failed", 400)
 
         # Get event ID for idempotency check

@@ -1,97 +1,270 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useBackend } from '@/components/BackendSelector';
+import { useAuth } from '@/context/AuthContext';
 
-interface UsageData {
-  period: string;
+interface CostSummary {
+  totalCost: number;
+  budget: number;
+  tokensUsed: number;
   apiCalls: number;
-  tokens: number;
-  debates: number;
-  storage: number;
+  lastUpdated: string;
+  costByProvider: { name: string; cost: number; percentage: number }[];
+  costByFeature: { name: string; cost: number; percentage: number }[];
+  dailyCosts: { date: string; cost: number }[];
+  alerts: { id: string; type: string; message: string; severity: string }[];
 }
 
-interface TenantUsage {
-  tenantId: string;
-  tenantName: string;
-  tier: string;
-  currentPeriod: UsageData;
-  history: UsageData[];
-  projectedCost: number;
-}
-
-function UsageChart({ data, label }: { data: number[]; label: string }) {
-  const max = Math.max(...data, 1);
+function UsageChart({ data, label }: { data: { date: string; cost: number }[]; label: string }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="space-y-1">
+        <div className="text-sm font-medium text-gray-700">{label}</div>
+        <div className="flex items-center justify-center h-20 text-gray-400 text-sm">No data available</div>
+      </div>
+    );
+  }
+  const max = Math.max(...data.map(d => d.cost), 1);
   return (
     <div className="space-y-1">
       <div className="text-sm font-medium text-gray-700">{label}</div>
       <div className="flex items-end gap-1 h-20">
-        {data.map((value, i) => (
-          <div key={i} className="flex-1 bg-blue-500 rounded-t" style={{ height: (value / max * 100) + '%' }} title={String(value)} />
+        {data.map((item, i) => (
+          <div
+            key={i}
+            className="flex-1 bg-blue-500 rounded-t transition-all hover:bg-blue-600"
+            style={{ height: `${(item.cost / max) * 100}%` }}
+            title={`${item.date}: $${item.cost.toFixed(2)}`}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function MetricCard({ title, value, change, unit }: { title: string; value: number; change?: number; unit?: string }) {
-  const changeClass = change !== undefined && change >= 0 ? 'text-green-600' : 'text-red-600';
-  const changeText = change !== undefined ? (change >= 0 ? '+' : '') + change + '% from last period' : '';
+function MetricCard({ title, value, unit, loading }: { title: string; value: number; unit?: string; loading?: boolean }) {
   return (
     <div className="bg-white p-4 rounded-lg border">
       <div className="text-sm text-gray-500">{title}</div>
-      <div className="text-2xl font-bold">{value.toLocaleString()}{unit && <span className="text-sm font-normal text-gray-500 ml-1">{unit}</span>}</div>
-      {change !== undefined && <div className={'text-sm ' + changeClass}>{changeText}</div>}
+      {loading ? (
+        <div className="h-8 bg-gray-200 rounded animate-pulse mt-1" />
+      ) : (
+        <div className="text-2xl font-bold">
+          {unit === 'USD' ? `$${value.toFixed(2)}` : value.toLocaleString()}
+          {unit && unit !== 'USD' && <span className="text-sm font-normal text-gray-500 ml-1">{unit}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BreakdownTable({ data, title }: { data: { name: string; cost: number; percentage: number }[]; title: string }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border p-6">
+        <h2 className="text-lg font-semibold mb-4">{title}</h2>
+        <div className="text-gray-400 text-sm text-center py-4">No data available</div>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-white rounded-lg border p-6">
+      <h2 className="text-lg font-semibold mb-4">{title}</h2>
+      <table className="w-full">
+        <thead>
+          <tr className="border-b text-left text-sm text-gray-500">
+            <th className="pb-3">Name</th>
+            <th className="pb-3 text-right">Cost</th>
+            <th className="pb-3 text-right">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((item, idx) => (
+            <tr key={idx} className="border-b last:border-b-0">
+              <td className="py-3 font-medium">{item.name}</td>
+              <td className="py-3 text-right">${item.cost.toFixed(2)}</td>
+              <td className="py-3 text-right text-gray-500">{item.percentage.toFixed(1)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 export default function UsageDashboard() {
-  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
-  const tenantUsage: TenantUsage[] = [
-    { tenantId: 'tenant-001', tenantName: 'Acme Corporation', tier: 'enterprise', currentPeriod: { period: '2026-01', apiCalls: 85000, tokens: 2500000, debates: 450, storage: 5368709120 }, history: [{ period: '2025-10', apiCalls: 72000, tokens: 2100000, debates: 380, storage: 4294967296 }, { period: '2025-11', apiCalls: 78000, tokens: 2300000, debates: 410, storage: 4831838208 }, { period: '2025-12', apiCalls: 82000, tokens: 2400000, debates: 430, storage: 5100000000 }, { period: '2026-01', apiCalls: 85000, tokens: 2500000, debates: 450, storage: 5368709120 }], projectedCost: 4250 },
-    { tenantId: 'tenant-002', tenantName: 'Startup Inc', tier: 'standard', currentPeriod: { period: '2026-01', apiCalls: 4500, tokens: 150000, debates: 25, storage: 268435456 }, history: [{ period: '2025-10', apiCalls: 2000, tokens: 80000, debates: 12, storage: 134217728 }, { period: '2025-11', apiCalls: 3000, tokens: 100000, debates: 18, storage: 180000000 }, { period: '2025-12', apiCalls: 3800, tokens: 130000, debates: 22, storage: 220000000 }, { period: '2026-01', apiCalls: 4500, tokens: 150000, debates: 25, storage: 268435456 }], projectedCost: 450 },
-  ];
+  const { config: backendConfig } = useBackend();
+  const { isAuthenticated, tokens } = useAuth();
+  const token = tokens?.access_token;
 
-  const totalApiCalls = tenantUsage.reduce((sum, t) => sum + t.currentPeriod.apiCalls, 0);
-  const totalTokens = tenantUsage.reduce((sum, t) => sum + t.currentPeriod.tokens, 0);
-  const totalDebates = tenantUsage.reduce((sum, t) => sum + t.currentPeriod.debates, 0);
-  const totalRevenue = tenantUsage.reduce((sum, t) => sum + t.projectedCost, 0);
+  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
+  const [data, setData] = useState<CostSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const periodToRange = { day: '24h', week: '7d', month: '30d' };
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const range = periodToRange[period];
+      const res = await fetch(`${backendConfig.api}/api/v1/costs?range=${range}`, { headers });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch cost data: ${res.status}`);
+      }
+
+      const json = await res.json();
+      setData(json);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  }, [backendConfig.api, token, period]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const budgetUsedPercent = data && data.budget > 0 ? (data.totalCost / data.budget) * 100 : 0;
 
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <div><h1 className="text-2xl font-bold">Usage Dashboard</h1><p className="text-gray-500">Monitor platform usage and billing</p></div>
-        <select value={period} onChange={(e) => setPeriod(e.target.value as typeof period)} className="px-4 py-2 border rounded-md">
-          <option value="day">Last 24 Hours</option><option value="week">Last 7 Days</option><option value="month">Last 30 Days</option>
-        </select>
+        <div>
+          <h1 className="text-2xl font-bold">Usage Dashboard</h1>
+          <p className="text-gray-500">Monitor platform usage and costs</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as typeof period)}
+            className="px-4 py-2 border rounded-md"
+          >
+            <option value="day">Last 24 Hours</option>
+            <option value="week">Last 7 Days</option>
+            <option value="month">Last 30 Days</option>
+          </select>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+          {error}
+        </div>
+      )}
+
+      {/* Alerts */}
+      {data?.alerts && data.alerts.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {data.alerts.map((alert) => (
+            <div
+              key={alert.id}
+              className={`px-4 py-3 rounded border ${
+                alert.severity === 'critical'
+                  ? 'bg-red-50 border-red-200 text-red-700'
+                  : alert.severity === 'warning'
+                  ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+                  : 'bg-blue-50 border-blue-200 text-blue-700'
+              }`}
+            >
+              <span className="font-medium">{alert.type}:</span> {alert.message}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <MetricCard title="Total API Calls" value={totalApiCalls} change={12} />
-        <MetricCard title="Total Tokens" value={totalTokens} change={8} />
-        <MetricCard title="Total Debates" value={totalDebates} change={15} />
-        <MetricCard title="Projected Revenue" value={totalRevenue} unit="USD" change={10} />
+        <MetricCard title="Total Cost" value={data?.totalCost ?? 0} unit="USD" loading={loading} />
+        <MetricCard title="API Calls" value={data?.apiCalls ?? 0} loading={loading} />
+        <MetricCard title="Tokens Used" value={data?.tokensUsed ?? 0} loading={loading} />
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="text-sm text-gray-500">Budget Usage</div>
+          {loading ? (
+            <div className="h-8 bg-gray-200 rounded animate-pulse mt-1" />
+          ) : (
+            <>
+              <div className="text-2xl font-bold">
+                ${data?.totalCost?.toFixed(2) ?? '0.00'} / ${data?.budget?.toFixed(2) ?? '0.00'}
+              </div>
+              <div className="mt-2 h-2 bg-gray-200 rounded overflow-hidden">
+                <div
+                  className={`h-full transition-all ${
+                    budgetUsedPercent >= 90
+                      ? 'bg-red-500'
+                      : budgetUsedPercent >= 70
+                      ? 'bg-yellow-500'
+                      : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(budgetUsedPercent, 100)}%` }}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </div>
-      <div className="bg-white rounded-lg border p-6 mb-8">
-        <h2 className="text-lg font-semibold mb-4">Usage by Tenant</h2>
-        <table className="w-full">
-          <thead><tr className="border-b text-left text-sm text-gray-500"><th className="pb-3">Tenant</th><th className="pb-3">Tier</th><th className="pb-3">API Calls</th><th className="pb-3">Tokens</th><th className="pb-3">Debates</th><th className="pb-3">Cost</th></tr></thead>
-          <tbody>
-            {tenantUsage.map(tenant => (
-              <tr key={tenant.tenantId} className="border-b">
-                <td className="py-4 font-medium">{tenant.tenantName}</td>
-                <td className="py-4"><span className={'px-2 py-1 rounded text-xs ' + (tenant.tier === 'enterprise' ? 'bg-purple-100' : 'bg-blue-100')}>{tenant.tier}</span></td>
-                <td className="py-4">{tenant.currentPeriod.apiCalls.toLocaleString()}</td>
-                <td className="py-4">{tenant.currentPeriod.tokens.toLocaleString()}</td>
-                <td className="py-4">{tenant.currentPeriod.debates}</td>
-                <td className="py-4 font-medium">${tenant.projectedCost}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      {/* Cost Trends */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white rounded-lg border p-6">
+          <h2 className="text-lg font-semibold mb-4">Daily Cost Trend</h2>
+          <UsageChart data={data?.dailyCosts ?? []} label="" />
+        </div>
+        <div className="bg-white rounded-lg border p-6">
+          <h2 className="text-lg font-semibold mb-4">Cost Summary</h2>
+          {loading ? (
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-200 rounded animate-pulse" />
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Total Cost</span>
+                <span className="font-medium">${data?.totalCost?.toFixed(2) ?? '0.00'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Monthly Budget</span>
+                <span className="font-medium">${data?.budget?.toFixed(2) ?? '0.00'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">API Calls</span>
+                <span className="font-medium">{data?.apiCalls?.toLocaleString() ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Tokens Used</span>
+                <span className="font-medium">{data?.tokensUsed?.toLocaleString() ?? 0}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-400">
+                <span>Last Updated</span>
+                <span>{data?.lastUpdated ? new Date(data.lastUpdated).toLocaleString() : '-'}</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Breakdowns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg border p-6"><h2 className="text-lg font-semibold mb-4">API Calls Trend</h2><UsageChart data={[72000, 78000, 82000, 85000, 89000, 92000]} label="" /></div>
-        <div className="bg-white rounded-lg border p-6"><h2 className="text-lg font-semibold mb-4">Token Usage Trend</h2><UsageChart data={[2100000, 2300000, 2400000, 2500000, 2600000, 2700000]} label="" /></div>
+        <BreakdownTable data={data?.costByProvider ?? []} title="Cost by Provider" />
+        <BreakdownTable data={data?.costByFeature ?? []} title="Cost by Feature" />
       </div>
     </div>
   );

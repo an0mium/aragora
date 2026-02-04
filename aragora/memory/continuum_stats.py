@@ -124,6 +124,7 @@ def cleanup_expired_memories(
     tier: MemoryTier | None = None,
     archive: bool = True,
     max_age_hours: float | None = None,
+    tenant_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Remove or archive expired memories based on tier retention policies.
@@ -136,6 +137,9 @@ def cleanup_expired_memories(
         tier: Specific tier to cleanup (None = all tiers)
         archive: If True, move to archive table; if False, delete permanently
         max_age_hours: Override default retention (uses tier half-life * multiplier if None)
+        tenant_id: Optional tenant ID for multi-tenant isolation.
+                   When provided, only cleans up memories belonging to the
+                   specified tenant. CRITICAL for multi-tenant environments.
 
     Returns:
         Dict with counts: {"archived": N, "deleted": N, "by_tier": {...}}
@@ -160,10 +164,17 @@ def cleanup_expired_memories(
             cutoff = datetime.now() - timedelta(hours=retention_hours)
             cutoff_str = cutoff.isoformat()
 
+            # Build tenant filter clause if needed
+            tenant_clause = ""
+            tenant_params: list[Any] = []
+            if tenant_id is not None:
+                tenant_clause = " AND json_extract(metadata, '$.tenant_id') = ?"
+                tenant_params = [tenant_id]
+
             if archive:
                 # Archive expired entries (excluding red-lined memories)
                 cursor.execute(
-                    """
+                    f"""
                     INSERT INTO continuum_memory_archive
                         (id, tier, content, importance, surprise_score,
                          consolidation_score, update_count, success_count,
@@ -177,8 +188,9 @@ def cleanup_expired_memories(
                     WHERE tier = ?
                       AND datetime(updated_at) < datetime(?)
                       AND COALESCE(red_line, 0) = 0
+                      {tenant_clause}
                     """,
-                    (tier_name, cutoff_str),
+                    (tier_name, cutoff_str, *tenant_params),
                 )
                 archived_count = cursor.rowcount
             else:
@@ -186,13 +198,14 @@ def cleanup_expired_memories(
 
             # Delete from main table (excluding red-lined memories)
             cursor.execute(
-                """
+                f"""
                 DELETE FROM continuum_memory
                 WHERE tier = ?
                   AND datetime(updated_at) < datetime(?)
                   AND COALESCE(red_line, 0) = 0
+                  {tenant_clause}
                 """,
-                (tier_name, cutoff_str),
+                (tier_name, cutoff_str, *tenant_params),
             )
             deleted_count = cursor.rowcount
 
@@ -220,6 +233,7 @@ def delete_memory(
     archive: bool = True,
     reason: str = "user_deleted",
     force: bool = False,
+    tenant_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Delete a specific memory entry by ID.
@@ -230,6 +244,10 @@ def delete_memory(
         archive: If True, archive before deletion; if False, delete permanently
         reason: Reason for deletion (stored in archive)
         force: If True, delete even if entry is red-lined (dangerous!)
+        tenant_id: Optional tenant ID for multi-tenant isolation.
+                   When provided, validates that the entry belongs to
+                   the specified tenant before deletion. CRITICAL for
+                   preventing cross-tenant data access.
 
     Returns:
         Dict with result: {"deleted": bool, "archived": bool, "id": str, "blocked": bool}
@@ -246,13 +264,30 @@ def delete_memory(
 
         # Check if memory exists and if it's red-lined
         cursor.execute(
-            "SELECT id, red_line, red_line_reason FROM continuum_memory WHERE id = ?",
+            "SELECT id, red_line, red_line_reason, metadata FROM continuum_memory WHERE id = ?",
             (memory_id,),
         )
         row = cursor.fetchone()
         if not row:
             logger.debug("Memory %s not found for deletion", memory_id)
             return result
+
+        # Validate tenant isolation before deletion
+        if tenant_id is not None:
+            import json
+
+            entry_metadata = json.loads(row[3]) if row[3] else {}
+            entry_tenant = entry_metadata.get("tenant_id")
+            if entry_tenant and entry_tenant != tenant_id:
+                logger.warning(
+                    "Cross-tenant deletion blocked: memory=%s entry_tenant=%s request_tenant=%s",
+                    memory_id,
+                    entry_tenant,
+                    tenant_id,
+                )
+                result["blocked"] = True
+                result["reason"] = "cross_tenant_access"
+                return result
 
         # Block deletion of red-lined entries unless forced
         if row[1] and not force:  # red_line is True
@@ -306,6 +341,7 @@ def enforce_tier_limits(
     cms: "ContinuumMemory",
     tier: MemoryTier | None = None,
     archive: bool = True,
+    tenant_id: str | None = None,
 ) -> dict[str, int]:
     """
     Enforce max entries per tier by removing lowest importance entries.
@@ -317,6 +353,10 @@ def enforce_tier_limits(
         cms: ContinuumMemory instance
         tier: Specific tier to enforce (None = all tiers)
         archive: If True, archive excess; if False, delete permanently
+        tenant_id: Optional tenant ID for multi-tenant isolation.
+                   When provided, only enforces limits for memories belonging
+                   to the specified tenant. CRITICAL for multi-tenant environments
+                   to prevent cross-tenant data loss during cleanup.
 
     Returns:
         Dict with counts of removed entries by tier
@@ -324,6 +364,13 @@ def enforce_tier_limits(
     results: dict[str, int] = {}
     tiers_to_process = [tier] if tier else list(MemoryTier)
     max_entries: "MaxEntriesPerTier" = cms.hyperparams["max_entries_per_tier"]
+
+    # Build tenant filter clause if needed
+    tenant_clause = ""
+    tenant_params: list[Any] = []
+    if tenant_id is not None:
+        tenant_clause = " AND json_extract(metadata, '$.tenant_id') = ?"
+        tenant_params = [tenant_id]
 
     with cms.connection() as conn:
         cursor = conn.cursor()
@@ -333,10 +380,10 @@ def enforce_tier_limits(
             # get() returns int | None but we provide a default, so result is always int
             limit = cast(int, max_entries.get(tier_name, 10000))
 
-            # Count current entries
+            # Count current entries (filtered by tenant if specified)
             cursor.execute(
-                "SELECT COUNT(*) FROM continuum_memory WHERE tier = ?",
-                (tier_name,),
+                f"SELECT COUNT(*) FROM continuum_memory WHERE tier = ?{tenant_clause}",
+                (tier_name, *tenant_params),
             )
             row = cursor.fetchone()
             count: int = row[0] if row else 0
@@ -350,7 +397,7 @@ def enforce_tier_limits(
             if archive:
                 # Archive lowest importance entries (excluding red-lined)
                 cursor.execute(
-                    """
+                    f"""
                     INSERT INTO continuum_memory_archive
                         (id, tier, content, importance, surprise_score,
                          consolidation_score, update_count, success_count,
@@ -363,33 +410,36 @@ def enforce_tier_limits(
                     FROM continuum_memory
                     WHERE tier = ?
                       AND COALESCE(red_line, 0) = 0
+                      {tenant_clause}
                     ORDER BY importance ASC, updated_at ASC
                     LIMIT ?
                     """,
-                    (tier_name, excess),
+                    (tier_name, *tenant_params, excess),
                 )
 
             # Delete excess entries (lowest importance first, excluding red-lined)
             cursor.execute(
-                """
+                f"""
                 DELETE FROM continuum_memory
                 WHERE id IN (
                     SELECT id FROM continuum_memory
                     WHERE tier = ?
                       AND COALESCE(red_line, 0) = 0
+                      {tenant_clause}
                     ORDER BY importance ASC, updated_at ASC
                     LIMIT ?
                 )
                 """,
-                (tier_name, excess),
+                (tier_name, *tenant_params, excess),
             )
 
             results[tier_name] = cursor.rowcount
             logger.info(
-                "Tier limit enforced: tier=%s, removed=%d (limit=%d)",
+                "Tier limit enforced: tier=%s, removed=%d (limit=%d)%s",
                 tier_name,
                 cursor.rowcount,
                 limit,
+                f" tenant={tenant_id}" if tenant_id else "",
             )
 
         conn.commit()

@@ -104,7 +104,7 @@ def _validate_review_internal(value: Any) -> tuple[bool, str | None, str]:
         from aragora.server.handlers.features import marketplace as marketplace_module
 
         return True, marketplace_module.sanitize_string(value), ""
-    except Exception:
+    except (ImportError, AttributeError):
         return True, sanitize_string(value), ""
 
 

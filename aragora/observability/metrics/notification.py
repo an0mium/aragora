@@ -167,7 +167,7 @@ def track_notification_delivery(
     success = True
     try:
         yield
-    except Exception:
+    except BaseException:
         success = False
         raise
     finally:

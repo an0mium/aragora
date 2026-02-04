@@ -107,6 +107,9 @@ class TestImplementTask:
             files=["a.py", "b.py"],
             complexity="complex",
             dependencies=["dep-1"],
+            task_type="computer_use",
+            capabilities=["computer_use", "vision"],
+            requires_approval=True,
         )
 
         restored = ImplementTask.from_dict(original.to_dict())
@@ -116,6 +119,25 @@ class TestImplementTask:
         assert restored.files == original.files
         assert restored.complexity == original.complexity
         assert restored.dependencies == original.dependencies
+        assert restored.task_type == original.task_type
+        assert restored.capabilities == original.capabilities
+        assert restored.requires_approval == original.requires_approval
+
+    def test_to_dict_includes_optional_fields(self):
+        """to_dict includes optional fields when set."""
+        task = ImplementTask(
+            id="task-4",
+            description="Browser automation",
+            files=[],
+            complexity="moderate",
+            task_type="computer_use",
+            capabilities=["computer_use", "vision"],
+            requires_approval=True,
+        )
+        data = task.to_dict()
+        assert data["task_type"] == "computer_use"
+        assert data["capabilities"] == ["computer_use", "vision"]
+        assert data["requires_approval"] is True
 
 
 class TestImplementPlan:

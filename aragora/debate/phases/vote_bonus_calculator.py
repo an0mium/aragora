@@ -231,7 +231,7 @@ class VoteBonusCalculator:
                 # No bonus on error
 
         if process_scores:
-            if result is not None:
+            if result is not None and hasattr(result, "metadata") and result.metadata is not None:
                 avg_score = sum(process_scores.values()) / len(process_scores)
                 metadata = result.metadata.setdefault("process_verification", {})
                 metadata.update(

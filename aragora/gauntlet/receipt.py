@@ -1151,16 +1151,22 @@ class DecisionReceipt:
 
         return "\n".join(lines)
 
-    def to_html(self) -> str:
-        """Export as self-contained HTML document."""
+    def to_html(self, max_findings: int = 20, max_provenance: int = 50) -> str:
+        """Export as self-contained HTML document.
+
+        Args:
+            max_findings: Maximum number of findings to include (default 20)
+            max_provenance: Maximum provenance records to include (default 50)
+        """
         verdict_color = {
             "PASS": "#28a745",
             "CONDITIONAL": "#ffc107",
             "FAIL": "#dc3545",
         }.get(self.verdict, "#6c757d")
 
-        findings_html = ""
-        for vuln in self.vulnerability_details[:20]:
+        # Use list + join for O(n) complexity instead of O(n²) string concatenation
+        findings_parts: list[str] = []
+        for vuln in self.vulnerability_details[:max_findings]:
             severity = str(vuln.get("severity", "UNKNOWN")).upper()
             severity_color = {
                 "CRITICAL": "#dc3545",
@@ -1175,13 +1181,14 @@ class DecisionReceipt:
             if mitigation:
                 mitigation_html = f"<p><em>Mitigation: {escape(str(mitigation))}</em></p>"
 
-            findings_html += (
+            findings_parts.append(
                 f'<div class="finding" style="border-left: 4px solid {severity_color};">'
                 f'<strong style="color: {severity_color};">[{severity}]</strong> {title}'
                 f"<p>{description}</p>"
                 f"{mitigation_html}"
                 "</div>"
             )
+        findings_html = "".join(findings_parts)
 
         risk_summary = self.risk_summary or {}
 
@@ -1271,6 +1278,185 @@ class DecisionReceipt:
 </body>
 </html>
 """
+
+    def to_html_paginated(
+        self,
+        findings_per_page: int = 10,
+        max_provenance: int = 50,
+        provenance_sampling: str = "first_last",
+    ) -> str:
+        """Export as paginated HTML document optimized for PDF rendering.
+
+        Uses CSS page breaks and provenance sampling to handle large receipts
+        efficiently without memory issues during PDF generation.
+
+        Args:
+            findings_per_page: Number of findings per page (default 10)
+            max_provenance: Maximum provenance records to include (default 50)
+            provenance_sampling: Sampling strategy for provenance chain:
+                - "all": Include all records up to max_provenance
+                - "first_last": Include first and last half (default)
+                - "sampled": Evenly sample across the chain
+
+        Returns:
+            HTML string with CSS page breaks suitable for PDF rendering
+        """
+        verdict_color = {
+            "PASS": "#28a745",
+            "CONDITIONAL": "#ffc107",
+            "FAIL": "#dc3545",
+        }.get(self.verdict, "#6c757d")
+
+        # Sample provenance chain based on strategy
+        provenance = self._sample_provenance(max_provenance, provenance_sampling)
+
+        # Build findings HTML with page breaks
+        findings_parts: list[str] = []
+        for i, vuln in enumerate(self.vulnerability_details):
+            # Add page break before each new page (except first)
+            if i > 0 and i % findings_per_page == 0:
+                findings_parts.append('<div style="page-break-before: always;"></div>')
+
+            severity = str(vuln.get("severity", "UNKNOWN")).upper()
+            severity_color = {
+                "CRITICAL": "#dc3545",
+                "HIGH": "#fd7e14",
+                "MEDIUM": "#ffc107",
+                "LOW": "#28a745",
+            }.get(severity, "#6c757d")
+            title = escape(str(vuln.get("title", "")))
+            description = escape(str(vuln.get("description", "")))
+            mitigation = vuln.get("mitigation")
+            mitigation_html = ""
+            if mitigation:
+                mitigation_html = f"<p><em>Mitigation: {escape(str(mitigation))}</em></p>"
+
+            findings_parts.append(
+                f'<div class="finding" style="border-left: 4px solid {severity_color};">'
+                f'<strong style="color: {severity_color};">[{severity}]</strong> {title}'
+                f"<p>{description}</p>"
+                f"{mitigation_html}"
+                "</div>"
+            )
+        findings_html = "".join(findings_parts)
+
+        # Build provenance HTML
+        provenance_parts: list[str] = []
+        if provenance:
+            provenance_parts.append('<div style="page-break-before: always;"></div>')
+            provenance_parts.append('<div class="section"><h2>Provenance Chain</h2>')
+            provenance_parts.append(
+                "<table><tr><th>#</th><th>Timestamp</th><th>Event</th>"
+                "<th>Agent</th><th>Description</th></tr>"
+            )
+            for i, record in enumerate(provenance, 1):
+                timestamp = record.timestamp[:19] if record.timestamp else "-"
+                event = record.event_type or "-"
+                agent = record.agent or "-"
+                desc = escape(record.description[:50]) if record.description else "-"
+                provenance_parts.append(
+                    f"<tr><td>{i}</td><td>{escape(timestamp)}</td>"
+                    f"<td>{escape(event)}</td><td>{escape(agent)}</td>"
+                    f"<td>{desc}</td></tr>"
+                )
+            provenance_parts.append("</table></div>")
+        provenance_html = "".join(provenance_parts)
+
+        risk_summary = self.risk_summary or {}
+
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Decision Receipt - {escape(self.receipt_id)}</title>
+    <style>
+        @page {{ margin: 2cm; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }}
+        h1 {{ color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }}
+        .verdict {{ font-size: 22px; font-weight: bold; color: {verdict_color}; margin: 20px 0; padding: 16px; background: #f8f9fa; border-radius: 8px; }}
+        .section {{ margin: 24px 0; }}
+        .finding {{ margin: 10px 0; padding: 12px; background: #f8f9fa; border-left: 4px solid #ccc; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 12px 0; }}
+        th, td {{ padding: 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 11px; }}
+        th {{ background: #f8f9fa; }}
+        .meta {{ font-size: 13px; color: #666; }}
+        code {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; }}
+    </style>
+</head>
+<body>
+    <h1>Decision Receipt</h1>
+    <p class="meta">
+        <strong>Receipt ID:</strong> <code>{escape(self.receipt_id)}</code><br>
+        <strong>Gauntlet ID:</strong> <code>{escape(self.gauntlet_id)}</code><br>
+        <strong>Generated:</strong> {escape(self.timestamp)}
+    </p>
+
+    <div class="verdict">
+        VERDICT: {escape(self.verdict)}
+        <div style="font-size: 14px; font-weight: normal; margin-top: 8px;">
+            Confidence: {self.confidence:.0%} | Robustness: {self.robustness_score:.0%}
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Risk Summary</h2>
+        <table>
+            <tr><th>Severity</th><th>Count</th></tr>
+            <tr><td>Critical</td><td>{risk_summary.get("critical", 0)}</td></tr>
+            <tr><td>High</td><td>{risk_summary.get("high", 0)}</td></tr>
+            <tr><td>Medium</td><td>{risk_summary.get("medium", 0)}</td></tr>
+            <tr><td>Low</td><td>{risk_summary.get("low", 0)}</td></tr>
+            <tr><td><strong>Total</strong></td><td><strong>{self.vulnerabilities_found}</strong></td></tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Findings ({len(self.vulnerability_details)} total)</h2>
+        {findings_html or '<p class="meta">No findings reported.</p>'}
+    </div>
+
+    {provenance_html}
+
+    <div class="section">
+        <h2>Integrity</h2>
+        <p class="meta">
+            Input Hash: <code>{escape(self.input_hash[:32])}...</code><br>
+            Artifact Hash: <code>{escape(self.artifact_hash[:32])}...</code>
+        </p>
+    </div>
+{self._signature_verification_html()}
+</body>
+</html>
+"""
+
+    def _sample_provenance(self, max_records: int, strategy: str) -> list[ProvenanceRecord]:
+        """Sample provenance chain based on strategy.
+
+        Args:
+            max_records: Maximum records to return
+            strategy: "all", "first_last", or "sampled"
+
+        Returns:
+            Sampled list of ProvenanceRecord
+        """
+        records = self.provenance_chain
+        if not records or max_records <= 0:
+            return []
+
+        if len(records) <= max_records:
+            return records
+
+        if strategy == "first_last":
+            # Take first half and last half
+            half = max_records // 2
+            return list(records[:half]) + list(records[-half:])
+        elif strategy == "sampled":
+            # Evenly sample across the chain
+            step = max(1, len(records) // max_records)
+            return list(records[::step])[:max_records]
+        else:
+            # "all" or unknown: just truncate
+            return list(records[:max_records])
 
     def to_json(self, indent: int = 2) -> str:
         """Export as JSON string."""

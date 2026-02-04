@@ -162,7 +162,7 @@ def track_batch_explainability_debate() -> Generator[None, None, None]:
     success = True
     try:
         yield
-    except Exception:
+    except BaseException:
         success = False
         raise
     finally:

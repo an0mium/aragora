@@ -164,12 +164,30 @@ class ConnectorRegistry:
         # Evidence / AI connectors
         self._try_register("github", "ai", "aragora.connectors.github", ["search", "issues", "prs"])
         self._try_register("arxiv", "ai", "aragora.connectors.arxiv", ["search", "papers"])
+        self._try_register(
+            "courtlistener",
+            "ai",
+            "aragora.connectors.courtlistener",
+            ["search", "case_law"],
+        )
+        self._try_register(
+            "govinfo",
+            "ai",
+            "aragora.connectors.govinfo",
+            ["search", "statutes"],
+        )
         self._try_register("pubmed", "ai", "aragora.connectors.pubmed", ["search", "papers"])
         self._try_register(
             "semantic_scholar",
             "ai",
             "aragora.connectors.semantic_scholar",
             ["search", "papers"],
+        )
+        self._try_register(
+            "nice_guidance",
+            "ai",
+            "aragora.connectors.nice_guidance",
+            ["search", "guidelines"],
         )
         self._try_register("crossref", "ai", "aragora.connectors.crossref", ["search", "citations"])
         self._try_register(

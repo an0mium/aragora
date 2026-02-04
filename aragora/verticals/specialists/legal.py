@@ -20,7 +20,7 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
-from aragora.verticals.tooling import web_search_fallback
+from aragora.verticals.tooling import courtlistener_search, govinfo_search, web_search_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -93,12 +93,12 @@ legal counsel for specific legal matters.""",
         ToolConfig(
             name="case_search",
             description="Search legal case databases",
-            connector_type="web",
+            connector_type="courtlistener",
         ),
         ToolConfig(
             name="statute_lookup",
             description="Look up statutes and regulations",
-            connector_type="web",
+            connector_type="govinfo",
         ),
         ToolConfig(
             name="contract_compare",
@@ -206,16 +206,30 @@ class LegalSpecialist(VerticalSpecialistAgent):
         query = parameters.get("query") or parameters.get("q") or parameters.get("case") or ""
         jurisdiction = parameters.get("jurisdiction") or parameters.get("region") or ""
         limit = int(parameters.get("limit", 10))
-        note = "Case law connector not yet integrated; using web search fallback."
-        search_query = f"{query} case law {jurisdiction}".strip()
-        result = await web_search_fallback(search_query, limit=limit, note=note)
+        result = await courtlistener_search(
+            query,
+            limit=limit,
+            court=jurisdiction or None,
+        )
+        if result.get("error"):
+            note = "CourtListener connector unavailable; using web search fallback."
+            search_query = f"{query} case law {jurisdiction}".strip()
+            fallback = await web_search_fallback(search_query, limit=limit, note=note)
+            return {
+                "cases": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", search_query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
+
         return {
-            "cases": result.get("results", []),
+            "cases": result.get("cases", []),
             "count": result.get("count", 0),
-            "query": result.get("query", search_query),
-            "mode": result.get("mode", "web_fallback"),
-            "note": result.get("note"),
-            "error": result.get("error"),
+            "query": result.get("query", query),
+            "mode": "connector",
+            "court": result.get("court"),
         }
 
     async def _statute_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
@@ -229,16 +243,31 @@ class LegalSpecialist(VerticalSpecialistAgent):
         )
         jurisdiction = parameters.get("jurisdiction") or parameters.get("region") or ""
         limit = int(parameters.get("limit", 10))
-        note = "Statute lookup connector not yet integrated; using web search fallback."
-        search_query = f"{query} statute {jurisdiction}".strip()
-        result = await web_search_fallback(search_query, limit=limit, note=note)
+        collection = parameters.get("collection") or "USCODE"
+        result = await govinfo_search(
+            query,
+            limit=limit,
+            collection=collection,
+        )
+        if result.get("error"):
+            note = "GovInfo connector unavailable; using web search fallback."
+            search_query = f"{query} statute {jurisdiction}".strip()
+            fallback = await web_search_fallback(search_query, limit=limit, note=note)
+            return {
+                "statutes": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", search_query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
+
         return {
             "statutes": result.get("results", []),
             "count": result.get("count", 0),
-            "query": result.get("query", search_query),
-            "mode": result.get("mode", "web_fallback"),
-            "note": result.get("note"),
-            "error": result.get("error"),
+            "query": result.get("query", query),
+            "mode": "connector",
+            "collection": result.get("collection"),
         }
 
     async def _contract_compare(self, parameters: dict[str, Any]) -> dict[str, Any]:

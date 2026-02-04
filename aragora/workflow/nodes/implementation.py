@@ -40,6 +40,9 @@ class ImplementationStep(BaseStep):
         description: str - What to implement
         files: list[str] - Files to create or modify
         complexity: str - "simple", "moderate", or "complex"
+        task_type: str - Optional task type ("code", "tests", "computer_use", etc.)
+        capabilities: list[str] - Optional capability hints
+        requires_approval: bool - Whether task required prior approval
         repo_path: str - Repository root (optional, defaults to cwd)
         stop_on_failure: bool - Whether to abort on task failure (default True)
     """
@@ -55,6 +58,9 @@ class ImplementationStep(BaseStep):
         description = config.get("description", "")
         files = config.get("files", [])
         complexity = config.get("complexity", "moderate")
+        task_type = config.get("task_type")
+        capabilities = config.get("capabilities", []) or []
+        requires_approval = bool(config.get("requires_approval", False))
         repo_path_str = config.get("repo_path") or context.get_state("repo_path", str(Path.cwd()))
         repo_path = Path(repo_path_str)
 
@@ -97,6 +103,9 @@ class ImplementationStep(BaseStep):
                 description=description,
                 files=files,
                 complexity=complexity,
+                task_type=str(task_type) if task_type is not None else None,
+                capabilities=capabilities if isinstance(capabilities, list) else [],
+                requires_approval=requires_approval,
             )
 
             executor = HybridExecutor(

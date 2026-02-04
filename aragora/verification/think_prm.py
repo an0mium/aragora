@@ -291,7 +291,10 @@ SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise wr
             contributions = round_data.get("contributions", [])
 
             # Get fragility for this round (if provided)
-            # TODO: Use fragility to adjust verification intensity
+            # NOTE: Fragility-adjusted verification intensity is a planned enhancement.
+            # The fragility score is calculated but not yet used to vary verification depth.
+            # Higher fragility rounds could warrant deeper verification or multiple passes.
+            # See: https://arxiv.org/abs/2510.12697 for theoretical foundation.
             _round_fragility = (
                 fragility_scores.get(round_number, 0.5)
                 if fragility_scores

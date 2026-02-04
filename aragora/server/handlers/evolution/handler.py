@@ -14,7 +14,6 @@ import logging
 from typing import Any
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
-from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
@@ -77,7 +76,6 @@ class EvolutionHandler(BaseHandler):
             return True
         return False
 
-    @require_permission("evolution:read")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:

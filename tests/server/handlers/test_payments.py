@@ -1323,7 +1323,7 @@ class TestWebhookSecurity:
         request.read = read_func
 
         mock_stripe_connector.construct_webhook_event = AsyncMock(
-            side_effect=Exception("Invalid signature")
+            side_effect=KeyError("Invalid signature")
         )
 
         with patch(

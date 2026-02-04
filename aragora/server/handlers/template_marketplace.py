@@ -834,7 +834,7 @@ class TemplateMarketplaceHandler(BaseHandler):
             result = self._route_request(path, query_params, handler, method, client_ip)
             self._circuit_breaker.record_success()
             return result
-        except Exception:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError):
             self._circuit_breaker.record_failure()
             raise
 

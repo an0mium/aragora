@@ -76,7 +76,7 @@ def apply_core_components(arena: Arena, core: Any) -> None:
     arena.org_id = core.org_id
     arena.user_id = core.user_id
     # Try DI container first, fall back to direct instantiation
-    arena._budget_coordinator = try_resolve(BudgetCoordinatorProtocol)
+    arena._budget_coordinator = try_resolve(BudgetCoordinatorProtocol)  # type: ignore[type-abstract]
     if arena._budget_coordinator is None:
         arena._budget_coordinator = BudgetCoordinator(
             org_id=arena.org_id,
@@ -100,7 +100,7 @@ def apply_core_components(arena: Arena, core: Any) -> None:
     arena._ml_quality_gate = core.ml_quality_gate
     arena._ml_consensus_estimator = core.ml_consensus_estimator
     # Event bus initialized later in _init_event_bus() after audience_manager exists
-    arena.event_bus: EventBus | None = None
+    arena.event_bus = None
 
 
 def apply_tracker_components(arena: Arena, trackers: Any) -> None:

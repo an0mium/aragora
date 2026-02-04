@@ -363,19 +363,84 @@ class CheckpointHandler(BaseHandler):
 
         Manually trigger checkpoint creation for a running debate.
 
-        Note: This is primarily for administrative use. Checkpoints are
-        automatically created during debate execution.
+        Request body (optional):
+        {
+            "phase": "manual",
+            "note": "Checkpoint note"
+        }
         """
-        # This would need to connect to the running debate's Arena instance
-        # For now, return a message indicating how to use this endpoint
-        return json_response(
-            {
-                "message": "Manual checkpoint creation requires an active debate session",
-                "hint": "Checkpoints are automatically created during debate execution. "
-                "Use /api/checkpoints/resumable to find debates with existing checkpoints.",
-            },
-            status=501,
-        )
+        from aragora.server.state import get_state_manager
+
+        # Get the running debate state
+        state_manager = get_state_manager()
+        debate_state = state_manager.get_debate(debate_id)
+
+        if debate_state is None:
+            return error_response(f"Debate not found: {debate_id}", 404)
+
+        if debate_state.status not in ("running", "initializing", "paused"):
+            return error_response(
+                f"Cannot checkpoint debate in '{debate_state.status}' state. "
+                "Only running, initializing, or paused debates can be checkpointed.",
+                400,
+            )
+
+        # Parse optional body
+        data = safe_json_parse(body) or {}
+        phase = data.get("phase", "manual")
+        note = data.get("note", "")
+
+        # Create checkpoint using available state
+        manager = self._get_checkpoint_manager()
+
+        try:
+            # Convert messages from DebateState to checkpoint format
+            messages = []
+            for msg in debate_state.messages:
+                if isinstance(msg, dict):
+                    messages.append(msg)
+                elif hasattr(msg, "to_dict"):
+                    messages.append(msg.to_dict())
+                else:
+                    messages.append({"content": str(msg)})
+
+            checkpoint = await manager.create_checkpoint(
+                debate_id=debate_id,
+                task=debate_state.task,
+                current_round=debate_state.current_round,
+                total_rounds=debate_state.total_rounds,
+                phase=phase,
+                messages=messages,
+                critiques=[],  # Not available from StateManager
+                votes=[],  # Not available from StateManager
+                agents=[],  # Agent objects not available, only names
+                current_consensus=None,
+            )
+
+            # Store note in metadata if provided
+            if note:
+                checkpoint.metadata = checkpoint.metadata or {}
+                checkpoint.metadata["note"] = note
+                await manager.store.save(checkpoint)
+
+            logger.info(
+                f"Created manual checkpoint {checkpoint.checkpoint_id} for debate {debate_id}"
+            )
+
+            return json_response(
+                {
+                    "success": True,
+                    "checkpoint_id": checkpoint.checkpoint_id,
+                    "debate_id": debate_id,
+                    "phase": phase,
+                    "current_round": debate_state.current_round,
+                    "message": "Checkpoint created successfully",
+                }
+            )
+
+        except (IOError, OSError, ValueError, TypeError, RuntimeError) as e:
+            logger.error(f"Failed to create checkpoint for {debate_id}: {e}")
+            return error_response(f"Failed to create checkpoint: {e}", 500)
 
     async def pause_debate(self, debate_id: str, body: bytes | None) -> HandlerResult:
         """

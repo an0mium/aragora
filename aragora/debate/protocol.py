@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS, DEBATE_TIMEOUT_SECONDS, DEFAULT_ROUNDS
 from aragora.debate.role_matcher import RoleMatchingConfig
@@ -510,7 +510,7 @@ class DebateProtocol:
         min_confidence: float = 0.7,
         approval_mode: str = "risk_based",
         budget_limit_usd: float | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "DebateProtocol":
         """Create a protocol with Gold Path enabled.
 
