@@ -216,6 +216,7 @@ def init_phases(arena: "Arena") -> None:
         spectator=arena.spectator,
         loop_id=arena.loop_id,
         tier_analytics_tracker=getattr(arena, "tier_analytics_tracker", None),
+        auth_context=getattr(arena, "auth_context", None),
     )
 
     # Initialize ContextGatherer for research and evidence collection

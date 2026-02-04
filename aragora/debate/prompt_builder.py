@@ -1495,46 +1495,53 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         patterns_section = ""
         patterns = self.format_successful_patterns(limit=2)
         if patterns:
-            patterns_section = f"\n\n{patterns}"
+            patterns_section = patterns
 
         # Include historical belief cruxes (key disagreement points)
         belief_section = ""
         belief_context = self._inject_belief_context(limit=2)
         if belief_context:
-            belief_section = f"\n\n{belief_context}"
+            belief_section = belief_context
 
         # Include calibration feedback for poorly calibrated agents
         calibration_section = ""
         calibration_context = self._inject_calibration_context(agent)
         if calibration_context:
-            calibration_section = f"\n\n{calibration_context}"
+            calibration_section = calibration_context
 
         # Include ELO ranking context for agent awareness of relative expertise (B3)
         elo_section = ""
         if all_agents:
             elo_context = self.get_elo_context(agent, all_agents)
             if elo_context:
-                elo_section = f"\n\n{elo_context}"
+                elo_section = elo_context
 
         # Include evidence for strengthening revised claims
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=3)
         if evidence_context:
-            evidence_section = f"\n\n{evidence_context}"
+            evidence_section = evidence_context
 
         # Include trending topics for timely context (Pulse integration)
         trending_section = ""
         trending_context = self.format_trending_for_prompt(max_topics=2)
         if trending_context:
-            trending_section = f"\n\n{trending_context}"
+            trending_section = trending_context
 
-        # Format audience section if provided
-        if audience_section:
-            audience_section = f"\n\n{audience_section}"
+        sections = [
+            ContextSection("patterns", patterns_section.strip()),
+            ContextSection("belief", belief_section.strip()),
+            ContextSection("calibration", calibration_section.strip()),
+            ContextSection("elo", elo_section.strip()),
+            ContextSection("evidence", evidence_section.strip()),
+            ContextSection("trending", trending_section.strip()),
+            ContextSection("audience", audience_section.strip()),
+        ]
+        context_block, _ = self._apply_context_budget(env_context="", sections=sections)
 
         return f"""You are revising your proposal based on critiques from other agents.{round_phase_section}{role_section}{persona_section}{flip_section}
 
-{intensity_guidance}{stance_section}{patterns_section}{belief_section}{calibration_section}{elo_section}{evidence_section}{trending_section}{audience_section}
+{intensity_guidance}{stance_section}{context_block}
 
 Original Task: {self.env.task}
 
@@ -1564,12 +1571,17 @@ Explain what you changed and why. If you disagree with a critique, explain your 
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=5)
         if evidence_context:
-            evidence_section = f"\n\n{evidence_context}\n"
+            evidence_section = evidence_context
+
+        context_block, _ = self._apply_context_budget(
+            env_context="",
+            sections=[ContextSection("evidence", evidence_section.strip())],
+        )
 
         return f"""You are the synthesizer/judge in a multi-agent debate (decision stress-test).
 
 Task: {task}
-{evidence_section}
+{context_block}
 Proposals:
 {proposals_str}
 

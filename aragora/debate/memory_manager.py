@@ -394,6 +394,8 @@ class MemoryManager:
         spectator: Optional["SpectatorStream"] = None,
         loop_id: str = "",
         tier_analytics_tracker: TierAnalyticsTracker | None = None,
+        auth_context: Any | None = None,
+        tenant_id: str | None = None,
         enable_cache: bool = True,
         enable_prefetch: bool = True,
         cache_ttl_seconds: float = 60.0,
@@ -411,6 +413,8 @@ class MemoryManager:
             spectator: Optional spectator stream for notifications
             loop_id: Loop ID for event scoping
             tier_analytics_tracker: Optional TierAnalyticsTracker for ROI tracking
+            auth_context: Optional auth context (used to resolve tenant_id)
+            tenant_id: Optional tenant ID override for multi-tenant isolation
             enable_cache: Whether to enable memory lookup caching (default True)
             enable_prefetch: Whether to enable predictive prefetching (default True)
             cache_ttl_seconds: Cache TTL in seconds (default 60 seconds)
@@ -425,6 +429,12 @@ class MemoryManager:
         self.spectator = spectator
         self.loop_id = loop_id
         self.tier_analytics_tracker = tier_analytics_tracker
+        resolved_tenant = tenant_id
+        if resolved_tenant is None and auth_context is not None:
+            resolved_tenant = getattr(auth_context, "org_id", None) or getattr(
+                auth_context, "workspace_id", None
+            )
+        self._tenant_id: str | None = resolved_tenant
 
         # Track retrieved memory IDs for outcome updates
         self._retrieved_ids: list[str] = []
@@ -453,6 +463,10 @@ class MemoryManager:
                 continuum_memory=continuum_memory,
                 prefetch_count=prefetch_count,
             )
+
+    def set_tenant_id(self, tenant_id: str | None) -> None:
+        """Update tenant ID for subsequent memory operations."""
+        self._tenant_id = tenant_id
 
     def _emit_event(self, event_type: str, **data: Any) -> None:
         """Emit a memory event if event_emitter is configured.
@@ -542,6 +556,7 @@ class MemoryManager:
                 tier=tier,
                 importance=importance,
                 metadata=metadata,
+                tenant_id=self._tenant_id,
             )
             logger.info(
                 "  [continuum] Stored outcome as %s-tier memory (importance: %s)", tier, importance
@@ -792,6 +807,7 @@ class MemoryManager:
                             "source": source,
                             "type": "evidence",
                         },
+                        tenant_id=self._tenant_id,
                     )
                     stored_count += 1
 
@@ -1297,6 +1313,7 @@ class MemoryManager:
                     query=query,
                     tiers=[tier],
                     limit=limit_per_tier,
+                    tenant_id=self._tenant_id,
                 )
                 results[tier] = list(entries)
 

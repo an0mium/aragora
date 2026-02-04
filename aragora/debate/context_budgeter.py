@@ -37,10 +37,9 @@ def _truncate_text(text: str, max_tokens: int) -> str:
     # Preserve leading whitespace to keep formatting stable
     leading = text[: len(text) - len(text.lstrip())]
     body = text[len(leading) :]
-    suffix = "\n...[truncated]"
-    max_body_chars = max(0, max_chars - len(leading) - len(suffix))
+    max_body_chars = max(0, max_chars - len(leading))
     trimmed = body[:max_body_chars].rstrip()
-    return f"{leading}{trimmed}{suffix}"
+    return f"{leading}{trimmed}\n...[truncated]"
 
 
 def _parse_section_map(raw: str) -> dict[str, int]:
