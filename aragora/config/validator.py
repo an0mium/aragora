@@ -65,7 +65,7 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
         config_summary: dict[str, Any] = basic_result.get("config_summary", {})
     except Exception as e:
         errors.append(f"Basic configuration validation failed: {e}")
-        config_summary = {}
+        config_summary: dict[str, Any] = {}
 
     # Additional security checks
     env = os.environ.get("ARAGORA_ENV", "development").lower()

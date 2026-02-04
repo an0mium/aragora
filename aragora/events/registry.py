@@ -374,7 +374,7 @@ class EventRegistry:
         except ImportError:
             logger.debug("SecurityEventType not available")
 
-    def _register_stream_events(self, enum_class: type) -> None:
+    def _register_stream_events(self, enum_class: type[Enum]) -> None:
         """Register StreamEventType events."""
         # Category mappings based on event name prefixes
         category_map = {

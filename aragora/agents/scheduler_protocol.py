@@ -267,7 +267,7 @@ class LocalSchedulerAdapter:
             status=handle.status,
             priority=Priority.NORMAL,  # Local scheduler doesn't track priority
             agent_id=handle.agent_id,
-            created_at=handle.created_at,
+            created_at=handle.scheduled_at,
             started_at=handle.started_at,
             completed_at=handle.completed_at,
             result=handle.result,
