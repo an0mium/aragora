@@ -8,6 +8,7 @@ compliance review, regulatory research, and legal document drafting.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any, Optional
 
@@ -20,7 +21,13 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
-from aragora.verticals.tooling import courtlistener_search, govinfo_search, web_search_fallback
+from aragora.verticals.tooling import (
+    courtlistener_search,
+    govinfo_search,
+    lexis_search,
+    web_search_fallback,
+    westlaw_search,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -206,13 +213,36 @@ class LegalSpecialist(VerticalSpecialistAgent):
         query = parameters.get("query") or parameters.get("q") or parameters.get("case") or ""
         jurisdiction = parameters.get("jurisdiction") or parameters.get("region") or ""
         limit = int(parameters.get("limit", 10))
+        preferred = os.environ.get("ARAGORA_LEGAL_PRIMARY_SOURCE", "").strip().lower()
+
+        premium_order = []
+        if preferred in {"westlaw", "lexis"}:
+            premium_order.append(preferred)
+        for candidate in ("westlaw", "lexis"):
+            if candidate not in premium_order:
+                premium_order.append(candidate)
+
+        for source in premium_order:
+            if source == "westlaw":
+                result = await westlaw_search(query, limit=limit)
+            else:
+                result = await lexis_search(query, limit=limit)
+            if not result.get("error") and result.get("cases"):
+                return {
+                    "cases": result.get("cases", []),
+                    "count": result.get("count", 0),
+                    "query": result.get("query", query),
+                    "mode": "connector",
+                    "source": source,
+                }
+
         result = await courtlistener_search(
             query,
             limit=limit,
             court=jurisdiction or None,
         )
         if result.get("error"):
-            note = "CourtListener connector unavailable; using web search fallback."
+            note = "Case law connectors unavailable; using web search fallback."
             search_query = f"{query} case law {jurisdiction}".strip()
             fallback = await web_search_fallback(search_query, limit=limit, note=note)
             return {
@@ -230,6 +260,7 @@ class LegalSpecialist(VerticalSpecialistAgent):
             "query": result.get("query", query),
             "mode": "connector",
             "court": result.get("court"),
+            "source": "courtlistener",
         }
 
     async def _statute_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:

@@ -20,7 +20,12 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
-from aragora.verticals.tooling import sec_filings_search, web_search_fallback
+from aragora.verticals.tooling import (
+    gaap_lookup,
+    sec_filings_search,
+    tax_reference_search,
+    web_search_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +105,7 @@ consultation with qualified accounting professionals for specific matters.""",
         ToolConfig(
             name="gaap_lookup",
             description="Look up GAAP accounting standards",
-            connector_type="accounting",
+            connector_type="fasb",
         ),
         ToolConfig(
             name="ratio_calculator",
@@ -110,7 +115,7 @@ consultation with qualified accounting professionals for specific matters.""",
         ToolConfig(
             name="tax_reference",
             description="Look up tax regulations and rates",
-            connector_type="tax",
+            connector_type="irs",
         ),
     ],
     compliance_frameworks=[
@@ -243,16 +248,24 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         """Look up GAAP standards."""
         topic = parameters.get("topic") or parameters.get("query") or parameters.get("q") or ""
         limit = int(parameters.get("limit", 5))
-        note = "GAAP lookup connector not yet integrated; using web search fallback."
-        query = f"{topic} GAAP standard" if topic else ""
-        result = await web_search_fallback(query, limit=limit, note=note)
+        result = await gaap_lookup(topic, limit=limit)
+        if result.get("error"):
+            note = "FASB connector unavailable; using web search fallback."
+            query = f"{topic} GAAP standard" if topic else ""
+            fallback = await web_search_fallback(query, limit=limit, note=note)
+            return {
+                "standards": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
         return {
-            "standards": result.get("results", []),
+            "standards": result.get("standards", []),
             "count": result.get("count", 0),
-            "query": result.get("query", query),
-            "mode": result.get("mode", "web_fallback"),
-            "note": result.get("note"),
-            "error": result.get("error"),
+            "query": result.get("query", topic),
+            "mode": "connector",
         }
 
     async def _calculate_ratios(self, parameters: dict[str, Any]) -> dict[str, Any]:
@@ -289,16 +302,31 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         topic = parameters.get("topic") or parameters.get("query") or parameters.get("q") or ""
         jurisdiction = parameters.get("jurisdiction") or parameters.get("region") or ""
         limit = int(parameters.get("limit", 5))
-        note = "Tax reference connector not yet integrated; using web search fallback."
-        query = f"{topic} tax regulation {jurisdiction}".strip()
-        result = await web_search_fallback(query, limit=limit, note=note)
+        result = await tax_reference_search(
+            topic,
+            limit=limit,
+            jurisdiction=jurisdiction or "US",
+        )
+        if result.get("error"):
+            note = "IRS connector unavailable; using web search fallback."
+            query = f"{topic} tax regulation {jurisdiction}".strip()
+            fallback = await web_search_fallback(query, limit=limit, note=note)
+            return {
+                "regulations": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
+
         return {
             "regulations": result.get("results", []),
             "count": result.get("count", 0),
-            "query": result.get("query", query),
-            "mode": result.get("mode", "web_fallback"),
-            "note": result.get("note"),
-            "error": result.get("error"),
+            "query": result.get("query", topic),
+            "mode": "connector",
+            "jurisdiction": result.get("jurisdiction"),
+            "connector": result.get("connector"),
         }
 
     async def _check_framework_compliance(

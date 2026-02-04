@@ -218,6 +218,76 @@ async def courtlistener_search(
     }
 
 
+async def westlaw_search(
+    query: str,
+    *,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Search Westlaw for case law (licensed)."""
+    query = (query or "").strip()
+    if not query:
+        return {"cases": [], "error": "query is required"}
+
+    try:
+        from aragora.connectors import WestlawConnector
+    except Exception as e:  # pragma: no cover
+        logger.warning("Westlaw connector unavailable: %s", e)
+        return {"cases": [], "error": "westlaw connector unavailable"}
+
+    connector = WestlawConnector()
+    if not getattr(connector, "is_available", True):
+        return {"cases": [], "error": "westlaw connector unavailable (missing httpx)"}
+    if hasattr(connector, "is_configured") and not connector.is_configured:
+        return {"cases": [], "error": "westlaw connector not configured"}
+
+    try:
+        results = await connector.search(query=query, limit=limit)
+    except Exception as e:
+        logger.warning("Westlaw search failed: %s", e)
+        return {"cases": [], "error": f"westlaw search failed: {e}"}
+
+    return {
+        "query": query,
+        "count": len(results),
+        "cases": _evidence_list(results),
+    }
+
+
+async def lexis_search(
+    query: str,
+    *,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Search LexisNexis for case law (licensed)."""
+    query = (query or "").strip()
+    if not query:
+        return {"cases": [], "error": "query is required"}
+
+    try:
+        from aragora.connectors import LexisConnector
+    except Exception as e:  # pragma: no cover
+        logger.warning("Lexis connector unavailable: %s", e)
+        return {"cases": [], "error": "lexis connector unavailable"}
+
+    connector = LexisConnector()
+    if not getattr(connector, "is_available", True):
+        return {"cases": [], "error": "lexis connector unavailable (missing httpx)"}
+    if hasattr(connector, "is_configured") and not connector.is_configured:
+        return {"cases": [], "error": "lexis connector not configured"}
+
+    try:
+        results = await connector.search(query=query, limit=limit)
+    except Exception as e:
+        logger.warning("Lexis search failed: %s", e)
+        return {"cases": [], "error": f"lexis search failed: {e}"}
+
+    return {
+        "query": query,
+        "count": len(results),
+        "cases": _evidence_list(results),
+    }
+
+
 async def govinfo_search(
     query: str,
     *,
@@ -442,6 +512,89 @@ async def drug_lookup(
         "count": len(results),
         "drug_info": drug_info,
         "interactions": interactions,
+    }
+
+
+async def gaap_lookup(
+    query: str,
+    *,
+    limit: int = 5,
+) -> dict[str, Any]:
+    """Lookup GAAP standards via FASB connector."""
+    query = (query or "").strip()
+    if not query:
+        return {"standards": [], "error": "query is required"}
+
+    try:
+        from aragora.connectors import FASBConnector
+    except Exception as e:  # pragma: no cover
+        logger.warning("FASB connector unavailable: %s", e)
+        return {"standards": [], "error": "fasb connector unavailable"}
+
+    connector = FASBConnector()
+    if not getattr(connector, "is_available", True):
+        return {"standards": [], "error": "fasb connector unavailable (missing httpx)"}
+    if hasattr(connector, "is_configured") and not connector.is_configured:
+        return {"standards": [], "error": "fasb connector not configured"}
+
+    try:
+        results = await connector.search(query=query, limit=limit)
+    except Exception as e:
+        logger.warning("FASB lookup failed: %s", e)
+        return {"standards": [], "error": f"fasb lookup failed: {e}"}
+
+    return {
+        "query": query,
+        "count": len(results),
+        "standards": _evidence_list(results),
+    }
+
+
+async def tax_reference_search(
+    query: str,
+    *,
+    limit: int = 5,
+    jurisdiction: str = "US",
+) -> dict[str, Any]:
+    """Search tax guidance (default IRS) with jurisdiction-aware routing."""
+    query = (query or "").strip()
+    if not query:
+        return {"results": [], "error": "query is required"}
+
+    jurisdiction_norm = jurisdiction.lower().strip() if jurisdiction else "us"
+
+    connector = None
+    connector_label = None
+    try:
+        if jurisdiction_norm in {"us", "usa", "united_states", "irs"}:
+            from aragora.connectors import IRSConnector
+
+            connector = IRSConnector()
+            connector_label = "irs"
+    except Exception as e:  # pragma: no cover
+        logger.warning("IRS connector unavailable: %s", e)
+        return {"results": [], "error": "irs connector unavailable"}
+
+    if connector is None:
+        return {"results": [], "error": f"no connector for jurisdiction '{jurisdiction}'"}
+
+    if not getattr(connector, "is_available", True):
+        return {"results": [], "error": f"{connector_label} connector unavailable (missing httpx)"}
+    if hasattr(connector, "is_configured") and not connector.is_configured:
+        return {"results": [], "error": f"{connector_label} connector not configured"}
+
+    try:
+        results = await connector.search(query=query, limit=limit)
+    except Exception as e:
+        logger.warning("Tax reference lookup failed: %s", e)
+        return {"results": [], "error": f"tax lookup failed: {e}"}
+
+    return {
+        "query": query,
+        "jurisdiction": jurisdiction,
+        "connector": connector_label,
+        "count": len(results),
+        "results": _evidence_list(results),
     }
 
 
