@@ -94,6 +94,25 @@ Independent verification of production readiness found the project is **98% GA-r
 - `aragora/utils/README.md` - Utilities module documentation
 - `aragora/skills/README.md` - Skills system documentation
 - `aragora/policy/README.md` - Policy engine documentation
+- `aragora/server/handlers/openclaw/README.md` - OpenClaw gateway handler documentation
+- `aragora/server/handlers/workspace/README.md` - Workspace management handler documentation
+- `aragora/server/handlers/shared_inbox/README.md` - Shared inbox handler documentation
+- `aragora/server/handlers/bots/README.md` - Multi-channel bot integration documentation
+- `aragora/server/handlers/payments/README.md` - Payment processing handler documentation
+
+### Tests Added (Phase 7.1)
+- **Workspace Members Tests**: 23 tests for member management, role assignment, RBAC profiles
+- **Workspace Policies Tests**: 24 tests for retention policy CRUD, execution, expiring items
+- **OpenAPI Decorator Tests**: 81 tests for `@api_endpoint` decorator, schema validation, parameter extraction
+- **Interface Handler Tests**: 18 tests already existed - verified all passing
+- **Distributed Rate Limiting**: 28 tests already existed - verified all passing (Redis backend, circuit breaker, fallback)
+- **Email Sync Resilience**: 19 tests already existed - verified all passing (circuit breaker, retry, backoff)
+
+### Production Features Verified
+- **Distributed Rate Limiting**: Redis-backed sliding window algorithm with graceful fallback to in-memory
+- **Email Sync Reliability**: Circuit breaker, exponential backoff retry, OAuth token persistence with encryption
+- **Bot Cache Optimization**: Heap-based O(log n) TTL cleanup for response caching
+- **Circuit Breaker Defaults**: Tuned (threshold=5, cooldown=60s) across all resilience patterns
 
 ---
 

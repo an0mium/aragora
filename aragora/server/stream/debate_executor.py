@@ -148,23 +148,19 @@ def parse_debate_request(data: dict) -> tuple[dict | None, str | None]:
         return None, "question must be under 10,000 characters"
 
     # Parse optional fields with validation
-    agents_value = data.get("agents")
-    if isinstance(agents_value, list):
-        agents_str = ",".join(str(agent).strip() for agent in agents_value if str(agent).strip())
-    elif isinstance(agents_value, str):
-        agents_str = agents_value.strip()
-    else:
-        agents_str = DEFAULT_AGENTS
-    if not agents_str:
-        agents_str = DEFAULT_AGENTS
+    agents_value = data.get("agents", DEFAULT_AGENTS)
     # Validate agent providers early to avoid starting invalid debates
     try:
         from aragora.agents.spec import AgentSpec
 
-        AgentSpec.parse_list(agents_str, _warn=False)
+        specs = AgentSpec.coerce_list(agents_value, warn=False)
+        if not specs:
+            specs = AgentSpec.coerce_list(DEFAULT_AGENTS, warn=False)
     except (ValueError, TypeError, ImportError) as e:
         return None, str(e)
-    agent_count = len([s for s in agents_str.split(",") if s.strip()])
+
+    agent_count = len(specs)
+    agents_str = ",".join(spec.to_string() for spec in specs)
     if agent_count < 2:
         return None, "At least 2 agents required for a debate"
     if agent_count > MAX_AGENTS_PER_DEBATE:
@@ -261,8 +257,11 @@ def execute_debate_thread(
 
     try:
         # Parse agents with bounds check
-        agent_list = [s.strip() for s in agents_str.split(",") if s.strip()]
-        if len(agent_list) > MAX_AGENTS_PER_DEBATE:
+        from aragora.agents.spec import AgentSpec
+
+        agent_specs = AgentSpec.coerce_list(agents_str, warn=False)
+        _agent_list = [spec.name or spec.provider for spec in agent_specs]  # noqa: F841
+        if len(agent_specs) > MAX_AGENTS_PER_DEBATE:
             with _active_debates_lock:
                 _active_debates[debate_id]["status"] = "error"
                 _active_debates[debate_id]["error"] = (
@@ -270,7 +269,7 @@ def execute_debate_thread(
                 )
                 _active_debates[debate_id]["completed_at"] = time.time()
             return
-        if len(agent_list) < 2:
+        if len(agent_specs) < 2:
             with _active_debates_lock:
                 _active_debates[debate_id]["status"] = "error"
                 _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
@@ -279,9 +278,7 @@ def execute_debate_thread(
 
         # Parse agent specs using unified AgentSpec (validates provider against allowlist)
         from aragora.agents.registry import AgentRegistry
-        from aragora.agents.spec import AgentSpec
 
-        agent_specs = AgentSpec.parse_list(agents_str)
         requested_agents = [spec.name or spec.provider for spec in agent_specs]
         filtered_specs = []
         missing_agents: list[str] = []

@@ -296,7 +296,7 @@ class EventRegistry:
         if not metadata:
             return None
 
-        schema = {
+        schema: dict[str, Any] = {
             "type": "object",
             "properties": {},
             "required": metadata.required_fields,

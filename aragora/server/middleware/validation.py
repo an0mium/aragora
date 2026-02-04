@@ -20,21 +20,61 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Pattern, cast
 
 from aragora.server.validation.schema import (
+    AGENT_CONFIG_SCHEMA,
+    ALERT_CONFIG_SCHEMA,
+    BATCH_SUBMIT_SCHEMA,
     BILLING_PORTAL_SCHEMA,
+    BUDGET_CREATE_SCHEMA,
+    BUDGET_UPDATE_SCHEMA,
     CHECKOUT_SESSION_SCHEMA,
+    COMPLIANCE_REPORT_SCHEMA,
+    CONNECTOR_CREATE_SCHEMA,
+    CONNECTOR_UPDATE_SCHEMA,
+    DEBATE_START_SCHEMA,
+    DEBATE_UPDATE_SCHEMA,
+    EMAIL_CONFIG_SCHEMA,
+    EVIDENCE_SUBMIT_SCHEMA,
+    FORK_REQUEST_SCHEMA,
+    GAUNTLET_RUN_SCHEMA,
+    KNOWLEDGE_CREATE_SCHEMA,
+    KNOWLEDGE_UPDATE_SCHEMA,
     MEMBER_ROLE_SCHEMA,
+    MEMORY_CLEANUP_SCHEMA,
     MFA_CODE_SCHEMA,
     MFA_DISABLE_SCHEMA,
     MFA_VERIFY_SCHEMA,
+    NOTIFICATION_SEND_SCHEMA,
+    ORG_CREATE_SCHEMA,
     ORG_INVITE_SCHEMA,
     ORG_SWITCH_SCHEMA,
     ORG_UPDATE_SCHEMA,
     PASSWORD_CHANGE_SCHEMA,
+    PLUGIN_INSTALL_SCHEMA,
+    PLUGIN_MANIFEST_SCHEMA,
+    PLUGIN_RUN_SCHEMA,
+    POLICY_CREATE_SCHEMA,
+    POLICY_UPDATE_SCHEMA,
+    PROBE_RUN_SCHEMA,
+    ROUTING_RULE_SCHEMA,
+    SCHEDULE_CREATE_SCHEMA,
+    SHARE_UPDATE_SCHEMA,
+    SOCIAL_PUBLISH_SCHEMA,
+    TELEGRAM_CONFIG_SCHEMA,
     TOKEN_REFRESH_SCHEMA,
     TOKEN_REVOKE_SCHEMA,
+    TRIGGER_CREATE_SCHEMA,
+    TRIGGER_UPDATE_SCHEMA,
     USER_LOGIN_SCHEMA,
     USER_REGISTER_SCHEMA,
     USER_UPDATE_SCHEMA,
+    VERIFICATION_SCHEMA,
+    WORKFLOW_CREATE_SCHEMA,
+    WORKFLOW_EXECUTE_SCHEMA,
+    WORKFLOW_UPDATE_SCHEMA,
+    WORKSPACE_CREATE_SCHEMA,
+    WORKSPACE_MEMBER_SCHEMA,
+    WORKSPACE_SETTINGS_SCHEMA,
+    WORKSPACE_UPDATE_SCHEMA,
     validate_against_schema,
 )
 from aragora.server.validation.entities import (
@@ -100,8 +140,8 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
     RouteValidation(
         r"^/api/(v1/)?debates?$",
         "POST",
-        required_params=[],
-        query_rules={},
+        body_schema=DEBATE_START_SCHEMA,
+        max_body_size=500_000,  # Allow large context/documents
     ),
     RouteValidation(
         r"^/api/(v1/)?debates?$",
@@ -113,6 +153,43 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
         "GET",
         path_validators={"debate_id": validate_debate_id},
     ),
+    RouteValidation(
+        r"^/api/(v1/)?debates?/([^/]+)$",
+        "PUT",
+        body_schema=DEBATE_UPDATE_SCHEMA,
+        path_validators={"debate_id": validate_debate_id},
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?debates?/([^/]+)/fork$",
+        "POST",
+        body_schema=FORK_REQUEST_SCHEMA,
+        path_validators={"debate_id": validate_debate_id},
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?debates?/([^/]+)/share$",
+        "PUT",
+        body_schema=SHARE_UPDATE_SCHEMA,
+        path_validators={"debate_id": validate_debate_id},
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?debates?/([^/]+)/publish$",
+        "POST",
+        body_schema=SOCIAL_PUBLISH_SCHEMA,
+        path_validators={"debate_id": validate_debate_id},
+        max_body_size=50_000,
+    ),
+    # =========================================================================
+    # Verification
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?verify$",
+        "POST",
+        body_schema=VERIFICATION_SCHEMA,
+        max_body_size=100_000,
+    ),
     # =========================================================================
     # Agents
     # =========================================================================
@@ -122,9 +199,78 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
         query_rules=LIMIT_OFFSET_RULES,
     ),
     RouteValidation(
+        r"^/api/(v1/)?agents?$",
+        "POST",
+        body_schema=AGENT_CONFIG_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
         r"^/api/(v1/)?agents?/([^/]+)$",
         "GET",
         path_validators={"agent_name": validate_agent_name},
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?agents?/([^/]+)$",
+        "PUT",
+        body_schema=AGENT_CONFIG_SCHEMA,
+        path_validators={"agent_name": validate_agent_name},
+        max_body_size=50_000,
+    ),
+    # =========================================================================
+    # Probes
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?probes?/run$",
+        "POST",
+        body_schema=PROBE_RUN_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?probes?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Batch
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?batch$",
+        "POST",
+        body_schema=BATCH_SUBMIT_SCHEMA,
+        max_body_size=5_000_000,  # 5MB for large batch submissions
+    ),
+    # =========================================================================
+    # Memory
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?memory/cleanup$",
+        "POST",
+        body_schema=MEMORY_CLEANUP_SCHEMA,
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?memory$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Gauntlet
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?gauntlet/run$",
+        "POST",
+        body_schema=GAUNTLET_RUN_SCHEMA,
+        max_body_size=500_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?gauntlet$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?gauntlet/receipts$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
     ),
     # =========================================================================
     # Auth - Tier 1 (Security Critical)
@@ -133,13 +279,13 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
         r"^/api/(v1/)?auth/register$",
         "POST",
         body_schema=USER_REGISTER_SCHEMA,
-        max_body_size=10_000,  # 10KB for registration
+        max_body_size=10_000,
     ),
     RouteValidation(
         r"^/api/(v1/)?auth/login$",
         "POST",
         body_schema=USER_LOGIN_SCHEMA,
-        max_body_size=5_000,  # 5KB for login
+        max_body_size=5_000,
     ),
     RouteValidation(
         r"^/api/(v1/)?auth/password$",
@@ -194,10 +340,16 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
     # Organizations - Tier 1 (Security Critical)
     # =========================================================================
     RouteValidation(
+        r"^/api/(v1/)?org$",
+        "POST",
+        body_schema=ORG_CREATE_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
         r"^/api/(v1/)?org/([^/]+)$",
         "PUT",
         body_schema=ORG_UPDATE_SCHEMA,
-        max_body_size=100_000,  # Allow for settings object
+        max_body_size=100_000,
     ),
     RouteValidation(
         r"^/api/(v1/)?org/([^/]+)/invite$",
@@ -238,7 +390,6 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
         body_schema=BILLING_PORTAL_SCHEMA,
         max_body_size=5_000,
     ),
-    # Cancel/resume don't require body validation (auth context only)
     RouteValidation(
         r"^/api/(v1/)?billing/cancel$",
         "POST",
@@ -248,6 +399,400 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
         r"^/api/(v1/)?billing/resume$",
         "POST",
         max_body_size=1_000,
+    ),
+    # =========================================================================
+    # Knowledge - Tier 2 (Data Integrity)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?knowledge$",
+        "POST",
+        body_schema=KNOWLEDGE_CREATE_SCHEMA,
+        max_body_size=500_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?knowledge$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?knowledge/([^/]+)$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?knowledge/([^/]+)$",
+        "PUT",
+        body_schema=KNOWLEDGE_UPDATE_SCHEMA,
+        max_body_size=500_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?knowledge/([^/]+)$",
+        "DELETE",
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?knowledge/search$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Workspaces - Tier 2 (Access Control)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?$",
+        "POST",
+        body_schema=WORKSPACE_CREATE_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?/([^/]+)$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?/([^/]+)$",
+        "PUT",
+        body_schema=WORKSPACE_UPDATE_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?/([^/]+)$",
+        "DELETE",
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?/([^/]+)/members$",
+        "POST",
+        body_schema=WORKSPACE_MEMBER_SCHEMA,
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?/([^/]+)/members$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workspaces?/([^/]+)/settings$",
+        "PUT",
+        body_schema=WORKSPACE_SETTINGS_SCHEMA,
+        max_body_size=10_000,
+    ),
+    # =========================================================================
+    # Workflows - Tier 2 (Execution Control)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?workflows?$",
+        "POST",
+        body_schema=WORKFLOW_CREATE_SCHEMA,
+        max_body_size=100_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workflows?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workflows?/([^/]+)$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workflows?/([^/]+)$",
+        "PUT",
+        body_schema=WORKFLOW_UPDATE_SCHEMA,
+        max_body_size=100_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workflows?/([^/]+)$",
+        "DELETE",
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?workflows?/([^/]+)/execute$",
+        "POST",
+        body_schema=WORKFLOW_EXECUTE_SCHEMA,
+        max_body_size=100_000,
+    ),
+    # =========================================================================
+    # Connectors - Tier 2 (Integration Security)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?connectors?$",
+        "POST",
+        body_schema=CONNECTOR_CREATE_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?connectors?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?connectors?/([^/]+)$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?connectors?/([^/]+)$",
+        "PUT",
+        body_schema=CONNECTOR_UPDATE_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?connectors?/([^/]+)$",
+        "DELETE",
+        max_body_size=1_000,
+    ),
+    # =========================================================================
+    # Policies - Tier 2 (Governance)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?policies$",
+        "POST",
+        body_schema=POLICY_CREATE_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?policies$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?policies/([^/]+)$",
+        "PUT",
+        body_schema=POLICY_UPDATE_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?policies/([^/]+)$",
+        "DELETE",
+        max_body_size=1_000,
+    ),
+    # =========================================================================
+    # Budgets - Tier 2 (Financial)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?budgets?$",
+        "POST",
+        body_schema=BUDGET_CREATE_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?budgets?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?budgets?/([^/]+)$",
+        "PUT",
+        body_schema=BUDGET_UPDATE_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?budgets?/([^/]+)$",
+        "DELETE",
+        max_body_size=1_000,
+    ),
+    # =========================================================================
+    # Evidence - Tier 2 (Data Integrity)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?evidence$",
+        "POST",
+        body_schema=EVIDENCE_SUBMIT_SCHEMA,
+        max_body_size=500_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?evidence$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Costs / Usage
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?costs$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?usage$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Compliance
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?compliance/report$",
+        "POST",
+        body_schema=COMPLIANCE_REPORT_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?compliance$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Plugins
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?plugins?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?plugins?/submit$",
+        "POST",
+        body_schema=PLUGIN_MANIFEST_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?plugins?/([^/]+)/run$",
+        "POST",
+        body_schema=PLUGIN_RUN_SCHEMA,
+        max_body_size=500_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?plugins?/([^/]+)/install$",
+        "POST",
+        body_schema=PLUGIN_INSTALL_SCHEMA,
+        max_body_size=50_000,
+    ),
+    # =========================================================================
+    # Notifications
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?notifications?/send$",
+        "POST",
+        body_schema=NOTIFICATION_SEND_SCHEMA,
+        max_body_size=100_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?notifications?/email/config$",
+        "PUT",
+        body_schema=EMAIL_CONFIG_SCHEMA,
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?notifications?/telegram/config$",
+        "PUT",
+        body_schema=TELEGRAM_CONFIG_SCHEMA,
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?notifications?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Autonomous - Triggers & Alerts
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?triggers?$",
+        "POST",
+        body_schema=TRIGGER_CREATE_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?triggers?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?triggers?/([^/]+)$",
+        "PUT",
+        body_schema=TRIGGER_UPDATE_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?triggers?/([^/]+)$",
+        "DELETE",
+        max_body_size=1_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?alerts?/config$",
+        "POST",
+        body_schema=ALERT_CONFIG_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?alerts?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Routing Rules
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?routing/rules$",
+        "POST",
+        body_schema=ROUTING_RULE_SCHEMA,
+        max_body_size=50_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?routing/rules$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Scheduler
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?schedules?$",
+        "POST",
+        body_schema=SCHEDULE_CREATE_SCHEMA,
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?schedules?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Social Publishing
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?social/publish$",
+        "POST",
+        body_schema=SOCIAL_PUBLISH_SCHEMA,
+        max_body_size=50_000,
+    ),
+    # =========================================================================
+    # Rankings / ELO
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?rankings?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Receipts
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?receipts?$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Admin endpoints (high body size limits for bulk operations)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?admin/users$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/metrics$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/audit$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
     ),
 ]
 

@@ -25,6 +25,7 @@ from .billing import AsyncBillingAPI, BillingAPI
 from .bots import AsyncBotsAPI, BotsAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .calibration import AsyncCalibrationAPI, CalibrationAPI
+from .canvas import AsyncCanvasAPI, CanvasAPI
 from .chat import AsyncChatAPI, ChatAPI
 from .checkpoints import AsyncCheckpointsAPI, CheckpointsAPI
 from .classify import AsyncClassifyAPI, ClassifyAPI
@@ -98,6 +99,7 @@ from .queue import AsyncQueueAPI, QueueAPI
 from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
+from .reconciliation import AsyncReconciliationAPI, ReconciliationAPI
 from .relationships import AsyncRelationshipsAPI, RelationshipsAPI
 from .replays import AsyncReplaysAPI, ReplaysAPI
 from .repository import AsyncRepositoryAPI, RepositoryAPI
@@ -112,6 +114,7 @@ from .slo import SLOAPI, AsyncSLOAPI
 from .sme import SMEAPI, AsyncSMEAPI
 from .social import AsyncSocialAPI, SocialAPI
 from .sso import SSOAPI, AsyncSSOAPI
+from .support import AsyncSupportAPI, SupportAPI
 from .system import AsyncSystemAPI, SystemAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
 from .tenants import AsyncTenantsAPI, TenantsAPI
@@ -174,6 +177,8 @@ __all__ = [
     "AsyncBudgetsAPI",
     "CalibrationAPI",
     "AsyncCalibrationAPI",
+    "CanvasAPI",
+    "AsyncCanvasAPI",
     "ChatAPI",
     "AsyncChatAPI",
     "CheckpointsAPI",
@@ -314,6 +319,8 @@ __all__ = [
     "AsyncPulseAPI",
     "QueueAPI",
     "AsyncQueueAPI",
+    "ReconciliationAPI",
+    "AsyncReconciliationAPI",
     "RankingAPI",
     "AsyncRankingAPI",
     "RBACAPI",
@@ -348,6 +355,8 @@ __all__ = [
     "AsyncSocialAPI",
     "SSOAPI",
     "AsyncSSOAPI",
+    "SupportAPI",
+    "AsyncSupportAPI",
     "SystemAPI",
     "AsyncSystemAPI",
     "TeamsAPI",

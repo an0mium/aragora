@@ -1,0 +1,591 @@
+name: Canary Deployment
+
+# Progressive canary deployment with automated health gates.
+# Deploys to a canary instance first, validates metrics, then promotes
+# to the full production fleet via weighted traffic shifting.
+#
+# Prerequisites:
+# 1. AWS OIDC identity provider configured (see deploy-secure.yml)
+# 2. ALB with weighted target groups (canary + production)
+# 3. CloudWatch alarms for canary error rate and latency
+# 4. SSM agent on all target instances
+
+on:
+  workflow_dispatch:
+    inputs:
+      canary_weight:
+        description: 'Initial canary traffic weight (%)'
+        required: true
+        default: '10'
+        type: choice
+        options:
+          - '5'
+          - '10'
+          - '25'
+      bake_time_minutes:
+        description: 'Minutes to observe canary before promotion'
+        required: true
+        default: '10'
+        type: choice
+        options:
+          - '5'
+          - '10'
+          - '15'
+          - '30'
+      auto_promote:
+        description: 'Auto-promote if canary passes health gates'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+concurrency:
+  group: deploy-canary
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  CANARY_TG_NAME: aragora-canary
+  PRODUCTION_TG_NAME: aragora-production
+  ERROR_RATE_THRESHOLD: '1'    # Max error rate % before rollback
+  P99_LATENCY_THRESHOLD: '2000' # Max p99 latency (ms) before rollback
+
+jobs:
+  pre-flight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      canary_instance_id: ${{ steps.instances.outputs.canary_id }}
+      production_instance_ids: ${{ steps.instances.outputs.production_ids }}
+      alb_arn: ${{ steps.alb.outputs.alb_arn }}
+      canary_tg_arn: ${{ steps.alb.outputs.canary_tg_arn }}
+      production_tg_arn: ${{ steps.alb.outputs.production_tg_arn }}
+      listener_arn: ${{ steps.alb.outputs.listener_arn }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-canary-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Discover instances
+        id: instances
+        run: |
+          CANARY_ID=$(aws ec2 describe-instances \
+            --filters \
+              "Name=tag:Environment,Values=production" \
+              "Name=tag:Application,Values=aragora" \
+              "Name=tag:Role,Values=canary" \
+              "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+
+          if [ "$CANARY_ID" == "None" ] || [ -z "$CANARY_ID" ]; then
+            echo "::error::No canary instance found (tags: Environment=production, Application=aragora, Role=canary)"
+            exit 1
+          fi
+          echo "canary_id=$CANARY_ID" >> $GITHUB_OUTPUT
+
+          PROD_IDS=$(aws ec2 describe-instances \
+            --filters \
+              "Name=tag:Environment,Values=production" \
+              "Name=tag:Application,Values=aragora" \
+              "Name=tag:Role,Values=primary" \
+              "Name=instance-state-name,Values=running" \
+            --query 'Reservations[].Instances[].InstanceId' \
+            --output text | tr '\t' ',')
+
+          echo "production_ids=$PROD_IDS" >> $GITHUB_OUTPUT
+          echo "Canary: $CANARY_ID | Production: $PROD_IDS"
+
+      - name: Discover ALB resources
+        id: alb
+        run: |
+          ALB_ARN=$(aws elbv2 describe-load-balancers \
+            --names "aragora-alb" \
+            --query 'LoadBalancers[0].LoadBalancerArn' \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$ALB_ARN" ] || [ "$ALB_ARN" == "None" ]; then
+            echo "::error::ALB 'aragora-alb' not found"
+            exit 1
+          fi
+          echo "alb_arn=$ALB_ARN" >> $GITHUB_OUTPUT
+
+          CANARY_TG=$(aws elbv2 describe-target-groups \
+            --names "${{ env.CANARY_TG_NAME }}" \
+            --query 'TargetGroups[0].TargetGroupArn' \
+            --output text)
+          echo "canary_tg_arn=$CANARY_TG" >> $GITHUB_OUTPUT
+
+          PROD_TG=$(aws elbv2 describe-target-groups \
+            --names "${{ env.PRODUCTION_TG_NAME }}" \
+            --query 'TargetGroups[0].TargetGroupArn' \
+            --output text)
+          echo "production_tg_arn=$PROD_TG" >> $GITHUB_OUTPUT
+
+          LISTENER_ARN=$(aws elbv2 describe-listeners \
+            --load-balancer-arn "$ALB_ARN" \
+            --query 'Listeners[?Port==`443`].ListenerArn | [0]' \
+            --output text)
+          echo "listener_arn=$LISTENER_ARN" >> $GITHUB_OUTPUT
+
+      - name: Snapshot current state
+        run: |
+          echo "## Canary Deployment Started" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Canary weight | ${{ inputs.canary_weight }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bake time | ${{ inputs.bake_time_minutes }} min |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auto-promote | ${{ inputs.auto_promote }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+  deploy-canary:
+    needs: pre-flight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-canary-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to canary instance
+        id: deploy
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ needs.pre-flight.outputs.canary_instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Canary deploy from run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "set -e",
+              "export HOME=/root",
+              "cd /home/ec2-user/aragora",
+              "git config --global --add safe.directory /home/ec2-user/aragora",
+              "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
+              "echo \"PREVIOUS_COMMIT=$PREVIOUS_COMMIT\" > /tmp/aragora_canary_state",
+              "sudo -u ec2-user git stash --include-untracked || true",
+              "sudo chown -R ec2-user:ec2-user /home/ec2-user/aragora/.git || true",
+              "sudo -u ec2-user git fetch origin main",
+              "sudo -u ec2-user git checkout main || sudo -u ec2-user git checkout -b main origin/main",
+              "sudo -u ec2-user git reset --hard origin/main",
+              "source venv/bin/activate",
+              "pip install -e . --quiet --no-cache-dir",
+              "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
+              "sudo mkdir -p /etc/systemd/system/aragora.service.d/",
+              "echo \"[Service]\" | sudo tee /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_USE_SECRETS_MANAGER=true\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=AWS_REGION=us-east-2\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_SECRET_NAME=aragora/production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_DB_BACKEND=postgres\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_ENV=production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_CANARY=true\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "sudo systemctl daemon-reload",
+              "sudo systemctl restart aragora",
+              "sleep 5",
+              "systemctl is-active --quiet aragora",
+              "echo \"Canary deploy complete\""
+            ]' \
+            --timeout-seconds 300 \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+          for i in {1..60}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ needs.pre-flight.outputs.canary_instance_id }}" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+
+            if [[ "$STATUS" == "Success" ]]; then
+              echo "Canary deploy succeeded"
+              echo "deploy_success=true" >> $GITHUB_OUTPUT
+              exit 0
+            elif [[ "$STATUS" == "Failed" ]] || [[ "$STATUS" == "Cancelled" ]] || [[ "$STATUS" == "TimedOut" ]]; then
+              echo "::error::Canary deploy failed: $STATUS"
+              echo "deploy_success=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            echo "Waiting... attempt $i/60 (status: $STATUS)"
+            sleep 5
+          done
+          echo "::error::Canary deploy timed out"
+          exit 1
+
+      - name: Verify canary health
+        run: |
+          CANARY_IP=$(aws ec2 describe-instances \
+            --instance-ids "${{ needs.pre-flight.outputs.canary_instance_id }}" \
+            --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+            --output text)
+
+          for i in {1..12}; do
+            if curl -sf "http://$CANARY_IP:8080/api/health" -o /dev/null 2>/dev/null; then
+              echo "Canary health check passed"
+              exit 0
+            fi
+            echo "Waiting for canary health... attempt $i/12"
+            sleep 5
+          done
+          echo "::error::Canary health check failed"
+          exit 1
+
+  shift-traffic:
+    needs: [pre-flight, deploy-canary]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-canary-traffic-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Shift traffic to canary
+        run: |
+          CANARY_WEIGHT=${{ inputs.canary_weight }}
+          PROD_WEIGHT=$((100 - CANARY_WEIGHT))
+
+          echo "Shifting traffic: production=${PROD_WEIGHT}% canary=${CANARY_WEIGHT}%"
+
+          aws elbv2 modify-listener \
+            --listener-arn "${{ needs.pre-flight.outputs.listener_arn }}" \
+            --default-actions '[
+              {
+                "Type": "forward",
+                "ForwardConfig": {
+                  "TargetGroups": [
+                    {
+                      "TargetGroupArn": "'"${{ needs.pre-flight.outputs.production_tg_arn }}"'",
+                      "Weight": '"$PROD_WEIGHT"'
+                    },
+                    {
+                      "TargetGroupArn": "'"${{ needs.pre-flight.outputs.canary_tg_arn }}"'",
+                      "Weight": '"$CANARY_WEIGHT"'
+                    }
+                  ],
+                  "TargetGroupStickinessConfig": {
+                    "Enabled": true,
+                    "DurationSeconds": 300
+                  }
+                }
+              }
+            ]'
+
+          echo "Traffic shifted successfully"
+
+  bake-and-observe:
+    needs: [pre-flight, shift-traffic]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    outputs:
+      canary_healthy: ${{ steps.evaluate.outputs.healthy }}
+
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-canary-observe-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Bake period - observe canary metrics
+        id: bake
+        run: |
+          BAKE_MINUTES=${{ inputs.bake_time_minutes }}
+          INTERVAL=30  # Check every 30 seconds
+          CHECKS=$((BAKE_MINUTES * 60 / INTERVAL))
+
+          echo "Starting bake period: ${BAKE_MINUTES} minutes (${CHECKS} checks)"
+
+          FAILURES=0
+          for i in $(seq 1 $CHECKS); do
+            ELAPSED=$((i * INTERVAL / 60))
+            echo "--- Check $i/$CHECKS (${ELAPSED}m / ${BAKE_MINUTES}m) ---"
+
+            # Check canary target group health
+            HEALTH=$(aws elbv2 describe-target-health \
+              --target-group-arn "${{ needs.pre-flight.outputs.canary_tg_arn }}" \
+              --query 'TargetHealthDescriptions[0].TargetHealth.State' \
+              --output text 2>/dev/null || echo "unknown")
+
+            if [ "$HEALTH" != "healthy" ]; then
+              echo "::warning::Canary target health: $HEALTH"
+              FAILURES=$((FAILURES + 1))
+            fi
+
+            # Query CloudWatch for canary error rate
+            ERROR_RATE=$(aws cloudwatch get-metric-statistics \
+              --namespace "Aragora/Canary" \
+              --metric-name "ErrorRate" \
+              --dimensions Name=Environment,Value=canary \
+              --start-time "$(date -u -d '2 minutes ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-2M '+%Y-%m-%dT%H:%M:%SZ')" \
+              --end-time "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+              --period 60 \
+              --statistics Average \
+              --query 'Datapoints[-1].Average' \
+              --output text 2>/dev/null || echo "0")
+
+            if [ "$ERROR_RATE" != "None" ] && [ "$ERROR_RATE" != "0" ]; then
+              OVER=$(echo "$ERROR_RATE > ${{ env.ERROR_RATE_THRESHOLD }}" | bc -l 2>/dev/null || echo "0")
+              if [ "$OVER" = "1" ]; then
+                echo "::error::Canary error rate ${ERROR_RATE}% exceeds threshold ${{ env.ERROR_RATE_THRESHOLD }}%"
+                echo "abort=true" >> $GITHUB_OUTPUT
+                exit 1
+              fi
+            fi
+
+            # Query p99 latency
+            P99=$(aws cloudwatch get-metric-statistics \
+              --namespace "Aragora/Canary" \
+              --metric-name "ResponseLatency" \
+              --dimensions Name=Environment,Value=canary \
+              --start-time "$(date -u -d '2 minutes ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-2M '+%Y-%m-%dT%H:%M:%SZ')" \
+              --end-time "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+              --period 60 \
+              --statistics p99 \
+              --query 'Datapoints[-1].p99' \
+              --output text 2>/dev/null || echo "0")
+
+            if [ "$P99" != "None" ] && [ "$P99" != "0" ]; then
+              OVER=$(echo "$P99 > ${{ env.P99_LATENCY_THRESHOLD }}" | bc -l 2>/dev/null || echo "0")
+              if [ "$OVER" = "1" ]; then
+                echo "::error::Canary p99 latency ${P99}ms exceeds threshold ${{ env.P99_LATENCY_THRESHOLD }}ms"
+                echo "abort=true" >> $GITHUB_OUTPUT
+                exit 1
+              fi
+            fi
+
+            echo "Health: $HEALTH | Error rate: ${ERROR_RATE}% | p99: ${P99}ms"
+            sleep $INTERVAL
+          done
+
+          echo "Bake period complete. Failures: $FAILURES/$CHECKS"
+          if [ $FAILURES -gt $((CHECKS / 4)) ]; then
+            echo "::error::Too many health failures during bake period ($FAILURES/$CHECKS)"
+            echo "abort=true" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Evaluate canary
+        id: evaluate
+        if: always()
+        run: |
+          if [ "${{ steps.bake.outcome }}" == "success" ]; then
+            echo "Canary passed all health gates"
+            echo "healthy=true" >> $GITHUB_OUTPUT
+          else
+            echo "Canary failed health gates"
+            echo "healthy=false" >> $GITHUB_OUTPUT
+          fi
+
+  promote:
+    needs: [pre-flight, bake-and-observe]
+    if: needs.bake-and-observe.outputs.canary_healthy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ inputs.auto_promote == 'true' && 'canary-auto' || 'production' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-canary-promote-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to production fleet
+        run: |
+          IFS=',' read -ra PROD_IDS <<< "${{ needs.pre-flight.outputs.production_instance_ids }}"
+
+          for INSTANCE_ID in "${PROD_IDS[@]}"; do
+            echo "Deploying to production instance: $INSTANCE_ID"
+
+            COMMAND_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --comment "Canary-promoted deploy from run ${{ github.run_id }}" \
+              --parameters 'commands=[
+                "set -e",
+                "export HOME=/root",
+                "cd /home/ec2-user/aragora",
+                "git config --global --add safe.directory /home/ec2-user/aragora",
+                "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
+                "echo \"PREVIOUS_COMMIT=$PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
+                "sudo -u ec2-user git stash --include-untracked || true",
+                "sudo chown -R ec2-user:ec2-user /home/ec2-user/aragora/.git || true",
+                "sudo -u ec2-user git fetch origin main",
+                "sudo -u ec2-user git checkout main || sudo -u ec2-user git checkout -b main origin/main",
+                "sudo -u ec2-user git reset --hard origin/main",
+                "source venv/bin/activate",
+                "pip install -e . --quiet --no-cache-dir",
+                "sudo mkdir -p /etc/systemd/system/aragora.service.d/",
+                "echo \"[Service]\" | sudo tee /etc/systemd/system/aragora.service.d/secrets.conf",
+                "echo \"Environment=ARAGORA_USE_SECRETS_MANAGER=true\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+                "echo \"Environment=AWS_REGION=us-east-2\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+                "echo \"Environment=ARAGORA_SECRET_NAME=aragora/production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+                "echo \"Environment=ARAGORA_DB_BACKEND=postgres\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+                "echo \"Environment=ARAGORA_ENV=production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+                "sudo systemctl daemon-reload",
+                "sudo systemctl restart aragora",
+                "sleep 5",
+                "systemctl is-active --quiet aragora",
+                "echo \"Production deploy complete on instance\""
+              ]' \
+              --timeout-seconds 300 \
+              --query 'Command.CommandId' \
+              --output text)
+
+            # Wait for this instance before proceeding to next (rolling)
+            for attempt in {1..60}; do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null || echo "Pending")
+
+              if [[ "$STATUS" == "Success" ]]; then
+                echo "Instance $INSTANCE_ID deployed successfully"
+                break
+              elif [[ "$STATUS" == "Failed" ]] || [[ "$STATUS" == "Cancelled" ]] || [[ "$STATUS" == "TimedOut" ]]; then
+                echo "::error::Instance $INSTANCE_ID deploy failed: $STATUS"
+                exit 1
+              fi
+              sleep 5
+            done
+          done
+
+      - name: Restore full production traffic
+        run: |
+          aws elbv2 modify-listener \
+            --listener-arn "${{ needs.pre-flight.outputs.listener_arn }}" \
+            --default-actions '[
+              {
+                "Type": "forward",
+                "ForwardConfig": {
+                  "TargetGroups": [
+                    {
+                      "TargetGroupArn": "'"${{ needs.pre-flight.outputs.production_tg_arn }}"'",
+                      "Weight": 100
+                    },
+                    {
+                      "TargetGroupArn": "'"${{ needs.pre-flight.outputs.canary_tg_arn }}"'",
+                      "Weight": 0
+                    }
+                  ]
+                }
+              }
+            ]'
+          echo "Traffic fully restored to production"
+
+  rollback:
+    needs: [pre-flight, bake-and-observe]
+    if: always() && needs.bake-and-observe.outputs.canary_healthy == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_DEPLOY_ROLE_NAME }}
+          role-session-name: github-canary-rollback-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Remove canary from traffic
+        run: |
+          echo "::warning::Canary failed health gates - removing from traffic"
+
+          aws elbv2 modify-listener \
+            --listener-arn "${{ needs.pre-flight.outputs.listener_arn }}" \
+            --default-actions '[
+              {
+                "Type": "forward",
+                "ForwardConfig": {
+                  "TargetGroups": [
+                    {
+                      "TargetGroupArn": "'"${{ needs.pre-flight.outputs.production_tg_arn }}"'",
+                      "Weight": 100
+                    },
+                    {
+                      "TargetGroupArn": "'"${{ needs.pre-flight.outputs.canary_tg_arn }}"'",
+                      "Weight": 0
+                    }
+                  ]
+                }
+              }
+            ]'
+
+      - name: Rollback canary instance
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ needs.pre-flight.outputs.canary_instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Canary rollback from run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "set -e",
+              "export HOME=/root",
+              "cd /home/ec2-user/aragora",
+              "git config --global --add safe.directory /home/ec2-user/aragora",
+              "if [ -f /tmp/aragora_canary_state ]; then source /tmp/aragora_canary_state; fi",
+              "if [ -n \"$PREVIOUS_COMMIT\" ]; then sudo -u ec2-user git checkout $PREVIOUS_COMMIT; fi",
+              "source venv/bin/activate",
+              "pip install -e . --quiet --no-cache-dir",
+              "sudo systemctl restart aragora",
+              "rm -f /tmp/aragora_canary_state",
+              "echo \"Canary rollback complete\""
+            ]' \
+            --timeout-seconds 120
+
+          echo "Canary instance rolled back"
+
+  summary:
+    needs: [pre-flight, deploy-canary, shift-traffic, bake-and-observe, promote, rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Deployment summary
+        run: |
+          echo "## Canary Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-flight | ${{ needs.pre-flight.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Canary deploy | ${{ needs.deploy-canary.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Traffic shift | ${{ needs.shift-traffic.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bake & observe | ${{ needs.bake-and-observe.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Promote | ${{ needs.promote.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rollback | ${{ needs.rollback.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Authentication:** AWS OIDC (no long-lived secrets)" >> $GITHUB_STEP_SUMMARY
+          echo "**Execution:** SSM Run Command (no SSH keys)" >> $GITHUB_STEP_SUMMARY

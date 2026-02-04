@@ -1,0 +1,176 @@
+# Capability Surface Matrix
+# Maps core capabilities to their surface exposure (API / CLI / SDK / UI / Channels).
+# This file is used by scripts/capability_gap_report.py to highlight gaps.
+
+version: "1.0"
+last_updated: "2026-02-04"
+
+capabilities:
+  decision_integrity:
+    api:
+      - "POST /api/v1/debates/{id}/decision-integrity"
+    cli:
+      - "aragora ask --decision-integrity"
+      - "aragora decide"
+    sdk:
+      python:
+        - "debates.decision_integrity"
+      typescript: []
+    ui: []
+    channels:
+      - "slack"
+      - "teams"
+      - "telegram"
+      - "whatsapp"
+
+  debate_orchestration:
+    api:
+      - "POST /api/v1/debates"
+      - "GET /api/v1/debates/{id}"
+    cli:
+      - "aragora ask"
+    sdk:
+      python:
+        - "debates"
+      typescript:
+        - "debates"
+    ui: []
+    channels:
+      - "slack"
+      - "teams"
+      - "telegram"
+      - "whatsapp"
+
+  agent_team_selection:
+    api:
+      - "POST /api/v1/debates (auto_select)"
+    cli:
+      - "aragora ask --auto-select"
+      - "aragora decide --auto-select"
+    sdk:
+      python:
+        - "debates.create(auto_select=True)"
+        - "debates.run(auto_select=True)"
+      typescript: []
+    ui: []
+    channels: []
+
+  consensus_detection:
+    api: []
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui: []
+    channels: []
+
+  graph_debates:
+    api:
+      - "POST /api/v1/debates/graph"
+      - "GET /api/v1/debates/graph/{debate_id}"
+    cli:
+      - "aragora ask --graph"
+    sdk:
+      python:
+        - "graph_debates"
+      typescript: []
+    ui: []
+    channels: []
+
+  matrix_debates:
+    api:
+      - "POST /api/v1/debates/matrix"
+      - "GET /api/v1/debates/matrix/{matrix_id}"
+    cli:
+      - "aragora ask --matrix"
+    sdk:
+      python:
+        - "matrix_debates"
+      typescript: []
+    ui: []
+    channels: []
+
+  knowledge_mound:
+    api:
+      - "GET /api/v1/knowledge/search"
+    cli: []
+    sdk:
+      python:
+        - "knowledge"
+      typescript:
+        - "knowledge"
+    ui: []
+    channels: []
+
+  continuum_memory:
+    api:
+      - "GET /api/v1/memory/query"
+    cli:
+      - "aragora stats"
+    sdk:
+      python:
+        - "memory"
+      typescript:
+        - "memory"
+    ui: []
+    channels: []
+
+  workflow_engine:
+    api:
+      - "POST /api/v1/workflows"
+    cli:
+      - "aragora workflow"
+    sdk:
+      python:
+        - "workflows"
+      typescript:
+        - "workflows"
+    ui: []
+    channels: []
+
+  marketplace:
+    api:
+      - "GET /api/v1/marketplace/templates"
+    cli:
+      - "aragora marketplace"
+    sdk:
+      python:
+        - "marketplace"
+      typescript:
+        - "marketplace"
+    ui: []
+    channels: []
+
+  nomic_loop:
+    api: []
+    cli:
+      - "python scripts/nomic_loop.py run"
+    sdk:
+      python: []
+      typescript: []
+    ui: []
+    channels: []
+
+  rbac_v2:
+    api:
+      - "GET /api/v1/rbac/roles"
+    cli: []
+    sdk:
+      python:
+        - "rbac"
+      typescript:
+        - "rbac"
+    ui: []
+    channels: []
+
+  compliance_framework:
+    api:
+      - "GET /api/v1/compliance/hipaa"
+    cli: []
+    sdk:
+      python:
+        - "policies"
+      typescript:
+        - "policies"
+    ui: []
+    channels: []

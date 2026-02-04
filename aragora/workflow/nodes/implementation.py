@@ -80,7 +80,7 @@ class ImplementationStep(BaseStep):
             )
 
             executor = HybridExecutor(repo_path=repo_path)
-            result = await executor.execute_task(task)
+            result = await executor.execute_task_with_retry(task)
 
             elapsed = time.monotonic() - start
 

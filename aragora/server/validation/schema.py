@@ -7,10 +7,12 @@ to validate data against these schemas.
 
 from .core import (
     ValidationResult,
+    validate_bool_field,
     validate_enum_field,
     validate_float_field,
     validate_int_field,
     validate_list_field,
+    validate_object_field,
     validate_string_field,
 )
 from .entities import (
@@ -34,11 +36,18 @@ DEBATE_START_SCHEMA = {
     "question": {"type": "string", "min_length": 1, "max_length": 2000, "required": False},
     "agents": {
         "type": "list",
-        "min_length": 2,
+        "min_length": 0,
         "max_length": 10,
-        "item_type": str,
+        "item_type": (str, dict),
         "required": False,
     },
+    "auto_select": {"type": "bool", "required": False},
+    "auto_select_config": {"type": "object", "required": False},
+    "use_trending": {"type": "bool", "required": False},
+    "trending_category": {"type": "string", "max_length": 64, "required": False},
+    "enable_verticals": {"type": "bool", "required": False},
+    "vertical_id": {"type": "string", "max_length": 64, "required": False},
+    "metadata": {"type": "object", "required": False},
     "mode": {"type": "string", "max_length": 64, "required": False},
     "rounds": {"type": "int", "min_value": 1, "max_value": 20, "required": False},
     "consensus": {"type": "string", "max_length": 64, "required": False},
@@ -47,6 +56,7 @@ DEBATE_START_SCHEMA = {
         "allowed_values": {"light", "full"},
         "required": False,
     },  # "light" (~5 min) or "full" (~30 min)
+    "context": {"type": "string", "max_length": 10000, "required": False},
     "documents": {
         "type": "list",
         "min_length": 1,
@@ -359,6 +369,283 @@ NOTIFICATION_SEND_SCHEMA = {
 }
 
 
+# =============================================================================
+# Knowledge Schemas
+# =============================================================================
+
+KNOWLEDGE_CREATE_SCHEMA = {
+    "title": {"type": "string", "min_length": 1, "max_length": 500, "required": True},
+    "content": {"type": "string", "min_length": 1, "max_length": 100000, "required": True},
+    "tags": {"type": "list", "max_length": 50, "item_type": str, "required": False},
+    "category": {"type": "string", "max_length": 100, "required": False},
+    "visibility": {
+        "type": "enum",
+        "allowed_values": {"private", "team", "public"},
+        "required": False,
+    },
+    "metadata": {"type": "object", "required": False},
+}
+
+KNOWLEDGE_UPDATE_SCHEMA = {
+    "title": {"type": "string", "min_length": 1, "max_length": 500, "required": False},
+    "content": {"type": "string", "min_length": 1, "max_length": 100000, "required": False},
+    "tags": {"type": "list", "max_length": 50, "item_type": str, "required": False},
+    "category": {"type": "string", "max_length": 100, "required": False},
+    "visibility": {
+        "type": "enum",
+        "allowed_values": {"private", "team", "public"},
+        "required": False,
+    },
+}
+
+# =============================================================================
+# Workspace Schemas
+# =============================================================================
+
+WORKSPACE_CREATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
+    "description": {"type": "string", "max_length": 1000, "required": False},
+    "visibility": {
+        "type": "enum",
+        "allowed_values": {"private", "team", "public"},
+        "required": False,
+    },
+}
+
+WORKSPACE_UPDATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 100, "required": False},
+    "description": {"type": "string", "max_length": 1000, "required": False},
+}
+
+WORKSPACE_MEMBER_SCHEMA = {
+    "user_id": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
+    "role": {
+        "type": "enum",
+        "allowed_values": {"viewer", "member", "admin", "owner"},
+        "required": False,
+    },
+}
+
+WORKSPACE_SETTINGS_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 100, "required": False},
+    "description": {"type": "string", "max_length": 1000, "required": False},
+    "default_visibility": {
+        "type": "enum",
+        "allowed_values": {"private", "team", "public"},
+        "required": False,
+    },
+    "max_members": {"type": "int", "min_value": 1, "max_value": 10000, "required": False},
+}
+
+# =============================================================================
+# Workflow Schemas
+# =============================================================================
+
+WORKFLOW_CREATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": True},
+    "description": {"type": "string", "max_length": 2000, "required": False},
+    "steps": {"type": "list", "max_length": 100, "item_type": dict, "required": False},
+    "template_id": {"type": "string", "max_length": 100, "required": False},
+    "metadata": {"type": "object", "required": False},
+}
+
+WORKFLOW_UPDATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": False},
+    "description": {"type": "string", "max_length": 2000, "required": False},
+    "steps": {"type": "list", "max_length": 100, "item_type": dict, "required": False},
+    "status": {
+        "type": "enum",
+        "allowed_values": {"draft", "active", "paused", "archived"},
+        "required": False,
+    },
+}
+
+WORKFLOW_EXECUTE_SCHEMA = {
+    "input": {"type": "object", "required": False},
+    "params": {"type": "object", "required": False},
+    "async_execution": {"type": "bool", "required": False},
+}
+
+# =============================================================================
+# Connector Schemas
+# =============================================================================
+
+CONNECTOR_CREATE_SCHEMA = {
+    "type": {"type": "string", "min_length": 1, "max_length": 64, "required": True},
+    "name": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
+    "config": {"type": "object", "required": False},
+    "enabled": {"type": "bool", "required": False},
+}
+
+CONNECTOR_UPDATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 100, "required": False},
+    "config": {"type": "object", "required": False},
+    "enabled": {"type": "bool", "required": False},
+}
+
+# =============================================================================
+# Policy Schemas
+# =============================================================================
+
+POLICY_CREATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": True},
+    "description": {"type": "string", "max_length": 2000, "required": False},
+    "rules": {
+        "type": "list",
+        "min_length": 1,
+        "max_length": 100,
+        "item_type": dict,
+        "required": True,
+    },
+    "scope": {
+        "type": "enum",
+        "allowed_values": {"global", "workspace", "team", "user"},
+        "required": False,
+    },
+    "enabled": {"type": "bool", "required": False},
+}
+
+POLICY_UPDATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": False},
+    "description": {"type": "string", "max_length": 2000, "required": False},
+    "rules": {"type": "list", "max_length": 100, "item_type": dict, "required": False},
+    "enabled": {"type": "bool", "required": False},
+}
+
+# =============================================================================
+# Budget Schemas
+# =============================================================================
+
+BUDGET_CREATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": True},
+    "amount": {"type": "float", "min_value": 0.0, "max_value": 1000000.0, "required": True},
+    "period": {
+        "type": "enum",
+        "allowed_values": {"daily", "weekly", "monthly", "quarterly", "yearly"},
+        "required": True,
+    },
+    "currency": {"type": "string", "max_length": 10, "required": False},
+    "alert_threshold": {"type": "float", "min_value": 0.0, "max_value": 1.0, "required": False},
+}
+
+BUDGET_UPDATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": False},
+    "amount": {"type": "float", "min_value": 0.0, "max_value": 1000000.0, "required": False},
+    "period": {
+        "type": "enum",
+        "allowed_values": {"daily", "weekly", "monthly", "quarterly", "yearly"},
+        "required": False,
+    },
+    "alert_threshold": {"type": "float", "min_value": 0.0, "max_value": 1.0, "required": False},
+}
+
+# =============================================================================
+# Evidence Schemas
+# =============================================================================
+
+EVIDENCE_SUBMIT_SCHEMA = {
+    "content": {"type": "string", "min_length": 1, "max_length": 50000, "required": True},
+    "source": {"type": "string", "max_length": 500, "required": False},
+    "source_type": {
+        "type": "enum",
+        "allowed_values": {"document", "url", "manual", "api", "debate"},
+        "required": False,
+    },
+    "metadata": {"type": "object", "required": False},
+    "debate_id": {"type": "string", "max_length": 100, "required": False},
+}
+
+# =============================================================================
+# Costs / Usage Schemas
+# =============================================================================
+
+COST_QUERY_SCHEMA = {
+    "start_date": {"type": "string", "max_length": 30, "required": False},
+    "end_date": {"type": "string", "max_length": 30, "required": False},
+    "group_by": {
+        "type": "enum",
+        "allowed_values": {"day", "week", "month", "agent", "model"},
+        "required": False,
+    },
+}
+
+# =============================================================================
+# Compliance Schemas
+# =============================================================================
+
+COMPLIANCE_REPORT_SCHEMA = {
+    "framework": {
+        "type": "enum",
+        "allowed_values": {"soc2", "gdpr", "hipaa", "iso27001"},
+        "required": True,
+    },
+    "scope": {"type": "string", "max_length": 500, "required": False},
+    "include_evidence": {"type": "bool", "required": False},
+}
+
+# =============================================================================
+# Autonomous / Triggers Schemas
+# =============================================================================
+
+TRIGGER_CREATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": True},
+    "type": {
+        "type": "enum",
+        "allowed_values": {"schedule", "event", "threshold", "webhook"},
+        "required": True,
+    },
+    "config": {"type": "object", "required": True},
+    "enabled": {"type": "bool", "required": False},
+    "description": {"type": "string", "max_length": 1000, "required": False},
+}
+
+TRIGGER_UPDATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": False},
+    "config": {"type": "object", "required": False},
+    "enabled": {"type": "bool", "required": False},
+    "description": {"type": "string", "max_length": 1000, "required": False},
+}
+
+ALERT_CONFIG_SCHEMA = {
+    "type": {
+        "type": "enum",
+        "allowed_values": {"email", "slack", "webhook", "teams"},
+        "required": True,
+    },
+    "config": {"type": "object", "required": True},
+    "enabled": {"type": "bool", "required": False},
+    "severity_filter": {
+        "type": "enum",
+        "allowed_values": {"info", "warning", "error", "critical"},
+        "required": False,
+    },
+}
+
+# =============================================================================
+# Routing Rules Schema
+# =============================================================================
+
+ROUTING_RULE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": True},
+    "condition": {"type": "object", "required": True},
+    "action": {"type": "object", "required": True},
+    "priority": {"type": "int", "min_value": 0, "max_value": 1000, "required": False},
+    "enabled": {"type": "bool", "required": False},
+}
+
+# =============================================================================
+# Scheduler Schema
+# =============================================================================
+
+SCHEDULE_CREATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 200, "required": True},
+    "cron": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
+    "action": {"type": "object", "required": True},
+    "enabled": {"type": "bool", "required": False},
+    "description": {"type": "string", "max_length": 1000, "required": False},
+}
+
+
 def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
     """Validate data against a schema definition.
 
@@ -373,6 +660,8 @@ def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
         {
             "field_name": {
                 "type": "string" | "int" | "float" | "list" | "enum",
+                # Extended types:
+                # "bool" | "object"
                 "required": bool,
                 # Type-specific options:
                 "min_length": int,  # For strings/lists
@@ -421,6 +710,18 @@ def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
                 field,
                 min_value=rules.get("min_value"),
                 max_value=rules.get("max_value"),
+                required=required,
+            )
+        elif field_type == "bool":
+            result = validate_bool_field(
+                data,
+                field,
+                required=required,
+            )
+        elif field_type == "object":
+            result = validate_object_field(
+                data,
+                field,
                 required=required,
             )
         elif field_type == "list":

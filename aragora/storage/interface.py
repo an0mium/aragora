@@ -526,8 +526,8 @@ class RedisStoreMixin:
 
         try:
             results = []
-            cursor = "0"
-            while cursor != 0:
+            cursor: str | int = 0
+            while True:
                 cursor, keys = self._redis_client.scan(
                     cursor=cursor,
                     match=f"{self.REDIS_PREFIX}*",
@@ -541,6 +541,8 @@ class RedisStoreMixin:
                         for v in values:
                             if v:
                                 results.append(json.loads(v))
+                if cursor in (0, "0"):
+                    break
             return results
         except Exception as e:
             self._log_redis_fallback("list_all", e)

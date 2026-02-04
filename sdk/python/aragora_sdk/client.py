@@ -101,6 +101,7 @@ class AragoraClient:
         from .namespaces.bots import BotsAPI
         from .namespaces.budgets import BudgetsAPI
         from .namespaces.calibration import CalibrationAPI
+        from .namespaces.canvas import CanvasAPI
         from .namespaces.chat import ChatAPI
         from .namespaces.checkpoints import CheckpointsAPI
         from .namespaces.classify import ClassifyAPI
@@ -171,6 +172,7 @@ class AragoraClient:
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
         from .namespaces.receipts import ReceiptsAPI
+        from .namespaces.reconciliation import ReconciliationAPI
         from .namespaces.relationships import RelationshipsAPI
         from .namespaces.replays import ReplaysAPI
         from .namespaces.repository import RepositoryAPI
@@ -184,6 +186,7 @@ class AragoraClient:
         from .namespaces.sme import SMEAPI
         from .namespaces.social import SocialAPI
         from .namespaces.sso import SSOAPI
+        from .namespaces.support import SupportAPI
         from .namespaces.system import SystemAPI
         from .namespaces.teams import TeamsAPI
         from .namespaces.tenants import TenantsAPI
@@ -221,6 +224,7 @@ class AragoraClient:
         self.billing = BillingAPI(self)
         self.budgets = BudgetsAPI(self)
         self.calibration = CalibrationAPI(self)
+        self.canvas = CanvasAPI(self)
         self.chat = ChatAPI(self)
         self.checkpoints = CheckpointsAPI(self)
         self.classify = ClassifyAPI(self)
@@ -288,6 +292,7 @@ class AragoraClient:
         self.probes = ProbesAPI(self)
         self.pulse = PulseAPI(self)
         self.queue = QueueAPI(self)
+        self.reconciliation = ReconciliationAPI(self)
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
         self.receipts = ReceiptsAPI(self)
@@ -304,6 +309,7 @@ class AragoraClient:
         self.sme = SMEAPI(self)
         self.social = SocialAPI(self)
         self.sso = SSOAPI(self)
+        self.support = SupportAPI(self)
         self.system = SystemAPI(self)
         self.teams = TeamsAPI(self)
         self.tenants = TenantsAPI(self)
@@ -561,6 +567,7 @@ class AragoraAsyncClient:
         from .namespaces.bots import AsyncBotsAPI
         from .namespaces.budgets import AsyncBudgetsAPI
         from .namespaces.calibration import AsyncCalibrationAPI
+        from .namespaces.canvas import AsyncCanvasAPI
         from .namespaces.chat import AsyncChatAPI
         from .namespaces.checkpoints import AsyncCheckpointsAPI
         from .namespaces.classify import AsyncClassifyAPI
@@ -631,6 +638,7 @@ class AragoraAsyncClient:
         from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
         from .namespaces.receipts import AsyncReceiptsAPI
+        from .namespaces.reconciliation import AsyncReconciliationAPI
         from .namespaces.relationships import AsyncRelationshipsAPI
         from .namespaces.replays import AsyncReplaysAPI
         from .namespaces.repository import AsyncRepositoryAPI
@@ -644,6 +652,7 @@ class AragoraAsyncClient:
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.social import AsyncSocialAPI
         from .namespaces.sso import AsyncSSOAPI
+        from .namespaces.support import AsyncSupportAPI
         from .namespaces.system import AsyncSystemAPI
         from .namespaces.teams import AsyncTeamsAPI
         from .namespaces.tenants import AsyncTenantsAPI
@@ -681,6 +690,7 @@ class AragoraAsyncClient:
         self.billing = AsyncBillingAPI(self)
         self.budgets = AsyncBudgetsAPI(self)
         self.calibration = AsyncCalibrationAPI(self)
+        self.canvas = AsyncCanvasAPI(self)
         self.chat = AsyncChatAPI(self)
         self.checkpoints = AsyncCheckpointsAPI(self)
         self.classify = AsyncClassifyAPI(self)
@@ -748,6 +758,7 @@ class AragoraAsyncClient:
         self.probes = AsyncProbesAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.queue = AsyncQueueAPI(self)
+        self.reconciliation = AsyncReconciliationAPI(self)
         self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
         self.receipts = AsyncReceiptsAPI(self)
@@ -764,6 +775,7 @@ class AragoraAsyncClient:
         self.sme = AsyncSMEAPI(self)
         self.social = AsyncSocialAPI(self)
         self.sso = AsyncSSOAPI(self)
+        self.support = AsyncSupportAPI(self)
         self.system = AsyncSystemAPI(self)
         self.teams = AsyncTeamsAPI(self)
         self.tenants = AsyncTenantsAPI(self)

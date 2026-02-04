@@ -275,7 +275,7 @@ def validate_list_field(
     field: str,
     min_length: int = 0,
     max_length: int = 100,
-    item_type: type | None = None,
+    item_type: type | tuple[type, ...] | None = None,
     required: bool = True,
 ) -> ValidationResult:
     """Validate a list field.
@@ -314,10 +314,70 @@ def validate_list_field(
     if item_type is not None:
         for i, item in enumerate(value):
             if not isinstance(item, item_type):
+                if isinstance(item_type, tuple):
+                    expected = " or ".join(t.__name__ for t in item_type)
+                else:
+                    expected = item_type.__name__
                 return ValidationResult(
                     is_valid=False,
-                    error=f"Field '{field}[{i}]' must be of type {item_type.__name__}",
+                    error=f"Field '{field}[{i}]' must be of type {expected}",
                 )
+
+    return ValidationResult(is_valid=True)
+
+
+def validate_bool_field(
+    data: dict,
+    field: str,
+    required: bool = True,
+) -> ValidationResult:
+    """Validate a boolean field.
+
+    Args:
+        data: Parsed JSON data
+        field: Field name to validate
+        required: Whether the field is required
+
+    Returns:
+        ValidationResult with success or error
+    """
+    value = data.get(field)
+
+    if value is None:
+        if required:
+            return ValidationResult(is_valid=False, error=f"Missing required field: {field}")
+        return ValidationResult(is_valid=True)
+
+    if not isinstance(value, bool):
+        return ValidationResult(is_valid=False, error=f"Field '{field}' must be a boolean")
+
+    return ValidationResult(is_valid=True)
+
+
+def validate_object_field(
+    data: dict,
+    field: str,
+    required: bool = True,
+) -> ValidationResult:
+    """Validate an object/dict field.
+
+    Args:
+        data: Parsed JSON data
+        field: Field name to validate
+        required: Whether the field is required
+
+    Returns:
+        ValidationResult with success or error
+    """
+    value = data.get(field)
+
+    if value is None:
+        if required:
+            return ValidationResult(is_valid=False, error=f"Missing required field: {field}")
+        return ValidationResult(is_valid=True)
+
+    if not isinstance(value, dict):
+        return ValidationResult(is_valid=False, error=f"Field '{field}' must be an object")
 
     return ValidationResult(is_valid=True)
 

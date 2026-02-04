@@ -53,6 +53,163 @@ from aragora.pipeline.verification_plan import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Workflow-build helpers (used by DecisionPlan.to_workflow_definition)
+# ---------------------------------------------------------------------------
+
+_DIRECT_ACTION_TYPES = frozenset(
+    {
+        "shell",
+        "file_read",
+        "file_write",
+        "file_delete",
+        "browser",
+        "screenshot",
+        "api",
+        "keyboard",
+        "mouse",
+    }
+)
+
+
+@dataclass
+class _WorkflowBuildContext:
+    """Mutable context threaded through workflow-build helper methods."""
+
+    steps: list[Any] = field(default_factory=list)
+    transitions: list[Any] = field(default_factory=list)
+    step_idx: int = 0
+    prev_step_id: str | None = None
+
+    def next_step_id(self) -> str:
+        self.step_idx += 1
+        return f"step-{self.step_idx:03d}"
+
+    def add_step(self, step: Any) -> None:
+        self.steps.append(step)
+
+    def link(self, to_step: str) -> None:
+        """Add a transition from *prev_step_id* → *to_step* (if prev exists)."""
+        if self.prev_step_id is None:
+            return
+        from aragora.workflow.types import TransitionRule
+
+        self.transitions.append(
+            TransitionRule(
+                id=f"tr-{len(self.transitions) + 1}",
+                from_step=self.prev_step_id,
+                to_step=to_step,
+                condition="True",
+            )
+        )
+
+    def advance(self, step_id: str) -> None:
+        """Link *prev* → *step_id*, then set *prev* to *step_id*."""
+        self.link(step_id)
+        self.prev_step_id = step_id
+
+
+def _normalize_computer_action(
+    action: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Normalise a single ``computer_use_actions`` entry.
+
+    Returns ``(openclaw_actions, manual_actions)`` – each a list of 0-or-1
+    items so the caller can simply ``extend`` its accumulators.
+    """
+    if not isinstance(action, dict):
+        return [], []
+
+    action_type = action.get("action") or action.get("action_type") or action.get("type")
+    if not action_type:
+        return [], []
+
+    atv = str(action_type).lower().strip()
+
+    # --- direct pass-through types ---
+    if atv in _DIRECT_ACTION_TYPES:
+        return [action], []
+
+    # --- navigate / browser_navigate ---
+    if atv in {"navigate", "browser_navigate"}:
+        url = action.get("url") or (action.get("params") or {}).get("url") or action.get("target")
+        if url:
+            return [
+                {
+                    "action_type": "browser",
+                    "url": url,
+                    "description": action.get("description") or f"Navigate to {url}",
+                    "params": action.get("params") or {},
+                    "require_approval": bool(action.get("require_approval", False)),
+                }
+            ], []
+        return [], [_manual_entry(action, "missing_url")]
+
+    # --- screenshot / browser_screenshot ---
+    if atv in {"screenshot", "browser_screenshot"}:
+        return [
+            {
+                "action_type": "screenshot",
+                "url": action.get("url", ""),
+                "description": action.get("description") or "Capture screenshot",
+                "params": action.get("params") or {},
+                "require_approval": bool(action.get("require_approval", False)),
+            }
+        ], []
+
+    # --- click / browser_click / mouse ---
+    if atv in {"click", "browser_click", "mouse"}:
+        coords = (
+            action.get("coordinate")
+            or action.get("coords")
+            or action.get("position")
+            or (action.get("params") or {}).get("coordinate")
+            or (action.get("params") or {}).get("coords")
+        )
+        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+            return [
+                {
+                    "action_type": "mouse",
+                    "params": {"x": coords[0], "y": coords[1]},
+                    "description": action.get("description") or f"Click at {coords[0]},{coords[1]}",
+                    "require_approval": bool(action.get("require_approval", True)),
+                }
+            ], []
+        return [], [_manual_entry(action, "missing_coordinates")]
+
+    # --- type / browser_type / key / keyboard ---
+    if atv in {"type", "browser_type", "key", "keyboard"}:
+        text = (
+            action.get("text")
+            or (action.get("params") or {}).get("text")
+            or action.get("key")
+            or (action.get("params") or {}).get("key")
+        )
+        if text:
+            return [
+                {
+                    "action_type": "keyboard",
+                    "params": {"text": text},
+                    "description": action.get("description") or f"Type '{text}'",
+                    "require_approval": bool(action.get("require_approval", True)),
+                }
+            ], []
+        return [], [_manual_entry(action, "missing_text")]
+
+    # --- unsupported ---
+    return [], [_manual_entry(action, "unsupported_action")]
+
+
+def _manual_entry(action: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        "description": action.get("description")
+        or action.get("name")
+        or f"Manual action required ({reason})",
+        "reason": reason,
+        "action": action,
+    }
+
+
 class PlanStatus(Enum):
     """Lifecycle status of a DecisionPlan."""
 
@@ -307,508 +464,383 @@ class DecisionPlan:
             parallelize: When True, execute independent implementation tasks
                 in parallel via a workflow parallel step.
         """
-        from aragora.workflow.types import (
-            ExecutionPattern,
-            StepDefinition,
-            TransitionRule,
-            WorkflowCategory,
-            WorkflowDefinition,
+        from aragora.workflow.types import WorkflowCategory, WorkflowDefinition
+
+        ctx = _WorkflowBuildContext()
+
+        # Parse OpenClaw / computer-use actions from metadata
+        openclaw_actions, manual_actions, openclaw_session = self._parse_openclaw_metadata()
+
+        # Phase 1 – approval checkpoint
+        self._build_approval_step(ctx)
+
+        # Phase 2 – implementation tasks
+        self._build_implementation_steps(ctx, parallelize=parallelize)
+
+        # Phase 2b – OpenClaw / computer-use actions
+        self._build_openclaw_steps(ctx, openclaw_actions, manual_actions, openclaw_session)
+
+        # Phase 3 – verification
+        self._build_verification_step(ctx)
+
+        # Phase 4 – memory write-back
+        self._build_memory_step(ctx)
+
+        workflow_id = f"wf-{self.id}"
+        self.workflow_id = workflow_id
+
+        return WorkflowDefinition(
+            id=workflow_id,
+            name=f"Decision Plan: {self.task[:60]}",
+            description=f"Auto-generated workflow from debate {self.debate_id}",
+            steps=ctx.steps,
+            transitions=ctx.transitions,
+            category=WorkflowCategory.GENERAL,
+            tags=["decision-plan", "auto-generated"],
+            metadata={
+                "decision_plan_id": self.id,
+                "debate_id": self.debate_id,
+                "debate_confidence": self.debate_result.confidence if self.debate_result else 0,
+                "risk_count": len(self.risk_register.risks) if self.risk_register else 0,
+            },
         )
 
-        steps: list[StepDefinition] = []
-        transitions: list[TransitionRule] = []
-        step_idx = 0
+    # -- workflow-build helpers (private) ------------------------------------
 
-        def _step_id() -> str:
-            nonlocal step_idx
-            step_idx += 1
-            return f"step-{step_idx:03d}"
+    def _parse_openclaw_metadata(
+        self,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any] | None]:
+        """Extract OpenClaw / computer-use actions from ``self.metadata``.
 
-        # Optional OpenClaw / computer-use actions supplied via metadata
+        Returns ``(openclaw_actions, manual_actions, openclaw_session)``.
+        """
         openclaw_actions: list[dict[str, Any]] = []
         manual_actions: list[dict[str, Any]] = []
         openclaw_session: dict[str, Any] | None = None
 
-        def _append_openclaw_action(action: dict[str, Any]) -> None:
-            if not isinstance(action, dict):
-                return
-            if not action.get("action_type"):
-                return
-            openclaw_actions.append(action)
+        if not isinstance(self.metadata, dict):
+            return openclaw_actions, manual_actions, openclaw_session
 
-        def _append_manual_action(action: dict[str, Any], reason: str) -> None:
-            manual_actions.append(
-                {
-                    "description": action.get("description")
-                    or action.get("name")
-                    or f"Manual action required ({reason})",
-                    "reason": reason,
-                    "action": action,
-                }
-            )
+        # Explicit openclaw actions
+        raw_actions = self.metadata.get("openclaw_actions") or []
+        if isinstance(raw_actions, list):
+            for action in raw_actions:
+                if isinstance(action, dict) and action.get("action_type"):
+                    openclaw_actions.append(action)
 
-        if isinstance(self.metadata, dict):
-            raw_actions = self.metadata.get("openclaw_actions") or []
-            if isinstance(raw_actions, list):
-                for action in raw_actions:
-                    if isinstance(action, dict):
-                        _append_openclaw_action(action)
+        # Computer-use actions (need normalisation)
+        raw_computer = self.metadata.get("computer_use_actions") or []
+        if isinstance(raw_computer, list):
+            for action in raw_computer:
+                oc, ma = _normalize_computer_action(action)
+                openclaw_actions.extend(oc)
+                manual_actions.extend(ma)
 
-            raw_computer_actions = self.metadata.get("computer_use_actions") or []
-            if isinstance(raw_computer_actions, list):
-                for action in raw_computer_actions:
-                    if not isinstance(action, dict):
-                        continue
-                    action_type = (
-                        action.get("action") or action.get("action_type") or action.get("type")
-                    )
-                    if not action_type:
-                        continue
-                    action_type_value = str(action_type).lower().strip()
+        raw_session = self.metadata.get("openclaw_session")
+        if isinstance(raw_session, dict):
+            openclaw_session = raw_session
 
-                    if action_type_value in {
-                        "shell",
-                        "file_read",
-                        "file_write",
-                        "file_delete",
-                        "browser",
-                        "screenshot",
-                        "api",
-                        "keyboard",
-                        "mouse",
-                    }:
-                        _append_openclaw_action(action)
-                        continue
+        return openclaw_actions, manual_actions, openclaw_session
 
-                    if action_type_value in {"navigate", "browser_navigate"}:
-                        url = (
-                            action.get("url")
-                            or (action.get("params") or {}).get("url")
-                            or action.get("target")
-                        )
-                        if url:
-                            _append_openclaw_action(
-                                {
-                                    "action_type": "browser",
-                                    "url": url,
-                                    "description": action.get("description")
-                                    or f"Navigate to {url}",
-                                    "params": action.get("params") or {},
-                                    "require_approval": bool(action.get("require_approval", False)),
-                                }
-                            )
-                        else:
-                            _append_manual_action(action, "missing_url")
-                        continue
+    def _build_approval_step(self, ctx: _WorkflowBuildContext) -> None:
+        """Add a human-approval checkpoint if the plan requires it."""
+        if not self.requires_human_approval:
+            return
 
-                    if action_type_value in {"screenshot", "browser_screenshot"}:
-                        _append_openclaw_action(
-                            {
-                                "action_type": "screenshot",
-                                "url": action.get("url", ""),
-                                "description": action.get("description") or "Capture screenshot",
-                                "params": action.get("params") or {},
-                                "require_approval": bool(action.get("require_approval", False)),
-                            }
-                        )
-                        continue
+        from aragora.workflow.types import StepDefinition
 
-                    if action_type_value in {"click", "browser_click", "mouse"}:
-                        coords = (
-                            action.get("coordinate")
-                            or action.get("coords")
-                            or action.get("position")
-                            or (action.get("params") or {}).get("coordinate")
-                            or (action.get("params") or {}).get("coords")
-                        )
-                        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                            _append_openclaw_action(
-                                {
-                                    "action_type": "mouse",
-                                    "params": {"x": coords[0], "y": coords[1]},
-                                    "description": action.get("description")
-                                    or f"Click at {coords[0]},{coords[1]}",
-                                    "require_approval": bool(action.get("require_approval", True)),
-                                }
-                            )
-                        else:
-                            _append_manual_action(action, "missing_coordinates")
-                        continue
-
-                    if action_type_value in {"type", "browser_type", "key", "keyboard"}:
-                        text = (
-                            action.get("text")
-                            or (action.get("params") or {}).get("text")
-                            or action.get("key")
-                            or (action.get("params") or {}).get("key")
-                        )
-                        if text:
-                            _append_openclaw_action(
-                                {
-                                    "action_type": "keyboard",
-                                    "params": {"text": text},
-                                    "description": action.get("description") or f"Type '{text}'",
-                                    "require_approval": bool(action.get("require_approval", True)),
-                                }
-                            )
-                        else:
-                            _append_manual_action(action, "missing_text")
-                        continue
-
-                    _append_manual_action(action, "unsupported_action")
-
-            raw_session = self.metadata.get("openclaw_session")
-            if isinstance(raw_session, dict):
-                openclaw_session = raw_session
-
-        # Step 1: Approval checkpoint (if needed)
-        prev_step_id: str | None = None
-        if self.requires_human_approval:
-            approval_id = _step_id()
-            steps.append(
-                StepDefinition(
-                    id=approval_id,
-                    name="Human Approval",
-                    step_type="human_checkpoint",
-                    config={
-                        "prompt": f"Approve implementation of: {self.task[:200]}",
-                        "context": {
-                            "debate_confidence": self.debate_result.confidence
-                            if self.debate_result
-                            else 0,
-                            "risk_summary": self.risk_register.summary
-                            if self.risk_register
-                            else {},
-                            "task_count": len(self.implement_plan.tasks)
-                            if self.implement_plan
-                            else 0,
-                        },
-                        "timeout_seconds": 86400,  # 24h default
+        approval_id = ctx.next_step_id()
+        ctx.add_step(
+            StepDefinition(
+                id=approval_id,
+                name="Human Approval",
+                step_type="human_checkpoint",
+                config={
+                    "prompt": f"Approve implementation of: {self.task[:200]}",
+                    "context": {
+                        "debate_confidence": self.debate_result.confidence
+                        if self.debate_result
+                        else 0,
+                        "risk_summary": self.risk_register.summary if self.risk_register else {},
+                        "task_count": len(self.implement_plan.tasks) if self.implement_plan else 0,
                     },
-                    description="Review and approve the implementation plan",
-                )
+                    "timeout_seconds": 86400,  # 24h default
+                },
+                description="Review and approve the implementation plan",
             )
-            prev_step_id = approval_id
+        )
+        ctx.prev_step_id = approval_id
 
-        # Step 2: Implementation tasks
-        if self.implement_plan:
-            # Map task IDs to workflow step IDs for dependency resolution
-            task_to_step: dict[str, str] = {}
-            task_steps: list[StepDefinition] = []
-
-            critical_task_ids: set[str] = set()
-            if self.risk_register:
-                for risk in self.risk_register.get_critical_risks():
-                    for task in self.implement_plan.tasks:
-                        for file_path in task.files:
-                            if file_path in risk.description or file_path in risk.title:
-                                critical_task_ids.add(task.id)
-                                break
-
-            parallel_impl = (
-                parallelize
-                and len(self.implement_plan.tasks) > 1
-                and not any(task.dependencies for task in self.implement_plan.tasks)
-                and not critical_task_ids
-            )
-
+    def _find_critical_task_ids(self) -> set[str]:
+        """Return IDs of implementation tasks that touch files named in critical risks."""
+        critical: set[str] = set()
+        if not self.risk_register or not self.implement_plan:
+            return critical
+        for risk in self.risk_register.get_critical_risks():
             for task in self.implement_plan.tasks:
-                impl_step_id = _step_id()
-                task_to_step[task.id] = impl_step_id
+                for file_path in task.files:
+                    if file_path in risk.description or file_path in risk.title:
+                        critical.add(task.id)
+                        break
+        return critical
 
-                # Check if this task has related critical risks
-                task_has_critical_risk = task.id in critical_task_ids
+    def _build_implementation_steps(self, ctx: _WorkflowBuildContext, *, parallelize: bool) -> None:
+        """Add implementation-task steps to *ctx*."""
+        if not self.implement_plan:
+            return
 
-                # Insert human checkpoint before high-risk tasks
-                if task_has_critical_risk and not parallel_impl:
-                    risk_checkpoint_id = _step_id()
-                    steps.append(
-                        StepDefinition(
-                            id=risk_checkpoint_id,
-                            name=f"Risk Review: {task.description[:40]}",
-                            step_type="human_checkpoint",
-                            config={
-                                "prompt": f"High-risk task requires review: {task.description}",
-                                "risk_level": "critical",
-                            },
-                            description="Review high-risk implementation step",
-                        )
-                    )
-                    # Wire previous step → risk checkpoint
-                    if prev_step_id:
-                        transitions.append(
-                            TransitionRule(
-                                id=f"tr-{len(transitions) + 1}",
-                                from_step=prev_step_id,
-                                to_step=risk_checkpoint_id,
-                                condition="True",
-                            )
-                        )
-                    prev_step_id = risk_checkpoint_id
+        from aragora.workflow.types import ExecutionPattern, StepDefinition
 
-                task_step = StepDefinition(
-                    id=impl_step_id,
-                    name=f"Implement: {task.description[:50]}",
-                    step_type="implementation",
-                    config={
-                        "task_id": task.id,
-                        "description": task.description,
-                        "files": task.files,
-                        "complexity": task.complexity,
-                    },
-                    description=task.description,
-                    timeout_seconds=300.0 if task.complexity == "complex" else 120.0,
-                )
+        task_to_step: dict[str, str] = {}
+        task_steps: list[StepDefinition] = []
+        critical_task_ids = self._find_critical_task_ids()
 
-                if parallel_impl:
-                    task_steps.append(task_step)
-                else:
-                    steps.append(task_step)
+        parallel_impl = (
+            parallelize
+            and len(self.implement_plan.tasks) > 1
+            and not any(task.dependencies for task in self.implement_plan.tasks)
+            and not critical_task_ids
+        )
 
-                if not parallel_impl:
-                    # Wire dependencies
-                    if task.dependencies:
-                        for dep_id in task.dependencies:
-                            dep_step_id = task_to_step.get(dep_id)
-                            if dep_step_id:
-                                transitions.append(
-                                    TransitionRule(
-                                        id=f"tr-{len(transitions) + 1}",
-                                        from_step=dep_step_id,
-                                        to_step=impl_step_id,
-                                        condition="True",
-                                    )
-                                )
-                    elif prev_step_id and not task_has_critical_risk:
-                        # Sequential fallback when no explicit dependencies
-                        transitions.append(
-                            TransitionRule(
-                                id=f"tr-{len(transitions) + 1}",
-                                from_step=prev_step_id,
-                                to_step=impl_step_id,
-                                condition="True",
-                            )
-                        )
+        for task in self.implement_plan.tasks:
+            impl_step_id = ctx.next_step_id()
+            task_to_step[task.id] = impl_step_id
+            task_has_critical_risk = task.id in critical_task_ids
 
-                    prev_step_id = impl_step_id
-
-            if parallel_impl:
-                parallel_step_id = _step_id()
-                steps.append(
+            # Risk checkpoint before high-risk tasks (sequential only)
+            if task_has_critical_risk and not parallel_impl:
+                risk_checkpoint_id = ctx.next_step_id()
+                ctx.add_step(
                     StepDefinition(
-                        id=parallel_step_id,
-                        name="Parallel Implementation",
-                        step_type="task",
-                        execution_pattern=ExecutionPattern.PARALLEL,
-                        config={"parallel_steps": list(task_to_step.values())},
-                        description="Execute implementation tasks in parallel",
-                    )
-                )
-                if prev_step_id:
-                    transitions.append(
-                        TransitionRule(
-                            id=f"tr-{len(transitions) + 1}",
-                            from_step=prev_step_id,
-                            to_step=parallel_step_id,
-                            condition="True",
-                        )
-                    )
-                prev_step_id = parallel_step_id
-                steps.extend(task_steps)
-
-        # Step 2b: OpenClaw / computer-use actions
-        if openclaw_actions or manual_actions:
-            session_step_id: str | None = None
-            session_config = openclaw_session or {}
-
-            if openclaw_actions:
-                session_step_id = _step_id()
-                steps.append(
-                    StepDefinition(
-                        id=session_step_id,
-                        name="OpenClaw Session",
-                        step_type="openclaw_session",
-                        config={
-                            "operation": "create",
-                            "workspace_id": session_config.get("workspace_id", "/workspace"),
-                            "roles": session_config.get("roles", ["developer"]),
-                            "user_id": session_config.get("user_id"),
-                            "tenant_id": session_config.get("tenant_id"),
-                        },
-                        description="Create OpenClaw session for automated actions",
-                    )
-                )
-                if prev_step_id:
-                    transitions.append(
-                        TransitionRule(
-                            id=f"tr-{len(transitions) + 1}",
-                            from_step=prev_step_id,
-                            to_step=session_step_id,
-                            condition="True",
-                        )
-                    )
-                prev_step_id = session_step_id
-
-                session_ref = f"{{step.{session_step_id}.session_id}}"
-                for action in openclaw_actions:
-                    if not isinstance(action, dict):
-                        continue
-                    action_type = str(action.get("action_type", "shell"))
-                    action_desc = (
-                        action.get("description")
-                        or action.get("name")
-                        or f"OpenClaw action ({action_type})"
-                    )
-                    requires_approval = bool(action.get("require_approval", False))
-
-                    if requires_approval:
-                        checkpoint_id = _step_id()
-                        steps.append(
-                            StepDefinition(
-                                id=checkpoint_id,
-                                name=f"Approve OpenClaw: {action_desc[:40]}",
-                                step_type="human_checkpoint",
-                                config={
-                                    "prompt": f"Approve OpenClaw action: {action_desc}",
-                                    "action_type": action_type,
-                                },
-                                description="Approve OpenClaw action execution",
-                            )
-                        )
-                        if prev_step_id:
-                            transitions.append(
-                                TransitionRule(
-                                    id=f"tr-{len(transitions) + 1}",
-                                    from_step=prev_step_id,
-                                    to_step=checkpoint_id,
-                                    condition="True",
-                                )
-                            )
-                        prev_step_id = checkpoint_id
-
-                    action_step_id = _step_id()
-                    action_config: dict[str, Any] = {
-                        "action_type": action_type,
-                        "session_id": session_ref,
-                    }
-                    if action.get("command") is not None:
-                        action_config["command"] = action.get("command")
-                    if action.get("path") is not None:
-                        action_config["path"] = action.get("path")
-                    if action.get("content") is not None:
-                        action_config["content"] = action.get("content")
-                    if action.get("url") is not None:
-                        action_config["url"] = action.get("url")
-                    if action.get("params") is not None:
-                        action_config["params"] = action.get("params")
-                    if action.get("timeout_seconds") is not None:
-                        action_config["timeout_seconds"] = action.get("timeout_seconds")
-                    if action.get("on_failure") is not None:
-                        action_config["on_failure"] = action.get("on_failure")
-
-                    steps.append(
-                        StepDefinition(
-                            id=action_step_id,
-                            name=f"OpenClaw: {action_desc[:50]}",
-                            step_type="openclaw_action",
-                            config=action_config,
-                            description=action_desc,
-                        )
-                    )
-                    if prev_step_id:
-                        transitions.append(
-                            TransitionRule(
-                                id=f"tr-{len(transitions) + 1}",
-                                from_step=prev_step_id,
-                                to_step=action_step_id,
-                                condition="True",
-                            )
-                        )
-                    prev_step_id = action_step_id
-
-                # End session after actions complete
-                end_session_id = _step_id()
-                steps.append(
-                    StepDefinition(
-                        id=end_session_id,
-                        name="End OpenClaw Session",
-                        step_type="openclaw_session",
-                        config={
-                            "operation": "end",
-                            "session_id": session_ref,
-                        },
-                        description="Terminate OpenClaw session",
-                    )
-                )
-                if prev_step_id:
-                    transitions.append(
-                        TransitionRule(
-                            id=f"tr-{len(transitions) + 1}",
-                            from_step=prev_step_id,
-                            to_step=end_session_id,
-                            condition="True",
-                        )
-                    )
-                prev_step_id = end_session_id
-
-            for manual in manual_actions:
-                checkpoint_id = _step_id()
-                steps.append(
-                    StepDefinition(
-                        id=checkpoint_id,
-                        name="Manual Action Required",
+                        id=risk_checkpoint_id,
+                        name=f"Risk Review: {task.description[:40]}",
                         step_type="human_checkpoint",
                         config={
-                            "prompt": manual.get("description", "Manual action required"),
-                            "reason": manual.get("reason", ""),
-                            "action": manual.get("action", {}),
+                            "prompt": f"High-risk task requires review: {task.description}",
+                            "risk_level": "critical",
                         },
-                        description="Manual action required for unsupported automation",
+                        description="Review high-risk implementation step",
                     )
                 )
-                if prev_step_id:
-                    transitions.append(
-                        TransitionRule(
-                            id=f"tr-{len(transitions) + 1}",
-                            from_step=prev_step_id,
-                            to_step=checkpoint_id,
-                            condition="True",
-                        )
-                    )
-                prev_step_id = checkpoint_id
+                ctx.advance(risk_checkpoint_id)
 
-        # Step 3: Verification
-        if self.verification_plan and self.verification_plan.test_cases:
-            verify_step_id = _step_id()
-            steps.append(
+            task_step = StepDefinition(
+                id=impl_step_id,
+                name=f"Implement: {task.description[:50]}",
+                step_type="implementation",
+                config={
+                    "task_id": task.id,
+                    "description": task.description,
+                    "files": task.files,
+                    "complexity": task.complexity,
+                },
+                description=task.description,
+                timeout_seconds=300.0 if task.complexity == "complex" else 120.0,
+            )
+
+            if parallel_impl:
+                task_steps.append(task_step)
+            else:
+                ctx.add_step(task_step)
+                # Wire dependencies
+                if task.dependencies:
+                    for dep_id in task.dependencies:
+                        dep_step_id = task_to_step.get(dep_id)
+                        if dep_step_id:
+                            ctx.transitions.append(self._transition(ctx, dep_step_id, impl_step_id))
+                elif ctx.prev_step_id and not task_has_critical_risk:
+                    ctx.link(impl_step_id)
+                ctx.prev_step_id = impl_step_id
+
+        if parallel_impl:
+            parallel_step_id = ctx.next_step_id()
+            ctx.add_step(
                 StepDefinition(
-                    id=verify_step_id,
-                    name="Run Verification",
-                    step_type="verification",
-                    config={
-                        "action": "verify",
-                        "test_count": len(self.verification_plan.test_cases),
-                        "critical_count": len(
-                            self.verification_plan.get_by_priority(CasePriority.P0)
-                        ),
-                    },
-                    description="Execute verification plan against implementation",
+                    id=parallel_step_id,
+                    name="Parallel Implementation",
+                    step_type="task",
+                    execution_pattern=ExecutionPattern.PARALLEL,
+                    config={"parallel_steps": list(task_to_step.values())},
+                    description="Execute implementation tasks in parallel",
                 )
             )
-            if prev_step_id:
-                transitions.append(
-                    TransitionRule(
-                        id=f"tr-{len(transitions) + 1}",
-                        from_step=prev_step_id,
-                        to_step=verify_step_id,
-                        condition="True",
-                    )
-                )
-            prev_step_id = verify_step_id
+            ctx.advance(parallel_step_id)
+            ctx.steps.extend(task_steps)
 
-        # Step 4: Memory write-back (feedback loop)
-        memory_step_id = _step_id()
-        steps.append(
+    @staticmethod
+    def _transition(ctx: _WorkflowBuildContext, from_step: str, to_step: str) -> Any:
+        from aragora.workflow.types import TransitionRule
+
+        return TransitionRule(
+            id=f"tr-{len(ctx.transitions) + 1}",
+            from_step=from_step,
+            to_step=to_step,
+            condition="True",
+        )
+
+    def _build_openclaw_steps(
+        self,
+        ctx: _WorkflowBuildContext,
+        openclaw_actions: list[dict[str, Any]],
+        manual_actions: list[dict[str, Any]],
+        openclaw_session: dict[str, Any] | None,
+    ) -> None:
+        """Add OpenClaw session + action steps and manual-action checkpoints."""
+        if not openclaw_actions and not manual_actions:
+            return
+
+        from aragora.workflow.types import StepDefinition
+
+        session_config = openclaw_session or {}
+
+        if openclaw_actions:
+            self._build_openclaw_session_steps(ctx, openclaw_actions, session_config)
+
+        for manual in manual_actions:
+            checkpoint_id = ctx.next_step_id()
+            ctx.add_step(
+                StepDefinition(
+                    id=checkpoint_id,
+                    name="Manual Action Required",
+                    step_type="human_checkpoint",
+                    config={
+                        "prompt": manual.get("description", "Manual action required"),
+                        "reason": manual.get("reason", ""),
+                        "action": manual.get("action", {}),
+                    },
+                    description="Manual action required for unsupported automation",
+                )
+            )
+            ctx.advance(checkpoint_id)
+
+    def _build_openclaw_session_steps(
+        self,
+        ctx: _WorkflowBuildContext,
+        openclaw_actions: list[dict[str, Any]],
+        session_config: dict[str, Any],
+    ) -> None:
+        """Create → execute actions → end an OpenClaw session."""
+        from aragora.workflow.types import StepDefinition
+
+        # Open session
+        session_step_id = ctx.next_step_id()
+        ctx.add_step(
+            StepDefinition(
+                id=session_step_id,
+                name="OpenClaw Session",
+                step_type="openclaw_session",
+                config={
+                    "operation": "create",
+                    "workspace_id": session_config.get("workspace_id", "/workspace"),
+                    "roles": session_config.get("roles", ["developer"]),
+                    "user_id": session_config.get("user_id"),
+                    "tenant_id": session_config.get("tenant_id"),
+                },
+                description="Create OpenClaw session for automated actions",
+            )
+        )
+        ctx.advance(session_step_id)
+
+        session_ref = f"{{step.{session_step_id}.session_id}}"
+
+        # Individual actions
+        for action in openclaw_actions:
+            if not isinstance(action, dict):
+                continue
+            self._build_single_openclaw_action(ctx, action, session_ref)
+
+        # End session
+        end_session_id = ctx.next_step_id()
+        ctx.add_step(
+            StepDefinition(
+                id=end_session_id,
+                name="End OpenClaw Session",
+                step_type="openclaw_session",
+                config={"operation": "end", "session_id": session_ref},
+                description="Terminate OpenClaw session",
+            )
+        )
+        ctx.advance(end_session_id)
+
+    def _build_single_openclaw_action(
+        self,
+        ctx: _WorkflowBuildContext,
+        action: dict[str, Any],
+        session_ref: str,
+    ) -> None:
+        """Emit one OpenClaw action step (with optional approval checkpoint)."""
+        from aragora.workflow.types import StepDefinition
+
+        action_type = str(action.get("action_type", "shell"))
+        action_desc = (
+            action.get("description") or action.get("name") or f"OpenClaw action ({action_type})"
+        )
+
+        if bool(action.get("require_approval", False)):
+            checkpoint_id = ctx.next_step_id()
+            ctx.add_step(
+                StepDefinition(
+                    id=checkpoint_id,
+                    name=f"Approve OpenClaw: {action_desc[:40]}",
+                    step_type="human_checkpoint",
+                    config={
+                        "prompt": f"Approve OpenClaw action: {action_desc}",
+                        "action_type": action_type,
+                    },
+                    description="Approve OpenClaw action execution",
+                )
+            )
+            ctx.advance(checkpoint_id)
+
+        action_step_id = ctx.next_step_id()
+        action_config: dict[str, Any] = {
+            "action_type": action_type,
+            "session_id": session_ref,
+        }
+        for key in ("command", "path", "content", "url", "params", "timeout_seconds", "on_failure"):
+            if action.get(key) is not None:
+                action_config[key] = action[key]
+
+        ctx.add_step(
+            StepDefinition(
+                id=action_step_id,
+                name=f"OpenClaw: {action_desc[:50]}",
+                step_type="openclaw_action",
+                config=action_config,
+                description=action_desc,
+            )
+        )
+        ctx.advance(action_step_id)
+
+    def _build_verification_step(self, ctx: _WorkflowBuildContext) -> None:
+        """Add the verification step if there are test cases."""
+        if not self.verification_plan or not self.verification_plan.test_cases:
+            return
+
+        from aragora.workflow.types import StepDefinition
+
+        verify_step_id = ctx.next_step_id()
+        ctx.add_step(
+            StepDefinition(
+                id=verify_step_id,
+                name="Run Verification",
+                step_type="verification",
+                config={
+                    "action": "verify",
+                    "test_count": len(self.verification_plan.test_cases),
+                    "critical_count": len(self.verification_plan.get_by_priority(CasePriority.P0)),
+                },
+                description="Execute verification plan against implementation",
+            )
+        )
+        ctx.advance(verify_step_id)
+
+    def _build_memory_step(self, ctx: _WorkflowBuildContext) -> None:
+        """Add the memory write-back (feedback loop) step."""
+        from aragora.workflow.types import StepDefinition
+
+        memory_step_id = ctx.next_step_id()
+        ctx.add_step(
             StepDefinition(
                 id=memory_step_id,
                 name="Write to Memory",
@@ -822,34 +854,7 @@ class DecisionPlan:
                 optional=True,
             )
         )
-        if prev_step_id:
-            transitions.append(
-                TransitionRule(
-                    id=f"tr-{len(transitions) + 1}",
-                    from_step=prev_step_id,
-                    to_step=memory_step_id,
-                    condition="True",
-                )
-            )
-
-        workflow_id = f"wf-{self.id}"
-        self.workflow_id = workflow_id
-
-        return WorkflowDefinition(
-            id=workflow_id,
-            name=f"Decision Plan: {self.task[:60]}",
-            description=f"Auto-generated workflow from debate {self.debate_id}",
-            steps=steps,
-            transitions=transitions,
-            category=WorkflowCategory.GENERAL,
-            tags=["decision-plan", "auto-generated"],
-            metadata={
-                "decision_plan_id": self.id,
-                "debate_id": self.debate_id,
-                "debate_confidence": self.debate_result.confidence if self.debate_result else 0,
-                "risk_count": len(self.risk_register.risks) if self.risk_register else 0,
-            },
-        )
+        ctx.advance(memory_step_id)
 
     # -------------------------------------------------------------------------
     # Serialization

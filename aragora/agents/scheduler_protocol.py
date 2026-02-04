@@ -216,13 +216,18 @@ class LocalSchedulerAdapter:
         metadata: dict[str, Any] | None = None,
     ) -> TaskInfo:
         """Schedule task via local scheduler."""
+        import uuid
+
         from aragora.fabric.models import Task
 
-        # Create task with payload
+        # Create task with payload (Task model uses id/type not name)
         task = Task(
-            name=task_type,
+            id=str(uuid.uuid4()),
+            type=task_type,
             payload=payload,
-            metadata=metadata or {},
+            timeout_seconds=timeout_seconds,
+            metadata={k: str(v) for k, v in (metadata or {}).items()},
+            depends_on=depends_on or [],
         )
 
         # Default agent if not specified
@@ -246,7 +251,7 @@ class LocalSchedulerAdapter:
             status=handle.status,
             priority=priority,
             agent_id=target_agent,
-            created_at=handle.created_at,
+            created_at=handle.scheduled_at,
             metadata=metadata or {},
         )
 

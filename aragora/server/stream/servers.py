@@ -149,6 +149,15 @@ except ImportError:
     INTEGRATIONS_HANDLER_AVAILABLE = False
 
 try:
+    from aragora.server.handlers.integrations.email_webhook import (
+        register_email_webhook_routes,
+    )
+
+    EMAIL_WEBHOOK_HANDLER_AVAILABLE = True
+except ImportError:
+    EMAIL_WEBHOOK_HANDLER_AVAILABLE = False
+
+try:
     from aragora.server.handlers.threat_intel import register_threat_intel_routes
 
     THREAT_INTEL_HANDLER_AVAILABLE = True
@@ -1491,6 +1500,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             integrations_handler = IntegrationsHandler(server_context)
             register_integration_routes(app, integrations_handler)
             logger.info("Registered integration status routes")
+        if EMAIL_WEBHOOK_HANDLER_AVAILABLE:
+            register_email_webhook_routes(app)
+            logger.info("Registered email webhook routes")
         if THREAT_INTEL_HANDLER_AVAILABLE:
             register_threat_intel_routes(app)
             logger.info("Registered threat intel routes")

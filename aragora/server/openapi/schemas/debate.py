@@ -54,10 +54,26 @@ DEBATE_SCHEMAS: dict[str, Any] = {
             },
             "agents": {
                 "type": "array",
-                "items": {"type": "string"},
-                "description": "List of agent names to participate. If empty, auto_select is used.",
+                "items": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "provider": {"type": "string"},
+                                "model": {"type": "string"},
+                                "persona": {"type": "string"},
+                                "role": {"type": "string"},
+                                "name": {"type": "string"},
+                                "hierarchy_role": {"type": "string"},
+                            },
+                            "required": ["provider"],
+                        },
+                    ]
+                },
+                "description": "List of agent specs to participate. If empty, auto_select is used.",
                 "example": ["claude", "gpt-4", "gemini"],
-                "minItems": 2,
+                "minItems": 0,
                 "maxItems": 8,
             },
             "rounds": {
@@ -89,6 +105,12 @@ DEBATE_SCHEMAS: dict[str, Any] = {
                 "example": "We have 1M daily active users and need 99.9% uptime.",
                 "maxLength": 10000,
             },
+            "debate_format": {
+                "type": "string",
+                "description": "Debate protocol preset",
+                "enum": ["light", "full"],
+                "default": "full",
+            },
             "documents": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -105,18 +127,30 @@ DEBATE_SCHEMAS: dict[str, Any] = {
             },
             "auto_select": {
                 "type": "boolean",
-                "description": "Automatically select optimal agents based on topic",
-                "default": True,
+                "description": "Automatically select optimal agents based on topic (used when agents is empty)",
+                "default": False,
             },
             "auto_select_config": {
                 "type": "object",
                 "description": "Configuration for auto-selection algorithm",
                 "properties": {
-                    "min_agents": {"type": "integer", "default": 3},
-                    "max_agents": {"type": "integer", "default": 5},
-                    "diversity_weight": {"type": "number", "default": 0.3},
-                    "expertise_weight": {"type": "number", "default": 0.7},
+                    "primary_domain": {"type": "string", "default": "general"},
+                    "secondary_domains": {"type": "array", "items": {"type": "string"}},
+                    "required_traits": {"type": "array", "items": {"type": "string"}},
+                    "min_agents": {"type": "integer", "default": 2},
+                    "max_agents": {"type": "integer", "default": 4},
+                    "quality_priority": {"type": "number", "default": 0.7},
+                    "diversity_preference": {"type": "number", "default": 0.5},
                 },
+            },
+            "enable_verticals": {
+                "type": "boolean",
+                "description": "Enable vertical specialist injection for the task domain (default set by ARAGORA_ENABLE_VERTICALS)",
+                "default": True,
+            },
+            "vertical_id": {
+                "type": "string",
+                "description": "Explicit vertical ID to inject (e.g., software, legal, healthcare)",
             },
             "use_trending": {
                 "type": "boolean",
@@ -127,6 +161,10 @@ DEBATE_SCHEMAS: dict[str, Any] = {
                 "type": "string",
                 "description": "Category filter for trending content",
                 "enum": ["tech", "science", "politics", "business", "health"],
+            },
+            "metadata": {
+                "type": "object",
+                "description": "Optional metadata for tracking and integrations",
             },
         },
         "required": ["task"],
