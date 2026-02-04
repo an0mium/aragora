@@ -90,6 +90,13 @@ logs/
 config.local.yaml
 .DS_Store
 
+# Local drafts / scratch
+drafts/
+
+# Claude-mem context files
+aragora/**/CLAUDE.md
+scripts/CLAUDE.md
+
 # Environment files (security - never commit secrets)
 **/.env
 **/.env.local
