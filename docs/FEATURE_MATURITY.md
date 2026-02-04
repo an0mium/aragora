@@ -71,7 +71,7 @@ This document tracks the maturity level of Aragora features. Use this to underst
 | AuthHandler | `/api/auth/*` | 60+ | Authentication, MFA |
 | BillingHandler | `/api/billing/*` | 45+ | Stripe integration |
 | ConsensusHandler | `/api/consensus/*` | 30+ | Consensus queries |
-| MemoryHandler | `/api/memory/*` | 25+ | Memory operations |
+| MemoryHandler | `/api/v1/memory/*` | 25+ | Memory operations (legacy `/api/memory/*` supported) |
 | TournamentHandler | `/api/tournaments/*` | 35+ | Tournament mode |
 | GraphDebatesHandler | `/api/debates/graph/*` | 95+ | Graph visualization |
 | EvolutionHandler | `/api/evolution/*` | 66+ | Agent evolution |

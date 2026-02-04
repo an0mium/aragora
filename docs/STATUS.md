@@ -2199,7 +2199,7 @@ All stabilization items addressed:
 - **NEW**: Added tests/test_security.py with token validation and SQL injection tests
 - **NEW**: Added try/except error handling around all nomic loop phase calls
 - **NEW**: Added phase crash recovery (context, debate, design, implement, verify phases)
-- **NEW**: Fixed MemoryInspector endpoint (added /api/memory/tier-stats alias)
+- **NEW**: Fixed MemoryInspector endpoint (added `/api/v1/memory/tier-stats`, legacy `/api/memory/tier-stats` alias)
 - **NEW**: Added design fallback mechanism (uses highest-voted design if no consensus)
 - **NEW**: Added design arbitration (judge picks between competing designs on close votes)
 - **NEW**: Fixed TypeScript errors in page.tsx (AgentNetworkPanel, RedTeamAnalysisPanel)

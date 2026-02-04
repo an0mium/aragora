@@ -13,8 +13,8 @@ Sections below are curated and may lag the registry; use the registry for author
 |----------|-------|-------------|
 | Evidence Connectors | 16 | External knowledge sources |
 | Enterprise Connectors | 29 | Business systems integration |
-| Operational Connectors | 54 | Business operations tools |
-| **Total** | **99** | |
+| Operational Connectors | 55 | Business operations tools |
+| **Total** | **100** | |
 
 ---
 
@@ -204,6 +204,12 @@ Business operations and SaaS integrations.
 | Mixpanel | `aragora.connectors.analytics.mixpanel` | Product analytics |
 | Segment | `aragora.connectors.analytics.segment` | Customer data platform |
 | Metabase | `aragora.connectors.analytics.metabase` | BI dashboards |
+
+### Memory (1)
+
+| Connector | Module | Purpose |
+|-----------|--------|---------|
+| Claude-Mem | `aragora.connectors.memory.claude_mem` | Local claude-mem memory search |
 
 ### Accounting (4)
 

@@ -766,28 +766,6 @@ _ADDITIONAL_METHODS: dict = {
             "Integrations", "GET", "Get integration wizard", op_id="getIntegrationsWizardV2"
         ),
     },
-    "/api/v1/memory/critiques": {
-        "delete": _method_stub(
-            "Memory", "DELETE", "Clear critiques", op_id="deleteMemoryCritiquesV1"
-        ),
-        "post": _method_stub(
-            "Memory", "POST", "Store critique", op_id="postMemoryCritiquesV1", has_body=True
-        ),
-    },
-    "/api/v1/memory/pressure": {
-        "delete": _method_stub(
-            "Memory", "DELETE", "Clear pressure data", op_id="deleteMemoryPressureV1"
-        ),
-        "post": _method_stub(
-            "Memory", "POST", "Record memory pressure", op_id="postMemoryPressureV1", has_body=True
-        ),
-    },
-    "/api/v1/memory/tiers": {
-        "delete": _method_stub("Memory", "DELETE", "Clear tier data", op_id="deleteMemoryTiersV1"),
-        "post": _method_stub(
-            "Memory", "POST", "Configure memory tiers", op_id="postMemoryTiersV1", has_body=True
-        ),
-    },
     "/api/v1/personas/options": {
         "delete": _method_stub(
             "Personas", "DELETE", "Delete persona options", op_id="deletePersonaOptionsV1"

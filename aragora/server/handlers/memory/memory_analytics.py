@@ -2,9 +2,11 @@
 Memory analytics endpoint handlers.
 
 Endpoints:
-- GET /api/memory/analytics - Get comprehensive memory tier analytics
-- GET /api/memory/analytics/tier/{tier} - Get stats for specific tier
-- POST /api/memory/analytics/snapshot - Take a manual snapshot
+- GET /api/v1/memory/analytics - Get comprehensive memory tier analytics
+- GET /api/v1/memory/analytics/tier/{tier} - Get stats for specific tier
+- POST /api/v1/memory/analytics/snapshot - Take a manual snapshot
+
+Note: `/api/memory/analytics*` legacy routes are supported as aliases.
 """
 
 from __future__ import annotations

@@ -188,6 +188,18 @@ connector = ObsidianConnector(config)
 results = await connector.search("rate limiting", tags=["#decision"])
 ```
 
+### ClaudeMemConnector (Optional)
+Read-only connector for a local [claude-mem](https://github.com/thedotmack/claude-mem)
+worker API. Useful when you already run claude-mem for Claude Code sessions and
+want to query those memories as evidence.
+
+```python
+from aragora.connectors.memory import ClaudeMemConnector
+
+connector = ClaudeMemConnector()
+results = await connector.search("deployment checklist", limit=5)
+```
+
 ### SQLConnector
 Query SQL databases directly.
 

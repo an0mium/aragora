@@ -303,6 +303,9 @@ patterns from agent memory systems:
 This is also surfaced in the built-in Memory Viewer (`/api/v1/memory/viewer`),
 which uses the same staged endpoints.
 
+`/api/v1/memory/search-index` can optionally include external sources (Supermemory
+or claude-mem) when `include_external=true` and those connectors are configured.
+
 ### Tool-Level Capture Controls
 
 Tool usage capture is opt-in and configurable via environment variables:

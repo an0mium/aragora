@@ -2,16 +2,18 @@
 Memory-related endpoint handlers.
 
 Endpoints:
-- GET /api/memory/continuum/retrieve - Retrieve memories from continuum
-- POST /api/memory/continuum/consolidate - Trigger memory consolidation
-- POST /api/memory/continuum/cleanup - Cleanup expired memories
-- GET /api/memory/tier-stats - Get tier statistics
-- GET /api/memory/archive-stats - Get archive statistics
-- GET /api/memory/pressure - Get memory pressure and utilization
-- DELETE /api/memory/continuum/{id} - Delete a memory by ID
-- GET /api/memory/tiers - List all memory tiers with detailed stats
-- GET /api/memory/search - Search memories across tiers
-- GET /api/memory/critiques - Browse critique store entries
+- GET /api/v1/memory/continuum/retrieve - Retrieve memories from continuum
+- POST /api/v1/memory/continuum/consolidate - Trigger memory consolidation
+- POST /api/v1/memory/continuum/cleanup - Cleanup expired memories
+- GET /api/v1/memory/tier-stats - Get tier statistics
+- GET /api/v1/memory/archive-stats - Get archive statistics
+- GET /api/v1/memory/pressure - Get memory pressure and utilization
+- DELETE /api/v1/memory/continuum/{id} - Delete a memory by ID
+- GET /api/v1/memory/tiers - List all memory tiers with detailed stats
+- GET /api/v1/memory/search - Search memories across tiers
+- GET /api/v1/memory/critiques - Browse critique store entries
+
+Note: `/api/memory/*` legacy routes are normalized to `/api/v1/memory/*`.
 """
 
 from __future__ import annotations
@@ -19,10 +21,12 @@ from __future__ import annotations
 from typing import Any
 
 import logging
+import math
 import time
 
 from aragora.events.handler_events import emit_handler_event, COMPLETED
 from aragora.rbac.decorators import require_permission
+from aragora.utils.async_utils import run_async
 
 from ..base import (
     HandlerResult,
@@ -99,14 +103,21 @@ class MemoryHandler(SecureHandler):
         "/api/v1/memory/critiques",
     ]
 
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        if path.startswith("/api/memory/"):
+            return "/api/v1" + path[len("/api") :]
+        return path
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = self._normalize_path(path)
+        if normalized in self.ROUTES:
             return True
         # Handle /api/memory/continuum/{id} pattern for DELETE
-        if path.startswith("/api/v1/memory/continuum/") and path.count("/") == 5:
+        if normalized.startswith("/api/v1/memory/continuum/") and normalized.count("/") == 5:
             # Exclude known routes like /api/memory/continuum/retrieve
-            segment = path.split("/")[-1]
+            segment = normalized.split("/")[-1]
             if segment not in ("retrieve", "consolidate", "cleanup"):
                 return True
         return False
@@ -118,6 +129,7 @@ class MemoryHandler(SecureHandler):
     @require_permission("memory:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route memory requests to appropriate handler methods."""
+        path = self._normalize_path(path)
         client_ip = get_client_ip(handler)
 
         if path == "/api/v1/memory/continuum/retrieve":
@@ -197,6 +209,7 @@ class MemoryHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route POST memory requests to admin-level state-mutating methods with auth."""
+        path = self._normalize_path(path)
         from aragora.billing.jwt_auth import extract_user_from_request
 
         client_ip = get_client_ip(handler)
@@ -477,6 +490,7 @@ class MemoryHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route DELETE memory requests to appropriate methods with auth."""
+        path = self._normalize_path(path)
         from aragora.billing.jwt_auth import extract_user_from_request
 
         from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -623,6 +637,822 @@ class MemoryHandler(SecureHandler):
             return f"{seconds // 3600}h"
         else:
             return f"{seconds // 86400}d"
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        if not text:
+            return 0
+        return max(1, int(math.ceil(len(text) / 4)))
+
+    @staticmethod
+    def _parse_bool_param(params: dict, name: str, default: bool = False) -> bool:
+        raw = get_bounded_string_param(params, name, "", max_length=10)
+        if raw == "":
+            return default
+        return raw.strip().lower() in ("1", "true", "yes", "y", "on")
+
+    def _parse_tiers_param(self, params: dict, name: str = "tier") -> list["MemoryTier"]:
+        tier_param = get_bounded_string_param(params, name, "", max_length=100)
+        tiers: list[MemoryTier] = []
+        if tier_param:
+            for tier_name in tier_param.split(","):
+                tier_name = tier_name.strip()
+                if not tier_name:
+                    continue
+                try:
+                    tiers.append(MemoryTier[tier_name.upper()])
+                except KeyError:
+                    continue
+        return tiers or list(MemoryTier)
+
+    def _format_entry_summary(
+        self,
+        entry: Any,
+        *,
+        preview_chars: int = 220,
+        include_metadata: bool = False,
+        include_content: bool = False,
+    ) -> dict[str, Any]:
+        def _get(attr: str, default: Any = None) -> Any:
+            if isinstance(entry, dict):
+                return entry.get(attr, default)
+            return getattr(entry, attr, default)
+
+        content = _get("content", "") or ""
+        preview = content[:preview_chars].rstrip()
+        if len(content) > preview_chars:
+            preview = f"{preview}..."
+
+        tier_value = _get("tier")
+        tier_name = None
+        if isinstance(tier_value, MemoryTier):
+            tier_name = tier_value.name.lower()
+        elif hasattr(tier_value, "name"):
+            tier_name = str(getattr(tier_value, "name")).lower()
+        elif tier_value is not None:
+            tier_name = str(tier_value).lower()
+
+        def _to_float(value: Any) -> float | None:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        importance = _to_float(_get("importance"))
+        surprise = _to_float(_get("surprise_score", _get("surprise")))
+
+        created_at = _get("created_at")
+        updated_at = _get("updated_at")
+
+        result: dict[str, Any] = {
+            "id": _get("id") or _get("memory_id"),
+            "tier": tier_name,
+            "preview": preview,
+            "importance": round(importance, 3) if importance is not None else None,
+            "surprise_score": round(surprise, 3) if surprise is not None else None,
+            "created_at": str(created_at) if created_at is not None else None,
+            "updated_at": str(updated_at) if updated_at is not None else None,
+            "token_estimate": self._estimate_tokens(content),
+        }
+
+        red_line = _get("red_line", None)
+        if red_line is not None:
+            result["red_line"] = bool(red_line)
+            red_line_reason = _get("red_line_reason", "")
+            if red_line_reason:
+                result["red_line_reason"] = red_line_reason
+
+        if include_content:
+            result["content"] = content
+        if include_metadata:
+            result["metadata"] = _get("metadata", {}) or {}
+
+        return result
+
+    def _format_entry_full(self, entry: Any) -> dict[str, Any]:
+        result = self._format_entry_summary(
+            entry,
+            preview_chars=600,
+            include_metadata=True,
+            include_content=True,
+        )
+        result["token_estimate"] = self._estimate_tokens(result.get("content", ""))
+        return result
+
+    def _html_response(self, html: str, status: int = 200) -> HandlerResult:
+        return HandlerResult(
+            status_code=status,
+            content_type="text/html",
+            body=html.encode("utf-8"),
+        )
+
+    def _get_supermemory_adapter(self) -> Any | None:
+        if hasattr(self, "_supermemory_client"):
+            return getattr(self, "_supermemory_client")
+        try:
+            from aragora.connectors.supermemory import SupermemoryConfig, get_client
+        except ImportError:
+            return None
+
+        config = SupermemoryConfig.from_env()
+        if not config:
+            return None
+
+        try:
+            client = get_client(config)
+        except Exception as exc:  # pragma: no cover - external dependency
+            logger.debug(f"Supermemory client init failed: {exc}")
+            return None
+
+        setattr(self, "_supermemory_client", client)
+        setattr(self, "_supermemory_config", config)
+        return client
+
+    def _search_supermemory(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
+        client = self._get_supermemory_adapter()
+        if not client:
+            return []
+
+        config = getattr(self, "_supermemory_config", None)
+        container_tag = getattr(config, "container_tag", None)
+
+        try:
+            response = run_async(
+                client.search(query=query, limit=limit, container_tag=container_tag)
+            )
+        except Exception as exc:  # pragma: no cover - external dependency
+            logger.debug(f"Supermemory search failed: {exc}")
+            return []
+
+        results: list[dict[str, Any]] = []
+        for idx, item in enumerate(getattr(response, "results", []) or []):
+            content = getattr(item, "content", "") or ""
+            preview = content[:220].rstrip()
+            if len(content) > 220:
+                preview = f"{preview}..."
+            results.append(
+                {
+                    "id": getattr(item, "memory_id", None) or f"super_{idx}",
+                    "source": "supermemory",
+                    "preview": preview,
+                    "score": round(float(getattr(item, "similarity", 0.0)), 4),
+                    "token_estimate": self._estimate_tokens(content),
+                    "metadata": getattr(item, "metadata", {}) or {},
+                    "container_tag": getattr(item, "container_tag", None),
+                }
+            )
+        return results
+
+    def _search_claude_mem(
+        self, query: str, limit: int = 10, project: str | None = None
+    ) -> list[dict[str, Any]]:
+        try:
+            from aragora.connectors import ClaudeMemConnector, ClaudeMemConfig
+        except ImportError:
+            return []
+
+        connector = ClaudeMemConnector(ClaudeMemConfig.from_env())
+        try:
+            evidence = run_async(connector.search(query, limit=limit, project=project))
+        except Exception as exc:  # pragma: no cover - external dependency
+            logger.debug(f"Claude-mem search failed: {exc}")
+            return []
+
+        results: list[dict[str, Any]] = []
+        for item in evidence:
+            content = getattr(item, "content", "") or ""
+            preview = content[:220].rstrip()
+            if len(content) > 220:
+                preview = f"{preview}..."
+            results.append(
+                {
+                    "id": getattr(item, "id", None),
+                    "source": "claude-mem",
+                    "preview": preview,
+                    "token_estimate": self._estimate_tokens(content),
+                    "metadata": getattr(item, "metadata", {}) or {},
+                    "created_at": getattr(item, "created_at", None),
+                }
+            )
+        return results
+
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
+    @handle_errors("search index retrieval")
+    def _search_index(self, params: dict) -> HandlerResult:
+        """Progressive retrieval stage 1: compact index entries."""
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        query = get_bounded_string_param(params, "q", "", max_length=500)
+        if not query:
+            return error_response("Missing required parameter: q (search query)", 400)
+
+        limit = get_clamped_int_param(params, "limit", 20, min_val=1, max_val=100)
+        min_importance = get_bounded_float_param(
+            params, "min_importance", 0.0, min_val=0.0, max_val=1.0
+        )
+        tiers = self._parse_tiers_param(params)
+        use_hybrid = self._parse_bool_param(params, "use_hybrid", False)
+
+        results: list[dict[str, Any]] = []
+        hybrid_used = False
+
+        if use_hybrid and hasattr(continuum, "hybrid_search"):
+            try:
+                hybrid_results = run_async(
+                    continuum.hybrid_search(
+                        query=query,
+                        limit=limit,
+                        tiers=tiers,
+                        min_importance=min_importance,
+                    )
+                )
+                hybrid_used = True
+            except Exception as exc:  # pragma: no cover - optional dependency
+                logger.debug(f"Hybrid memory search failed, falling back: {exc}")
+                hybrid_results = []
+
+            ids = [r.memory_id for r in hybrid_results if getattr(r, "memory_id", None)]
+            entries_by_id = {}
+            if ids and hasattr(continuum, "get_many"):
+                entries = continuum.get_many(ids)
+                entries_by_id = {entry.id: entry for entry in entries}
+
+            for result in hybrid_results:
+                entry = entries_by_id.get(result.memory_id)
+                summary = self._format_entry_summary(entry or result)
+                summary["source"] = "continuum"
+                summary["score"] = round(float(getattr(result, "combined_score", 0.0)), 4)
+                summary["id"] = result.memory_id
+                results.append(summary)
+
+        if not hybrid_used:
+            memories = continuum.retrieve(
+                query=query,
+                tiers=tiers,
+                limit=limit,
+                min_importance=min_importance,
+            )
+            for entry in memories:
+                summary = self._format_entry_summary(entry)
+                summary["source"] = "continuum"
+                results.append(summary)
+
+        include_external = self._parse_bool_param(params, "include_external", False)
+        external_param = get_bounded_string_param(params, "external", "", max_length=200)
+        external_results: list[dict[str, Any]] = []
+        external_sources: list[str] = []
+
+        if include_external:
+            requested = []
+            if external_param:
+                for name in external_param.split(","):
+                    name = name.strip().lower()
+                    if not name:
+                        continue
+                    if name in ("claude_mem", "claudemem", "claude-mem"):
+                        name = "claude-mem"
+                    if name in ("supermemory", "super-memory", "sm"):
+                        name = "supermemory"
+                    requested.append(name)
+            else:
+                requested = ["supermemory", "claude-mem"]
+
+            if "supermemory" in requested:
+                external_results.extend(self._search_supermemory(query, limit=limit))
+                external_sources.append("supermemory")
+            if "claude-mem" in requested:
+                project = get_bounded_string_param(params, "project", "", max_length=200) or None
+                external_results.extend(
+                    self._search_claude_mem(query, limit=limit, project=project)
+                )
+                external_sources.append("claude-mem")
+
+        return json_response(
+            {
+                "query": query,
+                "results": results,
+                "count": len(results),
+                "tiers": [tier.name.lower() for tier in tiers],
+                "use_hybrid": hybrid_used,
+                "external_sources": external_sources,
+                "external_results": external_results,
+            }
+        )
+
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
+    @handle_errors("timeline retrieval")
+    def _search_timeline(self, params: dict) -> HandlerResult:
+        """Progressive retrieval stage 2: timeline around an anchor."""
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        anchor_id = get_bounded_string_param(params, "anchor_id", "", max_length=200)
+        if not anchor_id:
+            return error_response("Missing required parameter: anchor_id", 400)
+
+        before = get_clamped_int_param(params, "before", 3, min_val=0, max_val=50)
+        after = get_clamped_int_param(params, "after", 3, min_val=0, max_val=50)
+        min_importance = get_bounded_float_param(
+            params, "min_importance", 0.0, min_val=0.0, max_val=1.0
+        )
+        tiers = self._parse_tiers_param(params)
+
+        if not hasattr(continuum, "get_timeline_entries"):
+            return error_response("Timeline retrieval not supported", 501)
+
+        timeline = continuum.get_timeline_entries(
+            anchor_id=anchor_id,
+            before=before,
+            after=after,
+            tiers=tiers,
+            min_importance=min_importance,
+        )
+        if timeline is None:
+            return error_response("Anchor memory not found", 404)
+
+        return json_response(
+            {
+                "anchor_id": anchor_id,
+                "anchor": self._format_entry_summary(timeline["anchor"], preview_chars=260),
+                "before": [
+                    self._format_entry_summary(entry, preview_chars=220)
+                    for entry in timeline["before"]
+                ],
+                "after": [
+                    self._format_entry_summary(entry, preview_chars=220)
+                    for entry in timeline["after"]
+                ],
+            }
+        )
+
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
+    @handle_errors("entries retrieval")
+    def _get_entries(self, params: dict) -> HandlerResult:
+        """Progressive retrieval stage 3: full entries by ID."""
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        ids_param = get_bounded_string_param(params, "ids", "", max_length=2000)
+        if not ids_param:
+            return error_response("Missing required parameter: ids", 400)
+
+        ids = [entry_id.strip() for entry_id in ids_param.split(",") if entry_id.strip()]
+        if not ids:
+            return error_response("Missing required parameter: ids", 400)
+
+        if not hasattr(continuum, "get_many"):
+            return error_response("Bulk entry retrieval not supported", 501)
+
+        entries = continuum.get_many(ids)
+
+        return json_response(
+            {
+                "ids": ids,
+                "count": len(entries),
+                "entries": [self._format_entry_full(entry) for entry in entries],
+            }
+        )
+
+    def _render_viewer(self) -> HandlerResult:
+        """Render the memory viewer HTML UI."""
+        html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aragora Memory Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-1: #f6f1e9;
+      --bg-2: #e7efe9;
+      --ink: #111214;
+      --muted: #5c6166;
+      --accent: #0f766e;
+      --accent-2: #c46f2b;
+      --panel: #ffffff;
+      --line: #e3e0da;
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fef8ee 0%, var(--bg-1) 45%, var(--bg-2) 100%);
+      min-height: 100vh;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    header h1 {
+      font-size: 32px;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.4fr) minmax(260px, 1fr);
+      gap: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: rise 0.5s ease both;
+    }
+    .panel h2 {
+      font-size: 16px;
+      margin: 0;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    label {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    input[type="text"],
+    input[type="number"] {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: "Space Grotesk", sans-serif;
+      width: 100%;
+    }
+    .mono {
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+    .tier-row, .toggle-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .tier-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      background: #faf8f3;
+    }
+    .primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .primary:hover {
+      background: #0b5d56;
+    }
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 6px;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: left;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .item:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+    .item .meta {
+      display: flex;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .item .preview {
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .detail {
+      border-top: 1px dashed var(--line);
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .detail h3 {
+      margin: 0;
+      font-size: 14px;
+      color: var(--accent-2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .detail pre {
+      white-space: pre-wrap;
+      background: #f9f7f2;
+      border-radius: 10px;
+      padding: 12px;
+      margin: 0;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 1000px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Memory Viewer</h1>
+      <p>Progressive disclosure search across continuum memory, with optional external sources.</p>
+    </header>
+    <div class="grid">
+      <section class="panel">
+        <h2>Search</h2>
+        <label for="query">Query</label>
+        <input id="query" type="text" placeholder="Search memory content" />
+        <label>Tiers</label>
+        <div class="tier-row">
+          <label class="tier-pill"><input type="checkbox" class="tier" value="fast" checked /> fast</label>
+          <label class="tier-pill"><input type="checkbox" class="tier" value="medium" checked /> medium</label>
+          <label class="tier-pill"><input type="checkbox" class="tier" value="slow" checked /> slow</label>
+          <label class="tier-pill"><input type="checkbox" class="tier" value="glacial" checked /> glacial</label>
+        </div>
+        <label for="limit">Limit</label>
+        <input id="limit" type="number" value="20" min="1" max="100" />
+        <label for="minImportance">Min Importance</label>
+        <input id="minImportance" type="number" value="0" step="0.05" min="0" max="1" />
+        <div class="toggle-row">
+          <label class="tier-pill"><input id="useHybrid" type="checkbox" /> hybrid search</label>
+          <label class="tier-pill"><input id="includeExternal" type="checkbox" /> external</label>
+        </div>
+        <div class="toggle-row">
+          <label class="tier-pill"><input id="extSupermemory" type="checkbox" /> supermemory</label>
+          <label class="tier-pill"><input id="extClaudeMem" type="checkbox" /> claude-mem</label>
+        </div>
+        <button class="primary" id="searchBtn">Search</button>
+        <div id="status" class="mono"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Index</h2>
+        <div id="results" class="list"></div>
+        <div class="detail">
+          <h3>External</h3>
+          <div id="external" class="list"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Timeline</h2>
+        <div id="timeline" class="list"></div>
+        <div class="detail">
+          <h3>Entry</h3>
+          <pre id="entry">Select a memory to view full content.</pre>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const apiBase = "/api/v1/memory";
+    const resultsEl = document.getElementById("results");
+    const externalEl = document.getElementById("external");
+    const timelineEl = document.getElementById("timeline");
+    const entryEl = document.getElementById("entry");
+    const statusEl = document.getElementById("status");
+
+    const qs = (id) => document.getElementById(id);
+    const tiers = () => Array.from(document.querySelectorAll(".tier"))
+      .filter((el) => el.checked)
+      .map((el) => el.value);
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.style.color = isError ? "#b91c1c" : "#0f766e";
+    }
+
+    function clear(el) {
+      while (el.firstChild) el.removeChild(el.firstChild);
+    }
+
+    function makeItem(item, onClick) {
+      const button = document.createElement("button");
+      button.className = "item";
+      button.type = "button";
+      button.addEventListener("click", onClick);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const tier = item.tier ? item.tier.toUpperCase() : (item.source || "external");
+      meta.textContent = `${tier} | importance ${item.importance ?? "n/a"} | tokens ${item.token_estimate ?? "-"}`;
+
+      const preview = document.createElement("div");
+      preview.className = "preview";
+      preview.textContent = item.preview || "(no preview)";
+
+      button.appendChild(meta);
+      button.appendChild(preview);
+      return button;
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Request failed: ${res.status}`);
+      }
+      return res.json();
+    }
+
+    async function searchIndex() {
+      const query = qs("query").value.trim();
+      if (!query) {
+        setStatus("Enter a query.", true);
+        return;
+      }
+      setStatus("Searching...");
+
+      const params = new URLSearchParams();
+      params.set("q", query);
+      params.set("limit", qs("limit").value);
+      params.set("min_importance", qs("minImportance").value);
+      const tierValues = tiers();
+      if (tierValues.length) {
+        params.set("tier", tierValues.join(","));
+      }
+      if (qs("useHybrid").checked) {
+        params.set("use_hybrid", "true");
+      }
+      if (qs("includeExternal").checked) {
+        params.set("include_external", "true");
+        const ext = [];
+        if (qs("extSupermemory").checked) ext.push("supermemory");
+        if (qs("extClaudeMem").checked) ext.push("claude-mem");
+        if (ext.length) {
+          params.set("external", ext.join(","));
+        }
+      }
+
+      try {
+        const data = await fetchJson(`${apiBase}/search-index?${params.toString()}`);
+        renderResults(data.results || []);
+        renderExternal(data.external_results || []);
+        setStatus(`Found ${data.count} results${data.external_results?.length ? " + external" : ""}.`);
+        if (data.results && data.results.length) {
+          loadTimeline(data.results[0].id);
+        }
+      } catch (err) {
+        setStatus(err.message || "Search failed.", true);
+      }
+    }
+
+    function renderResults(items) {
+      clear(resultsEl);
+      if (!items.length) {
+        resultsEl.textContent = "No results yet.";
+        return;
+      }
+      items.forEach((item) => {
+        const node = makeItem(item, () => loadTimeline(item.id));
+        resultsEl.appendChild(node);
+      });
+    }
+
+    function renderExternal(items) {
+      clear(externalEl);
+      if (!items.length) {
+        externalEl.textContent = "No external results.";
+        return;
+      }
+      items.forEach((item) => {
+        const node = makeItem(item, () => showExternal(item));
+        externalEl.appendChild(node);
+      });
+    }
+
+    function showExternal(item) {
+      const lines = [];
+      lines.push(`source: ${item.source}`);
+      if (item.metadata && Object.keys(item.metadata).length) {
+        lines.push(`metadata: ${JSON.stringify(item.metadata, null, 2)}`);
+      }
+      lines.push("");
+      lines.push(item.preview || "");
+      entryEl.textContent = lines.join("\\n");
+    }
+
+    async function loadTimeline(anchorId) {
+      if (!anchorId) return;
+      const params = new URLSearchParams();
+      params.set("anchor_id", anchorId);
+      params.set("before", "3");
+      params.set("after", "3");
+      const tierValues = tiers();
+      if (tierValues.length) {
+        params.set("tier", tierValues.join(","));
+      }
+      try {
+        const data = await fetchJson(`${apiBase}/search-timeline?${params.toString()}`);
+        renderTimeline(data);
+        if (data.anchor) {
+          loadEntry(data.anchor.id);
+        }
+      } catch (err) {
+        setStatus(err.message || "Timeline failed.", true);
+      }
+    }
+
+    function renderTimeline(data) {
+      clear(timelineEl);
+      if (!data || !data.anchor) {
+        timelineEl.textContent = "Timeline unavailable.";
+        return;
+      }
+      const items = [...(data.before || []), data.anchor, ...(data.after || [])];
+      items.forEach((item) => {
+        const node = makeItem(item, () => loadEntry(item.id));
+        timelineEl.appendChild(node);
+      });
+    }
+
+    async function loadEntry(entryId) {
+      if (!entryId) return;
+      try {
+        const data = await fetchJson(`${apiBase}/entries?ids=${encodeURIComponent(entryId)}`);
+        const entry = data.entries && data.entries.length ? data.entries[0] : null;
+        if (!entry) {
+          entryEl.textContent = "Entry not found.";
+          return;
+        }
+        const lines = [];
+        lines.push(`id: ${entry.id}`);
+        lines.push(`tier: ${entry.tier}`);
+        lines.push(`importance: ${entry.importance}`);
+        if (entry.red_line) {
+          lines.push(`red_line: ${entry.red_line_reason || "true"}`);
+        }
+        lines.push("");
+        lines.push(entry.content || "");
+        entryEl.textContent = lines.join("\\n");
+      } catch (err) {
+        entryEl.textContent = err.message || "Failed to load entry.";
+      }
+    }
+
+    document.getElementById("searchBtn").addEventListener("click", searchIndex);
+  </script>
+</body>
+</html>"""
+        return self._html_response(html)
 
     @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("search memories")

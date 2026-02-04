@@ -491,7 +491,7 @@ def create_default_routes() -> list[Route]:
         api_route("/api/analytics/early-stops", "AnalyticsHandler"),
         api_route("/api/ranking/stats", "AnalyticsHandler"),
         api_route("/api/memory/stats", "AnalyticsHandler"),
-        api_route("/api/memory/tier-stats", "AnalyticsHandler"),
+        api_route("/api/memory/tier-stats", "MemoryHandler"),
         # Pulse routes
         api_route("/api/pulse/trending", "PulseHandler"),
         api_route("/api/pulse/suggest", "PulseHandler"),
@@ -556,6 +556,16 @@ def create_default_routes() -> list[Route]:
         # Memory routes
         api_route("/api/memory/continuum/retrieve", "MemoryHandler"),
         api_route("/api/memory/continuum/consolidate", "MemoryHandler", method="POST"),
+        api_route("/api/memory/continuum/cleanup", "MemoryHandler", method="POST"),
+        api_route("/api/memory/archive-stats", "MemoryHandler"),
+        api_route("/api/memory/pressure", "MemoryHandler"),
+        api_route("/api/memory/tiers", "MemoryHandler"),
+        api_route("/api/memory/search", "MemoryHandler"),
+        api_route("/api/memory/search-index", "MemoryHandler"),
+        api_route("/api/memory/search-timeline", "MemoryHandler"),
+        api_route("/api/memory/entries", "MemoryHandler"),
+        api_route("/api/memory/viewer", "MemoryHandler"),
+        api_route("/api/memory/critiques", "MemoryHandler"),
         # Leaderboard view
         api_route("/api/leaderboard-view", "LeaderboardViewHandler"),
         # Metrics

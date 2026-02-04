@@ -29,6 +29,7 @@
     "lowcode": 2,
     "marketing": 2,
     "marketplace": 1,
+    "memory": 1,
     "misc": 1,
     "payments": 2,
     "support": 4
@@ -36,7 +37,7 @@
   "by_kind": {
     "enterprise": 29,
     "evidence": 16,
-    "operational": 54
+    "operational": 55
   },
   "connectors": [
     {
@@ -776,6 +777,14 @@
       "status": "implemented"
     },
     {
+      "category": "memory",
+      "kind": "operational",
+      "module": "aragora.connectors.memory.claude_mem",
+      "name": "ClaudeMemConnector",
+      "path": "aragora/connectors/memory/claude_mem.py",
+      "status": "implemented"
+    },
+    {
       "category": "misc",
       "kind": "operational",
       "module": "aragora.connectors.twitter_poster",
@@ -832,6 +841,6 @@
       "status": "implemented"
     }
   ],
-  "generated_at": "2026-02-04T02:10:24.191840+00:00",
-  "total": 99
+  "generated_at": "2026-02-04T02:14:35.432706+00:00",
+  "total": 100
 }

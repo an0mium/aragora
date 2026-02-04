@@ -864,6 +864,80 @@ GET /api/v1/computer-use/approvals/*
 
 ---
 
+## Memory
+
+Memory management, retrieval, and analytics endpoints.
+
+### `GET` `/api/v1/memory/continuum/retrieve`
+
+Retrieve memories from ContinuumMemory
+
+### `POST` `/api/v1/memory/continuum/consolidate`
+
+Trigger memory consolidation
+
+### `POST` `/api/v1/memory/continuum/cleanup`
+
+Cleanup expired memories
+
+### `DELETE` `/api/v1/memory/continuum/\{id\}`
+
+Delete a memory entry by ID
+
+### `GET` `/api/v1/memory/tier-stats`
+
+Get tier statistics
+
+### `GET` `/api/v1/memory/archive-stats`
+
+Get archive statistics
+
+### `GET` `/api/v1/memory/pressure`
+
+Get memory pressure and utilization
+
+### `GET` `/api/v1/memory/tiers`
+
+List all memory tiers
+
+### `GET` `/api/v1/memory/search`
+
+Search memories across tiers
+
+### `GET` `/api/v1/memory/search-index`
+
+Progressive search index (stage 1)
+
+### `GET` `/api/v1/memory/search-timeline`
+
+Progressive timeline context (stage 2)
+
+### `GET` `/api/v1/memory/entries`
+
+Progressive full entry retrieval (stage 3)
+
+### `GET` `/api/v1/memory/viewer`
+
+Memory Viewer UI
+
+### `GET` `/api/v1/memory/critiques`
+
+Browse critique store entries
+
+### `GET` `/api/v1/memory/analytics`
+
+Memory analytics overview
+
+### `GET` `/api/v1/memory/analytics/tier/\{tier\}`
+
+Memory analytics per tier
+
+### `POST` `/api/v1/memory/analytics/snapshot`
+
+Capture memory analytics snapshot
+
+---
+
 ## Consensus
 
 Consensus Memory endpoint handlers.

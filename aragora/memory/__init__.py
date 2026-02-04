@@ -31,6 +31,10 @@ from aragora.memory.continuum import (
     reset_continuum_memory,
 )
 from aragora.memory.cross_debate_rlm import AccessTier
+from aragora.memory.capture import (
+    ToolCapturePolicy,
+    ToolMemoryCapture,
+)
 from aragora.memory.embeddings import (
     GeminiEmbedding,
     OllamaEmbedding,
@@ -99,6 +103,9 @@ __all__ = [
     "MemoryTier",
     "AccessTier",
     "get_tier_manager",
+    # Tool Capture
+    "ToolCapturePolicy",
+    "ToolMemoryCapture",
     # Tier Analytics
     "TierAnalyticsTracker",
     "TierStats",

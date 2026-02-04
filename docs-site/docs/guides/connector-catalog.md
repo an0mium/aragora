@@ -7,14 +7,14 @@ description: Connector Catalog
 
 This catalog is generated from the codebase. Do not edit by hand.
 
-_Generated: 2026-02-03T23:26:15.460570+00:00_
+_Generated: 2026-02-04T02:14:35.432706+00:00_
 
 ## Summary
 
-- Total connectors: 99
+- Total connectors: 100
 - Enterprise connectors: 29
 - Evidence connectors: 16
-- Operational connectors: 54
+- Operational connectors: 55
 
 ## Enterprise connectors
 
@@ -200,6 +200,10 @@ _Generated: 2026-02-03T23:26:15.460570+00:00_
 ### marketplace
 
 - `WalmartConnector` — `aragora.connectors.marketplace.walmart`
+
+### memory
+
+- `ClaudeMemConnector` — `aragora.connectors.memory.claude_mem`
 
 ### misc
 

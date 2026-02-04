@@ -946,9 +946,9 @@ User feedback and NPS collection under `/api/v1/feedback`.
 | `POST /api/billing/cancel` | Cancel subscription | NEW |
 | `POST /api/billing/resume` | Resume subscription | NEW |
 | `POST /api/webhooks/stripe` | Handle Stripe webhooks | NEW |
-| `GET /api/memory/analytics` | Get comprehensive memory tier analytics | NEW |
-| `GET /api/memory/analytics/tier/:tier` | Get stats for specific tier | NEW |
-| `POST /api/memory/analytics/snapshot` | Take manual analytics snapshot | NEW |
+| `GET /api/v1/memory/analytics` | Get comprehensive memory tier analytics | NEW |
+| `GET /api/v1/memory/analytics/tier/:tier` | Get stats for specific tier | NEW |
+| `POST /api/v1/memory/analytics/snapshot` | Take manual analytics snapshot | NEW |
 | `GET /api/evolution/ab-tests` | List all A/B tests | NEW |
 | `GET /api/evolution/ab-tests/:id` | Get specific A/B test | NEW |
 | `GET /api/evolution/ab-tests/:agent/active` | Get active test for agent | NEW |
@@ -2610,7 +2610,7 @@ Get ELO ranking system statistics.
 }
 ```
 
-#### GET /api/memory/stats
+#### GET /api/v1/memory/tier-stats
 Get memory tier statistics from continuum memory system.
 
 **Response:**
@@ -2626,7 +2626,7 @@ Get memory tier statistics from continuum memory system.
 }
 ```
 
-#### GET /api/memory/analytics
+#### GET /api/v1/memory/analytics
 Get comprehensive memory tier analytics.
 
 **Parameters:**
@@ -2647,7 +2647,7 @@ Get comprehensive memory tier analytics.
 }
 ```
 
-#### GET /api/memory/analytics/tier/:tier
+#### GET /api/v1/memory/analytics/tier/:tier
 Get stats for a specific memory tier.
 
 **Path Parameters:**
@@ -2667,7 +2667,7 @@ Get stats for a specific memory tier.
 }
 ```
 
-#### POST /api/memory/analytics/snapshot
+#### POST /api/v1/memory/analytics/snapshot
 Take a manual analytics snapshot for all memory tiers.
 
 **Response:**
@@ -3543,7 +3543,9 @@ Get agents ranked by calibration quality (accuracy vs confidence).
 
 Multi-timescale memory system with surprise-weighted importance scoring.
 
-#### GET /api/memory/continuum/retrieve
+Note: `/api/memory/*` legacy routes are supported as aliases for `/api/v1/memory/*`.
+
+#### GET /api/v1/memory/continuum/retrieve
 Retrieve memories from the continuum memory system.
 
 **Parameters:**
@@ -3575,7 +3577,7 @@ Retrieve memories from the continuum memory system.
 }
 ```
 
-#### GET /api/memory/continuum/consolidate
+#### POST /api/v1/memory/continuum/consolidate
 Run memory consolidation and get tier transition statistics.
 
 **Response:**
@@ -3589,6 +3591,38 @@ Run memory consolidation and get tier transition statistics.
   "message": "Memory consolidation complete"
 }
 ```
+
+#### GET /api/v1/memory/search-index
+Progressive disclosure stage 1: compact index results with previews and token estimates.
+
+**Parameters:**
+- `q` (string, required): Search query
+- `tier` (string, optional): Comma-separated tier filter
+- `limit` (int, default=20, max=100): Maximum results
+- `min_importance` (float, default=0.0): Minimum importance threshold
+- `use_hybrid` (bool, default=false): Use hybrid vector+keyword search
+- `include_external` (bool, default=false): Include external memory sources
+- `external` (string, optional): Comma-separated sources (`supermemory`, `claude-mem`)
+- `project` (string, optional): claude-mem project filter
+
+#### GET /api/v1/memory/search-timeline
+Progressive disclosure stage 2: timeline around an anchor entry.
+
+**Parameters:**
+- `anchor_id` (string, required): Memory ID to anchor timeline
+- `before` (int, default=3, max=50): Entries before anchor
+- `after` (int, default=3, max=50): Entries after anchor
+- `tier` (string, optional): Comma-separated tier filter
+- `min_importance` (float, default=0.0): Minimum importance threshold
+
+#### GET /api/v1/memory/entries
+Progressive disclosure stage 3: full entries by ID.
+
+**Parameters:**
+- `ids` (string, required): Comma-separated memory IDs
+
+#### GET /api/v1/memory/viewer
+HTML Memory Viewer UI (uses progressive disclosure endpoints).
 
 ---
 

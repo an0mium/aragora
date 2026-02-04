@@ -148,7 +148,7 @@ if tx.partial_failure:
 
 Monitor via API:
 ```bash
-curl http://localhost:8080/api/memory/coordinator/metrics
+curl http://localhost:8080/api/v1/memory/coordinator/metrics
 # Returns: success_rate, rollbacks_performed, memory_systems status
 ```
 

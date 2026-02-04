@@ -677,7 +677,7 @@ The server exposes 2,000+ API operations across 1,800+ paths. Key categories:
 | `/api/debates/*` | Debate CRUD, forking, export, search |
 | `/api/gauntlet/*` | Adversarial stress-testing, receipts, heatmaps |
 | `/api/agent/{name}/*` | Agent profiles, calibration, consistency, performance |
-| `/api/memory/*` | Multi-tier memory (continuum), search, analytics |
+| `/api/v1/memory/*` | Multi-tier memory (continuum), search, analytics (legacy `/api/memory/*` supported) |
 | `/api/auth/*` | Registration, login, OAuth, API keys |
 | `/api/billing/*` | Stripe subscriptions, usage, checkout |
 | `/api/tournaments/*` | Competitive brackets, standings, matches |

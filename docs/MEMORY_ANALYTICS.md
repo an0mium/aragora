@@ -21,10 +21,12 @@ The memory analytics module tracks:
 
 ## API Endpoints
 
+Legacy `/api/memory/analytics*` routes are supported as aliases for `/api/v1/memory/analytics*`.
+
 ### Get Comprehensive Analytics
 
 ```http
-GET /api/memory/analytics?days=30
+GET /api/v1/memory/analytics?days=30
 ```
 
 **Response:**
@@ -74,7 +76,7 @@ GET /api/memory/analytics?days=30
 ### Get Tier-Specific Stats
 
 ```http
-GET /api/memory/analytics/tier/slow?days=7
+GET /api/v1/memory/analytics/tier/slow?days=7
 ```
 
 **Response:**
@@ -106,7 +108,7 @@ GET /api/memory/analytics/tier/slow?days=7
 ### Take Manual Snapshot
 
 ```http
-POST /api/memory/analytics/snapshot
+POST /api/v1/memory/analytics/snapshot
 Content-Type: application/json
 
 {

@@ -82,9 +82,9 @@ These endpoints have backend implementations but no frontend consumers:
 - `POST /api/verify/batch` - Batch verification
 
 ### Memory Analytics (Backend Ready, No UI)
-- `GET /api/memory/analytics` - Memory tier analytics
-- `GET /api/memory/analytics/tier/{name}` - Tier-specific stats
-- `POST /api/memory/analytics/snapshot` - Take snapshot
+- `GET /api/v1/memory/analytics` - Memory tier analytics
+- `GET /api/v1/memory/analytics/tier/{name}` - Tier-specific stats
+- `POST /api/v1/memory/analytics/snapshot` - Take snapshot
 
 ### Pulse/Trending (Backend Ready, No UI)
 - `GET /api/pulse/topics` - Trending topics

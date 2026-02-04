@@ -136,6 +136,7 @@ from aragora.connectors.knowledge import (
     NoteType,
     create_obsidian_connector,
 )
+from aragora.connectors.memory import ClaudeMemConnector, ClaudeMemConfig
 
 __all__ = [
     # Base classes
@@ -242,4 +243,7 @@ __all__ = [
     "ObsidianNote",
     "NoteType",
     "create_obsidian_connector",
+    # Memory Connectors
+    "ClaudeMemConnector",
+    "ClaudeMemConfig",
 ]

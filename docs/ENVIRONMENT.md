@@ -200,6 +200,7 @@ memory tier for retrieval and auditing.
 | `ARAGORA_MEMORY_CAPTURE_ENABLED` | Optional | Enable tool usage capture | `false` |
 | `ARAGORA_MEMORY_CAPTURE_TOOLS` | Optional | Allowlist of tool names (comma-separated) | - |
 | `ARAGORA_MEMORY_SKIP_TOOLS` | Optional | Denylist of tool names (comma-separated) | - |
+| `ARAGORA_MEMORY_CAPTURE_CASE_SENSITIVE` | Optional | Treat tool names as case-sensitive | `false` |
 | `ARAGORA_MEMORY_CAPTURE_MAX_PER_MINUTE` | Optional | Max captured events per minute | `120` |
 | `ARAGORA_MEMORY_CAPTURE_TIER` | Optional | Memory tier for tool entries | `fast` |
 | `ARAGORA_MEMORY_CAPTURE_IMPORTANCE` | Optional | Importance score for captured entries | `0.4` |
