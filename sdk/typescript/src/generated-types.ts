@@ -163,31 +163,42 @@ export interface DebateCreateRequest {
   task: string;
   /** Alias for task (deprecated, use task instead) */
   question?: string;
-  /** List of agent names to participate. If empty, auto_select is used. */
-  agents?: string[];
+  /** List of agent specs to participate. If empty, auto_select is used. */
+  agents?: any[];
   /** Maximum number of debate rounds */
   rounds?: number;
   /** Consensus strategy to use */
   consensus?: "majority" | "unanimous" | "supermajority" | "weighted" | "hybrid" | "judge" | "none";
   /** Additional context or background information */
   context?: string;
+  /** Debate protocol preset */
+  debate_format?: "light" | "full";
   /** Document IDs to ground the debate in uploaded files */
   documents?: string[];
   /** Alias for documents (deprecated) */
   document_ids?: string[];
-  /** Automatically select optimal agents based on topic */
+  /** Automatically select optimal agents based on topic (used when agents is empty) */
   auto_select?: boolean;
   /** Configuration for auto-selection algorithm */
   auto_select_config?: {
+    primary_domain?: string;
+    secondary_domains?: string[];
+    required_traits?: string[];
     min_agents?: number;
     max_agents?: number;
-    diversity_weight?: number;
-    expertise_weight?: number;
+    quality_priority?: number;
+    diversity_preference?: number;
   };
+  /** Enable vertical specialist injection for the task domain (default set by ARAGORA_ENABLE_VERTICALS) */
+  enable_verticals?: boolean;
+  /** Explicit vertical ID to inject (e.g., software, legal, healthcare) */
+  vertical_id?: string;
   /** Include trending context from news/social media */
   use_trending?: boolean;
   /** Category filter for trending content */
   trending_category?: "tech" | "science" | "politics" | "business" | "health";
+  /** Optional metadata for tracking and integrations */
+  metadata?: Record<string, any>;
 }
 
 export interface DebateCreateResponse {
