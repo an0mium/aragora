@@ -544,11 +544,12 @@ class TestMFAOperations:
 class TestProfileOperations:
     """Test profile get and update operations."""
 
-    def test_get_me_requires_auth(self, auth_handler):
+    @pytest.mark.asyncio
+    async def test_get_me_requires_auth(self, auth_handler):
         """Test get me requires authentication."""
         request = make_mock_handler(command="GET")
 
-        result = auth_handler._handle_get_me(request)
+        result = await auth_handler._handle_get_me(request)
         parsed = parse_result(result)
 
         assert parsed["success"] is False

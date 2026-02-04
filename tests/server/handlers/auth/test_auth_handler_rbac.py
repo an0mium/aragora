@@ -156,8 +156,14 @@ class TestAuthHandlerPermissionKeys:
             ("_handle_revoke_session", "session.revoke"),
         ],
     )
-    def test_permission_key_used(self, handler, mock_http_handler, method_name, permission_key):
+    @pytest.mark.asyncio
+    async def test_permission_key_used(
+        self, handler, mock_http_handler, method_name, permission_key
+    ):
         """Verify correct permission key is checked for each protected endpoint."""
+        import asyncio
+        import inspect
+
         with patch.object(handler, "_check_permission") as mock_check:
             mock_check.return_value = MagicMock(status_code=403, body=b"denied")
 
@@ -165,9 +171,13 @@ class TestAuthHandlerPermissionKeys:
 
             # Call with appropriate args based on method signature
             if method_name == "_handle_revoke_session":
-                method(mock_http_handler, "session-123")
+                result = method(mock_http_handler, "session-123")
             else:
-                method(mock_http_handler)
+                result = method(mock_http_handler)
+
+            # Await if the method is async
+            if inspect.isawaitable(result):
+                await result
 
             # Verify permission was checked with correct key
             assert mock_check.called
@@ -203,13 +213,14 @@ class TestAuthHandlerRBACIntegration:
         assert result.status_code == 401
 
     @pytest.mark.no_auto_auth
-    def test_get_me_requires_authentication(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_get_me_requires_authentication(self, handler, mock_http_handler):
         """Get me endpoint returns 401 without authentication."""
         with patch(
             "aragora.server.handlers.auth.handler.extract_user_from_request"
         ) as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False, user_id=None)
-            result = handler._handle_get_me(mock_http_handler)
+            result = await handler._handle_get_me(mock_http_handler)
 
         assert result.status_code == 401
 

@@ -768,7 +768,8 @@ class TestLogout:
 class TestProfileOperations:
     """Test profile operations."""
 
-    def test_get_me_success(
+    @pytest.mark.asyncio
+    async def test_get_me_success(
         self, auth_handler, mock_user_store, mock_user, mock_auth_context, mock_org
     ):
         """Test successful get current user info."""
@@ -784,14 +785,15 @@ class TestProfileOperations:
             with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
-                result = auth_handler._handle_get_me(request)
+                result = await auth_handler._handle_get_me(request)
 
         parsed = parse_result(result)
         assert parsed["success"] is True
         assert "user" in parsed
         assert "organization" in parsed
 
-    def test_get_me_user_not_found(self, auth_handler, mock_user_store, mock_auth_context):
+    @pytest.mark.asyncio
+    async def test_get_me_user_not_found(self, auth_handler, mock_user_store, mock_auth_context):
         """Test get me fails when user not found."""
         mock_user_store.get_user_by_id.return_value = None
 
@@ -804,7 +806,7 @@ class TestProfileOperations:
             with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
-                result = auth_handler._handle_get_me(request)
+                result = await auth_handler._handle_get_me(request)
 
         parsed = parse_result(result)
         assert parsed["success"] is False

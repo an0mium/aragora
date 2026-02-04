@@ -215,7 +215,7 @@ class AuthHandler(SecureHandler):
 
         if path == "/api/auth/me":
             if method == "GET":
-                return self._handle_get_me(handler)
+                return await self._handle_get_me(handler)
             elif method == "PUT":
                 return self._handle_update_me(handler)
             elif method == "POST":
@@ -657,7 +657,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=30, limiter_name="auth_get_me")
     @handle_errors("get user info")
-    def _handle_get_me(self, handler: Any) -> HandlerResult:
+    async def _handle_get_me(self, handler: Any) -> HandlerResult:
         """Get current user information."""
         logger.info("[/me] Step 1: Checking authentication.read permission")
         # RBAC check: authentication.read permission required
@@ -682,15 +682,15 @@ class AuthHandler(SecureHandler):
                 "Authentication service unavailable", 503, headers=self.AUTH_NO_CACHE_HEADERS
             )
 
-        # Get full user data (use async method if available)
+        # Get full user data using async methods to avoid run_async() on a
+        # running event loop (this coroutine is awaited from async handle()).
         logger.info("[/me] Step 4: Looking up user by ID")
-        get_user_by_id = getattr(user_store, "get_user_by_id", None)
-        if callable(get_user_by_id):
-            user = get_user_by_id(auth_ctx.user_id)
-        elif hasattr(user_store, "get_user_by_id_async"):
-            user = _run_maybe_async(user_store.get_user_by_id_async(auth_ctx.user_id))
+        get_by_id_async = getattr(user_store, "get_user_by_id_async", None)
+        if get_by_id_async and asyncio.iscoroutinefunction(get_by_id_async):
+            user = await get_by_id_async(auth_ctx.user_id)
         else:
-            user = None
+            get_user_by_id = getattr(user_store, "get_user_by_id", None)
+            user = get_user_by_id(auth_ctx.user_id) if callable(get_user_by_id) else None
         logger.info("[/me] Step 5: User lookup result: %s", "found" if user else "not found")
         if not user:
             return error_response("User not found", 404, headers=self.AUTH_NO_CACHE_HEADERS)
@@ -698,13 +698,12 @@ class AuthHandler(SecureHandler):
         # Get organization if user belongs to one
         org_data = None
         if user.org_id:
-            get_org_by_id = getattr(user_store, "get_organization_by_id", None)
-            if callable(get_org_by_id):
-                org = get_org_by_id(user.org_id)
-            elif hasattr(user_store, "get_organization_by_id_async"):
-                org = _run_maybe_async(user_store.get_organization_by_id_async(user.org_id))
+            get_org_async = getattr(user_store, "get_organization_by_id_async", None)
+            if get_org_async and asyncio.iscoroutinefunction(get_org_async):
+                org = await get_org_async(user.org_id)
             else:
-                org = None
+                get_org_by_id = getattr(user_store, "get_organization_by_id", None)
+                org = get_org_by_id(user.org_id) if callable(get_org_by_id) else None
             if org:
                 org_data = org.to_dict()
 

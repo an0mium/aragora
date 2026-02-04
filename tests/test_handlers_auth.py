@@ -576,9 +576,10 @@ class TestLogout:
 class TestGetMe:
     """Tests for get current user endpoint."""
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers.auth.handler.get_role_permissions")
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_get_me_success(
+    async def test_get_me_success(
         self, mock_extract, mock_get_perms, auth_handler, mock_handler, mock_user_store, mock_user
     ):
         """Test successful get user info."""
@@ -591,24 +592,26 @@ class TestGetMe:
         )
         mock_get_perms.return_value = {"authentication.read"}
 
-        result = auth_handler._handle_get_me(mock_handler)
+        result = await auth_handler._handle_get_me(mock_handler)
 
         assert result.status_code == 200
         data = json.loads(result.body)
         assert "user" in data
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_get_me_not_authenticated(self, mock_extract, auth_handler, mock_handler):
+    async def test_get_me_not_authenticated(self, mock_extract, auth_handler, mock_handler):
         """Test get user info without authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
 
-        result = auth_handler._handle_get_me(mock_handler)
+        result = await auth_handler._handle_get_me(mock_handler)
 
         assert result.status_code == 401
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers.auth.handler.get_role_permissions")
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_get_me_user_not_found(
+    async def test_get_me_user_not_found(
         self, mock_extract, mock_get_perms, auth_handler, mock_handler, mock_user_store
     ):
         """Test get user info when user deleted."""
@@ -622,7 +625,7 @@ class TestGetMe:
         mock_get_perms.return_value = {"authentication.read"}
         mock_user_store.get_user_by_id.return_value = None
 
-        result = auth_handler._handle_get_me(mock_handler)
+        result = await auth_handler._handle_get_me(mock_handler)
 
         assert result.status_code == 404
 

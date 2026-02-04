@@ -1735,7 +1735,8 @@ class TestLogoutFlows:
 class TestProfileOperations:
     """Test profile get, update, and password change."""
 
-    def test_get_me_success(
+    @pytest.mark.asyncio
+    async def test_get_me_success(
         self, auth_handler, mock_user_store, mock_user, mock_auth_context, mock_org
     ):
         """Test get current user info."""
@@ -1751,7 +1752,7 @@ class TestProfileOperations:
             with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
 
-                result = auth_handler._handle_get_me(request)
+                result = await auth_handler._handle_get_me(request)
 
         parsed = parse_result(result)
         assert parsed["success"] is True
@@ -2230,7 +2231,8 @@ class TestRBACPermissionChecks:
         assert parsed["status_code"] == 401
 
     @pytest.mark.no_auto_auth
-    def test_get_me_requires_authentication(self, auth_handler):
+    @pytest.mark.asyncio
+    async def test_get_me_requires_authentication(self, auth_handler):
         """Test get me endpoint returns 401 without authentication."""
         request = make_mock_handler(command="GET")
 
@@ -2238,7 +2240,7 @@ class TestRBACPermissionChecks:
             "aragora.server.handlers.auth.handler.extract_user_from_request",
         ) as mock_extract:
             mock_extract.return_value = MagicMock(is_authenticated=False, user_id=None)
-            result = auth_handler._handle_get_me(request)
+            result = await auth_handler._handle_get_me(request)
 
         parsed = parse_result(result)
         assert parsed["status_code"] == 401
@@ -2719,7 +2721,8 @@ class TestMFAEdgeCases:
 class TestProfileEdgeCases:
     """Test profile operations edge cases."""
 
-    def test_get_me_user_not_found(self, auth_handler, mock_user_store, mock_auth_context):
+    @pytest.mark.asyncio
+    async def test_get_me_user_not_found(self, auth_handler, mock_user_store, mock_auth_context):
         """Test get me fails when user not found."""
         mock_user_store.get_user_by_id.return_value = None
 
@@ -2731,7 +2734,7 @@ class TestProfileEdgeCases:
         ):
             with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
                 mock_check.return_value = MagicMock(allowed=True)
-                result = auth_handler._handle_get_me(request)
+                result = await auth_handler._handle_get_me(request)
 
         parsed = parse_result(result)
         assert parsed["success"] is False

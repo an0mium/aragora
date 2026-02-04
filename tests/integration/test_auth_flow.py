@@ -399,7 +399,8 @@ class TestTokenLifecycle:
 class TestAuthenticatedRequests:
     """Test authenticated API access."""
 
-    def test_get_me_with_valid_token(self, auth_handler, registered_user):
+    @pytest.mark.asyncio
+    async def test_get_me_with_valid_token(self, auth_handler, registered_user):
         """GET /auth/me with valid token returns user info."""
         # Create token for user
         tokens = create_token_pair(
@@ -414,17 +415,18 @@ class TestAuthenticatedRequests:
             headers={"Authorization": f"Bearer {tokens.access_token}"},
         )
 
-        result = auth_handler._handle_get_me(request)
+        result = await auth_handler._handle_get_me(request)
         data, status = parse_result(result)
 
         assert status == 200
         assert data["user"]["email"] == registered_user.email
 
-    def test_get_me_without_token_fails(self, auth_handler):
+    @pytest.mark.asyncio
+    async def test_get_me_without_token_fails(self, auth_handler):
         """GET /auth/me without token should fail."""
         request = create_mock_request(method="GET")
 
-        result = auth_handler._handle_get_me(request)
+        result = await auth_handler._handle_get_me(request)
         data, status = parse_result(result)
 
         assert status == 401
@@ -534,7 +536,8 @@ class TestApiKeyAuthentication:
 class TestFullAuthenticationFlow:
     """Test complete authentication workflows end-to-end."""
 
-    def test_register_login_access_logout(self, auth_handler, user_store):
+    @pytest.mark.asyncio
+    async def test_register_login_access_logout(self, auth_handler, user_store):
         """Complete flow: register → login → access protected → logout."""
         # 1. Register new user
         reg_request = create_mock_request(
@@ -565,7 +568,7 @@ class TestFullAuthenticationFlow:
             method="GET",
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        me_result = auth_handler._handle_get_me(me_request)
+        me_result = await auth_handler._handle_get_me(me_request)
         me_data, me_status = parse_result(me_result)
         assert me_status == 200
         assert me_data["user"]["email"] == "flowtest@example.com"
@@ -578,7 +581,8 @@ class TestFullAuthenticationFlow:
         _, logout_status = parse_result(logout_result)
         assert logout_status == 200
 
-    def test_token_refresh_maintains_access(self, auth_handler, registered_user):
+    @pytest.mark.asyncio
+    async def test_token_refresh_maintains_access(self, auth_handler, registered_user):
         """Access should work after token refresh."""
         # Login
         login_request = create_mock_request(
@@ -606,7 +610,7 @@ class TestFullAuthenticationFlow:
             method="GET",
             headers={"Authorization": f"Bearer {new_access_token}"},
         )
-        me_result = auth_handler._handle_get_me(me_request)
+        me_result = await auth_handler._handle_get_me(me_request)
         me_data, me_status = parse_result(me_result)
 
         assert me_status == 200
