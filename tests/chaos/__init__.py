@@ -1,14 +1,11 @@
 """
-Chaos testing module for Aragora.
+Chaos Engineering Test Suite.
 
-Provides infrastructure and tests for validating system resilience under:
-- Agent failures and timeouts
-- Memory/storage failures
-- Network partitions and latency
-- Circuit breaker behavior
-- Concurrent load stress
+Tests for system resilience under failure conditions:
+- Circuit breaker behavior under load
+- Agent failure recovery
+- Memory tier fallback mechanisms
 
-Usage:
-    pytest tests/chaos/ -v --timeout=120
-    pytest tests/chaos/ -v -m "not slow"  # Skip slow tests
+Run with extended timeout:
+    pytest tests/chaos/ -v --timeout=300
 """

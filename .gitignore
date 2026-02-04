@@ -189,3 +189,4 @@ docs/investor/
 data/
 consolidated/
 docs/openapi_generated.json
+.testfixer/

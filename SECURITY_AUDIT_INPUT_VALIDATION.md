@@ -11,10 +11,10 @@
 | Severity | Count | Status |
 |----------|-------|--------|
 | Critical | 0 | ✓ None Found |
-| High | 1 | ⚠ Requires Fix |
+| High | 0 | ✓ Fixed (2026-02-03) |
 | Medium | 2 | ⚠ Requires Improvement |
 | Low | 0 | ✓ None Found |
-| **Total** | **3** | |
+| **Total** | **2** | |
 
 ---
 
@@ -30,8 +30,9 @@ None found.
 
 **File:** `/Users/armand/Development/aragora/aragora/server/handlers/external_integrations.py`
 **Lines:** 555-576, 768-792, 910
-**Severity:** HIGH
+**Severity:** HIGH → ✓ FIXED (2026-02-03)
 **Type:** Server-Side Request Forgery (SSRF)
+**Resolution:** `validate_webhook_url()` is now called at all three locations (Zapier line 570, Make line 783, n8n line 919)
 
 #### Description
 

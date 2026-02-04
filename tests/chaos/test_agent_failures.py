@@ -1,499 +1,458 @@
 """
-Chaos tests for agent failure scenarios.
+Chaos Engineering Tests: Agent Failures.
 
-Tests system resilience when agents:
-- Time out during responses
-- Return errors or exceptions
-- Become unresponsive mid-debate
-- Return malformed responses
-- Experience intermittent failures
+Tests agent failure recovery mechanisms:
+- Agent unavailability handling
+- Fallback to alternate agents
+- Recovery after transient failures
+- Queue handling during outages
+
+Run with extended timeout:
+    pytest tests/chaos/test_agent_failures.py -v --timeout=300
 """
 
 from __future__ import annotations
 
 import asyncio
 import random
+from dataclasses import dataclass
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.resilience import get_circuit_breaker, reset_all_circuit_breakers
+from aragora.resilience.circuit_breaker import CircuitBreaker
+
+
+@pytest.fixture(autouse=True)
+def reset_breakers():
+    """Reset all circuit breakers before/after each test."""
+    reset_all_circuit_breakers()
+    yield
+    reset_all_circuit_breakers()
+
 
 @pytest.fixture(autouse=True)
 def seed_random():
-    """Seed random for reproducible chaos tests."""
+    """Seed random for reproducibility."""
     random.seed(42)
     yield
 
 
-class ChaosAgent:
-    """A configurable chaos agent for testing failure scenarios."""
+@dataclass
+class MockAgent:
+    """Mock agent for chaos testing."""
 
-    def __init__(
-        self,
-        name: str,
-        failure_rate: float = 0.0,
-        timeout_rate: float = 0.0,
-        malformed_rate: float = 0.0,
-        latency_range: tuple[float, float] = (0.0, 0.0),
-    ):
-        self.name = name
-        self.failure_rate = failure_rate
-        self.timeout_rate = timeout_rate
-        self.malformed_rate = malformed_rate
-        self.latency_range = latency_range
-        self.call_count = 0
-        self.failure_count = 0
-        self.timeout_count = 0
+    name: str
+    failure_rate: float = 0.0
+    latency_ms: float = 10
+    is_available: bool = True
 
-    async def respond(self, prompt: str) -> str:
-        """Generate a response with configurable chaos behavior."""
-        self.call_count += 1
+    async def generate(self, prompt: str) -> str:
+        if not self.is_available:
+            raise ConnectionError(f"Agent {self.name} unavailable")
 
-        # Simulate latency
-        if self.latency_range[1] > 0:
-            delay = random.uniform(*self.latency_range)
-            await asyncio.sleep(delay)
+        await asyncio.sleep(self.latency_ms / 1000)
 
-        # Simulate timeout
-        if random.random() < self.timeout_rate:
-            self.timeout_count += 1
-            await asyncio.sleep(100)  # Long sleep to trigger timeout
-            return ""
-
-        # Simulate failure
         if random.random() < self.failure_rate:
-            self.failure_count += 1
-            raise RuntimeError(f"Chaos agent {self.name} simulated failure")
+            raise RuntimeError(f"Agent {self.name} failed")
 
-        # Simulate malformed response
-        if random.random() < self.malformed_rate:
-            return None  # type: ignore[return-value]
+        return f"Response from {self.name}"
 
-        return f"Response from {self.name}: {prompt[:50]}..."
+
+class AgentPool:
+    """Agent pool with circuit breaker protection."""
+
+    def __init__(self, agents: list[MockAgent]):
+        self.agents = {agent.name: agent for agent in agents}
+        # Create separate circuit breakers for each agent
+        self.breakers = {
+            agent.name: get_circuit_breaker(
+                f"agent-pool-{agent.name}",
+                failure_threshold=3,
+                cooldown_seconds=1.0,
+            )
+            for agent in agents
+        }
+
+    async def generate(self, prompt: str, preferred_agent: str | None = None) -> tuple[str, str]:
+        """Generate response, falling back to available agents."""
+        # Try preferred agent first
+        if preferred_agent and self.breakers[preferred_agent].can_proceed():
+            try:
+                result = await self.agents[preferred_agent].generate(prompt)
+                self.breakers[preferred_agent].record_success()
+                return result, preferred_agent
+            except Exception:
+                self.breakers[preferred_agent].record_failure()
+
+        # Fall back to other available agents
+        for name, agent in self.agents.items():
+            if name == preferred_agent:
+                continue
+            if not self.breakers[name].can_proceed():
+                continue
+            try:
+                result = await agent.generate(prompt)
+                self.breakers[name].record_success()
+                return result, name
+            except Exception:
+                self.breakers[name].record_failure()
+
+        raise RuntimeError("All agents unavailable")
+
+
+class TestAgentFailureRecovery:
+    """Tests for agent failure and recovery scenarios."""
+
+    @pytest.fixture
+    def agents(self) -> list[MockAgent]:
+        """Create a pool of mock agents."""
+        return [
+            MockAgent(name="primary", failure_rate=0.0),
+            MockAgent(name="fallback1", failure_rate=0.0),
+            MockAgent(name="fallback2", failure_rate=0.0),
+        ]
+
+    @pytest.fixture
+    def pool(self, agents: list[MockAgent]) -> AgentPool:
+        """Create agent pool."""
+        return AgentPool(agents)
+
+    @pytest.mark.asyncio
+    async def test_primary_agent_success(self, pool: AgentPool):
+        """Test normal operation with primary agent."""
+        result, agent_used = await pool.generate("test", preferred_agent="primary")
+
+        assert "primary" in result
+        assert agent_used == "primary"
+
+    @pytest.mark.asyncio
+    async def test_fallback_on_primary_failure(self, pool: AgentPool):
+        """Test fallback when primary agent fails."""
+        # Make primary always fail
+        pool.agents["primary"].failure_rate = 1.0
+
+        # Should fall back to fallback1 or fallback2
+        result, agent_used = await pool.generate("test", preferred_agent="primary")
+
+        assert agent_used in ["fallback1", "fallback2"]
+
+    @pytest.mark.asyncio
+    async def test_circuit_opens_after_repeated_failures(self, pool: AgentPool):
+        """Test circuit breaker opens after repeated failures."""
+        pool.agents["primary"].failure_rate = 1.0
+
+        # Make multiple requests to trigger circuit
+        for _ in range(5):
+            try:
+                await pool.generate("test", preferred_agent="primary")
+            except Exception:
+                pass
+
+        # Circuit should be open for primary
+        assert pool.breakers["primary"].is_open
+
+    @pytest.mark.asyncio
+    async def test_recovery_after_agent_restored(self, pool: AgentPool):
+        """Test recovery when failed agent comes back."""
+        agent = pool.agents["primary"]
+        agent.failure_rate = 1.0
+
+        # Trigger circuit open
+        for _ in range(5):
+            try:
+                await pool.generate("test", preferred_agent="primary")
+            except Exception:
+                pass
+
+        assert pool.breakers["primary"].is_open
+
+        # Restore agent
+        agent.failure_rate = 0.0
+
+        # Wait for cooldown
+        await asyncio.sleep(1.5)
+
+        # Should be able to use primary again (half-open state)
+        assert pool.breakers["primary"].can_proceed()
+
+        result, agent_used = await pool.generate("test", preferred_agent="primary")
+        assert agent_used == "primary"
+
+    @pytest.mark.asyncio
+    async def test_cascading_agent_failures(self, pool: AgentPool):
+        """Test handling of multiple agents failing."""
+        # Fail all agents
+        for agent in pool.agents.values():
+            agent.failure_rate = 1.0
+
+        # Should eventually exhaust all options
+        with pytest.raises(RuntimeError, match="All agents unavailable"):
+            for _ in range(20):
+                await pool.generate("test")
+
+    @pytest.mark.asyncio
+    async def test_partial_recovery(self, pool: AgentPool):
+        """Test partial recovery when some agents return."""
+        # Fail all agents
+        for agent in pool.agents.values():
+            agent.failure_rate = 1.0
+
+        # Trigger circuits
+        for _ in range(15):
+            try:
+                await pool.generate("test")
+            except Exception:
+                pass
+
+        # All circuits should be open
+        for breaker in pool.breakers.values():
+            assert breaker.is_open
+
+        # Restore one agent
+        pool.agents["fallback2"].failure_rate = 0.0
+
+        # Wait for cooldown
+        await asyncio.sleep(1.5)
+
+        # Should now work with fallback2
+        result, agent_used = await pool.generate("test")
+        assert agent_used == "fallback2"
+
+
+class TestAgentLoadBalancing:
+    """Test agent selection under various failure conditions."""
+
+    @pytest.fixture
+    def diverse_pool(self) -> AgentPool:
+        """Create pool with agents of varying reliability."""
+        agents = [
+            MockAgent(name="reliable", failure_rate=0.1),
+            MockAgent(name="moderate", failure_rate=0.3),
+            MockAgent(name="unreliable", failure_rate=0.7),
+        ]
+        return AgentPool(agents)
+
+    @pytest.mark.asyncio
+    async def test_load_distribution_under_failures(self, diverse_pool: AgentPool):
+        """Test how load distributes when agents fail."""
+        agent_counts: dict[str, int] = {"reliable": 0, "moderate": 0, "unreliable": 0}
+
+        for _ in range(50):
+            try:
+                _, agent_used = await diverse_pool.generate("test")
+                agent_counts[agent_used] += 1
+            except Exception:
+                pass
+
+        # Reliable agent should handle most requests
+        # (since others will fail and circuit will open)
+        assert agent_counts["reliable"] >= agent_counts["unreliable"]
+
+    @pytest.mark.asyncio
+    async def test_concurrent_requests_during_failures(self, diverse_pool: AgentPool):
+        """Test concurrent request handling during agent failures."""
+        results = []
+        errors = []
+
+        async def make_request():
+            try:
+                result, agent = await diverse_pool.generate("test")
+                results.append((result, agent))
+            except Exception as e:
+                errors.append(str(e))
+
+        # Send many concurrent requests
+        await asyncio.gather(*[make_request() for _ in range(30)])
+
+        # Should have some successes
+        assert len(results) > 0
+
+    @pytest.mark.asyncio
+    async def test_gradual_degradation(self, diverse_pool: AgentPool):
+        """Test gradual service degradation as agents fail."""
+        # Start with all agents working
+        initial_results = []
+        for _ in range(10):
+            try:
+                _, agent = await diverse_pool.generate("test")
+                initial_results.append(agent)
+            except Exception:
+                pass
+
+        # Degrade agents progressively
+        diverse_pool.agents["unreliable"].failure_rate = 1.0
+        await asyncio.sleep(0.1)
+
+        mid_results = []
+        for _ in range(10):
+            try:
+                _, agent = await diverse_pool.generate("test")
+                mid_results.append(agent)
+            except Exception:
+                pass
+
+        diverse_pool.agents["moderate"].failure_rate = 1.0
+        await asyncio.sleep(0.1)
+
+        final_results = []
+        for _ in range(10):
+            try:
+                _, agent = await diverse_pool.generate("test")
+                final_results.append(agent)
+            except Exception:
+                pass
+
+        # Should increasingly use reliable agent
+        if final_results:
+            assert final_results.count("reliable") >= mid_results.count("reliable") * 0.5
 
 
 class TestAgentTimeouts:
-    """Tests for agent timeout handling."""
+    """Test handling of agent timeouts."""
 
-    @pytest.fixture(autouse=True)
-    def reset_circuit_breakers(self):
-        """Reset circuit breakers before each test."""
-        from aragora.resilience import reset_all_circuit_breakers
-
-        reset_all_circuit_breakers()
-        yield
-        reset_all_circuit_breakers()
-
-    @pytest.mark.asyncio
-    async def test_single_agent_timeout_recovery(self):
-        """System should recover when single agent times out."""
-        from aragora.resilience import get_circuit_breaker
-
-        cb = get_circuit_breaker("test_timeout", failure_threshold=3, cooldown_seconds=1.0)
-        agent = ChaosAgent("timeout_agent", timeout_rate=1.0)
-
-        async def call_with_timeout():
-            try:
-                return await asyncio.wait_for(agent.respond("test"), timeout=0.1)
-            except asyncio.TimeoutError:
-                cb.record_failure()
-                return None
-
-        # Should handle timeout gracefully
-        result = await call_with_timeout()
-        assert result is None
-        assert cb.failures == 1
-
-    @pytest.mark.asyncio
-    async def test_multiple_agent_timeouts_trigger_circuit_breaker(self):
-        """Multiple timeouts should open circuit breaker."""
-        from aragora.resilience import get_circuit_breaker
-
-        cb = get_circuit_breaker("test_multi_timeout", failure_threshold=3, cooldown_seconds=1.0)
-        agent = ChaosAgent("timeout_agent", timeout_rate=1.0)
-
-        async def call_with_timeout():
-            try:
-                return await asyncio.wait_for(agent.respond("test"), timeout=0.05)
-            except asyncio.TimeoutError:
-                cb.record_failure()
-                return None
-
-        # Trigger multiple timeouts
-        for _ in range(4):
-            await call_with_timeout()
-
-        assert cb.is_open
-        assert cb.failures >= 3
-
-    @pytest.mark.asyncio
-    async def test_timeout_with_fallback_agent(self):
-        """System should fallback to secondary agent on timeout."""
-        primary = ChaosAgent("primary", timeout_rate=1.0)
-        fallback = ChaosAgent("fallback", timeout_rate=0.0)
-
-        async def call_with_fallback():
-            try:
-                return await asyncio.wait_for(primary.respond("test"), timeout=0.05)
-            except asyncio.TimeoutError:
-                return await fallback.respond("test")
-
-        result = await call_with_fallback()
-        assert result is not None
-        assert "fallback" in result
-        assert primary.call_count == 1
-        assert fallback.call_count == 1
-
-
-class TestAgentExceptions:
-    """Tests for agent exception handling."""
-
-    @pytest.fixture(autouse=True)
-    def reset_circuit_breakers(self):
-        """Reset circuit breakers before each test."""
-        from aragora.resilience import reset_all_circuit_breakers
-
-        reset_all_circuit_breakers()
-        yield
-        reset_all_circuit_breakers()
-
-    @pytest.mark.asyncio
-    async def test_agent_exception_captured(self):
-        """Agent exceptions should be captured, not crash system."""
-        agent = ChaosAgent("failing_agent", failure_rate=1.0)
-
-        with pytest.raises(RuntimeError, match="simulated failure"):
-            await agent.respond("test")
-
-        assert agent.failure_count == 1
-
-    @pytest.mark.asyncio
-    async def test_exception_triggers_circuit_breaker(self):
-        """Repeated exceptions should open circuit breaker."""
-        from aragora.resilience import get_circuit_breaker
-
-        cb = get_circuit_breaker("test_exception", failure_threshold=2, cooldown_seconds=1.0)
-        agent = ChaosAgent("failing_agent", failure_rate=1.0)
-
-        for _ in range(3):
-            try:
-                await agent.respond("test")
-            except RuntimeError:
-                cb.record_failure()
-
-        assert cb.is_open
-
-    @pytest.mark.asyncio
-    async def test_intermittent_failures_with_retry(self):
-        """System should handle intermittent failures with retry."""
-        call_count = 0
-
-        async def intermittent_call():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 3:
-                raise ConnectionError("Intermittent failure")
-            return "success"
-
-        # Retry logic
-        for attempt in range(5):
-            try:
-                result = await intermittent_call()
-                break
-            except ConnectionError:
-                await asyncio.sleep(0.01)
-        else:
-            result = None
-
-        assert result == "success"
-        assert call_count == 3
-
-
-class TestMalformedResponses:
-    """Tests for handling malformed agent responses."""
-
-    @pytest.mark.asyncio
-    async def test_none_response_handled(self):
-        """None responses should be handled gracefully."""
-        agent = ChaosAgent("malformed_agent", malformed_rate=1.0)
-        result = await agent.respond("test")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_empty_response_handled(self):
-        """Empty responses should be detected."""
-
-        async def empty_responder(prompt: str) -> str:
-            return ""
-
-        result = await empty_responder("test")
-        assert result == ""
-        assert not result  # Falsy check
-
-    @pytest.mark.asyncio
-    async def test_truncated_json_response(self):
-        """Truncated JSON responses should be handled."""
-        import json
-
-        truncated_json = '{"response": "test", "metadata": {'
-
-        with pytest.raises(json.JSONDecodeError):
-            json.loads(truncated_json)
-
-    @pytest.mark.asyncio
-    async def test_response_validation_rejects_invalid(self):
-        """Response validation should reject invalid formats."""
-
-        def validate_response(response: Any) -> bool:
-            if response is None:
-                return False
-            if not isinstance(response, str):
-                return False
-            if len(response) < 1:
-                return False
-            return True
-
-        assert validate_response("valid response") is True
-        assert validate_response(None) is False
-        assert validate_response("") is False
-        assert validate_response(123) is False
-
-
-class TestConcurrentAgentFailures:
-    """Tests for concurrent agent failure scenarios."""
-
-    @pytest.fixture(autouse=True)
-    def reset_circuit_breakers(self):
-        """Reset circuit breakers before each test."""
-        from aragora.resilience import reset_all_circuit_breakers
-
-        reset_all_circuit_breakers()
-        yield
-        reset_all_circuit_breakers()
-
-    @pytest.mark.asyncio
-    async def test_multiple_agents_partial_failure(self):
-        """System should continue when some agents fail."""
+    @pytest.fixture
+    def slow_pool(self) -> AgentPool:
+        """Create pool with agents of varying latency."""
         agents = [
-            ChaosAgent("agent1", failure_rate=0.0),
-            ChaosAgent("agent2", failure_rate=1.0),
-            ChaosAgent("agent3", failure_rate=0.0),
+            MockAgent(name="fast", latency_ms=10),
+            MockAgent(name="medium", latency_ms=100),
+            MockAgent(name="slow", latency_ms=500),
         ]
+        return AgentPool(agents)
 
-        results = []
-        for agent in agents:
+    @pytest.mark.asyncio
+    async def test_timeout_triggers_fallback(self, slow_pool: AgentPool):
+        """Test that timeouts trigger fallback behavior."""
+        # Make slow agent very slow
+        slow_pool.agents["slow"].latency_ms = 5000  # 5 seconds
+
+        async def generate_with_timeout():
             try:
-                result = await agent.respond("test")
-                results.append(result)
-            except RuntimeError:
-                results.append(None)
+                return await asyncio.wait_for(
+                    slow_pool.generate("test", preferred_agent="slow"),
+                    timeout=0.5,
+                )
+            except asyncio.TimeoutError:
+                slow_pool.breakers["slow"].record_failure()
+                return await slow_pool.generate("test")
 
-        # Should have 2 successful, 1 failed
-        successful = [r for r in results if r is not None]
-        assert len(successful) == 2
+        result, agent = await generate_with_timeout()
+
+        # Should have used faster agent
+        assert agent in ["fast", "medium"]
 
     @pytest.mark.asyncio
-    async def test_all_agents_fail_graceful_degradation(self):
-        """System should degrade gracefully when all agents fail."""
-        agents = [ChaosAgent(f"agent{i}", failure_rate=1.0) for i in range(3)]
+    async def test_latency_based_selection(self, slow_pool: AgentPool):
+        """Test that system naturally prefers faster agents."""
+        response_times = []
 
-        results = []
-        for agent in agents:
+        for _ in range(10):
+            start = asyncio.get_event_loop().time()
+            await slow_pool.generate("test", preferred_agent="fast")
+            response_times.append(asyncio.get_event_loop().time() - start)
+
+        # Average should be close to fast agent latency
+        avg_time = sum(response_times) / len(response_times)
+        assert avg_time < 0.1  # 100ms
+
+
+class TestAgentFailurePatterns:
+    """Test specific failure patterns."""
+
+    @pytest.mark.asyncio
+    async def test_intermittent_failures(self):
+        """Test handling of intermittent failures."""
+        agent = MockAgent(name="flaky", failure_rate=0.5)
+        breaker = get_circuit_breaker("flaky-agent-test", failure_threshold=5, cooldown_seconds=1.0)
+
+        successes = 0
+        failures = 0
+
+        for _ in range(30):
+            if not breaker.can_proceed():
+                await asyncio.sleep(1.1)  # Wait for cooldown
+                continue
+
             try:
-                result = await agent.respond("test")
-                results.append(result)
-            except RuntimeError:
-                results.append(None)
+                await agent.generate("test")
+                breaker.record_success()
+                successes += 1
+            except Exception:
+                breaker.record_failure()
+                failures += 1
 
-        # All should fail
-        assert all(r is None for r in results)
-
-    @pytest.mark.asyncio
-    async def test_concurrent_calls_with_mixed_failures(self):
-        """Concurrent calls should handle mixed success/failure."""
-        agents = [
-            ChaosAgent("fast", failure_rate=0.0, latency_range=(0.01, 0.02)),
-            ChaosAgent("slow", failure_rate=0.0, latency_range=(0.05, 0.1)),
-            ChaosAgent("failing", failure_rate=1.0),
-        ]
-
-        async def safe_call(agent):
-            try:
-                return await agent.respond("test")
-            except RuntimeError:
-                return None
-
-        tasks = [safe_call(agent) for agent in agents]
-        results = await asyncio.gather(*tasks)
-
-        successful = [r for r in results if r is not None]
-        assert len(successful) == 2
-
-
-class TestAgentRecovery:
-    """Tests for agent recovery after failures."""
-
-    @pytest.fixture(autouse=True)
-    def reset_circuit_breakers(self):
-        """Reset circuit breakers before each test."""
-        from aragora.resilience import reset_all_circuit_breakers
-
-        reset_all_circuit_breakers()
-        yield
-        reset_all_circuit_breakers()
+        # Should have mix of successes and failures
+        assert successes > 0
+        assert failures > 0
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_recovery(self):
-        """Circuit breaker should recover after reset timeout."""
-        from aragora.resilience import get_circuit_breaker
-
-        cb = get_circuit_breaker("test_recovery", failure_threshold=2, cooldown_seconds=0.1)
-
-        # Open the circuit
-        cb.record_failure()
-        cb.record_failure()
-        assert cb.is_open
-
-        # Wait for reset
-        await asyncio.sleep(0.15)
-
-        # Should allow a test call (half-open state)
-        can_proceed = cb.can_proceed()
-        assert can_proceed is True
-
-    @pytest.mark.asyncio
-    async def test_success_after_recovery_closes_circuit(self):
-        """Successful call after recovery should close circuit."""
-        from aragora.resilience import get_circuit_breaker
-
-        cb = get_circuit_breaker("test_close", failure_threshold=2, cooldown_seconds=0.1)
-
-        # Open the circuit
-        cb.record_failure()
-        cb.record_failure()
-        assert cb.is_open
-
-        # Wait for reset and record success
-        await asyncio.sleep(0.15)
-        cb.can_proceed()  # Move to half-open
-        cb.record_success()
-
-        # Should be closed now
-        assert not cb.is_open
-        assert cb.failures == 0
-
-    @pytest.mark.asyncio
-    async def test_failure_during_recovery_reopens_circuit(self):
-        """Failures during recovery should reopen circuit."""
-        from aragora.resilience import get_circuit_breaker
-
-        cb = get_circuit_breaker("test_reopen", failure_threshold=2, cooldown_seconds=0.1)
-
-        # Open the circuit
-        cb.record_failure()
-        cb.record_failure()
-        assert cb.is_open
-
-        # Wait for cooldown to pass
-        await asyncio.sleep(0.15)
-
-        # In single-entity mode, can_proceed() fully resets the circuit after cooldown.
-        # So we need to record enough failures to reopen it.
-        assert cb.can_proceed() is True  # Circuit now closed
-
-        # Record failures to reopen
-        cb.record_failure()
-        cb.record_failure()
-
-        # Should be open again
-        assert cb.is_open
-
-
-class TestDebateWithAgentFailures:
-    """Integration tests for debates with agent failures."""
-
-    @pytest.fixture(autouse=True)
-    def reset_circuit_breakers(self):
-        """Reset circuit breakers before each test."""
-        from aragora.resilience import reset_all_circuit_breakers
-
-        reset_all_circuit_breakers()
-        yield
-        reset_all_circuit_breakers()
-
-    @pytest.mark.asyncio
-    async def test_debate_continues_with_agent_dropout(self):
-        """Debate should continue even if an agent drops out."""
-        # Simulate a debate where one agent fails mid-debate
-        agents_responses = {
-            "agent1": ["Round 1 response", "Round 2 response", "Round 3 response"],
-            "agent2": ["Round 1 response", None, "Round 3 response"],  # Fails round 2
-            "agent3": ["Round 1 response", "Round 2 response", "Round 3 response"],
-        }
-
-        completed_rounds = 0
-        for round_num in range(3):
-            round_responses = []
-            for agent_name, responses in agents_responses.items():
-                response = responses[round_num]
-                if response is not None:
-                    round_responses.append(response)
-
-            # Round should complete if at least one agent responds
-            if round_responses:
-                completed_rounds += 1
-
-        assert completed_rounds == 3
-
-    @pytest.mark.asyncio
-    async def test_debate_consensus_with_partial_responses(self):
-        """Consensus detection should work with partial responses."""
-        responses = [
-            "I agree with the proposal",
-            None,  # Agent failed
-            "The proposal is sound",
-            "I concur with the approach",
-        ]
-
-        valid_responses = [r for r in responses if r is not None]
-
-        # Simple consensus check - all valid responses should be considered
-        assert len(valid_responses) == 3
-
-        # Simulate consensus calculation with partial data
-        agreement_keywords = ["agree", "sound", "concur"]
-        consensus_count = sum(
-            1 for r in valid_responses if any(kw in r.lower() for kw in agreement_keywords)
+    async def test_burst_failures(self):
+        """Test handling of burst failures followed by recovery."""
+        agent = MockAgent(name="bursty")
+        breaker = get_circuit_breaker(
+            "bursty-agent-test", failure_threshold=3, cooldown_seconds=0.5
         )
 
-        assert consensus_count == 3
+        # Normal operation
+        for _ in range(5):
+            await agent.generate("test")
+            breaker.record_success()
+
+        assert not breaker.is_open
+
+        # Burst of failures
+        agent.failure_rate = 1.0
+        for _ in range(5):
+            try:
+                await agent.generate("test")
+            except Exception:
+                breaker.record_failure()
+
+        assert breaker.is_open
+
+        # Recovery
+        agent.failure_rate = 0.0
+        await asyncio.sleep(0.6)
+
+        # Should be able to recover (half-open)
+        assert breaker.can_proceed()
+        await agent.generate("test")
+        breaker.record_success()
 
     @pytest.mark.asyncio
-    async def test_debate_aborts_when_all_agents_fail(self):
-        """Debate should abort gracefully when all agents fail."""
-        agents = [ChaosAgent(f"agent{i}", failure_rate=1.0) for i in range(3)]
+    async def test_correlated_failures(self):
+        """Test handling of correlated failures across agents."""
+        agents = [
+            MockAgent(name="agent1"),
+            MockAgent(name="agent2"),
+            MockAgent(name="agent3"),
+        ]
+        pool = AgentPool(agents)
 
-        debate_completed = False
-        abort_reason = None
+        # Simulate coordinated outage
+        for agent in agents:
+            agent.is_available = False
 
-        try:
-            for round_num in range(3):
-                round_responses = []
-                for agent in agents:
-                    try:
-                        response = await agent.respond(f"Round {round_num}")
-                        round_responses.append(response)
-                    except RuntimeError:
-                        pass
+        # All requests should fail
+        failed_count = 0
+        for _ in range(10):
+            try:
+                await pool.generate("test")
+            except Exception:
+                failed_count += 1
 
-                if not round_responses:
-                    abort_reason = "No agents responded"
-                    break
-            else:
-                debate_completed = True
-        except Exception as e:
-            abort_reason = str(e)
+        assert failed_count == 10
 
-        assert not debate_completed
-        assert abort_reason == "No agents responded"
+        # Gradual recovery
+        agents[0].is_available = True
+        agents[0].failure_rate = 0.0
+
+        # Wait for circuit cooldown
+        await asyncio.sleep(1.5)
+
+        # Should now work with agent1
+        result, agent_used = await pool.generate("test")
+        assert agent_used == "agent1"
