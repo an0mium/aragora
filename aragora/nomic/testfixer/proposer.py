@@ -497,6 +497,55 @@ class SimpleCodeGenerator:
                                 confidence = max(confidence, 0.6)
                                 break
 
+        # Pattern: circuit breaker open state assertion in tests
+        if "is_circuit_open" in analysis.failure.stack_trace and "assert True is False" in (
+            analysis.failure.error_message + analysis.failure.stack_trace
+        ):
+            test_name = analysis.failure.test_name.split("::")[-1]
+            if test_name.startswith("test_"):
+                lines = fixed_content.splitlines(keepends=True)
+                func_idx = None
+                for idx, line in enumerate(lines):
+                    stripped = line.lstrip()
+                    if stripped.startswith("async def ") or stripped.startswith("def "):
+                        if stripped.split("(")[0].endswith(test_name):
+                            func_idx = idx
+                            break
+                if func_idx is not None:
+                    block_end = len(lines)
+                    indent = None
+                    for idx in range(func_idx + 1, len(lines)):
+                        if lines[idx].strip():
+                            indent = lines[idx][: len(lines[idx]) - len(lines[idx].lstrip())]
+                            break
+                    indent = indent or "    "
+                    for idx in range(func_idx + 1, len(lines)):
+                        if lines[idx].startswith(indent) and lines[idx].lstrip().startswith(
+                            ("def ", "async def ", "class ")
+                        ):
+                            block_end = idx
+                            break
+                    needs_reset = True
+                    for idx in range(func_idx + 1, block_end):
+                        if "reset_all_v2_circuit_breakers" in lines[idx]:
+                            needs_reset = False
+                            break
+                    if needs_reset:
+                        for idx in range(func_idx + 1, block_end):
+                            if "Agent(" in lines[idx]:
+                                lines.insert(
+                                    idx,
+                                    f"{indent}from aragora.resilience import reset_all_v2_circuit_breakers\n",
+                                )
+                                lines.insert(
+                                    idx + 1,
+                                    f"{indent}reset_all_v2_circuit_breakers()\n",
+                                )
+                                fixed_content = "".join(lines)
+                                rationale = "Reset circuit breakers before agent instantiation"
+                                confidence = max(confidence, 0.6)
+                                break
+
         # Pattern: mock patch expects module-level attribute that isn't exported
         attr_match = re.search(
             r"does not have the attribute '([\w_]+)'",
