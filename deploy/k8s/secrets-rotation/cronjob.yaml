@@ -248,6 +248,12 @@ data:
           metadata:
             provider: mistral
 
+        - id: SUPERMEMORY_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: supermemory
+
       # Notification channels
       notifications:
         slack:

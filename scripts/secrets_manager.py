@@ -284,6 +284,13 @@ def _validate_xai(key: str) -> bool:
         return False
 
 
+def _validate_supermemory(key: str) -> bool:
+    """Validate Supermemory API key format."""
+    if not key:
+        return False
+    return key.startswith("sm_") and len(key) >= 16
+
+
 def _validate_nonempty(key: str) -> bool:
     """Validate key is non-empty."""
     return bool(key and len(key) >= 16)
@@ -452,6 +459,20 @@ SECRETS: list[SecretDefinition] = [
         provider="elevenlabs",
         dashboard_url="https://elevenlabs.io/app/settings/api-keys",
         description="ElevenLabs TTS API key",
+        rotation_days=90,
+    ),
+    SecretDefinition(
+        name="Supermemory",
+        env_var="SUPERMEMORY_API_KEY",
+        category=SecretCategory.LLM_API,
+        aws_bundle_key="SUPERMEMORY_API_KEY",
+        aws_individual_path="aragora/api/supermemory",
+        github_secret_name="SUPERMEMORY_API_KEY",
+        provider="supermemory",
+        dashboard_url="https://console.supermemory.ai",
+        validator=_validate_supermemory,
+        key_prefix="sm_",
+        description="Supermemory API key for external memory sync",
         rotation_days=90,
     ),
     # === OAUTH ===

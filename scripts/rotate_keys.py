@@ -204,6 +204,13 @@ def validate_xai(key: str) -> bool:
         return False
 
 
+def validate_supermemory(key: str) -> bool:
+    """Validate Supermemory API key format."""
+    if not key:
+        return False
+    return key.startswith("sm_") and len(key) >= 16
+
+
 def validate_nonempty(key: str) -> bool:
     """Just check key is not empty."""
     return bool(key and len(key) > 8)
@@ -274,6 +281,16 @@ KEY_CONFIGS = [
         github_secret_name="XAI_API_KEY",
         dashboard_url="https://console.x.ai/",
         validator=validate_xai,
+        category="llm",
+        required=False,
+    ),
+    KeyConfig(
+        name="Supermemory",
+        env_var="SUPERMEMORY_API_KEY",
+        aws_secret_path="aragora/api/supermemory",
+        github_secret_name="SUPERMEMORY_API_KEY",
+        dashboard_url="https://console.supermemory.ai",
+        validator=validate_supermemory,
         category="llm",
         required=False,
     ),
