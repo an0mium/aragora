@@ -39,6 +39,35 @@ RATE_LIMIT_HEADERS = {
     "X-RateLimit-RetryAfter": "Seconds to wait before retrying (only on 429)",
 }
 
+# Standard headers included in all API responses (OpenAPI schema format)
+STANDARD_RESPONSE_HEADERS: dict[str, dict[str, Any]] = {
+    "X-Request-ID": {
+        "description": "Unique request identifier for tracing and debugging",
+        "schema": {"type": "string", "format": "uuid"},
+    },
+    "X-Response-Time": {
+        "description": "Server processing time in milliseconds",
+        "schema": {"type": "integer"},
+    },
+}
+
+# Rate limit headers in OpenAPI schema format
+RATE_LIMIT_RESPONSE_HEADERS: dict[str, dict[str, Any]] = {
+    **STANDARD_RESPONSE_HEADERS,
+    "X-RateLimit-Limit": {
+        "description": "Maximum requests allowed in current window",
+        "schema": {"type": "integer"},
+    },
+    "X-RateLimit-Remaining": {
+        "description": "Requests remaining in current window",
+        "schema": {"type": "integer"},
+    },
+    "X-RateLimit-Reset": {
+        "description": "Unix timestamp when rate limit resets",
+        "schema": {"type": "integer"},
+    },
+}
+
 # =============================================================================
 # Error Examples
 # =============================================================================
@@ -167,15 +196,26 @@ ERROR_EXAMPLES: dict[str, dict[str, Any]] = {
 # =============================================================================
 
 
-def _ok_response(description: str, schema: str | dict[str, Any] | None = None) -> dict[str, Any]:
+def _ok_response(
+    description: str,
+    schema: str | dict[str, Any] | None = None,
+    *,
+    include_rate_limit_headers: bool = False,
+) -> dict[str, Any]:
     """Build a successful response definition.
 
     Args:
         description: Response description
         schema: Either a schema reference string (e.g., "AgentResponse")
                 or an inline schema dict (e.g., {"type": "object", ...})
+        include_rate_limit_headers: Whether to include rate limit headers
     """
-    resp: dict[str, Any] = {"description": description}
+    resp: dict[str, Any] = {
+        "description": description,
+        "headers": (
+            RATE_LIMIT_RESPONSE_HEADERS if include_rate_limit_headers else STANDARD_RESPONSE_HEADERS
+        ),
+    }
     if schema:
         if isinstance(schema, str):
             # Schema reference
@@ -190,13 +230,19 @@ def _ok_response(description: str, schema: str | dict[str, Any] | None = None) -
     return resp
 
 
-def _array_response(description: str, schema: str | dict[str, Any]) -> dict[str, Any]:
+def _array_response(
+    description: str,
+    schema: str | dict[str, Any],
+    *,
+    include_rate_limit_headers: bool = False,
+) -> dict[str, Any]:
     """Build an array response definition.
 
     Args:
         description: Response description
         schema: Either a schema reference string (e.g., "Device")
                 or an inline schema dict (e.g., {"device_id": {"type": "string"}, ...})
+        include_rate_limit_headers: Whether to include rate limit headers
     """
     items_schema: dict[str, Any]
     if isinstance(schema, str):
@@ -208,6 +254,9 @@ def _array_response(description: str, schema: str | dict[str, Any]) -> dict[str,
 
     return {
         "description": description,
+        "headers": (
+            RATE_LIMIT_RESPONSE_HEADERS if include_rate_limit_headers else STANDARD_RESPONSE_HEADERS
+        ),
         "content": {
             "application/json": {
                 "schema": {
@@ -230,6 +279,7 @@ def _error_response(status: str, description: str) -> dict[str, Any]:
     examples = ERROR_EXAMPLES.get(status, {})
     response: dict[str, Any] = {
         "description": description,
+        "headers": STANDARD_RESPONSE_HEADERS,
         "content": {
             "application/json": {
                 "schema": {"$ref": "#/components/schemas/Error"},
@@ -341,5 +391,7 @@ __all__ = [
     "ERROR_EXAMPLES",
     "RATE_LIMIT_TIERS",
     "RATE_LIMIT_HEADERS",
+    "STANDARD_RESPONSE_HEADERS",
+    "RATE_LIMIT_RESPONSE_HEADERS",
     "AUTH_REQUIREMENTS",
 ]
