@@ -189,11 +189,37 @@ class MatrixDebatesHandler(SecureHandler):
         },
     )
     @handle_errors("matrix debates POST")
-    async def handle_post(self, handler: Any, path: str, data: dict[str, Any]) -> HandlerResult:
+    async def handle_post(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Handle POST requests for matrix debates with RBAC.
 
         POST /api/debates/matrix - Run parallel scenario debates
         """
+        handler = None
+        path = ""
+        data: dict[str, Any] = {}
+
+        if len(args) >= 3:
+            if isinstance(args[0], str):
+                path = args[0]
+                handler = args[2]
+                data, error = self.read_json_body_validated(handler)
+                if error:
+                    return error
+            else:
+                handler = args[0]
+                path = args[1]
+                data = args[2] or {}
+        else:
+            handler = kwargs.get("handler")
+            path = kwargs.get("path", "")
+            data = kwargs.get("data") or kwargs.get("body") or {}
+            if handler is None:
+                return error_response("Invalid request", 400)
+            if not data:
+                data, error = self.read_json_body_validated(handler)
+                if error:
+                    return error
+
         normalized = strip_version_prefix(path)
         if normalized.startswith("/api/matrix-debates"):
             normalized = normalized.replace("/api/matrix-debates", "/api/debates/matrix", 1)

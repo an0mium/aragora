@@ -42,8 +42,8 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
-    require_permission,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
@@ -1211,6 +1211,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
+    @require_permission("finance:read")
     async def handle_get(
         self,
         path: str,

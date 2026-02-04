@@ -14,6 +14,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
 from .sast import (
@@ -105,6 +106,7 @@ class SecurityHandler(BaseHandler):
     # Vulnerability Scan Endpoints
     # =========================================================================
 
+    @require_permission("debates:write")
     async def handle_post_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan"""
         if err := self._validate_repo_id(repo_id):
@@ -123,6 +125,7 @@ class SecurityHandler(BaseHandler):
             user_id=self._get_user_id(),
         )
 
+    @require_permission("debates:read")
     async def handle_get_scan_latest(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/latest"""
         if err := self._validate_repo_id(repo_id):
@@ -130,6 +133,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_get_scan_status(repo_id=repo_id)
 
+    @require_permission("debates:read")
     async def handle_get_scan(
         self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
@@ -139,6 +143,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_get_scan_status(repo_id=repo_id, scan_id=scan_id)
 
+    @require_permission("debates:read")
     async def handle_get_vulnerabilities(
         self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
@@ -155,10 +160,12 @@ class SecurityHandler(BaseHandler):
             offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
+    @require_permission("debates:read")
     async def handle_get_cve(self, params: dict[str, Any], cve_id: str) -> HandlerResult:
         """GET /api/v1/cve/{cve_id}"""
         return await handle_get_cve_details(cve_id=cve_id)
 
+    @require_permission("debates:read")
     async def handle_list_scans(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans"""
         if err := self._validate_repo_id(repo_id):
@@ -175,6 +182,7 @@ class SecurityHandler(BaseHandler):
     # Secrets Scan Endpoints
     # =========================================================================
 
+    @require_permission("debates:write")
     async def handle_post_secrets_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/secrets"""
         if err := self._validate_repo_id(repo_id):
@@ -196,6 +204,7 @@ class SecurityHandler(BaseHandler):
             user_id=self._get_user_id(),
         )
 
+    @require_permission("debates:read")
     async def handle_get_secrets_scan_latest(
         self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
@@ -205,6 +214,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_get_secrets_scan_status(repo_id=repo_id)
 
+    @require_permission("debates:read")
     async def handle_get_secrets_scan(
         self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
@@ -214,6 +224,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_get_secrets_scan_status(repo_id=repo_id, scan_id=scan_id)
 
+    @require_permission("debates:read")
     async def handle_get_secrets(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/secrets"""
         if err := self._validate_repo_id(repo_id):
@@ -228,6 +239,7 @@ class SecurityHandler(BaseHandler):
             offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
+    @require_permission("debates:read")
     async def handle_list_secrets_scans(
         self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
@@ -246,6 +258,7 @@ class SecurityHandler(BaseHandler):
     # SAST Scan Endpoints
     # =========================================================================
 
+    @require_permission("debates:read")
     async def handle_scan_sast(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/sast"""
         if err := self._validate_repo_id(repo_id):
@@ -258,6 +271,7 @@ class SecurityHandler(BaseHandler):
             workspace_id=params.get("workspace_id"),
         )
 
+    @require_permission("debates:read")
     async def handle_get_sast_scan_status(
         self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
@@ -267,6 +281,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_get_sast_scan_status(repo_id=repo_id, scan_id=scan_id)
 
+    @require_permission("debates:read")
     async def handle_get_sast_findings(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/findings"""
         if err := self._validate_repo_id(repo_id):
@@ -280,6 +295,7 @@ class SecurityHandler(BaseHandler):
             offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
+    @require_permission("debates:read")
     async def handle_get_owasp_summary(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/owasp-summary"""
         if err := self._validate_repo_id(repo_id):
@@ -291,6 +307,7 @@ class SecurityHandler(BaseHandler):
     # SBOM Endpoints
     # =========================================================================
 
+    @require_permission("debates:write")
     async def handle_post_sbom(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom - Generate SBOM"""
         if err := self._validate_repo_id(repo_id):
@@ -307,6 +324,7 @@ class SecurityHandler(BaseHandler):
             workspace_id=data.get("workspace_id"),
         )
 
+    @require_permission("debates:read")
     async def handle_get_sbom_latest(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/latest"""
         if err := self._validate_repo_id(repo_id):
@@ -314,6 +332,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_get_sbom(repo_id=repo_id)
 
+    @require_permission("debates:read")
     async def handle_get_sbom_by_id(
         self, params: dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
@@ -323,6 +342,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_get_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
+    @require_permission("debates:read")
     async def handle_list_sbom(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/list"""
         if err := self._validate_repo_id(repo_id):
@@ -330,6 +350,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_list_sboms(repo_id=repo_id)
 
+    @require_permission("debates:export")
     async def handle_download_sbom_content(
         self, params: dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
@@ -339,6 +360,7 @@ class SecurityHandler(BaseHandler):
 
         return await handle_download_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
+    @require_permission("debates:read")
     async def handle_compare_sbom(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom/compare"""
         if err := self._validate_repo_id(repo_id):

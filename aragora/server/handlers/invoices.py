@@ -46,7 +46,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
-from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
@@ -1108,6 +1108,7 @@ class InvoiceHandler(BaseHandler):
             return parts[5]
         return None
 
+    @require_permission("finance:read")
     async def handle_get(
         self,
         path: str,
@@ -1144,6 +1145,7 @@ class InvoiceHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
+    @require_permission("finance:write")
     async def handle_post(
         self,
         path: str,

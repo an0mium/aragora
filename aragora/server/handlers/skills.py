@@ -80,6 +80,7 @@ class SkillsHandler(BaseHandler):
         return self._registry
 
     @handle_errors("skills GET request")
+    @require_permission("debates:read")
     async def handle_get(self, path: str, request: Any) -> HandlerResult:
         """Handle GET requests for skills endpoints."""
         path = strip_version_prefix(path)
@@ -120,6 +121,7 @@ class SkillsHandler(BaseHandler):
         return error_response(f"Unknown skills endpoint: {path}", 404)
 
     @handle_errors("skills POST request")
+    @require_permission("debates:write")
     async def handle_post(self, path: str, request: Any) -> HandlerResult:
         """Handle POST requests for skills endpoints."""
         path = strip_version_prefix(path)

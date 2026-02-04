@@ -811,6 +811,7 @@ def auth_rate_limit(
 
     Example:
         @auth_rate_limit(requests_per_minute=5, endpoint_name="SSO login")
+        @require_permission("debates:read")
         async def handle_sso_login(...):
             ...
     """

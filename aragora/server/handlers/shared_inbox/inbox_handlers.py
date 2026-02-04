@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from aragora.observability.metrics import track_handler
+from aragora.server.handlers.utils.decorators import require_permission
 
 from .models import (
     MessageStatus,
@@ -101,6 +102,7 @@ def _log_activity(
     _log_activity_impl(inbox_id, org_id, actor_id, action, target_id, metadata)
 
 
+@require_permission("inbox:write")
 async def handle_create_shared_inbox(
     workspace_id: str,
     name: str,
@@ -200,6 +202,7 @@ async def handle_create_shared_inbox(
 
 
 @track_handler("inbox/shared/list", method="GET")
+@require_permission("inbox:read")
 async def handle_list_shared_inboxes(
     workspace_id: str,
     user_id: str | None = None,
@@ -255,6 +258,7 @@ async def handle_list_shared_inboxes(
         }
 
 
+@require_permission("inbox:read")
 async def handle_get_shared_inbox(
     inbox_id: str,
 ) -> dict[str, Any]:
@@ -302,6 +306,7 @@ async def handle_get_shared_inbox(
 
 
 @track_handler("inbox/shared/messages", method="GET")
+@require_permission("inbox:read")
 async def handle_get_inbox_messages(
     inbox_id: str,
     status: str | None = None,
@@ -418,6 +423,7 @@ async def handle_get_inbox_messages(
 
 
 @track_handler("inbox/shared/messages/assign")
+@require_permission("inbox:read")
 async def handle_assign_message(
     inbox_id: str,
     message_id: str,
@@ -500,6 +506,7 @@ async def handle_assign_message(
         }
 
 
+@require_permission("inbox:write")
 async def handle_update_message_status(
     inbox_id: str,
     message_id: str,
@@ -581,6 +588,7 @@ async def handle_update_message_status(
         }
 
 
+@require_permission("inbox:write")
 async def handle_add_message_tag(
     inbox_id: str,
     message_id: str,
@@ -633,6 +641,7 @@ async def handle_add_message_tag(
         }
 
 
+@require_permission("inbox:write")
 async def handle_add_message_to_inbox(
     inbox_id: str,
     email_id: str,

@@ -137,6 +137,7 @@ class BindingsHandler(BaseHandler):
         auth_required=True,
     )
     @handle_errors("bindings GET request")
+    @require_permission("debates:read")
     async def handle_get(self, path: str, request: Any) -> HandlerResult:
         """Handle GET requests for bindings endpoints."""
         path = strip_version_prefix(path)
@@ -244,6 +245,7 @@ class BindingsHandler(BaseHandler):
         auth_required=True,
     )
     @handle_errors("bindings POST request")
+    @require_permission("debates:write")
     async def handle_post(self, path: str, request: Any) -> HandlerResult | web.Response:
         """Handle POST requests for bindings endpoints."""
         path = strip_version_prefix(path)
@@ -307,6 +309,7 @@ class BindingsHandler(BaseHandler):
         auth_required=True,
     )
     @handle_errors("bindings DELETE request")
+    @require_permission("debates:delete")
     async def handle_delete(self, path: str, request: Any) -> HandlerResult:
         """Handle DELETE requests for bindings endpoints."""
         path = strip_version_prefix(path)

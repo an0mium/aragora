@@ -1121,6 +1121,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         """Route audit-GitHub bridge endpoint requests."""
         return None
 
+    @require_permission("connectors:write")
     async def handle_post_create_issue(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/issues"""
         repository = data.get("repository")
@@ -1143,6 +1144,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:write")
     async def handle_post_bulk_create_issues(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/issues/bulk"""
         repository = data.get("repository")
@@ -1166,6 +1168,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:write")
     async def handle_post_create_pr(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/pr"""
         repository = data.get("repository")
@@ -1213,6 +1216,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:read")
     async def handle_get_sync_status(
         self, params: dict[str, Any], session_id: str
     ) -> HandlerResult:
@@ -1227,6 +1231,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
+    @require_permission("connectors:read")
     async def handle_get_finding_issues(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/github/audit/issues?session_id=...&finding_id=..."""
         session_id = params.get("session_id")

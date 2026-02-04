@@ -44,6 +44,7 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from ..utils.decorators import require_permission
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -301,6 +302,7 @@ class RLMHandler(BaseHandler):
             return self._get_refinement_status(path, handler)
         return error_response("Use POST method for RLM queries", 405)
 
+    @require_permission("debates:write")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if "/query-rlm" in path and path.startswith("/api/v1/debates/"):

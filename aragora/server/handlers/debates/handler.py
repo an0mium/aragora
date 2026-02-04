@@ -363,6 +363,7 @@ class DebatesHandler(
                 return self._patch_debate(handler, debate_id)
         return None
 
+    @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

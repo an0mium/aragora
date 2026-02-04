@@ -21,10 +21,12 @@ from .sync import (
     get_sync_services,
     get_sync_services_lock,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
 
+@require_permission("debates:read")
 async def handle_gmail_oauth_url(
     params: dict[str, str],
     tenant_id: str,
@@ -68,6 +70,7 @@ async def handle_gmail_oauth_url(
         return {"success": False, "error": "Gmail connector not available", "status_code": 503}
 
 
+@require_permission("debates:read")
 async def handle_outlook_oauth_url(
     params: dict[str, str],
     tenant_id: str,

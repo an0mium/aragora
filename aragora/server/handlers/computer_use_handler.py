@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     json_response,
     log_request,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.extensions import get_extension_state
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.http_utils import run_async
@@ -234,6 +235,7 @@ class ComputerUseHandler(BaseHandler):
 
         return None
 
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

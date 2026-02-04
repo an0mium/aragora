@@ -94,6 +94,7 @@ async def _get_or_create_connector(
         return None
 
 
+@require_permission("connectors:read")
 async def handle_get_oauth_url(
     workspace_id: str,
     user_id: str,
@@ -784,6 +785,7 @@ class OutlookHandler(BaseHandler):
         """Route Outlook endpoint requests."""
         return None
 
+    @require_permission("connectors:read")
     async def handle_get_oauth_url(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/oauth/url"""
         redirect_uri = params.get("redirect_uri")
@@ -801,6 +803,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:write")
     async def handle_post_oauth_callback(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/oauth/callback"""
         code = data.get("code")
@@ -820,6 +823,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:read")
     async def handle_get_folders(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/folders"""
         result = await handle_list_folders(
@@ -832,6 +836,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:read")
     async def handle_get_messages(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/messages"""
         result = await handle_list_messages(
@@ -848,6 +853,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:read")
     async def handle_get_message(self, params: dict[str, Any], message_id: str) -> HandlerResult:
         """GET /api/v1/outlook/messages/{message_id}"""
         result = await handle_get_message(
@@ -862,6 +868,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
+    @require_permission("connectors:read")
     async def handle_get_conversation(
         self, params: dict[str, Any], conversation_id: str
     ) -> HandlerResult:
@@ -878,6 +885,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
+    @require_permission("connectors:write")
     async def handle_post_send(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/send"""
         to = data.get("to")
@@ -903,6 +911,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:write")
     async def handle_post_reply(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/reply"""
         message_id = data.get("message_id")
@@ -926,6 +935,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:read")
     async def handle_get_search(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/search"""
         query = params.get("q")
@@ -945,6 +955,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:read")
     async def handle_get_status(self, params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/outlook/status"""
         result = await handle_get_status(
@@ -957,6 +968,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:write")
     async def handle_post_mark_read(self, data: dict[str, Any], message_id: str) -> HandlerResult:
         """POST /api/v1/outlook/messages/{message_id}/read"""
         result = await handle_mark_read(
@@ -971,6 +983,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:write")
     async def handle_post_move(self, data: dict[str, Any], message_id: str) -> HandlerResult:
         """POST /api/v1/outlook/messages/{message_id}/move"""
         destination = data.get("destination_folder_id")
@@ -989,6 +1002,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:delete")
     async def handle_delete_message(self, params: dict[str, Any], message_id: str) -> HandlerResult:
         """DELETE /api/v1/outlook/messages/{message_id}"""
         result = await handle_delete_message(

@@ -632,11 +632,40 @@ class ImplementationOperationsMixin:
                             )
                         if notify_origin:
                             run_async(notifier.send_completion_summary())
-                        response_payload["execution"] = {
+                        execution_payload = {
                             "status": "completed",
                             "results": [r.to_dict() for r in results],
                             "progress": notifier.progress.to_dict(),
                         }
+
+                        review_mode = os.environ.get(
+                            "ARAGORA_IMPLEMENTATION_REVIEW_MODE", "off"
+                        ).lower()
+                        if review_mode != "off":
+                            max_chars = int(
+                                os.environ.get("ARAGORA_IMPLEMENTATION_REVIEW_MAX_CHARS", "12000")
+                            )
+                            timeout_seconds = int(
+                                os.environ.get("ARAGORA_IMPLEMENTATION_REVIEW_TIMEOUT", "2400")
+                            )
+                            try:
+                                diff = hybrid_executor.get_review_diff(max_chars=max_chars)
+                                review = run_async(
+                                    hybrid_executor.review_with_codex(diff, timeout=timeout_seconds)
+                                )
+                                review_passed = (
+                                    review.get("approved") if isinstance(review, dict) else None
+                                )
+                            except Exception as exc:
+                                review = {"approved": None, "error": str(exc)}
+                                review_passed = None
+
+                            execution_payload["review"] = review
+                            execution_payload["review_passed"] = review_passed
+                            if review_mode == "strict" and review_passed is not True:
+                                execution_payload["status"] = "review_failed"
+
+                        response_payload["execution"] = execution_payload
                 else:
                     response_payload["execution"] = {
                         "status": "pending_approval",

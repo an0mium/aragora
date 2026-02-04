@@ -92,6 +92,7 @@ class BroadcastHandler(BaseHandler):
         """Handle GET requests (none for this handler - POST only)."""
         return None
 
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

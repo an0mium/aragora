@@ -42,6 +42,8 @@ from aragora.exceptions import (
     ValidationError,
 )
 
+from aragora.server.handlers.utils.decorators import require_permission
+
 if TYPE_CHECKING:
     pass
 
@@ -324,6 +326,7 @@ def classify_exception(exc: Exception) -> tuple[int, str, str]:
     return 500, "error", "Internal server error"
 
 
+@require_permission("debates:read")
 def handle_handler_error(
     exc: Exception,
     operation: str,

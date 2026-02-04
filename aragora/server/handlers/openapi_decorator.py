@@ -18,6 +18,7 @@ Usage:
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
         )
+        @require_permission("debates:read")
         async def handle_get_resource(self, ...):
             ...
 
@@ -209,6 +210,7 @@ def api_endpoint(
             ],
             auth_required=False,
         )
+        @require_permission("debates:read")
         async def handle_similar_debates(self, topic: str, limit: int = 5):
             ...
     """

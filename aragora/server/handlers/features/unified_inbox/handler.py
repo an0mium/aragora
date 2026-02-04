@@ -35,13 +35,13 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils import parse_json_body
 from aragora.stores import get_canonical_gateway_stores
 
@@ -493,6 +493,7 @@ def get_unified_inbox_handler() -> UnifiedInboxHandler:
     return _handler_instance
 
 
+@require_permission("debates:read")
 async def handle_unified_inbox(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for unified inbox requests."""
     handler = get_unified_inbox_handler()

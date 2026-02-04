@@ -178,6 +178,7 @@ class ExternalAgentsHandler(BaseHandler):
 
         return None
 
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -206,6 +207,7 @@ class ExternalAgentsHandler(BaseHandler):
 
         return self._submit_task(body, user)
 
+    @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

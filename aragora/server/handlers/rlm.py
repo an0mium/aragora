@@ -210,6 +210,7 @@ class RLMContextHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=60, limiter_name="rlm_stats")
     @handle_errors("get RLM stats")
+    @require_permission("debates:read")
     def handle_stats(
         self,
         path: str,
@@ -262,6 +263,7 @@ class RLMContextHandler(BaseHandler):
             )
 
     @rate_limit(requests_per_minute=120, limiter_name="rlm_strategies")
+    @require_permission("debates:read")
     def handle_strategies(
         self,
         path: str,
@@ -325,6 +327,7 @@ class RLMContextHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=20, limiter_name="rlm_codebase_health")
     @handle_errors("get RLM codebase health")
+    @require_permission("debates:read")
     def handle_codebase_health(
         self,
         path: str,
@@ -430,6 +433,7 @@ class RLMContextHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=20, limiter_name="rlm_compress")
     @handle_errors("compress content")
+    @require_permission("debates:read")
     def handle_compress(
         self,
         path: str,
@@ -547,6 +551,7 @@ class RLMContextHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=30, limiter_name="rlm_query")
     @handle_errors("query context")
+    @require_permission("debates:read")
     def handle_query(
         self,
         path: str,
@@ -696,6 +701,7 @@ class RLMContextHandler(BaseHandler):
         )
 
     @rate_limit(requests_per_minute=60, limiter_name="rlm_contexts")
+    @require_permission("debates:read")
     def handle_list_contexts(
         self,
         path: str,
@@ -868,6 +874,7 @@ class RLMContextHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=30, limiter_name="rlm_stream_modes")
     @handle_errors("get stream modes")
+    @require_permission("debates:read")
     def handle_stream_modes(
         self,
         path: str,
@@ -921,6 +928,7 @@ class RLMContextHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=30, limiter_name="rlm_stream")
     @handle_errors("stream context")
+    @require_permission("debates:read")
     def handle_stream(
         self,
         path: str,

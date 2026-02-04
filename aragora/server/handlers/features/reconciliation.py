@@ -983,6 +983,7 @@ def get_reconciliation_handler() -> ReconciliationHandler:
     return _handler_instance
 
 
+@require_permission("debates:read")
 async def handle_reconciliation(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for reconciliation requests."""
     handler = get_reconciliation_handler()

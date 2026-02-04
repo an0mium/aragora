@@ -145,6 +145,7 @@ def _build_tenant_context(data: dict[str, Any]) -> TenantContext | None:
     limiter_name="gateway_openclaw_execute",
     endpoint_name="OpenClaw execute",
 )
+@require_permission("debates:read")
 async def handle_openclaw_execute(
     data: dict[str, Any],
     user_id: str = "default",
@@ -225,6 +226,7 @@ async def handle_openclaw_execute(
     limiter_name="gateway_openclaw_status",
     endpoint_name="OpenClaw status",
 )
+@require_permission("debates:read")
 async def handle_openclaw_status(
     data: dict[str, Any],
     user_id: str = "default",
@@ -264,6 +266,7 @@ async def handle_openclaw_status(
     limiter_name="gateway_openclaw_device_register",
     endpoint_name="OpenClaw device register",
 )
+@require_permission("debates:read")
 async def handle_openclaw_device_register(
     data: dict[str, Any],
     user_id: str = "default",
@@ -325,6 +328,7 @@ async def handle_openclaw_device_register(
     limiter_name="gateway_openclaw_device_unregister",
     endpoint_name="OpenClaw device unregister",
 )
+@require_permission("debates:read")
 async def handle_openclaw_device_unregister(
     data: dict[str, Any],
     user_id: str = "default",
@@ -370,6 +374,7 @@ async def handle_openclaw_device_unregister(
     limiter_name="gateway_openclaw_plugin_install",
     endpoint_name="OpenClaw plugin install",
 )
+@require_permission("debates:read")
 async def handle_openclaw_plugin_install(
     data: dict[str, Any],
     user_id: str = "default",
@@ -433,6 +438,7 @@ async def handle_openclaw_plugin_install(
     limiter_name="gateway_openclaw_plugin_uninstall",
     endpoint_name="OpenClaw plugin uninstall",
 )
+@require_permission("debates:read")
 async def handle_openclaw_plugin_uninstall(
     data: dict[str, Any],
     user_id: str = "default",

@@ -24,7 +24,6 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
 from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
@@ -33,6 +32,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -496,6 +496,7 @@ class DependencyAnalysisHandler(BaseHandler):
         return None
 
     @rate_limit(requests_per_minute=30)
+    @require_permission("debates:write")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any | None = None
     ) -> HandlerResult | None:

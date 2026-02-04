@@ -29,6 +29,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 
@@ -105,6 +106,7 @@ def get_meeting_detector():
 # =============================================================================
 
 
+@require_permission("inbox:read")
 async def handle_extract_action_items(
     data: dict[str, Any],
     user_id: str = "default",
@@ -171,6 +173,7 @@ async def handle_extract_action_items(
         return error_response(f"Extraction failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:read")
 async def handle_list_pending_actions(
     data: dict[str, Any],
     user_id: str = "default",
@@ -271,6 +274,7 @@ async def handle_list_pending_actions(
         return error_response(f"List failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:write")
 async def handle_complete_action(
     data: dict[str, Any],
     action_id: str = "",
@@ -322,6 +326,7 @@ async def handle_complete_action(
         return error_response(f"Complete failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:write")
 async def handle_update_action_status(
     data: dict[str, Any],
     action_id: str = "",
@@ -396,6 +401,7 @@ async def handle_update_action_status(
         return error_response(f"Update failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:read")
 async def handle_get_due_soon(
     data: dict[str, Any],
     user_id: str = "default",
@@ -473,6 +479,7 @@ async def handle_get_due_soon(
         return error_response(f"Query failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:read")
 async def handle_batch_extract(
     data: dict[str, Any],
     user_id: str = "default",
@@ -573,6 +580,7 @@ async def handle_batch_extract(
 # =============================================================================
 
 
+@require_permission("inbox:read")
 async def handle_detect_meeting(
     data: dict[str, Any],
     user_id: str = "default",
@@ -628,6 +636,7 @@ async def handle_detect_meeting(
         return error_response(f"Detection failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:read")
 async def handle_auto_snooze_meeting(
     data: dict[str, Any],
     user_id: str = "default",

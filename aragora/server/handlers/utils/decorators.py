@@ -388,6 +388,7 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     # Debate permissions
     "debates:read": ["member", "admin", "owner"],
     "debates:create": ["member", "admin", "owner"],
+    "debates:write": ["member", "admin", "owner"],
     "debates:update": ["admin", "owner"],
     "debates:delete": ["admin", "owner"],
     "debates:export": ["member", "admin", "owner"],

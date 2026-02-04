@@ -44,6 +44,7 @@ async def parse_json_body(
         - If body is empty and not allow_empty: (None, web.Response with 400 error)
 
     Example:
+        @require_permission("debates:write")
         async def handle_create(self, request):
             body, err = await parse_json_body(request, context="create_user")
             if err:

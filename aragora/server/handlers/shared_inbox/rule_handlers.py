@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from aragora.server.validation.security import sanitize_user_input
+from aragora.server.handlers.utils.decorators import require_permission
 
 from .models import (
     RuleAction,
@@ -79,6 +80,7 @@ def _get_email_store() -> Any:
     return _get_email_store_impl()
 
 
+@require_permission("inbox:write")
 async def handle_create_routing_rule(
     workspace_id: str,
     name: str,
@@ -289,6 +291,7 @@ async def handle_create_routing_rule(
         }
 
 
+@require_permission("inbox:read")
 async def handle_list_routing_rules(
     workspace_id: str,
     enabled_only: bool = False,
@@ -384,6 +387,7 @@ async def handle_list_routing_rules(
         }
 
 
+@require_permission("inbox:write")
 async def handle_update_routing_rule(
     rule_id: str,
     updates: dict[str, Any],
@@ -614,6 +618,7 @@ async def handle_update_routing_rule(
         }
 
 
+@require_permission("inbox:delete")
 async def handle_delete_routing_rule(
     rule_id: str,
 ) -> dict[str, Any]:
@@ -668,6 +673,7 @@ async def handle_delete_routing_rule(
         }
 
 
+@require_permission("inbox:read")
 async def handle_test_routing_rule(
     rule_id: str,
     workspace_id: str,

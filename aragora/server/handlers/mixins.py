@@ -187,6 +187,7 @@ class AuthenticatedHandlerMixin:
 
     Usage:
         class MyHandler(BaseHandler, AuthenticatedHandlerMixin):
+            @require_permission("debates:write")
             def handle_post(self, path, query_params, handler):
                 user = self.require_auth(handler)
                 if isinstance(user, tuple):  # Error response

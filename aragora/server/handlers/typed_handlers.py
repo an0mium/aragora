@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias
 from aragora.billing.auth.context import UserAuthContext
 from aragora.protocols import HTTPRequestHandler
 from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.responses import HandlerResult, error_response
 
 if TYPE_CHECKING:
@@ -141,24 +142,28 @@ class TypedHandler(BaseHandler):
         """
         return None
 
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:
         """Handle a POST request with proper typing."""
         return None
 
+    @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:
         """Handle a DELETE request with proper typing."""
         return None
 
+    @require_permission("debates:read")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:
         """Handle a PATCH request with proper typing."""
         return None
 
+    @require_permission("debates:write")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:
@@ -593,24 +598,28 @@ class AsyncTypedHandler(TypedHandler):
         """Handle a GET request asynchronously."""
         return None
 
+    @require_permission("debates:write")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle a POST request asynchronously."""
         return None
 
+    @require_permission("debates:delete")
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle a DELETE request asynchronously."""
         return None
 
+    @require_permission("debates:read")
     async def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle a PATCH request asynchronously."""
         return None
 
+    @require_permission("debates:write")
     async def handle_put(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
@@ -686,6 +695,7 @@ class ResourceHandler(PermissionHandler):
             return self._get_resource(resource_id, handler)
         return self._list_resources(query_params, handler)
 
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:
@@ -695,6 +705,7 @@ class ResourceHandler(PermissionHandler):
             return err
         return self._create_resource(handler)
 
+    @require_permission("debates:write")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:
@@ -708,6 +719,7 @@ class ResourceHandler(PermissionHandler):
             return error_response(f"{self.RESOURCE_NAME} ID required", 400)
         return self._update_resource(resource_id, handler)
 
+    @require_permission("debates:read")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:
@@ -721,6 +733,7 @@ class ResourceHandler(PermissionHandler):
             return error_response(f"{self.RESOURCE_NAME} ID required", 400)
         return self._patch_resource(resource_id, handler)
 
+    @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:

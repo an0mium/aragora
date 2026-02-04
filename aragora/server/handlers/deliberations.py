@@ -23,6 +23,7 @@ from typing import Any, Optional
 from aragora.config import DEFAULT_ROUNDS
 from aragora.memory.debate_store import get_debate_store
 from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.responses import error_dict
 
 # RBAC imports - graceful fallback if not available
@@ -131,6 +132,7 @@ class DeliberationsHandler(BaseHandler):
 
         return None
 
+    @require_permission("debates:read")
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         path = request.path

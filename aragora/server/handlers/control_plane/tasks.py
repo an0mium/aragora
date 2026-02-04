@@ -724,6 +724,135 @@ class TaskHandlerMixin:
             logger.error(f"Error getting queue metrics: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/control-plane/tasks/history",
+        summary="Get task execution history",
+        tags=["Control Plane"],
+    )
+    @require_permission("controlplane:tasks.read")
+    def _handle_task_history(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get task execution history for auditing and analysis.
+
+        Returns completed, failed, cancelled, and timed-out tasks with
+        full lifecycle metadata for enterprise auditing.
+
+        Query params:
+            status: Filter by status (completed, failed, cancelled, timeout)
+            task_type: Filter by task type
+            agent_id: Filter by assigned agent
+            limit: Max results (default 100, max 1000)
+            offset: Pagination offset
+        """
+        coordinator, err = self._require_coordinator()
+        if err:
+            return err
+
+        try:
+            from aragora.control_plane.scheduler import TaskStatus
+            from datetime import datetime
+
+            limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
+            offset = safe_query_int(query_params, "offset", default=0, max_val=10000)
+            status_filter = query_params.get("status")
+            task_type_filter = query_params.get("task_type")
+            agent_filter = query_params.get("agent_id")
+
+            # Determine which statuses to query
+            history_statuses = [
+                TaskStatus.COMPLETED,
+                TaskStatus.FAILED,
+                TaskStatus.CANCELLED,
+                TaskStatus.TIMEOUT,
+            ]
+
+            if status_filter:
+                status_map = {
+                    "completed": TaskStatus.COMPLETED,
+                    "failed": TaskStatus.FAILED,
+                    "cancelled": TaskStatus.CANCELLED,
+                    "timeout": TaskStatus.TIMEOUT,
+                }
+                if status_filter.lower() in status_map:
+                    history_statuses = [status_map[status_filter.lower()]]
+
+            # Collect tasks from all history statuses
+            all_tasks = []
+            for status in history_statuses:
+                tasks = _run_async(
+                    coordinator._scheduler.list_by_status(status, limit=limit + offset)
+                )
+                all_tasks.extend(tasks)
+
+            # Apply filters
+            if task_type_filter:
+                all_tasks = [t for t in all_tasks if t.task_type == task_type_filter]
+            if agent_filter:
+                all_tasks = [t for t in all_tasks if t.assigned_agent == agent_filter]
+
+            # Sort by completion time (most recent first)
+            all_tasks.sort(
+                key=lambda t: t.completed_at or t.created_at or 0,
+                reverse=True,
+            )
+
+            # Apply pagination
+            total = len(all_tasks)
+            paginated = all_tasks[offset : offset + limit]
+
+            def task_to_history(task: Any) -> dict[str, Any]:
+                """Convert task to history entry."""
+                duration_ms = None
+                if task.started_at and task.completed_at:
+                    duration_ms = int((task.completed_at - task.started_at) * 1000)
+
+                return {
+                    "id": task.id,
+                    "type": task.task_type,
+                    "status": task.status.value,
+                    "priority": task.priority.name.lower(),
+                    "assigned_agent": task.assigned_agent,
+                    "result": task.result if task.status == TaskStatus.COMPLETED else None,
+                    "error": task.error if task.status == TaskStatus.FAILED else None,
+                    "retries": task.retries,
+                    "duration_ms": duration_ms,
+                    "created_at": (
+                        datetime.fromtimestamp(task.created_at).isoformat()
+                        if task.created_at
+                        else None
+                    ),
+                    "started_at": (
+                        datetime.fromtimestamp(task.started_at).isoformat()
+                        if task.started_at
+                        else None
+                    ),
+                    "completed_at": (
+                        datetime.fromtimestamp(task.completed_at).isoformat()
+                        if task.completed_at
+                        else None
+                    ),
+                    "metadata": {
+                        k: v
+                        for k, v in task.metadata.items()
+                        if k in ("name", "workspace_id", "user_id", "tags")
+                    },
+                }
+
+            history = [task_to_history(t) for t in paginated]
+
+            return json_response(
+                {
+                    "history": history,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": offset + limit < total,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting task history: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
     # =========================================================================
     # Deliberation Handlers
     # =========================================================================

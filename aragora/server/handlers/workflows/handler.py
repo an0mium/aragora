@@ -19,6 +19,7 @@ from aragora.server.handlers.base import (
     get_int_param,
     get_string_param,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.openapi_decorator import api_endpoint
 
 from .core import (
@@ -85,6 +86,7 @@ class WorkflowHandlers:
     """HTTP handlers for workflow API (legacy interface)."""
 
     @staticmethod
+    @require_permission("workflows:read")
     async def handle_list_workflows(params: dict[str, Any]) -> dict[str, Any]:
         """GET /api/workflows"""
         workflows_module = _workflows_module()
@@ -98,6 +100,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:read")
     async def handle_get_workflow(
         workflow_id: str, params: dict[str, Any]
     ) -> dict[str, Any] | None:
@@ -109,6 +112,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:write")
     async def handle_create_workflow(
         data: dict[str, Any], params: dict[str, Any]
     ) -> dict[str, Any]:
@@ -121,6 +125,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:write")
     async def handle_update_workflow(
         workflow_id: str, data: dict[str, Any], params: dict[str, Any]
     ) -> dict[str, Any] | None:
@@ -133,6 +138,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:delete")
     async def handle_delete_workflow(workflow_id: str, params: dict[str, Any]) -> bool:
         """DELETE /api/workflows/:id"""
         workflows_module = _workflows_module()
@@ -142,6 +148,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:read")
     async def handle_execute_workflow(
         workflow_id: str, data: dict[str, Any], params: dict[str, Any]
     ) -> dict[str, Any]:
@@ -154,6 +161,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:read")
     async def handle_list_templates(params: dict[str, Any]) -> list[dict[str, Any]]:
         """GET /api/workflow-templates"""
         workflows_module = _workflows_module()
@@ -163,6 +171,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:read")
     async def handle_list_approvals(params: dict[str, Any]) -> list[dict[str, Any]]:
         """GET /api/workflow-approvals"""
         workflows_module = _workflows_module()
@@ -172,6 +181,7 @@ class WorkflowHandlers:
         )
 
     @staticmethod
+    @require_permission("workflows:read")
     async def handle_resolve_approval(
         request_id: str, data: dict[str, Any], params: dict[str, Any]
     ) -> bool:
@@ -450,6 +460,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @require_permission("workflows:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -554,6 +565,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @require_permission("workflows:write")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

@@ -754,6 +754,7 @@ async def handle_get_workflow_template(
 # =============================================================================
 
 
+@require_permission("connectors:read")
 async def handle_mongodb_aggregate(
     connector_id: str,
     collection: str,

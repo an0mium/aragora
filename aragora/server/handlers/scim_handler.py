@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.http_utils import run_async
 from aragora.server.validation.query_params import safe_query_int
 
@@ -225,6 +226,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -259,6 +261,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
+    @require_permission("debates:write")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -295,6 +298,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
+    @require_permission("debates:read")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -331,6 +335,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
+    @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

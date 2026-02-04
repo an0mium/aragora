@@ -223,6 +223,7 @@ class SystemHandler(BaseHandler):
         limit = get_clamped_int_param(query_params, "limit", default_limit, 1, max_limit)
         return method(handler, loop_id, limit)
 
+    @require_permission("admin:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

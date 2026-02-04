@@ -33,6 +33,7 @@ from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.storage.finding_workflow_store import get_finding_workflow_store
 from aragora.rbac import (
     AuthorizationContext,
@@ -93,6 +94,7 @@ class FindingWorkflowHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/finding-workflow/")
 
+    @require_permission("debates:read")
     async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler."""
         method = request.method

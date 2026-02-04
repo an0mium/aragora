@@ -742,6 +742,7 @@ def get_marketplace_handler() -> MarketplaceHandler:
     return MarketplaceHandler()
 
 
+@require_permission("debates:write")
 async def handle_marketplace(request: Any, path: str, method: str) -> HandlerResult:
     """Handle a marketplace request."""
     handler = get_marketplace_handler()

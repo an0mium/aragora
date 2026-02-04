@@ -24,6 +24,7 @@ from ..base import (
     json_response,
     error_response,
 )
+from ..utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ class ExampleTypedHandler(TypedHandler):
 
         return None
 
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:

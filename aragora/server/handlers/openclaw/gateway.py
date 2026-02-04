@@ -39,9 +39,9 @@ import logging
 from typing import Any
 
 from aragora.observability.metrics import track_handler
-from aragora.rbac.decorators import require_permission  # noqa: F401 – used in inherited mixins
 from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import BaseHandler, HandlerResult
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.openclaw.credentials import CredentialHandlerMixin
 from aragora.server.handlers.openclaw.orchestrator import SessionOrchestrationMixin
 from aragora.server.handlers.openclaw.policies import PolicyHandlerMixin
@@ -192,6 +192,7 @@ class OpenClawGatewayHandler(
     # =========================================================================
 
     @track_handler("gateway/openclaw", method="POST")
+    @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -277,6 +278,7 @@ class OpenClawGatewayHandler(
     # =========================================================================
 
     @track_handler("gateway/openclaw", method="DELETE")
+    @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

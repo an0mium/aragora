@@ -39,7 +39,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Protocol, runtime_checkable
 
-from aragora.rbac.decorators import require_permission
 from aragora.resilience import (
     CircuitBreaker,
     CircuitOpenError,
@@ -52,6 +51,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
@@ -505,6 +505,7 @@ class CloudStorageHandler(BaseHandler):
             return error_response(safe_error_message(e, "cloud storage upload"), 500)
 
     @rate_limit(requests_per_minute=30)
+    @require_permission("debates:write")
     async def handle_post(
         self,
         path: str,
@@ -561,6 +562,7 @@ class CloudStorageHandler(BaseHandler):
             return error_response(safe_error_message(e, "cloud storage list"), 500)
 
     @rate_limit(requests_per_minute=20)
+    @require_permission("debates:delete")
     async def handle_delete(
         self,
         path: str,

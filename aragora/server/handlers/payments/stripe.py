@@ -809,6 +809,7 @@ async def handle_get_transaction(
 
 
 @track_handler("payments/webhook/stripe")
+@require_permission("billing:read")
 async def handle_stripe_webhook(request: web.Request) -> web.Response:
     """
     POST /api/payments/webhook/stripe
@@ -875,6 +876,7 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
 
 
 @track_handler("payments/webhook/authnet")
+@require_permission("billing:read")
 async def handle_authnet_webhook(request: web.Request) -> web.Response:
     """
     POST /api/payments/webhook/authnet

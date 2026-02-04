@@ -17,6 +17,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from ...base import HandlerResult, error_response, success_response
+from ...utils.decorators import require_permission
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 
@@ -61,6 +62,7 @@ class DashboardOperationsMixin:
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", status=500)
 
+    @require_permission("debates:read")
     async def handle_dashboard_health(self, request: "Request") -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/health - Get KM health status.
@@ -94,6 +96,7 @@ class DashboardOperationsMixin:
             logger.exception(f"Failed to get health status: {e}")
             return error_response(str(e))
 
+    @require_permission("debates:read")
     async def handle_dashboard_metrics(self, request: "Request") -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/metrics - Get detailed metrics.
@@ -126,6 +129,7 @@ class DashboardOperationsMixin:
             logger.exception(f"Failed to get metrics: {e}")
             return error_response(str(e))
 
+    @require_permission("debates:read")
     async def handle_dashboard_adapters(self, request: "Request") -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/adapters - Get adapter status.
@@ -210,6 +214,7 @@ class DashboardOperationsMixin:
             logger.exception(f"Failed to get adapter status: {e}")
             return error_response(str(e))
 
+    @require_permission("debates:read")
     async def handle_dashboard_queries(self, request: "Request") -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/queries - Get federated query stats.
@@ -244,6 +249,7 @@ class DashboardOperationsMixin:
             logger.exception(f"Failed to get query stats: {e}")
             return error_response(str(e))
 
+    @require_permission("debates:read")
     async def handle_dashboard_metrics_reset(self, request: "Request") -> HandlerResult:
         """
         POST /api/knowledge/mound/dashboard/metrics/reset - Reset metrics.
@@ -268,6 +274,7 @@ class DashboardOperationsMixin:
             logger.exception(f"Failed to reset metrics: {e}")
             return error_response(str(e))
 
+    @require_permission("debates:read")
     async def handle_dashboard_batcher_stats(self, request: "Request") -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/batcher - Get event batcher stats.

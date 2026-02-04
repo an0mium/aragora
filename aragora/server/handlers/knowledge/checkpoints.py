@@ -26,6 +26,7 @@ from aragora.server.handlers.base import (
     json_response,
     success_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import (
     RateLimiter,
     rate_limit,
@@ -618,6 +619,7 @@ class KMCheckpointHandler(BaseHandler):
             logger.error("Checkpoint comparison failed: %s", e)
             return error_response("Failed to compare checkpoints", status=500)
 
+    @require_permission("knowledge:read")
     async def handle_get(
         self,
         path: str = "",
@@ -649,6 +651,7 @@ class KMCheckpointHandler(BaseHandler):
 
         return error_response("Not found", status=404)
 
+    @require_permission("knowledge:write")
     async def handle_post(
         self,
         path: str = "",
@@ -678,6 +681,7 @@ class KMCheckpointHandler(BaseHandler):
 
         return error_response("Not found", status=404)
 
+    @require_permission("knowledge:delete")
     async def handle_delete(
         self,
         path: str = "",
