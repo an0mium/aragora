@@ -693,6 +693,14 @@ SECRETS: list[SecretDefinition] = [
         description="Westlaw API base URL (enterprise license required)",
     ),
     SecretDefinition(
+        name="Westlaw Search URL",
+        env_var="WESTLAW_SEARCH_URL",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="WESTLAW_SEARCH_URL",
+        github_secret_name="WESTLAW_SEARCH_URL",
+        description="Westlaw search endpoint URL (enterprise license required)",
+    ),
+    SecretDefinition(
         name="Westlaw API Key",
         env_var="WESTLAW_API_KEY",
         category=SecretCategory.CONNECTORS,
@@ -711,6 +719,14 @@ SECRETS: list[SecretDefinition] = [
         aws_bundle_key="LEXIS_API_BASE",
         github_secret_name="LEXIS_API_BASE",
         description="LexisNexis API base URL (enterprise license required)",
+    ),
+    SecretDefinition(
+        name="LexisNexis Search URL",
+        env_var="LEXIS_SEARCH_URL",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="LEXIS_SEARCH_URL",
+        github_secret_name="LEXIS_SEARCH_URL",
+        description="LexisNexis search endpoint URL (enterprise license required)",
     ),
     SecretDefinition(
         name="LexisNexis API Key",
@@ -733,6 +749,14 @@ SECRETS: list[SecretDefinition] = [
         description="FASB GAAP content API base URL (internal proxy or enterprise license)",
     ),
     SecretDefinition(
+        name="FASB GAAP Search URL",
+        env_var="FASB_SEARCH_URL",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="FASB_SEARCH_URL",
+        github_secret_name="FASB_SEARCH_URL",
+        description="FASB GAAP search endpoint URL (internal proxy or enterprise license)",
+    ),
+    SecretDefinition(
         name="FASB GAAP API Key",
         env_var="FASB_API_KEY",
         category=SecretCategory.CONNECTORS,
@@ -749,6 +773,14 @@ SECRETS: list[SecretDefinition] = [
         aws_bundle_key="IRS_API_BASE",
         github_secret_name="IRS_API_BASE",
         description="IRS tax guidance API base URL (internal proxy)",
+    ),
+    SecretDefinition(
+        name="IRS Tax Guidance Search URL",
+        env_var="IRS_SEARCH_URL",
+        category=SecretCategory.CONNECTORS,
+        aws_bundle_key="IRS_SEARCH_URL",
+        github_secret_name="IRS_SEARCH_URL",
+        description="IRS tax guidance search endpoint URL (internal proxy)",
     ),
     SecretDefinition(
         name="IRS Tax Guidance API Key",
