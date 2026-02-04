@@ -57,43 +57,38 @@ from .types import (
 )
 
 
-# Re-export orchestrator classes from modes (full 5-phase implementation)
-# These are imported here to provide a single canonical import location
-# NOTE: Import is deferred to avoid circular imports and deprecation warning at import time
+# Re-export orchestrator classes (full 5-phase implementation)
+# NOTE: Import is deferred to avoid circular imports at import time
 def _get_orchestrator_classes():
     """Lazy import of orchestrator classes."""
-    import warnings
+    from aragora.gauntlet.orchestrator import (
+        AI_ACT_GAUNTLET,
+        CODE_REVIEW_GAUNTLET,
+        GDPR_GAUNTLET,
+        HIPAA_GAUNTLET,
+        POLICY_GAUNTLET,
+        QUICK_GAUNTLET,
+        SECURITY_GAUNTLET,
+        SOX_GAUNTLET,
+        THOROUGH_GAUNTLET,
+        Finding,
+        VerifiedClaim,
+        get_compliance_gauntlet,
+        run_gauntlet,
+    )
+    from aragora.gauntlet.orchestrator import (
+        GauntletConfig as _OrchestratorConfig,
+    )
+    from aragora.gauntlet.orchestrator import (
+        GauntletOrchestrator as _Orchestrator,
+    )
+    from aragora.gauntlet.orchestrator import (
+        GauntletProgress as _Progress,
+    )
+    from aragora.gauntlet.orchestrator import (
+        GauntletResult as _OrchestratorResult,
+    )
 
-    # Suppress deprecation warning during internal re-export
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-        from aragora.modes.gauntlet import (
-            AI_ACT_GAUNTLET,
-            CODE_REVIEW_GAUNTLET,
-            GDPR_GAUNTLET,
-            HIPAA_GAUNTLET,
-            POLICY_GAUNTLET,
-            QUICK_GAUNTLET,
-            SECURITY_GAUNTLET,
-            SOX_GAUNTLET,
-            THOROUGH_GAUNTLET,
-            Finding,
-            VerifiedClaim,
-            get_compliance_gauntlet,
-            run_gauntlet,
-        )
-        from aragora.modes.gauntlet import (
-            GauntletConfig as _OrchestratorConfig,
-        )
-        from aragora.modes.gauntlet import (
-            GauntletOrchestrator as _Orchestrator,
-        )
-        from aragora.modes.gauntlet import (
-            GauntletProgress as _Progress,
-        )
-        from aragora.modes.gauntlet import (
-            GauntletResult as _OrchestratorResult,
-        )
     return {
         "GauntletOrchestrator": _Orchestrator,
         "OrchestratorConfig": _OrchestratorConfig,

@@ -672,48 +672,10 @@ class PostgresGauntletRunStore(GenericPostgresStore, GauntletRunStoreBackend):
             },
         )
 
-    # Backward-compatible sync wrappers
-    def get_sync(self, run_id: str) -> dict[str, Any] | None:
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.get(run_id))
-
-    def save_sync(self, data: dict[str, Any]) -> None:
-        from aragora.utils.async_utils import run_async
-
-        run_async(self.save(data))
-
-    def delete_sync(self, run_id: str) -> bool:
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.delete(run_id))
-
-    def list_all_sync(self) -> list[dict[str, Any]]:
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_all())
-
-    def list_by_status_sync(self, status: str) -> list[dict[str, Any]]:
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_by_status(status))
-
-    def list_by_template_sync(self, template_id: str) -> list[dict[str, Any]]:
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_by_template(template_id))
-
-    def list_active_sync(self) -> list[dict[str, Any]]:
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.list_active())
-
-    def update_status_sync(
-        self, run_id: str, status: str, result_data: dict[str, Any] | None = None
-    ) -> bool:
-        from aragora.utils.async_utils import run_async
-
-        return run_async(self.update_status(run_id, status, result_data))
+    # Sync wrappers - use run_async for sync access:
+    #   from aragora.utils.async_utils import run_async
+    #   store = PostgresGauntletRunStore(...)
+    #   result = run_async(store.get(run_id))
 
 
 def get_gauntlet_run_store() -> GauntletRunStoreBackend:
