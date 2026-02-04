@@ -601,6 +601,15 @@ class TestFixerOrchestrator:
             FixAttempt with result
         """
         analysis = await self.analyzer.analyze(failure)
+        if self.pattern_learner:
+            try:
+                suggestion = self.pattern_learner.suggest_heuristic(analysis)
+            except Exception as exc:
+                logger.warning("testfixer.pattern_suggest_error error=%s", exc)
+                suggestion = None
+            if suggestion:
+                analysis.suggested_approach = f"{analysis.suggested_approach}\n\n{suggestion}"
+                analysis.analysis_notes.append("pattern_suggestion")
         proposal = await self.proposer.propose_fix(analysis)
 
         if proposal.post_debate_confidence < self.config.min_confidence_to_apply:
@@ -629,6 +638,49 @@ class TestFixerOrchestrator:
                 notes=["No patches generated"],
             )
 
+        validation_notes: list[str] = []
+        if self.arena_validator:
+            try:
+                arena_result = await self.arena_validator.validate(proposal, analysis)
+                validation_notes.append(f"Arena validation: {arena_result.summary()}")
+                if not arena_result.is_valid:
+                    return FixAttempt(
+                        iteration=0,
+                        run_id=self.run_id,
+                        failure=failure,
+                        analysis=analysis,
+                        proposal=proposal,
+                        applied=False,
+                        test_result_after=None,
+                        success=False,
+                        notes=validation_notes + ["Arena validator rejected fix"],
+                    )
+            except Exception as exc:
+                logger.warning("testfixer.arena.error error=%s", exc)
+                validation_notes.append(f"Arena validator error: {exc}")
+                self.arena_validator = None
+
+        if self.redteam_validator:
+            try:
+                redteam_result = await self.redteam_validator.validate(proposal, analysis)
+                validation_notes.append(f"RedTeam validation: {redteam_result.summary()}")
+                if not redteam_result.passes:
+                    return FixAttempt(
+                        iteration=0,
+                        run_id=self.run_id,
+                        failure=failure,
+                        analysis=analysis,
+                        proposal=proposal,
+                        applied=False,
+                        test_result_after=None,
+                        success=False,
+                        notes=validation_notes + ["Red team validator rejected fix"],
+                    )
+            except Exception as exc:
+                logger.warning("testfixer.redteam.error error=%s", exc)
+                validation_notes.append(f"Red team validator error: {exc}")
+                self.redteam_validator = None
+
         applied = proposal.apply_all(self.repo_path)
         if not applied:
             return FixAttempt(
@@ -640,7 +692,7 @@ class TestFixerOrchestrator:
                 applied=False,
                 test_result_after=None,
                 success=False,
-                notes=["Failed to apply patches"],
+                notes=validation_notes + ["Failed to apply patches"],
             )
 
         # Run single test to verify
@@ -650,7 +702,7 @@ class TestFixerOrchestrator:
         if not success and self.config.revert_on_failure:
             proposal.revert_all(self.repo_path)
 
-        return FixAttempt(
+        attempt = FixAttempt(
             iteration=0,
             run_id=self.run_id,
             failure=failure,
@@ -659,7 +711,20 @@ class TestFixerOrchestrator:
             applied=True,
             test_result_after=retest,
             success=success,
+            notes=validation_notes,
         )
+        self._learn_from_attempt(attempt)
+        return attempt
+
+    def _learn_from_attempt(self, attempt: FixAttempt) -> None:
+        if not self.pattern_learner:
+            return
+        try:
+            learned = self.pattern_learner.learn_from_attempt(attempt)
+            if learned:
+                attempt.notes.append(f"pattern_learned:{learned.id}")
+        except Exception as exc:
+            logger.warning("testfixer.pattern_learn_error error=%s", exc)
 
     async def _save_attempt(self, attempt: FixAttempt) -> None:
         """Save attempt to disk for learning."""

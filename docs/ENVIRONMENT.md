@@ -189,6 +189,34 @@ config = (
 
 **Note:** Supermemory is opt-in and disabled by default. Set `enable_supermemory=True` in ArenaConfig to activate. Use `supermemory_enable_km_adapter=True` to force-enable the Supermemory KM adapter in the bidirectional coordinator (requires `SUPERMEMORY_API_KEY`).
 
+## Memory Capture (Tool Usage)
+
+Optional tool-level memory capture for gateway tool/capability usage events.
+Disabled by default; enable only if you want tool usage logged into the FAST
+memory tier for retrieval and auditing.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_MEMORY_CAPTURE_ENABLED` | Optional | Enable tool usage capture | `false` |
+| `ARAGORA_MEMORY_CAPTURE_TOOLS` | Optional | Allowlist of tool names (comma-separated) | - |
+| `ARAGORA_MEMORY_SKIP_TOOLS` | Optional | Denylist of tool names (comma-separated) | - |
+| `ARAGORA_MEMORY_CAPTURE_MAX_PER_MINUTE` | Optional | Max captured events per minute | `120` |
+| `ARAGORA_MEMORY_CAPTURE_TIER` | Optional | Memory tier for tool entries | `fast` |
+| `ARAGORA_MEMORY_CAPTURE_IMPORTANCE` | Optional | Importance score for captured entries | `0.4` |
+| `ARAGORA_MEMORY_CAPTURE_MAX_DETAIL_CHARS` | Optional | Max detail chars to store | `800` |
+
+## Claude-Mem (Optional Local Memory Source)
+
+Optional integration with a local [claude-mem](https://github.com/thedotmack/claude-mem)
+worker API for read-only memory search. This is an external dependency and
+not bundled with Aragora.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_CLAUDE_MEM_BASE_URL` | Optional | claude-mem worker base URL | `http://localhost:37777` |
+| `ARAGORA_CLAUDE_MEM_TIMEOUT` | Optional | Request timeout (seconds) | `10` |
+| `ARAGORA_CLAUDE_MEM_PROJECT` | Optional | Default project filter | - |
+
 ## Persistence (Supabase)
 
 Optional but recommended for production.

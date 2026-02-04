@@ -287,6 +287,35 @@ search = get_hybrid_memory_search(continuum_memory)
 results = await search.search("SLA breach", limit=10)
 ```
 
+### Progressive Disclosure Retrieval
+
+Aragora supports staged retrieval to control token costs and avoid overloading
+agents with full memory dumps. The workflow mirrors "progressive disclosure"
+patterns from agent memory systems:
+
+1. **Search Index** (`/api/v1/memory/search-index`)  
+   Returns compact previews, token estimates, and IDs.
+2. **Timeline Context** (`/api/v1/memory/search-timeline`)  
+   Fetches surrounding entries around an anchor ID.
+3. **Full Entries** (`/api/v1/memory/entries`)  
+   Retrieves full content only for selected IDs.
+
+This is also surfaced in the built-in Memory Viewer (`/api/v1/memory/viewer`),
+which uses the same staged endpoints.
+
+### Tool-Level Capture Controls
+
+Tool usage capture is opt-in and configurable via environment variables:
+
+```bash
+ARAGORA_MEMORY_CAPTURE_ENABLED=true
+ARAGORA_MEMORY_CAPTURE_TOOLS=Read,Edit,Bash
+ARAGORA_MEMORY_SKIP_TOOLS=Grep,Glob
+ARAGORA_MEMORY_CAPTURE_MAX_PER_MINUTE=120
+```
+
+Captured tool events are written into the FAST tier as `type=tool_usage` entries.
+
 ## Integration with Debate Phases
 
 ### Phase 0 (Context Init)

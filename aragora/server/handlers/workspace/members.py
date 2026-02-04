@@ -50,6 +50,58 @@ class WorkspaceMembersMixin:
     """
 
     @api_endpoint(
+        method="GET",
+        path="/api/v1/workspaces/{workspace_id}/members",
+        summary="List workspace members",
+        tags=["Workspaces"],
+    )
+    @rate_limit(requests_per_minute=60, limiter_name="workspace_member")
+    @require_permission("workspace:members:read")
+    @handle_errors("list workspace members")
+    @log_request("list workspace members")
+    def _handle_list_members(self, handler: HTTPRequestHandler, workspace_id: str) -> HandlerResult:
+        """List all members of a workspace with their roles and permissions."""
+        m = _mod()
+        user_store = self._get_user_store()
+        auth_ctx = m.extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return m.error_response("Not authenticated", 401)
+
+        rbac_error = self._check_rbac_permission(handler, "workspace:members:read", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
+        manager = self._get_isolation_manager()
+
+        try:
+            members_data = self._run_async(manager.list_members(workspace_id))
+            members = []
+            for member in members_data:
+                user_id = member.get("user_id", "")
+                user_profile = self._run_async(user_store.get_user_by_id(user_id))
+                members.append(
+                    {
+                        "id": user_id,
+                        "name": user_profile.name if user_profile else "Unknown",
+                        "email": user_profile.email if user_profile else "",
+                        "role": member.get("role", "member"),
+                        "permissions": member.get("permissions", []),
+                        "status": member.get("status", "active"),
+                        "joined_at": member.get("joined_at", ""),
+                        "workspace_id": workspace_id,
+                    }
+                )
+
+            logger.info("workspace_members.list workspace=%s count=%d", workspace_id, len(members))
+            return {"members": members, "total": len(members)}
+
+        except m.AccessDeniedException as e:
+            return m.error_response(str(e), 403)
+        except Exception as e:
+            logger.error("workspace_members.list_error error=%s", str(e))
+            return m.error_response(f"Failed to list members: {e}", 500)
+
+    @api_endpoint(
         method="POST",
         path="/api/v1/workspaces/{workspace_id}/members",
         summary="Add member to workspace",

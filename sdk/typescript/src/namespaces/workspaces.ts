@@ -587,6 +587,11 @@ export class WorkspacesAPI {
 
   /**
    * Update a member's role in a workspace.
+   *
+   * @param workspaceId - The workspace ID
+   * @param userId - The user ID
+   * @param role - New role to assign
+   * @returns Updated member details
    */
   async updateMemberRole(
     workspaceId: string,
@@ -601,13 +606,12 @@ export class WorkspacesAPI {
 
   /**
    * Get available roles for a workspace.
+   *
+   * @param workspaceId - The workspace ID
+   * @returns Available roles
    */
-  async getWorkspaceRoles(workspaceId: string): Promise<{
-    roles: Array<{ name: string; description: string; permissions: string[] }>;
-  }> {
-    return this.client.get(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/roles`
-    );
+  async getWorkspaceRoles(workspaceId: string): Promise<{ roles: Array<{ name: string; description: string; permissions: string[] }> }> {
+    return this.client.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/roles`);
   }
 
   // ===========================================================================
@@ -616,73 +620,70 @@ export class WorkspacesAPI {
 
   /**
    * Create an invite to join a workspace.
+   *
+   * @param workspaceId - The workspace ID
+   * @param body - Invite details
+   * @returns Created invite with token
    */
   async createInvite(
     workspaceId: string,
     body: { email: string; role?: 'viewer' | 'member' | 'admin' }
-  ): Promise<{
-    invite_id: string;
-    token: string;
-    email: string;
-    expires_at: string;
-  }> {
-    return this.client.post(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`,
-      body
-    );
+  ): Promise<{ invite_id: string; token: string; email: string; expires_at: string }> {
+    return this.client.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`, body);
   }
 
   /**
    * List pending invites for a workspace.
+   *
+   * @param workspaceId - The workspace ID
+   * @returns List of pending invites
    */
-  async listInvites(workspaceId: string): Promise<{
-    invites: Array<{
-      invite_id: string;
-      email: string;
-      role: string;
-      created_at: string;
-      expires_at: string;
-    }>;
-  }> {
-    return this.client.get(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`
-    );
+  async listInvites(
+    workspaceId: string
+  ): Promise<{ invites: Array<{ invite_id: string; email: string; role: string; created_at: string; expires_at: string }> }> {
+    return this.client.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`);
   }
 
   /**
    * Cancel a pending invite.
+   *
+   * @param workspaceId - The workspace ID
+   * @param inviteId - The invite ID to cancel
+   * @returns Cancellation confirmation
    */
   async cancelInvite(
     workspaceId: string,
     inviteId: string
   ): Promise<{ success: boolean }> {
-    return this.client.delete(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}`
-    );
+    return this.client.delete(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}`);
   }
 
   /**
    * Resend an invite email.
+   *
+   * @param workspaceId - The workspace ID
+   * @param inviteId - The invite ID
+   * @returns Resend confirmation
    */
   async resendInvite(
     workspaceId: string,
     inviteId: string
   ): Promise<{ success: boolean }> {
-    return this.client.post(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/resend`
-    );
+    return this.client.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/resend`);
   }
 
   /**
    * Accept a workspace invite.
+   *
+   * @param workspaceId - The workspace ID
+   * @param inviteId - The invite ID
+   * @returns Acceptance confirmation with workspace info
    */
   async acceptInvite(
     workspaceId: string,
     inviteId: string
   ): Promise<{ success: boolean; workspace_id: string }> {
-    return this.client.post(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/accept`
-    );
+    return this.client.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/accept`);
   }
 
   // ===========================================================================

@@ -1,9 +1,15 @@
 """Subsystem setup helpers for Arena initialization.
 
-Extracted from orchestrator.py to reduce its size. Contains the larger
-initialization methods for fabric integration, debate strategy, post-debate
-workflow, knowledge operations, RLM limiter, agent hierarchy, grounded
-operations, and agent channel management.
+Consolidated module containing:
+- Fabric integration, debate strategy, post-debate workflow
+- Knowledge operations, RLM limiter, agent hierarchy, grounded operations
+- Agent channel management (setup/teardown)
+- Lifecycle/cache management (DebateStateCache, LifecycleManager, EventEmitter, CheckpointOps)
+- Domain classification (compute_domain_from_task)
+- Output formatting and translation
+
+Previously split across orchestrator_setup.py, orchestrator_lifecycle.py,
+orchestrator_domains.py, and orchestrator_output.py. Consolidated for maintainability.
 """
 
 from __future__ import annotations

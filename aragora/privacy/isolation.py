@@ -611,6 +611,47 @@ class DataIsolationManager:
             del workspace.members[user_id]
             logger.info(f"Removed member {user_id} from workspace {workspace_id}")
 
+    async def list_members(
+        self,
+        workspace_id: str,
+    ) -> list[dict[str, Any]]:
+        """List all members of a workspace.
+
+        Args:
+            workspace_id: Workspace to list members from
+
+        Returns:
+            List of member dictionaries with user_id, permissions, role, status, etc.
+        """
+        workspace = self._workspaces.get(workspace_id)
+        if not workspace:
+            return []
+
+        members = []
+        for user_id, member in workspace.members.items():
+            members.append(
+                {
+                    "user_id": user_id,
+                    "permissions": [p.value for p in member.permissions],
+                    "role": self._derive_role_from_permissions(member.permissions),
+                    "status": "active",
+                    "joined_at": member.added_at.isoformat() if member.added_at else "",
+                    "added_by": member.added_by,
+                }
+            )
+
+        return members
+
+    def _derive_role_from_permissions(self, permissions: list[WorkspacePermission]) -> str:
+        """Derive a role name from a set of permissions."""
+        if WorkspacePermission.ADMIN in permissions:
+            return "admin"
+        if WorkspacePermission.WRITE in permissions:
+            return "member"
+        if WorkspacePermission.READ in permissions:
+            return "viewer"
+        return "member"
+
     async def delete_workspace(
         self,
         workspace_id: str,
