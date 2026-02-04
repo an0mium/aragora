@@ -368,7 +368,11 @@ function TemplateCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            isInstalled ? onUninstall() : onInstall();
+            if (isInstalled) {
+              onUninstall();
+            } else {
+              onInstall();
+            }
           }}
           className={`px-2 py-1 text-xs font-mono transition-colors ${
             isInstalled
