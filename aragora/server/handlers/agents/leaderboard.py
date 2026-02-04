@@ -41,7 +41,7 @@ from ..base import (
     ttl_cache,
     validate_path_segment,
 )
-from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
+from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 # RBAC permission for leaderboard endpoints
@@ -96,7 +96,7 @@ class LeaderboardViewHandler(SecureHandler):
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Route leaderboard view requests with RBAC."""
+        """Route leaderboard view requests (public endpoint)."""
         path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -104,15 +104,8 @@ class LeaderboardViewHandler(SecureHandler):
             logger.warning(f"Rate limit exceeded for leaderboard endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # RBAC: Require authentication and agent:read permission
-        try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)
-            self.check_permission(auth_context, LEADERBOARD_PERMISSION)
-        except UnauthorizedError:
-            return error_response("Authentication required to access leaderboard data", 401)
-        except ForbiddenError as e:
-            logger.warning(f"Leaderboard access denied: {e}")
-            return error_response(str(e), 403)
+        # Note: leaderboard-view is a public endpoint (listed in AUTH_EXEMPT_PATHS)
+        # No authentication required for read-only leaderboard data
 
         logger.debug(f"Leaderboard request: {path} params={query_params}")
         if path == "/api/leaderboard-view":

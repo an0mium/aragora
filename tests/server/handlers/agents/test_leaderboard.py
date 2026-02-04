@@ -101,43 +101,28 @@ class TestLeaderboardViewHandlerRoutes:
         assert handler.can_handle("/api/agents") is False
 
 
-class TestLeaderboardViewHandlerAuth:
-    """Tests for LeaderboardViewHandler authentication."""
+class TestLeaderboardViewHandlerPublicAccess:
+    """Tests for LeaderboardViewHandler public access (no auth required)."""
 
     @pytest.mark.asyncio
-    async def test_requires_authentication(self):
-        """Test leaderboard view requires authentication."""
+    async def test_no_authentication_required(self):
+        """Test leaderboard view is accessible without authentication.
+
+        Note: leaderboard-view is a public endpoint (listed in AUTH_EXEMPT_PATHS)
+        to allow read-only access to leaderboard data.
+        """
         from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
-        from aragora.server.handlers.secure import UnauthorizedError
 
         handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
         mock_http_handler = MagicMock()
+        mock_http_handler.headers = {}
+        mock_http_handler.client_address = ("127.0.0.1", 12345)
 
-        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
-            mock_auth.side_effect = UnauthorizedError("Not authenticated")
-            result = await handler.handle("/api/leaderboard-view", {}, mock_http_handler)
+        # Should return successful response, not 401
+        result = await handler.handle("/api/leaderboard-view", {}, mock_http_handler)
 
-        assert result.status_code == 401
-
-    @pytest.mark.asyncio
-    async def test_checks_permission(self):
-        """Test leaderboard view checks permission."""
-        from aragora.server.handlers.agents.leaderboard import LeaderboardViewHandler
-        from aragora.server.handlers.secure import ForbiddenError
-
-        handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
-        mock_http_handler = MagicMock()
-        mock_auth_context = MagicMock()
-
-        with (
-            patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth,
-            patch.object(handler, "check_permission") as mock_check,
-        ):
-            mock_auth.return_value = mock_auth_context
-            mock_check.side_effect = ForbiddenError("Permission denied")
-            result = await handler.handle("/api/leaderboard-view", {}, mock_http_handler)
-
-        assert result.status_code == 403
+        # Should return data (200) not auth error (401/403)
+        assert result.status_code == 200
 
 
 class TestLeaderboardViewHandlerRateLimit:
