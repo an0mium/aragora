@@ -116,6 +116,8 @@ interface AuthClientInterface {
   inviteTeamMember(request: { email: string; role?: string }): Promise<{ invite_token: string; invite_url: string; expires_in: number }>;
   checkInvite(token: string): Promise<{ valid: boolean; email: string; organization_id: string; role: string; expires_at: number }>;
   acceptInvite(token: string): Promise<{ organization_id: string; role: string }>;
+  listPendingInvites(): Promise<{ invites: Array<{ id: string; email: string; role: string; expires_at: string; created_at: string }> }>;
+  revokeInvite(inviteId: string): Promise<{ revoked: boolean }>;
 }
 
 /**
@@ -388,5 +390,19 @@ export class AuthAPI {
    */
   async acceptInvite(token: string): Promise<{ organization_id: string; role: string }> {
     return this.client.acceptInvite(token);
+  }
+
+  /**
+   * List pending invitations for the organization.
+   */
+  async listPendingInvites(): Promise<{ invites: Array<{ id: string; email: string; role: string; expires_at: string; created_at: string }> }> {
+    return this.client.listPendingInvites();
+  }
+
+  /**
+   * Revoke a pending invitation.
+   */
+  async revokeInvite(inviteId: string): Promise<{ revoked: boolean }> {
+    return this.client.revokeInvite(inviteId);
   }
 }

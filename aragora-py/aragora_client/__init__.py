@@ -157,7 +157,7 @@ from aragora_client.workflows import (
     WorkflowTemplate,
 )
 
-__version__ = "2.5.0"
+__version__ = "2.6.3"
 __all__ = [
     # Client
     "AragoraClient",

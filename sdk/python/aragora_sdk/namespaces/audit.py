@@ -273,6 +273,206 @@ class AuditAPI:
             "POST", f"/api/v1/audit/sessions/{session_id}/intervene", json={"action": action}
         )
 
+    def end_session(self, session_id: str) -> dict[str, Any]:
+        """
+        End an audit session.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Dict with session status and summary
+        """
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/end")
+
+    def export_session(
+        self,
+        session_id: str,
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """
+        Export an audit session.
+
+        Args:
+            session_id: Session ID
+            format: Export format (json, csv, pdf)
+
+        Returns:
+            Dict with export URL or data
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/audit/sessions/{session_id}/export",
+            json={"format": format},
+        )
+
+    # ===========================================================================
+    # Finding Management
+    # ===========================================================================
+
+    def list_findings(
+        self,
+        session_id: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List audit findings.
+
+        Args:
+            session_id: Filter by session ID
+            status: Filter by status (open, in_progress, resolved, dismissed)
+            priority: Filter by priority (critical, high, medium, low)
+            limit: Maximum results
+            offset: Pagination offset
+
+        Returns:
+            List of findings with pagination
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if session_id:
+            params["session_id"] = session_id
+        if status:
+            params["status"] = status
+        if priority:
+            params["priority"] = priority
+
+        return self._client.request("GET", "/api/v1/audit/findings", params=params)
+
+    def get_finding(self, finding_id: str) -> dict[str, Any]:
+        """
+        Get a specific audit finding.
+
+        Args:
+            finding_id: Finding ID
+
+        Returns:
+            Finding details
+        """
+        return self._client.request("GET", f"/api/v1/audit/findings/{finding_id}")
+
+    def assign_finding(
+        self,
+        finding_id: str,
+        assignee_id: str,
+    ) -> dict[str, Any]:
+        """
+        Assign a finding to a user.
+
+        Args:
+            finding_id: Finding ID
+            assignee_id: User ID to assign to
+
+        Returns:
+            Dict with success status
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/audit/findings/{finding_id}/assign",
+            json={"assignee_id": assignee_id},
+        )
+
+    def unassign_finding(self, finding_id: str) -> dict[str, Any]:
+        """
+        Unassign a finding.
+
+        Args:
+            finding_id: Finding ID
+
+        Returns:
+            Dict with success status
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/audit/findings/{finding_id}/unassign",
+        )
+
+    def update_finding_status(
+        self,
+        finding_id: str,
+        status: str,
+        resolution_notes: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update finding status.
+
+        Args:
+            finding_id: Finding ID
+            status: New status (open, in_progress, resolved, dismissed)
+            resolution_notes: Optional notes about resolution
+
+        Returns:
+            Updated finding
+        """
+        data: dict[str, Any] = {"status": status}
+        if resolution_notes:
+            data["resolution_notes"] = resolution_notes
+
+        return self._client.request(
+            "PATCH",
+            f"/api/v1/audit/findings/{finding_id}/status",
+            json=data,
+        )
+
+    def update_finding_priority(
+        self,
+        finding_id: str,
+        priority: str,
+    ) -> dict[str, Any]:
+        """
+        Update finding priority.
+
+        Args:
+            finding_id: Finding ID
+            priority: New priority (critical, high, medium, low)
+
+        Returns:
+            Updated finding
+        """
+        return self._client.request(
+            "PATCH",
+            f"/api/v1/audit/findings/{finding_id}/priority",
+            json={"priority": priority},
+        )
+
+    def add_finding_comment(
+        self,
+        finding_id: str,
+        content: str,
+    ) -> dict[str, Any]:
+        """
+        Add a comment to a finding.
+
+        Args:
+            finding_id: Finding ID
+            content: Comment text
+
+        Returns:
+            Created comment
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/audit/findings/{finding_id}/comments",
+            json={"content": content},
+        )
+
+    def list_finding_comments(self, finding_id: str) -> dict[str, Any]:
+        """
+        List comments on a finding.
+
+        Args:
+            finding_id: Finding ID
+
+        Returns:
+            List of comments
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/audit/findings/{finding_id}/comments",
+        )
+
 
 class AsyncAuditAPI:
     """
@@ -456,4 +656,114 @@ class AsyncAuditAPI:
         """Intervene in an audit session."""
         return await self._client.request(
             "POST", f"/api/v1/audit/sessions/{session_id}/intervene", json={"action": action}
+        )
+
+    async def end_session(self, session_id: str) -> dict[str, Any]:
+        """End an audit session."""
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/end")
+
+    async def export_session(
+        self,
+        session_id: str,
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """Export an audit session."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/audit/sessions/{session_id}/export",
+            json={"format": format},
+        )
+
+    # ===========================================================================
+    # Finding Management
+    # ===========================================================================
+
+    async def list_findings(
+        self,
+        session_id: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List audit findings."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if session_id:
+            params["session_id"] = session_id
+        if status:
+            params["status"] = status
+        if priority:
+            params["priority"] = priority
+
+        return await self._client.request("GET", "/api/v1/audit/findings", params=params)
+
+    async def get_finding(self, finding_id: str) -> dict[str, Any]:
+        """Get a specific audit finding."""
+        return await self._client.request("GET", f"/api/v1/audit/findings/{finding_id}")
+
+    async def assign_finding(
+        self,
+        finding_id: str,
+        assignee_id: str,
+    ) -> dict[str, Any]:
+        """Assign a finding to a user."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/audit/findings/{finding_id}/assign",
+            json={"assignee_id": assignee_id},
+        )
+
+    async def unassign_finding(self, finding_id: str) -> dict[str, Any]:
+        """Unassign a finding."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/audit/findings/{finding_id}/unassign",
+        )
+
+    async def update_finding_status(
+        self,
+        finding_id: str,
+        status: str,
+        resolution_notes: str | None = None,
+    ) -> dict[str, Any]:
+        """Update finding status."""
+        data: dict[str, Any] = {"status": status}
+        if resolution_notes:
+            data["resolution_notes"] = resolution_notes
+
+        return await self._client.request(
+            "PATCH",
+            f"/api/v1/audit/findings/{finding_id}/status",
+            json=data,
+        )
+
+    async def update_finding_priority(
+        self,
+        finding_id: str,
+        priority: str,
+    ) -> dict[str, Any]:
+        """Update finding priority."""
+        return await self._client.request(
+            "PATCH",
+            f"/api/v1/audit/findings/{finding_id}/priority",
+            json={"priority": priority},
+        )
+
+    async def add_finding_comment(
+        self,
+        finding_id: str,
+        content: str,
+    ) -> dict[str, Any]:
+        """Add a comment to a finding."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/audit/findings/{finding_id}/comments",
+            json={"content": content},
+        )
+
+    async def list_finding_comments(self, finding_id: str) -> dict[str, Any]:
+        """List comments on a finding."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/audit/findings/{finding_id}/comments",
         )

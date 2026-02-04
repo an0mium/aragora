@@ -877,4 +877,258 @@ export class AuditAPI {
       { body: { action } }
     );
   }
+
+  /**
+   * End an audit session.
+   *
+   * @param sessionId - The session ID to end
+   * @returns End result with session summary
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.endSession('session-123');
+   * console.log(`Session ended with ${result.findings_count} findings`);
+   * ```
+   */
+  async endSession(sessionId: string): Promise<{ ended: boolean; summary?: Record<string, unknown> }> {
+    return this.client.request<{ ended: boolean; summary?: Record<string, unknown> }>(
+      'POST',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/end`
+    );
+  }
+
+  /**
+   * Export an audit session.
+   *
+   * @param sessionId - The session ID to export
+   * @param format - Export format (json, csv, pdf)
+   * @returns Export URL
+   *
+   * @example
+   * ```typescript
+   * const { url } = await client.audit.exportSession('session-123', 'pdf');
+   * console.log(`Download export: ${url}`);
+   * ```
+   */
+  async exportSession(
+    sessionId: string,
+    format: ExportFormat = 'json'
+  ): Promise<{ url: string; expires_at: string }> {
+    return this.client.request<{ url: string; expires_at: string }>(
+      'POST',
+      `/api/v1/audit/sessions/${encodeURIComponent(sessionId)}/export`,
+      { body: { format } }
+    );
+  }
+
+  // ===========================================================================
+  // Finding Management
+  // ===========================================================================
+
+  /**
+   * List audit findings.
+   *
+   * @param options - Filter and pagination options
+   * @returns List of findings
+   *
+   * @example
+   * ```typescript
+   * const { findings, total } = await client.audit.listFindings({
+   *   status: 'open',
+   *   priority: 'critical',
+   *   limit: 20,
+   * });
+   * ```
+   */
+  async listFindings(options?: {
+    session_id?: string;
+    status?: string;
+    priority?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ findings: AuditFinding[]; total: number }> {
+    const params: Record<string, unknown> = {
+      limit: options?.limit ?? 50,
+      offset: options?.offset ?? 0,
+    };
+    if (options?.session_id) params.session_id = options.session_id;
+    if (options?.status) params.status = options.status;
+    if (options?.priority) params.priority = options.priority;
+
+    return this.client.request<{ findings: AuditFinding[]; total: number }>(
+      'GET',
+      '/api/v1/audit/findings',
+      { params }
+    );
+  }
+
+  /**
+   * Get a specific audit finding.
+   *
+   * @param findingId - The finding ID
+   * @returns Finding details
+   *
+   * @example
+   * ```typescript
+   * const finding = await client.audit.getFinding('finding-123');
+   * console.log(`${finding.severity}: ${finding.title}`);
+   * ```
+   */
+  async getFinding(findingId: string): Promise<AuditFinding> {
+    return this.client.request<AuditFinding>(
+      'GET',
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}`
+    );
+  }
+
+  /**
+   * Assign a finding to a user.
+   *
+   * @param findingId - The finding ID
+   * @param assigneeId - The user ID to assign to
+   * @returns Assignment result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.assignFinding('finding-123', 'user-456');
+   * if (result.assigned) {
+   *   console.log('Finding assigned successfully');
+   * }
+   * ```
+   */
+  async assignFinding(
+    findingId: string,
+    assigneeId: string
+  ): Promise<{ assigned: boolean }> {
+    return this.client.request<{ assigned: boolean }>(
+      'POST',
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/assign`,
+      { body: { assignee_id: assigneeId } }
+    );
+  }
+
+  /**
+   * Unassign a finding.
+   *
+   * @param findingId - The finding ID
+   * @returns Unassignment result
+   *
+   * @example
+   * ```typescript
+   * const result = await client.audit.unassignFinding('finding-123');
+   * if (result.unassigned) {
+   *   console.log('Finding unassigned');
+   * }
+   * ```
+   */
+  async unassignFinding(findingId: string): Promise<{ unassigned: boolean }> {
+    return this.client.request<{ unassigned: boolean }>(
+      'POST',
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/unassign`
+    );
+  }
+
+  /**
+   * Update finding status.
+   *
+   * @param findingId - The finding ID
+   * @param status - New status (open, in_progress, resolved, dismissed)
+   * @param resolutionNotes - Optional resolution notes
+   * @returns Updated finding
+   *
+   * @example
+   * ```typescript
+   * const finding = await client.audit.updateFindingStatus(
+   *   'finding-123',
+   *   'resolved',
+   *   'Fixed by applying security patch'
+   * );
+   * ```
+   */
+  async updateFindingStatus(
+    findingId: string,
+    status: string,
+    resolutionNotes?: string
+  ): Promise<AuditFinding> {
+    const body: Record<string, unknown> = { status };
+    if (resolutionNotes) body.resolution_notes = resolutionNotes;
+
+    return this.client.request<AuditFinding>(
+      'PATCH',
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/status`,
+      { body }
+    );
+  }
+
+  /**
+   * Update finding priority.
+   *
+   * @param findingId - The finding ID
+   * @param priority - New priority (critical, high, medium, low)
+   * @returns Updated finding
+   *
+   * @example
+   * ```typescript
+   * const finding = await client.audit.updateFindingPriority('finding-123', 'critical');
+   * ```
+   */
+  async updateFindingPriority(
+    findingId: string,
+    priority: string
+  ): Promise<AuditFinding> {
+    return this.client.request<AuditFinding>(
+      'PATCH',
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/priority`,
+      { body: { priority } }
+    );
+  }
+
+  /**
+   * Add a comment to a finding.
+   *
+   * @param findingId - The finding ID
+   * @param content - Comment text
+   * @returns Created comment
+   *
+   * @example
+   * ```typescript
+   * const comment = await client.audit.addFindingComment(
+   *   'finding-123',
+   *   'Investigating the root cause'
+   * );
+   * ```
+   */
+  async addFindingComment(
+    findingId: string,
+    content: string
+  ): Promise<{ id: string; content: string; created_at: string; author_id: string }> {
+    return this.client.request<{ id: string; content: string; created_at: string; author_id: string }>(
+      'POST',
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/comments`,
+      { body: { content } }
+    );
+  }
+
+  /**
+   * List comments on a finding.
+   *
+   * @param findingId - The finding ID
+   * @returns List of comments
+   *
+   * @example
+   * ```typescript
+   * const { comments } = await client.audit.listFindingComments('finding-123');
+   * for (const comment of comments) {
+   *   console.log(`${comment.author_id}: ${comment.content}`);
+   * }
+   * ```
+   */
+  async listFindingComments(
+    findingId: string
+  ): Promise<{ comments: Array<{ id: string; content: string; created_at: string; author_id: string }> }> {
+    return this.client.request<{ comments: Array<{ id: string; content: string; created_at: string; author_id: string }> }>(
+      'GET',
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/comments`
+    );
+  }
 }

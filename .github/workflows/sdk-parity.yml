@@ -1,0 +1,59 @@
+name: SDK Parity Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/server/handlers/**'
+      - 'sdk/**'
+      - 'scripts/check_sdk_parity.py'
+      - '.github/workflows/sdk-parity.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/server/handlers/**'
+      - 'sdk/**'
+      - 'scripts/check_sdk_parity.py'
+      - '.github/workflows/sdk-parity.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: sdk-parity-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  sdk-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Check SDK Parity
+        run: |
+          # Run parity check and display summary
+          python scripts/check_sdk_parity.py
+
+      - name: Generate JSON Report
+        if: always()
+        run: |
+          python scripts/check_sdk_parity.py --json > parity-report.json || true
+
+      - name: Upload Parity Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-parity-report
+          path: parity-report.json
+          retention-days: 30
