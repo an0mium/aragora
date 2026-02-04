@@ -408,6 +408,43 @@ class DecisionPlanFactory:
         return plan
 
     @staticmethod
+    async def _retrieve_historical_lessons(
+        task: str,
+        knowledge_mound: Any | None = None,
+    ) -> list[str]:
+        """Retrieve lessons learned from similar historical plans.
+
+        Queries the Knowledge Mound for lessons from past decisions that
+        are semantically similar to the current task.
+
+        Args:
+            task: The task description for similarity search
+            knowledge_mound: Optional KM instance (uses global if not provided)
+
+        Returns:
+            List of lesson strings from similar past decisions
+        """
+        try:
+            from aragora.knowledge.mound.adapters.decision_plan_adapter import (
+                get_decision_plan_adapter,
+            )
+
+            adapter = get_decision_plan_adapter(knowledge_mound)
+
+            # Extract domain keywords for targeted lesson retrieval
+            domain_keywords = _extract_keywords(task)
+            domain = " ".join(domain_keywords[:5])
+
+            # Get lessons relevant to this domain
+            lessons = await adapter.get_lessons_for_domain(domain, limit=5)
+            return lessons
+
+        except ImportError:
+            return []
+        except Exception:
+            return []
+
+    @staticmethod
     async def _enrich_risks_from_history(
         register: RiskRegister,
         task: str,
