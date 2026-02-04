@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.rbac.decorators import PermissionDeniedError
-from aragora.rbac.models import AuthorizationContext, PermissionDecision
+from aragora.rbac.models import AuthorizationContext, AuthorizationDecision
 
 
 # Mock for StripeConnector
@@ -119,7 +119,9 @@ def mock_permission_allowed():
     """Mock permission checker to always allow."""
     with patch("aragora.rbac.decorators.get_permission_checker") as mock_checker:
         checker = MagicMock()
-        checker.check_permission.return_value = PermissionDecision(allowed=True)
+        checker.check_permission.return_value = AuthorizationDecision(
+            allowed=True, reason="Allowed", permission_key="test:permission"
+        )
         mock_checker.return_value = checker
         yield checker
 
@@ -594,8 +596,10 @@ class TestPermissionEnforcement:
 
         with patch("aragora.rbac.decorators.get_permission_checker") as mock_checker:
             checker = MagicMock()
-            checker.check_permission.return_value = PermissionDecision(
-                allowed=False, reason="Permission denied: payments:customer:create"
+            checker.check_permission.return_value = AuthorizationDecision(
+                allowed=False,
+                reason="Permission denied: payments:customer:create",
+                permission_key="payments:customer:create",
             )
             mock_checker.return_value = checker
 

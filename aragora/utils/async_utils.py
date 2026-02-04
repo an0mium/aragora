@@ -88,7 +88,7 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     return asyncio.run(coro)
 
 
-def sync_wrapper(async_method):
+def sync_wrapper(async_method: Any) -> Any:
     """Decorator that creates a sync wrapper for an async method.
 
     Use this to eliminate boilerplate sync/async pairs in store classes.
@@ -117,12 +117,12 @@ def sync_wrapper(async_method):
     import functools
 
     @functools.wraps(async_method)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         return run_async(async_method(self, *args, **kwargs))
 
     # Mark as auto-generated for introspection
-    wrapper._is_sync_wrapper = True
-    wrapper._async_method = async_method
+    wrapper._is_sync_wrapper = True  # type: ignore[attr-defined]
+    wrapper._async_method = async_method  # type: ignore[attr-defined]
     return wrapper
 
 

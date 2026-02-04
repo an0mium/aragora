@@ -59,9 +59,34 @@ export function handleErrorEvent(data: ParsedEventData, ctx: EventHandlerContext
 }
 
 /**
+ * Handle authentication revoked event
+ * Triggered when token is invalid or expired during an active connection
+ */
+export function handleAuthRevokedEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const reason = (eventData?.reason as string) || 'Token expired or invalid';
+
+  logger.warn('[WebSocket] Authentication revoked:', reason);
+
+  // Notify via error callback
+  ctx.errorCallbackRef.current?.(`Authentication failed: ${reason}`);
+
+  // Call the onAuthRevoked callback if provided
+  if (ctx.onAuthRevoked) {
+    ctx.onAuthRevoked();
+  }
+
+  // Set error state - connection will be closed by server
+  ctx.setStatus('error');
+  ctx.setError('Authentication required');
+  ctx.setErrorDetails(reason);
+}
+
+/**
  * Registry of system event handlers
  */
 export const systemHandlers = {
   ack: handleAckEvent,
   error: handleErrorEvent,
+  auth_revoked: handleAuthRevokedEvent,
 };

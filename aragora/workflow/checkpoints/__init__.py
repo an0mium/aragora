@@ -23,6 +23,7 @@ from aragora.workflow.checkpoints._compat import (
     DEFAULT_OPERATION_TIMEOUT,
     MAX_CHECKPOINT_CACHE_SIZE,
     REDIS_AVAILABLE,
+    _get_redis_client,  # noqa: F401 - exported for test patching
 )
 from aragora.workflow.checkpoints.cache import CachingCheckpointStore, LRUCheckpointCache
 from aragora.workflow.checkpoints.exceptions import (
@@ -30,6 +31,7 @@ from aragora.workflow.checkpoints.exceptions import (
     ConnectionTimeoutError,
 )
 from aragora.workflow.checkpoints.factory import (
+    _default_mound,  # noqa: F401 - exported for test patching
     get_checkpoint_store,
     get_checkpoint_store_async,
     get_default_knowledge_mound,

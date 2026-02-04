@@ -9,9 +9,7 @@ import os
 from typing import TYPE_CHECKING, Optional
 
 from aragora.workflow.checkpoints._compat import (
-    ASYNCPG_AVAILABLE,
     MAX_CHECKPOINT_CACHE_SIZE,
-    REDIS_AVAILABLE,
     _PoolType,
 )
 from aragora.workflow.checkpoints.cache import CachingCheckpointStore
@@ -134,8 +132,11 @@ def get_checkpoint_store(
         logger.debug("Using default KnowledgeMound for checkpoints")
         return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(_default_mound))
 
+    # Import from stub for test patching compatibility
+    import aragora.workflow.checkpoint_store as _compat_stub
+
     # Try Redis if preferred
-    if prefer_redis and REDIS_AVAILABLE:
+    if prefer_redis and _compat_stub.REDIS_AVAILABLE:
         try:
             store = RedisCheckpointStore()
             # Test Redis availability
@@ -147,7 +148,7 @@ def get_checkpoint_store(
             logger.debug(f"Redis checkpoint store not available: {e}")
 
     # Try Postgres if preferred
-    if prefer_postgres and ASYNCPG_AVAILABLE:
+    if prefer_postgres and _compat_stub.ASYNCPG_AVAILABLE:
         try:
             # Import here to avoid circular imports
             import asyncio
@@ -272,8 +273,11 @@ async def get_checkpoint_store_async(
         logger.debug("Using default KnowledgeMound for checkpoints")
         return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(_default_mound))
 
+    # Import from stub for test patching compatibility
+    import aragora.workflow.checkpoint_store as _compat_stub
+
     # Try Redis if preferred
-    if prefer_redis and REDIS_AVAILABLE:
+    if prefer_redis and _compat_stub.REDIS_AVAILABLE:
         try:
             store = RedisCheckpointStore()
             redis = store._get_redis()
@@ -284,7 +288,7 @@ async def get_checkpoint_store_async(
             logger.debug(f"Redis checkpoint store not available: {e}")
 
     # Try Postgres if preferred
-    if prefer_postgres and ASYNCPG_AVAILABLE:
+    if prefer_postgres and _compat_stub.ASYNCPG_AVAILABLE:
         try:
             from aragora.storage.postgres_store import get_postgres_pool
 

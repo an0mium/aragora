@@ -82,7 +82,20 @@ export class WorkflowsAPI {
   constructor(private client: WorkflowsClientInterface) {}
 
   /**
-   * List all workflows.
+   * List all workflows with optional pagination.
+   *
+   * @param params - Pagination parameters
+   * @param params.limit - Maximum number of workflows to return (default: 20)
+   * @param params.offset - Number of workflows to skip (default: 0)
+   * @returns List of workflows
+   *
+   * @example
+   * ```typescript
+   * const { workflows } = await client.workflows.list({ limit: 10 });
+   * for (const workflow of workflows) {
+   *   console.log(`${workflow.name}: ${workflow.status}`);
+   * }
+   * ```
    */
   async list(params?: PaginationParams): Promise<{ workflows: Workflow[] }> {
     return this.client.listWorkflows(params);
@@ -90,6 +103,15 @@ export class WorkflowsAPI {
 
   /**
    * Get a workflow by ID.
+   *
+   * @param workflowId - The unique workflow identifier
+   * @returns The workflow details
+   *
+   * @example
+   * ```typescript
+   * const workflow = await client.workflows.get('workflow-123');
+   * console.log(`Workflow: ${workflow.name}, Nodes: ${workflow.nodes.length}`);
+   * ```
    */
   async get(workflowId: string): Promise<Workflow> {
     return this.client.getWorkflow(workflowId);
@@ -97,6 +119,22 @@ export class WorkflowsAPI {
 
   /**
    * Create a new workflow.
+   *
+   * @param workflow - Workflow definition including name, nodes, and edges
+   * @returns The created workflow with generated ID
+   *
+   * @example
+   * ```typescript
+   * const workflow = await client.workflows.create({
+   *   name: 'Document Review',
+   *   description: 'Multi-agent document review workflow',
+   *   nodes: [
+   *     { id: 'review', type: 'debate', config: { agents: ['claude', 'gpt-4'] } },
+   *     { id: 'approve', type: 'approval', config: { required_approvers: 1 } },
+   *   ],
+   *   edges: [{ from: 'review', to: 'approve' }],
+   * });
+   * ```
    */
   async create(workflow: Partial<Workflow>): Promise<Workflow> {
     return this.client.createWorkflow(workflow);
@@ -104,6 +142,10 @@ export class WorkflowsAPI {
 
   /**
    * Update an existing workflow.
+   *
+   * @param workflowId - The workflow ID to update
+   * @param updates - Partial workflow object with fields to update
+   * @returns The updated workflow
    */
   async update(workflowId: string, updates: Partial<Workflow>): Promise<Workflow> {
     return this.client.updateWorkflow(workflowId, updates);
@@ -111,6 +153,8 @@ export class WorkflowsAPI {
 
   /**
    * Delete a workflow.
+   *
+   * @param workflowId - The workflow ID to delete
    */
   async delete(workflowId: string): Promise<void> {
     return this.client.deleteWorkflow(workflowId);
@@ -118,6 +162,27 @@ export class WorkflowsAPI {
 
   /**
    * Execute a workflow with optional inputs.
+   *
+   * @param workflowId - The workflow ID to execute
+   * @param inputs - Input parameters to pass to the workflow
+   * @returns The execution ID for tracking progress
+   *
+   * @example
+   * ```typescript
+   * const { execution_id } = await client.workflows.execute('workflow-123', {
+   *   document_url: 'https://example.com/doc.pdf',
+   *   priority: 'high',
+   * });
+   * console.log(`Started execution: ${execution_id}`);
+   *
+   * // Poll for completion
+   * let execution = await client.workflows.getExecution(execution_id);
+   * while (execution.status === 'running') {
+   *   await new Promise(r => setTimeout(r, 1000));
+   *   execution = await client.workflows.getExecution(execution_id);
+   * }
+   * console.log(`Result: ${execution.result}`);
+   * ```
    */
   async execute(workflowId: string, inputs?: Record<string, unknown>): Promise<{ execution_id: string }> {
     return this.client.executeWorkflow(workflowId, inputs);
@@ -195,6 +260,30 @@ export class WorkflowsAPI {
 
   /**
    * Simulate a workflow without actually executing it.
+   *
+   * Useful for testing workflow logic, estimating costs, and validating
+   * input parameters before running a real execution.
+   *
+   * @param workflowId - The workflow ID to simulate
+   * @param inputs - Input parameters for the simulation
+   * @returns Simulation result with predicted outputs, costs, and any validation errors
+   *
+   * @example
+   * ```typescript
+   * const simulation = await client.workflows.simulate('workflow-123', {
+   *   document_url: 'https://example.com/contract.pdf',
+   * });
+   *
+   * console.log(`Estimated duration: ${simulation.estimated_duration_ms}ms`);
+   * console.log(`Estimated cost: $${simulation.estimated_cost}`);
+   *
+   * if (simulation.validation_errors.length > 0) {
+   *   console.log('Validation errors:', simulation.validation_errors);
+   * } else {
+   *   // Proceed with actual execution
+   *   await client.workflows.execute('workflow-123', inputs);
+   * }
+   * ```
    */
   async simulate(workflowId: string, inputs?: Record<string, unknown>): Promise<WorkflowSimulationResult> {
     return this.client.simulateWorkflow(workflowId, inputs);
@@ -202,6 +291,20 @@ export class WorkflowsAPI {
 
   /**
    * List pending workflow approvals.
+   *
+   * @param params - Filter and pagination options
+   * @param params.workflow_id - Filter by specific workflow
+   * @param params.status - Filter by approval status (pending, approved, rejected)
+   * @returns List of approval requests awaiting resolution
+   *
+   * @example
+   * ```typescript
+   * // Get all pending approvals
+   * const { approvals } = await client.workflows.listApprovals({ status: 'pending' });
+   * for (const approval of approvals) {
+   *   console.log(`${approval.workflow_name}: ${approval.reason}`);
+   * }
+   * ```
    */
   async listApprovals(params?: { workflow_id?: string; status?: string; limit?: number; offset?: number }): Promise<{ approvals: WorkflowApproval[] }> {
     return this.client.listWorkflowApprovals(params);
@@ -209,6 +312,27 @@ export class WorkflowsAPI {
 
   /**
    * Approve or reject a workflow approval request.
+   *
+   * @param approvalId - The approval request ID
+   * @param body - Resolution details
+   * @param body.approved - Whether to approve (true) or reject (false)
+   * @param body.comment - Optional comment explaining the decision
+   * @returns Updated approval record
+   *
+   * @example
+   * ```typescript
+   * // Approve a workflow
+   * await client.workflows.resolveApproval('approval-123', {
+   *   approved: true,
+   *   comment: 'Reviewed and approved for production use',
+   * });
+   *
+   * // Reject with feedback
+   * await client.workflows.resolveApproval('approval-456', {
+   *   approved: false,
+   *   comment: 'Needs additional security review before proceeding',
+   * });
+   * ```
    */
   async resolveApproval(approvalId: string, body: { approved: boolean; comment?: string }): Promise<WorkflowApproval> {
     return this.client.resolveWorkflowApproval(approvalId, body);

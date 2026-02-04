@@ -50,6 +50,8 @@ export function useDebateWebSocket({
   debateId,
   wsUrl = DEFAULT_WS_URL,
   enabled = true,
+  accessToken = null,
+  onAuthRevoked,
 }: UseDebateWebSocketOptions): UseDebateWebSocketReturn {
   const MAX_HANDSHAKE_FAILURES = 3;
   const [status, setStatus] = useState<DebateConnectionStatus>('connecting');
@@ -356,7 +358,8 @@ export function useDebateWebSocket({
     ackCallbackRef,
     seenMessagesRef,
     lastSeqRef,
-  }), [debateId, addMessageIfNew, addStreamEvent, clearDebateStartTimeout]);
+    onAuthRevoked,
+  }), [debateId, addMessageIfNew, addStreamEvent, clearDebateStartTimeout, onAuthRevoked]);
 
   // Process a single event from the WebSocket
   const processEvent = useCallback((data: Record<string, unknown>) => {
@@ -471,7 +474,13 @@ export function useDebateWebSocket({
     let ws: WebSocket;
 
     try {
-      ws = new WebSocket(wsUrl);
+      // Build subprotocols array for WebSocket connection
+      // Browser WebSocket API can't set custom headers, so we pass token via subprotocol
+      const protocols: string[] = ['aragora-v1'];
+      if (accessToken) {
+        protocols.push(`access_token.${accessToken}`);
+      }
+      ws = new WebSocket(wsUrl, protocols);
       wsRef.current = ws;
     } catch (e) {
       logger.error('[WebSocket] Failed to create connection:', e);
@@ -519,6 +528,16 @@ export function useDebateWebSocket({
 
       logger.warn(`[WebSocket] Connection closed (code: ${event.code}, reason: ${event.reason || 'none'})`);
 
+      // Handle auth failure close codes (4003 = auth failed, 4401 = token expired)
+      if (event.code === 4003 || event.code === 4401) {
+        logger.warn('[WebSocket] Authentication failed - token may be expired');
+        setStatus('error');
+        setError('Authentication required');
+        setErrorDetails(event.reason || 'Please refresh your authentication');
+        onAuthRevoked?.();
+        return;
+      }
+
       if (!hasEverConnectedRef.current) {
         handshakeFailuresRef.current += 1;
         if (handshakeFailuresRef.current >= MAX_HANDSHAKE_FAILURES) {
@@ -542,7 +561,7 @@ export function useDebateWebSocket({
       }
     };
 
-  }, [enabled, wsUrl, debateId, reconnectTrigger, clearDebateStartTimeout]);
+  }, [enabled, wsUrl, debateId, reconnectTrigger, clearDebateStartTimeout, accessToken]);
 
   return {
     status,

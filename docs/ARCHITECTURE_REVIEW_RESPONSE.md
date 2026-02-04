@@ -26,14 +26,14 @@ The architectural analysis was thorough and identified real opportunities, but s
 
 **This is a feature, not a bug.** The `--local` flag enables air-gapped/offline operation.
 
-### 3. Vertical Specialists Incomplete ✅
-**Confirmed:** Infrastructure complete, implementation placeholders exist.
+### 3. Vertical Specialists Activated ✅
+**Confirmed:** Infrastructure and baseline implementation are active.
 - 5 verticals registered (Software, Legal, Healthcare, Accounting, Research)
 - HTTP handlers: Complete with RBAC + circuit breaker
-- LLM integration: **Placeholder** (returns mock responses)
-- Tool connectors: **Placeholder** (returns "not implemented")
+- LLM integration: Delegate agent implemented (fallbacks if provider unavailable)
+- Tool connectors: Live connectors + web fallbacks for remaining gaps
 
-**Activation path identified:** 24-32 hours to basic functionality.
+**Remaining enhancements:** Dedicated legal case law/statute connectors and a clinical guidelines connector.
 
 ### 4. Marketplace Layer Separation ✅
 **Confirmed but intentional:** CLI, Template Server, and Skill Server use different storage.
@@ -122,26 +122,22 @@ New document `docs/CAPABILITY_MATRIX.md` maps all features to their exposure:
 | Document SDK layering in README | 2 hrs | Clarity |
 | Update CLAUDE.md with layer diagram | 1 hr | Onboarding |
 
-### Phase 1: Vertical Specialist Activation (Week 1-2)
+### Phase 1: Vertical Specialist Activation (Completed)
 
-**Effort:** 24-32 hours total
+**Effort:** Completed
 
-1. **Implement `_generate_response()` in base class** (2-4 hrs)
-   - Route to Anthropic API for primary model
-   - Add retry/fallback logic
-   - Support streaming
+1. **Implement `_generate_response()` in base class** ✅
+   - Delegate agent generation wired with fallbacks
 
-2. **Wire to debates** (1 hr)
-   - Enable `VerticalRegistry.create_specialist()` in debate factory
-   - Add CLI flag `--vertical software|legal|healthcare|...`
+2. **Wire to debates** ✅
+   - `VerticalRegistry.create_specialist()` in debate factory
+   - CLI flags `--vertical` and `--enable-verticals`
 
-3. **Graceful tool failures** (2 hrs)
-   - Return informative messages for unimplemented tools
-   - Log telemetry for tool usage patterns
+3. **Graceful tool failures** ✅
+   - Tool fallbacks return informative messages
 
-4. **First tool connectors** (8-12 hrs)
-   - GitHub API (Software vertical)
-   - PubMed API (Healthcare/Research verticals)
+4. **First tool connectors** ✅
+   - GitHub (Software), PubMed/RxNav/ICD (Healthcare), arXiv/Semantic Scholar/Crossref (Research), SEC (Accounting)
 
 ### Phase 2: HTTP API Parity (Weeks 2-4)
 
@@ -182,7 +178,7 @@ Build marketplace sync bridge:
 |--------|---------|--------|----------|
 | HTTP API coverage of SDK | 45% | 70% | 4 weeks |
 | CLI coverage of SDK | 8% | 20% | 6 weeks |
-| Vertical specialist tools implemented | 0/25 | 10/25 | 4 weeks |
+| Vertical specialist tools implemented | 19/19 (14 direct + 5 fallback) | 19/19 | 4 weeks |
 | OpenAPI route coverage | 85.7% | 90% | 2 weeks |
 
 ---
@@ -199,14 +195,14 @@ Build marketplace sync bridge:
 
 ### For the User
 
-1. **Choose first vertical to activate:** Software (GitHub) or Healthcare (PubMed) recommended
+1. **Choose next vertical connectors to deepen:** Legal case law/statutes and clinical guidelines
 2. **Decide HTTP API priorities:** Which SDK-only features need HTTP access first?
 3. **Validate capability matrix:** Review `docs/CAPABILITY_MATRIX.md` for accuracy
 
 ### For Development
 
-1. Start with `_generate_response()` implementation in vertical base class
-2. Add one tool connector end-to-end as proof of concept
+1. Add legal case law + statute connectors (replace web fallback)
+2. Add clinical guidelines connector (replace web fallback)
 3. Create HTTP handler for `debates` namespace (highest visibility)
 
 ---

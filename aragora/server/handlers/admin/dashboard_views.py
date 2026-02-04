@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
 
@@ -22,6 +22,9 @@ from ..base import (
     ttl_cache,
 )
 from ..openapi_decorator import api_endpoint
+
+if TYPE_CHECKING:
+    from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,13 @@ class DashboardViewsMixin:
     - _get_agent_performance(limit) -> dict
     - _get_performance_metrics() -> dict
     """
+
+    # Stub methods expected from the composing class
+    def get_storage(self) -> Any: ...  # Returns storage with connection() method
+    def get_elo_system(self) -> "EloSystem | None": ...
+    def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]: ...
+    def _get_agent_performance(self, limit: int) -> dict[str, Any]: ...
+    def _get_performance_metrics(self) -> dict[str, Any]: ...
 
     @api_endpoint(
         method="GET",

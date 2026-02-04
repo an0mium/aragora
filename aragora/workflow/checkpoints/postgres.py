@@ -12,7 +12,6 @@ from dataclasses import asdict
 from typing import Any, Optional
 
 from aragora.workflow.checkpoints._compat import (
-    ASYNCPG_AVAILABLE,
     DEFAULT_CONNECTION_TIMEOUT,
     DEFAULT_OPERATION_TIMEOUT,
     _PoolType,
@@ -76,7 +75,10 @@ class PostgresCheckpointStore:
         Args:
             pool: asyncpg connection pool from get_postgres_pool()
         """
-        if not ASYNCPG_AVAILABLE:
+        # Import from stub for test patching compatibility
+        import aragora.workflow.checkpoint_store as _compat_stub
+
+        if not _compat_stub.ASYNCPG_AVAILABLE:
             raise RuntimeError(
                 "PostgreSQL checkpoint store requires 'asyncpg' package. "
                 "Install with: pip install aragora[postgres] or pip install asyncpg"

@@ -878,6 +878,8 @@ module = [
     "aragora.server.handlers.admin.credits",
     "aragora.server.handlers.knowledge.checkpoints",
     "aragora.server.handlers.knowledge.sharing_notifications",
+    # Added strict - Phase 33 type safety expansion (Feb 2026)
+    "aragora.mcp.tools",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

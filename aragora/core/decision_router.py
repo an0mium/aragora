@@ -1125,19 +1125,22 @@ class DecisionRouter:
                 logger.debug(f"Trace span error: {e}")
 
         try:
+            from aragora.gauntlet.orchestrator import (
+                GauntletOrchestrator,
+                GauntletConfig as OrchestratorConfig,
+                Verdict,
+            )
+            from aragora.agents import get_agents_by_names
+
             if self._gauntlet_engine is None:
-                from aragora.gauntlet.orchestrator import GauntletOrchestrator
+                agents = get_agents_by_names(request.config.agents) if request.config.agents else []
+                self._gauntlet_engine = GauntletOrchestrator(agents=agents)
 
-                self._gauntlet_engine = GauntletOrchestrator()
-
-            from aragora.gauntlet.config import GauntletConfig
-
-            config = GauntletConfig(
-                agents=request.config.agents,
-                enable_adversarial_probing=request.config.enable_adversarial,
-                enable_formal_verification=request.config.enable_formal_verification,
-                robustness_threshold=request.config.robustness_threshold,
-                timeout_seconds=request.config.timeout_seconds,
+            config = OrchestratorConfig(
+                input_content=request.content,
+                enable_redteam=request.config.enable_adversarial,
+                enable_verification=request.config.enable_formal_verification,
+                max_duration_seconds=request.config.timeout_seconds,
             )
 
             if span:
@@ -1146,21 +1149,22 @@ class DecisionRouter:
                     "gauntlet.formal_verification", request.config.enable_formal_verification
                 )
 
-            gauntlet_result = await self._gauntlet_engine.run(
-                input_text=request.content,
-                config=config,
-            )
+            gauntlet_result = await self._gauntlet_engine.run(config=config)
+
+            # Derive passed status from verdict
+            passed = gauntlet_result.verdict in (Verdict.PASS, Verdict.APPROVED)
+            verdict_summary = gauntlet_result.verdict.value if gauntlet_result.verdict else ""
 
             if span:
-                span.set_attribute("gauntlet.passed", gauntlet_result.passed)
+                span.set_attribute("gauntlet.passed", passed)
                 span.set_attribute("gauntlet.confidence", gauntlet_result.confidence)
 
             return DecisionResult(
                 request_id=request.request_id,
                 decision_type=DecisionType.GAUNTLET,
-                answer=gauntlet_result.verdict_summary or "",
+                answer=verdict_summary,
                 confidence=gauntlet_result.confidence,
-                consensus_reached=gauntlet_result.passed,
+                consensus_reached=passed,
                 gauntlet_result=gauntlet_result,
             )
         finally:

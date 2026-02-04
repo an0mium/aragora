@@ -250,24 +250,22 @@ The vertical specialists system (Software, Legal, Healthcare, Accounting, Resear
 - Registry: Complete (factory pattern, 5 verticals registered)
 - HTTP API: Complete (RBAC, circuit breaker, rate limiting)
 - SDK: Complete (Python + TypeScript namespaces)
-- LLM Integration: **PLACEHOLDER** (returns mock responses)
-- Tool Connectors: **PLACEHOLDER** (returns "not implemented")
+- LLM Integration: Implemented via delegate agent (fallbacks if provider unavailable)
+- Tool Connectors: Active (with web fallbacks for unsupported domains)
 
-### Activation Path (24-32 hours)
-1. Implement `_generate_response()` in base class (2-4 hrs)
-2. Wire `VerticalRegistry.create_specialist()` to debates (1 hr)
-3. Add HTTP error handling for missing tools (2 hrs)
-4. Deploy to staging with graceful fallbacks (1 hr)
+### Remaining Enhancements (8-16 hours)
+1. Add dedicated legal case law and statute connectors (6-10 hrs)
+2. Add clinical guideline connector (2-4 hrs)
+3. Expand tool audit telemetry into Knowledge Mound (2 hrs)
 
-### Tool Connector Priorities
-| Vertical | Tool | API | Effort |
-|----------|------|-----|--------|
-| Software | GitHub | PyGithub | 4 hrs |
-| Software | SAST | Semgrep | 4 hrs |
-| Healthcare | PubMed | NCBI E-utils | 4 hrs |
-| Research | arXiv | arXiv API | 3 hrs |
-| Accounting | SEC EDGAR | sec-api | 4 hrs |
-| Legal | Statutes | US Code | 6 hrs |
+### Remaining Connector Gaps
+| Vertical | Tool | Suggested Source | Effort |
+|----------|------|------------------|--------|
+| Legal | Case Search | CourtListener / GovInfo | 6-10 hrs |
+| Legal | Statute Lookup | GovInfo / US Code | 6 hrs |
+| Healthcare | Clinical Guidelines | NICE / AHRQ / NIH | 2-4 hrs |
+| Accounting | GAAP Lookup | FASB / curated KB | 4-6 hrs |
+| Accounting | Tax Reference | IRS / jurisdiction KB | 4-6 hrs |
 
 ---
 

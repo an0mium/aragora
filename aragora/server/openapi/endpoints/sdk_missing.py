@@ -33,41 +33,969 @@ SDK_MISSING_ENDPOINTS.update(SDK_MISSING_COMPLIANCE_ENDPOINTS)
 SDK_MISSING_ENDPOINTS.update(SDK_MISSING_ANALYTICS_ENDPOINTS)
 SDK_MISSING_ENDPOINTS.update(SDK_MISSING_INTEGRATION_ENDPOINTS)
 
+
+# =============================================================================
+# Response Schemas for _OTHER_ENDPOINTS
+# =============================================================================
+
+# Debates - Replay schemas
+_DEBATE_REPLAY_SCHEMA = {
+    "replay_id": {"type": "string", "description": "Unique replay identifier"},
+    "debate_id": {"type": "string", "description": "Source debate identifier"},
+    "events": {
+        "type": "array",
+        "description": "Ordered list of debate events",
+        "items": {
+            "type": "object",
+            "properties": {
+                "event_id": {"type": "string"},
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "debate_start",
+                        "round_start",
+                        "agent_message",
+                        "critique",
+                        "vote",
+                        "consensus",
+                        "debate_end",
+                    ],
+                },
+                "timestamp": {"type": "string", "format": "date-time"},
+                "agent_id": {"type": "string"},
+                "content": {"type": "string"},
+                "metadata": {"type": "object"},
+            },
+        },
+    },
+    "duration_ms": {"type": "integer", "description": "Total replay duration in milliseconds"},
+    "total_rounds": {"type": "integer", "description": "Number of debate rounds"},
+    "participants": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "List of participating agent IDs",
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "status": {"type": "string", "enum": ["ready", "processing", "error"]},
+}
+
+# Keys schemas
+_API_KEY_SCHEMA = {
+    "id": {"type": "string", "description": "Key identifier"},
+    "name": {"type": "string", "description": "Human-readable key name"},
+    "prefix": {"type": "string", "description": "Key prefix (e.g., 'sk_live_')"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "last_used_at": {"type": "string", "format": "date-time"},
+    "scopes": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Authorized permission scopes",
+    },
+    "status": {"type": "string", "enum": ["active", "expired", "revoked"]},
+}
+
+_API_KEYS_LIST_SCHEMA = {
+    "keys": {"type": "array", "items": {"type": "object", "properties": _API_KEY_SCHEMA}},
+    "total": {"type": "integer"},
+}
+
+# Knowledge Mound schemas
+_KNOWLEDGE_NODE_SCHEMA = {
+    "id": {"type": "string", "description": "Node identifier"},
+    "type": {
+        "type": "string",
+        "enum": ["fact", "claim", "evidence", "concept", "entity"],
+        "description": "Node classification",
+    },
+    "content": {"type": "string", "description": "Node content text"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "source_debate_id": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "metadata": {"type": "object"},
+    "tags": {"type": "array", "items": {"type": "string"}},
+}
+
+_NODE_RELATIONSHIPS_SCHEMA = {
+    "node_id": {"type": "string"},
+    "relationships": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "relationship_id": {"type": "string"},
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "supports",
+                        "contradicts",
+                        "related_to",
+                        "derives_from",
+                        "part_of",
+                    ],
+                },
+                "target_node_id": {"type": "string"},
+                "strength": {"type": "number", "minimum": 0, "maximum": 1},
+                "created_at": {"type": "string", "format": "date-time"},
+            },
+        },
+    },
+    "total_relationships": {"type": "integer"},
+}
+
+# Leaderboard schemas
+_AGENT_STATS_SCHEMA = {
+    "agent_id": {"type": "string"},
+    "name": {"type": "string"},
+    "elo_rating": {"type": "number"},
+    "total_debates": {"type": "integer"},
+    "wins": {"type": "integer"},
+    "losses": {"type": "integer"},
+    "draws": {"type": "integer"},
+    "win_rate": {"type": "number", "minimum": 0, "maximum": 1},
+    "average_score": {"type": "number"},
+    "domains": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Expertise domains",
+    },
+    "rank": {"type": "integer"},
+    "tier": {"type": "string", "enum": ["bronze", "silver", "gold", "platinum", "diamond"]},
+}
+
+_ELO_HISTORY_SCHEMA = {
+    "agent_id": {"type": "string"},
+    "history": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "timestamp": {"type": "string", "format": "date-time"},
+                "rating": {"type": "number"},
+                "change": {"type": "number"},
+                "debate_id": {"type": "string"},
+                "opponent_id": {"type": "string"},
+                "result": {"type": "string", "enum": ["win", "loss", "draw"]},
+            },
+        },
+    },
+    "current_rating": {"type": "number"},
+    "peak_rating": {"type": "number"},
+    "lowest_rating": {"type": "number"},
+}
+
+_AGENT_COMPARISON_SCHEMA = {
+    "agents": {
+        "type": "array",
+        "items": {"type": "object", "properties": _AGENT_STATS_SCHEMA},
+    },
+    "head_to_head": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "agent_a": {"type": "string"},
+                "agent_b": {"type": "string"},
+                "a_wins": {"type": "integer"},
+                "b_wins": {"type": "integer"},
+                "draws": {"type": "integer"},
+            },
+        },
+    },
+}
+
+_DOMAIN_LEADERBOARD_SCHEMA = {
+    "domain": {"type": "string"},
+    "agents": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "name": {"type": "string"},
+                "domain_elo": {"type": "number"},
+                "domain_debates": {"type": "integer"},
+                "domain_win_rate": {"type": "number"},
+                "rank": {"type": "integer"},
+            },
+        },
+    },
+    "total_agents": {"type": "integer"},
+}
+
+_DOMAINS_LIST_SCHEMA = {
+    "domains": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "total_debates": {"type": "integer"},
+                "active_agents": {"type": "integer"},
+            },
+        },
+    },
+}
+
+_TOP_MOVERS_SCHEMA = {
+    "period": {"type": "string", "enum": ["day", "week", "month"]},
+    "gainers": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "name": {"type": "string"},
+                "rating_change": {"type": "number"},
+                "new_rating": {"type": "number"},
+                "debates_in_period": {"type": "integer"},
+            },
+        },
+    },
+    "losers": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "name": {"type": "string"},
+                "rating_change": {"type": "number"},
+                "new_rating": {"type": "number"},
+                "debates_in_period": {"type": "integer"},
+            },
+        },
+    },
+}
+
+# Notifications schemas
+_EMAIL_CONFIG_SCHEMA = {
+    "enabled": {"type": "boolean"},
+    "smtp_host": {"type": "string"},
+    "smtp_port": {"type": "integer"},
+    "from_address": {"type": "string", "format": "email"},
+    "use_tls": {"type": "boolean"},
+    "events": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Event types to notify on",
+    },
+}
+
+_EMAIL_RECIPIENT_SCHEMA = {
+    "id": {"type": "string"},
+    "email": {"type": "string", "format": "email"},
+    "name": {"type": "string"},
+    "verified": {"type": "boolean"},
+    "subscribed_events": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string", "format": "date-time"},
+}
+
+_EMAIL_RECIPIENTS_LIST_SCHEMA = {
+    "recipients": {
+        "type": "array",
+        "items": {"type": "object", "properties": _EMAIL_RECIPIENT_SCHEMA},
+    },
+    "total": {"type": "integer"},
+}
+
+_NOTIFICATION_HISTORY_SCHEMA = {
+    "notifications": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "channel": {"type": "string", "enum": ["email", "telegram", "slack", "webhook"]},
+                "event_type": {"type": "string"},
+                "recipient": {"type": "string"},
+                "status": {"type": "string", "enum": ["sent", "delivered", "failed", "pending"]},
+                "sent_at": {"type": "string", "format": "date-time"},
+                "delivered_at": {"type": "string", "format": "date-time"},
+                "error": {"type": "string"},
+            },
+        },
+    },
+    "total": {"type": "integer"},
+    "page": {"type": "integer"},
+    "page_size": {"type": "integer"},
+}
+
+_SEND_NOTIFICATION_RESPONSE = {
+    "notification_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["queued", "sent", "failed"]},
+    "recipients_count": {"type": "integer"},
+}
+
+_NOTIFICATION_STATUS_SCHEMA = {
+    "channels": {
+        "type": "object",
+        "properties": {
+            "email": {
+                "type": "object",
+                "properties": {"enabled": {"type": "boolean"}, "configured": {"type": "boolean"}},
+            },
+            "telegram": {
+                "type": "object",
+                "properties": {"enabled": {"type": "boolean"}, "configured": {"type": "boolean"}},
+            },
+            "slack": {
+                "type": "object",
+                "properties": {"enabled": {"type": "boolean"}, "configured": {"type": "boolean"}},
+            },
+        },
+    },
+    "queue_depth": {"type": "integer"},
+    "last_sent_at": {"type": "string", "format": "date-time"},
+}
+
+_TELEGRAM_CONFIG_SCHEMA = {
+    "enabled": {"type": "boolean"},
+    "bot_token_set": {"type": "boolean"},
+    "chat_ids": {"type": "array", "items": {"type": "string"}},
+    "events": {"type": "array", "items": {"type": "string"}},
+}
+
+_TEST_NOTIFICATION_RESPONSE = {
+    "success": {"type": "boolean"},
+    "channel": {"type": "string"},
+    "message": {"type": "string"},
+    "delivered_at": {"type": "string", "format": "date-time"},
+}
+
+# Personas schemas
+_PERSONA_SCHEMA = {
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "traits": {"type": "array", "items": {"type": "string"}},
+    "communication_style": {
+        "type": "string",
+        "enum": ["formal", "casual", "technical", "friendly"],
+    },
+    "expertise_domains": {"type": "array", "items": {"type": "string"}},
+    "tone": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+}
+
+_PERSONA_OPTIONS_SCHEMA = {
+    "communication_styles": {"type": "array", "items": {"type": "string"}},
+    "available_traits": {"type": "array", "items": {"type": "string"}},
+    "expertise_domains": {"type": "array", "items": {"type": "string"}},
+    "tone_options": {"type": "array", "items": {"type": "string"}},
+}
+
+# Pulse schemas
+_PULSE_ANALYTICS_SCHEMA = {
+    "period": {"type": "string"},
+    "topics_processed": {"type": "integer"},
+    "debates_triggered": {"type": "integer"},
+    "sources": {
+        "type": "object",
+        "properties": {
+            "hackernews": {"type": "integer"},
+            "reddit": {"type": "integer"},
+            "twitter": {"type": "integer"},
+        },
+    },
+    "top_topics": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string"},
+                "score": {"type": "number"},
+                "source": {"type": "string"},
+                "debate_id": {"type": "string"},
+            },
+        },
+    },
+    "quality_scores": {
+        "type": "object",
+        "properties": {
+            "average": {"type": "number"},
+            "min": {"type": "number"},
+            "max": {"type": "number"},
+        },
+    },
+}
+
+_DEBATE_TOPIC_RESPONSE = {
+    "topic_id": {"type": "string"},
+    "topic": {"type": "string"},
+    "source": {"type": "string"},
+    "quality_score": {"type": "number"},
+    "debate_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["queued", "debating", "completed"]},
+}
+
+_SCHEDULER_CONFIG_SCHEMA = {
+    "enabled": {"type": "boolean"},
+    "interval_minutes": {"type": "integer"},
+    "sources": {
+        "type": "array",
+        "items": {"type": "string", "enum": ["hackernews", "reddit", "twitter"]},
+    },
+    "quality_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+    "max_topics_per_run": {"type": "integer"},
+    "auto_debate": {"type": "boolean"},
+}
+
+_SCHEDULER_HISTORY_SCHEMA = {
+    "runs": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "started_at": {"type": "string", "format": "date-time"},
+                "completed_at": {"type": "string", "format": "date-time"},
+                "topics_found": {"type": "integer"},
+                "topics_processed": {"type": "integer"},
+                "debates_triggered": {"type": "integer"},
+                "status": {"type": "string", "enum": ["completed", "failed", "partial"]},
+                "error": {"type": "string"},
+            },
+        },
+    },
+    "total_runs": {"type": "integer"},
+}
+
+_SCHEDULER_STATUS_SCHEMA = {
+    "state": {"type": "string", "enum": ["running", "paused", "stopped"]},
+    "last_run_at": {"type": "string", "format": "date-time"},
+    "next_run_at": {"type": "string", "format": "date-time"},
+    "current_run_id": {"type": "string"},
+    "topics_in_queue": {"type": "integer"},
+}
+
+_SCHEDULER_ACTION_RESPONSE = {
+    "success": {"type": "boolean"},
+    "state": {"type": "string", "enum": ["running", "paused", "stopped"]},
+    "message": {"type": "string"},
+}
+
+# Replays schemas
+_REPLAY_LIST_SCHEMA = {
+    "replays": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "debate_id": {"type": "string"},
+                "title": {"type": "string"},
+                "duration_ms": {"type": "integer"},
+                "created_at": {"type": "string", "format": "date-time"},
+                "view_count": {"type": "integer"},
+                "is_public": {"type": "boolean"},
+            },
+        },
+    },
+    "total": {"type": "integer"},
+    "page": {"type": "integer"},
+    "page_size": {"type": "integer"},
+}
+
+_REPLAY_DETAIL_SCHEMA = {
+    "id": {"type": "string"},
+    "debate_id": {"type": "string"},
+    "title": {"type": "string"},
+    "description": {"type": "string"},
+    "events": {"type": "array", "items": {"type": "object"}},
+    "duration_ms": {"type": "integer"},
+    "total_rounds": {"type": "integer"},
+    "participants": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string", "format": "date-time"},
+    "view_count": {"type": "integer"},
+    "is_public": {"type": "boolean"},
+    "bookmarked": {"type": "boolean"},
+}
+
+_CREATE_REPLAY_RESPONSE = {
+    "replay_id": {"type": "string"},
+    "debate_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["processing", "ready", "error"]},
+    "estimated_ready_at": {"type": "string", "format": "date-time"},
+}
+
+_SHARE_LINK_SCHEMA = {
+    "share_id": {"type": "string"},
+    "replay_id": {"type": "string"},
+    "url": {"type": "string", "format": "uri"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "access_count": {"type": "integer"},
+    "max_accesses": {"type": "integer"},
+}
+
+_BOOKMARK_RESPONSE = {
+    "success": {"type": "boolean"},
+    "replay_id": {"type": "string"},
+    "bookmarked": {"type": "boolean"},
+    "bookmarked_at": {"type": "string", "format": "date-time"},
+}
+
+_REPLAY_COMMENTS_SCHEMA = {
+    "comments": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "user_id": {"type": "string"},
+                "user_name": {"type": "string"},
+                "content": {"type": "string"},
+                "timestamp_ms": {"type": "integer", "description": "Position in replay"},
+                "created_at": {"type": "string", "format": "date-time"},
+                "edited": {"type": "boolean"},
+            },
+        },
+    },
+    "total": {"type": "integer"},
+}
+
+_ADD_COMMENT_RESPONSE = {
+    "comment_id": {"type": "string"},
+    "replay_id": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+}
+
+_EXPORT_REPLAY_SCHEMA = {
+    "export_id": {"type": "string"},
+    "replay_id": {"type": "string"},
+    "format": {"type": "string", "enum": ["json", "markdown", "pdf", "html"]},
+    "download_url": {"type": "string", "format": "uri"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "size_bytes": {"type": "integer"},
+}
+
+_REPLAY_SUMMARY_SCHEMA = {
+    "replay_id": {"type": "string"},
+    "title": {"type": "string"},
+    "summary": {"type": "string"},
+    "key_points": {"type": "array", "items": {"type": "string"}},
+    "outcome": {"type": "string"},
+    "consensus_reached": {"type": "boolean"},
+    "winning_agent": {"type": "string"},
+}
+
+_REPLAY_TRANSCRIPT_SCHEMA = {
+    "replay_id": {"type": "string"},
+    "format": {"type": "string", "enum": ["plain", "markdown", "annotated"]},
+    "transcript": {"type": "string"},
+    "word_count": {"type": "integer"},
+    "sections": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "round": {"type": "integer"},
+                "speaker": {"type": "string"},
+                "content": {"type": "string"},
+                "timestamp_ms": {"type": "integer"},
+            },
+        },
+    },
+}
+
+# Routing schemas
+_DOMAIN_LEADERBOARD_ROUTING_SCHEMA = {
+    "domains": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "domain": {"type": "string"},
+                "top_agents": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "agent_id": {"type": "string"},
+                            "score": {"type": "number"},
+                            "debates": {"type": "integer"},
+                        },
+                    },
+                },
+                "routing_weight": {"type": "number"},
+            },
+        },
+    },
+}
+
+# Skills schemas
+_SKILL_SCHEMA = {
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "version": {"type": "string"},
+    "author": {"type": "string"},
+    "category": {"type": "string"},
+    "capabilities": {"type": "array", "items": {"type": "string"}},
+    "parameters": {"type": "object"},
+    "installed": {"type": "boolean"},
+    "enabled": {"type": "boolean"},
+    "created_at": {"type": "string", "format": "date-time"},
+}
+
+# Users schemas
+_USER_ME_SCHEMA = {
+    "id": {"type": "string"},
+    "email": {"type": "string", "format": "email"},
+    "name": {"type": "string"},
+    "avatar_url": {"type": "string", "format": "uri"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "last_login_at": {"type": "string", "format": "date-time"},
+    "roles": {"type": "array", "items": {"type": "string"}},
+    "workspace_id": {"type": "string"},
+    "tenant_id": {"type": "string"},
+}
+
+_USER_PREFERENCES_SCHEMA = {
+    "theme": {"type": "string", "enum": ["light", "dark", "system"]},
+    "language": {"type": "string"},
+    "timezone": {"type": "string"},
+    "notification_settings": {
+        "type": "object",
+        "properties": {
+            "email": {"type": "boolean"},
+            "push": {"type": "boolean"},
+            "in_app": {"type": "boolean"},
+        },
+    },
+    "default_debate_settings": {
+        "type": "object",
+        "properties": {
+            "rounds": {"type": "integer"},
+            "consensus_threshold": {"type": "number"},
+        },
+    },
+}
+
+_USER_PROFILE_SCHEMA = {
+    "id": {"type": "string"},
+    "email": {"type": "string", "format": "email"},
+    "name": {"type": "string"},
+    "display_name": {"type": "string"},
+    "bio": {"type": "string"},
+    "avatar_url": {"type": "string", "format": "uri"},
+    "company": {"type": "string"},
+    "location": {"type": "string"},
+    "website": {"type": "string", "format": "uri"},
+    "social_links": {"type": "object"},
+    "updated_at": {"type": "string", "format": "date-time"},
+}
+
+_USER_DEBATES_SCHEMA = {
+    "debates": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "title": {"type": "string"},
+                "status": {"type": "string", "enum": ["active", "completed", "cancelled"]},
+                "role": {"type": "string", "enum": ["creator", "participant", "observer"]},
+                "created_at": {"type": "string", "format": "date-time"},
+                "completed_at": {"type": "string", "format": "date-time"},
+            },
+        },
+    },
+    "total": {"type": "integer"},
+    "page": {"type": "integer"},
+    "page_size": {"type": "integer"},
+}
+
+# SCIM schemas
+_SCIM_GROUPS_SCHEMA = {
+    "schemas": {"type": "array", "items": {"type": "string"}},
+    "totalResults": {"type": "integer"},
+    "startIndex": {"type": "integer"},
+    "itemsPerPage": {"type": "integer"},
+    "Resources": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "schemas": {"type": "array", "items": {"type": "string"}},
+                "id": {"type": "string"},
+                "displayName": {"type": "string"},
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "value": {"type": "string"},
+                            "display": {"type": "string"},
+                        },
+                    },
+                },
+                "meta": {
+                    "type": "object",
+                    "properties": {
+                        "resourceType": {"type": "string"},
+                        "created": {"type": "string", "format": "date-time"},
+                        "lastModified": {"type": "string", "format": "date-time"},
+                        "location": {"type": "string", "format": "uri"},
+                    },
+                },
+            },
+        },
+    },
+}
+
+_SCIM_USERS_SCHEMA = {
+    "schemas": {"type": "array", "items": {"type": "string"}},
+    "totalResults": {"type": "integer"},
+    "startIndex": {"type": "integer"},
+    "itemsPerPage": {"type": "integer"},
+    "Resources": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "schemas": {"type": "array", "items": {"type": "string"}},
+                "id": {"type": "string"},
+                "userName": {"type": "string"},
+                "name": {
+                    "type": "object",
+                    "properties": {
+                        "givenName": {"type": "string"},
+                        "familyName": {"type": "string"},
+                        "formatted": {"type": "string"},
+                    },
+                },
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "value": {"type": "string", "format": "email"},
+                            "type": {"type": "string"},
+                            "primary": {"type": "boolean"},
+                        },
+                    },
+                },
+                "active": {"type": "boolean"},
+                "meta": {
+                    "type": "object",
+                    "properties": {
+                        "resourceType": {"type": "string"},
+                        "created": {"type": "string", "format": "date-time"},
+                        "lastModified": {"type": "string", "format": "date-time"},
+                        "location": {"type": "string", "format": "uri"},
+                    },
+                },
+            },
+        },
+    },
+}
+
+
+# =============================================================================
+# Request Body Schemas
+# =============================================================================
+
+_EMAIL_CONFIG_REQUEST = {
+    "type": "object",
+    "properties": {
+        "enabled": {"type": "boolean"},
+        "smtp_host": {"type": "string"},
+        "smtp_port": {"type": "integer"},
+        "smtp_user": {"type": "string"},
+        "smtp_password": {"type": "string"},
+        "from_address": {"type": "string", "format": "email"},
+        "use_tls": {"type": "boolean"},
+        "events": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+_EMAIL_RECIPIENT_REQUEST = {
+    "type": "object",
+    "required": ["email"],
+    "properties": {
+        "email": {"type": "string", "format": "email"},
+        "name": {"type": "string"},
+        "subscribed_events": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+_SEND_NOTIFICATION_REQUEST = {
+    "type": "object",
+    "required": ["channel", "message"],
+    "properties": {
+        "channel": {"type": "string", "enum": ["email", "telegram", "slack", "webhook"]},
+        "recipients": {"type": "array", "items": {"type": "string"}},
+        "subject": {"type": "string"},
+        "message": {"type": "string"},
+        "template_id": {"type": "string"},
+        "data": {"type": "object"},
+    },
+}
+
+_TELEGRAM_CONFIG_REQUEST = {
+    "type": "object",
+    "properties": {
+        "enabled": {"type": "boolean"},
+        "bot_token": {"type": "string"},
+        "chat_ids": {"type": "array", "items": {"type": "string"}},
+        "events": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+_TEST_NOTIFICATION_REQUEST = {
+    "type": "object",
+    "required": ["channel"],
+    "properties": {
+        "channel": {"type": "string", "enum": ["email", "telegram", "slack"]},
+        "recipient": {"type": "string"},
+    },
+}
+
+_CREATE_PERSONA_REQUEST = {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "traits": {"type": "array", "items": {"type": "string"}},
+        "communication_style": {"type": "string"},
+        "expertise_domains": {"type": "array", "items": {"type": "string"}},
+        "tone": {"type": "string"},
+    },
+}
+
+_DEBATE_TOPIC_REQUEST = {
+    "type": "object",
+    "required": ["topic"],
+    "properties": {
+        "topic": {"type": "string"},
+        "source": {"type": "string"},
+        "auto_debate": {"type": "boolean"},
+        "priority": {"type": "integer", "minimum": 1, "maximum": 10},
+    },
+}
+
+_SCHEDULER_CONFIG_REQUEST = {
+    "type": "object",
+    "properties": {
+        "enabled": {"type": "boolean"},
+        "interval_minutes": {"type": "integer", "minimum": 1},
+        "sources": {"type": "array", "items": {"type": "string"}},
+        "quality_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_topics_per_run": {"type": "integer", "minimum": 1},
+        "auto_debate": {"type": "boolean"},
+    },
+}
+
+_CREATE_REPLAY_REQUEST = {
+    "type": "object",
+    "required": ["debate_id"],
+    "properties": {
+        "debate_id": {"type": "string"},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "is_public": {"type": "boolean"},
+    },
+}
+
+_BOOKMARK_REQUEST = {
+    "type": "object",
+    "properties": {
+        "note": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+_ADD_COMMENT_REQUEST = {
+    "type": "object",
+    "required": ["content"],
+    "properties": {
+        "content": {"type": "string"},
+        "timestamp_ms": {"type": "integer"},
+    },
+}
+
+_SHARE_REPLAY_REQUEST = {
+    "type": "object",
+    "properties": {
+        "expires_in_hours": {"type": "integer"},
+        "max_accesses": {"type": "integer"},
+        "password": {"type": "string"},
+    },
+}
+
+_UPDATE_PROFILE_REQUEST = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "display_name": {"type": "string"},
+        "bio": {"type": "string"},
+        "avatar_url": {"type": "string", "format": "uri"},
+        "company": {"type": "string"},
+        "location": {"type": "string"},
+        "website": {"type": "string", "format": "uri"},
+        "social_links": {"type": "object"},
+    },
+}
+
+
 # Additional endpoints that don't fit into the main categories
 _OTHER_ENDPOINTS: dict = {
     "/api/debates/{id}/replay": {
         "get": {
             "tags": ["Debates"],
-            "summary": "GET replay",
+            "summary": "Get debate replay",
+            "description": "Retrieve replay data for a completed debate including all events and timing",
             "operationId": "getDebatesReplay",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Debate ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Debate replay data", _DEBATE_REPLAY_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/keys": {
         "get": {
             "tags": ["Keys"],
-            "summary": "GET keys",
+            "summary": "List API keys",
+            "description": "List all API keys for the current user or workspace",
             "operationId": "getKeys",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("List of API keys", _API_KEYS_LIST_SCHEMA),
             },
         },
     },
     "/api/keys/{id}": {
         "delete": {
             "tags": ["Keys"],
-            "summary": "DELETE {id}",
+            "summary": "Delete API key",
+            "description": "Revoke and delete an API key",
             "operationId": "deleteKeys",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Key ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response(
+                    "Key deleted", {"deleted": {"type": "boolean"}, "id": {"type": "string"}}
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
         },
@@ -75,552 +1003,904 @@ _OTHER_ENDPOINTS: dict = {
     "/api/knowledge/mound/nodes/{id}": {
         "get": {
             "tags": ["Knowledge"],
-            "summary": "GET {id}",
+            "summary": "Get knowledge node",
+            "description": "Retrieve a specific knowledge node from the Knowledge Mound",
             "operationId": "getMoundNodes",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Node ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Knowledge node details", _KNOWLEDGE_NODE_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/knowledge/mound/nodes/{id}/relationships": {
         "get": {
             "tags": ["Knowledge"],
-            "summary": "GET relationships",
+            "summary": "Get node relationships",
+            "description": "Retrieve all relationships for a knowledge node",
             "operationId": "getNodesRelationships",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Node ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Node relationships", _NODE_RELATIONSHIPS_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/leaderboard/agent/{id}": {
         "get": {
             "tags": ["Leaderboard"],
-            "summary": "GET {id}",
+            "summary": "Get agent statistics",
+            "description": "Retrieve detailed statistics for a specific agent",
             "operationId": "getLeaderboardAgent",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Agent ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Agent statistics", _AGENT_STATS_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/leaderboard/agent/{id}/elo-history": {
         "get": {
             "tags": ["Leaderboard"],
-            "summary": "GET elo-history",
-            "operationId": "getAgentElo-History",
+            "summary": "Get agent ELO history",
+            "description": "Retrieve historical ELO rating changes for an agent",
+            "operationId": "getAgentEloHistory",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Agent ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("ELO rating history", _ELO_HISTORY_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/leaderboard/compare": {
         "get": {
             "tags": ["Leaderboard"],
-            "summary": "GET compare",
+            "summary": "Compare agents",
+            "description": "Compare statistics between multiple agents including head-to-head records",
             "operationId": "getLeaderboardCompare",
+            "parameters": [
+                {
+                    "name": "agent_ids",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "array", "items": {"type": "string"}},
+                    "description": "Agent IDs to compare",
+                }
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Agent comparison", _AGENT_COMPARISON_SCHEMA),
             },
         },
     },
     "/api/leaderboard/domain/{id}": {
         "get": {
             "tags": ["Leaderboard"],
-            "summary": "GET {id}",
+            "summary": "Get domain leaderboard",
+            "description": "Retrieve the leaderboard for a specific expertise domain",
             "operationId": "getLeaderboardDomain",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Domain ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Domain leaderboard", _DOMAIN_LEADERBOARD_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/leaderboard/domains": {
         "get": {
             "tags": ["Leaderboard"],
-            "summary": "GET domains",
+            "summary": "List domains",
+            "description": "List all available expertise domains with statistics",
             "operationId": "getLeaderboardDomains",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("List of domains", _DOMAINS_LIST_SCHEMA),
             },
         },
     },
     "/api/leaderboard/movers": {
         "get": {
             "tags": ["Leaderboard"],
-            "summary": "GET movers",
+            "summary": "Get top movers",
+            "description": "Get agents with the biggest rating changes in a period",
             "operationId": "getLeaderboardMovers",
+            "parameters": [
+                {
+                    "name": "period",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["day", "week", "month"]},
+                    "description": "Time period",
+                }
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Top movers", _TOP_MOVERS_SCHEMA),
             },
         },
     },
     "/api/notifications/email/config": {
         "post": {
             "tags": ["Notifications"],
-            "summary": "POST config",
+            "summary": "Configure email notifications",
+            "description": "Set up email notification settings including SMTP configuration",
             "operationId": "postEmailConfig",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _EMAIL_CONFIG_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Email configuration saved", _EMAIL_CONFIG_SCHEMA),
             },
         },
     },
     "/api/notifications/email/recipient": {
         "delete": {
             "tags": ["Notifications"],
-            "summary": "DELETE recipient",
+            "summary": "Remove email recipient",
+            "description": "Remove an email recipient from notifications",
             "operationId": "deleteEmailRecipient",
+            "parameters": [
+                {
+                    "name": "email",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string", "format": "email"},
+                    "description": "Email to remove",
+                }
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response(
+                    "Recipient removed",
+                    {"deleted": {"type": "boolean"}, "email": {"type": "string"}},
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
         },
         "post": {
             "tags": ["Notifications"],
-            "summary": "POST recipient",
+            "summary": "Add email recipient",
+            "description": "Add a new email recipient for notifications",
             "operationId": "postEmailRecipient",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _EMAIL_RECIPIENT_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Recipient added", _EMAIL_RECIPIENT_SCHEMA),
             },
         },
     },
     "/api/notifications/email/recipients": {
         "get": {
             "tags": ["Notifications"],
-            "summary": "GET recipients",
+            "summary": "List email recipients",
+            "description": "List all configured email notification recipients",
             "operationId": "getEmailRecipients",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Email recipients list", _EMAIL_RECIPIENTS_LIST_SCHEMA),
             },
         },
     },
     "/api/notifications/history": {
         "get": {
             "tags": ["Notifications"],
-            "summary": "GET history",
+            "summary": "Get notification history",
+            "description": "Retrieve history of sent notifications across all channels",
             "operationId": "getNotificationsHistory",
+            "parameters": [
+                {
+                    "name": "channel",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["email", "telegram", "slack", "webhook"]},
+                    "description": "Filter by channel",
+                },
+                {
+                    "name": "page",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Page number",
+                },
+                {
+                    "name": "page_size",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Items per page",
+                },
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Notification history", _NOTIFICATION_HISTORY_SCHEMA),
             },
         },
     },
     "/api/notifications/send": {
         "post": {
             "tags": ["Notifications"],
-            "summary": "POST send",
+            "summary": "Send notification",
+            "description": "Send a notification through a specified channel",
             "operationId": "postNotificationsSend",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _SEND_NOTIFICATION_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Notification sent", _SEND_NOTIFICATION_RESPONSE),
             },
         },
     },
     "/api/notifications/status": {
         "get": {
             "tags": ["Notifications"],
-            "summary": "GET status",
+            "summary": "Get notification status",
+            "description": "Get the current status of all notification channels",
             "operationId": "getNotificationsStatus",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Notification channels status", _NOTIFICATION_STATUS_SCHEMA),
             },
         },
     },
     "/api/notifications/telegram/config": {
         "post": {
             "tags": ["Notifications"],
-            "summary": "POST config",
+            "summary": "Configure Telegram notifications",
+            "description": "Set up Telegram bot configuration for notifications",
             "operationId": "postTelegramConfig",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _TELEGRAM_CONFIG_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Telegram configuration saved", _TELEGRAM_CONFIG_SCHEMA),
             },
         },
     },
     "/api/notifications/test": {
         "post": {
             "tags": ["Notifications"],
-            "summary": "POST test",
+            "summary": "Test notification",
+            "description": "Send a test notification to verify channel configuration",
             "operationId": "postNotificationsTest",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _TEST_NOTIFICATION_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Test notification result", _TEST_NOTIFICATION_RESPONSE),
             },
         },
     },
     "/api/personas": {
         "post": {
             "tags": ["Personas"],
-            "summary": "POST personas",
+            "summary": "Create persona",
+            "description": "Create a new agent persona with specified traits and style",
             "operationId": "postPersonas",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _CREATE_PERSONA_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Created persona", _PERSONA_SCHEMA),
             },
         },
     },
     "/api/personas/options": {
         "get": {
             "tags": ["Personas"],
-            "summary": "GET options",
+            "summary": "Get persona options",
+            "description": "Get available options for creating personas (traits, styles, domains)",
             "operationId": "getPersonasOptions",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Persona configuration options", _PERSONA_OPTIONS_SCHEMA),
             },
         },
     },
     "/api/pulse/analytics": {
         "get": {
             "tags": ["Pulse"],
-            "summary": "GET analytics",
+            "summary": "Get Pulse analytics",
+            "description": "Get analytics for trending topics processing and debates triggered",
             "operationId": "getPulseAnalytics",
+            "parameters": [
+                {
+                    "name": "period",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["hour", "day", "week", "month"]},
+                    "description": "Analytics period",
+                }
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Pulse analytics", _PULSE_ANALYTICS_SCHEMA),
             },
         },
     },
     "/api/pulse/debate-topic": {
         "post": {
             "tags": ["Pulse"],
-            "summary": "POST debate-topic",
-            "operationId": "postPulseDebate-Topic",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "summary": "Submit debate topic",
+            "description": "Manually submit a topic for debate consideration",
+            "operationId": "postPulseDebateTopic",
+            "requestBody": {
+                "content": {"application/json": {"schema": _DEBATE_TOPIC_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Topic submitted", _DEBATE_TOPIC_RESPONSE),
             },
         },
     },
     "/api/pulse/scheduler/config": {
         "patch": {
             "tags": ["Pulse"],
-            "summary": "PATCH config",
+            "summary": "Update scheduler config",
+            "description": "Update Pulse scheduler configuration settings",
             "operationId": "patchSchedulerConfig",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _SCHEDULER_CONFIG_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Scheduler configuration updated", _SCHEDULER_CONFIG_SCHEMA),
             },
         },
     },
     "/api/pulse/scheduler/history": {
         "get": {
             "tags": ["Pulse"],
-            "summary": "GET history",
+            "summary": "Get scheduler history",
+            "description": "Retrieve history of scheduler runs and their results",
             "operationId": "getSchedulerHistory",
+            "parameters": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Number of runs to return",
+                }
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Scheduler run history", _SCHEDULER_HISTORY_SCHEMA),
             },
         },
     },
     "/api/pulse/scheduler/pause": {
         "post": {
             "tags": ["Pulse"],
-            "summary": "POST pause",
+            "summary": "Pause scheduler",
+            "description": "Pause the Pulse topic scheduler",
             "operationId": "postSchedulerPause",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Scheduler paused", _SCHEDULER_ACTION_RESPONSE),
             },
         },
     },
     "/api/pulse/scheduler/resume": {
         "post": {
             "tags": ["Pulse"],
-            "summary": "POST resume",
+            "summary": "Resume scheduler",
+            "description": "Resume a paused Pulse topic scheduler",
             "operationId": "postSchedulerResume",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Scheduler resumed", _SCHEDULER_ACTION_RESPONSE),
             },
         },
     },
     "/api/pulse/scheduler/start": {
         "post": {
             "tags": ["Pulse"],
-            "summary": "POST start",
+            "summary": "Start scheduler",
+            "description": "Start the Pulse topic scheduler",
             "operationId": "postSchedulerStart",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Scheduler started", _SCHEDULER_ACTION_RESPONSE),
             },
         },
     },
     "/api/pulse/scheduler/status": {
         "get": {
             "tags": ["Pulse"],
-            "summary": "GET status",
+            "summary": "Get scheduler status",
+            "description": "Get current status of the Pulse scheduler",
             "operationId": "getSchedulerStatus",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Scheduler status", _SCHEDULER_STATUS_SCHEMA),
             },
         },
     },
     "/api/pulse/scheduler/stop": {
         "post": {
             "tags": ["Pulse"],
-            "summary": "POST stop",
+            "summary": "Stop scheduler",
+            "description": "Stop the Pulse topic scheduler",
             "operationId": "postSchedulerStop",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Scheduler stopped", _SCHEDULER_ACTION_RESPONSE),
             },
         },
     },
     "/api/replays": {
         "get": {
             "tags": ["Replays"],
-            "summary": "GET replays",
+            "summary": "List replays",
+            "description": "List all available debate replays",
             "operationId": "getReplays",
+            "parameters": [
+                {
+                    "name": "page",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Page number",
+                },
+                {
+                    "name": "page_size",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Items per page",
+                },
+                {
+                    "name": "is_public",
+                    "in": "query",
+                    "schema": {"type": "boolean"},
+                    "description": "Filter by public status",
+                },
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("List of replays", _REPLAY_LIST_SCHEMA),
             },
         },
     },
     "/api/replays/create": {
         "post": {
             "tags": ["Replays"],
-            "summary": "POST create",
+            "summary": "Create replay",
+            "description": "Create a new replay from a completed debate",
             "operationId": "postReplaysCreate",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _CREATE_REPLAY_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Replay creation started", _CREATE_REPLAY_RESPONSE),
             },
         },
     },
     "/api/replays/share/{id}": {
         "get": {
             "tags": ["Replays"],
-            "summary": "GET {id}",
+            "summary": "Get shared replay",
+            "description": "Access a replay via share link",
             "operationId": "getReplaysShare",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Share ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Shared replay data", _REPLAY_DETAIL_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/replays/{id}": {
         "get": {
             "tags": ["Replays"],
-            "summary": "GET {id}",
-            "operationId": "getReplays",
+            "summary": "Get replay",
+            "description": "Get detailed replay data including all events",
+            "operationId": "getReplayById",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Replay details", _REPLAY_DETAIL_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/replays/{id}/bookmark": {
         "delete": {
             "tags": ["Replays"],
-            "summary": "DELETE bookmark",
+            "summary": "Remove bookmark",
+            "description": "Remove a bookmark from a replay",
             "operationId": "deleteReplaysBookmark",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Bookmark removed", _BOOKMARK_RESPONSE),
                 "404": STANDARD_ERRORS["404"],
             },
         },
         "post": {
             "tags": ["Replays"],
-            "summary": "POST bookmark",
+            "summary": "Add bookmark",
+            "description": "Bookmark a replay for easy access",
             "operationId": "postReplaysBookmark",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                }
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {"content": {"application/json": {"schema": _BOOKMARK_REQUEST}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Bookmark added", _BOOKMARK_RESPONSE),
             },
         },
     },
     "/api/replays/{id}/comments": {
         "get": {
             "tags": ["Replays"],
-            "summary": "GET comments",
+            "summary": "Get comments",
+            "description": "Get all comments on a replay",
             "operationId": "getReplaysComments",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Replay comments", _REPLAY_COMMENTS_SCHEMA),
             },
         },
         "post": {
             "tags": ["Replays"],
-            "summary": "POST comments",
+            "summary": "Add comment",
+            "description": "Add a comment to a replay at a specific timestamp",
             "operationId": "postReplaysComments",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                }
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _ADD_COMMENT_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Comment added", _ADD_COMMENT_RESPONSE),
             },
         },
     },
     "/api/replays/{id}/export": {
         "get": {
             "tags": ["Replays"],
-            "summary": "GET export",
+            "summary": "Export replay",
+            "description": "Export replay in various formats (JSON, Markdown, PDF)",
             "operationId": "getReplaysExport",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                },
+                {
+                    "name": "format",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["json", "markdown", "pdf", "html"]},
+                    "description": "Export format",
+                },
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Export details", _EXPORT_REPLAY_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/replays/{id}/share": {
         "post": {
             "tags": ["Replays"],
-            "summary": "POST share",
+            "summary": "Create share link",
+            "description": "Create a shareable link for a replay",
             "operationId": "postReplaysShare",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                }
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {"content": {"application/json": {"schema": _SHARE_REPLAY_REQUEST}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Share link created", _SHARE_LINK_SCHEMA),
             },
         },
     },
     "/api/replays/{id}/summary": {
         "get": {
             "tags": ["Replays"],
-            "summary": "GET summary",
+            "summary": "Get replay summary",
+            "description": "Get an AI-generated summary of the replay",
             "operationId": "getReplaysSummary",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Replay summary", _REPLAY_SUMMARY_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/replays/{id}/transcript": {
         "get": {
             "tags": ["Replays"],
-            "summary": "GET transcript",
+            "summary": "Get replay transcript",
+            "description": "Get full text transcript of the replay",
             "operationId": "getReplaysTranscript",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Replay ID",
+                },
+                {
+                    "name": "format",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["plain", "markdown", "annotated"]},
+                    "description": "Transcript format",
+                },
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Replay transcript", _REPLAY_TRANSCRIPT_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/routing/domain-leaderboard": {
         "get": {
             "tags": ["Routing"],
-            "summary": "GET domain-leaderboard",
-            "operationId": "getRoutingDomain-Leaderboard",
+            "summary": "Get domain leaderboard for routing",
+            "description": "Get agent rankings per domain used for intelligent routing",
+            "operationId": "getRoutingDomainLeaderboard",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response(
+                    "Domain leaderboard for routing", _DOMAIN_LEADERBOARD_ROUTING_SCHEMA
+                ),
             },
         },
     },
     "/api/skills/{id}": {
         "get": {
             "tags": ["Skills"],
-            "summary": "GET {id}",
+            "summary": "Get skill details",
+            "description": "Get detailed information about a specific skill",
             "operationId": "getSkills",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Skill ID",
+                }
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Skill details", _SKILL_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
     "/api/users/me": {
         "get": {
             "tags": ["Users"],
-            "summary": "GET me",
+            "summary": "Get current user",
+            "description": "Get information about the currently authenticated user",
             "operationId": "getUsersMe",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Current user information", _USER_ME_SCHEMA),
             },
         },
     },
     "/api/users/me/preferences": {
         "get": {
             "tags": ["Users"],
-            "summary": "GET preferences",
+            "summary": "Get user preferences",
+            "description": "Get preferences and settings for the current user",
             "operationId": "getMePreferences",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("User preferences", _USER_PREFERENCES_SCHEMA),
             },
         },
     },
     "/api/users/me/profile": {
         "get": {
             "tags": ["Users"],
-            "summary": "GET profile",
+            "summary": "Get user profile",
+            "description": "Get the profile of the current user",
             "operationId": "getMeProfile",
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("User profile", _USER_PROFILE_SCHEMA),
             },
         },
         "patch": {
             "tags": ["Users"],
-            "summary": "PATCH profile",
+            "summary": "Update user profile",
+            "description": "Update the profile of the current user",
             "operationId": "patchMeProfile",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {"application/json": {"schema": _UPDATE_PROFILE_REQUEST}},
+                "required": True,
+            },
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Updated profile", _USER_PROFILE_SCHEMA),
             },
         },
     },
     "/api/users/{id}/debates": {
         "get": {
             "tags": ["Users"],
-            "summary": "GET debates",
+            "summary": "Get user debates",
+            "description": "Get debates associated with a specific user",
             "operationId": "getUsersDebates",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "User ID",
+                },
+                {
+                    "name": "page",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Page number",
+                },
+                {
+                    "name": "page_size",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Items per page",
+                },
+                {
+                    "name": "status",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["active", "completed", "cancelled"]},
+                    "description": "Filter by status",
+                },
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("User debates", _USER_DEBATES_SCHEMA),
             },
         },
     },
     "/scim/v2/Groups": {
         "get": {
             "tags": ["SCIM"],
-            "summary": "GET Groups",
+            "summary": "List SCIM groups",
+            "description": "List groups according to SCIM 2.0 protocol",
             "operationId": "getV2Groups",
+            "parameters": [
+                {
+                    "name": "filter",
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": "SCIM filter expression",
+                },
+                {
+                    "name": "startIndex",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Start index for pagination",
+                },
+                {
+                    "name": "count",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Number of results",
+                },
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("SCIM groups list", _SCIM_GROUPS_SCHEMA),
             },
         },
     },
     "/scim/v2/Users": {
         "get": {
             "tags": ["SCIM"],
-            "summary": "GET Users",
+            "summary": "List SCIM users",
+            "description": "List users according to SCIM 2.0 protocol",
             "operationId": "getV2Users",
+            "parameters": [
+                {
+                    "name": "filter",
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": "SCIM filter expression",
+                },
+                {
+                    "name": "startIndex",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Start index for pagination",
+                },
+                {
+                    "name": "count",
+                    "in": "query",
+                    "schema": {"type": "integer"},
+                    "description": "Number of results",
+                },
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("SCIM users list", _SCIM_USERS_SCHEMA),
             },
         },
     },

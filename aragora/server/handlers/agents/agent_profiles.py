@@ -6,7 +6,8 @@ Extracted from agents.py to reduce file size.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import (
     CACHE_TTL_AGENT_PROFILE,
@@ -23,11 +24,18 @@ from ..base import (
 )
 from ..openapi_decorator import api_endpoint
 
+if TYPE_CHECKING:
+    from aragora.ranking.elo import EloSystem
+
 logger = logging.getLogger(__name__)
 
 
 class AgentProfilesMixin:
     """Mixin providing agent profile and per-agent stat endpoints."""
+
+    # Stub methods expected from the composing class
+    def get_elo_system(self) -> "EloSystem | None": ...
+    def get_nomic_dir(self) -> Path: ...
 
     @api_endpoint(
         method="GET",

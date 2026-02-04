@@ -6,6 +6,8 @@ Extracted from agents.py to reduce file size.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from aragora.config import (
     CACHE_TTL_CALIBRATION_LB,
@@ -13,6 +15,9 @@ from aragora.config import (
     ELO_INITIAL_RATING,
 )
 from aragora.persistence.db_config import DatabaseType, get_db_path
+
+if TYPE_CHECKING:
+    from aragora.ranking.elo import ELOSystem  # noqa: F401
 
 from ..base import (
     HandlerResult,
@@ -31,6 +36,15 @@ logger = logging.getLogger(__name__)
 
 class AgentRankingsMixin:
     """Mixin providing agent ranking and leaderboard endpoints."""
+
+    # Stub methods provided by the main handler class
+    def get_nomic_dir(self) -> Path | None:
+        """Return the nomic directory path. Implemented by main handler."""
+        ...
+
+    def get_elo_system(self) -> "ELOSystem | None":
+        """Return the ELO system instance. Implemented by main handler."""
+        ...
 
     @api_endpoint(
         method="GET",

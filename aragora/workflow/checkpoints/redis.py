@@ -13,8 +13,6 @@ from typing import Any, Optional
 from aragora.workflow.checkpoints._compat import (
     DEFAULT_CONNECTION_TIMEOUT,
     DEFAULT_OPERATION_TIMEOUT,
-    REDIS_AVAILABLE,
-    _get_redis_client,
 )
 from aragora.workflow.checkpoints.exceptions import ConnectionTimeoutError
 from aragora.workflow.types import WorkflowCheckpoint
@@ -63,7 +61,10 @@ class RedisCheckpointStore:
             socket_timeout: Timeout for Redis operations in seconds (default 30s)
             socket_connect_timeout: Timeout for Redis connection in seconds (default 10s)
         """
-        if not REDIS_AVAILABLE:
+        # Import from stub for test patching compatibility
+        import aragora.workflow.checkpoint_store as _compat_stub
+
+        if not _compat_stub.REDIS_AVAILABLE:
             raise RuntimeError(
                 "Redis checkpoint store requires Redis configuration. "
                 "Ensure aragora.server.redis_config is available and REDIS_URL is set."
@@ -78,9 +79,12 @@ class RedisCheckpointStore:
     def _get_redis(self) -> Any:
         """Get Redis client (lazy initialization)."""
         if self._redis is None:
-            if _get_redis_client is None:
+            # Import from stub for test patching compatibility
+            import aragora.workflow.checkpoint_store as _compat_stub
+
+            if _compat_stub._get_redis_client is None:
                 raise RuntimeError("Redis client not available")
-            self._redis = _get_redis_client()
+            self._redis = _compat_stub._get_redis_client()
             if self._redis is None:
                 raise RuntimeError("Redis client not available")
             # Configure socket timeouts if supported

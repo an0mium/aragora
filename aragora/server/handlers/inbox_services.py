@@ -8,13 +8,23 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from aragora.connectors.gmail import GmailConnector
+    from aragora.server.handlers.inbox_command import EmailPrioritizer
+    from aragora.services.sender_history import SenderHistoryService
 
 logger = logging.getLogger(__name__)
 
 
 class InboxServicesMixin:
     """Mixin providing inbox email service integration methods."""
+
+    # Stub attributes expected from the composing class
+    gmail_connector: "GmailConnector | None"
+    prioritizer: "EmailPrioritizer | None"
+    sender_history: "SenderHistoryService | None"
 
     async def _fetch_prioritized_emails(
         self,

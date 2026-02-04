@@ -21,6 +21,7 @@ from aragora.fabric.models import (
     PolicyContext,
     Priority,
     Task,
+    TaskHandle,
     Usage,
 )
 
@@ -219,9 +220,16 @@ Include proper type hints and docstrings.""",
 
         agent_models: dict[str, str] = {}
         for agent_id in agent_ids:
-            handle = await self.fabric.lifecycle.get_agent(agent_id)
-            if handle:
-                agent_models[agent_id] = handle.config.model
+            agent_handle = await self.fabric.lifecycle.get_agent(agent_id)
+            if agent_handle:
+                agent_models[agent_id] = agent_handle.config.model
+
+        enforce_policy = False
+        try:
+            policies = await self.fabric.policy.list_policies()
+            enforce_policy = len(policies) > 0
+        except Exception:
+            enforce_policy = False
 
         complexity_router: dict[str, str] = {}
         if self.profile and self.profile.complexity_router:
@@ -237,7 +245,7 @@ Include proper type hints and docstrings.""",
         default_index = 0
 
         # Schedule tasks with dependencies
-        handles = []
+        handles: list[TaskHandle] = []
         for idx, task in enumerate(task_list):
             complexity_key = str(task.complexity or "moderate").lower()
             desired_model = complexity_router.get(complexity_key)
@@ -269,13 +277,13 @@ Include proper type hints and docstrings.""",
                     **config.metadata,
                 },
             )
-            handle = await self.fabric.schedule(
+            task_handle = await self.fabric.schedule(
                 fabric_task,
                 agent_id=agent_id,
                 priority=config.priority,
                 depends_on=task.dependencies,
             )
-            handles.append(handle)
+            handles.append(task_handle)
 
         stop_event = asyncio.Event()
         poll_delay = 0.05
@@ -308,14 +316,15 @@ Include proper type hints and docstrings.""",
                             "files": len(impl_task.files),
                         },
                     )
-                    decision = await self.fabric.check_policy(
-                        "implementation.execute", policy_context
-                    )
-                    if not decision.allowed:
-                        await self.fabric.complete_task(
-                            next_task.id, error=f"Policy denied: {decision.reason}"
+                    if enforce_policy:
+                        decision = await self.fabric.check_policy(
+                            "implementation.execute", policy_context
                         )
-                        continue
+                        if not decision.allowed:
+                            await self.fabric.complete_task(
+                                next_task.id, error=f"Policy denied: {decision.reason}"
+                            )
+                            continue
 
                     can_proceed, _status = await self.fabric.check_budget(
                         agent_id,
@@ -365,30 +374,39 @@ Include proper type hints and docstrings.""",
 
         try:
             overall_timeout = config.timeout_seconds * max(1, len(handles))
-            await asyncio.wait_for(
-                asyncio.gather(
-                    *[
-                        self.fabric.wait_for_task(handle.task_id, timeout_seconds=None)
-                        for handle in handles
-                    ]
-                ),
-                timeout=overall_timeout,
-            )
-        except asyncio.TimeoutError:
-            logger.warning("Fabric implementation run timed out after %.1fs", overall_timeout)
+            deadline = time.monotonic() + overall_timeout
+            pending = {h.task_id for h in handles}
+            while pending and time.monotonic() < deadline:
+                for task_id in list(pending):
+                    th = await self.fabric.get_task(task_id)
+                    if th and th.status.name.lower() in {
+                        "completed",
+                        "failed",
+                        "cancelled",
+                        "timeout",
+                    }:
+                        pending.discard(task_id)
+                if pending:
+                    await asyncio.sleep(0.05)
+            if pending:
+                logger.warning(
+                    "Fabric implementation run timed out after %.1fs (%d pending)",
+                    overall_timeout,
+                    len(pending),
+                )
         finally:
             stop_event.set()
             await asyncio.gather(*worker_tasks, return_exceptions=True)
 
         results: list[TaskResult] = []
-        for handle in handles:
-            final_handle = await self.fabric.get_task(handle.task_id)
+        for scheduled_handle in handles:
+            final_handle = await self.fabric.get_task(scheduled_handle.task_id)
             if final_handle and isinstance(final_handle.result, TaskResult):
                 results.append(final_handle.result)
             elif final_handle and final_handle.error:
                 results.append(
                     TaskResult(
-                        task_id=handle.task_id,
+                        task_id=scheduled_handle.task_id,
                         success=False,
                         error=final_handle.error,
                     )
@@ -396,7 +414,7 @@ Include proper type hints and docstrings.""",
             else:
                 results.append(
                     TaskResult(
-                        task_id=handle.task_id,
+                        task_id=scheduled_handle.task_id,
                         success=False,
                         error="Unknown fabric execution failure",
                     )

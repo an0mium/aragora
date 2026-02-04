@@ -10,6 +10,48 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def extract_execution_overrides(text: str) -> tuple[str, dict[str, Any]]:
+    """Extract execution override flags from command text.
+
+    Parses flags like --computer-use, --hybrid, --fabric from the text
+    and returns the cleaned text along with execution overrides.
+
+    Args:
+        text: Input text potentially containing execution flags
+
+    Returns:
+        Tuple of (cleaned_text, overrides_dict)
+    """
+    overrides: dict[str, Any] = {}
+    cleaned_parts: list[str] = []
+
+    parts = text.split()
+    i = 0
+    while i < len(parts):
+        part = parts[i]
+        if part == "--computer-use":
+            overrides["execution_mode"] = "execute"
+            overrides["execution_engine"] = "computer_use"
+        elif part == "--hybrid":
+            overrides["execution_mode"] = "execute"
+            overrides["execution_engine"] = "hybrid"
+        elif part == "--fabric":
+            overrides["execution_mode"] = "execute"
+            overrides["execution_engine"] = "fabric"
+        elif part == "--workflow":
+            overrides["execution_mode"] = "workflow"
+        elif part == "--execute":
+            overrides["execution_mode"] = "execute"
+        elif part == "--plan-only":
+            overrides["execution_mode"] = "plan_only"
+        else:
+            cleaned_parts.append(part)
+        i += 1
+
+    cleaned_text = " ".join(cleaned_parts)
+    return cleaned_text, overrides
+
+
 def _extract_implementation_profile(cfg: dict[str, Any]) -> dict[str, Any] | None:
     """Extract implementation profile settings from a decision-integrity config."""
     profile = cfg.get("implementation_profile")
@@ -164,6 +206,12 @@ async def build_decision_integrity_payload(
         return None
 
     payload = package.to_dict()
+
+    # Include execution configuration in the payload
+    if execution_mode and execution_mode != "plan_only":
+        payload["execution_mode"] = execution_mode
+    if execution_engine:
+        payload["execution_engine"] = execution_engine
 
     debate_key = (
         payload.get("debate_id")

@@ -8,13 +8,21 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from aragora.connectors.gmail import GmailConnector
+    from aragora.server.handlers.inbox_command import EmailPrioritizer
 
 logger = logging.getLogger(__name__)
 
 
 class InboxActionsMixin:
     """Mixin providing inbox email action execution methods."""
+
+    # Stub attributes expected from the composing class
+    prioritizer: "EmailPrioritizer | None"
+    gmail_connector: "GmailConnector | None"
 
     async def _execute_action(
         self,

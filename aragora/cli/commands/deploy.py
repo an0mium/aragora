@@ -33,13 +33,26 @@ def cmd_deploy(args: argparse.Namespace) -> None:
         _cmd_secrets(args)
     elif subcommand == "status":
         asyncio.run(_cmd_status(args))
+    elif subcommand == "start":
+        _cmd_start(args)
+    elif subcommand == "stop":
+        _cmd_stop(args)
     else:
         # Default: show help
         print("\nUsage: aragora deploy <command>")
         print("\nCommands:")
+        print("  start                Start services with Docker Compose (one-command deploy)")
+        print("  stop                 Stop running services")
         print("  validate             Validate deployment readiness")
         print("  secrets              Generate security secrets")
         print("  status               Show deployment status summary")
+        print("\nOptions for 'start':")
+        print(
+            "  --profile <profile>  Deployment profile: simple, sme, production (default: simple)"
+        )
+        print("  --setup              Run interactive setup before starting")
+        print("  --no-wait            Don't wait for health checks")
+        print("  --dry-run            Show what would be done without executing")
         print("\nOptions for 'validate':")
         print("  --strict             Fail on critical issues (exit code 1)")
         print("  --production         Check production-specific requirements")
@@ -218,6 +231,350 @@ def _cmd_secrets(args: argparse.Namespace) -> None:
             print("  3. For production, use a secrets manager instead")
 
 
+def _cmd_start(args: argparse.Namespace) -> None:
+    """Start services with Docker Compose (one-command deploy)."""
+    import shutil
+    import subprocess
+
+    profile = getattr(args, "profile", "simple")
+    run_setup = getattr(args, "setup", False)
+    no_wait = getattr(args, "no_wait", False)
+    dry_run = getattr(args, "dry_run", False)
+
+    # Map profile to compose file
+    compose_files = {
+        "simple": "docker-compose.simple.yml",
+        "sme": "docker-compose.sme.yml",
+        "production": "docker-compose.production.yml",
+        "dev": "docker-compose.dev.yml",
+    }
+
+    if profile not in compose_files:
+        print(f"\nError: Unknown profile '{profile}'")
+        print(f"Valid profiles: {', '.join(compose_files.keys())}")
+        sys.exit(1)
+
+    compose_file = compose_files[profile]
+
+    # Find project root (where docker-compose files are)
+    project_root = _find_project_root()
+    if not project_root:
+        print("\nError: Could not find project root (no docker-compose files found)")
+        print("Make sure you're running from the Aragora project directory.")
+        sys.exit(1)
+
+    compose_path = os.path.join(project_root, compose_file)
+    if not os.path.exists(compose_path):
+        print(f"\nError: Compose file not found: {compose_path}")
+        sys.exit(1)
+
+    print("\n" + "=" * 60)
+    print(f"ARAGORA DEPLOY - {profile.upper()} PROFILE")
+    print("=" * 60)
+
+    # Check prerequisites
+    print("\n[1/5] Checking prerequisites...")
+
+    # Check Docker
+    docker_cmd = shutil.which("docker")
+    if not docker_cmd:
+        print("  [-] Docker not found. Please install Docker first.")
+        print("      https://docs.docker.com/get-docker/")
+        sys.exit(1)
+    print("  [+] Docker found")
+
+    # Check Docker Compose
+    compose_cmd = _get_compose_command()
+    if not compose_cmd:
+        print("  [-] Docker Compose not found. Please install Docker Compose.")
+        sys.exit(1)
+    print(f"  [+] Docker Compose found ({' '.join(compose_cmd)})")
+
+    # Check if Docker is running
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            print("  [-] Docker daemon is not running. Please start Docker.")
+            sys.exit(1)
+        print("  [+] Docker daemon running")
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        print("  [-] Could not connect to Docker daemon")
+        sys.exit(1)
+
+    # Check/create .env file
+    print("\n[2/5] Checking environment configuration...")
+    env_path = os.path.join(project_root, ".env")
+    env_example = os.path.join(
+        project_root, ".env.starter" if profile == "simple" else ".env.example"
+    )
+
+    if not os.path.exists(env_path):
+        if run_setup:
+            print("  [!] No .env file found. Running setup...")
+            if dry_run:
+                print("  [DRY-RUN] Would run interactive setup")
+            else:
+                # Run setup command
+                try:
+                    from aragora.cli.setup import run_setup as run_interactive_setup
+
+                    run_interactive_setup(output_path=env_path)
+                except ImportError:
+                    print("  [-] Setup module not available. Creating from template...")
+                    if os.path.exists(env_example):
+                        shutil.copy(env_example, env_path)
+                        print(f"  [+] Created .env from {os.path.basename(env_example)}")
+                        print("  [!] Please edit .env and add your API keys")
+                    else:
+                        print("  [-] No .env template found")
+                        sys.exit(1)
+        elif os.path.exists(env_example):
+            print(f"  [!] No .env file. Creating from {os.path.basename(env_example)}...")
+            if not dry_run:
+                shutil.copy(env_example, env_path)
+            print("  [+] Created .env (edit to add API keys)")
+        else:
+            print("  [-] No .env file and no template found.")
+            print("      Run with --setup flag to configure interactively.")
+            sys.exit(1)
+    else:
+        print("  [+] .env file exists")
+
+    # Validate minimum configuration
+    if not dry_run:
+        _validate_env_config(env_path, profile)
+
+    # Build/pull images
+    print(f"\n[3/5] Preparing Docker images ({compose_file})...")
+    if dry_run:
+        print(f"  [DRY-RUN] Would run: {' '.join(compose_cmd)} -f {compose_file} pull")
+    else:
+        print("  Pulling images (this may take a few minutes)...")
+        result = subprocess.run(
+            [*compose_cmd, "-f", compose_file, "pull"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            # Pull may fail for local-only images, that's OK
+            logger.debug("Pull output: %s", result.stderr)
+        print("  [+] Images ready")
+
+    # Start services
+    print("\n[4/5] Starting services...")
+    if dry_run:
+        print(f"  [DRY-RUN] Would run: {' '.join(compose_cmd)} -f {compose_file} up -d")
+    else:
+        result = subprocess.run(
+            [*compose_cmd, "-f", compose_file, "up", "-d"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"  [-] Failed to start services: {result.stderr}")
+            sys.exit(1)
+        print("  [+] Services started")
+
+    # Wait for health checks
+    if not no_wait and not dry_run:
+        print("\n[5/5] Waiting for services to be healthy...")
+        _wait_for_health(compose_cmd, compose_file, project_root)
+    else:
+        print("\n[5/5] Skipping health check wait")
+
+    # Print success message
+    print("\n" + "=" * 60)
+    print("DEPLOYMENT COMPLETE")
+    print("=" * 60)
+
+    port = "8080"
+    if profile == "production":
+        port = "443"
+
+    print(f"""
+Services are running. Access points:
+
+  API:        http://localhost:{port}/api/health
+  Swagger:    http://localhost:{port}/api/docs
+""")
+
+    if profile in ("sme", "production"):
+        print("""  Grafana:    http://localhost:3001
+  Prometheus: http://localhost:9090
+""")
+
+    print(
+        """Next steps:
+  1. Verify health:  curl http://localhost:8080/api/health
+  2. Start a debate: aragora ask "Your question here"
+  3. View logs:       docker compose -f {} logs -f
+
+To stop services:
+  aragora deploy stop --profile {}
+""".format(compose_file, profile)
+    )
+
+
+def _cmd_stop(args: argparse.Namespace) -> None:
+    """Stop running services."""
+    import subprocess
+
+    profile = getattr(args, "profile", "simple")
+    remove_volumes = getattr(args, "volumes", False)
+
+    compose_files = {
+        "simple": "docker-compose.simple.yml",
+        "sme": "docker-compose.sme.yml",
+        "production": "docker-compose.production.yml",
+        "dev": "docker-compose.dev.yml",
+    }
+
+    compose_file = compose_files.get(profile, "docker-compose.simple.yml")
+    project_root = _find_project_root()
+
+    if not project_root:
+        print("\nError: Could not find project root")
+        sys.exit(1)
+
+    compose_cmd = _get_compose_command()
+    if not compose_cmd:
+        print("\nError: Docker Compose not found")
+        sys.exit(1)
+
+    print(f"\nStopping services ({profile} profile)...")
+
+    cmd = [*compose_cmd, "-f", compose_file, "down"]
+    if remove_volumes:
+        cmd.append("-v")
+        print("  (including volumes)")
+
+    result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        print(f"\nError stopping services: {result.stderr}")
+        sys.exit(1)
+
+    print("\nServices stopped successfully.")
+
+
+def _find_project_root() -> str | None:
+    """Find the project root directory (where docker-compose files are)."""
+    # Start from current directory and walk up
+    current = os.getcwd()
+    for _ in range(10):  # Max 10 levels up
+        if os.path.exists(os.path.join(current, "docker-compose.yml")):
+            return current
+        if os.path.exists(os.path.join(current, "docker-compose.simple.yml")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    return None
+
+
+def _get_compose_command() -> list[str] | None:
+    """Get the Docker Compose command (v2 or v1)."""
+    import shutil
+    import subprocess
+
+    # Try docker compose (v2)
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return ["docker", "compose"]
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Try docker-compose (v1)
+    if shutil.which("docker-compose"):
+        return ["docker-compose"]
+
+    return None
+
+
+def _validate_env_config(env_path: str, profile: str) -> None:
+    """Validate minimum required environment configuration."""
+    warnings: list[str] = []
+
+    # Read .env file
+    env_vars: dict[str, str] = {}
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                env_vars[key.strip()] = value.strip().strip('"').strip("'")
+
+    # Check for at least one AI API key
+    ai_keys = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"]
+    has_ai_key = any(env_vars.get(k) for k in ai_keys)
+    if not has_ai_key:
+        warnings.append(
+            "No AI API key set (ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY)"
+        )
+
+    # Profile-specific requirements
+    if profile in ("sme", "production"):
+        if not env_vars.get("POSTGRES_PASSWORD"):
+            warnings.append("POSTGRES_PASSWORD not set (required for SME/production)")
+
+    if profile == "production":
+        if not env_vars.get("ARAGORA_JWT_SECRET"):
+            warnings.append("ARAGORA_JWT_SECRET not set (run: aragora deploy secrets)")
+        if not env_vars.get("ARAGORA_ENCRYPTION_KEY"):
+            warnings.append("ARAGORA_ENCRYPTION_KEY not set (run: aragora deploy secrets)")
+
+    if warnings:
+        print("  [!] Configuration warnings:")
+        for warning in warnings:
+            print(f"      - {warning}")
+
+
+def _wait_for_health(compose_cmd: list[str], compose_file: str, project_root: str) -> None:
+    """Wait for services to be healthy."""
+    import time
+
+    max_wait = 120  # seconds
+    start = time.time()
+
+    while time.time() - start < max_wait:
+        # Check health endpoint
+        try:
+            import urllib.request
+
+            req = urllib.request.Request(
+                "http://localhost:8080/api/health",
+                headers={"User-Agent": "aragora-deploy"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    print("  [+] Health check passed")
+                    return
+        except Exception:
+            pass
+
+        # Show progress
+        elapsed = int(time.time() - start)
+        print(f"  Waiting for services... ({elapsed}s)", end="\r")
+        time.sleep(2)
+
+    print("\n  [!] Services may not be fully ready yet")
+    print("      Check logs: docker compose -f {} logs".format(compose_file))
+
+
 async def _cmd_status(args: argparse.Namespace) -> None:
     """Show deployment status summary."""
     as_json = getattr(args, "json", False)
@@ -311,6 +668,53 @@ def add_deploy_parser(subparsers: Any) -> None:
     dp.set_defaults(func=cmd_deploy)
 
     dp_sub = dp.add_subparsers(dest="deploy_command")
+
+    # Start (one-command deploy)
+    start_p = dp_sub.add_parser(
+        "start",
+        help="Start services with Docker Compose (one-command deploy)",
+        description="Starts Aragora services using the specified profile. "
+        "This is the recommended way to deploy Aragora.",
+    )
+    start_p.add_argument(
+        "--profile",
+        "-p",
+        choices=["simple", "sme", "production", "dev"],
+        default="simple",
+        help="Deployment profile (default: simple)",
+    )
+    start_p.add_argument(
+        "--setup",
+        "-s",
+        action="store_true",
+        help="Run interactive setup before starting",
+    )
+    start_p.add_argument(
+        "--no-wait",
+        action="store_true",
+        help="Don't wait for health checks to pass",
+    )
+    start_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without executing",
+    )
+
+    # Stop
+    stop_p = dp_sub.add_parser("stop", help="Stop running services")
+    stop_p.add_argument(
+        "--profile",
+        "-p",
+        choices=["simple", "sme", "production", "dev"],
+        default="simple",
+        help="Profile to stop (default: simple)",
+    )
+    stop_p.add_argument(
+        "--volumes",
+        "-v",
+        action="store_true",
+        help="Also remove volumes (data will be lost)",
+    )
 
     # Validate
     validate_p = dp_sub.add_parser("validate", help="Validate deployment readiness")

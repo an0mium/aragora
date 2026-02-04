@@ -58,6 +58,11 @@ from aragora.debate.convergence.cache import (
     PERIODIC_CLEANUP_INTERVAL_SECONDS,
     CachedSimilarity,
     PairwiseSimilarityCache,
+    _PeriodicCacheCleanup,  # noqa: F401 - exported for test access
+    _periodic_cleanup,  # noqa: F401 - exported for test access
+    _similarity_cache_lock,  # noqa: F401 - exported for test access
+    _similarity_cache_manager,  # noqa: F401 - exported for test access
+    _similarity_cache_timestamps,  # noqa: F401 - exported for test access
     cleanup_similarity_cache,
     cleanup_stale_caches,
     cleanup_stale_similarity_caches,

@@ -31,6 +31,9 @@ export interface EventHandlerContext {
   ackCallbackRef: React.MutableRefObject<((msgType: string) => void) | null>;
   seenMessagesRef: React.MutableRefObject<Set<string>>;
   lastSeqRef: React.MutableRefObject<number>;
+
+  // Auth callbacks
+  onAuthRevoked?: () => void;
 }
 
 /**

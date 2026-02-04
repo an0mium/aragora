@@ -246,6 +246,66 @@ class _DebatesHandlerProtocol(Protocol):
 
     def get_current_user(self, handler: Any) -> "UserAuthContext | None": ...
 
+    # Implementation methods (defined in the mixin below, but referenced via self)
+    def _build_integrity_package(
+        self, debate: Any, debate_id: str, rc: _RequestConfig
+    ) -> tuple[Any, dict[str, Any]]: ...
+    def _persist_artifacts(
+        self, package: Any, debate_id: str, rc: _RequestConfig, response_payload: dict[str, Any]
+    ) -> tuple[str | None, Any]: ...
+    def _obsidian_writeback(self, package: Any, receipt_id: str | None) -> None: ...
+    def _handle_workflow_mode(
+        self,
+        handler: Any,
+        debate: Any,
+        debate_id: str,
+        package: Any,
+        rc: _RequestConfig,
+        response_payload: dict[str, Any],
+    ) -> HandlerResult: ...
+    def _handle_approval_execution(
+        self,
+        handler: Any,
+        debate_id: str,
+        package: Any,
+        rc: _RequestConfig,
+        response_payload: dict[str, Any],
+        computer_use_plan: Any,
+    ) -> HandlerResult: ...
+    def _route_and_respond(
+        self, response_payload: dict[str, Any], debate_id: str, notify_origin: bool
+    ) -> HandlerResult: ...
+    def _check_approval_permission(self, handler: Any) -> HandlerResult | None: ...
+    def _build_changes_list(self, plan: Any) -> list[dict[str, Any]]: ...
+    def _check_execution_enabled(self, debate_id: str) -> HandlerResult | None: ...
+    def _execute_direct(
+        self,
+        debate_id: str,
+        package: Any,
+        rc: _RequestConfig,
+        response_payload: dict[str, Any],
+        approval_request: Any,
+        requested_by: str | None,
+        computer_use_plan: Any,
+    ) -> HandlerResult | None: ...
+    def _execute_computer_use(
+        self,
+        rc: _RequestConfig,
+        response_payload: dict[str, Any],
+        approval_request: Any,
+        requested_by: str | None,
+        computer_use_plan: Any,
+    ) -> None: ...
+    def _execute_fabric(
+        self, debate_id: str, package: Any, rc: _RequestConfig, response_payload: dict[str, Any]
+    ) -> None: ...
+    def _execute_hybrid(
+        self, debate_id: str, package: Any, rc: _RequestConfig, response_payload: dict[str, Any]
+    ) -> None: ...
+    def _append_review(
+        self, executor: Any, payload: dict[str, Any], review_mode: str | None
+    ) -> None: ...
+
 
 class ImplementationOperationsMixin:
     """Mixin providing Decision Integrity endpoints for debates."""

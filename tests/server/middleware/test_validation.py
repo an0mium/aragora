@@ -208,6 +208,71 @@ class TestValidationMiddleware:
         assert "GET /api/unknown" in unvalidated
         assert "POST /api/other" in unvalidated
 
+    def test_validation_failure_emits_audit_event(self):
+        """Validation failure should emit audit event for security compliance."""
+        from unittest.mock import patch, MagicMock
+        from aragora.server.middleware.validation import (
+            RouteValidation,
+            ValidationConfig,
+            ValidationMiddleware,
+        )
+
+        # Rule with max body size limit we'll exceed
+        rule = RouteValidation(
+            r"^/api/test$",
+            "POST",
+            max_body_size=10,  # Very small limit
+        )
+        config = ValidationConfig(enabled=True, blocking=True)
+        middleware = ValidationMiddleware(config=config, registry=[rule])
+
+        # Mock the audit_security function at its source module
+        with patch("aragora.audit.unified.audit_security") as mock_audit:
+            # Validation should fail (body too large)
+            large_body = '{"data": "this is a much larger body than allowed"}'
+            result = middleware.validate_request("/api/test", "POST", body=large_body)
+
+            # Verify validation failed
+            assert result.valid is False
+            assert len(result.errors) > 0
+
+            # Verify audit was called with correct parameters
+            mock_audit.assert_called_once()
+            call_kwargs = mock_audit.call_args.kwargs
+            assert call_kwargs["event_type"] == "validation_failure"
+            assert call_kwargs["severity"] == "error"  # blocking=True
+            assert call_kwargs["path"] == "/api/test"
+            assert call_kwargs["method"] == "POST"
+
+    def test_validation_failure_audit_handles_import_error(self):
+        """Validation should not crash if audit module is unavailable."""
+        from unittest.mock import patch, MagicMock
+        from aragora.server.middleware.validation import (
+            RouteValidation,
+            ValidationConfig,
+            ValidationMiddleware,
+        )
+
+        rule = RouteValidation(
+            r"^/api/test$",
+            "POST",
+            max_body_size=10,  # Very small limit
+        )
+        config = ValidationConfig(enabled=True, blocking=True)
+        middleware = ValidationMiddleware(config=config, registry=[rule])
+
+        # Simulate audit import raising an error
+        def raise_import_error(*args, **kwargs):
+            raise ImportError("Module not found")
+
+        with patch("aragora.audit.unified.audit_security", side_effect=raise_import_error):
+            # Should not raise, just continue with validation result
+            large_body = '{"data": "this is a much larger body than allowed"}'
+            result = middleware.validate_request("/api/test", "POST", body=large_body)
+
+            # Validation should still return proper result even if audit failed
+            assert result.valid is False
+
 
 class TestQueryParameterValidation:
     """Tests for query parameter validation."""

@@ -29,6 +29,10 @@ export interface UseDebateWebSocketOptions {
   debateId: string;
   wsUrl?: string;
   enabled?: boolean;
+  /** Access token for WebSocket authentication */
+  accessToken?: string | null;
+  /** Callback when authentication is revoked (token expired/invalid) */
+  onAuthRevoked?: () => void;
 }
 
 export interface UseDebateWebSocketReturn {

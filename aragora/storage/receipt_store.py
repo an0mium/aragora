@@ -1251,7 +1251,7 @@ class ReceiptStore:
         params = (True, reason, placed_by, now, matter_id, receipt_id)
 
         try:
-            self._backend.execute(query, params)
+            self._backend.execute_write(query, params)
             logger.info(f"Legal hold placed on receipt {receipt_id} by {placed_by}: {reason}")
             return True
         except Exception as e:
@@ -1284,7 +1284,7 @@ class ReceiptStore:
         params = (False, receipt_id)
 
         try:
-            self._backend.execute(query, params)
+            self._backend.execute_write(query, params)
             logger.info(f"Legal hold removed from receipt {receipt_id} by {removed_by}")
             return True
         except Exception as e:
@@ -1296,7 +1296,7 @@ class ReceiptStore:
         matter_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[StoredReceipt]:
+    ) -> builtins.list[StoredReceipt]:
         """
         List all receipts currently under legal hold.
 
@@ -1311,6 +1311,7 @@ class ReceiptStore:
         if self._backend is None:
             return []
 
+        params: tuple[Any, ...]
         if matter_id:
             query = """
                 SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
@@ -1399,7 +1400,7 @@ class ReceiptStore:
         params = (timestamp_token, tsa_url, now, receipt_id)
 
         try:
-            self._backend.execute(query, params)
+            self._backend.execute_write(query, params)
             logger.info(f"Timestamp added to receipt {receipt_id} from {tsa_url}")
             return True
         except Exception as e:

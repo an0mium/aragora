@@ -45,6 +45,29 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 T = TypeVar("T")
 
+
+def _default_audit_on_denied(decision: AuthorizationDecision) -> None:
+    """Default handler to audit permission denials for security compliance.
+
+    This is called automatically when auto_audit=True (the default) and
+    a permission check fails. It logs the denial to the audit system.
+    """
+    try:
+        from aragora.audit.unified import audit_access
+
+        audit_access(
+            user_id=decision.context.user_id if decision.context else "unknown",
+            permission=decision.permission_key,
+            resource_id=decision.resource_id,
+            granted=False,
+            reason=decision.reason,
+        )
+    except ImportError:
+        pass  # Audit module not available
+    except Exception as e:
+        logger.debug(f"Failed to emit permission denial audit event: {e}")
+
+
 __all__ = [
     # Decorators
     "require_permission",
@@ -127,6 +150,7 @@ def require_permission(
     context_param: str = "context",
     checker: PermissionChecker | None = None,
     on_denied: Callable[[AuthorizationDecision], None] | None = None,
+    auto_audit: bool = True,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator to require a specific permission.
@@ -137,6 +161,9 @@ def require_permission(
         context_param: Parameter name for AuthorizationContext
         checker: Custom permission checker (uses global if None)
         on_denied: Optional callback when permission is denied
+        auto_audit: If True (default), automatically audit permission denials
+            for security compliance. Uses _default_audit_on_denied unless
+            on_denied is provided.
 
     Usage:
         @require_permission("debates:create")
@@ -146,7 +173,15 @@ def require_permission(
         @require_permission("debates:update", resource_id_param="debate_id")
         async def update_debate(context: AuthorizationContext, debate_id: str, ...):
             ...
+
+        @require_permission("admin:sensitive", auto_audit=False)  # Disable audit
+        async def sensitive_action(context: AuthorizationContext, ...):
+            ...
     """
+    # Determine the denial handler: use on_denied if provided, else auto_audit
+    denial_handler: Callable[[AuthorizationDecision], None] | None = on_denied
+    if denial_handler is None and auto_audit:
+        denial_handler = _default_audit_on_denied
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
@@ -179,8 +214,8 @@ def require_permission(
             decision = perm_checker.check_permission(context, permission_key, resource_id)
 
             if not decision.allowed:
-                if on_denied:
-                    on_denied(decision)
+                if denial_handler:
+                    denial_handler(decision)
                 raise PermissionDeniedError(decision.reason, decision)
 
             return func(*args, **kwargs)
@@ -205,8 +240,8 @@ def require_permission(
             decision = perm_checker.check_permission(context, permission_key, resource_id)
 
             if not decision.allowed:
-                if on_denied:
-                    on_denied(decision)
+                if denial_handler:
+                    denial_handler(decision)
                 raise PermissionDeniedError(decision.reason, decision)
 
             # Cast to coroutine since we know func is async at runtime

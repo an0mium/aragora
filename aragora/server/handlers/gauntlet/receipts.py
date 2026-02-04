@@ -484,6 +484,7 @@ class GauntletReceiptsMixin:
             try:
                 from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
                 from aragora.knowledge.mound import get_knowledge_mound
+                from typing import cast, Any
 
                 mound = get_knowledge_mound()
                 if mound:
@@ -494,23 +495,29 @@ class GauntletReceiptsMixin:
                     workspace_id = run.get("workspace_id") or run.get("tenant_id")
 
                     # Ingest receipt - extracts claims, findings, dissenting views
+                    # Cast receipt to Any since the adapter accepts multiple receipt types
                     ingest_result = await adapter.ingest_receipt(
-                        receipt=receipt,
+                        receipt=cast(Any, receipt),
                         workspace_id=workspace_id,
                     )
 
-                    if ingest_result.get("success"):
-                        claims_count = ingest_result.get("claims_ingested", 0)
-                        findings_count = ingest_result.get("findings_ingested", 0)
+                    # Check if ingest_result has success attribute (dataclass) or get method (dict)
+                    success = (
+                        getattr(ingest_result, "success", None)
+                        if hasattr(ingest_result, "success")
+                        else not bool(getattr(ingest_result, "errors", []))
+                    )
+                    if success:
+                        claims_count = getattr(ingest_result, "claims_ingested", 0)
+                        findings_count = getattr(ingest_result, "findings_ingested", 0)
                         logger.info(
                             f"Receipt {receipt.receipt_id} ingested to KM: "
                             f"{claims_count} claims, {findings_count} findings"
                         )
                     else:
-                        logger.debug(
-                            f"Receipt KM ingestion returned non-success: "
-                            f"{ingest_result.get('error', 'unknown')}"
-                        )
+                        errors = getattr(ingest_result, "errors", [])
+                        error_msg = errors[0] if errors else "unknown"
+                        logger.debug(f"Receipt KM ingestion returned non-success: {error_msg}")
             except ImportError:
                 logger.debug("Knowledge Mound not available for receipt ingestion")
             except Exception as e:

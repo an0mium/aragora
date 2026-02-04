@@ -283,7 +283,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                         request_kwargs["config"] = DecisionConfig(
                             decision_integrity=decision_integrity
                         )
-                    request = DecisionRequest(**request_kwargs)
+                    request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
                     router = get_decision_router()
                     asyncio.create_task(router.route(request))
                 except ImportError:

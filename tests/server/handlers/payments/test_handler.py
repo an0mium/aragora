@@ -310,7 +310,7 @@ class TestRateLimiting:
 class TestWebhookIdempotency:
     """Tests for webhook idempotency helpers."""
 
-    @patch("aragora.server.handlers.payments.handler.get_webhook_store")
+    @patch("aragora.storage.webhook_store.get_webhook_store")
     def test_is_duplicate_webhook_true(self, mock_get_store):
         """Test duplicate detection returns true."""
         from aragora.server.handlers.payments.handler import _is_duplicate_webhook
@@ -323,7 +323,7 @@ class TestWebhookIdempotency:
         assert result is True
         mock_store.is_processed.assert_called_once_with("evt_123")
 
-    @patch("aragora.server.handlers.payments.handler.get_webhook_store")
+    @patch("aragora.storage.webhook_store.get_webhook_store")
     def test_is_duplicate_webhook_false(self, mock_get_store):
         """Test duplicate detection returns false."""
         from aragora.server.handlers.payments.handler import _is_duplicate_webhook
@@ -335,7 +335,7 @@ class TestWebhookIdempotency:
         result = _is_duplicate_webhook("evt_456")
         assert result is False
 
-    @patch("aragora.server.handlers.payments.handler.get_webhook_store")
+    @patch("aragora.storage.webhook_store.get_webhook_store")
     def test_mark_webhook_processed(self, mock_get_store):
         """Test marking webhook as processed."""
         from aragora.server.handlers.payments.handler import _mark_webhook_processed

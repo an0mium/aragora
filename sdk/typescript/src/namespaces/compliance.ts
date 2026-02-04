@@ -243,10 +243,26 @@ export class ComplianceAPI {
   // ===========================================================================
 
   /**
-   * Export user data for GDPR compliance (Article 15).
+   * Export user data for GDPR compliance (Article 15 - Right of Access).
+   *
+   * Generates a complete export of all personal data held for a user,
+   * including debate participation, preferences, and activity logs.
    *
    * @param userId - ID of the user whose data to export
-   * @param format - Export format (json, csv)
+   * @param format - Export format (json for programmatic use, csv for spreadsheets)
+   * @returns Export result with data and download expiration
+   *
+   * @example
+   * ```typescript
+   * // Export user data as JSON
+   * const result = await client.compliance.gdprExport('user-123', 'json');
+   * console.log(`Export ID: ${result.export_id}`);
+   * console.log(`Data categories: ${Object.keys(result.data).join(', ')}`);
+   * console.log(`Expires: ${result.expires_at}`);
+   *
+   * // Export as CSV for user to download
+   * const csvExport = await client.compliance.gdprExport('user-123', 'csv');
+   * ```
    */
   async gdprExport(userId: string, format: 'json' | 'csv' = 'json'): Promise<GdprExportResult> {
     return this.client.request('GET', '/api/v2/compliance/gdpr-export', {
@@ -255,15 +271,37 @@ export class ComplianceAPI {
   }
 
   /**
-   * Execute GDPR right to erasure (Article 17).
+   * Execute GDPR right to erasure (Article 17 - Right to be Forgotten).
+   *
+   * Initiates deletion of all personal data for a user. Some data may be
+   * retained for legal compliance (e.g., audit logs, financial records).
    *
    * @param userId - ID of the user to erase
    * @param options - Deletion options
-   * @param options.confirm - Must be true to confirm deletion
-   * @param options.reason - Reason for deletion request
+   * @param options.confirm - Must be true to confirm deletion (default: true)
+   * @param options.reason - Reason for deletion request (recommended for audit)
+   * @returns Deletion result with status and list of deleted/retained data
    *
    * @remarks
-   * Some data may be retained for legal compliance requirements.
+   * - This operation is irreversible
+   * - Some data may be retained for legal compliance (listed in `data_retained`)
+   * - The deletion may be processed asynchronously for large datasets
+   *
+   * @example
+   * ```typescript
+   * const result = await client.compliance.gdprRightToBeForgotten('user-123', {
+   *   confirm: true,
+   *   reason: 'User requested account deletion via support ticket #456',
+   * });
+   *
+   * if (result.status === 'completed') {
+   *   console.log(`Deleted: ${result.data_deleted.join(', ')}`);
+   *   if (result.data_retained.length > 0) {
+   *     console.log(`Retained for compliance: ${result.data_retained.join(', ')}`);
+   *     console.log(`Reason: ${result.retention_reason}`);
+   *   }
+   * }
+   * ```
    */
   async gdprRightToBeForgotten(
     userId: string,

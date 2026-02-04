@@ -951,6 +951,24 @@ class ValidationMiddleware:
                 log_level,
                 f"Validation failed for {method} {path}: {result.error_message}",
             )
+
+            # Emit audit event for validation failures (security/compliance requirement)
+            try:
+                from aragora.audit.unified import audit_security
+
+                audit_security(
+                    event_type="validation_failure",
+                    severity="warning" if not self.config.blocking else "error",
+                    path=path,
+                    method=method,
+                    errors=result.errors,
+                    blocking=self.config.blocking,
+                )
+            except ImportError:
+                pass  # Audit module not available
+            except Exception as e:
+                logger.debug(f"Failed to emit validation audit event: {e}")
+
         elif self.config.log_all:
             logger.debug(f"Validation passed for {method} {path}")
 

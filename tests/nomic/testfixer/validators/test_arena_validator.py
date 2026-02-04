@@ -57,8 +57,8 @@ class MockAnalysis:
 
     failure: TestFailure = None
     root_cause: str = "Missing authentication flag"
-    fix_target: FailureCategory = FailureCategory.ASSERTION_ERROR
-    category: FailureCategory = FailureCategory.ASSERTION_ERROR
+    fix_target: FailureCategory = FailureCategory.IMPL_BUG
+    category: FailureCategory = FailureCategory.IMPL_BUG
     root_cause_file: str = "src/auth.py"
 
 
@@ -103,7 +103,7 @@ def sample_analysis(sample_test_failure) -> MockAnalysis:
     return MockAnalysis(
         failure=sample_test_failure,
         root_cause="authenticate() doesn't set is_authenticated flag",
-        fix_target=FailureCategory.IMPLEMENTATION_BUG,
+        fix_target=FailureCategory.IMPL_BUG,
     )
 
 
@@ -631,7 +631,7 @@ class TestArenaDebateIntegration:
             mock_agent.generate = AsyncMock(return_value="VERDICT: APPROVE\nCONFIDENCE: 0.8")
             mock_create.return_value = mock_agent
 
-            with patch("aragora.nomic.testfixer.validators.arena_validator.Arena") as mock_arena:
+            with patch("aragora.debate.orchestrator.Arena") as mock_arena:
 
                 async def slow_run():
                     await asyncio.sleep(10)
@@ -662,7 +662,7 @@ class TestArenaDebateIntegration:
             mock_agent.generate = AsyncMock(return_value="VERDICT: APPROVE\nCONFIDENCE: 0.85")
             mock_create.return_value = mock_agent
 
-            with patch("aragora.nomic.testfixer.validators.arena_validator.Arena") as mock_arena:
+            with patch("aragora.debate.orchestrator.Arena") as mock_arena:
                 mock_arena.side_effect = Exception("Arena initialization failed")
 
                 config = ArenaValidatorConfig(agent_types=["test"])

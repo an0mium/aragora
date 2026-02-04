@@ -6,6 +6,7 @@ Extracted from agents.py to reduce file size.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from aragora.config import (
     CACHE_TTL_AGENT_FLIPS,
@@ -27,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 class AgentFlipsMixin:
     """Mixin providing agent flip detection endpoints."""
+
+    # Stub method provided by the main handler class
+    def get_nomic_dir(self) -> Path | None:
+        """Return the nomic directory path. Implemented by main handler."""
+        ...
 
     @api_endpoint(
         method="GET",

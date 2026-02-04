@@ -93,13 +93,12 @@ legal counsel for specific legal matters.""",
         ToolConfig(
             name="case_search",
             description="Search legal case databases",
-            connector_type="westlaw",
-            requires_auth=True,
+            connector_type="web",
         ),
         ToolConfig(
             name="statute_lookup",
             description="Look up statutes and regulations",
-            connector_type="legal",
+            connector_type="web",
         ),
         ToolConfig(
             name="contract_compare",

@@ -99,17 +99,17 @@ qualified healthcare professionals for clinical decisions.""",
         ToolConfig(
             name="drug_lookup",
             description="Look up drug information and interactions",
-            connector_type="drugs",
+            connector_type="rxnav",
         ),
         ToolConfig(
             name="icd_lookup",
             description="Look up ICD-10 codes",
-            connector_type="medical",
+            connector_type="clinical_tables",
         ),
         ToolConfig(
             name="clinical_guidelines",
             description="Search clinical practice guidelines",
-            connector_type="medical",
+            connector_type="web",
         ),
     ],
     compliance_frameworks=[

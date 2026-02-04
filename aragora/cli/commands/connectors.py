@@ -23,17 +23,12 @@ from aragora.config.settings import get_settings
 logger = logging.getLogger(__name__)
 
 CONNECTOR_TYPES = [
-    "slack",
-    "teams",
-    "discord",
-    "telegram",
-    "whatsapp",
-    "email",
-    "webhook",
-    "kafka",
-    "rabbitmq",
-    "zapier",
-    "github",
+    "ai",
+    "chat",
+    "ecommerce",
+    "enterprise",
+    "memory",
+    "payment",
 ]
 
 

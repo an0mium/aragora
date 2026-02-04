@@ -62,8 +62,8 @@ class MockAnalysis:
 
     failure: TestFailure = None
     root_cause: str = "Missing authentication flag"
-    fix_target: FailureCategory = FailureCategory.ASSERTION_ERROR
-    category: FailureCategory = FailureCategory.ASSERTION_ERROR
+    fix_target: FailureCategory = FailureCategory.IMPL_BUG
+    category: FailureCategory = FailureCategory.IMPL_BUG
     root_cause_file: str = "src/auth.py"
 
 
@@ -108,7 +108,7 @@ def sample_analysis(sample_test_failure) -> MockAnalysis:
     return MockAnalysis(
         failure=sample_test_failure,
         root_cause="authenticate() doesn't set is_authenticated flag",
-        fix_target=FailureCategory.IMPLEMENTATION_BUG,
+        fix_target=FailureCategory.IMPL_BUG,
     )
 
 

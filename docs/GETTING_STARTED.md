@@ -198,6 +198,70 @@ aragora review https://github.com/owner/repo/pull/123
 aragora review --demo
 ```
 
+### Vertical Specialists
+
+Industry-specific debate templates with pre-configured agents, tools, and compliance frameworks:
+
+```bash
+# List available verticals
+aragora verticals list
+
+# Filter by keyword
+aragora verticals list --keyword healthcare
+
+# Get vertical configuration
+aragora verticals get healthcare
+
+# List tools for a vertical
+aragora verticals tools fintech
+
+# Show compliance frameworks
+aragora verticals compliance healthcare
+
+# Suggest vertical for a task
+aragora verticals suggest --task "Analyze HIPAA compliance for patient portal"
+```
+
+Available verticals include: `healthcare`, `fintech`, `legal`, `devops`, `security`, and more.
+
+### Memory Operations
+
+Inspect and manage the multi-tier memory system:
+
+```bash
+# Query memories by prefix
+aragora memory query "debate:arch:"
+
+# Store a memory entry
+aragora memory store "custom:key" "value data" --tier medium
+
+# View memory statistics
+aragora memory stats
+
+# Promote memory to a longer-lived tier
+aragora memory promote "key" --to slow
+```
+
+Memory tiers: `fast` (1 min TTL), `medium` (1 hour), `slow` (1 day), `glacial` (1 week).
+
+### Knowledge Mound
+
+Query and manage the unified knowledge store:
+
+```bash
+# Query knowledge by prefix
+aragora km query "consensus:"
+
+# Store knowledge entry
+aragora km store "insights:arch:caching" '{"pattern": "write-through"}'
+
+# View knowledge statistics
+aragora km stats
+
+# List knowledge by category
+aragora km query "evidence:" --limit 10
+```
+
 ### Start Dashboard
 
 ```bash
@@ -507,6 +571,9 @@ pip install -e .
 | `aragora doctor` | Check health |
 | `aragora status` | Show environment |
 | `aragora config` | Manage settings |
+| `aragora verticals` | Industry-specific debate templates |
+| `aragora memory` | Memory tier operations |
+| `aragora km` | Knowledge Mound operations |
 
 ### Environment Variables
 

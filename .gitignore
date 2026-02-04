@@ -109,6 +109,7 @@ tsconfig.tsbuildinfo
 
 # Playwright E2E tests
 aragora/live/playwright-report/
+aragora/live/playwright-report-production/
 aragora/live/test-results/
 aragora/live/playwright/.cache/
 

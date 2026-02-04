@@ -11,8 +11,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, cast
-
+from typing import TYPE_CHECKING, Any, cast
 
 from ..base import (
     HandlerResult,
@@ -21,6 +20,9 @@ from ..base import (
     ttl_cache,
 )
 from ..openapi_decorator import api_endpoint
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,14 @@ class DashboardActionsMixin:
     - _get_agent_performance(limit) -> dict
     - _get_consensus_insights(domain) -> dict
     """
+
+    # Stub attributes/methods expected from the composing class
+    ctx: dict[str, Any]
+
+    def get_storage(self) -> Any: ...  # Returns storage with connection() method
+    def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]: ...
+    def _get_agent_performance(self, limit: int) -> dict[str, Any]: ...
+    def _get_consensus_insights(self, domain: str | None) -> dict[str, Any]: ...
 
     @api_endpoint(
         method="GET",

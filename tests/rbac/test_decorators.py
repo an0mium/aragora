@@ -165,6 +165,99 @@ class TestRequirePermission:
         with pytest.raises(PermissionDeniedError):
             await delete_debate(context)
 
+    def test_auto_audit_emits_audit_event_on_denial(self):
+        """auto_audit=True (default) emits audit event when permission denied."""
+        from unittest.mock import patch
+
+        @require_permission("debates:delete")  # auto_audit=True by default
+        def delete_debate(context: AuthorizationContext) -> str:
+            return "success"
+
+        context = AuthorizationContext(
+            user_id="user-1",
+            permissions={"debates:read"},
+        )
+
+        with patch("aragora.audit.unified.audit_access") as mock_audit:
+            with pytest.raises(PermissionDeniedError):
+                delete_debate(context)
+
+            # Verify audit was called
+            mock_audit.assert_called_once()
+            call_kwargs = mock_audit.call_args.kwargs
+            assert call_kwargs["user_id"] == "user-1"
+            assert call_kwargs["granted"] is False
+            assert "delete" in call_kwargs["permission"]
+
+    def test_auto_audit_disabled(self):
+        """auto_audit=False prevents automatic audit events."""
+        from unittest.mock import patch
+
+        @require_permission("debates:delete", auto_audit=False)
+        def delete_debate(context: AuthorizationContext) -> str:
+            return "success"
+
+        context = AuthorizationContext(
+            user_id="user-1",
+            permissions={"debates:read"},
+        )
+
+        with patch("aragora.audit.unified.audit_access") as mock_audit:
+            with pytest.raises(PermissionDeniedError):
+                delete_debate(context)
+
+            # audit should NOT be called when auto_audit=False
+            mock_audit.assert_not_called()
+
+    def test_on_denied_overrides_auto_audit(self):
+        """Explicit on_denied callback overrides default auto_audit behavior."""
+        from unittest.mock import patch
+
+        custom_callback_called = []
+
+        def custom_callback(decision):
+            custom_callback_called.append(decision)
+
+        @require_permission("debates:delete", on_denied=custom_callback)
+        def delete_debate(context: AuthorizationContext) -> str:
+            return "success"
+
+        context = AuthorizationContext(
+            user_id="user-1",
+            permissions={"debates:read"},
+        )
+
+        with patch("aragora.audit.unified.audit_access") as mock_audit:
+            with pytest.raises(PermissionDeniedError):
+                delete_debate(context)
+
+            # Custom callback should be called, not audit_access
+            assert len(custom_callback_called) == 1
+            # audit_access should NOT be called when on_denied is provided
+            mock_audit.assert_not_called()
+
+    def test_auto_audit_handles_import_error_gracefully(self):
+        """auto_audit handles missing audit module gracefully."""
+        from unittest.mock import patch
+
+        @require_permission("debates:delete")  # auto_audit=True by default
+        def delete_debate(context: AuthorizationContext) -> str:
+            return "success"
+
+        context = AuthorizationContext(
+            user_id="user-1",
+            permissions={"debates:read"},
+        )
+
+        # Simulate audit import failure
+        def raise_import_error(*args, **kwargs):
+            raise ImportError("Module not available")
+
+        with patch("aragora.audit.unified.audit_access", side_effect=raise_import_error):
+            # Should still raise PermissionDeniedError, not crash on audit
+            with pytest.raises(PermissionDeniedError):
+                delete_debate(context)
+
 
 class TestRequireRole:
     """Tests for @require_role decorator."""

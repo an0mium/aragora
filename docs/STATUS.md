@@ -113,6 +113,8 @@ Independent verification of production readiness found the project is **98% GA-r
 - **Email Sync Reliability**: Circuit breaker, exponential backoff retry, OAuth token persistence with encryption
 - **Bot Cache Optimization**: Heap-based O(log n) TTL cleanup for response caching
 - **Circuit Breaker Defaults**: Tuned (threshold=5, cooldown=60s) across all resilience patterns
+- **Debate Stability Detection**: Beta-Binomial model with KS-distance for statistical early stopping (opt-in via `enable_stability_detection`)
+- **Knowledge Mound Adapter Base**: 25+ adapters using unified base class with resilience, metrics, and tracing
 
 ---
 

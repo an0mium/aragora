@@ -193,7 +193,10 @@ class DebateStreamServer(ServerBase):
     def _extract_ws_token(self, websocket) -> str | None:
         """Extract authentication token from WebSocket connection.
 
-        Attempts to extract token from Authorization header only.
+        Attempts to extract token from:
+        1. Authorization: Bearer header (preferred for server-to-server)
+        2. Sec-WebSocket-Protocol header with 'access_token.' prefix (for browsers)
+
         Query parameter tokens are not accepted for security reasons
         (they appear in logs and browser history).
 
@@ -212,10 +215,20 @@ class DebateStreamServer(ServerBase):
             else:
                 return None
 
-            # Only accept Authorization: Bearer header (not query params)
+            # Method 1: Authorization: Bearer header (server-to-server, CLI)
             auth_header = headers.get("Authorization", "")
             if auth_header.startswith("Bearer "):
                 return auth_header[7:]
+
+            # Method 2: Sec-WebSocket-Protocol with token (browser clients)
+            # Browsers can't set custom headers, but can set subprotocol
+            # Format: "access_token.{jwt}" or "aragora-v1, access_token.{jwt}"
+            protocol_header = headers.get("Sec-WebSocket-Protocol", "")
+            if protocol_header:
+                for protocol in protocol_header.split(","):
+                    protocol = protocol.strip()
+                    if protocol.startswith("access_token."):
+                        return protocol[13:]  # len("access_token.") = 13
 
             return None
         except (AttributeError, KeyError, TypeError) as e:
