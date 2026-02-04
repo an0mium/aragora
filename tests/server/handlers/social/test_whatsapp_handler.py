@@ -17,11 +17,15 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 from io import BytesIO
 from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# Set test environment to bypass production security checks
+os.environ.setdefault("ARAGORA_ENV", "test")
 
 from aragora.server.handlers.social.whatsapp import (
     WHATSAPP_VERIFY_TOKEN,

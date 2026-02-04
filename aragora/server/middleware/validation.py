@@ -393,12 +393,12 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
     RouteValidation(
         r"^/api/(v1/)?billing/cancel$",
         "POST",
-        max_body_size=1_000,
+        max_body_size=0,  # No body expected
     ),
     RouteValidation(
         r"^/api/(v1/)?billing/resume$",
         "POST",
-        max_body_size=1_000,
+        max_body_size=0,  # No body expected
     ),
     # =========================================================================
     # Knowledge - Tier 2 (Data Integrity)
@@ -793,6 +793,166 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
         r"^/api/(v1/)?admin/audit$",
         "GET",
         query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Admin User Management (Security Critical - Tier 1)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?admin/users/[^/]+/deactivate$",
+        "POST",
+        max_body_size=0,  # No body expected
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/users/[^/]+/activate$",
+        "POST",
+        max_body_size=0,  # No body expected
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/users/[^/]+/unlock$",
+        "POST",
+        max_body_size=0,  # No body expected
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/impersonate/[^/]+$",
+        "POST",
+        max_body_size=0,  # No body expected
+    ),
+    # =========================================================================
+    # Admin Organizations (Tier 3)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?admin/organizations$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Admin Nomic Control (Tier 2)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?admin/nomic/status$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/nomic/circuit-breakers$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/nomic/reset$",
+        "POST",
+        body_schema={
+            "target_phase": {"type": "string", "max_length": 50},
+            "clear_errors": {"type": "boolean"},
+            "reason": {"type": "string", "max_length": 500},
+        },
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/nomic/pause$",
+        "POST",
+        body_schema={
+            "reason": {"type": "string", "max_length": 500},
+        },
+        max_body_size=2_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/nomic/resume$",
+        "POST",
+        body_schema={
+            "target_phase": {"type": "string", "max_length": 50},
+        },
+        max_body_size=2_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/nomic/circuit-breakers/reset$",
+        "POST",
+        max_body_size=0,  # No body expected
+    ),
+    # =========================================================================
+    # Billing Endpoints (Tier 3)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?billing/plans$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/usage$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/subscription$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/checkout$",
+        "POST",
+        body_schema={
+            "tier": {"type": "string", "required": True, "max_length": 50},
+            "success_url": {"type": "string", "required": True, "max_length": 2000},
+            "cancel_url": {"type": "string", "required": True, "max_length": 2000},
+        },
+        max_body_size=10_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/portal$",
+        "POST",
+        body_schema={
+            "return_url": {"type": "string", "max_length": 2000},
+        },
+        max_body_size=5_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/cancel$",
+        "POST",
+        max_body_size=0,  # No body expected
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/resume$",
+        "POST",
+        max_body_size=0,  # No body expected
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/invoices$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/usage/export$",
+        "GET",
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?billing/usage/forecast$",
+        "GET",
+    ),
+    # =========================================================================
+    # Admin Health Endpoints
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?admin/health.*$",
+        "GET",
+    ),
+    # =========================================================================
+    # Admin Dashboard Endpoints
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?admin/dashboard.*$",
+        "GET",
+        query_rules=LIMIT_OFFSET_RULES,
+    ),
+    # =========================================================================
+    # Admin Cache Operations (Tier 2)
+    # =========================================================================
+    RouteValidation(
+        r"^/api/(v1/)?admin/cache/clear$",
+        "POST",
+        body_schema={
+            "cache_type": {"type": "string", "max_length": 50},
+            "pattern": {"type": "string", "max_length": 200},
+        },
+        max_body_size=2_000,
+    ),
+    RouteValidation(
+        r"^/api/(v1/)?admin/cache/stats$",
+        "GET",
     ),
 ]
 

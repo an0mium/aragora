@@ -640,3 +640,156 @@ class TestValidationRegistry:
         assert len(matches) >= 1
         rule = matches[0]
         assert "debate_id" in rule.path_validators
+
+
+class TestAdminValidationRegistry:
+    """Tests for admin route validation (Phase 3: Security Hardening)."""
+
+    def test_admin_user_deactivate_registered(self):
+        """POST /api/v1/admin/users/{id}/deactivate should be registered."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r
+            for r in VALIDATION_REGISTRY
+            if r.matches("/api/v1/admin/users/user-123/deactivate", "POST")
+        ]
+        assert len(matches) >= 1
+        rule = matches[0]
+        # Security: no body expected for this action
+        assert rule.max_body_size == 0
+
+    def test_admin_user_activate_registered(self):
+        """POST /api/v1/admin/users/{id}/activate should be registered."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r
+            for r in VALIDATION_REGISTRY
+            if r.matches("/api/v1/admin/users/user-123/activate", "POST")
+        ]
+        assert len(matches) >= 1
+        assert matches[0].max_body_size == 0
+
+    def test_admin_user_unlock_registered(self):
+        """POST /api/v1/admin/users/{id}/unlock should be registered."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r
+            for r in VALIDATION_REGISTRY
+            if r.matches("/api/v1/admin/users/user-123/unlock", "POST")
+        ]
+        assert len(matches) >= 1
+        assert matches[0].max_body_size == 0
+
+    def test_admin_impersonate_registered(self):
+        """POST /api/v1/admin/impersonate/{user_id} should be registered."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r
+            for r in VALIDATION_REGISTRY
+            if r.matches("/api/v1/admin/impersonate/user-123", "POST")
+        ]
+        assert len(matches) >= 1
+        assert matches[0].max_body_size == 0
+
+    def test_admin_nomic_reset_has_body_schema(self):
+        """POST /api/v1/admin/nomic/reset should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/v1/admin/nomic/reset", "POST")]
+        assert len(matches) >= 1
+        rule = matches[0]
+        assert rule.body_schema is not None
+        assert "target_phase" in rule.body_schema
+        assert "reason" in rule.body_schema
+
+    def test_admin_nomic_pause_has_body_schema(self):
+        """POST /api/v1/admin/nomic/pause should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/v1/admin/nomic/pause", "POST")]
+        assert len(matches) >= 1
+        rule = matches[0]
+        assert rule.body_schema is not None
+        assert "reason" in rule.body_schema
+
+    def test_admin_nomic_resume_has_body_schema(self):
+        """POST /api/v1/admin/nomic/resume should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r for r in VALIDATION_REGISTRY if r.matches("/api/v1/admin/nomic/resume", "POST")
+        ]
+        assert len(matches) >= 1
+        rule = matches[0]
+        assert rule.body_schema is not None
+        assert "target_phase" in rule.body_schema
+
+    def test_admin_circuit_breakers_reset_no_body(self):
+        """POST /api/v1/admin/nomic/circuit-breakers/reset should have no body."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r
+            for r in VALIDATION_REGISTRY
+            if r.matches("/api/v1/admin/nomic/circuit-breakers/reset", "POST")
+        ]
+        assert len(matches) >= 1
+        assert matches[0].max_body_size == 0
+
+    def test_billing_checkout_has_body_schema(self):
+        """POST /api/v1/billing/checkout should have body schema."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/v1/billing/checkout", "POST")]
+        assert len(matches) >= 1
+        rule = matches[0]
+        assert rule.body_schema is not None
+        assert "tier" in rule.body_schema
+        assert "success_url" in rule.body_schema
+        assert "cancel_url" in rule.body_schema
+
+    def test_billing_cancel_no_body(self):
+        """POST /api/v1/billing/cancel should expect no body."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/v1/billing/cancel", "POST")]
+        assert len(matches) >= 1
+        assert matches[0].max_body_size == 0
+
+    def test_admin_health_endpoints_registered(self):
+        """GET /api/v1/admin/health/* should be registered."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r for r in VALIDATION_REGISTRY if r.matches("/api/v1/admin/health/detailed", "GET")
+        ]
+        assert len(matches) >= 1
+
+    def test_admin_dashboard_endpoints_registered(self):
+        """GET /api/v1/admin/dashboard/* should be registered."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        matches = [
+            r for r in VALIDATION_REGISTRY if r.matches("/api/v1/admin/dashboard/metrics", "GET")
+        ]
+        assert len(matches) >= 1
+
+    def test_without_v1_prefix_also_matches(self):
+        """Routes without /v1/ should also match for backwards compatibility."""
+        from aragora.server.middleware.validation import VALIDATION_REGISTRY
+
+        # Check user deactivate without v1
+        matches = [
+            r
+            for r in VALIDATION_REGISTRY
+            if r.matches("/api/admin/users/user-123/deactivate", "POST")
+        ]
+        assert len(matches) >= 1
+
+        # Check billing checkout without v1
+        matches = [r for r in VALIDATION_REGISTRY if r.matches("/api/billing/checkout", "POST")]
+        assert len(matches) >= 1

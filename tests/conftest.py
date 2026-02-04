@@ -1630,6 +1630,59 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Clear external_integrations rate limiters
+    try:
+        import aragora.server.handlers.external_integrations as ext_int
+
+        for limiter_name in (
+            "_create_limiter",
+            "_list_limiter",
+            "_delete_limiter",
+            "_test_limiter",
+        ):
+            if hasattr(ext_int, limiter_name):
+                getattr(ext_int, limiter_name).clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Clear metrics rate limiter
+    try:
+        import aragora.server.handlers.metrics.handler as metrics_handler
+
+        if hasattr(metrics_handler, "_metrics_limiter"):
+            metrics_handler._metrics_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Clear SME dashboard rate limiter
+    try:
+        import aragora.server.handlers.sme_usage_dashboard as sme_dashboard
+
+        if hasattr(sme_dashboard, "_dashboard_limiter"):
+            sme_dashboard._dashboard_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Clear transcription rate limiters
+    try:
+        import aragora.server.handlers.transcription as transcription
+
+        for limiter_name in ("_audio_limiter", "_youtube_limiter"):
+            if hasattr(transcription, limiter_name):
+                getattr(transcription, limiter_name).clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Clear payments rate limiters
+    try:
+        import aragora.server.handlers.payments.handler as payments_handler
+
+        for limiter_name in ("_payment_write_limiter", "_payment_read_limiter", "_webhook_limiter"):
+            if hasattr(payments_handler, limiter_name):
+                getattr(payments_handler, limiter_name).clear()
+    except (ImportError, AttributeError):
+        pass
+
     # Reset event loop if closed (prevents "Event loop is closed" errors)
     try:
         import asyncio
@@ -1658,6 +1711,13 @@ def reset_lazy_globals():
     - aragora.debate.orchestrator (9 globals)
     - aragora.server.handlers.* (2-4 globals each)
     - aragora.storage.schema.DatabaseManager (singleton cache)
+    - Rate limiters (via clear_all_limiters and module-level cleanup):
+      - analytics._analytics_limiter
+      - external_integrations (_create/_list/_delete/_test_limiter)
+      - metrics._metrics_limiter
+      - sme_usage_dashboard._dashboard_limiter
+      - transcription (_audio/_youtube_limiter)
+      - payments (_payment_write/_payment_read/_webhook_limiter)
     """
     _reset_lazy_globals_impl()  # Reset BEFORE test
     yield

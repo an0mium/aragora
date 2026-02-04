@@ -43,6 +43,9 @@ from .legacy import (  # noqa: F401
     handle_webhook,
 )
 
+# Re-export audit functions for test patching
+from aragora.audit.unified import audit_data, audit_admin  # noqa: F401
+
 __all__ = [
     "ConnectorManagementHandler",
     "_scheduler",
@@ -69,4 +72,7 @@ __all__ = [
     "handle_trigger_sync",
     "handle_update_connector",
     "handle_webhook",
+    # Audit exports for test patching
+    "audit_data",
+    "audit_admin",
 ]

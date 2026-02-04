@@ -55,6 +55,7 @@ class SourceGatheringMixin:
     _enable_evidence_store_context: bool
     _max_document_context_items: int
     _max_evidence_context_items: int
+    _auth_context: Any
 
     # Method from CompressionMixin
     async def _compress_with_rlm(

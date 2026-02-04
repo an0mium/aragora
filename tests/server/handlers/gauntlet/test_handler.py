@@ -221,17 +221,34 @@ class TestListResults:
     @pytest.mark.asyncio
     async def test_list_results_with_data(self, handler):
         """Test results listing with data."""
-        # Add a run to memory
-        _gauntlet_runs["gauntlet-test-123"] = {
-            "gauntlet_id": "gauntlet-test-123",
-            "status": "completed",
-            "created_at": "2025-01-15T10:00:00",
-        }
+        from datetime import datetime
+
+        # Create a mock result object
+        mock_result = MagicMock()
+        mock_result.gauntlet_id = "gauntlet-test-123"
+        mock_result.input_hash = "abc123"
+        mock_result.input_summary = "Test summary"
+        mock_result.verdict = "pass"
+        mock_result.confidence = 0.95
+        mock_result.robustness_score = 0.8
+        mock_result.critical_count = 0
+        mock_result.high_count = 1
+        mock_result.total_findings = 5
+        mock_result.created_at = datetime(2025, 1, 15, 10, 0, 0)
+        mock_result.duration_seconds = 10.5
+
+        mock_storage = MagicMock()
+        mock_storage.list_recent.return_value = [mock_result]
+        mock_storage.count.return_value = 1
 
         mock_handler = MagicMock()
         mock_handler.command = "GET"
 
-        result = await handler.handle("/api/gauntlet/results", {}, mock_handler)
+        with patch(
+            "aragora.server.handlers.gauntlet.results._get_storage_proxy",
+            return_value=mock_storage,
+        ):
+            result = await handler.handle("/api/gauntlet/results", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200

@@ -147,6 +147,7 @@ class HandlerRegistryMixin:
     # Type stubs for methods expected from parent class
     _add_cors_headers: Callable[[], None]
     _add_security_headers: Callable[[], None]
+    _add_trace_headers: Callable[[], None]
     send_response: Callable[[int], None]
     send_header: Callable[[str, str], None]
     end_headers: Callable[[], None]

@@ -41,6 +41,7 @@ from aragora.connectors.ecommerce.amazon import (
     InventoryCondition,
     get_mock_orders as get_mock_amazon_orders,
     get_mock_inventory as get_mock_amazon_inventory,
+    get_mock_products as get_mock_amazon_products,
 )
 from aragora.connectors.ecommerce.woocommerce import (
     WooCommerceConnector,
@@ -107,6 +108,7 @@ __all__ = [
     "InventoryCondition",
     "get_mock_amazon_orders",
     "get_mock_amazon_inventory",
+    "get_mock_amazon_products",
     # WooCommerce
     "WooCommerceConnector",
     "WooCommerceCredentials",
