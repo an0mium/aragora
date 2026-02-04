@@ -293,7 +293,7 @@ class TestGetStatus:
         mock_handler = MagicMock()
         mock_handler.command = "GET"
 
-        result = await handler.handle("/api/gauntlet/nonexistent", {}, mock_handler)
+        result = await handler.handle("/api/gauntlet/gauntlet-nonexistent", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 404

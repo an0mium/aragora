@@ -17,7 +17,7 @@ from aragora.config import (
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
 if TYPE_CHECKING:
-    from aragora.ranking.elo import ELOSystem  # noqa: F401
+    from aragora.ranking.elo import EloSystem  # noqa: F401
 
 from ..base import (
     HandlerResult,
@@ -42,7 +42,7 @@ class AgentRankingsMixin:
         """Return the nomic directory path. Implemented by main handler."""
         ...
 
-    def get_elo_system(self) -> "ELOSystem | None":
+    def get_elo_system(self) -> "EloSystem | None":
         """Return the ELO system instance. Implemented by main handler."""
         ...
 
