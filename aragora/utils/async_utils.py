@@ -20,17 +20,15 @@ T = TypeVar("T")
 
 
 def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
-    """Run async coroutine from sync context ONLY.
+    """Run async coroutine from sync context, dispatching to the correct event loop.
 
-    IMPORTANT: This function should ONLY be called from synchronous code.
-    If called from an async context, it will raise RuntimeError to prevent
-    event loop cross-contamination that breaks asyncpg connection pools.
-
-    When a shared asyncpg pool exists (server mode), this dispatches the
-    coroutine to the main event loop via run_coroutine_threadsafe(). This
-    ensures the coroutine runs on the same loop the pool was created on.
-
-    For async code, use `await coro` directly instead of `run_async(coro)`.
+    Handles three scenarios:
+    1. Already on the main event loop (sync handler called from async handle()):
+       Uses loop.run_until_complete() with nest_asyncio support.
+    2. In a different thread with no running loop (sync HTTP handler thread):
+       Dispatches to the main event loop via run_coroutine_threadsafe().
+    3. No shared pool (CLI/SQLite mode):
+       Creates a temporary event loop via asyncio.run().
 
     Args:
         coro: Coroutine to execute
@@ -40,31 +38,41 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
         Result from the coroutine
 
     Raises:
-        RuntimeError: If called from within an async context
+        RuntimeError: If called from an unrelated async context
         Exception: Any exception from the coroutine
         TimeoutError: If execution exceeds timeout
     """
-    # Check if there's a running loop - if so, FAIL FAST
-    # Using ThreadPoolExecutor with asyncio.run() creates a new event loop,
-    # which breaks asyncpg pools (they're bound to specific event loops).
+    # Check if there's already a running event loop in this thread.
+    running_loop: asyncio.AbstractEventLoop | None = None
     try:
-        loop = asyncio.get_running_loop()
-        # We're in an async context - this is a caller bug
-        # Close the coroutine to prevent "coroutine was never awaited" warning
+        running_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        pass  # No running loop - handled below
+
+    if running_loop is not None:
+        # We're on an event loop. Check if it's the main pool loop
+        # (sync handler called from async handle() on the main loop).
+        # nest_asyncio is applied to the main loop in pool_manager, so
+        # loop.run_until_complete() works for nested calls.
+        try:
+            from aragora.storage.pool_manager import get_pool_event_loop
+
+            main_loop = get_pool_event_loop()
+            if running_loop is main_loop:
+                return running_loop.run_until_complete(coro)
+        except ImportError:
+            pass
+
+        # Running loop but NOT the main pool loop - caller bug
         coro.close()
         raise RuntimeError(
             "run_async() cannot be called from an async context. "
             "asyncpg connection pools are bound to specific event loops. "
             "Use 'await coro' directly instead of 'run_async(coro)'. "
-            f"Current event loop: {loop}"
+            f"Current event loop: {running_loop}"
         )
-    except RuntimeError as e:
-        if "no running event loop" not in str(e).lower():
-            # Re-raise other RuntimeErrors (including our own from above)
-            coro.close()
-            raise
 
-    # No running loop in this thread - we're in sync context.
+    # No running loop in this thread - we're in a sync context.
     # Try to dispatch to the main event loop where the asyncpg pool lives.
     try:
         from aragora.storage.pool_manager import get_pool_event_loop
