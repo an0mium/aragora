@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -37,6 +38,7 @@ class ConnectorInfo:
     connector_type: str  # "chat", "payment", "ecommerce", "enterprise", "ai", "memory"
     module_path: str
     status: ConnectorStatus = ConnectorStatus.UNKNOWN
+    configured: bool | None = None
     last_health_check: float | None = None
     capabilities: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -48,6 +50,7 @@ class ConnectorInfo:
             "connector_type": self.connector_type,
             "module_path": self.module_path,
             "status": self.status.value,
+            "configured": self.configured,
             "last_health_check": self.last_health_check,
             "capabilities": list(self.capabilities),
             "metadata": dict(self.metadata),
@@ -253,11 +256,15 @@ class ConnectorRegistry:
         """
         status = ConnectorStatus.UNKNOWN
         metadata: dict[str, Any] = {}
+        configured: bool | None = None
 
         try:
-            importlib.import_module(module_path)
+            module = importlib.import_module(module_path)
             status = ConnectorStatus.HEALTHY
             metadata["importable"] = True
+            configured, config_meta = _extract_config_status(module)
+            if config_meta is not None:
+                metadata["config"] = config_meta
         except ImportError as exc:
             status = ConnectorStatus.UNHEALTHY
             metadata["importable"] = False
@@ -274,11 +281,42 @@ class ConnectorRegistry:
             connector_type=connector_type,
             module_path=module_path,
             status=status,
+            configured=configured,
             last_health_check=time.time(),
             capabilities=list(capabilities),
             metadata=metadata,
         )
         self._connectors[name] = info
+
+
+def _extract_config_status(module: Any) -> tuple[bool | None, dict[str, Any] | None]:
+    """Inspect module for configuration metadata without instantiating connectors."""
+    if hasattr(module, "get_config_status"):
+        try:
+            config_meta = module.get_config_status()
+            if isinstance(config_meta, dict):
+                configured = config_meta.get("configured")
+                return configured, config_meta
+        except Exception as exc:  # noqa: BLE001
+            return None, {"error": str(exc)}
+
+    required = getattr(module, "CONFIG_ENV_VARS", None)
+    optional = getattr(module, "OPTIONAL_ENV_VARS", None)
+    if required or optional:
+        required_list = list(required or [])
+        optional_list = list(optional or [])
+        missing_required = [key for key in required_list if not os.environ.get(key)]
+        missing_optional = [key for key in optional_list if not os.environ.get(key)]
+        configured = len(missing_required) == 0
+        return configured, {
+            "configured": configured,
+            "required": required_list,
+            "optional": optional_list,
+            "missing_required": missing_required,
+            "missing_optional": missing_optional,
+        }
+
+    return None, None
 
     # ------------------------------------------------------------------
     # CRUD helpers

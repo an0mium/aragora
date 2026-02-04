@@ -25,6 +25,28 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
+CONFIG_ENV_VARS = ("FASB_API_BASE", "FASB_SEARCH_URL")
+OPTIONAL_ENV_VARS = ("FASB_API_KEY",)
+
+
+def get_config_status() -> dict[str, Any]:
+    """Return configuration status for the FASB connector."""
+    base = os.environ.get("FASB_API_BASE")
+    search = os.environ.get("FASB_SEARCH_URL")
+    configured = bool(base or search)
+    missing_required = []
+    if not configured:
+        missing_required = list(CONFIG_ENV_VARS)
+    missing_optional = [key for key in OPTIONAL_ENV_VARS if not os.environ.get(key)]
+    return {
+        "configured": configured,
+        "required": list(CONFIG_ENV_VARS),
+        "optional": list(OPTIONAL_ENV_VARS),
+        "missing_required": missing_required,
+        "missing_optional": missing_optional,
+        "notes": "Requires licensed FASB content or internal proxy",
+    }
+
 
 class FASBConnector(BaseConnector):
     """Connector for licensed GAAP content (FASB or internal proxy)."""

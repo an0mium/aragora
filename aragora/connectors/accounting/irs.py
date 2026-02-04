@@ -25,6 +25,28 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
+CONFIG_ENV_VARS = ("IRS_API_BASE", "IRS_SEARCH_URL")
+OPTIONAL_ENV_VARS = ("IRS_API_KEY",)
+
+
+def get_config_status() -> dict[str, Any]:
+    """Return configuration status for the IRS connector."""
+    base = os.environ.get("IRS_API_BASE")
+    search = os.environ.get("IRS_SEARCH_URL")
+    configured = bool(base or search)
+    missing_required = []
+    if not configured:
+        missing_required = list(CONFIG_ENV_VARS)
+    missing_optional = [key for key in OPTIONAL_ENV_VARS if not os.environ.get(key)]
+    return {
+        "configured": configured,
+        "required": list(CONFIG_ENV_VARS),
+        "optional": list(OPTIONAL_ENV_VARS),
+        "missing_required": missing_required,
+        "missing_optional": missing_optional,
+        "notes": "IRS connector expects internal proxy or search API endpoint",
+    }
+
 
 class IRSConnector(BaseConnector):
     """Connector for IRS guidance search."""

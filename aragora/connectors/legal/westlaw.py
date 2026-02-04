@@ -27,6 +27,28 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
+CONFIG_ENV_VARS = ("WESTLAW_API_KEY", "WESTLAW_API_BASE", "WESTLAW_SEARCH_URL")
+
+
+def get_config_status() -> dict[str, Any]:
+    """Return configuration status for the Westlaw connector."""
+    api_key = os.environ.get("WESTLAW_API_KEY")
+    base = os.environ.get("WESTLAW_API_BASE")
+    search = os.environ.get("WESTLAW_SEARCH_URL")
+    has_endpoint = bool(base or search)
+    configured = bool(api_key and has_endpoint)
+    missing_required = []
+    if not api_key:
+        missing_required.append("WESTLAW_API_KEY")
+    if not has_endpoint:
+        missing_required.append("WESTLAW_API_BASE or WESTLAW_SEARCH_URL")
+    return {
+        "configured": configured,
+        "required": list(CONFIG_ENV_VARS),
+        "missing_required": missing_required,
+        "notes": "Requires licensed Westlaw API access",
+    }
+
 
 class WestlawConnector(BaseConnector):
     """Connector for Westlaw premium case law search."""
