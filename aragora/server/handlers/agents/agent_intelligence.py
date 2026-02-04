@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from aragora.config import CACHE_TTL_AGENT_H2H
 
 if TYPE_CHECKING:
-    from aragora.ranking.elo import ELOSystem
+    from aragora.ranking.elo import EloSystem
     from aragora.storage.postgres_store import PostgresStore
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
@@ -37,7 +37,7 @@ class AgentIntelligenceMixin:
         """Return the nomic directory path. Implemented by main handler."""
         ...
 
-    def get_elo_system(self) -> "ELOSystem | None":
+    def get_elo_system(self) -> "EloSystem | None":
         """Return the ELO system instance. Implemented by main handler."""
         ...
 

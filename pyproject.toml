@@ -1126,9 +1126,9 @@ omit = [
 # Coverage threshold - incrementally raised
 # 19% (initial) -> 30% (Sprint 2.1) -> 45% (Sprint 9) -> 65% (Jan 2026) -> 68% -> 70% (Feb 2026)
 # Enterprise modules (control_plane, tenancy, policy, privacy) at 70%
-# 19% (initial) -> 30% (Sprint 2.1) -> 45% (Sprint 9) -> 65% (Jan 2026) -> 68% -> 70% -> 71% (Feb 2026)
+# 19% (initial) -> 30% (Sprint 2.1) -> 45% (Sprint 9) -> 65% (Jan 2026) -> 68% -> 70% -> 71% -> 73% (Feb 2026)
 # Target: 80% by end of Q2 2026
-fail_under = 71
+fail_under = 73
 show_missing = true
 skip_covered = true
 exclude_lines = [
