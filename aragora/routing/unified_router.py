@@ -91,12 +91,23 @@ class UnifiedDecisionRouter:
                     DecisionRouter as GatewayRouter,
                     RoutingCriteria,
                 )
+                from aragora.routing.config import load_gateway_routing_config
 
-                # Use default criteria
-                self._gateway_router = GatewayRouter(
-                    criteria=RoutingCriteria(),
+                cfg = load_gateway_routing_config()
+                criteria = RoutingCriteria(
+                    financial_threshold=cfg.financial_threshold,
+                    risk_levels=cfg.risk_levels,
+                    compliance_flags=cfg.compliance_flags,
+                    stakeholder_threshold=cfg.stakeholder_threshold,
+                    require_debate_keywords=cfg.require_debate_keywords,
+                    require_execute_keywords=cfg.require_execute_keywords,
+                    time_sensitive_threshold_seconds=cfg.time_sensitive_threshold_seconds,
+                    confidence_threshold=cfg.confidence_threshold,
                 )
-                logger.debug("Gateway router initialized with default criteria")
+                self._gateway_router = GatewayRouter(
+                    criteria=criteria,
+                )
+                logger.debug("Gateway router initialized with configured criteria")
             except ImportError as e:
                 logger.warning(f"Gateway router not available: {e}")
         return self._gateway_router
@@ -313,10 +324,20 @@ class UnifiedDecisionRouter:
         try:
             from aragora.gateway.decision_router import RoutingCriteria
 
+            from aragora.routing.config import load_gateway_routing_config
+
+            cfg = load_gateway_routing_config()
             criteria = RoutingCriteria(
-                financial_threshold=financial_threshold or 10000.0,
-                risk_levels=risk_levels or {"high", "critical"},
-                compliance_flags=compliance_flags or {"pii", "financial", "hipaa", "gdpr"},
+                financial_threshold=financial_threshold
+                if financial_threshold is not None
+                else cfg.financial_threshold,
+                risk_levels=risk_levels or cfg.risk_levels,
+                compliance_flags=compliance_flags or cfg.compliance_flags,
+                stakeholder_threshold=cfg.stakeholder_threshold,
+                require_debate_keywords=cfg.require_debate_keywords,
+                require_execute_keywords=cfg.require_execute_keywords,
+                time_sensitive_threshold_seconds=cfg.time_sensitive_threshold_seconds,
+                confidence_threshold=cfg.confidence_threshold,
             )
             gateway.update_criteria(criteria)
             logger.info(

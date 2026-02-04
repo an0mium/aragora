@@ -443,6 +443,7 @@ class DecisionRoutingMiddleware:
         self._deduplicator = RequestDeduplicator(dedupe_window) if enable_deduplication else None
         self._cache = ResponseCache(cache_ttl) if enable_caching else None
         self._router = None  # Lazy loaded
+        self._unified_router = None  # Lazy loaded
 
     def _get_router(self):
         """Get or create the DecisionRouter."""
@@ -454,6 +455,17 @@ class DecisionRoutingMiddleware:
             except ImportError:
                 logger.warning("DecisionRouter not available")
         return self._router
+
+    def _get_unified_router(self):
+        """Get or create the UnifiedDecisionRouter."""
+        if self._unified_router is None:
+            try:
+                from aragora.routing.unified_router import UnifiedDecisionRouter
+
+                self._unified_router = UnifiedDecisionRouter()
+            except ImportError:
+                logger.warning("UnifiedDecisionRouter not available")
+        return self._unified_router
 
     async def process(
         self,
@@ -626,6 +638,7 @@ class DecisionRoutingMiddleware:
 
         # Map decision type
         type_map = {
+            "auto": DecisionType.AUTO,
             "debate": DecisionType.DEBATE,
             "workflow": DecisionType.WORKFLOW,
             "gauntlet": DecisionType.GAUNTLET,
@@ -655,7 +668,16 @@ class DecisionRoutingMiddleware:
         )
 
         # Route
-        router = self._get_router()
+        if dtype == DecisionType.AUTO:
+            router = self._get_unified_router()
+        else:
+            router = self._get_router()
+        if router is None:
+            return {
+                "success": False,
+                "error": "Decision router not available",
+                "request_id": context.request_id,
+            }
         result = await router.route(request)
 
         return {

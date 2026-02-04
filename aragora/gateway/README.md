@@ -183,3 +183,16 @@ decision = await router.route({"action": "transfer", "amount": 75000}, context={
 | `RoutingCriteria.confidence_threshold` | `0.85` |
 | `AuditConfig.retention_days` | `365` |
 | `TenantQuotas.requests_per_minute` | Per-tenant |
+
+### Routing Criteria Env Overrides
+
+You can centralize Gateway routing criteria for the unified router by setting:
+
+- `ARAGORA_ROUTING_FINANCIAL_THRESHOLD`
+- `ARAGORA_ROUTING_RISK_LEVELS` (comma-separated, e.g. `high,critical`)
+- `ARAGORA_ROUTING_COMPLIANCE_FLAGS` (comma-separated, e.g. `pii,hipaa,gdpr`)
+- `ARAGORA_ROUTING_STAKEHOLDER_THRESHOLD`
+- `ARAGORA_ROUTING_REQUIRE_DEBATE_KEYWORDS` (comma-separated)
+- `ARAGORA_ROUTING_REQUIRE_EXECUTE_KEYWORDS` (comma-separated)
+- `ARAGORA_ROUTING_TIME_SENSITIVE_SECONDS`
+- `ARAGORA_ROUTING_CONFIDENCE_THRESHOLD`

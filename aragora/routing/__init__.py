@@ -36,6 +36,16 @@ from aragora.routing.unified_router import (
     reset_unified_router,
     route_decision_auto,
 )
+from aragora.routing.config import GatewayRoutingConfig, load_gateway_routing_config
+from aragora.routing.lara_router import (
+    LaRARouter,
+    LaRAConfig,
+    QueryFeatures,
+    RetrievalMode,
+    RoutingDecision,
+    create_lara_router,
+    quick_route,
+)
 
 __all__ = [
     # Agent selection
@@ -54,4 +64,14 @@ __all__ = [
     "get_unified_router",
     "reset_unified_router",
     "route_decision_auto",
+    "GatewayRoutingConfig",
+    "load_gateway_routing_config",
+    # LaRA retrieval routing
+    "LaRARouter",
+    "LaRAConfig",
+    "QueryFeatures",
+    "RetrievalMode",
+    "RoutingDecision",
+    "create_lara_router",
+    "quick_route",
 ]
