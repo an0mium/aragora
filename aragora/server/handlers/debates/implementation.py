@@ -72,14 +72,22 @@ def _persist_receipt(receipt: Any, debate_id: str) -> str | None:
         return None
 
 
-def _persist_plan(plan: Any, debate_id: str) -> None:
+def _persist_plan(
+    plan: Any,
+    debate_id: str,
+    implementation_profile: dict[str, Any] | None = None,
+) -> None:
     """Store an ImplementPlan in the pipeline plan store for tracking."""
     try:
         from aragora.pipeline.executor import store_plan
         from aragora.pipeline.decision_plan import DecisionPlanFactory
 
         # Wrap ImplementPlan as a DecisionPlan for the store
-        decision_plan = DecisionPlanFactory.from_implement_plan(plan, debate_id=debate_id)
+        decision_plan = DecisionPlanFactory.from_implement_plan(
+            plan,
+            debate_id=debate_id,
+            implementation_profile=implementation_profile,
+        )
         store_plan(decision_plan)
     except Exception as exc:
         logger.debug("Plan persistence failed: %s", exc)
@@ -141,7 +149,7 @@ class _RequestConfig:
     execution_mode: str
     execution_engine: str
     effective_engine: str
-    parallel_execution: bool
+    parallel_execution: bool | None
     notify_origin: bool
     risk_level: str
     approval_timeout: Any
@@ -152,7 +160,20 @@ class _RequestConfig:
     computer_use_actions: Any
     openclaw_session: Any
     implementation_profile: dict[str, Any] | None
+    implementers: Any
+    critic: Any
+    reviser: Any
+    strategy: Any
+    max_revisions: Any
     fabric_models: Any
+    fabric_pool_id: Any
+    fabric_min_agents: Any
+    fabric_max_agents: Any
+    fabric_timeout_seconds: Any
+    max_parallel: Any
+    complexity_router: Any
+    task_type_router: Any
+    capability_router: Any
     channel_targets: Any
     thread_id: Any
     thread_id_by_platform: Any
@@ -163,13 +184,31 @@ class _RequestConfig:
 
 def _parse_request(payload: dict[str, Any], ctx: dict[str, Any]) -> _RequestConfig:
     """Parse and normalise the JSON body into an ``_RequestConfig``."""
+    def _coerce_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _coerce_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     include_receipt = bool(payload.get("include_receipt", True))
     include_plan = bool(payload.get("include_plan", True))
     include_context = bool(payload.get("include_context", False))
     plan_strategy = str(payload.get("plan_strategy", "single_task"))
     execution_mode = str(payload.get("execution_mode", "plan_only")).lower()
     execution_engine = str(payload.get("execution_engine", "")).lower()
-    parallel_execution = bool(payload.get("parallel_execution", False))
+    parallel_execution = payload.get("parallel_execution")
+    if parallel_execution is not None:
+        parallel_execution = bool(parallel_execution)
     notify_origin = bool(payload.get("notify_origin", False))
     risk_level = str(payload.get("risk_level", "medium"))
     approval_timeout = payload.get("approval_timeout_seconds")
@@ -180,7 +219,20 @@ def _parse_request(payload: dict[str, Any], ctx: dict[str, Any]) -> _RequestConf
     computer_use_actions = payload.get("computer_use_actions")
     openclaw_session = payload.get("openclaw_session")
     implementation_profile = payload.get("implementation_profile")
+    implementers = payload.get("implementers")
+    critic = payload.get("critic")
+    reviser = payload.get("reviser")
+    strategy = payload.get("strategy")
+    max_revisions = _coerce_int(payload.get("max_revisions"))
     fabric_models = payload.get("fabric_models")
+    fabric_pool_id = payload.get("fabric_pool_id")
+    fabric_min_agents = _coerce_int(payload.get("fabric_min_agents"))
+    fabric_max_agents = _coerce_int(payload.get("fabric_max_agents"))
+    fabric_timeout_seconds = _coerce_float(payload.get("fabric_timeout_seconds"))
+    max_parallel = _coerce_int(payload.get("max_parallel"))
+    complexity_router = payload.get("complexity_router") or payload.get("agent_by_complexity")
+    task_type_router = payload.get("task_type_router") or payload.get("agent_by_task_type")
+    capability_router = payload.get("capability_router") or payload.get("agent_by_capability")
     channel_targets = payload.get("channel_targets") or payload.get("chat_targets")
     thread_id = payload.get("thread_id") or payload.get("origin_thread_id")
     thread_id_by_platform = payload.get("thread_id_by_platform")
@@ -225,7 +277,20 @@ def _parse_request(payload: dict[str, Any], ctx: dict[str, Any]) -> _RequestConf
         implementation_profile=implementation_profile
         if isinstance(implementation_profile, dict)
         else None,
+        implementers=implementers,
+        critic=critic,
+        reviser=reviser,
+        strategy=strategy,
+        max_revisions=max_revisions,
         fabric_models=fabric_models,
+        fabric_pool_id=fabric_pool_id,
+        fabric_min_agents=fabric_min_agents,
+        fabric_max_agents=fabric_max_agents,
+        fabric_timeout_seconds=fabric_timeout_seconds,
+        max_parallel=max_parallel,
+        complexity_router=complexity_router,
+        task_type_router=task_type_router,
+        capability_router=capability_router,
         channel_targets=channel_targets,
         thread_id=thread_id,
         thread_id_by_platform=thread_id_by_platform,
@@ -233,6 +298,42 @@ def _parse_request(payload: dict[str, Any], ctx: dict[str, Any]) -> _RequestConf
         execute_workflow=execute_workflow,
         repo_path=repo_path,
     )
+
+
+def _merge_implementation_profile(
+    base: dict[str, Any] | None,
+    rc: _RequestConfig,
+) -> dict[str, Any] | None:
+    """Merge implementation profile overrides from request config."""
+    profile: dict[str, Any] = dict(base) if isinstance(base, dict) else {}
+
+    def _maybe_set_profile(key: str, value: Any) -> None:
+        if value is None:
+            return
+        if key not in profile:
+            profile[key] = value
+
+    _maybe_set_profile("execution_mode", rc.effective_engine)
+    _maybe_set_profile("implementers", rc.implementers)
+    _maybe_set_profile("critic", rc.critic)
+    _maybe_set_profile("reviser", rc.reviser)
+    _maybe_set_profile("strategy", rc.strategy)
+    _maybe_set_profile("max_revisions", rc.max_revisions)
+    _maybe_set_profile("parallel_execution", rc.parallel_execution)
+    _maybe_set_profile("max_parallel", rc.max_parallel)
+    _maybe_set_profile("complexity_router", rc.complexity_router)
+    _maybe_set_profile("task_type_router", rc.task_type_router)
+    _maybe_set_profile("capability_router", rc.capability_router)
+    _maybe_set_profile("fabric_models", rc.fabric_models)
+    _maybe_set_profile("fabric_pool_id", rc.fabric_pool_id)
+    _maybe_set_profile("fabric_min_agents", rc.fabric_min_agents)
+    _maybe_set_profile("fabric_max_agents", rc.fabric_max_agents)
+    _maybe_set_profile("fabric_timeout_seconds", rc.fabric_timeout_seconds)
+    _maybe_set_profile("channel_targets", rc.channel_targets)
+    _maybe_set_profile("thread_id", rc.thread_id)
+    _maybe_set_profile("thread_id_by_platform", rc.thread_id_by_platform)
+
+    return profile or None
 
 
 class _DebatesHandlerProtocol(Protocol):
@@ -423,6 +524,8 @@ class ImplementationOperationsMixin:
             if receipt_id:
                 response_payload["receipt_id"] = receipt_id
 
+        implementation_profile = _merge_implementation_profile(rc.implementation_profile, rc)
+
         computer_use_plan = None
         if package.plan is not None and not rc.workflow_mode:
             if rc.execution_engine == "computer_use":
@@ -434,13 +537,14 @@ class ImplementationOperationsMixin:
                     computer_use_plan = DecisionPlanFactory.from_implement_plan(
                         package.plan,
                         debate_id=debate_id,
+                        implementation_profile=implementation_profile,
                     )
                     store_plan(computer_use_plan)
                     response_payload["plan_id"] = computer_use_plan.id
                 except Exception as exc:
                     logger.debug("Computer use plan persistence failed: %s", exc)
             else:
-                _persist_plan(package.plan, debate_id)
+                _persist_plan(package.plan, debate_id, implementation_profile=implementation_profile)
 
         return receipt_id, computer_use_plan
 
@@ -529,28 +633,10 @@ class ImplementationOperationsMixin:
         if isinstance(rc.openclaw_session, dict):
             metadata["openclaw_session"] = rc.openclaw_session
 
-        implementation_profile = None
-        if isinstance(rc.implementation_profile, dict):
-            implementation_profile = dict(rc.implementation_profile)
-        else:
-            implementation_profile = {}
-
-        if rc.fabric_models is not None and "fabric_models" not in implementation_profile:
-            implementation_profile["fabric_models"] = rc.fabric_models
-        if rc.channel_targets is not None and "channel_targets" not in implementation_profile:
-            implementation_profile["channel_targets"] = rc.channel_targets
-        if rc.thread_id is not None and "thread_id" not in implementation_profile:
-            implementation_profile["thread_id"] = rc.thread_id
-        if (
-            rc.thread_id_by_platform is not None
-            and "thread_id_by_platform" not in implementation_profile
-        ):
-            implementation_profile["thread_id_by_platform"] = rc.thread_id_by_platform
+        implementation_profile = _merge_implementation_profile(rc.implementation_profile, rc)
 
         if implementation_profile:
             metadata.setdefault("implementation_profile", implementation_profile)
-        else:
-            implementation_profile = None
 
         plan = DecisionPlanFactory.from_debate_result(
             debate_result,
@@ -623,6 +709,7 @@ class ImplementationOperationsMixin:
                     continuum_memory=self.ctx.get("continuum_memory"),
                     knowledge_mound=self.ctx.get("knowledge_mound"),
                     parallel_execution=rc.parallel_execution,
+                    max_parallel=rc.max_parallel,
                 )
                 outcome = run_async(
                     plan_executor.execute(plan, parallel_execution=rc.parallel_execution)
@@ -762,6 +849,7 @@ class ImplementationOperationsMixin:
                 continuum_memory=self.ctx.get("continuum_memory"),
                 knowledge_mound=self.ctx.get("knowledge_mound"),
                 parallel_execution=rc.parallel_execution,
+                max_parallel=rc.max_parallel,
                 execution_mode="computer_use",
                 repo_path=rc.repo_path or Path.cwd(),
             )
@@ -797,18 +885,49 @@ class ImplementationOperationsMixin:
         response_payload: dict[str, Any],
     ) -> None:
         """Execute via hybrid engine with optional code review."""
-        hybrid_executor = HybridExecutor(repo_path=rc.repo_path or Path.cwd())
+        profile = None
+        profile_payload = _merge_implementation_profile(rc.implementation_profile, rc)
+        if isinstance(profile_payload, dict):
+            try:
+                from aragora.pipeline.decision_plan import ImplementationProfile
+
+                profile = ImplementationProfile.from_dict(profile_payload)
+            except Exception:
+                profile = None
+
+        hybrid_executor = HybridExecutor(
+            repo_path=rc.repo_path or Path.cwd(),
+            implementers=profile.implementers if profile else None,
+            critic=profile.critic if profile else None,
+            reviser=profile.reviser if profile else None,
+            strategy=profile.strategy if profile else None,
+            max_revisions=profile.max_revisions if profile else None,
+        )
+        parallel_execution = (
+            rc.parallel_execution
+            if rc.parallel_execution is not None
+            else (profile.parallel_execution if profile else False)
+        )
+        max_parallel = rc.max_parallel
+        if max_parallel is None and profile is not None:
+            max_parallel = profile.max_parallel
         notifier = ExecutionNotifier(
             debate_id=debate_id,
             notify_channel=rc.notify_origin,
             notify_websocket=rc.notify_origin,
+            channel_targets=profile.channel_targets if profile and profile.channel_targets else rc.channel_targets,
+            thread_id=profile.thread_id if profile and profile.thread_id else rc.thread_id,
+            thread_id_by_platform=profile.thread_id_by_platform
+            if profile and profile.thread_id_by_platform
+            else rc.thread_id_by_platform,
         )
         notifier.set_task_descriptions(package.plan.tasks)
-        if rc.parallel_execution:
+        if parallel_execution:
             results = run_async(
                 hybrid_executor.execute_plan_parallel(
                     package.plan.tasks,
                     set(),
+                    max_parallel=max_parallel,
                     on_task_complete=notifier.on_task_complete,
                 )
             )
@@ -849,20 +968,32 @@ class ImplementationOperationsMixin:
             FabricImplementationRunner,
         )
 
+        profile_payload = _merge_implementation_profile(rc.implementation_profile, rc)
+        channel_targets = rc.channel_targets
+        thread_id = rc.thread_id
+        thread_id_by_platform = rc.thread_id_by_platform
+        if isinstance(profile_payload, dict):
+            channel_targets = profile_payload.get("channel_targets") or channel_targets
+            thread_id = profile_payload.get("thread_id") or thread_id
+            thread_id_by_platform = profile_payload.get("thread_id_by_platform") or thread_id_by_platform
+
         notifier = ExecutionNotifier(
             debate_id=debate_id,
             notify_channel=rc.notify_origin,
             notify_websocket=rc.notify_origin,
+            channel_targets=channel_targets,
+            thread_id=thread_id,
+            thread_id_by_platform=thread_id_by_platform,
         )
         notifier.set_task_descriptions(package.plan.tasks)
 
         async def _run() -> list[Any]:
             profile = None
-            if isinstance(rc.implementation_profile, dict):
+            if isinstance(profile_payload, dict):
                 try:
                     from aragora.pipeline.decision_plan import ImplementationProfile
 
-                    profile = ImplementationProfile.from_dict(rc.implementation_profile)
+                    profile = ImplementationProfile.from_dict(profile_payload)
                 except Exception:
                     profile = None
 

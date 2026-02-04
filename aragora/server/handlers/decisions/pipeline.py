@@ -58,6 +58,43 @@ def _get_circuit_breaker():  # type: ignore[no-untyped-def]
     return _pipeline_cb
 
 
+def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any] | None:
+    """Build an implementation profile payload from request fields."""
+    profile = body.get("implementation_profile")
+    payload: dict[str, Any] = dict(profile) if isinstance(profile, dict) else {}
+
+    def _maybe_set(key: str, value: Any) -> None:
+        if value is None:
+            return
+        if key not in payload:
+            payload[key] = value
+
+    _maybe_set("execution_mode", body.get("execution_engine") or body.get("execution_mode"))
+    _maybe_set("implementers", body.get("implementers"))
+    _maybe_set("critic", body.get("critic"))
+    _maybe_set("reviser", body.get("reviser"))
+    _maybe_set("strategy", body.get("strategy"))
+    _maybe_set("max_revisions", body.get("max_revisions"))
+    _maybe_set("parallel_execution", body.get("parallel_execution"))
+    _maybe_set("max_parallel", body.get("max_parallel"))
+    _maybe_set("complexity_router", body.get("complexity_router") or body.get("agent_by_complexity"))
+    _maybe_set("task_type_router", body.get("task_type_router") or body.get("agent_by_task_type"))
+    _maybe_set(
+        "capability_router",
+        body.get("capability_router") or body.get("agent_by_capability"),
+    )
+    _maybe_set("fabric_models", body.get("fabric_models"))
+    _maybe_set("fabric_pool_id", body.get("fabric_pool_id"))
+    _maybe_set("fabric_min_agents", body.get("fabric_min_agents"))
+    _maybe_set("fabric_max_agents", body.get("fabric_max_agents"))
+    _maybe_set("fabric_timeout_seconds", body.get("fabric_timeout_seconds"))
+    _maybe_set("channel_targets", body.get("channel_targets") or body.get("chat_targets"))
+    _maybe_set("thread_id", body.get("thread_id") or body.get("origin_thread_id"))
+    _maybe_set("thread_id_by_platform", body.get("thread_id_by_platform"))
+
+    return payload or None
+
+
 # RBAC permission keys
 DECISION_READ_PERMISSION = "decision:read"
 DECISION_MANAGE_PERMISSION = "decision:manage"
@@ -304,6 +341,8 @@ class DecisionPipelineHandler(SecureHandler):
             except (TypeError, ValueError):
                 budget_limit = None
 
+        implementation_profile = _build_implementation_profile_payload(body)
+
         # Build the plan
         plan = DecisionPlanFactory.from_debate_result(
             debate_result,
@@ -311,6 +350,7 @@ class DecisionPipelineHandler(SecureHandler):
             approval_mode=approval_mode,
             max_auto_risk=max_auto_risk,
             metadata=body.get("metadata") or {},
+            implementation_profile=implementation_profile,
         )
 
         # Store it
