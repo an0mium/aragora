@@ -29,10 +29,19 @@ def mock_continuum_memory():
     mock_entry.content = "Test memory content"
     mock_entry.importance = 0.8
     mock_entry.surprise = 0.5
+    mock_entry.surprise_score = 0.5
     mock_entry.created_at = datetime.now(timezone.utc)
+    mock_entry.updated_at = datetime.now(timezone.utc)
+    mock_entry.metadata = {"type": "test"}
+    mock_entry.tier = MagicMock()
+    mock_entry.tier.name = "fast"
 
     memory.retrieve = MagicMock(return_value=[mock_entry])
     memory.search = MagicMock(return_value=[mock_entry])
+    memory.get_many = MagicMock(return_value=[mock_entry])
+    memory.get_timeline_entries = MagicMock(
+        return_value={"anchor": mock_entry, "before": [], "after": []}
+    )
     memory.get_tier_stats = MagicMock(
         return_value={
             "fast": {"count": 10, "limit": 100, "utilization": 0.1},
@@ -217,6 +226,22 @@ class TestMemoryHandlerRouting:
         """Handler recognizes search path."""
         assert memory_handler.can_handle("/api/v1/memory/search") is True
 
+    def test_can_handle_search_index(self, memory_handler):
+        """Handler recognizes search-index path."""
+        assert memory_handler.can_handle("/api/v1/memory/search-index") is True
+
+    def test_can_handle_search_timeline(self, memory_handler):
+        """Handler recognizes search-timeline path."""
+        assert memory_handler.can_handle("/api/v1/memory/search-timeline") is True
+
+    def test_can_handle_entries(self, memory_handler):
+        """Handler recognizes entries path."""
+        assert memory_handler.can_handle("/api/v1/memory/entries") is True
+
+    def test_can_handle_viewer(self, memory_handler):
+        """Handler recognizes viewer path."""
+        assert memory_handler.can_handle("/api/v1/memory/viewer") is True
+
     def test_can_handle_critiques(self, memory_handler):
         """Handler recognizes critiques path."""
         assert memory_handler.can_handle("/api/v1/memory/critiques") is True
@@ -319,6 +344,58 @@ class TestSearchMemories:
         assert result is not None
         # Should return 200 or graceful error
         assert result.status_code in (200, 503)
+
+
+class TestSearchIndex:
+    """Tests for progressive search index."""
+
+    def test_search_index_requires_query(self, memory_handler):
+        result = memory_handler._search_index({})
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_search_index_with_query(self, memory_handler):
+        result = memory_handler._search_index({"q": "test query"})
+        assert result is not None
+        assert result.status_code in (200, 503)
+
+
+class TestSearchTimeline:
+    """Tests for progressive timeline retrieval."""
+
+    def test_search_timeline_requires_anchor(self, memory_handler):
+        result = memory_handler._search_timeline({})
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_search_timeline_success(self, memory_handler):
+        result = memory_handler._search_timeline({"anchor_id": "mem_001"})
+        assert result is not None
+        assert result.status_code in (200, 503)
+
+
+class TestGetEntries:
+    """Tests for progressive entry retrieval."""
+
+    def test_get_entries_requires_ids(self, memory_handler):
+        result = memory_handler._get_entries({})
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_get_entries_success(self, memory_handler):
+        result = memory_handler._get_entries({"ids": "mem_001"})
+        assert result is not None
+        assert result.status_code in (200, 503)
+
+
+class TestMemoryViewer:
+    """Tests for memory viewer HTML."""
+
+    def test_render_viewer(self, memory_handler):
+        result = memory_handler._render_viewer()
+        assert result is not None
+        assert result.status_code == 200
+        assert result.content_type == "text/html"
 
 
 class TestGetCritiques:

@@ -91,6 +91,32 @@ def _missing_required_env_vars(env_vars: str) -> list[str]:
     return candidates
 
 
+def _normalize_documents(value: Any, max_items: int = 50) -> list[str]:
+    """Normalize document ID input to a clean list of strings."""
+    if not value:
+        return []
+    if isinstance(value, str):
+        candidates = [value]
+    elif isinstance(value, list):
+        candidates = value
+    else:
+        return []
+
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for item in candidates:
+        if not isinstance(item, str):
+            continue
+        doc_id = item.strip()
+        if not doc_id or doc_id in seen:
+            continue
+        seen.add(doc_id)
+        normalized.append(doc_id)
+        if len(normalized) >= max_items:
+            break
+    return normalized
+
+
 def _openrouter_key_available() -> bool:
     """Return True if OpenRouter key is configured via secrets or env."""
     try:
@@ -141,7 +167,7 @@ def parse_debate_request(data: dict) -> tuple[dict | None, str | None]:
         parsed_config will be None.
     """
     # Validate required fields with length limits
-    question = data.get("question", "").strip()
+    question = str(data.get("question") or data.get("task") or "").strip()
     if not question:
         return None, "question field is required"
     if len(question) > 10000:
@@ -170,14 +196,25 @@ def parse_debate_request(data: dict) -> tuple[dict | None, str | None]:
     except (ValueError, TypeError):
         rounds = DEFAULT_ROUNDS
     consensus = data.get("consensus", DEFAULT_CONSENSUS)
+    context = data.get("context", "")
+    documents = _normalize_documents(data.get("documents") or data.get("document_ids") or [])
 
     return {
         "question": question,
+        "context": context,
         "agents_str": agents_str,
         "rounds": rounds,
         "consensus": consensus,
         "use_trending": data.get("use_trending", False),
         "trending_category": data.get("trending_category", None),
+        "documents": documents,
+        "enable_knowledge_retrieval": data.get("enable_knowledge_retrieval"),
+        "enable_knowledge_ingestion": data.get("enable_knowledge_ingestion"),
+        "enable_cross_debate_memory": data.get("enable_cross_debate_memory"),
+        "enable_supermemory": data.get("enable_supermemory"),
+        "supermemory_context_container_tag": data.get("supermemory_context_container_tag"),
+        "supermemory_max_context_items": data.get("supermemory_max_context_items"),
+        "enable_belief_guidance": data.get("enable_belief_guidance"),
     }, None
 
 
