@@ -137,6 +137,30 @@ class ConnectorRegistry:
             "aragora.connectors.enterprise.streaming.rabbitmq",
             ["streaming", "events"],
         )
+        self._try_register(
+            "fasb",
+            "ai",
+            "aragora.connectors.accounting.gaap",
+            ["gaap", "standards"],
+        )
+        self._try_register(
+            "irs",
+            "ai",
+            "aragora.connectors.accounting.irs",
+            ["tax", "guidance"],
+        )
+        self._try_register(
+            "westlaw",
+            "ai",
+            "aragora.connectors.legal.westlaw",
+            ["case_law", "research"],
+        )
+        self._try_register(
+            "lexis",
+            "ai",
+            "aragora.connectors.legal.lexis",
+            ["case_law", "research"],
+        )
 
         # Ecommerce connectors
         self._try_register(

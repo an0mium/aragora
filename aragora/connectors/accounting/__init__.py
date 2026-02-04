@@ -71,6 +71,8 @@ from aragora.connectors.accounting.xero import (
     get_mock_invoice as get_mock_xero_invoice,
     get_mock_contact as get_mock_xero_contact,
 )
+from aragora.connectors.accounting.gaap import FASBConnector
+from aragora.connectors.accounting.irs import IRSConnector
 
 __all__ = [
     # Base
@@ -132,4 +134,6 @@ __all__ = [
     "XeroPaymentStatus",
     "get_mock_xero_invoice",
     "get_mock_xero_contact",
+    "FASBConnector",
+    "IRSConnector",
 ]

@@ -108,7 +108,11 @@ from aragora.connectors.legal import (
     RecipientType,
     Document,
     SignatureTab,
+    WestlawConnector,
+    LexisConnector,
 )
+from aragora.connectors.accounting.gaap import FASBConnector
+from aragora.connectors.accounting.irs import IRSConnector
 
 # DevOps connectors
 from aragora.connectors.devops import (
@@ -233,6 +237,10 @@ __all__ = [
     "RecipientType",
     "Document",
     "SignatureTab",
+    "WestlawConnector",
+    "LexisConnector",
+    "FASBConnector",
+    "IRSConnector",
     # DevOps Connectors
     "PagerDutyConnector",
     "PagerDutyCredentials",
