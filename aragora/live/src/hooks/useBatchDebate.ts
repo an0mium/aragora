@@ -269,7 +269,9 @@ export function useBatchDebate() {
         params.set('status', statusFilter);
       }
 
-      const response = await fetch(`${API_BASE}/api/debates/batch?${params}`);
+      const response = await fetch(`${API_BASE}/api/debates/batch?${params}`, {
+        headers: getAuthHeaders(),
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -290,7 +292,7 @@ export function useBatchDebate() {
       setState(s => ({ ...s, batchesLoading: false, batchesError: errorMsg }));
       return [];
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Get Queue Status
@@ -300,7 +302,9 @@ export function useBatchDebate() {
     setState(s => ({ ...s, queueLoading: true }));
 
     try {
-      const response = await fetch(`${API_BASE}/api/debates/batch/queue`);
+      const response = await fetch(`${API_BASE}/api/debates/batch/queue`, {
+        headers: getAuthHeaders(),
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -318,7 +322,7 @@ export function useBatchDebate() {
       setState(s => ({ ...s, queueLoading: false }));
       return null;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ---------------------------------------------------------------------------
   // Clear State
@@ -345,6 +349,8 @@ export function useBatchDebate() {
     // State
     ...state,
     isPolling: pollingRef.current !== null,
+    isAuthenticated,
+    authLoading,
 
     // Actions
     submitBatch,
