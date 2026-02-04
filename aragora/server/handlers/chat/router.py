@@ -155,6 +155,7 @@ class ChatWebhookRouter:
         self.event_handler = event_handler
         self.debate_starter = debate_starter
         self._connectors: dict[str, ChatPlatformConnector] = {}
+        self._approval_router: Any | None = None
 
         # Initialize DecisionRouter if available
         self._decision_router = decision_router
@@ -550,6 +551,22 @@ class ChatWebhookRouter:
             return {"success": True}
 
         logger.info(f"Interaction from {event.platform}: {interaction.action_id}")
+
+        # Route approval interactions first
+        connector = self.get_connector(event.platform)
+        if connector is not None:
+            try:
+                from aragora.approvals.interaction_router import ApprovalInteractionRouter
+
+                if self._approval_router is None:
+                    self._approval_router = ApprovalInteractionRouter()
+                handled = await self._approval_router.handle_interaction(event, connector)
+                if handled:
+                    return {"success": True}
+            except ImportError:
+                logger.debug("Approval interaction router not available")
+            except Exception as exc:
+                logger.warning("Approval interaction handling failed: %s", exc)
 
         # Pass to event handler
         if self.event_handler:

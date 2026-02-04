@@ -50,6 +50,8 @@ ALLOWED_QUERY_PARAMS = {
     "user_id": 100,
     "workspace_id": 100,
     "agents": 500,
+    "source": 100,
+    "sources": 500,
     # Analytics/time windows
     "days": None,
     # Depth/graph

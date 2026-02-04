@@ -515,6 +515,40 @@ class HumanCheckpointStep(BaseStep):
         except Exception as e:
             logger.warning(f"Failed to send approval notification: {e}")
 
+        # Send interactive chat approval request (best-effort)
+        try:
+            from aragora.approvals.chat import send_chat_approval_request
+
+            targets = (
+                config.get("chat_targets")
+                or config.get("chat_channels")
+                or config.get("assignees")
+                or config.get("escalation_emails")
+                or []
+            )
+            if isinstance(targets, str):
+                targets = [targets]
+
+            fields = [
+                ("Workflow", request.workflow_id),
+                ("Step", request.step_id),
+                ("Request ID", request.id),
+            ]
+            if request.timeout_seconds:
+                fields.append(("Timeout", f"{int(request.timeout_seconds)}s"))
+
+            await send_chat_approval_request(
+                title=request.title,
+                description=request.description,
+                fields=fields,
+                targets=list(targets),
+                kind="workflow",
+                target_id=request.id,
+                ttl_seconds=int(request.timeout_seconds) if request.timeout_seconds else None,
+            )
+        except Exception as e:
+            logger.debug("Chat approval notification skipped: %s", e)
+
     def _build_action_url(self, request: ApprovalRequest) -> str | None:
         """Build the URL for viewing/responding to an approval request."""
         import os

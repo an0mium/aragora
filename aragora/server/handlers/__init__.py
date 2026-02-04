@@ -147,10 +147,13 @@ if TYPE_CHECKING:
     from .autonomous import (
         AlertHandler,
         ApprovalHandler,
+        # Unified approvals inbox
+        # (separate handler module)
         LearningHandler as AutonomousLearningHandler,
         MonitoringHandler,
         TriggerHandler,
     )
+    from .approvals_inbox import UnifiedApprovalsHandler
     from .backup_handler import BackupHandler
     from .belief import BeliefHandler
     from .bindings import BindingsHandler
@@ -824,6 +827,7 @@ __all__ = [
     "A2AHandler",
     # Autonomous operations handlers (Phase 5)
     "ApprovalHandler",
+    "UnifiedApprovalsHandler",
     "AlertHandler",
     "TriggerHandler",
     "MonitoringHandler",

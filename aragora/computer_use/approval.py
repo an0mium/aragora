@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -238,6 +239,60 @@ class WebhookNotifier(ApprovalNotifier):
     async def notify_expiry(self, request: ApprovalRequest) -> None:
         """Send webhook for expiry."""
         await self._send_webhook({"event": "approval_expired", "request": request.to_dict()})
+
+
+class ChatApprovalNotifier(ApprovalNotifier):
+    """Chat-based notifier for approval requests."""
+
+    def __init__(self, targets: list[str] | None = None) -> None:
+        self._targets = targets or []
+
+    def _resolve_targets(self, request: ApprovalRequest) -> list[str]:
+        metadata = request.context.metadata or {}
+        targets = (
+            metadata.get("chat_targets") or metadata.get("chat_channels") or self._targets or []
+        )
+        if isinstance(targets, str):
+            return [targets]
+        return list(targets)
+
+    async def notify_request(self, request: ApprovalRequest) -> None:
+        """Send interactive approval request to chat channels."""
+        targets = self._resolve_targets(request)
+        if not targets:
+            return
+        try:
+            from aragora.approvals.chat import send_chat_approval_request
+        except ImportError:
+            return
+
+        fields = [
+            ("Request ID", request.id),
+            ("Action", request.context.action_type),
+            ("Category", request.context.category.value),
+            ("Risk", request.context.risk_level),
+        ]
+        if request.context.current_url:
+            fields.append(("URL", request.context.current_url))
+
+        ttl_seconds = int(max(0.0, request.expires_at - time.time()))
+        await send_chat_approval_request(
+            title="Computer-Use Approval Required",
+            description=request.context.reason,
+            fields=fields,
+            targets=targets,
+            kind="computer_use",
+            target_id=request.id,
+            ttl_seconds=ttl_seconds if ttl_seconds > 0 else None,
+        )
+
+    async def notify_decision(self, request: ApprovalRequest) -> None:
+        """No-op for now; decisions are reflected in the original message."""
+        return None
+
+    async def notify_expiry(self, request: ApprovalRequest) -> None:
+        """No-op for now; expiry is handled by existing notification channels."""
+        return None
 
 
 class ApprovalWorkflow:
@@ -584,5 +639,13 @@ def create_approval_workflow(
     notifiers: list[ApprovalNotifier] = [LoggingNotifier()]
     if webhook_url:
         notifiers.append(WebhookNotifier(webhook_url))
+
+    chat_targets_raw = os.environ.get("ARAGORA_COMPUTER_APPROVAL_CHAT_TARGETS") or os.environ.get(
+        "ARAGORA_APPROVAL_CHAT_TARGETS",
+        "",
+    )
+    chat_targets = [t.strip() for t in chat_targets_raw.split(",") if t.strip()]
+    if chat_targets:
+        notifiers.append(ChatApprovalNotifier(chat_targets))
 
     return ApprovalWorkflow(config=config, notifiers=notifiers)

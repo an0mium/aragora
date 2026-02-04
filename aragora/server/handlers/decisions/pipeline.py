@@ -318,6 +318,61 @@ class DecisionPipelineHandler(SecureHandler):
 
         store_plan(plan)
 
+        # Notify approvers if human approval is required
+        if plan.requires_human_approval:
+            try:
+                from aragora.approvals.chat import send_chat_approval_request
+                from aragora.utils.async_utils import run_async
+
+                approval_targets = (
+                    body.get("approval_targets")
+                    or body.get("approval_channels")
+                    or plan.metadata.get("approval_targets")
+                    or plan.metadata.get("approval_channels")
+                    or []
+                )
+                thread_id = None
+                if isinstance(approval_targets, str):
+                    approval_targets = [approval_targets]
+
+                if not approval_targets:
+                    try:
+                        from aragora.server.debate_origin import get_debate_origin
+
+                        origin = get_debate_origin(plan.debate_id)
+                        if origin:
+                            approval_targets = [f"{origin.platform}:{origin.channel_id}"]
+                            thread_id = origin.thread_id
+                    except Exception:
+                        approval_targets = approval_targets or []
+
+                fields = [
+                    ("Plan ID", plan.id),
+                    ("Debate ID", plan.debate_id),
+                    ("Status", plan.status.value),
+                ]
+                if plan.risk_register:
+                    fields.append(("Risk Level", plan.highest_risk_level.value))
+                if plan.debate_result:
+                    fields.append(("Confidence", f"{plan.debate_result.confidence:.0%}"))
+
+                if approval_targets:
+                    run_async(
+                        send_chat_approval_request(
+                            title="Decision Plan Approval Required",
+                            description=plan.task,
+                            fields=fields,
+                            targets=list(approval_targets),
+                            kind="decision_plan",
+                            target_id=plan.id,
+                            ttl_seconds=24 * 3600,
+                            extra_text="Reply with Approve/Reject to continue.",
+                            thread_id=thread_id,
+                        )
+                    )
+            except Exception as e:
+                logger.debug("Plan approval notification skipped: %s", e)
+
         logger.info(
             "Created decision plan %s from debate %s (status=%s)",
             plan.id,
