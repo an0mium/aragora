@@ -317,6 +317,19 @@ class QueryOperationsMixin(_QueryMixinBase):
                             logger.warning(f"Query source failed: {query_result}")
                     span.add_event("parallel_queries_complete")
 
+            # Optional GraphRAG hybrid retrieval on local mound
+            if self.config.enable_graph_rag and (
+                route_decision is None
+                or route_decision.route in ("semantic", "long_context", "keyword")
+            ):
+                graph_items = await self._query_graph_rag(query, limit, ws_id)
+                if graph_items:
+                    existing_ids = {item.id for item in items}
+                    for graph_item in graph_items:
+                        if graph_item.id not in existing_ids:
+                            items.append(graph_item)
+                            existing_ids.add(graph_item.id)
+
             # Sort by importance/relevance, apply offset, and limit
             items.sort(key=lambda x: x.importance or 0, reverse=True)
             if offset > 0:
@@ -476,6 +489,132 @@ class QueryOperationsMixin(_QueryMixinBase):
         # Fall back to keyword search
         result = await self.query(text, limit=limit, workspace_id=workspace_id)
         return result.items
+
+    async def _query_graph_rag(
+        self,
+        query: str,
+        limit: int,
+        workspace_id: str,
+    ) -> list["KnowledgeItem"]:
+        """Hybrid retrieval using GraphRAG (vector + graph)."""
+        if not self._semantic_store:
+            return []
+
+        try:
+            from aragora.knowledge.mound.ops.graph_rag import (
+                GraphNode,
+                GraphRAGConfig,
+                GraphRAGRetriever,
+                RelationshipType as GraphRAGRelationshipType,
+            )
+            from aragora.knowledge.unified.types import RelationshipType as KMRelationshipType
+        except ImportError:
+            return []
+
+        class _SemanticVectorAdapter:
+            def __init__(self, store: Any, tenant_id: str):
+                self._store = store
+                self._tenant_id = tenant_id
+
+            async def get_embedding(self, text: str) -> list[float]:
+                return await self._store._provider.embed(text)
+
+            async def search(
+                self,
+                query_embedding: list[float],
+                top_k: int,
+                threshold: float,
+            ) -> list[tuple[str, float]]:
+                results = await asyncio.to_thread(
+                    self._store._sync_search_similar,
+                    query_embedding,
+                    self._tenant_id,
+                    top_k * 3,
+                    None,
+                    None,
+                )
+                filtered = [r for r in results if r.similarity >= threshold]
+                filtered.sort(key=lambda r: r.similarity, reverse=True)
+                return [(r.source_id, r.similarity) for r in filtered[:top_k]]
+
+        class _GraphAdapter:
+            def __init__(self, host: QueryOperationsMixin):
+                self._host = host
+
+            async def get_neighbors(
+                self,
+                node_id: str,
+                relationship_types: list[GraphRAGRelationshipType] | None = None,
+            ) -> list[tuple[str, GraphRAGRelationshipType, float]]:
+                rels = await self._host._get_relationships(node_id)
+                neighbors: list[tuple[str, GraphRAGRelationshipType, float]] = []
+                for rel in rels:
+                    neighbor_id = rel.target_id if rel.source_id == node_id else rel.source_id
+                    graph_rel = _map_relationship(rel.relationship)
+                    if relationship_types and graph_rel not in relationship_types:
+                        continue
+                    neighbors.append((neighbor_id, graph_rel, rel.confidence or 1.0))
+                return neighbors
+
+            async def get_node(self, node_id: str) -> GraphNode | None:
+                item = await self._host.get(node_id)
+                if not item:
+                    return None
+                source = getattr(item, "source", None) or getattr(item, "source_type", None)
+                source_str = (
+                    source.value
+                    if hasattr(source, "value")
+                    else str(source)
+                    if source
+                    else "unknown"
+                )
+                return GraphNode(
+                    id=item.id,
+                    content=item.content,
+                    metadata=getattr(item, "metadata", {}) or {},
+                    confidence=getattr(item, "confidence", 1.0) or 1.0,
+                    source_type=source_str,
+                )
+
+        def _map_relationship(rel: KMRelationshipType) -> GraphRAGRelationshipType:
+            mapping = {
+                KMRelationshipType.SUPPORTS: GraphRAGRelationshipType.SUPPORTS,
+                KMRelationshipType.CONTRADICTS: GraphRAGRelationshipType.CONTRADICTS,
+                KMRelationshipType.ELABORATES: GraphRAGRelationshipType.ELABORATES,
+                KMRelationshipType.SUPERSEDES: GraphRAGRelationshipType.SUPERSEDES,
+                KMRelationshipType.RELATED_TO: GraphRAGRelationshipType.RELATED,
+                KMRelationshipType.DERIVED_FROM: GraphRAGRelationshipType.ELABORATES,
+                KMRelationshipType.CITES: GraphRAGRelationshipType.RELATED,
+            }
+            return mapping.get(rel, GraphRAGRelationshipType.RELATED)
+
+        config = GraphRAGConfig(
+            vector_top_k=self.config.graph_rag_vector_top_k,
+            vector_threshold=self.config.graph_rag_vector_threshold,
+            max_hops=self.config.graph_rag_max_hops,
+            max_neighbors_per_hop=self.config.graph_rag_max_neighbors_per_hop,
+            graph_weight=self.config.graph_rag_graph_weight,
+            enable_community_detection=self.config.graph_rag_enable_community_detection,
+            final_top_k=min(limit, self.config.graph_rag_final_top_k),
+        )
+
+        retriever = GraphRAGRetriever(
+            vector_store=_SemanticVectorAdapter(self._semantic_store, workspace_id),
+            graph_store=_GraphAdapter(self),
+            config=config,
+        )
+        try:
+            graph_result = await retriever.retrieve(query)
+        except Exception as e:
+            logger.debug("GraphRAG retrieval failed: %s", e)
+            return []
+
+        items: list[KnowledgeItem] = []
+        for result in graph_result.results:
+            item = await self.get(result.node_id)
+            if item:
+                items.append(item)
+        return items
 
     async def query_graph(
         self,

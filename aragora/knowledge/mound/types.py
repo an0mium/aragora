@@ -215,6 +215,14 @@ class MoundConfig:
     lara_graph_hint_prefixes: tuple[str, ...] = ("graph:", "node:", "id:")
     lara_force_route: str | None = None
     lara_log_decisions: bool = False
+    enable_graph_rag: bool = False
+    graph_rag_max_hops: int = 2
+    graph_rag_max_neighbors_per_hop: int = 5
+    graph_rag_vector_top_k: int = 10
+    graph_rag_vector_threshold: float = 0.5
+    graph_rag_graph_weight: float = 0.3
+    graph_rag_final_top_k: int = 20
+    graph_rag_enable_community_detection: bool = False
 
     # Staleness settings
     staleness_check_interval: timedelta = timedelta(hours=1)
