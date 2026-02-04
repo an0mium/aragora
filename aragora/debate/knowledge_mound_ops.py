@@ -54,7 +54,12 @@ class KnowledgeMoundOperations:
         self._notify_callback = notify_callback
         self._metrics = metrics
 
-    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> str | None:
+    async def fetch_knowledge_context(
+        self,
+        task: str,
+        limit: int = 10,
+        auth_context: Any | None = None,
+    ) -> str | None:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
         Queries the unified knowledge superstructure for semantically related
@@ -77,21 +82,59 @@ class KnowledgeMoundOperations:
         try:
             # Query mound for semantically related knowledge
             try:
-                results = await self.knowledge_mound.query_semantic(
-                    task,
-                    limit=limit,
-                    min_confidence=0.5,
-                )
-            except RuntimeError as e:
-                if "not initialized" in str(e).lower() and hasattr(
-                    self.knowledge_mound, "initialize"
-                ):
-                    await self.knowledge_mound.initialize()
+                if auth_context and hasattr(self.knowledge_mound, "query_with_visibility"):
+                    actor_id = getattr(auth_context, "user_id", "") or ""
+                    workspace_id = getattr(auth_context, "workspace_id", "") or ""
+                    org_id = getattr(auth_context, "org_id", None)
+                    if actor_id and workspace_id:
+                        results = await self.knowledge_mound.query_with_visibility(
+                            task,
+                            actor_id=actor_id,
+                            actor_workspace_id=workspace_id,
+                            actor_org_id=org_id,
+                            limit=limit,
+                        )
+                    else:
+                        results = await self.knowledge_mound.query_semantic(
+                            task,
+                            limit=limit,
+                            min_confidence=0.5,
+                        )
+                else:
                     results = await self.knowledge_mound.query_semantic(
                         task,
                         limit=limit,
                         min_confidence=0.5,
                     )
+            except RuntimeError as e:
+                if "not initialized" in str(e).lower() and hasattr(
+                    self.knowledge_mound, "initialize"
+                ):
+                    await self.knowledge_mound.initialize()
+                    if auth_context and hasattr(self.knowledge_mound, "query_with_visibility"):
+                        actor_id = getattr(auth_context, "user_id", "") or ""
+                        workspace_id = getattr(auth_context, "workspace_id", "") or ""
+                        org_id = getattr(auth_context, "org_id", None)
+                        if actor_id and workspace_id:
+                            results = await self.knowledge_mound.query_with_visibility(
+                                task,
+                                actor_id=actor_id,
+                                actor_workspace_id=workspace_id,
+                                actor_org_id=org_id,
+                                limit=limit,
+                            )
+                        else:
+                            results = await self.knowledge_mound.query_semantic(
+                                task,
+                                limit=limit,
+                                min_confidence=0.5,
+                            )
+                    else:
+                        results = await self.knowledge_mound.query_semantic(
+                            task,
+                            limit=limit,
+                            min_confidence=0.5,
+                        )
                 else:
                     raise
 

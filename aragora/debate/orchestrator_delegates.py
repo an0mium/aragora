@@ -87,7 +87,11 @@ class ArenaDelegatesMixin:
 
         Delegates to ArenaKnowledgeManager.fetch_context().
         """
-        return await self._km_manager.fetch_context(task, limit)
+        return await self._km_manager.fetch_context(
+            task,
+            limit,
+            auth_context=getattr(self, "auth_context", None),
+        )
 
     async def _inject_supermemory_context(
         self,

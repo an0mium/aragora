@@ -44,15 +44,19 @@ from aragora.debate.orchestrator_checkpoints import (
     save_checkpoint as _cp_save_checkpoint,
 )
 from aragora.debate.orchestrator_config import merge_config_objects
-from aragora.debate.orchestrator_convergence import (
-    cleanup_convergence as _conv_cleanup_convergence,
-    init_convergence as _conv_init_convergence,
-    reinit_convergence_for_debate as _conv_reinit_convergence_for_debate,
-)
 from aragora.debate.orchestrator_delegates import ArenaDelegatesMixin
 from aragora.debate.orchestrator_init import (
     apply_core_components as _init_apply_core_components,
     apply_tracker_components as _init_apply_tracker_components,
+    cleanup_convergence as _conv_cleanup_convergence,
+    init_convergence as _conv_init_convergence,
+    init_context_delegator as _context_init_context_delegator,
+    init_event_bus as _participation_init_event_bus,
+    init_prompt_context_builder as _context_init_prompt_context_builder,
+    init_roles_and_stances as _roles_init_roles_and_stances,
+    init_termination_checker as _termination_init_termination_checker,
+    init_user_participation as _participation_init_user_participation,
+    reinit_convergence_for_debate as _conv_reinit_convergence_for_debate,
     run_init_subsystems as _init_run_init_subsystems,
     store_post_tracker_config as _init_store_post_tracker_config,
 )
@@ -66,17 +70,6 @@ from aragora.debate.orchestrator_memory import (
     auto_create_knowledge_mound as _mem_auto_create_knowledge_mound,
     init_checkpoint_bridge as _mem_init_checkpoint_bridge,
     init_cross_subscriber_bridge as _mem_init_cross_subscriber_bridge,
-)
-from aragora.debate.orchestrator_participation import (
-    init_event_bus as _participation_init_event_bus,
-    init_user_participation as _participation_init_user_participation,
-)
-from aragora.debate.orchestrator_context import (
-    init_context_delegator as _context_init_context_delegator,
-    init_prompt_context_builder as _context_init_prompt_context_builder,
-)
-from aragora.debate.orchestrator_roles import (
-    init_roles_and_stances as _roles_init_roles_and_stances,
 )
 from aragora.debate.orchestrator_runner import (
     cleanup_debate_resources as _runner_cleanup_debate_resources,
@@ -106,9 +99,6 @@ from aragora.debate.orchestrator_state import (
     select_judge as _state_select_judge,
     should_terminate_early as _state_should_terminate_early,
     sync_prompt_builder_state as _state_sync_prompt_builder_state,
-)
-from aragora.debate.orchestrator_termination import (
-    init_termination_checker as _termination_init_termination_checker,
 )
 
 # Re-export for backward compatibility (tests import from orchestrator)

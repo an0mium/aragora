@@ -132,6 +132,7 @@ async def initialize_debate_context(
         domain=domain,
         hook_manager=arena.hook_manager,
         org_id=arena.org_id,
+        auth_context=getattr(arena, "auth_context", None),
         budget_check_callback=lambda round_num: arena._budget_coordinator.check_budget_mid_debate(
             debate_id, round_num
         ),

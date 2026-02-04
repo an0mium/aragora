@@ -407,7 +407,12 @@ class ArenaKnowledgeManager:
         except Exception as e:
             logger.warning(f"[arena] Unexpected error applying culture hints: {e}")
 
-    async def fetch_context(self, task: str, limit: int = 10) -> str | None:
+    async def fetch_context(
+        self,
+        task: str,
+        limit: int = 10,
+        auth_context: Any | None = None,
+    ) -> str | None:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
         Args:
@@ -419,7 +424,9 @@ class ArenaKnowledgeManager:
         """
         if self._knowledge_ops is None:
             return None
-        return await self._knowledge_ops.fetch_knowledge_context(task, limit)
+        return await self._knowledge_ops.fetch_knowledge_context(
+            task, limit, auth_context=auth_context
+        )
 
     async def ingest_outcome(self, result: "DebateResult", env: "Environment") -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.

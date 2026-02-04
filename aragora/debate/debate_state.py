@@ -117,6 +117,9 @@ class DebateContext:
     org_id: str = ""
     """Organization ID for multi-tenancy and budget tracking."""
 
+    auth_context: Any | None = None
+    """Optional authorization context for RBAC-aware context retrieval."""
+
     budget_check_callback: Any | None = None
     """Optional callback for mid-execution budget checks.
 

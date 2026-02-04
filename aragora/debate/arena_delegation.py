@@ -198,10 +198,17 @@ class ArenaDelegation:
 
     # ==================== Knowledge Operations ====================
 
-    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> str | None:
+    async def fetch_knowledge_context(
+        self,
+        task: str,
+        limit: int = 10,
+        auth_context: Any | None = None,
+    ) -> str | None:
         """Fetch knowledge context. Delegates to KnowledgeMoundOperations."""
         if self._knowledge_ops:
-            return await self._knowledge_ops.fetch_knowledge_context(task, limit=limit)
+            return await self._knowledge_ops.fetch_knowledge_context(
+                task, limit=limit, auth_context=auth_context
+            )
         return None
 
     async def ingest_debate_outcome(self, result: "DebateResult") -> None:

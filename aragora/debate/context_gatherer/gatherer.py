@@ -85,6 +85,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
         enable_evidence_store_context: bool = True,
         max_document_context_items: int = 5,
         max_evidence_context_items: int = 5,
+        auth_context: Any | None = None,
     ):
         """
         Initialize the context gatherer.
@@ -137,6 +138,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
         self._enable_evidence_store_context = enable_evidence_store_context
         self._max_document_context_items = max_document_context_items
         self._max_evidence_context_items = max_evidence_context_items
+        self._auth_context = auth_context
 
         self._enable_trending_context = enable_trending_context and not DISABLE_TRENDING
         if DISABLE_TRENDING:
