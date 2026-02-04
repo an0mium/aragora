@@ -193,7 +193,12 @@ class GoogleOAuthMixin:
             # Check if email already registered (without OAuth)
             try:
                 logger.info(f"OAuth callback: looking up user by email {user_info.email}...")
-                user = user_store.get_user_by_email(user_info.email)
+                # Use async version to avoid nested event loop issues
+                get_by_email = getattr(user_store, "get_user_by_email_async", None)
+                if get_by_email and inspect.iscoroutinefunction(get_by_email):
+                    user = await get_by_email(user_info.email)
+                else:
+                    user = user_store.get_user_by_email(user_info.email)
                 logger.info(
                     f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
                 )
@@ -225,7 +230,12 @@ class GoogleOAuthMixin:
         # Update last login
         try:
             logger.info(f"OAuth callback: updating last login for user {user.id}...")
-            user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
+            # Use async version to avoid nested event loop issues
+            update_async = getattr(user_store, "update_user_async", None)
+            if update_async and inspect.iscoroutinefunction(update_async):
+                await update_async(user.id, last_login_at=datetime.now(timezone.utc))
+            else:
+                user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
         except Exception as e:
             logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
             # Non-fatal, continue
