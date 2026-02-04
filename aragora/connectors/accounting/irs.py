@@ -114,6 +114,14 @@ class IRSConnector(BaseConnector):
             return f"{self.base_url.rstrip('/')}/search"
         return None
 
+    def _resolve_method(self) -> str:
+        return (os.environ.get("IRS_SEARCH_METHOD", "GET") or "GET").upper()
+
+    def _resolve_param_names(self) -> tuple[str, str]:
+        query_key = os.environ.get("IRS_SEARCH_QUERY_PARAM", "q")
+        limit_key = os.environ.get("IRS_SEARCH_LIMIT_PARAM", "limit")
+        return query_key, limit_key
+
     async def search(
         self,
         query: str,
@@ -134,17 +142,26 @@ class IRSConnector(BaseConnector):
             return []
 
         limit = min(limit, 50)
-        params = {"q": query, "limit": limit}
+        query_key, limit_key = self._resolve_param_names()
+        params = {query_key: query, limit_key: limit}
+        method = self._resolve_method()
 
         await self._rate_limit()
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    search_url,
-                    params=params,
-                    headers=self._headers(),
-                )
+                if method == "POST":
+                    response = await client.post(
+                        search_url,
+                        json=params,
+                        headers=self._headers(),
+                    )
+                else:
+                    response = await client.get(
+                        search_url,
+                        params=params,
+                        headers=self._headers(),
+                    )
                 response.raise_for_status()
                 data = response.json()
         except Exception as e:  # noqa: BLE001

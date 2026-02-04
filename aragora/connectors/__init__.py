@@ -113,6 +113,7 @@ from aragora.connectors.legal import (
 )
 from aragora.connectors.accounting.gaap import FASBConnector
 from aragora.connectors.accounting.irs import IRSConnector
+from aragora.connectors.tax import GenericTaxConnector, TaxConnectorRegistry, resolve_tax_connector
 
 # DevOps connectors
 from aragora.connectors.devops import (
@@ -241,6 +242,9 @@ __all__ = [
     "LexisConnector",
     "FASBConnector",
     "IRSConnector",
+    "GenericTaxConnector",
+    "TaxConnectorRegistry",
+    "resolve_tax_connector",
     # DevOps Connectors
     "PagerDutyConnector",
     "PagerDutyCredentials",
