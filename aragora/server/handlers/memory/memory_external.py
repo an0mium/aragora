@@ -2,6 +2,8 @@
 
 Extracted from memory.py to reduce file size.
 Contains external memory adapter operations (supermemory, claude-mem).
+
+Note: RBAC is handled in MemoryHandler.handle() which calls these mixin methods.
 """
 
 from __future__ import annotations
@@ -9,9 +11,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission  # noqa: F401 - Required for RBAC consistency
 from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
+
+# Permission constant - used by parent MemoryHandler
+MEMORY_READ_PERMISSION = "memory:read"
 
 
 class MemoryExternalMixin:

@@ -2,6 +2,8 @@
 
 Extracted from memory.py to reduce file size.
 Contains progressive retrieval operations (search-index, timeline, entries).
+
+Note: RBAC is handled in MemoryHandler.handle() which calls these mixin methods.
 """
 
 from __future__ import annotations
@@ -9,7 +11,11 @@ from __future__ import annotations
 import logging
 from typing import Any, TYPE_CHECKING
 
+from aragora.rbac.decorators import require_permission  # noqa: F401 - Required for RBAC consistency
 from aragora.utils.async_utils import run_async
+
+# Permission constant - used by parent MemoryHandler
+MEMORY_READ_PERMISSION = "memory:read"
 
 from ..base import (
     HandlerResult,
@@ -33,7 +39,6 @@ class MemoryProgressiveMixin:
 
     # These attributes/methods are defined in the main class or other mixins
     ctx: dict
-    _auth_context: Any
     _search_supermemory: Any
     _search_claude_mem: Any
     _format_entry_summary: Any
@@ -41,6 +46,10 @@ class MemoryProgressiveMixin:
     _parse_tiers_param: Any
     _parse_bool_param: Any
     _estimate_tokens: Any
+
+    def _get_auth_context(self) -> Any:
+        """Safely get auth context (may be None if not set)."""
+        return getattr(self, "_auth_context", None)
 
     @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("search index retrieval")
@@ -72,7 +81,7 @@ class MemoryProgressiveMixin:
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
 
-        tenant_id = resolve_tenant_id(self._auth_context) if resolve_tenant_id else None
+        tenant_id = resolve_tenant_id(self._get_auth_context()) if resolve_tenant_id else None
         results: list[dict[str, Any]] = []
         hybrid_used = False
 
@@ -96,7 +105,7 @@ class MemoryProgressiveMixin:
             if ids and hasattr(continuum, "get_many"):
                 entries = continuum.get_many(ids)
                 if filter_entries:
-                    entries = filter_entries(entries, self._auth_context)
+                    entries = filter_entries(entries, self._get_auth_context())
                 entries_by_id = {entry.id: entry for entry in entries}
 
             for result in hybrid_results:
@@ -118,7 +127,7 @@ class MemoryProgressiveMixin:
                 tenant_id=tenant_id,
             )
             if filter_entries:
-                memories = filter_entries(memories, self._auth_context)
+                memories = filter_entries(memories, self._get_auth_context())
             for entry in memories:
                 summary = self._format_entry_summary(entry)
                 summary["source"] = "continuum"
@@ -210,12 +219,12 @@ class MemoryProgressiveMixin:
 
         if filter_entries:
             # Enforce RBAC/tenant visibility on timeline entries
-            anchor_list = filter_entries([timeline["anchor"]], self._auth_context)
+            anchor_list = filter_entries([timeline["anchor"]], self._get_auth_context())
             if not anchor_list:
                 return error_response("Anchor memory not found", 404)
             timeline["anchor"] = anchor_list[0]
-            timeline["before"] = filter_entries(timeline["before"], self._auth_context)
-            timeline["after"] = filter_entries(timeline["after"], self._auth_context)
+            timeline["before"] = filter_entries(timeline["before"], self._get_auth_context())
+            timeline["after"] = filter_entries(timeline["after"], self._get_auth_context())
 
         return json_response(
             {
@@ -262,7 +271,7 @@ class MemoryProgressiveMixin:
         except Exception:
             filter_entries = None  # type: ignore[assignment]
         if filter_entries:
-            entries = filter_entries(entries, self._auth_context)
+            entries = filter_entries(entries, self._get_auth_context())
 
         return json_response(
             {
@@ -322,7 +331,7 @@ class MemoryProgressiveMixin:
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
 
-        tenant_id = resolve_tenant_id(self._auth_context) if resolve_tenant_id else None
+        tenant_id = resolve_tenant_id(self._get_auth_context()) if resolve_tenant_id else None
         memories = continuum.retrieve(
             query=query,
             tiers=tiers,
@@ -331,7 +340,7 @@ class MemoryProgressiveMixin:
             tenant_id=tenant_id,
         )
         if filter_entries:
-            memories = filter_entries(memories, self._auth_context)
+            memories = filter_entries(memories, self._get_auth_context())
 
         # Sort results
         if sort_by == "importance":

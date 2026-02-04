@@ -2,11 +2,18 @@
 
 Extracted from memory.py to reduce file size.
 Contains critique store browsing operations.
+
+Note: RBAC is handled in MemoryHandler.handle() which calls these mixin methods.
 """
 
 from __future__ import annotations
 
 import logging
+
+from aragora.rbac.decorators import require_permission  # noqa: F401 - Required for RBAC consistency
+
+# Permission constant - used by parent MemoryHandler
+MEMORY_READ_PERMISSION = "memory:read"
 
 from ..base import (
     HandlerResult,
