@@ -18,6 +18,7 @@ import logging
 import secrets as py_secrets
 from typing import TYPE_CHECKING
 
+from aragora.events.handler_events import emit_handler_event, COMPLETED, UPDATED
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit
@@ -209,6 +210,7 @@ def handle_mfa_enable(handler_instance: "AuthHandler", handler) -> HandlerResult
             reason="mfa_enabled",
         )
 
+    emit_handler_event("auth", COMPLETED, {"action": "mfa_enabled"}, user_id=user.id)
     return json_response(
         {
             "message": "MFA enabled successfully",
@@ -303,6 +305,7 @@ def handle_mfa_disable(handler_instance: "AuthHandler", handler) -> HandlerResul
             reason="mfa_disabled",
         )
 
+    emit_handler_event("auth", UPDATED, {"action": "mfa_disabled"}, user_id=user.id)
     return json_response({"message": "MFA disabled successfully"})
 
 

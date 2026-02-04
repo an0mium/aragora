@@ -23,6 +23,8 @@ import logging
 import os
 import re
 import sqlite3
+
+from aragora.events.handler_events import emit_handler_event, CREATED, DELETED
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -471,6 +473,12 @@ class BillingHandler(SecureHandler):
                 org_id=db_user.org_id,
             )
 
+            emit_handler_event(
+                "billing",
+                CREATED,
+                {"action": "checkout", "session_id": session.id},
+                user_id=db_user.id,
+            )
             return json_response({"checkout": session.to_dict()})
 
         except StripeConfigError as e:
@@ -944,6 +952,9 @@ class BillingHandler(SecureHandler):
                 handler=handler,
             )
 
+            emit_handler_event(
+                "billing", DELETED, {"action": "subscription_canceled"}, user_id=user.user_id
+            )
             return json_response(
                 {
                     "message": "Subscription will be canceled at period end",

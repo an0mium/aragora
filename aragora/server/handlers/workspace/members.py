@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from typing import Any, TYPE_CHECKING
 
+from aragora.events.handler_events import emit_handler_event, UPDATED
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import handle_errors, log_request
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -54,6 +56,7 @@ class WorkspaceMembersMixin:
         tags=["Workspaces"],
     )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
+    @require_permission("workspace:members:write")
     @handle_errors("add workspace member")
     @log_request("add workspace member")
     def _handle_add_member(self, handler: HTTPRequestHandler, workspace_id: str) -> HandlerResult:
@@ -104,6 +107,12 @@ class WorkspaceMembersMixin:
             )
         )
 
+        emit_handler_event(
+            "workspace",
+            UPDATED,
+            {"action": "member_added", "workspace_id": workspace_id},
+            user_id=auth_ctx.user_id,
+        )
         return m.json_response({"message": f"Member {user_id} added to workspace"}, status=201)
 
     @api_endpoint(
@@ -113,6 +122,7 @@ class WorkspaceMembersMixin:
         tags=["Workspaces"],
     )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
+    @require_permission("workspace:members:write")
     @handle_errors("remove workspace member")
     @log_request("remove workspace member")
     def _handle_remove_member(
@@ -161,6 +171,7 @@ class WorkspaceMembersMixin:
         summary="List available RBAC profiles",
         tags=["Workspaces"],
     )
+    @require_permission("workspace:read")
     @handle_errors("list profiles")
     def _handle_list_profiles(self, handler: HTTPRequestHandler) -> HandlerResult:
         """List available RBAC profiles for workspace configuration.
@@ -213,6 +224,7 @@ class WorkspaceMembersMixin:
         summary="Get available roles for workspace",
         tags=["Workspaces"],
     )
+    @require_permission("workspace:members:read")
     @handle_errors("get workspace roles")
     def _handle_get_workspace_roles(
         self, handler: HTTPRequestHandler, workspace_id: str
@@ -293,6 +305,7 @@ class WorkspaceMembersMixin:
         tags=["Workspaces"],
     )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
+    @require_permission("workspace:members:write")
     @handle_errors("update member role")
     @log_request("update member role")
     def _handle_update_member_role(

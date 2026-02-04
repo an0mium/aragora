@@ -24,6 +24,9 @@ from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from .admin import admin_secure_endpoint
 
+from aragora.events.handler_events import emit_handler_event, COMPLETED
+from aragora.rbac.decorators import require_permission
+
 try:
     from aragora.rbac.checker import check_permission  # noqa: F401
     from aragora.rbac.models import AuthorizationContext  # noqa: F401
@@ -65,6 +68,7 @@ class SecurityHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
+    @require_permission("admin:security:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route security endpoint requests."""
         # Rate limit check for security admin endpoints
@@ -100,6 +104,7 @@ class SecurityHandler(SecureHandler):
             return endpoint_handler(handler)
         return None
 
+    @require_permission("admin:security:write")
     def handle_post(self, path: str, data: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for security endpoints."""
         # RBAC inline check via rbac.checker if available
@@ -223,6 +228,7 @@ class SecurityHandler(SecureHandler):
                 dry_run=dry_run,
             )
 
+            emit_handler_event("admin", COMPLETED, {"action": "key_rotation", "dry_run": dry_run})
             return json_response(
                 {
                     "success": result.success,

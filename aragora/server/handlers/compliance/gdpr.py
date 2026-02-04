@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.events.handler_events import emit_handler_event, COMPLETED
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
 
@@ -121,6 +122,7 @@ class GDPRMixin:
                 },
             )
 
+        emit_handler_event("compliance", COMPLETED, {"action": "gdpr_export"}, user_id=user_id)
         return json_response(export_data)
 
     @track_handler("compliance/gdpr-rtbf", method="POST")

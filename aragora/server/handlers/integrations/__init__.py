@@ -9,8 +9,17 @@ Provides HTTP handlers for:
 """
 
 from aragora.server.handlers.integrations.automation import AutomationHandler
+from aragora.server.handlers.integrations.email_webhook import (
+    EmailWebhookHandler,
+    register_email_webhook_routes,
+)
 
 # Re-export IntegrationsHandler from the renamed module for backward compatibility
 from aragora.server.handlers.integration_management import IntegrationsHandler
 
-__all__ = ["AutomationHandler", "IntegrationsHandler"]
+__all__ = [
+    "AutomationHandler",
+    "IntegrationsHandler",
+    "EmailWebhookHandler",
+    "register_email_webhook_routes",
+]

@@ -148,12 +148,12 @@ class OpenClawGatewayHandler(
             return self._handle_list_sessions(query_params, handler)
 
         # GET /api/gateway/openclaw/sessions/:id
-        if path.startswith("/api/gateway/openclaw/sessions/") and path.count("/") == 4:
+        if path.startswith("/api/gateway/openclaw/sessions/") and path.count("/") == 5:
             session_id = path.split("/")[-1]
             return self._handle_get_session(session_id, handler)
 
         # GET /api/gateway/openclaw/actions/:id
-        if path.startswith("/api/gateway/openclaw/actions/") and path.count("/") == 4:
+        if path.startswith("/api/gateway/openclaw/actions/") and path.count("/") == 5:
             action_id = path.split("/")[-1]
             return self._handle_get_action(action_id, handler)
 
@@ -286,7 +286,7 @@ class OpenClawGatewayHandler(
         path = self._normalize_path(path)
 
         # DELETE /api/gateway/openclaw/sessions/:id
-        if path.startswith("/api/gateway/openclaw/sessions/") and path.count("/") == 4:
+        if path.startswith("/api/gateway/openclaw/sessions/") and path.count("/") == 5:
             session_id = path.split("/")[-1]
             return self._handle_close_session(session_id, handler)
 
@@ -296,7 +296,7 @@ class OpenClawGatewayHandler(
             return self._handle_remove_policy_rule(rule_name, handler)
 
         # DELETE /api/gateway/openclaw/credentials/:id
-        if path.startswith("/api/gateway/openclaw/credentials/") and path.count("/") == 4:
+        if path.startswith("/api/gateway/openclaw/credentials/") and path.count("/") == 5:
             credential_id = path.split("/")[-1]
             return self._handle_delete_credential(credential_id, handler)
 

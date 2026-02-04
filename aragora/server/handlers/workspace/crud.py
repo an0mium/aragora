@@ -16,6 +16,8 @@ from __future__ import annotations
 import logging
 from typing import Any, TYPE_CHECKING
 
+from aragora.events.handler_events import emit_handler_event, CREATED, DELETED
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import handle_errors, log_request
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -53,6 +55,7 @@ class WorkspaceCrudMixin:
         tags=["Workspaces"],
     )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_create")
+    @require_permission("workspace:write")
     @handle_errors("create workspace")
     @log_request("create workspace")
     def _handle_create_workspace(self, handler: HTTPRequestHandler) -> HandlerResult:
@@ -115,6 +118,9 @@ class WorkspaceCrudMixin:
 
         logger.info(f"Created workspace {workspace.id} for org {org_id}")
 
+        emit_handler_event(
+            "workspace", CREATED, {"workspace_id": workspace.id}, user_id=auth_ctx.user_id
+        )
         return m.json_response(
             {
                 "workspace": workspace.to_dict(),
@@ -129,6 +135,7 @@ class WorkspaceCrudMixin:
         summary="List workspaces accessible to user",
         tags=["Workspaces"],
     )
+    @require_permission("workspace:read")
     @handle_errors("list workspaces")
     def _handle_list_workspaces(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
@@ -177,6 +184,7 @@ class WorkspaceCrudMixin:
         summary="Get workspace details",
         tags=["Workspaces"],
     )
+    @require_permission("workspace:read")
     @handle_errors("get workspace")
     def _handle_get_workspace(
         self, handler: HTTPRequestHandler, workspace_id: str
@@ -212,6 +220,7 @@ class WorkspaceCrudMixin:
         tags=["Workspaces"],
     )
     @rate_limit(requests_per_minute=10, limiter_name="workspace_delete")
+    @require_permission("workspace:delete")
     @handle_errors("delete workspace")
     @log_request("delete workspace")
     def _handle_delete_workspace(
@@ -254,6 +263,9 @@ class WorkspaceCrudMixin:
             )
         )
 
+        emit_handler_event(
+            "workspace", DELETED, {"workspace_id": workspace_id}, user_id=auth_ctx.user_id
+        )
         return m.json_response({"message": "Workspace deleted successfully"})
 
 

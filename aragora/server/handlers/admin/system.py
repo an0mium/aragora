@@ -44,6 +44,7 @@ from ..base import (
     validate_path_segment,
 )
 from ..utils.rate_limit import rate_limit
+from aragora.events.handler_events import emit_handler_event, COMPLETED
 from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -478,6 +479,7 @@ class SystemHandler(BaseHandler):
 
         if success:
             logger.info("Token revoked: reason=%s", reason or "not specified")
+            emit_handler_event("admin", COMPLETED, {"action": "token_revoked"})
 
         return json_response(
             {

@@ -19,6 +19,7 @@ from aragora.server.handlers.utils.auth import (
 )
 from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.decorators import require_permission
 from aragora.resilience import get_circuit_breaker
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,7 @@ class TriggerHandler:
         self.ctx = ctx or {}
 
     @staticmethod
+    @require_permission("autonomous:triggers:read")
     async def list_triggers(request: web.Request) -> web.Response:
         """
         List all scheduled triggers.
@@ -133,6 +135,7 @@ class TriggerHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:triggers:write")
     async def add_trigger(request: web.Request) -> web.Response:
         """
         Add a new scheduled trigger.
@@ -217,6 +220,7 @@ class TriggerHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:triggers:write")
     async def remove_trigger(request: web.Request) -> web.Response:
         """
         Remove a scheduled trigger.
@@ -282,6 +286,7 @@ class TriggerHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:triggers:write")
     async def enable_trigger(request: web.Request) -> web.Response:
         """
         Enable a scheduled trigger.
@@ -340,6 +345,7 @@ class TriggerHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:triggers:write")
     async def disable_trigger(request: web.Request) -> web.Response:
         """
         Disable a scheduled trigger.
@@ -398,6 +404,7 @@ class TriggerHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:triggers:write")
     async def start_scheduler(request: web.Request) -> web.Response:
         """
         Start the trigger scheduler.
@@ -439,6 +446,7 @@ class TriggerHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:triggers:write")
     async def stop_scheduler(request: web.Request) -> web.Response:
         """
         Stop the trigger scheduler.

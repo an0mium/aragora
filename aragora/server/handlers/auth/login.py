@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from aragora.auth.lockout import get_lockout_tracker  # noqa: F401
 
+from aragora.events.handler_events import emit_handler_event, CREATED, COMPLETED, FAILED
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit, get_client_ip
@@ -165,6 +166,7 @@ def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
             target_id=user.id,
         )
 
+    emit_handler_event("auth", CREATED, {"action": "register"}, user_id=user.id)
     return json_response(
         {
             "user": user.to_dict(),
@@ -308,6 +310,7 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
         # Audit log: failed login
         if AUDIT_AVAILABLE and audit_login:
             audit_login(email, success=False, ip_address=client_ip, method="password")
+        emit_handler_event("auth", FAILED, {"action": "login", "email": email})
         return error_response("Invalid email or password", 401)
 
     # Successful login - reset failed attempts in both trackers
@@ -344,6 +347,7 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
     if AUDIT_AVAILABLE and audit_login:
         audit_login(user.id, success=True, ip_address=client_ip, method="password")
 
+    emit_handler_event("auth", COMPLETED, {"action": "login"}, user_id=user.id)
     return json_response(
         {
             "user": user.to_dict(),

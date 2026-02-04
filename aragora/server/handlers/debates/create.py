@@ -22,6 +22,7 @@ from aragora.server.validation.schema import (
     validate_against_schema,
 )
 
+from aragora.events.handler_events import emit_handler_event, CREATED
 from aragora.rbac.decorators import require_permission
 
 from ..base import (
@@ -271,6 +272,7 @@ class CreateOperationsMixin:
             return error_response(safe_error_message(e, "start debate"), 500)
 
         # Note: Usage increment is handled by @require_quota decorator on success
+        emit_handler_event("debate", CREATED, {"debate_id": response.debate_id})
         return json_response(response.to_dict(), status=response.status_code)
 
     @api_endpoint(

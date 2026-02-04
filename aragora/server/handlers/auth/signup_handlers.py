@@ -23,6 +23,8 @@ import logging
 import re
 import secrets
 import threading
+
+from aragora.events.handler_events import emit_handler_event, CREATED
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -254,6 +256,7 @@ async def handle_signup(
         except ImportError:
             pass  # Audit not available
 
+        emit_handler_event("auth", CREATED, {"action": "signup", "email": email})
         return success_response(
             {
                 "message": "Verification email sent",

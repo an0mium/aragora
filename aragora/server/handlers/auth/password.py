@@ -17,6 +17,7 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
+from aragora.events.handler_events import emit_handler_event, COMPLETED
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit, get_client_ip
@@ -116,6 +117,7 @@ def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerR
 
     logger.info(f"Password changed for user_id={user.id}")
 
+    emit_handler_event("auth", COMPLETED, {"action": "password_changed"}, user_id=user.id)
     return json_response(
         {
             "message": "Password changed successfully",
@@ -436,6 +438,7 @@ def handle_reset_password(handler_instance: "AuthHandler", handler) -> HandlerRe
             reason="password_reset_completed",
         )
 
+    emit_handler_event("auth", COMPLETED, {"action": "password_reset"}, user_id=user.id)
     return json_response(
         {
             "message": "Password has been reset successfully. Please log in with your new password.",

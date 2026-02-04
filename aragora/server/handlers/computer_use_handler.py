@@ -24,6 +24,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
+from aragora.events.handler_events import emit_handler_event, CREATED, APPROVED
+
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -402,6 +404,7 @@ class ComputerUseHandler(BaseHandler):
                 }
 
         logger.info(f"Created computer use task: {task_id} - {goal}")
+        emit_handler_event("computer_use", CREATED, {"task_id": task_id})
 
         return json_response(
             {
@@ -611,6 +614,9 @@ class ComputerUseHandler(BaseHandler):
         if not approved:
             return error_response("Approval request not found or not pending", 404)
 
+        emit_handler_event(
+            "computer_use", APPROVED, {"request_id": request_id}, user_id=approver_id
+        )
         return json_response({"approved": True, "request_id": request_id})
 
     @handle_errors("deny approval")

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.audit.unified import audit_admin
+from aragora.events.handler_events import emit_handler_event, UPDATED
 from aragora.rbac.decorators import require_permission
 
 from ..base import (
@@ -375,6 +376,9 @@ class UserManagementMixin:
             target_email=target_user.email,
         )
 
+        emit_handler_event(
+            "admin", UPDATED, {"action": "deactivate_user", "target_user_id": target_user_id}
+        )
         return json_response(
             {
                 "success": True,

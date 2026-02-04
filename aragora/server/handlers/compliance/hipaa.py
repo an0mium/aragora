@@ -24,6 +24,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.events.handler_events import emit_handler_event, CREATED, COMPLETED
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
 from aragora.storage.audit_store import get_audit_store
@@ -541,6 +542,11 @@ class HIPAAMixin:
         except Exception as e:
             logger.warning(f"Failed to log breach assessment: {e}")
 
+        emit_handler_event(
+            "compliance",
+            COMPLETED,
+            {"action": "hipaa_breach_assessment", "assessment_id": assessment_id},
+        )
         return json_response(assessment)
 
     @track_handler("compliance/hipaa-baa", method="GET")
@@ -633,6 +639,7 @@ class HIPAAMixin:
         except Exception as e:
             logger.warning(f"Failed to store BAA: {e}")
 
+        emit_handler_event("compliance", CREATED, {"action": "hipaa_baa_created", "baa_id": baa_id})
         return json_response(
             {
                 "message": "Business Associate Agreement registered",

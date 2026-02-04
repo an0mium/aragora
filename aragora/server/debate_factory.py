@@ -134,17 +134,10 @@ class DebateConfig:
         Raises:
             ValueError: If agent count exceeds maximum or minimum (after filtering)
         """
-        # Handle both string and list formats
-        if isinstance(self.agents_str, list):
-            # Join list items into comma-separated string
-            agents_str = ",".join(
-                s.strip() if isinstance(s, str) else str(s) for s in self.agents_str if s
-            )
-        else:
-            agents_str = self.agents_str
-
-        # Use unified AgentSpec.parse_list for parsing
-        specs = AgentSpec.parse_list(agents_str)
+        # Handle strings, lists of strings, lists of dicts, or AgentSpec objects
+        specs = AgentSpec.coerce_list(self.agents_str, warn=False)
+        if not specs:
+            specs = AgentSpec.coerce_list(DEFAULT_AGENTS, warn=False)
 
         # Auto-trim unavailable agents if enabled and validator is available
         if self.auto_trim_unavailable and CREDENTIAL_VALIDATOR_AVAILABLE:

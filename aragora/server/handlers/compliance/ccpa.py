@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.events.handler_events import emit_handler_event, DELETED
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
 from aragora.storage.audit_store import get_audit_store
@@ -264,6 +265,12 @@ class CCPAMixin:
             )
 
             logger.info(f"CCPA deletion request scheduled: user={user_id}, request_id={request_id}")
+            emit_handler_event(
+                "compliance",
+                DELETED,
+                {"action": "ccpa_delete", "request_id": request_id},
+                user_id=user_id,
+            )
 
             return json_response(result)
 

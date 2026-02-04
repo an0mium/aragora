@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.events.handler_events import emit_handler_event, QUERIED
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 
@@ -95,6 +96,7 @@ KNOWLEDGE_READ_PERMISSION = "knowledge:read"
 # RBAC imports with fallback
 try:
     from aragora.rbac.checker import get_permission_checker
+    from aragora.rbac.decorators import require_permission
     from aragora.rbac.models import AuthorizationContext as RBACContext
 
     RBAC_AVAILABLE = True
@@ -129,6 +131,7 @@ class AnalyticsHandler(BaseHandler):
             or path.startswith("/api/v1/knowledge/learning")
         )
 
+    @require_permission("knowledge:analytics:read")
     async def handle(
         self,
         path: str,
@@ -180,6 +183,7 @@ class AnalyticsHandler(BaseHandler):
         workspace_id = query_params.get("workspace_id")
 
         if path == "/api/v1/knowledge/mound/stats":
+            emit_handler_event("knowledge", QUERIED, {"endpoint": "mound_stats"}, user_id=user_id)
             return await self._get_mound_stats(workspace_id)
 
         if path == "/api/v1/knowledge/sharing/stats":

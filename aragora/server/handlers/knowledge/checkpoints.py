@@ -16,6 +16,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
+from aragora.events.handler_events import emit_handler_event, CREATED
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.checkpoint import KMCheckpointMetadata, KMCheckpointStore
 
@@ -320,6 +322,7 @@ class KMCheckpointHandler(BaseHandler):
                 ctx["size_bytes"] = metadata.size_bytes
 
             success = True  # noqa: F841
+            emit_handler_event("knowledge", CREATED, {"checkpoint": metadata.name})
             return json_response(
                 {
                     "name": metadata.name,

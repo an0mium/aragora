@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from aragora.billing.jwt_auth import extract_user_from_request
 
+from aragora.events.handler_events import emit_handler_event, DELETED
 from ..base import HandlerResult, error_response, json_response, handle_errors
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit
@@ -201,6 +202,7 @@ def handle_revoke_session(
     # For immediate revocation, users should use logout-all
 
     logger.info(f"Session {session_id[:8]}... revoked for user {auth_ctx.user_id}")
+    emit_handler_event("auth", DELETED, {"action": "session_revoked"}, user_id=auth_ctx.user_id)
 
     return json_response(
         {

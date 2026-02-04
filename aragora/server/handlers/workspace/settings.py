@@ -17,6 +17,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, TYPE_CHECKING
 
+from aragora.events.handler_events import emit_handler_event, COMPLETED
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import handle_errors
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -58,6 +60,7 @@ class WorkspaceSettingsMixin:
         tags=["Classification"],
     )
     @rate_limit(requests_per_minute=60, limiter_name="classify")
+    @require_permission("workspace:settings:write")
     @handle_errors("classify content")
     def _handle_classify_content(self, handler: HTTPRequestHandler) -> HandlerResult:
         """Classify content sensitivity."""
@@ -108,6 +111,7 @@ class WorkspaceSettingsMixin:
                 )
             )
 
+        emit_handler_event("workspace", COMPLETED, {"action": "classify_content"})
         return m.json_response({"classification": result.to_dict()})
 
     @api_endpoint(
@@ -116,6 +120,7 @@ class WorkspaceSettingsMixin:
         summary="Get policy for sensitivity level",
         tags=["Classification"],
     )
+    @require_permission("workspace:settings:read")
     @handle_errors("get level policy")
     def _handle_get_level_policy(self, handler: HTTPRequestHandler, level: str) -> HandlerResult:
         """Get recommended policy for a sensitivity level."""
@@ -152,6 +157,7 @@ class WorkspaceSettingsMixin:
         summary="Query audit log entries",
         tags=["Audit"],
     )
+    @require_permission("workspace:settings:read")
     @handle_errors("query audit entries")
     def _handle_query_audit(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
@@ -231,6 +237,7 @@ class WorkspaceSettingsMixin:
         summary="Generate compliance audit report",
         tags=["Audit"],
     )
+    @require_permission("workspace:settings:read")
     @handle_errors("generate audit report")
     def _handle_audit_report(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
@@ -285,6 +292,7 @@ class WorkspaceSettingsMixin:
         summary="Verify audit log integrity",
         tags=["Audit"],
     )
+    @require_permission("workspace:settings:read")
     @handle_errors("verify audit integrity")
     def _handle_verify_integrity(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
@@ -327,6 +335,7 @@ class WorkspaceSettingsMixin:
         summary="Get all actions by a specific actor",
         tags=["Audit"],
     )
+    @require_permission("workspace:settings:read")
     @handle_errors("get actor history")
     def _handle_actor_history(
         self, handler: HTTPRequestHandler, actor_id: str, query_params: dict[str, Any]
@@ -376,6 +385,7 @@ class WorkspaceSettingsMixin:
         summary="Get all actions on a specific resource",
         tags=["Audit"],
     )
+    @require_permission("workspace:settings:read")
     @handle_errors("get resource history")
     def _handle_resource_history(
         self, handler: HTTPRequestHandler, resource_id: str, query_params: dict[str, Any]
@@ -427,6 +437,7 @@ class WorkspaceSettingsMixin:
         summary="Get denied access attempts",
         tags=["Audit"],
     )
+    @require_permission("workspace:settings:read")
     @handle_errors("get denied access attempts")
     def _handle_denied_access(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]

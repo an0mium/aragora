@@ -21,6 +21,7 @@ from typing import Any
 import logging
 import time
 
+from aragora.events.handler_events import emit_handler_event, COMPLETED
 from aragora.rbac.decorators import require_permission
 
 from ..base import (
@@ -46,6 +47,7 @@ logger = logging.getLogger(__name__)
 # Permissions for memory endpoints
 MEMORY_READ_PERMISSION = "memory:read"
 MEMORY_WRITE_PERMISSION = "memory:write"
+MEMORY_MANAGE_PERMISSION = "memory:manage"
 
 # Pre-declare optional import names for type safety
 MemoryTier: Any = None
@@ -166,11 +168,11 @@ class MemoryHandler(SecureHandler):
 
         return None
 
-    @require_permission("memory:write")
+    @require_permission("memory:manage")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Route POST memory requests to state-mutating methods with auth."""
+        """Route POST memory requests to admin-level state-mutating methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
         client_ip = get_client_ip(handler)
@@ -279,6 +281,7 @@ class MemoryHandler(SecureHandler):
 
         duration = time.time() - start
 
+        emit_handler_event("memory", COMPLETED, {"entries_processed": result.get("processed", 0)})
         return json_response(
             {
                 "success": True,

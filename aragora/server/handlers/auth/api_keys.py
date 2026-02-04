@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from aragora.events.handler_events import emit_handler_event, CREATED
 from ..base import HandlerResult, error_response, json_response, handle_errors
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit
@@ -121,6 +122,7 @@ def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> Handler
             target_id=user.api_key_prefix,
         )
 
+    emit_handler_event("auth", CREATED, {"action": "api_key_generated"}, user_id=user.id)
     # Return the key (only shown once - plaintext is never stored)
     return json_response(
         {

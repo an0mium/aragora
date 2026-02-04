@@ -14,6 +14,7 @@ from aragora.server.handlers.utils.auth import (
 )
 from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class LearningHandler:
         self.ctx = ctx or {}
 
     @staticmethod
+    @require_permission("autonomous:learning:read")
     async def get_agent_ratings(request: web.Request) -> web.Response:
         """
         Get ELO ratings for all agents.
@@ -89,6 +91,7 @@ class LearningHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:learning:read")
     async def get_agent_calibration(request: web.Request) -> web.Response:
         """
         Get calibration data for an agent.
@@ -154,6 +157,7 @@ class LearningHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:learning:read")
     async def get_all_calibrations(request: web.Request) -> web.Response:
         """
         Get calibration data for all agents.
@@ -206,6 +210,7 @@ class LearningHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:learning:write")
     async def record_debate_outcome(request: web.Request) -> web.Response:
         """
         Record a debate outcome for learning.
@@ -286,6 +291,7 @@ class LearningHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:learning:write")
     async def record_user_feedback(request: web.Request) -> web.Response:
         """
         Record user feedback for learning.
@@ -360,6 +366,7 @@ class LearningHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:learning:read")
     async def get_patterns(request: web.Request) -> web.Response:
         """
         Get extracted patterns.
@@ -420,6 +427,7 @@ class LearningHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:learning:write")
     async def run_periodic_learning(request: web.Request) -> web.Response:
         """
         Manually trigger periodic learning tasks.

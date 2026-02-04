@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any, TYPE_CHECKING
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import handle_errors, log_request
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -52,6 +53,7 @@ class WorkspacePoliciesMixin:
         summary="List retention policies",
         tags=["Retention"],
     )
+    @require_permission("workspace:policies:read")
     @handle_errors("list retention policies")
     def _handle_list_policies(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]
@@ -109,6 +111,7 @@ class WorkspacePoliciesMixin:
         tags=["Retention"],
     )
     @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
+    @require_permission("workspace:policies:write")
     @handle_errors("create retention policy")
     @log_request("create retention policy")
     def _handle_create_policy(self, handler: HTTPRequestHandler) -> HandlerResult:
@@ -191,6 +194,7 @@ class WorkspacePoliciesMixin:
         summary="Get a retention policy",
         tags=["Retention"],
     )
+    @require_permission("workspace:policies:read")
     @handle_errors("get retention policy")
     def _handle_get_policy(self, handler: HTTPRequestHandler, policy_id: str) -> HandlerResult:
         """Get a retention policy with caching (5 min TTL)."""
@@ -249,6 +253,7 @@ class WorkspacePoliciesMixin:
         tags=["Retention"],
     )
     @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
+    @require_permission("workspace:policies:write")
     @handle_errors("update retention policy")
     @log_request("update retention policy")
     def _handle_update_policy(self, handler: HTTPRequestHandler, policy_id: str) -> HandlerResult:
@@ -315,6 +320,7 @@ class WorkspacePoliciesMixin:
         tags=["Retention"],
     )
     @rate_limit(requests_per_minute=10, limiter_name="retention_policy")
+    @require_permission("workspace:policies:write")
     @handle_errors("delete retention policy")
     @log_request("delete retention policy")
     def _handle_delete_policy(self, handler: HTTPRequestHandler, policy_id: str) -> HandlerResult:
@@ -357,6 +363,7 @@ class WorkspacePoliciesMixin:
         tags=["Retention"],
     )
     @rate_limit(requests_per_minute=5, limiter_name="retention_execute")
+    @require_permission("workspace:policies:write")
     @handle_errors("execute retention policy")
     @log_request("execute retention policy")
     def _handle_execute_policy(
@@ -405,6 +412,7 @@ class WorkspacePoliciesMixin:
         summary="Get items expiring soon",
         tags=["Retention"],
     )
+    @require_permission("workspace:policies:read")
     @handle_errors("get expiring items")
     def _handle_expiring_items(
         self, handler: HTTPRequestHandler, query_params: dict[str, Any]

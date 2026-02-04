@@ -23,7 +23,11 @@ from aragora.config import (
     MAX_CONCURRENT_DEBATES,
     MAX_ROUNDS,
 )
-from aragora.server.debate_factory import DebateConfig, DebateFactory
+from aragora.server.debate_factory import (
+    DEFAULT_ENABLE_VERTICALS,
+    DebateConfig,
+    DebateFactory,
+)
 from aragora.server.debate_utils import (
     _active_debates,
     _active_debates_lock,
@@ -81,12 +85,40 @@ def _normalize_documents(value: Any, max_items: int = 50) -> list[str]:
     return normalized
 
 
+def _normalize_agent_names(agents_value: Any) -> list[str]:
+    """Normalize agent specs into a list of display names/providers."""
+    if not agents_value:
+        return []
+    if isinstance(agents_value, str):
+        return [a.strip() for a in agents_value.split(",") if a.strip()]
+
+    names: list[str] = []
+    if isinstance(agents_value, list):
+        for item in agents_value:
+            if isinstance(item, str):
+                name = item.strip()
+            elif isinstance(item, dict):
+                name = (
+                    item.get("name")
+                    or item.get("provider")
+                    or item.get("agent_type")
+                    or item.get("id")
+                )
+            else:
+                name = getattr(item, "name", None) or getattr(item, "provider", None)
+            if name:
+                names.append(str(name))
+        return names
+
+    return []
+
+
 @dataclass
 class DebateRequest:
     """Parsed debate request from HTTP body."""
 
     question: str
-    agents_str: str = DEFAULT_AGENTS
+    agents_str: Any = DEFAULT_AGENTS
     rounds: int = DEFAULT_ROUNDS  # 9-round format (0-8), default for all debates
     consensus: str = DEFAULT_CONSENSUS  # Default consensus configuration
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
@@ -96,7 +128,7 @@ class DebateRequest:
     trending_category: str | None = None
     metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
     documents: list[str] = field(default_factory=list)
-    enable_verticals: bool = False
+    enable_verticals: bool = DEFAULT_ENABLE_VERTICALS
     vertical_id: str | None = None
 
     def __post_init__(self):
@@ -136,19 +168,32 @@ class DebateRequest:
             rounds = DEFAULT_ROUNDS
 
         metadata = data.get("metadata") or {}
-        enable_verticals = bool(
-            data.get("enable_verticals", metadata.get("enable_verticals", False))
-        )
+        auto_select = bool(data.get("auto_select", False))
+        auto_select_config = data.get("auto_select_config") or {}
+        if not isinstance(auto_select_config, dict):
+            auto_select_config = {}
+
+        raw_agents = data.get("agents", None)
+        if raw_agents is None:
+            agents_value: Any = [] if auto_select else DEFAULT_AGENTS
+        else:
+            agents_value = raw_agents
+
+        enable_verticals = data.get("enable_verticals", metadata.get("enable_verticals", None))
+        if enable_verticals is None:
+            enable_verticals = DEFAULT_ENABLE_VERTICALS
+        else:
+            enable_verticals = bool(enable_verticals)
         vertical_id = data.get("vertical_id") or data.get("vertical") or metadata.get("vertical_id")
 
         return cls(
             question=question,
-            agents_str=data.get("agents", DEFAULT_AGENTS),
+            agents_str=agents_value,
             rounds=rounds,
             consensus=data.get("consensus", DEFAULT_CONSENSUS),
             debate_format=data.get("debate_format", "full"),
-            auto_select=data.get("auto_select", False),
-            auto_select_config=data.get("auto_select_config", {}),
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
             use_trending=data.get("use_trending", False),
             trending_category=data.get("trending_category"),
             metadata=metadata,
@@ -247,12 +292,7 @@ class DebateController:
             return None
 
         try:
-            # Handle list or string formats
-            if isinstance(agents_str, list):
-                agents_str = ",".join(
-                    s.strip() if isinstance(s, str) else str(s) for s in agents_str if s
-                )
-            specs = AgentSpec.parse_list(str(agents_str))
+            specs = AgentSpec.coerce_list(agents_str, warn=False)
         except (ValueError, TypeError) as e:
             # ValueError: invalid agent spec format
             # TypeError: unexpected type in agent spec
@@ -415,16 +455,28 @@ Return JSON with these exact fields:
         # Generate debate ID
         debate_id = f"adhoc_{uuid.uuid4().hex[:8]}"
 
-        # Resolve agents (auto-select if requested)
+        # Resolve agents (auto-select if requested and no explicit agents provided)
         agents_str = request.agents_str
         if request.auto_select and self.auto_select_fn:
-            try:
-                agents_str = self.auto_select_fn(request.question, request.auto_select_config)
-            except (ValueError, TypeError, RuntimeError, OSError) as e:
-                # ValueError/TypeError: invalid auto-select config or response
-                # RuntimeError: auto-select execution failure
-                # OSError: network/system errors during selection
-                logger.warning(f"Auto-select failed, using defaults: {e}")
+            should_autoselect = False
+            if agents_str is None:
+                should_autoselect = True
+            elif isinstance(agents_str, str):
+                should_autoselect = not agents_str.strip()
+            else:
+                try:
+                    should_autoselect = len(agents_str) == 0
+                except TypeError:
+                    should_autoselect = False
+
+            if should_autoselect:
+                try:
+                    agents_str = self.auto_select_fn(request.question, request.auto_select_config)
+                except (ValueError, TypeError, RuntimeError, OSError) as e:
+                    # ValueError/TypeError: invalid auto-select config or response
+                    # RuntimeError: auto-select execution failure
+                    # OSError: network/system errors during selection
+                    logger.warning(f"Auto-select failed, using defaults: {e}")
 
         preflight_error = self._preflight_agents(agents_str)
         if preflight_error:
@@ -453,11 +505,8 @@ Return JSON with these exact fields:
         # Set loop_id on emitter
         self.emitter.set_loop_id(debate_id)
 
-        # Parse agent names for immediate event (handle both string and list)
-        if isinstance(agents_str, str):
-            agent_names = [a.strip() for a in agents_str.split(",") if a.strip()]
-        else:
-            agent_names = list(agents_str) if agents_str else []
+        # Parse agent names for immediate event (handle string, list of dicts, or specs)
+        agent_names = _normalize_agent_names(agents_str)
 
         # Emit immediate DEBATE_START event so clients see progress within seconds
         # (The debate phases will emit more detailed events as they execute)

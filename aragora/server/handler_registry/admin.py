@@ -33,6 +33,7 @@ AdminHandler = _safe_import("aragora.server.handlers", "AdminHandler")
 ControlPlaneHandler = _safe_import("aragora.server.handlers", "ControlPlaneHandler")
 PolicyHandler = _safe_import("aragora.server.handlers", "PolicyHandler")
 SecurityHandler = _safe_import("aragora.server.handlers.admin", "SecurityHandler")
+ModerationHandler = _safe_import("aragora.server.handlers.moderation", "ModerationHandler")
 
 # =============================================================================
 # Auth Handler Imports
@@ -308,6 +309,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_control_plane_handler", ControlPlaneHandler),
     ("_policy_handler", PolicyHandler),
     ("_security_handler", SecurityHandler),
+    ("_moderation_handler", ModerationHandler),
     # Auth
     ("_auth_handler", AuthHandler),
     ("_oauth_handler", OAuthHandler),

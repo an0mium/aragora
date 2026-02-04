@@ -25,6 +25,7 @@ from ..base import (
 )
 from ..utils.responses import HandlerResult
 from ..secure import SecureHandler
+from aragora.events.handler_events import emit_handler_event, QUERIED
 from aragora.rbac.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
@@ -79,6 +80,7 @@ class UsageMeteringHandler(SecureHandler):
             method = handler.command
 
         if path == "/api/v1/billing/usage" and method == "GET":
+            emit_handler_event("billing", QUERIED, {"endpoint": "usage"})
             return await self._get_usage(handler, query_params)
 
         if path == "/api/v1/billing/usage/summary" and method == "GET":

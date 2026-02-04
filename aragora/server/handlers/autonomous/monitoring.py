@@ -47,6 +47,7 @@ from aragora.server.handlers.utils.auth import (
 )
 from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
@@ -382,6 +383,7 @@ class MonitoringHandler:
 
     @staticmethod
     @rate_limit(requests_per_minute=60, limiter_name="monitoring.record")
+    @require_permission("autonomous:monitoring:write")
     async def record_metric(request: web.Request) -> web.Response:
         """
         Record a metric value for trend and anomaly detection.
@@ -476,6 +478,7 @@ class MonitoringHandler:
 
     @staticmethod
     @rate_limit(requests_per_minute=60, limiter_name="monitoring.get_trend")
+    @require_permission("autonomous:monitoring:read")
     async def get_trend(request: web.Request) -> web.Response:
         """
         Get trend for a specific metric.
@@ -569,6 +572,7 @@ class MonitoringHandler:
 
     @staticmethod
     @rate_limit(requests_per_minute=30, limiter_name="monitoring.get_all_trends")
+    @require_permission("autonomous:monitoring:read")
     async def get_all_trends(request: web.Request) -> web.Response:
         """
         Get trends for all monitored metrics.
@@ -631,6 +635,7 @@ class MonitoringHandler:
 
     @staticmethod
     @rate_limit(requests_per_minute=60, limiter_name="monitoring.get_anomalies")
+    @require_permission("autonomous:monitoring:read")
     async def get_anomalies(request: web.Request) -> web.Response:
         """
         Get recent anomalies.
@@ -721,6 +726,7 @@ class MonitoringHandler:
 
     @staticmethod
     @rate_limit(requests_per_minute=60, limiter_name="monitoring.get_baseline")
+    @require_permission("autonomous:monitoring:read")
     async def get_baseline_stats(request: web.Request) -> web.Response:
         """
         Get baseline statistics for a metric.
@@ -796,6 +802,7 @@ class MonitoringHandler:
 
     @staticmethod
     @rate_limit(requests_per_minute=60, limiter_name="monitoring.circuit_breaker")
+    @require_permission("autonomous:monitoring:read")
     async def get_circuit_breaker_status(request: web.Request) -> web.Response:
         """
         Get the current circuit breaker status.

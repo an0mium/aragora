@@ -28,6 +28,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+
+from aragora.events.handler_events import emit_handler_event, QUERIED
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -393,6 +395,7 @@ class AgentsHandler(SecureHandler):
 
             agents = [{"name": name} for name in ALLOWED_AGENT_TYPES]
 
+        emit_handler_event("agent", QUERIED, {"total": len(agents)})
         return json_response(
             {
                 "agents": agents,

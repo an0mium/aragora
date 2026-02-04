@@ -200,6 +200,7 @@ class RouteIndex:
             "_knowledge_mound_handler": ["/api/knowledge/mound/"],
             "_policy_handler": ["/api/policies", "/api/compliance/"],
             "_queue_handler": ["/api/queue/"],
+            "_moderation_handler": ["/api/moderation/"],
             "_rlm_context_handler": ["/api/rlm/"],
             "_training_handler": ["/api/training/"],
             "_transcription_handler": ["/api/transcription/", "/api/transcribe/"],

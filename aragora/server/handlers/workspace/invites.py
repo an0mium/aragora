@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, TYPE_CHECKING
 
+from aragora.events.handler_events import emit_handler_event, CREATED, COMPLETED
 from aragora.server.handlers.base import handle_errors, log_request
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -315,6 +316,12 @@ class WorkspaceInvitesMixin:
         response["email_masked"] = f"{email[:2]}***@{email.split('@')[1]}"
         response["invite_url"] = f"/invites/{invite.token}/accept"
 
+        emit_handler_event(
+            "workspace",
+            CREATED,
+            {"action": "invite_created", "workspace_id": workspace_id},
+            user_id=auth_ctx.user_id,
+        )
         return m.json_response(response, status=201)
 
     @api_endpoint(
@@ -609,6 +616,12 @@ class WorkspaceInvitesMixin:
             f"user={auth_ctx.user_id} role={invite.role}"
         )
 
+        emit_handler_event(
+            "workspace",
+            COMPLETED,
+            {"action": "invite_accepted", "workspace_id": invite.workspace_id},
+            user_id=auth_ctx.user_id,
+        )
         return m.json_response(
             {
                 "message": "Successfully joined workspace",

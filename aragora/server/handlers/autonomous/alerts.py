@@ -18,6 +18,7 @@ from aragora.server.handlers.utils.auth import (
 )
 from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,7 @@ class AlertHandler:
         self.ctx = ctx or {}
 
     @staticmethod
+    @require_permission("autonomous:alerts:read")
     async def list_active(request: web.Request) -> web.Response:
         """
         List all active (unresolved) alerts.
@@ -137,6 +139,7 @@ class AlertHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:alerts:write")
     async def acknowledge(request: web.Request) -> web.Response:
         """
         Acknowledge an alert.
@@ -195,6 +198,7 @@ class AlertHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:alerts:write")
     async def resolve(request: web.Request) -> web.Response:
         """
         Resolve an alert.
@@ -245,6 +249,7 @@ class AlertHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:alerts:write")
     async def set_threshold(request: web.Request) -> web.Response:
         """
         Set alert threshold for a metric.
@@ -311,6 +316,7 @@ class AlertHandler:
             )
 
     @staticmethod
+    @require_permission("autonomous:alerts:write")
     async def check_metric(request: web.Request) -> web.Response:
         """
         Check a metric value against thresholds.

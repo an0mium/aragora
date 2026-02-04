@@ -56,9 +56,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+from aragora.events.handler_events import emit_handler_event, QUERIED
 from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
-from aragora.rbac.decorators import PermissionDeniedError
+from aragora.rbac.decorators import PermissionDeniedError, require_permission
 from aragora.observability.metrics import track_handler
 
 from .soc2 import SOC2Mixin
@@ -110,6 +111,7 @@ class ComplianceHandler(
             return method in ("GET", "POST", "DELETE")
         return False
 
+    @require_permission("compliance:read")
     @track_handler("compliance/main", method="GET")
     @rate_limit(requests_per_minute=20)
     async def handle(
@@ -129,6 +131,7 @@ class ComplianceHandler(
         try:
             # Status endpoint
             if path == "/api/v2/compliance/status" and method == "GET":
+                emit_handler_event("compliance", QUERIED, {"endpoint": "status"})
                 return await self._get_status()
 
             # SOC 2 report endpoint
