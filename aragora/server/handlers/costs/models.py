@@ -19,6 +19,21 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def _is_demo_mode() -> bool:
+    """Check if demo mode is enabled.
+
+    When demo mode is enabled, mock data is returned instead of real data.
+    This is useful for frontend development and demos without full backend setup.
+    """
+    try:
+        from aragora.config.settings import get_settings
+
+        return get_settings().features.demo_mode
+    except Exception:
+        return False
+
+
 # =============================================================================
 # Data Models
 # =============================================================================

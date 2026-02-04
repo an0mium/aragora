@@ -53,6 +53,7 @@ def init_context_delegator(arena: Arena) -> None:
         evidence_grounder=getattr(arena, "evidence_grounder", None),
         continuum_memory=arena.continuum_memory,
         env=arena.env,
+        auth_context=getattr(arena, "auth_context", None),
         extract_domain_fn=arena._extract_debate_domain,
     )
 

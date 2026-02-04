@@ -12,6 +12,7 @@ for gathering, caching, and managing debate context including:
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
@@ -50,6 +51,7 @@ class ContextDelegator:
         evidence_grounder: Optional["EvidenceGrounder"] = None,
         continuum_memory: Any = None,
         env: Any = None,
+        auth_context: Any | None = None,
         extract_domain_fn: Optional[Callable[..., Any]] = None,
     ) -> None:
         self.context_gatherer = context_gatherer
@@ -58,7 +60,18 @@ class ContextDelegator:
         self.evidence_grounder = evidence_grounder
         self.continuum_memory = continuum_memory
         self.env = env
+        self._auth_context = auth_context
         self._extract_domain = extract_domain_fn or (lambda: "general")
+
+    def _resolve_tenant_id(self) -> str | None:
+        if not self._auth_context:
+            return None
+        enforce = os.environ.get("ARAGORA_MEMORY_TENANT_ENFORCE", "1") == "1"
+        if not enforce:
+            return None
+        workspace_id = getattr(self._auth_context, "workspace_id", None)
+        org_id = getattr(self._auth_context, "org_id", None)
+        return workspace_id or org_id
 
     def get_continuum_context(self) -> str:
         """Retrieve relevant memories from ContinuumMemory for debate context."""
@@ -70,10 +83,12 @@ class ContextDelegator:
 
         domain = self._extract_domain()
         task = self.env.task if self.env else ""
+        tenant_id = self._resolve_tenant_id()
         context, retrieved_ids, retrieved_tiers = self.context_gatherer.get_continuum_context(
             continuum_memory=self.continuum_memory,
             domain=domain,
             task=task,
+            tenant_id=tenant_id,
         )
 
         # Track retrieved IDs and tiers for outcome updates

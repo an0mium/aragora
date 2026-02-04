@@ -677,6 +677,14 @@ class FeatureSettings(BaseSettings):
     # Deprecated features
     cli_agents: bool = Field(default=False, alias="ARAGORA_FEATURE_CLI_AGENTS")
 
+    # Demo mode - when enabled, endpoints return mock data instead of requiring backend services
+    # This is useful for frontend development and demos without full backend setup
+    demo_mode: bool = Field(
+        default=False,
+        alias="ARAGORA_DEMO_MODE",
+        description="Enable demo mode with mock data for frontend development and demos",
+    )
+
     def is_enabled(self, feature: str) -> bool:
         """Check if a feature is enabled by name."""
         attr = feature.lower().replace("-", "_")
