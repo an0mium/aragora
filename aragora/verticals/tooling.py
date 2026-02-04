@@ -563,20 +563,15 @@ async def tax_reference_search(
 
     jurisdiction_norm = jurisdiction.lower().strip() if jurisdiction else "us"
 
-    connector = None
-    connector_label = None
     try:
-        if jurisdiction_norm in {"us", "usa", "united_states", "irs"}:
-            from aragora.connectors import IRSConnector
+        from aragora.connectors import resolve_tax_connector
 
-            connector = IRSConnector()
-            connector_label = "irs"
+        connector = resolve_tax_connector(jurisdiction_norm)
     except Exception as e:  # pragma: no cover
-        logger.warning("IRS connector unavailable: %s", e)
-        return {"results": [], "error": "irs connector unavailable"}
+        logger.warning("Tax connector unavailable: %s", e)
+        return {"results": [], "error": "tax connector unavailable"}
 
-    if connector is None:
-        return {"results": [], "error": f"no connector for jurisdiction '{jurisdiction}'"}
+    connector_label = getattr(connector, "name", "tax").lower().replace(" ", "_")
 
     if not getattr(connector, "is_available", True):
         return {"results": [], "error": f"{connector_label} connector unavailable (missing httpx)"}

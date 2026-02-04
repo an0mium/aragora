@@ -137,7 +137,8 @@ New document `docs/CAPABILITY_MATRIX.md` maps all features to their exposure:
    - Tool fallbacks return informative messages
 
 4. **First tool connectors** ✅
-   - GitHub (Software), PubMed/RxNav/ICD + NICE (Healthcare), arXiv/Semantic Scholar/Crossref (Research), SEC (Accounting), CourtListener/GovInfo (Legal)
+   - GitHub (Software), PubMed/RxNav/ICD + NICE (Healthcare), arXiv/Semantic Scholar/Crossref (Research), SEC + FASB + IRS (Accounting), CourtListener/GovInfo (Legal), Westlaw/Lexis (premium-ready)
+   - Note: FASB/IRS/Westlaw/Lexis require licensed or internal proxy configuration; otherwise web fallbacks apply.
 
 ### Phase 2: HTTP API Parity (Weeks 2-4)
 
@@ -178,7 +179,7 @@ Build marketplace sync bridge:
 |--------|---------|--------|----------|
 | HTTP API coverage of SDK | 45% | 70% | 4 weeks |
 | CLI coverage of SDK | 8% | 20% | 6 weeks |
-| Vertical specialist tools implemented | 19/19 (17 direct + 2 fallback) | 19/19 | 4 weeks |
+| Vertical specialist tools implemented | 19/19 (direct connectors + runtime fallback) | 19/19 | 4 weeks |
 | OpenAPI route coverage | 85.7% | 90% | 2 weeks |
 
 ---
@@ -195,14 +196,14 @@ Build marketplace sync bridge:
 
 ### For the User
 
-1. **Choose next vertical connectors to deepen:** GAAP + tax references (Accounting), optional premium legal sources
+1. **Choose next vertical connectors to deepen:** Multi-jurisdiction tax sources and premium legal sources configuration
 2. **Decide HTTP API priorities:** Which SDK-only features need HTTP access first?
 3. **Validate capability matrix:** Review `docs/CAPABILITY_MATRIX.md` for accuracy
 
 ### For Development
 
-1. Add GAAP + tax connectors (replace web fallback)
-2. Optional: premium legal sources (Westlaw/Lexis)
+1. Add multi-jurisdiction tax connectors (phase 2)
+2. Configure premium legal sources (Westlaw/Lexis) with credentials
 3. Create HTTP handler for `debates` namespace (highest visibility)
 
 ---

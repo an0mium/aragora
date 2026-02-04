@@ -255,17 +255,21 @@ The vertical specialists system (Software, Legal, Healthcare, Accounting, Resear
 
 ### Remaining Enhancements (8-16 hours)
 1. Add dedicated legal case law and statute connectors (6-10 hrs)
-2. Add GAAP lookup connector (4-6 hrs)
-3. Add tax reference connector (4-6 hrs)
-4. Optional: premium legal sources (Westlaw/Lexis) integration
+2. Optional: Multi-jurisdiction tax connectors (4-8 hrs)
+3. Optional: premium legal sources (Westlaw/Lexis) expansion
 
 ### Remaining Connector Gaps
 | Vertical | Tool | Suggested Source | Effort |
 |----------|------|------------------|--------|
-| Accounting | GAAP Lookup | FASB / curated KB | 4-6 hrs |
-| Accounting | Tax Reference | IRS / jurisdiction KB | 4-6 hrs |
-| Legal | Premium Case Law | Westlaw / Lexis (optional) | 8-16 hrs |
+| Accounting | Multi-Jurisdiction Tax | OECD/EU/UK/local tax portals | 4-8 hrs |
 | Healthcare | US Guidelines | AHRQ / NIH (optional) | 4-8 hrs |
+
+### Configuration Prereqs
+- **FASB GAAP**: Requires licensed API or internal proxy (`FASB_API_BASE`, `FASB_API_KEY`)
+- **IRS Tax**: Requires IRS search API or internal proxy (`IRS_API_BASE`, `IRS_API_KEY`)
+- **Westlaw/Lexis**: Requires licensed API access (`WESTLAW_API_BASE`, `WESTLAW_API_KEY`, `LEXIS_API_BASE`, `LEXIS_API_KEY`)
+- **Multi-Jurisdiction Tax**: `TAX_{JURISDICTION}_API_BASE` / `TAX_{JURISDICTION}_SEARCH_URL` (optional `TAX_{JURISDICTION}_API_KEY`)
+- **Proxy flexibility**: `FASB_SEARCH_METHOD`, `FASB_SEARCH_QUERY_PARAM`, `FASB_SEARCH_LIMIT_PARAM`, `IRS_SEARCH_METHOD`, `IRS_SEARCH_QUERY_PARAM`, `IRS_SEARCH_LIMIT_PARAM`
 
 ---
 

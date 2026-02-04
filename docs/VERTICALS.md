@@ -146,7 +146,7 @@ Expert in contract analysis, compliance review, and regulatory matters.
 **Tools:**
 | Tool | Description |
 |------|-------------|
-| `case_search` | Search legal case databases (Westlaw integration) |
+| `case_search` | Search legal case databases (Westlaw/Lexis/CourtListener) |
 | `statute_lookup` | Look up statutes and regulations |
 | `contract_compare` | Compare contract versions |
 
@@ -250,9 +250,9 @@ Expert in financial analysis, audit, compliance, and accounting standards.
 | Tool | Description |
 |------|-------------|
 | `sec_filings` | Search SEC filings and documents |
-| `gaap_lookup` | Look up GAAP accounting standards |
+| `gaap_lookup` | Look up GAAP accounting standards (licensed FASB proxy) |
 | `ratio_calculator` | Calculate financial ratios |
-| `tax_reference` | Look up tax regulations and rates |
+| `tax_reference` | Look up tax regulations and rates (IRS proxy) |
 
 **Compliance Frameworks:**
 - **SOX** - Section 302, 404, 802, 906 (enforced)
