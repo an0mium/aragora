@@ -129,6 +129,8 @@ class MemoryHandler(SecureHandler):
     @require_permission("memory:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route memory requests to appropriate handler methods."""
+        # Capture auth context for downstream filtering (set by handler registry)
+        self._auth_context = getattr(handler, "_auth_context", None)
         path = self._normalize_path(path)
         client_ip = get_client_ip(handler)
 
@@ -270,13 +272,23 @@ class MemoryHandler(SecureHandler):
         if not tiers:
             tiers = list(MemoryTier)
 
-        # Retrieve memories
+        # Retrieve memories (tenant-scoped when available)
+        try:
+            from aragora.memory.access import filter_entries, resolve_tenant_id
+        except Exception:
+            filter_entries = None  # type: ignore[assignment]
+            resolve_tenant_id = None  # type: ignore[assignment]
+
+        tenant_id = resolve_tenant_id(self._auth_context) if resolve_tenant_id else None
         memories = continuum.retrieve(
             query=query,
             tiers=tiers,
             limit=limit,
             min_importance=min_importance,
+            tenant_id=tenant_id,
         )
+        if filter_entries:
+            memories = filter_entries(memories, self._auth_context)
 
         return json_response(
             {
@@ -858,6 +870,13 @@ class MemoryHandler(SecureHandler):
         tiers = self._parse_tiers_param(params)
         use_hybrid = self._parse_bool_param(params, "use_hybrid", False)
 
+        try:
+            from aragora.memory.access import filter_entries, resolve_tenant_id
+        except Exception:
+            filter_entries = None  # type: ignore[assignment]
+            resolve_tenant_id = None  # type: ignore[assignment]
+
+        tenant_id = resolve_tenant_id(self._auth_context) if resolve_tenant_id else None
         results: list[dict[str, Any]] = []
         hybrid_used = False
 
@@ -880,10 +899,14 @@ class MemoryHandler(SecureHandler):
             entries_by_id = {}
             if ids and hasattr(continuum, "get_many"):
                 entries = continuum.get_many(ids)
+                if filter_entries:
+                    entries = filter_entries(entries, self._auth_context)
                 entries_by_id = {entry.id: entry for entry in entries}
 
             for result in hybrid_results:
                 entry = entries_by_id.get(result.memory_id)
+                if entry is None:
+                    continue
                 summary = self._format_entry_summary(entry or result)
                 summary["source"] = "continuum"
                 summary["score"] = round(float(getattr(result, "combined_score", 0.0)), 4)
@@ -896,7 +919,10 @@ class MemoryHandler(SecureHandler):
                 tiers=tiers,
                 limit=limit,
                 min_importance=min_importance,
+                tenant_id=tenant_id,
             )
+            if filter_entries:
+                memories = filter_entries(memories, self._auth_context)
             for entry in memories:
                 summary = self._format_entry_summary(entry)
                 summary["source"] = "continuum"
@@ -979,6 +1005,20 @@ class MemoryHandler(SecureHandler):
         if timeline is None:
             return error_response("Anchor memory not found", 404)
 
+        try:
+            from aragora.memory.access import filter_entries
+        except Exception:
+            filter_entries = None  # type: ignore[assignment]
+
+        if filter_entries:
+            # Enforce RBAC/tenant visibility on timeline entries
+            anchor_list = filter_entries([timeline["anchor"]], self._auth_context)
+            if not anchor_list:
+                return error_response("Anchor memory not found", 404)
+            timeline["anchor"] = anchor_list[0]
+            timeline["before"] = filter_entries(timeline["before"], self._auth_context)
+            timeline["after"] = filter_entries(timeline["after"], self._auth_context)
+
         return json_response(
             {
                 "anchor_id": anchor_id,
@@ -1017,6 +1057,12 @@ class MemoryHandler(SecureHandler):
             return error_response("Bulk entry retrieval not supported", 501)
 
         entries = continuum.get_many(ids)
+        try:
+            from aragora.memory.access import filter_entries
+        except Exception:
+            filter_entries = None  # type: ignore[assignment]
+        if filter_entries:
+            entries = filter_entries(entries, self._auth_context)
 
         return json_response(
             {
@@ -1495,13 +1541,23 @@ class MemoryHandler(SecureHandler):
         if not tiers:
             tiers = list(MemoryTier)
 
-        # Search memories
+        # Search memories (tenant-scoped when available)
+        try:
+            from aragora.memory.access import filter_entries, resolve_tenant_id
+        except Exception:
+            filter_entries = None  # type: ignore[assignment]
+            resolve_tenant_id = None  # type: ignore[assignment]
+
+        tenant_id = resolve_tenant_id(self._auth_context) if resolve_tenant_id else None
         memories = continuum.retrieve(
             query=query,
             tiers=tiers,
             limit=limit,
             min_importance=min_importance,
+            tenant_id=tenant_id,
         )
+        if filter_entries:
+            memories = filter_entries(memories, self._auth_context)
 
         # Sort results
         if sort_by == "importance":

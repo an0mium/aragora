@@ -75,6 +75,9 @@ class ExecutionNotifier:
         total_tasks: int = 0,
         notify_channel: bool = True,
         notify_websocket: bool = True,
+        channel_targets: list[str] | None = None,
+        thread_id: str | None = None,
+        thread_id_by_platform: dict[str, str] | None = None,
     ) -> None:
         self.progress = ExecutionProgress(
             debate_id=debate_id,
@@ -83,6 +86,9 @@ class ExecutionNotifier:
         )
         self._notify_channel = notify_channel
         self._notify_websocket = notify_websocket
+        self._channel_targets = channel_targets or []
+        self._thread_id = thread_id
+        self._thread_id_by_platform = thread_id_by_platform or {}
         self._start_time = time.monotonic()
         self._task_descriptions: dict[str, str] = {}
         self._listeners: list[Callable[[ExecutionProgress], Any]] = []
@@ -186,6 +192,56 @@ class ExecutionNotifier:
             except Exception as exc:
                 logger.debug("Progress listener failed: %s", exc)
 
+        # 4. Explicit channel targets (if provided)
+        if self._channel_targets:
+            await self._dispatch_to_targets(progress_dict, is_complete=False)
+
+    async def _dispatch_to_targets(self, payload: dict[str, Any], *, is_complete: bool) -> None:
+        """Send updates to explicitly configured channel targets."""
+        try:
+            from aragora.approvals.chat import parse_chat_targets
+            from aragora.connectors.chat.registry import get_connector
+        except ImportError:
+            return
+
+        targets = parse_chat_targets(self._channel_targets)
+        if not targets:
+            return
+
+        text = self._format_progress_text(payload, is_complete=is_complete)
+
+        for platform, channels in targets.items():
+            connector = get_connector(platform)
+            if connector is None or not connector.is_configured:
+                continue
+
+            platform_thread_id = self._thread_id_by_platform.get(platform) or self._thread_id
+            for channel_id in channels:
+                try:
+                    await connector.send_message(
+                        channel_id=channel_id,
+                        text=text,
+                        thread_id=platform_thread_id,
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "Failed to send execution update to %s:%s: %s",
+                        platform,
+                        channel_id,
+                        exc,
+                    )
+
+    def _format_progress_text(self, payload: dict[str, Any], *, is_complete: bool) -> str:
+        """Create a short progress message for chat connectors."""
+        completed = payload.get("completed_tasks", 0)
+        failed = payload.get("failed_tasks", 0)
+        total = payload.get("total_tasks", 0)
+        pct = payload.get("progress_pct", 0.0)
+        prefix = "Execution complete" if is_complete else "Execution update"
+        return f"{prefix} ({pct:.0f}%)\n- Tasks: {completed}/{total} completed" + (
+            f", {failed} failed" if failed else ""
+        )
+
     async def send_completion_summary(self) -> None:
         """Send a final summary when execution completes."""
         self.progress.elapsed_seconds = time.monotonic() - self._start_time
@@ -217,3 +273,9 @@ class ExecutionNotifier:
                 )
             except Exception as exc:
                 logger.debug("WebSocket completion broadcast failed: %s", exc)
+
+        if self._channel_targets:
+            await self._dispatch_to_targets(
+                summary_payload.get("summary", {}),
+                is_complete=True,
+            )

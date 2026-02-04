@@ -437,6 +437,11 @@ class DebatesAPI:
         openclaw_actions: list[dict[str, Any]] | None = None,
         computer_use_actions: list[dict[str, Any]] | None = None,
         openclaw_session: str | None = None,
+        implementation_profile: dict[str, Any] | None = None,
+        fabric_models: list[str] | None = None,
+        channel_targets: list[str] | None = None,
+        thread_id: str | None = None,
+        thread_id_by_platform: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """
         Build a Decision Integrity package for a completed debate.
@@ -474,6 +479,16 @@ class DebatesAPI:
             body["computer_use_actions"] = computer_use_actions
         if openclaw_session is not None:
             body["openclaw_session"] = openclaw_session
+        if implementation_profile is not None:
+            body["implementation_profile"] = implementation_profile
+        if fabric_models is not None:
+            body["fabric_models"] = fabric_models
+        if channel_targets is not None:
+            body["channel_targets"] = channel_targets
+        if thread_id is not None:
+            body["thread_id"] = thread_id
+        if thread_id_by_platform is not None:
+            body["thread_id_by_platform"] = thread_id_by_platform
 
         return self._client._post(
             f"/api/v1/debates/{debate_id}/decision-integrity",
@@ -499,6 +514,11 @@ class DebatesAPI:
         openclaw_actions: list[dict[str, Any]] | None = None,
         computer_use_actions: list[dict[str, Any]] | None = None,
         openclaw_session: str | None = None,
+        implementation_profile: dict[str, Any] | None = None,
+        fabric_models: list[str] | None = None,
+        channel_targets: list[str] | None = None,
+        thread_id: str | None = None,
+        thread_id_by_platform: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Async version of decision_integrity()."""
         body: dict[str, Any] = {}
@@ -532,6 +552,16 @@ class DebatesAPI:
             body["computer_use_actions"] = computer_use_actions
         if openclaw_session is not None:
             body["openclaw_session"] = openclaw_session
+        if implementation_profile is not None:
+            body["implementation_profile"] = implementation_profile
+        if fabric_models is not None:
+            body["fabric_models"] = fabric_models
+        if channel_targets is not None:
+            body["channel_targets"] = channel_targets
+        if thread_id is not None:
+            body["thread_id"] = thread_id
+        if thread_id_by_platform is not None:
+            body["thread_id_by_platform"] = thread_id_by_platform
 
         return await self._client._post_async(
             f"/api/v1/debates/{debate_id}/decision-integrity",

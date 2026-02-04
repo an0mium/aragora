@@ -75,6 +75,7 @@ from .resources import (
     LeaderboardAPI,
     MatrixDebatesAPI,
     MemoryAPI,
+    NomicAPI,
     NotificationsAPI,
     OnboardingAPI,
     OpenClawAPI,
@@ -86,6 +87,7 @@ from .resources import (
     SystemAPI,
     TenantsAPI,
     TournamentsAPI,
+    VerticalsAPI,
     VerificationAPI,
     WorkflowsAPI,
 )
@@ -115,6 +117,7 @@ class AragoraClient:
         - audit: Enterprise audit features (presets, workflow, quick audit)
         - verification: Formal claim verification
         - memory: Memory tier analytics
+        - nomic: Nomic loop monitoring and control
         - agents: Agent discovery and profiles
         - leaderboard: ELO rankings
         - gauntlet: Adversarial validation
@@ -138,6 +141,7 @@ class AragoraClient:
         - decisions: Unified decision-making API
         - onboarding: User onboarding flows
         - gmail: Gmail connector integration
+        - verticals: Vertical specialist configuration and tooling
 
     Usage:
         # Synchronous
@@ -206,6 +210,7 @@ class AragoraClient:
         self.matrix_debates = MatrixDebatesAPI(self)
         self.verification = VerificationAPI(self)
         self.memory = MemoryAPI(self)
+        self.nomic = NomicAPI(self)
         self.replays = ReplayAPI(self)
 
         # Document management and auditing
@@ -273,6 +278,9 @@ class AragoraClient:
 
         # Gmail connector
         self.gmail = GmailAPI(self)
+
+        # Verticals
+        self.verticals = VerticalsAPI(self)
 
         # OpenClaw Enterprise Gateway
         self.openclaw = OpenClawAPI(self)

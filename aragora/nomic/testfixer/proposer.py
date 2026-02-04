@@ -12,6 +12,7 @@ The debate process ensures fixes are cross-checked before application.
 
 from __future__ import annotations
 
+import asyncio
 import difflib
 import logging
 import re
@@ -25,6 +26,9 @@ from typing import Protocol
 from aragora.nomic.testfixer.analyzer import FailureAnalysis, FixTarget
 
 logger = logging.getLogger(__name__)
+
+GENERATION_TIMEOUT_SECONDS = 120.0
+CRITIQUE_TIMEOUT_SECONDS = 60.0
 
 
 class PatchStatus(str, Enum):
@@ -660,6 +664,7 @@ class AgentCodeGenerator:
         role: str = "proposer",
         model: str | None = None,
         api_key: str | None = None,
+        timeout_seconds: float | None = None,
         max_file_chars: int = 40000,
     ):
         from aragora.agents.base import create_agent
@@ -672,6 +677,7 @@ class AgentCodeGenerator:
             role=role,
             model=model,
             api_key=api_key,
+            timeout=timeout_seconds,
         )
 
     def _truncate(self, content: str) -> str:
@@ -805,6 +811,8 @@ class PatchProposer:
         generators: list[CodeGenerator] | None = None,
         synthesizer: CodeGenerator | None = None,
         require_consensus: bool = False,
+        generation_timeout_seconds: float | None = None,
+        critique_timeout_seconds: float | None = None,
     ):
         """Initialize the proposer.
 
@@ -819,6 +827,16 @@ class PatchProposer:
         self.synthesizer = synthesizer or self.generators[0]
         self.require_consensus = require_consensus
         self._proposal_counter = 0
+        self.generation_timeout_seconds = (
+            generation_timeout_seconds
+            if generation_timeout_seconds is not None
+            else GENERATION_TIMEOUT_SECONDS
+        )
+        self.critique_timeout_seconds = (
+            critique_timeout_seconds
+            if critique_timeout_seconds is not None
+            else CRITIQUE_TIMEOUT_SECONDS
+        )
 
     async def propose_fix(
         self,
@@ -865,10 +883,13 @@ class PatchProposer:
         proposals = []
         for i, generator in enumerate(self.generators):
             try:
-                fixed_content, rationale, confidence = await generator.generate_fix(
-                    analysis,
-                    original_content,
-                    file_to_fix,
+                fixed_content, rationale, confidence = await asyncio.wait_for(
+                    generator.generate_fix(
+                        analysis,
+                        original_content,
+                        file_to_fix,
+                    ),
+                    timeout=self.generation_timeout_seconds,
                 )
                 logger.info(
                     "proposal.generated id=%s agent=%s confidence=%.2f changed=%s",
@@ -883,6 +904,21 @@ class PatchProposer:
                         fixed_content,
                         rationale,
                         confidence,
+                    )
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "proposal.generate_timeout id=%s agent=%s timeout=%.1fs",
+                    proposal_id,
+                    f"agent_{i}",
+                    self.generation_timeout_seconds,
+                )
+                proposals.append(
+                    (
+                        f"agent_{i}",
+                        original_content,
+                        "Failed to generate: timed out",
+                        0.0,
                     )
                 )
             except Exception as e:
@@ -908,11 +944,14 @@ class PatchProposer:
                     continue  # Don't self-critique
 
                 try:
-                    critique, is_ok = await critic_gen.critique_fix(
-                        analysis,
-                        original_content,
-                        content,
-                        rationale,
+                    critique, is_ok = await asyncio.wait_for(
+                        critic_gen.critique_fix(
+                            analysis,
+                            original_content,
+                            content,
+                            rationale,
+                        ),
+                        timeout=self.critique_timeout_seconds,
                     )
                     logger.debug(
                         "proposal.critique id=%s critic=%s target=%s approved=%s",
@@ -922,6 +961,14 @@ class PatchProposer:
                         is_ok,
                     )
                     all_critiques.append((f"agent_{j}", agent, critique, is_ok))
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "proposal.critique_timeout id=%s critic=%s timeout=%.1fs",
+                        proposal_id,
+                        f"agent_{j}",
+                        self.critique_timeout_seconds,
+                    )
+                    all_critiques.append((f"agent_{j}", agent, "Critique timed out", False))
                 except Exception as e:
                     logger.exception(
                         "proposal.critique_error id=%s critic=%s",

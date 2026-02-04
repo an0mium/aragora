@@ -1790,8 +1790,8 @@ class TestRouteHandling:
 
             mock_me.assert_called_once()
 
-    def test_handle_password_reset_not_implemented(self, auth_handler):
-        """Test password reset endpoints return 501."""
+    def test_handle_password_reset_enabled_by_default(self, auth_handler):
+        """Test password reset endpoints are enabled by default (not 501)."""
         request = make_mock_handler(
             body={"email": "test@example.com"},
             command="POST",
@@ -1799,6 +1799,28 @@ class TestRouteHandling:
 
         result = maybe_await(
             auth_handler.handle(
+                path="/api/auth/password/forgot",
+                query_params={},
+                handler=request,
+                method="POST",
+            )
+        )
+
+        parsed = parse_result(result)
+        # Password reset is enabled by default - should return 200 (success response)
+        # even for non-existent emails to prevent email enumeration
+        assert parsed["status_code"] == 200
+
+    def test_handle_password_reset_disabled_when_flag_false(self):
+        """Test password reset endpoints return 501 when explicitly disabled."""
+        handler = AuthHandler(ctx={"enable_password_reset_routes": False})
+        request = make_mock_handler(
+            body={"email": "test@example.com"},
+            command="POST",
+        )
+
+        result = maybe_await(
+            handler.handle(
                 path="/api/auth/password/forgot",
                 query_params={},
                 handler=request,

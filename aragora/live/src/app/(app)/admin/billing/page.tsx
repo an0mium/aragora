@@ -172,6 +172,8 @@ export default function BillingPage() {
               value: d.count,
               date: d.date,
             })));
+          } else {
+            setTokenChartData([]);
           }
           if (data.daily_debates) {
             setDebateChartData(data.daily_debates.map((d: { date: string; count: number }) => ({
@@ -179,6 +181,8 @@ export default function BillingPage() {
               value: d.count,
               date: d.date,
             })));
+          } else {
+            setDebateChartData([]);
           }
           if (data.daily_api_calls) {
             setApiCallChartData(data.daily_api_calls.map((d: { date: string; count: number }) => ({
@@ -186,31 +190,20 @@ export default function BillingPage() {
               value: d.count,
               date: d.date,
             })));
+          } else {
+            setApiCallChartData([]);
           }
+        } else {
+          // Clear chart data on API error - show empty state
+          setTokenChartData([]);
+          setDebateChartData([]);
+          setApiCallChartData([]);
         }
       } catch {
-        // Generate mock chart data
-        const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-        const mockDates = Array.from({ length: days }, (_, i) => {
-          const date = new Date();
-          date.setDate(date.getDate() - (days - 1 - i));
-          return date;
-        });
-        setTokenChartData(mockDates.map(d => ({
-          label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          value: Math.floor(Math.random() * 100000) + 10000,
-          date: d.toISOString(),
-        })));
-        setDebateChartData(mockDates.map(d => ({
-          label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          value: Math.floor(Math.random() * 50) + 5,
-          date: d.toISOString(),
-        })));
-        setApiCallChartData(mockDates.map(d => ({
-          label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          value: Math.floor(Math.random() * 2000) + 500,
-          date: d.toISOString(),
-        })));
+        // Clear chart data on network error - show empty state
+        setTokenChartData([]);
+        setDebateChartData([]);
+        setApiCallChartData([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch billing data');

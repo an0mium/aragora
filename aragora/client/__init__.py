@@ -59,8 +59,10 @@ from .client import (
     LeaderboardAPI,
     MatrixDebatesAPI,
     MemoryAPI,
+    NomicAPI,
     OrganizationsAPI,
     ReplayAPI,
+    VerticalsAPI,
     VerificationAPI,
 )
 from .errors import (
@@ -157,8 +159,10 @@ __all__ = [
     "MatrixDebatesAPI",
     "VerificationAPI",
     "MemoryAPI",
+    "NomicAPI",
     "OrganizationsAPI",
     "ReplayAPI",
+    "VerticalsAPI",
     # WebSocket
     "DebateStream",
     "DebateEvent",

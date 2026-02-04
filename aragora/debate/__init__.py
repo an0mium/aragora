@@ -215,6 +215,20 @@ _EXPORT_MAP = {
     "InMemoryStateStore": ("aragora.debate.decision_service", "InMemoryStateStore"),
     "get_decision_service": ("aragora.debate.decision_service", "get_decision_service"),
     "reset_decision_service": ("aragora.debate.decision_service", "reset_decision_service"),
+    # Stability Detection (Adaptive Stopping)
+    "BetaBinomialStabilityDetector": (
+        "aragora.debate.stability_detector",
+        "BetaBinomialStabilityDetector",
+    ),
+    "StabilityConfig": ("aragora.debate.stability_detector", "StabilityConfig"),
+    "StabilityResult": ("aragora.debate.stability_detector", "StabilityResult"),
+    "create_stability_detector": ("aragora.debate.stability_detector", "create_stability_detector"),
+    # ASCoT Fragility Analysis
+    "ASCoTFragilityAnalyzer": ("aragora.debate.ascot_fragility", "ASCoTFragilityAnalyzer"),
+    "FragilityConfig": ("aragora.debate.ascot_fragility", "FragilityConfig"),
+    "FragilityScore": ("aragora.debate.ascot_fragility", "FragilityScore"),
+    "calculate_fragility": ("aragora.debate.ascot_fragility", "calculate_fragility"),
+    "create_fragility_analyzer": ("aragora.debate.ascot_fragility", "create_fragility_analyzer"),
 }
 
 
@@ -442,4 +456,15 @@ __all__ = [
     "InMemoryStateStore",
     "get_decision_service",
     "reset_decision_service",
+    # Stability Detection (Adaptive Stopping)
+    "BetaBinomialStabilityDetector",
+    "StabilityConfig",
+    "StabilityResult",
+    "create_stability_detector",
+    # ASCoT Fragility Analysis
+    "ASCoTFragilityAnalyzer",
+    "FragilityConfig",
+    "FragilityScore",
+    "calculate_fragility",
+    "create_fragility_analyzer",
 ]

@@ -14,30 +14,6 @@
       "actualWorkers": 1
     },
     "preserveOutput": "always",
-    "reporter": [
-      [
-        "list",
-        null
-      ],
-      [
-        "html",
-        {
-          "outputFolder": "playwright-report-production",
-          "open": "never"
-        }
-      ],
-      [
-        "json",
-        {
-          "outputFile": "playwright-report-production/results.json"
-        }
-      ]
-    ],
-    "reportSlowTests": {
-      "max": 5,
-      "threshold": 300000
-    },
-    "quiet": false,
     "projects": [
       {
         "outputDir": "/Users/armand/Development/aragora/aragora/live/test-results",
@@ -72,30 +48,55 @@
         "timeout": 60000
       }
     ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report-production",
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "playwright-report-production/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
     "shard": null,
     "tags": [],
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
-    "version": "1.57.0",
+    "version": "1.58.0",
     "workers": 1,
     "webServer": null
   },
   "suites": [
     {
-      "title": "auth-flow.prod.spec.ts",
-      "file": "auth-flow.prod.spec.ts",
+      "title": "login.prod.spec.ts",
+      "file": "login.prod.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Production Auth Flow",
-          "file": "auth-flow.prod.spec.ts",
-          "line": 10,
+          "title": "Real Login Tests",
+          "file": "login.prod.spec.ts",
+          "line": 82,
           "column": 6,
           "specs": [
             {
-              "title": "should verify login page loads with OAuth providers",
+              "title": "should login with Google OAuth",
               "ok": true,
               "tags": [],
               "tests": [
@@ -110,28 +111,55 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3421,
+                      "duration": 22467,
                       "errors": [],
                       "stdout": [
                         {
-                          "text": "\n=== OAuth Provider Buttons ===\n"
+                          "text": "\n=== Testing Google OAuth Login ===\n"
                         },
                         {
-                          "text": "Google: true\n"
+                          "text": "Google Email: ara***@gmail.com\n"
                         },
                         {
-                          "text": "GitHub: true\n"
+                          "text": "Found Google OAuth button\n"
                         },
                         {
-                          "text": "Microsoft: true\n"
+                          "text": "Clicked Google OAuth button\n"
                         },
                         {
-                          "text": "\nConsole errors: 0\n"
+                          "text": "Redirected to: https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S1360471939%3A1770180297247376&access_type=offline&client_id=160583734700-3eefsit757tng9ehcl1t0s6dodenppr9.apps.googleusercontent.com&o2v=2&prompt=consent&redirect_uri=https%3A%2F%2Fapi.aragora.ai%2Fapi%2Fauth%2Foauth%2Fgoogle%2Fcallback&response_type=code&scope=openid+email+profile&service=lso&state=DnVIMC1OFmhsFwLsSZPM05ptXOVobfTH5l0f4ih8cDQ&flowName=GeneralOAuthFlow&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAPPLM9D-8QZpob_tqMELbYVerqfvqHX7eThLghXmC-8cNHfk8iiaHvhvmt5UzfSs7ACmflsULsxKFYquUAFVVmAapuFl6mGdm6TVDtc-3sUzHmz2tNJIsgcxIg3_ny0FvusL7BQcmVPD3yN08Pj7mjZcLkIAsBSud90L7GBNpQPtSzw1EVOz-eRE5e6izIUd7iAnZz7uiAv2Y8bUN_D3ANKjXaIlZ3pkTJL17lNWeaZCLXBcb7e9DBAmTChF6kCt4THCjbjsZEXNkvnkAnTDfA0EpHD3af2OvJnVEivh_IOQdNad8me-SEx9CaAfc76lN8ifBqSwpjc4jEuvuxkeGf2AlO1Tx55f1tui2AC5aObQ2RULvqBaVcz_2fQxGy5yhhcY3YgZwD599j7QfiOX-ueBX4aTLhGFWmVxerk0I89hWqaJHojYfmEsNxihRpIdncjM23EpDSFvmAWIO5WC8aLVPhkKQ%26flowName%3DGeneralOAuthFlow%26as%3DS1360471939%253A1770180297247376%26client_id%3D160583734700-3eefsit757tng9ehcl1t0s6dodenppr9.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=https%3A%2F%2Fapi.aragora.ai&rart=ANgoxcdDNT2EEP3fd8oxxMi9Xlu2oWv3J6MPUGn0czyxa3exVDZdvjiiANjKykVk-TU88lt5fhhAt8o-ZOhLZw_rZb1wpj3Y3BwKG0jFjmZu89mMEE2q-JU\n"
+                        },
+                        {
+                          "text": "Successfully redirected to Google login\n"
+                        },
+                        {
+                          "text": "Filled Google email\n"
+                        },
+                        {
+                          "text": "Clicked Next after email\n"
+                        },
+                        {
+                          "text": "Filled Google password\n"
+                        },
+                        {
+                          "text": "Clicked Sign In\n"
+                        },
+                        {
+                          "text": "Found consent screen, clicking Allow\n"
+                        },
+                        {
+                          "text": "Final URL: https://aragora.ai/auth/callback/#access_token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiODhiNDA0NmQtNGMzNi00OGI0LTgzMGQtMGNkMTFiYTc4OTc3IiwgImVtYWlsIjogImFyYWdvcmEuYWlAZ21haWwuY29tIiwgIm9yZ19pZCI6IG51bGwsICJyb2xlIjogIm1lbWJlciIsICJpYXQiOiAxNzcwMTgwMzExLCAiZXhwIjogMTc3MDI2NjcxMSwgInR5cGUiOiAiYWNjZXNzIiwgInR2IjogMX0.If-QkCe5w6VWR7PMj3F4dCco_v7px7nQBCGjGvauXYI&refresh_token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiODhiNDA0NmQtNGMzNi00OGI0LTgzMGQtMGNkMTFiYTc4OTc3IiwgImVtYWlsIjogIiIsICJvcmdfaWQiOiBudWxsLCAicm9sZSI6ICIiLCAiaWF0IjogMTc3MDE4MDMxMSwgImV4cCI6IDE3NzI3NzIzMTEsICJ0eXBlIjogInJlZnJlc2giLCAidHYiOiAxfQ.dAte0TWqa4DXud2nTjXBzMRGWBnEtx6qflrC7tCZ-mI&token_type=Bearer&expires_in=86400\n"
+                        },
+                        {
+                          "text": "Authenticated: false\n"
+                        },
+                        {
+                          "text": "Google OAuth login successful!\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T22:43:23.354Z",
+                      "startTime": "2026-02-04T04:44:52.039Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -139,13 +167,21 @@
                   "status": "expected"
                 }
               ],
-              "id": "658391ce3ff6db5cfe1e-cdbabaf1fc0d82e5062d",
-              "file": "auth-flow.prod.spec.ts",
-              "line": 11,
+              "id": "b3527673c7b7c3f7b559-83675afb9d1978d2ca02",
+              "file": "login.prod.spec.ts",
+              "line": 221,
               "column": 7
-            },
+            }
+          ]
+        },
+        {
+          "title": "OAuth Button Verification",
+          "file": "login.prod.spec.ts",
+          "line": 464,
+          "column": 6,
+          "specs": [
             {
-              "title": "should verify API health and auth endpoints",
+              "title": "should redirect Google OAuth to accounts.google.com",
               "ok": true,
               "tags": [],
               "tests": [
@@ -160,25 +196,16 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2173,
+                      "duration": 7257,
                       "errors": [],
                       "stdout": [
                         {
-                          "text": "\n=== API Endpoint Tests ===\n"
-                        },
-                        {
-                          "text": "Health: 200 (OK)\n"
-                        },
-                        {
-                          "text": "OAuth Providers: 200 (OK)\n"
-                        },
-                        {
-                          "text": "/me (no auth): 401 (FAIL)\n"
+                          "text": "Redirect URL: https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S-1257736087%3A1770180318628958&access_type=offline&client_id=160583734700-3eefsit757tng9ehcl1t0s6dodenppr9.apps.googleusercontent.com&o2v=2&prompt=consent&redirect_uri=https%3A%2F%2Fapi.aragora.ai%2Fapi%2Fauth%2Foauth%2Fgoogle%2Fcallback&response_type=code&scope=openid+email+profile&service=lso&state=gRD5v818WJmJnEXgIAS4ZObZHEVp0qYjEqK8SR0nxNE&flowName=GeneralOAuthFlow&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAPZSSN0QbElD3cC6-0BL1ji8Mwk9MTWJ1q9mvmMSJmge_gKJUd40uIjzbw-p-ykbCrZyjcEG1_nZD6tudIyBpYMaY4deU4zW4neyAd_IA5Qf3_hiibDRoT9tZ0ClA8vhqqdv33x8JlR0pOj5R1qwp8eZQqWJQWS2qSiZhQHLY-owioAmxinIbPNu-heW5N4d80Ogsr1GNsUHS25fh8FBAXl4w4pfToq-UlmFhKSW8aSPIuZXgoBC0Jc1sabl8-cDVgj9MUQpZkIsKvKG1121ZQbBPqv68Y8Dnt3KcN7opn9-4n28q2avlZaes47TiB1Vfx-sEzB5NuIQ46Emjs_OLsOoVzjh61WJmbVNrnB8Gi3IN4PvRPwO88-qHhVTsL2eaYGD4B4YSWVKnbIp_OTesfrxMC0u_s0BhXT4nK4KHkfk-Hn-m2UEmBhS5PXdagB_cj03jqz9GsfQV0yjtSo8KyQlAX6jA%26flowName%3DGeneralOAuthFlow%26as%3DS-1257736087%253A1770180318628958%26client_id%3D160583734700-3eefsit757tng9ehcl1t0s6dodenppr9.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=https%3A%2F%2Fapi.aragora.ai&rart=ANgoxcfJwXchU4783Yc7qBRGFVniCHsA4zbtqMHpP03RrQaHjLZE8fVewoALzyVV3YEUIJfKbcLqftH_tSVEctx7MxIq_2IxzP4uAI6SHKI1nhr5DLRTcEc\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T22:43:27.123Z",
+                      "startTime": "2026-02-04T04:45:15.156Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -186,94 +213,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "658391ce3ff6db5cfe1e-dc7a56e916995c3fab8d",
-              "file": "auth-flow.prod.spec.ts",
-              "line": 46,
-              "column": 7
-            },
-            {
-              "title": "should not have excessive console errors on homepage",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "production-chromium",
-                  "projectName": "production-chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 6074,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "\n=== Homepage Console Errors ===\n"
-                        },
-                        {
-                          "text": "Total errors in 5s: 0\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-24T22:43:29.303Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "658391ce3ff6db5cfe1e-1561345c74a579da3eac",
-              "file": "auth-flow.prod.spec.ts",
-              "line": 90,
-              "column": 7
-            },
-            {
-              "title": "should handle main page question input",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "production-chromium",
-                  "projectName": "production-chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 4058,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Question input not found (may require login)\n"
-                        },
-                        {
-                          "text": "\n=== API Calls Made ===\n"
-                        },
-                        {
-                          "text": "  [200] /api/health\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-24T22:43:35.383Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "658391ce3ff6db5cfe1e-a3dd2e8ad91545a0eb1e",
-              "file": "auth-flow.prod.spec.ts",
-              "line": 120,
+              "id": "b3527673c7b7c3f7b559-99985eea7090d0d3fbc9",
+              "file": "login.prod.spec.ts",
+              "line": 504,
               "column": 7
             }
           ]
@@ -283,9 +225,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-01-24T22:43:23.006Z",
-    "duration": 16466.162,
-    "expected": 4,
+    "startTime": "2026-02-04T04:44:49.265Z",
+    "duration": 33545.998,
+    "expected": 2,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

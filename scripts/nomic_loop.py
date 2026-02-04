@@ -148,6 +148,8 @@ try:
         NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS as _NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS,
         NOMIC_TESTFIXER_PATTERN_LEARNING as _NOMIC_TESTFIXER_PATTERN_LEARNING,
         NOMIC_TESTFIXER_PATTERN_STORE as _NOMIC_TESTFIXER_PATTERN_STORE,
+        NOMIC_TESTFIXER_GENERATION_TIMEOUT as _NOMIC_TESTFIXER_GENERATION_TIMEOUT,
+        NOMIC_TESTFIXER_CRITIQUE_TIMEOUT as _NOMIC_TESTFIXER_CRITIQUE_TIMEOUT,
     )
     from scripts.nomic.error_taxonomy import (
         classify_error as _classify_error,
@@ -248,7 +250,7 @@ NOMIC_TESTFIXER_REVERT_ON_FAILURE = os.environ.get("NOMIC_TESTFIXER_REVERT_ON_FA
 NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS = (
     os.environ.get("NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS", "0") == "1"
 )
-NOMIC_TESTFIXER_AGENTS = os.environ.get("NOMIC_TESTFIXER_AGENTS", "")
+NOMIC_TESTFIXER_AGENTS = os.environ.get("NOMIC_TESTFIXER_AGENTS", "codex,claude")
 NOMIC_TESTFIXER_USE_LLM_ANALYZER = os.environ.get("NOMIC_TESTFIXER_USE_LLM_ANALYZER", "0") == "1"
 NOMIC_TESTFIXER_ANALYSIS_AGENTS = os.environ.get("NOMIC_TESTFIXER_ANALYSIS_AGENTS", "")
 NOMIC_TESTFIXER_ANALYSIS_REQUIRE_CONSENSUS = (
@@ -281,6 +283,10 @@ NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS = float(
 )
 NOMIC_TESTFIXER_PATTERN_LEARNING = os.environ.get("NOMIC_TESTFIXER_PATTERN_LEARNING", "0") == "1"
 NOMIC_TESTFIXER_PATTERN_STORE = os.environ.get("NOMIC_TESTFIXER_PATTERN_STORE", "")
+NOMIC_TESTFIXER_GENERATION_TIMEOUT = float(
+    os.environ.get("NOMIC_TESTFIXER_GENERATION_TIMEOUT", "600")
+)
+NOMIC_TESTFIXER_CRITIQUE_TIMEOUT = float(os.environ.get("NOMIC_TESTFIXER_CRITIQUE_TIMEOUT", "300"))
 
 
 # =============================================================================
@@ -1588,6 +1594,26 @@ if _NOMIC_PACKAGE_AVAILABLE:
     NOMIC_TESTFIXER_REVERT_ON_FAILURE = _NOMIC_TESTFIXER_REVERT_ON_FAILURE
     NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS = _NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS
     NOMIC_TESTFIXER_AGENTS = _NOMIC_TESTFIXER_AGENTS
+    NOMIC_TESTFIXER_USE_LLM_ANALYZER = _NOMIC_TESTFIXER_USE_LLM_ANALYZER
+    NOMIC_TESTFIXER_ANALYSIS_AGENTS = _NOMIC_TESTFIXER_ANALYSIS_AGENTS
+    NOMIC_TESTFIXER_ANALYSIS_REQUIRE_CONSENSUS = _NOMIC_TESTFIXER_ANALYSIS_REQUIRE_CONSENSUS
+    NOMIC_TESTFIXER_ANALYSIS_CONSENSUS_THRESHOLD = _NOMIC_TESTFIXER_ANALYSIS_CONSENSUS_THRESHOLD
+    NOMIC_TESTFIXER_ARENA_VALIDATE = _NOMIC_TESTFIXER_ARENA_VALIDATE
+    NOMIC_TESTFIXER_ARENA_AGENTS = _NOMIC_TESTFIXER_ARENA_AGENTS
+    NOMIC_TESTFIXER_ARENA_ROUNDS = _NOMIC_TESTFIXER_ARENA_ROUNDS
+    NOMIC_TESTFIXER_ARENA_MIN_CONFIDENCE = _NOMIC_TESTFIXER_ARENA_MIN_CONFIDENCE
+    NOMIC_TESTFIXER_ARENA_REQUIRE_CONSENSUS = _NOMIC_TESTFIXER_ARENA_REQUIRE_CONSENSUS
+    NOMIC_TESTFIXER_ARENA_CONSENSUS_THRESHOLD = _NOMIC_TESTFIXER_ARENA_CONSENSUS_THRESHOLD
+    NOMIC_TESTFIXER_REDTEAM_VALIDATE = _NOMIC_TESTFIXER_REDTEAM_VALIDATE
+    NOMIC_TESTFIXER_REDTEAM_ATTACKERS = _NOMIC_TESTFIXER_REDTEAM_ATTACKERS
+    NOMIC_TESTFIXER_REDTEAM_DEFENDER = _NOMIC_TESTFIXER_REDTEAM_DEFENDER
+    NOMIC_TESTFIXER_REDTEAM_ROUNDS = _NOMIC_TESTFIXER_REDTEAM_ROUNDS
+    NOMIC_TESTFIXER_REDTEAM_ATTACKS_PER_ROUND = _NOMIC_TESTFIXER_REDTEAM_ATTACKS_PER_ROUND
+    NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS = _NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS
+    NOMIC_TESTFIXER_PATTERN_LEARNING = _NOMIC_TESTFIXER_PATTERN_LEARNING
+    NOMIC_TESTFIXER_PATTERN_STORE = _NOMIC_TESTFIXER_PATTERN_STORE
+    NOMIC_TESTFIXER_GENERATION_TIMEOUT = _NOMIC_TESTFIXER_GENERATION_TIMEOUT
+    NOMIC_TESTFIXER_CRITIQUE_TIMEOUT = _NOMIC_TESTFIXER_CRITIQUE_TIMEOUT
 
 
 class NomicLoop:
@@ -8667,18 +8693,116 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
 
         try:
             from aragora.nomic.testfixer import FixLoopConfig, TestFixerOrchestrator
-            from aragora.nomic.testfixer.proposer import AgentCodeGenerator
+            from aragora.nomic.testfixer.generators import (
+                AgentCodeGenerator,
+                AgentGeneratorConfig,
+            )
+            from aragora.nomic.testfixer.analyzers import LLMAnalyzerConfig
+            from aragora.nomic.testfixer.validators import (
+                ArenaValidatorConfig,
+                RedTeamValidatorConfig,
+            )
         except Exception as exc:
             self._log(f"[testfixer] Unavailable: {exc}")
             return {"status": "unavailable", "error": str(exc)}
 
-        agent_names = [a.strip() for a in NOMIC_TESTFIXER_AGENTS.split(",") if a.strip()]
+        def _parse_agent_specs(
+            specs: str | None,
+            fallback: str | None,
+        ) -> tuple[list[str], dict[str, str] | None]:
+            spec_str = specs if specs not in (None, "") else (fallback or "")
+            if not spec_str:
+                return ([], None)
+            agent_types: list[str] = []
+            models: dict[str, str] = {}
+            for spec in [s.strip() for s in spec_str.split(",") if s.strip()]:
+                if ":" in spec:
+                    agent_type, model = spec.split(":", 1)
+                    models[agent_type] = model
+                else:
+                    agent_type = spec
+                agent_types.append(agent_type)
+            return agent_types, models or None
+
+        agent_specs = [a.strip() for a in NOMIC_TESTFIXER_AGENTS.split(",") if a.strip()]
         generators = []
-        for agent_name in agent_names:
+        for spec in agent_specs:
             try:
-                generators.append(AgentCodeGenerator(agent_name))
+                if ":" in spec:
+                    agent_type, model = spec.split(":", 1)
+                else:
+                    agent_type, model = spec, None
+                gen_config = AgentGeneratorConfig(
+                    agent_type=agent_type,
+                    model=model,
+                    timeout_seconds=NOMIC_TESTFIXER_GENERATION_TIMEOUT,
+                )
+                generators.append(AgentCodeGenerator(gen_config))
             except Exception as exc:
-                self._log(f"[testfixer] Skipping agent '{agent_name}': {exc}")
+                self._log(f"[testfixer] Skipping agent '{spec}': {exc}")
+
+        analysis_agent_types, analysis_models = _parse_agent_specs(
+            NOMIC_TESTFIXER_ANALYSIS_AGENTS,
+            NOMIC_TESTFIXER_AGENTS,
+        )
+        llm_analyzer_config = None
+        if NOMIC_TESTFIXER_USE_LLM_ANALYZER:
+            default_analysis = LLMAnalyzerConfig()
+            llm_analyzer_config = LLMAnalyzerConfig(
+                agent_types=analysis_agent_types or default_analysis.agent_types,
+                models=analysis_models,
+                require_consensus=NOMIC_TESTFIXER_ANALYSIS_REQUIRE_CONSENSUS,
+                consensus_threshold=NOMIC_TESTFIXER_ANALYSIS_CONSENSUS_THRESHOLD,
+                agent_timeout=NOMIC_TESTFIXER_GENERATION_TIMEOUT,
+            )
+
+        arena_config = None
+        if NOMIC_TESTFIXER_ARENA_VALIDATE:
+            arena_agent_types, arena_models = _parse_agent_specs(
+                NOMIC_TESTFIXER_ARENA_AGENTS,
+                NOMIC_TESTFIXER_ANALYSIS_AGENTS or NOMIC_TESTFIXER_AGENTS,
+            )
+            default_arena = ArenaValidatorConfig()
+            arena_config = ArenaValidatorConfig(
+                agent_types=arena_agent_types or default_arena.agent_types,
+                models=arena_models,
+                debate_rounds=NOMIC_TESTFIXER_ARENA_ROUNDS,
+                min_confidence_to_pass=NOMIC_TESTFIXER_ARENA_MIN_CONFIDENCE,
+                require_consensus=NOMIC_TESTFIXER_ARENA_REQUIRE_CONSENSUS,
+                consensus_threshold=NOMIC_TESTFIXER_ARENA_CONSENSUS_THRESHOLD,
+                agent_timeout=NOMIC_TESTFIXER_GENERATION_TIMEOUT,
+                debate_timeout=max(
+                    NOMIC_TESTFIXER_GENERATION_TIMEOUT * 2,
+                    default_arena.debate_timeout,
+                ),
+            )
+
+        redteam_config = None
+        if NOMIC_TESTFIXER_REDTEAM_VALIDATE:
+            redteam_attackers, _ = _parse_agent_specs(
+                NOMIC_TESTFIXER_REDTEAM_ATTACKERS,
+                NOMIC_TESTFIXER_ANALYSIS_AGENTS or NOMIC_TESTFIXER_AGENTS,
+            )
+            default_redteam = RedTeamValidatorConfig()
+            defender = NOMIC_TESTFIXER_REDTEAM_DEFENDER or (
+                redteam_attackers[0] if redteam_attackers else default_redteam.defender_type
+            )
+            redteam_config = RedTeamValidatorConfig(
+                attacker_types=redteam_attackers or default_redteam.attacker_types,
+                defender_type=defender,
+                attack_rounds=NOMIC_TESTFIXER_REDTEAM_ROUNDS,
+                attacks_per_round=NOMIC_TESTFIXER_REDTEAM_ATTACKS_PER_ROUND,
+                min_robustness_score=NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS,
+                agent_timeout=NOMIC_TESTFIXER_GENERATION_TIMEOUT,
+                total_timeout=max(
+                    NOMIC_TESTFIXER_GENERATION_TIMEOUT * 4,
+                    default_redteam.total_timeout,
+                ),
+            )
+
+        pattern_store_path = None
+        if NOMIC_TESTFIXER_PATTERN_STORE:
+            pattern_store_path = Path(NOMIC_TESTFIXER_PATTERN_STORE)
 
         config = FixLoopConfig(
             max_iterations=NOMIC_TESTFIXER_MAX_ITERATIONS,
@@ -8688,6 +8812,16 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
             require_debate_consensus=NOMIC_TESTFIXER_REQUIRE_CONSENSUS,
             revert_on_failure=NOMIC_TESTFIXER_REVERT_ON_FAILURE,
             stop_on_first_success=NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS,
+            use_llm_analyzer=NOMIC_TESTFIXER_USE_LLM_ANALYZER,
+            llm_analyzer_config=llm_analyzer_config,
+            enable_arena_validation=NOMIC_TESTFIXER_ARENA_VALIDATE,
+            arena_validator_config=arena_config,
+            enable_redteam_validation=NOMIC_TESTFIXER_REDTEAM_VALIDATE,
+            redteam_validator_config=redteam_config,
+            enable_pattern_learning=NOMIC_TESTFIXER_PATTERN_LEARNING,
+            pattern_store_path=pattern_store_path,
+            generation_timeout_seconds=NOMIC_TESTFIXER_GENERATION_TIMEOUT,
+            critique_timeout_seconds=NOMIC_TESTFIXER_CRITIQUE_TIMEOUT,
         )
 
         if NOMIC_TESTFIXER_REQUIRE_APPROVAL:

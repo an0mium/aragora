@@ -46,7 +46,7 @@ def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Pat
     return log_path
 
 
-def _parse_agents(agents: str) -> list[AgentCodeGenerator]:
+def _parse_agents(agents: str, timeout_seconds: float | None = None) -> list[AgentCodeGenerator]:
     if not agents or agents.strip().lower() in ("none", "false", "off", "0"):
         return []
     generator_configs: list[AgentGeneratorConfig] = []
@@ -58,7 +58,13 @@ def _parse_agents(agents: str) -> list[AgentCodeGenerator]:
             agent_type, model = spec.split(":", 1)
         else:
             agent_type, model = spec, None
-        generator_configs.append(AgentGeneratorConfig(agent_type=agent_type, model=model))
+        generator_configs.append(
+            AgentGeneratorConfig(
+                agent_type=agent_type,
+                model=model,
+                timeout_seconds=timeout_seconds,
+            )
+        )
     return [AgentCodeGenerator(cfg) for cfg in generator_configs]
 
 
@@ -83,7 +89,7 @@ def _parse_agent_specs(specs: str) -> tuple[list[str], dict[str, str] | None]:
 async def _run(args: argparse.Namespace) -> int:
     repo_path = Path(args.repo_path).resolve()
     test_command = args.test_command
-    generators = _parse_agents(args.agents)
+    generators = _parse_agents(args.agents, timeout_seconds=args.generation_timeout_seconds)
 
     log_path = _setup_logging(repo_path, args.log_file, args.log_level)
     if log_path:
@@ -105,6 +111,7 @@ async def _run(args: argparse.Namespace) -> int:
             models=analysis_models,
             require_consensus=args.analysis_require_consensus,
             consensus_threshold=args.analysis_consensus_threshold,
+            agent_timeout=args.generation_timeout_seconds,
         )
 
     arena_config = None
@@ -119,6 +126,11 @@ async def _run(args: argparse.Namespace) -> int:
             min_confidence_to_pass=args.arena_min_confidence,
             require_consensus=args.arena_require_consensus,
             consensus_threshold=args.arena_consensus_threshold,
+            agent_timeout=args.generation_timeout_seconds,
+            debate_timeout=max(
+                args.generation_timeout_seconds * 2,
+                default_arena.debate_timeout,
+            ),
         )
 
     redteam_config = None
@@ -135,6 +147,11 @@ async def _run(args: argparse.Namespace) -> int:
             attack_rounds=args.redteam_rounds,
             attacks_per_round=args.redteam_attacks_per_round,
             min_robustness_score=args.redteam_min_robustness,
+            agent_timeout=args.generation_timeout_seconds,
+            total_timeout=max(
+                args.generation_timeout_seconds * 4,
+                default_redteam.total_timeout,
+            ),
         )
 
     config = FixLoopConfig(
@@ -155,6 +172,8 @@ async def _run(args: argparse.Namespace) -> int:
         redteam_validator_config=redteam_config,
         enable_pattern_learning=args.pattern_learning,
         pattern_store_path=Path(args.pattern_store).resolve() if args.pattern_store else None,
+        generation_timeout_seconds=args.generation_timeout_seconds,
+        critique_timeout_seconds=args.critique_timeout_seconds,
     )
     if args.require_approval:
 
@@ -300,5 +319,17 @@ def build_parser(subparsers) -> None:
         "--pattern-store",
         default=None,
         help="Pattern store path (default: .testfixer/patterns.json)",
+    )
+    parser.add_argument(
+        "--generation-timeout-seconds",
+        type=float,
+        default=600.0,
+        help="Timeout for each generator proposal",
+    )
+    parser.add_argument(
+        "--critique-timeout-seconds",
+        type=float,
+        default=300.0,
+        help="Timeout for each critique pass",
     )
     parser.set_defaults(func=cmd_testfixer)

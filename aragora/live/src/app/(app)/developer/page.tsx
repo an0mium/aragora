@@ -114,19 +114,19 @@ export default function DeveloperPortal() {
           cost_usd: data.usage?.estimated_cost_usd || 0,
         });
 
-        // Generate mock daily usage for last 7 days if not provided by API
-        const mockDaily: DailyUsage[] = [];
+        // Build daily usage from API data (or zeros if not provided)
+        const daily: DailyUsage[] = [];
         const today = new Date();
         for (let i = 6; i >= 0; i--) {
           const date = new Date(today);
           date.setDate(date.getDate() - i);
-          mockDaily.push({
+          daily.push({
             date: date.toLocaleDateString('en-US', { weekday: 'short' }),
-            requests: data.usage?.daily_requests?.[i] || Math.floor(Math.random() * 50) + 10,
-            tokens: data.usage?.daily_tokens?.[i] || Math.floor(Math.random() * 5000) + 1000,
+            requests: data.usage?.daily_requests?.[i] || 0,
+            tokens: data.usage?.daily_tokens?.[i] || 0,
           });
         }
-        setDailyUsage(mockDaily);
+        setDailyUsage(daily);
       }
     } catch (err) {
       logger.error('Failed to fetch usage stats:', err);

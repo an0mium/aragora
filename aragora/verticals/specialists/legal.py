@@ -20,6 +20,7 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
+from aragora.verticals.tooling import web_search_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -203,23 +204,89 @@ class LegalSpecialist(VerticalSpecialistAgent):
 
     async def _case_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search legal case databases."""
+        query = parameters.get("query") or parameters.get("q") or parameters.get("case") or ""
+        jurisdiction = parameters.get("jurisdiction") or parameters.get("region") or ""
+        limit = int(parameters.get("limit", 10))
+        note = "Case law connector not yet integrated; using web search fallback."
+        search_query = f"{query} case law {jurisdiction}".strip()
+        result = await web_search_fallback(search_query, limit=limit, note=note)
         return {
-            "cases": [],
-            "message": "Case search not yet implemented - requires Westlaw integration",
+            "cases": result.get("results", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", search_query),
+            "mode": result.get("mode", "web_fallback"),
+            "note": result.get("note"),
+            "error": result.get("error"),
         }
 
     async def _statute_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up statutes and regulations."""
+        query = (
+            parameters.get("query")
+            or parameters.get("q")
+            or parameters.get("statute")
+            or parameters.get("citation")
+            or ""
+        )
+        jurisdiction = parameters.get("jurisdiction") or parameters.get("region") or ""
+        limit = int(parameters.get("limit", 10))
+        note = "Statute lookup connector not yet integrated; using web search fallback."
+        search_query = f"{query} statute {jurisdiction}".strip()
+        result = await web_search_fallback(search_query, limit=limit, note=note)
         return {
-            "statutes": [],
-            "message": "Statute lookup not yet implemented",
+            "statutes": result.get("results", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", search_query),
+            "mode": result.get("mode", "web_fallback"),
+            "note": result.get("note"),
+            "error": result.get("error"),
         }
 
     async def _contract_compare(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Compare contract versions."""
+        import difflib
+
+        left = (
+            parameters.get("left")
+            or parameters.get("contract_a")
+            or parameters.get("version_a")
+            or parameters.get("text_a")
+            or ""
+        )
+        right = (
+            parameters.get("right")
+            or parameters.get("contract_b")
+            or parameters.get("version_b")
+            or parameters.get("text_b")
+            or ""
+        )
+        if not left or not right:
+            return {"differences": [], "error": "contract_a and contract_b are required"}
+
+        from_label = parameters.get("from_label", "contract_a")
+        to_label = parameters.get("to_label", "contract_b")
+        max_lines = int(parameters.get("limit", 200))
+
+        diff_lines = list(
+            difflib.unified_diff(
+                left.splitlines(),
+                right.splitlines(),
+                fromfile=from_label,
+                tofile=to_label,
+                lineterm="",
+            )
+        )
+        added = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
+        removed = sum(
+            1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
+        )
+
+        truncated = len(diff_lines) > max_lines
         return {
-            "differences": [],
-            "message": "Contract comparison not yet implemented",
+            "differences": diff_lines[:max_lines],
+            "truncated": truncated,
+            "total_lines": len(diff_lines),
+            "summary": {"added": added, "removed": removed},
         }
 
     async def _check_framework_compliance(

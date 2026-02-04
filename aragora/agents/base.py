@@ -307,6 +307,7 @@ def create_agent(
     role: str = "proposer",
     model: str | None = None,
     api_key: str | None = None,
+    timeout: float | None = None,
 ) -> "Agent":
     """
     Factory function to create agents by type.
@@ -332,12 +333,17 @@ def create_agent(
     # Ensure all agents are registered (imports trigger decorators)
     register_all_agents()
 
+    kwargs: dict[str, Any] = {}
+    if timeout is not None:
+        kwargs["timeout"] = timeout
+
     return AgentRegistry.create(
         model_type=model_type,
         name=name,
         role=role,
         model=model,
         api_key=api_key,
+        **kwargs,
     )
 
 

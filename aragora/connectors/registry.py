@@ -45,19 +45,24 @@ _CLASS_SUFFIXES = ("Connector", "SyncService")
 
 _EVIDENCE_STEMS = {
     "arxiv",
+    "clinical_tables",
+    "crossref",
     "github",
     "hackernews",
     "local_docs",
     "newsapi",
+    "pubmed",
     "reddit",
     "repository_crawler",
     "sec",
+    "semantic_scholar",
     "sql",
     "twitter",
     "web",
     "whisper",
     "wikipedia",
     "youtube_uploader",
+    "rxnav",
 }
 
 _OPERATIONAL_SEGMENTS = {

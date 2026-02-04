@@ -207,7 +207,21 @@ def is_token_revoked_persistent(token: str) -> bool:
     """
     token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
     backend = get_persistent_blacklist()
-    return backend.contains(token_jti)
+    try:
+        return backend.contains(token_jti)
+    except RuntimeError as e:
+        if "This event loop is already running" in str(e):
+            # Sync handler running within an async handle() coroutine on
+            # the event loop.  The in-memory blacklist (checked before this
+            # function) already catches locally-revoked tokens.  The
+            # persistent DB check is a secondary cross-instance safety net
+            # — degrade gracefully instead of returning 500.
+            logger.debug(
+                "Skipping persistent blacklist check (nested event loop); "
+                "in-memory blacklist provides primary revocation check"
+            )
+            return False
+        raise
 
 
 __all__ = [

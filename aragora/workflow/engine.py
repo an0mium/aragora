@@ -254,6 +254,7 @@ class WorkflowEngine:
             workflow_id=workflow_id,
             definition_id=definition.id,
             inputs=inputs,
+            metadata=definition.metadata or {},
         )
 
         # Reset execution state

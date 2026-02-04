@@ -118,6 +118,7 @@ Examples:
     _add_bench_parser(subparsers)
     _add_external_parsers(subparsers)
     _add_badge_parser(subparsers)
+    _add_verticals_parser(subparsers)
     _add_memory_parser(subparsers)
     _add_elo_parser(subparsers)
     _add_cross_pollination_parser(subparsers)
@@ -913,6 +914,13 @@ def _add_skills_parser(subparsers) -> None:
     add_skills_parser(subparsers)
 
 
+def _add_verticals_parser(subparsers) -> None:
+    """Add the 'verticals' subcommand parser for vertical specialists."""
+    from aragora.cli.commands.verticals import add_verticals_parser
+
+    add_verticals_parser(subparsers)
+
+
 def _add_nomic_parser(subparsers) -> None:
     """Add the 'nomic' subcommand parser for self-improvement loop."""
     from aragora.cli.commands.nomic import add_nomic_parser
@@ -1027,7 +1035,7 @@ Examples:
     execution_group = decide_parser.add_mutually_exclusive_group()
     execution_group.add_argument(
         "--execution-mode",
-        choices=["workflow", "hybrid", "computer_use"],
+        choices=["workflow", "hybrid", "fabric", "computer_use"],
         help="Execution engine for implementation tasks",
     )
     execution_group.add_argument(
@@ -1039,6 +1047,26 @@ Examples:
         "--computer-use",
         action="store_true",
         help="Use browser-based computer use executor",
+    )
+    decide_parser.add_argument(
+        "--implementation-profile",
+        help='JSON implementation profile (e.g. \'{"execution_mode":"fabric","fabric_models":["claude"]}\')',
+    )
+    decide_parser.add_argument(
+        "--fabric-models",
+        help="Comma-separated model list for fabric execution",
+    )
+    decide_parser.add_argument(
+        "--channel-targets",
+        help="Comma-separated channel targets for execution updates (e.g. slack:#eng,teams:abc)",
+    )
+    decide_parser.add_argument(
+        "--thread-id",
+        help="Thread ID to reply within for execution updates",
+    )
+    decide_parser.add_argument(
+        "--thread-id-by-platform",
+        help="JSON mapping of platform -> thread ID",
     )
     decide_parser.add_argument(
         "--budget-limit",

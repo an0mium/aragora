@@ -112,6 +112,7 @@ class LLMFailureAnalyzer(AIAnalyzer):
                     name=f"analyzer_{agent_type}",
                     role="analyst",
                     model=model,
+                    timeout=self.config.agent_timeout,
                 )
                 self.agents.append(agent)
                 logger.info("llm_analyzer.agent_created type=%s", agent_type)

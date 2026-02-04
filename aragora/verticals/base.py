@@ -25,6 +25,7 @@ from aragora.verticals.config import (
     ToolConfig,
     VerticalConfig,
 )
+from aragora.verticals.tooling import check_vertical_tool_policy
 
 logger = logging.getLogger(__name__)
 
@@ -195,12 +196,38 @@ class VerticalSpecialistAgent(APIAgent):
         if not tool.enabled:
             raise ValueError(f"Tool not enabled: {tool_name}")
 
+        policy_result = check_vertical_tool_policy(
+            agent_name=self.name,
+            vertical_id=self.vertical_id,
+            tool_name=tool_name,
+            description=tool.description,
+            connector_type=tool.connector_type,
+            requires_auth=tool.requires_auth,
+            parameters=parameters,
+        )
+        if policy_result and not policy_result.get("allowed", True):
+            self._tool_call_history.append(
+                {
+                    "tool": tool_name,
+                    "parameters": parameters,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "blocked",
+                    "policy": policy_result,
+                }
+            )
+            return {
+                "error": policy_result.get("reason", "Tool invocation blocked by policy"),
+                "policy": policy_result,
+            }
+
         # Record for audit
         self._tool_call_history.append(
             {
                 "tool": tool_name,
                 "parameters": parameters,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "status": "allowed",
+                "policy": policy_result,
             }
         )
 

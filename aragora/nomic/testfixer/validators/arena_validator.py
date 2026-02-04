@@ -130,6 +130,7 @@ class ArenaValidator:
                     name=f"validator_{agent_type}",
                     role="critic",
                     model=model,
+                    timeout=self.config.agent_timeout,
                 )
                 self.agents.append(agent)
                 logger.info("arena_validator.agent_created type=%s", agent_type)

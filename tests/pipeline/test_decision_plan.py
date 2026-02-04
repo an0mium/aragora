@@ -24,6 +24,7 @@ from aragora.pipeline.decision_plan import (
     BudgetAllocation,
     DecisionPlan,
     DecisionPlanFactory,
+    ImplementationProfile,
     PlanOutcome,
     PlanStatus,
     record_plan_outcome,
@@ -448,6 +449,43 @@ class TestSerialization:
         assert "Decision Plan" in summary
         assert "rate limiter" in summary.lower()
         assert "85%" in summary
+
+
+# ---------------------------------------------------------------------------
+# ImplementationProfile
+# ---------------------------------------------------------------------------
+
+
+class TestImplementationProfile:
+    """Tests for ImplementationProfile parsing and wiring."""
+
+    def test_profile_from_dict_normalizes_lists(self):
+        profile = ImplementationProfile.from_dict(
+            {
+                "execution_mode": "fabric",
+                "implementers": "claude, codex",
+                "fabric_models": ["claude", "codex"],
+                "channel_targets": "slack:#eng,teams:abc",
+                "thread_id_by_platform": {"slack": "t-1"},
+            }
+        )
+
+        assert profile.execution_mode == "fabric"
+        assert profile.implementers == ["claude", "codex"]
+        assert profile.fabric_models == ["claude", "codex"]
+        assert profile.channel_targets == ["slack:#eng", "teams:abc"]
+        assert profile.thread_id_by_platform == {"slack": "t-1"}
+
+    def test_plan_parses_profile_from_metadata(self):
+        plan = DecisionPlan(metadata={"implementation": {"implementers": "claude"}})
+        assert plan.implementation_profile is not None
+        assert plan.implementation_profile.implementers == ["claude"]
+
+    def test_plan_to_dict_includes_profile(self):
+        profile = ImplementationProfile(execution_mode="fabric", implementers=["claude"])
+        plan = DecisionPlan(implementation_profile=profile)
+        payload = plan.to_dict()
+        assert payload["implementation_profile"]["execution_mode"] == "fabric"
 
 
 # ---------------------------------------------------------------------------

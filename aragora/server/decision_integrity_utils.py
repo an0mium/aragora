@@ -10,6 +10,42 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _extract_implementation_profile(cfg: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract implementation profile settings from a decision-integrity config."""
+    profile = cfg.get("implementation_profile")
+    if isinstance(profile, dict):
+        return profile
+
+    profile = cfg.get("implementation")
+    if isinstance(profile, dict):
+        return profile
+
+    keys = {
+        "execution_mode",
+        "implementers",
+        "critic",
+        "reviser",
+        "strategy",
+        "max_revisions",
+        "parallel_execution",
+        "max_parallel",
+        "fabric_pool_id",
+        "fabric_models",
+        "fabric_min_agents",
+        "fabric_max_agents",
+        "fabric_timeout_seconds",
+        "channel_targets",
+        "thread_id",
+        "thread_id_by_platform",
+    }
+    extracted: dict[str, Any] = {}
+    for key in keys:
+        if key in cfg:
+            extracted[key] = cfg.get(key)
+
+    return extracted or None
+
+
 def _serialize_approval_request(approval_request: Any) -> dict[str, Any]:
     """Serialize ApprovalRequest into a JSON-friendly payload."""
     return {
@@ -55,7 +91,7 @@ async def build_decision_integrity_payload(
 
     execution_mode = str(cfg.get("execution_mode", "plan_only")).lower()
     execution_engine = str(cfg.get("execution_engine", "")).lower()
-    if execution_mode in {"hybrid", "computer_use"}:
+    if execution_mode in {"hybrid", "fabric", "computer_use"}:
         execution_engine = execution_mode
         execution_mode = "execute"
 
@@ -184,6 +220,24 @@ async def build_decision_integrity_payload(
                     repo_root = os.environ.get("ARAGORA_REPO_ROOT")
                 repo_path = Path(repo_root) if repo_root else None
 
+                implementation_profile = _extract_implementation_profile(cfg)
+                if implementation_profile:
+                    metadata.setdefault("implementation_profile", implementation_profile)
+                    if "channel_targets" not in metadata and isinstance(
+                        implementation_profile.get("channel_targets"), list
+                    ):
+                        metadata["channel_targets"] = implementation_profile.get("channel_targets")
+                    if "thread_id" not in metadata and isinstance(
+                        implementation_profile.get("thread_id"), str
+                    ):
+                        metadata["thread_id"] = implementation_profile.get("thread_id")
+                    if "thread_id_by_platform" not in metadata and isinstance(
+                        implementation_profile.get("thread_id_by_platform"), dict
+                    ):
+                        metadata["thread_id_by_platform"] = implementation_profile.get(
+                            "thread_id_by_platform"
+                        )
+
                 plan = DecisionPlanFactory.from_debate_result(
                     coerce_debate_result(debate_payload),
                     budget_limit_usd=budget_limit,
@@ -192,6 +246,7 @@ async def build_decision_integrity_payload(
                     repo_path=repo_path,
                     metadata=metadata,
                     implement_plan=package.plan,
+                    implementation_profile=implementation_profile,
                 )
                 store_plan(plan)
                 payload["decision_plan"] = plan.to_dict()

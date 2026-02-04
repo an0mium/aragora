@@ -70,6 +70,11 @@ from aragora.connectors.newsapi import (
     MEDIUM_CREDIBILITY_SOURCES,
     NewsAPIConnector,
 )
+from aragora.connectors.pubmed import PubMedConnector
+from aragora.connectors.semantic_scholar import SemanticScholarConnector
+from aragora.connectors.crossref import CrossRefConnector
+from aragora.connectors.clinical_tables import ClinicalTablesConnector
+from aragora.connectors.rxnav import RxNavConnector
 from aragora.connectors.reddit import RedditConnector
 from aragora.connectors.sec import FORM_TYPES, SECConnector
 from aragora.connectors.sql import SQLConnector, SQLQueryResult
@@ -159,6 +164,11 @@ __all__ = [
     "MEDIUM_CREDIBILITY_SOURCES",
     "SECConnector",
     "FORM_TYPES",
+    "PubMedConnector",
+    "SemanticScholarConnector",
+    "CrossRefConnector",
+    "ClinicalTablesConnector",
+    "RxNavConnector",
     # Whisper Transcription
     "WhisperConnector",
     "TranscriptionResult",

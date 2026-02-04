@@ -17,6 +17,7 @@ from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     BudgetAllocation,
     DecisionPlan,
+    ImplementationProfile,
     PlanStatus,
 )
 from aragora.pipeline.risk_register import Risk, RiskCategory, RiskLevel, RiskRegister
@@ -52,6 +53,7 @@ class DecisionPlanFactory:
         repo_path: Path | None = None,
         metadata: dict[str, Any] | None = None,
         implement_plan: ImplementPlan | None = None,
+        implementation_profile: ImplementationProfile | dict[str, Any] | None = None,
     ) -> DecisionPlan:
         """Create a DecisionPlan from a DebateResult.
 
@@ -74,13 +76,41 @@ class DecisionPlanFactory:
         Returns:
             A fully populated DecisionPlan ready for approval/execution.
         """
+        merged_metadata: dict[str, Any] = {}
+        if isinstance(result.metadata, dict):
+            merged_metadata.update(result.metadata)
+        if isinstance(metadata, dict):
+            merged_metadata.update(metadata)
+
+        profile: ImplementationProfile | None = None
+        if isinstance(implementation_profile, ImplementationProfile):
+            profile = implementation_profile
+        elif isinstance(implementation_profile, dict):
+            profile = ImplementationProfile.from_dict(implementation_profile)
+        else:
+            impl_payload = merged_metadata.get("implementation_profile") or merged_metadata.get(
+                "implementation"
+            )
+            if isinstance(impl_payload, dict):
+                profile = ImplementationProfile.from_dict(impl_payload)
+
+        if profile is not None:
+            merged_metadata.setdefault("implementation_profile", profile.to_dict())
+            if profile.channel_targets and "channel_targets" not in merged_metadata:
+                merged_metadata["channel_targets"] = profile.channel_targets
+            if profile.thread_id and "thread_id" not in merged_metadata:
+                merged_metadata["thread_id"] = profile.thread_id
+            if profile.thread_id_by_platform and "thread_id_by_platform" not in merged_metadata:
+                merged_metadata["thread_id_by_platform"] = profile.thread_id_by_platform
+
         plan = DecisionPlan(
             debate_id=result.debate_id,
             task=result.task,
             debate_result=result,
             approval_mode=approval_mode,
             max_auto_risk=max_auto_risk,
-            metadata=metadata or {},
+            metadata=merged_metadata,
+            implementation_profile=profile,
         )
 
         # Budget setup
@@ -116,17 +146,25 @@ class DecisionPlanFactory:
         *,
         debate_id: str = "",
         task: str = "",
+        implementation_profile: ImplementationProfile | dict[str, Any] | None = None,
     ) -> DecisionPlan:
         """Wrap an existing ImplementPlan as a DecisionPlan for persistence.
 
         Used when an ImplementPlan was created directly (e.g. via
         create_single_task_plan) and needs to be stored in the plan store.
         """
+        profile: ImplementationProfile | None = None
+        if isinstance(implementation_profile, ImplementationProfile):
+            profile = implementation_profile
+        elif isinstance(implementation_profile, dict):
+            profile = ImplementationProfile.from_dict(implementation_profile)
+
         return DecisionPlan(
             debate_id=debate_id,
             task=task or "Implementation plan from decision integrity package",
             implement_plan=implement_plan,
             status=PlanStatus.CREATED,
+            implementation_profile=profile,
         )
 
     @staticmethod

@@ -233,6 +233,7 @@ class TestTaskResult:
         assert result.error is None
         assert result.model_used == "claude"
         assert result.duration_seconds == 45.2
+        assert result.cost_usd == 0.0
 
     def test_create_failure_result(self):
         """Creates failure result with error."""
@@ -267,6 +268,7 @@ class TestTaskResult:
         assert data["error"] is None
         assert data["model_used"] == "claude"
         assert data["duration_seconds"] == 30.5
+        assert data["cost_usd"] == 0.0
 
     def test_default_values(self):
         """TaskResult has sensible defaults."""
@@ -276,6 +278,7 @@ class TestTaskResult:
         assert result.error is None
         assert result.model_used is None
         assert result.duration_seconds == 0.0
+        assert result.cost_usd == 0.0
 
 
 class TestImplementProgress:

@@ -99,7 +99,7 @@ NOMIC_TESTFIXER_STOP_ON_FIRST_SUCCESS = (
 )
 
 # Agents to use for fix generation (comma-separated)
-NOMIC_TESTFIXER_AGENTS = os.environ.get("NOMIC_TESTFIXER_AGENTS", "")
+NOMIC_TESTFIXER_AGENTS = os.environ.get("NOMIC_TESTFIXER_AGENTS", "codex,claude")
 
 # LLM analyzer integration
 NOMIC_TESTFIXER_USE_LLM_ANALYZER = os.environ.get("NOMIC_TESTFIXER_USE_LLM_ANALYZER", "0") == "1"
@@ -140,6 +140,10 @@ NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS = float(
 # Pattern learning
 NOMIC_TESTFIXER_PATTERN_LEARNING = os.environ.get("NOMIC_TESTFIXER_PATTERN_LEARNING", "0") == "1"
 NOMIC_TESTFIXER_PATTERN_STORE = os.environ.get("NOMIC_TESTFIXER_PATTERN_STORE", "")
+NOMIC_TESTFIXER_GENERATION_TIMEOUT = float(
+    os.environ.get("NOMIC_TESTFIXER_GENERATION_TIMEOUT", "600")
+)
+NOMIC_TESTFIXER_CRITIQUE_TIMEOUT = float(os.environ.get("NOMIC_TESTFIXER_CRITIQUE_TIMEOUT", "300"))
 
 # Default backup directory name
 DEFAULT_BACKUP_DIR = ".nomic_backups"

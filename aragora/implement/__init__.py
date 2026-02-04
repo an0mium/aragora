@@ -21,6 +21,11 @@ Key features:
 
 from .checkpoint import clear_progress, load_progress, save_progress
 from .executor import HybridExecutor
+from .fabric_integration import (
+    FabricImplementationConfig,
+    FabricImplementationRunner,
+    register_implementation_executor,
+)
 from .planner import create_single_task_plan, generate_implement_plan
 from .types import ImplementPlan, ImplementProgress, ImplementTask, TaskResult
 
@@ -35,6 +40,9 @@ __all__ = [
     "create_single_task_plan",
     # Executor
     "HybridExecutor",
+    "FabricImplementationConfig",
+    "FabricImplementationRunner",
+    "register_implementation_executor",
     # Checkpoint
     "save_progress",
     "load_progress",

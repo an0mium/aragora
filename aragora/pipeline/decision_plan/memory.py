@@ -132,6 +132,14 @@ async def record_plan_outcome(
     logger = logging.getLogger(__name__)
     results: dict[str, Any] = {"continuum_id": None, "mound_id": None, "errors": []}
 
+    plan_meta: dict[str, Any] = plan.metadata if isinstance(plan.metadata, dict) else {}
+    workspace_id = plan_meta.get("workspace_id") or plan_meta.get("tenant_id")
+    org_id = plan_meta.get("org_id")
+    owner_id = (
+        plan_meta.get("owner_id") or plan_meta.get("user_id") or plan_meta.get("requested_by")
+    )
+    scope = plan_meta.get("memory_scope") or plan_meta.get("scope") or "workspace"
+
     # Update plan state
     plan.status = PlanStatus.COMPLETED if outcome.success else PlanStatus.FAILED
     plan.execution_completed_at = datetime.now()
@@ -163,6 +171,11 @@ async def record_plan_outcome(
                     "completion_rate": outcome.completion_rate,
                     "verification_rate": outcome.verification_rate,
                     "cost_usd": outcome.total_cost_usd,
+                    "tenant_id": workspace_id,
+                    "workspace_id": workspace_id,
+                    "org_id": org_id,
+                    "owner_id": owner_id,
+                    "scope": scope,
                 },
             )
             results["continuum_id"] = entry.id
@@ -205,6 +218,10 @@ async def record_plan_outcome(
                     "task": plan.task[:200],
                     "success": outcome.success,
                     "lessons": outcome.lessons[:5],
+                    "workspace_id": workspace_id,
+                    "org_id": org_id,
+                    "owner_id": owner_id,
+                    "scope": scope,
                 },
             )
             results["mound_id"] = item_id

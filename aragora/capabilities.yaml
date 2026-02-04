@@ -85,6 +85,38 @@ capabilities:
       - aragora/debate/convergence.py
       - aragora/verification/formal.py
 
+  vertical_specialists:
+    name: "Vertical Specialists (Domain Agents)"
+    category: core
+    status: beta
+    description: |
+      Domain-specific specialist agents with tailored prompts, tools,
+      and compliance frameworks. Supports auto-detection and explicit
+      injection per task, with API/CLI/SDK/UX exposure.
+    activation:
+      api: |
+        GET /api/v1/verticals
+        GET /api/v1/verticals/{id}
+        POST /api/v1/verticals/{id}/debate
+      cli: |
+        aragora ask \"Review this contract\" --enable-verticals
+        aragora ask \"Security audit\" --vertical software
+        aragora verticals list
+        aragora verticals suggest --task \"Draft HIPAA compliance plan\"
+      python: |
+        client.verticals.list()
+        client.debates.create(task=\"Review this contract\", enable_verticals=True)
+      typescript: |
+        const { verticals } = await client.verticals.list();
+        await client.debates.create({ task: \"Review this contract\", enable_verticals: true });
+    key_files:
+      - aragora/verticals/base.py
+      - aragora/verticals/registry.py
+      - aragora/verticals/specialists/
+      - aragora/server/handlers/verticals.py
+    feature_flags:
+      - ARAGORA_ENABLE_VERTICALS
+
   circuit_breaker:
     name: "Agent Resilience Circuit Breaker"
     category: core
@@ -599,7 +631,9 @@ capabilities:
       Autonomous self-improvement cycle where agents debate
       improvements, design solutions, implement code, and verify changes.
     activation:
-      cli: "python scripts/nomic_loop.py run --cycles 3"
+      cli: "aragora nomic run --cycles 3"
+      api: "POST /api/v1/nomic/control/start"
+      sdk_python: "client.nomic.start({\"cycles\": 3})"
     phases:
       0_context: "Gather codebase understanding"
       1_debate: "Agents propose improvements"

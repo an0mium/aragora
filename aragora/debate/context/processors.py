@@ -474,6 +474,7 @@ class ContentProcessor:
         domain: str,
         task: str,
         include_glacial_insights: bool = True,
+        tenant_id: str | None = None,
     ) -> tuple[str, list[str], dict[str, Any]]:
         """Retrieve relevant memories from ContinuumMemory for debate context.
 
@@ -507,6 +508,7 @@ class ContentProcessor:
                 limit=5,
                 min_importance=0.3,
                 include_glacial=False,  # Get recent memories first
+                tenant_id=tenant_id,
             )
             all_memories.extend(memories)
 
@@ -517,6 +519,12 @@ class ContentProcessor:
                     limit=3,
                     min_importance=0.4,  # Higher threshold for long-term patterns
                 )
+                if tenant_id:
+                    glacial_insights = [
+                        m
+                        for m in glacial_insights
+                        if getattr(m, "metadata", {}).get("tenant_id") == tenant_id
+                    ]
                 if glacial_insights:
                     logger.info(
                         "  [continuum] Retrieved %s glacial insights for cross-session learning",

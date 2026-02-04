@@ -26,6 +26,7 @@ async def run_decide(
     dry_run: bool = False,
     budget_limit: float | None = None,
     execution_mode: str | None = None,
+    implementation_profile: dict[str, Any] | None = None,
     auto_select: bool = False,
     auto_select_config: dict[str, Any] | None = None,
     enable_knowledge_retrieval: bool | None = None,
@@ -46,7 +47,7 @@ async def run_decide(
         auto_approve: Automatically approve plans (skip approval)
         dry_run: Create plan but don't execute
         budget_limit: Maximum budget for plan execution in USD
-        execution_mode: Execution engine override ("workflow", "hybrid", "computer_use")
+        execution_mode: Execution engine override ("workflow", "hybrid", "fabric", "computer_use")
         verbose: Print detailed progress
 
     Returns:
@@ -97,6 +98,7 @@ async def run_decide(
         debate_result,
         budget_limit_usd=budget_limit,
         approval_mode=approval_mode,
+        implementation_profile=implementation_profile,
     )
     store_plan(plan)
     result["plan"] = plan
@@ -163,6 +165,57 @@ def cmd_decide(args: argparse.Namespace) -> None:
     elif getattr(args, "hybrid", False):
         execution_mode = "hybrid"
 
+    implementation_profile = None
+    raw_profile = getattr(args, "implementation_profile", None)
+    if raw_profile:
+        import json
+
+        try:
+            implementation_profile = json.loads(raw_profile)
+        except json.JSONDecodeError as e:
+            print(f"Invalid --implementation-profile JSON: {e}", file=sys.stderr)
+            raise SystemExit(2)
+        if not isinstance(implementation_profile, dict):
+            print("--implementation-profile must be a JSON object", file=sys.stderr)
+            raise SystemExit(2)
+
+    def _split_csv(raw: str | None) -> list[str] | None:
+        if not raw:
+            return None
+        return [item.strip() for item in raw.split(",") if item.strip()]
+
+    fabric_models = _split_csv(getattr(args, "fabric_models", None))
+    channel_targets = _split_csv(getattr(args, "channel_targets", None))
+    thread_id = getattr(args, "thread_id", None)
+    raw_threads = getattr(args, "thread_id_by_platform", None)
+    thread_id_by_platform = None
+    if raw_threads:
+        import json
+
+        try:
+            thread_id_by_platform = json.loads(raw_threads)
+        except json.JSONDecodeError as e:
+            print(f"Invalid --thread-id-by-platform JSON: {e}", file=sys.stderr)
+            raise SystemExit(2)
+        if not isinstance(thread_id_by_platform, dict):
+            print("--thread-id-by-platform must be a JSON object", file=sys.stderr)
+            raise SystemExit(2)
+
+    if any([fabric_models, channel_targets, thread_id, thread_id_by_platform]):
+        if implementation_profile is None:
+            implementation_profile = {}
+        if fabric_models and "fabric_models" not in implementation_profile:
+            implementation_profile["fabric_models"] = fabric_models
+        if channel_targets and "channel_targets" not in implementation_profile:
+            implementation_profile["channel_targets"] = channel_targets
+        if thread_id and "thread_id" not in implementation_profile:
+            implementation_profile["thread_id"] = thread_id
+        if thread_id_by_platform and "thread_id_by_platform" not in implementation_profile:
+            implementation_profile["thread_id_by_platform"] = thread_id_by_platform
+
+    if execution_mode and implementation_profile is not None:
+        implementation_profile.setdefault("execution_mode", execution_mode)
+
     auto_select = bool(getattr(args, "auto_select", False))
     try:
         auto_select_config = _parse_auto_select_config(getattr(args, "auto_select_config", None))
@@ -207,6 +260,7 @@ def cmd_decide(args: argparse.Namespace) -> None:
             dry_run=getattr(args, "dry_run", False),
             budget_limit=getattr(args, "budget_limit", None),
             execution_mode=execution_mode,
+            implementation_profile=implementation_profile,
             auto_select=auto_select,
             auto_select_config=auto_select_config,
             enable_knowledge_retrieval=None if not no_knowledge else False,

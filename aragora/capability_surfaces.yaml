@@ -52,7 +52,8 @@ capabilities:
         - "debates.create(auto_select=True)"
         - "debates.run(auto_select=True)"
       typescript: []
-    ui: []
+    ui:
+      - "/nomic-control"
     channels: []
 
   consensus_detection:
@@ -88,6 +89,31 @@ capabilities:
         - "matrix_debates"
       typescript: []
     ui: []
+    channels: []
+
+  vertical_specialists:
+    api:
+      - "GET /api/v1/verticals"
+      - "GET /api/v1/verticals/{id}"
+      - "GET /api/v1/verticals/{id}/tools"
+      - "GET /api/v1/verticals/{id}/compliance"
+      - "POST /api/v1/verticals/{id}/debate"
+      - "GET /api/v1/verticals/suggest"
+    cli:
+      - "aragora ask --enable-verticals"
+      - "aragora ask --vertical <id>"
+      - "aragora verticals list"
+      - "aragora verticals suggest --task \"...\""
+    sdk:
+      python:
+        - "verticals"
+        - "debates.create(enable_verticals=True)"
+      typescript:
+        - "verticals"
+        - "debates.create({ enable_verticals: true })"
+    ui:
+      - "/arena (Vertical Selector)"
+      - "/admin/verticals"
     channels: []
 
   knowledge_mound:
@@ -144,12 +170,21 @@ capabilities:
     channels: []
 
   nomic_loop:
-    api: []
+    api:
+      - "GET /api/v1/nomic/state"
+      - "GET /api/v1/nomic/health"
+      - "POST /api/v1/nomic/control/start"
+      - "POST /api/v1/nomic/control/stop"
     cli:
-      - "python scripts/nomic_loop.py run"
+      - "aragora nomic run"
+      - "aragora nomic status"
     sdk:
-      python: []
-      typescript: []
+      python:
+        - "nomic.state()"
+        - "nomic.start()"
+      typescript:
+        - "nomic.getState()"
+        - "nomic.start()"
     ui: []
     channels: []
 

@@ -31,6 +31,7 @@ class AgentGeneratorConfig:
     role: str = "proposer"
     name: str | None = None
     api_key: str | None = None
+    timeout_seconds: float | None = None
     max_context_chars: int = 80_000
     max_output_chars: int = 200_000
 
@@ -46,6 +47,7 @@ class AgentCodeGenerator(CodeGenerator):
             role=config.role,
             model=config.model,
             api_key=config.api_key,
+            timeout=config.timeout_seconds,
         )
 
     def _truncate(self, text: str, limit: int) -> str:

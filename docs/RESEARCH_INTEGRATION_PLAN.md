@@ -135,13 +135,6 @@ This document provides a detailed implementation plan for integrating cutting-ed
 
 **Why this fits:** The early‑termination mechanism already exists; we only need to enrich it.
 
-**Interaction rules (NEW):**
-- **MUSE = confidence** (quality signal)
-- **Stability = stop** (efficiency signal)
-- **ASCoT = fragility gate** (do not stop if late‑round fragility is high)
-
-**Implementation scaffolding (see Appendix A.1 for full code).**
-
 ### 1.1 MUSE Multi-Model Uncertainty Integration
 
 **Goal:** Add ensemble-level uncertainty quantification using Jensen-Shannon Divergence
@@ -602,21 +595,6 @@ class RLMEnvironment:
         self._iteration_count: int = 0
         self._branches: List[dict] = []
 ```
-
----
-
-### 1.4 LaRA Router (RAG vs RLM vs Long‑Context)
-
-**Goal:** Dynamically route retrieval to RAG, Graph, or RLM depending on query traits.
-
-**Codebase integration points:**
-- `aragora/knowledge/mound/api/query.py` → add router inside `query()`
-- `aragora/knowledge/mound/api/rlm.py` → use `query_with_rlm()` when routed to RLM
-- `aragora/knowledge/embeddings.py` → keep as RAG backend (vector + BM25)
-
-**Why this fits:** `query_semantic`, `query_graph`, and `query_with_rlm` already exist.
-
-**Implementation scaffolding (see Appendix A.2 for full code).**
 
 ---
 

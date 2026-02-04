@@ -79,6 +79,7 @@ class TaskResult:
     error: str | None = None
     model_used: str | None = None
     duration_seconds: float = 0.0
+    cost_usd: float = 0.0
 
     def to_dict(self) -> dict:
         return {
@@ -88,6 +89,7 @@ class TaskResult:
             "error": self.error,
             "model_used": self.model_used,
             "duration_seconds": self.duration_seconds,
+            "cost_usd": self.cost_usd,
         }
 
 
@@ -125,6 +127,7 @@ class ImplementProgress:
                     error=r.get("error"),
                     model_used=r.get("model_used"),
                     duration_seconds=r.get("duration_seconds", 0.0),
+                    cost_usd=r.get("cost_usd", 0.0) or 0.0,
                 )
                 for r in data.get("results", [])
             ],

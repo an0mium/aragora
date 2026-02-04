@@ -147,6 +147,8 @@ class FixLoopConfig:
     redteam_validator_config: "RedTeamValidatorConfig | None" = None
     enable_pattern_learning: bool = False
     pattern_store_path: Path | None = None
+    generation_timeout_seconds: float | None = None
+    critique_timeout_seconds: float | None = None
 
     # Behavior
     revert_on_failure: bool = True
@@ -234,6 +236,8 @@ class TestFixerOrchestrator:
             repo_path=self.repo_path,
             generators=generators,
             require_consensus=self.config.require_debate_consensus,
+            generation_timeout_seconds=self.config.generation_timeout_seconds,
+            critique_timeout_seconds=self.config.critique_timeout_seconds,
         )
 
         self.arena_validator = None

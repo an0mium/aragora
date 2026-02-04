@@ -25,6 +25,10 @@ from aragora.debate.performance_monitor import get_debate_monitor
 from aragora.debate.phases.convergence_tracker import (
     DebateConvergenceTracker,
 )
+from aragora.debate.stability_detector import (
+    BetaBinomialStabilityDetector,
+    StabilityConfig,
+)
 from aragora.events.context import streaming_task_context
 
 # Timeout for async callbacks that can hang (evidence refresh, judge termination, etc.)
@@ -236,6 +240,18 @@ class DebateRoundsPhase:
             notify_spectator=notify_spectator,
             inject_challenge=inject_challenge,
         )
+
+        # Stability detector for statistical early stopping (Beta-Binomial model)
+        # Only initialized if enable_stability_detection is True in protocol
+        self._stability_detector: BetaBinomialStabilityDetector | None = None
+        if getattr(protocol, "enable_stability_detection", False):
+            stability_config = StabilityConfig(
+                stability_threshold=getattr(protocol, "stability_threshold", 0.85),
+                ks_threshold=getattr(protocol, "stability_ks_threshold", 0.1),
+                min_stable_rounds=getattr(protocol, "stability_min_stable_rounds", 1),
+                min_rounds_before_check=getattr(protocol, "min_rounds_before_early_stop", 2),
+            )
+            self._stability_detector = BetaBinomialStabilityDetector(stability_config)
 
     def _emit_heartbeat(self, phase: str, status: str = "alive") -> None:
         """Emit heartbeat to indicate debate is still running.
@@ -1084,6 +1100,30 @@ class DebateRoundsPhase:
             )
             if not should_continue:
                 return True
+
+        # Statistical stability detection (Beta-Binomial model)
+        # Uses KS-distance between vote distributions to detect consensus stability
+        if self._stability_detector and hasattr(ctx, "round_votes"):
+            round_votes = getattr(ctx, "round_votes", {})
+            if round_votes:
+                stability_result = self._stability_detector.update(
+                    round_votes=round_votes,
+                    round_num=round_num,
+                )
+                if stability_result.recommendation == "stop":
+                    logger.info(
+                        "debate_terminate_stability round=%s score=%.3f ks=%.3f",
+                        round_num,
+                        stability_result.stability_score,
+                        stability_result.ks_distance,
+                    )
+                    if "on_stability_stop" in self.hooks:
+                        self.hooks["on_stability_stop"](
+                            round_num,
+                            stability_result.stability_score,
+                            stability_result.ks_distance,
+                        )
+                    return True
 
         return False
 

@@ -15,6 +15,7 @@ from aragora.pipeline.decision_plan.core import (
     ApprovalRecord,
     BudgetAllocation,
     DecisionPlan,
+    ImplementationProfile,
     PlanStatus,
 )
 from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
@@ -26,6 +27,7 @@ __all__ = [
     "BudgetAllocation",
     "DecisionPlan",
     "DecisionPlanFactory",
+    "ImplementationProfile",
     "PlanOutcome",
     "PlanStatus",
     "record_plan_outcome",

@@ -20,6 +20,7 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
+from aragora.verticals.tooling import sec_filings_search, web_search_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -219,16 +220,39 @@ class AccountingSpecialist(VerticalSpecialistAgent):
 
     async def _sec_filings_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search SEC filings."""
-        return {
-            "filings": [],
-            "message": "SEC filings search not yet implemented - requires SEC EDGAR API",
-        }
+        query = (
+            parameters.get("query")
+            or parameters.get("ticker")
+            or parameters.get("cik")
+            or parameters.get("company")
+            or ""
+        )
+        limit = int(parameters.get("limit", 10))
+        form_type = parameters.get("form_type") or parameters.get("form")
+        date_from = parameters.get("date_from")
+        date_to = parameters.get("date_to")
+        return await sec_filings_search(
+            query,
+            limit=limit,
+            form_type=form_type,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
     async def _gaap_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up GAAP standards."""
+        topic = parameters.get("topic") or parameters.get("query") or parameters.get("q") or ""
+        limit = int(parameters.get("limit", 5))
+        note = "GAAP lookup connector not yet integrated; using web search fallback."
+        query = f"{topic} GAAP standard" if topic else ""
+        result = await web_search_fallback(query, limit=limit, note=note)
         return {
-            "standards": [],
-            "message": "GAAP lookup not yet implemented",
+            "standards": result.get("results", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", query),
+            "mode": result.get("mode", "web_fallback"),
+            "note": result.get("note"),
+            "error": result.get("error"),
         }
 
     async def _calculate_ratios(self, parameters: dict[str, Any]) -> dict[str, Any]:
@@ -262,9 +286,19 @@ class AccountingSpecialist(VerticalSpecialistAgent):
 
     async def _tax_reference(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up tax regulations."""
+        topic = parameters.get("topic") or parameters.get("query") or parameters.get("q") or ""
+        jurisdiction = parameters.get("jurisdiction") or parameters.get("region") or ""
+        limit = int(parameters.get("limit", 5))
+        note = "Tax reference connector not yet integrated; using web search fallback."
+        query = f"{topic} tax regulation {jurisdiction}".strip()
+        result = await web_search_fallback(query, limit=limit, note=note)
         return {
-            "regulations": [],
-            "message": "Tax reference lookup not yet implemented",
+            "regulations": result.get("results", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", query),
+            "mode": result.get("mode", "web_fallback"),
+            "note": result.get("note"),
+            "error": result.get("error"),
         }
 
     async def _check_framework_compliance(

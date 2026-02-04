@@ -20,6 +20,13 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
+from aragora.verticals.tooling import (
+    arxiv_search,
+    crossref_lookup,
+    pubmed_search,
+    semantic_scholar_search,
+    web_search_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -225,31 +232,143 @@ class ResearchSpecialist(VerticalSpecialistAgent):
 
     async def _arxiv_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search arXiv for preprints."""
-        return {
-            "papers": [],
-            "message": "arXiv search not yet implemented - requires arXiv API",
-        }
+        query = parameters.get("query") or parameters.get("q") or ""
+        limit = int(parameters.get("limit", 10))
+        category = parameters.get("category")
+        sort_by = parameters.get("sort_by", "relevance")
+        sort_order = parameters.get("sort_order", "descending")
+        return await arxiv_search(
+            query,
+            limit=limit,
+            category=category,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
 
     async def _pubmed_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search PubMed for medical literature."""
+        query = parameters.get("query") or parameters.get("q") or ""
+        limit = int(parameters.get("limit", 10))
+        result = await pubmed_search(query, limit=limit)
+        if result.get("error"):
+            fallback = await web_search_fallback(
+                query,
+                limit=limit,
+                site="pubmed.ncbi.nlm.nih.gov",
+                note="PubMed connector unavailable; using web search fallback.",
+            )
+            return {
+                "articles": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
         return {
-            "articles": [],
-            "message": "PubMed search not yet implemented - requires NCBI API",
+            "articles": result.get("articles", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", query),
+            "mode": "connector",
         }
 
     async def _semantic_scholar_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search Semantic Scholar."""
+        query = parameters.get("query") or parameters.get("q") or ""
+        limit = int(parameters.get("limit", 10))
+        result = await semantic_scholar_search(query, limit=limit)
+        if result.get("error"):
+            fallback = await web_search_fallback(
+                query,
+                limit=limit,
+                site="semanticscholar.org",
+                note="Semantic Scholar connector unavailable; using web search fallback.",
+            )
+            return {
+                "papers": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
         return {
-            "papers": [],
-            "message": "Semantic Scholar search not yet implemented",
+            "papers": result.get("papers", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", query),
+            "mode": "connector",
         }
 
     async def _citation_check(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Check citations for validity and retractions."""
+        citations = (
+            parameters.get("citations")
+            or parameters.get("references")
+            or parameters.get("citation")
+            or parameters.get("reference")
+        )
+        text_blob = parameters.get("text") or ""
+
+        items: list[str] = []
+        if citations:
+            if isinstance(citations, str):
+                items = [c.strip() for c in re.split(r"[\n;]+", citations) if c.strip()]
+            elif isinstance(citations, list):
+                items = [str(c).strip() for c in citations if str(c).strip()]
+            else:
+                items = [str(citations).strip()]
+
+        if not items and text_blob:
+            doi_pattern = r"10\\.\\d{4,9}/[-._;()/:A-Z0-9]+"
+            items = re.findall(doi_pattern, text_blob, re.IGNORECASE)
+
+        if not items:
+            return {"citations": [], "retractions": [], "error": "citations or text required"}
+
+        limit = int(parameters.get("limit", 5))
+        evidence_limit = int(parameters.get("evidence_limit", 3))
+        items = items[:limit]
+
+        checked: list[dict[str, Any]] = []
+        for citation in items:
+            doi_match = re.search(r"10\\.\\d{4,9}/[-._;()/:A-Z0-9]+", citation, re.IGNORECASE)
+            doi = doi_match.group(0) if doi_match else None
+            result = await crossref_lookup(query=citation if not doi else None, doi=doi, limit=3)
+            evidence = result.get("results", [])
+            if not evidence:
+                query = f"{citation} retraction"
+                fallback = await web_search_fallback(
+                    query,
+                    limit=evidence_limit,
+                    note="Crossref lookup unavailable; using web search fallback.",
+                )
+                checked.append(
+                    {
+                        "citation": citation,
+                        "evidence": fallback.get("results", []),
+                        "search_query": fallback.get("search_query", query),
+                        "error": fallback.get("error"),
+                        "mode": fallback.get("mode", "web_fallback"),
+                    }
+                )
+                continue
+
+            checked.append(
+                {
+                    "citation": citation,
+                    "evidence": evidence,
+                    "search_query": result.get("query", citation),
+                    "error": result.get("error"),
+                    "mode": "connector",
+                }
+            )
+
         return {
-            "citations": [],
+            "citations": checked,
             "retractions": [],
-            "message": "Citation check not yet implemented - requires CrossRef API",
+            "count": len(checked),
+            "mode": "mixed",
+            "note": "Crossref lookup is metadata-only; retraction detection is heuristic.",
         }
 
     async def _check_framework_compliance(

@@ -22,6 +22,7 @@ plan_id, enabling the HTTP handler to look up plans across the lifecycle.
 Execution Modes:
     - "workflow": Uses WorkflowEngine with DAG-based step execution (default)
     - "hybrid": Uses HybridExecutor with Claude primary + Codex fallback
+    - "fabric": Uses AgentFabric for multi-agent implementation execution
     - "computer_use": Uses ComputerUseOrchestrator for browser automation
 
 Stability: ALPHA
@@ -49,7 +50,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Execution mode type
-ExecutionMode = Literal["workflow", "hybrid", "computer_use"]
+ExecutionMode = Literal["workflow", "hybrid", "fabric", "computer_use"]
 
 # Environment variable to control default execution mode
 DEFAULT_EXECUTION_MODE: ExecutionMode = os.environ.get("PLAN_EXECUTION_MODE", "workflow")  # type: ignore[assignment]
@@ -120,6 +121,8 @@ class PlanExecutor:
     Execution Modes:
         - "workflow": DAG-based workflow engine with generic step execution
         - "hybrid": Multi-model executor with Claude + Codex (faster, model fallback)
+        - "fabric": AgentFabric-managed multi-agent execution
+        - "computer_use": Browser-based implementation via computer use
 
     The executor is stateless; all state lives in the plan itself
     and the plan store.
@@ -174,7 +177,8 @@ class PlanExecutor:
                 If provided, permission checks are enforced.
                 If None, execution proceeds (for internal/system calls).
             execution_mode: Override the default execution mode for this call.
-                "workflow" uses WorkflowEngine, "hybrid" uses HybridExecutor.
+                "workflow" uses WorkflowEngine, "hybrid" uses HybridExecutor,
+                "fabric" uses AgentFabric orchestration.
             on_task_complete: Optional callback invoked per task completion.
 
         Returns:
@@ -213,6 +217,15 @@ class PlanExecutor:
         if plan.requires_human_approval and not plan.is_approved:
             raise ValueError(f"Plan {plan.id} requires approval before execution")
 
+        # Capture auth context into plan metadata for downstream RBAC/memory scoping
+        if auth_context is not None:
+            if not isinstance(plan.metadata, dict):
+                plan.metadata = {}
+            plan.metadata.setdefault("owner_id", getattr(auth_context, "user_id", None))
+            plan.metadata.setdefault("workspace_id", getattr(auth_context, "workspace_id", None))
+            plan.metadata.setdefault("org_id", getattr(auth_context, "org_id", None))
+            plan.metadata.setdefault("requested_by", getattr(auth_context, "user_id", None))
+
         # Transition to executing
         plan.status = PlanStatus.EXECUTING
         plan.execution_started_at = datetime.now()
@@ -221,23 +234,91 @@ class PlanExecutor:
         start_time = time.time()
         outcome: PlanOutcome
 
+        profile = plan.implementation_profile
         if parallel_execution is None:
-            parallel_execution = self._parallel_execution
+            if profile and profile.parallel_execution is not None:
+                parallel_execution = profile.parallel_execution
+            else:
+                parallel_execution = self._parallel_execution
+
+        max_parallel = self._max_parallel
+        if profile and profile.max_parallel is not None:
+            max_parallel = profile.max_parallel
 
         # Determine execution mode
-        mode = execution_mode or self._execution_mode
+        mode = (
+            execution_mode or (profile.execution_mode if profile else None) or self._execution_mode
+        )
+
+        notifier = None
+        if on_task_complete is None and mode in {"hybrid", "fabric"}:
+            meta = plan.metadata if isinstance(plan.metadata, dict) else {}
+            channel_targets = None
+            thread_id = None
+            thread_id_by_platform = None
+            notify_origin = bool(meta.get("notify_origin", False))
+
+            if profile:
+                channel_targets = profile.channel_targets or channel_targets
+                thread_id = profile.thread_id or thread_id
+                thread_id_by_platform = profile.thread_id_by_platform or thread_id_by_platform
+
+            channel_targets = (
+                channel_targets or meta.get("channel_targets") or meta.get("chat_targets")
+            )
+            if isinstance(channel_targets, str):
+                channel_targets = [
+                    item.strip() for item in channel_targets.split(",") if item.strip()
+                ]
+            thread_id = thread_id or meta.get("thread_id") or meta.get("origin_thread_id")
+            if isinstance(meta.get("thread_id_by_platform"), dict):
+                thread_id_by_platform = thread_id_by_platform or meta.get("thread_id_by_platform")
+
+            if channel_targets or thread_id or thread_id_by_platform or notify_origin:
+                try:
+                    from aragora.pipeline.execution_notifier import ExecutionNotifier
+
+                    notifier = ExecutionNotifier(
+                        debate_id=plan.debate_id or plan.id,
+                        plan_id=plan.id,
+                        notify_channel=notify_origin,
+                        notify_websocket=notify_origin,
+                        channel_targets=channel_targets
+                        if isinstance(channel_targets, list)
+                        else None,
+                        thread_id=thread_id if isinstance(thread_id, str) else None,
+                        thread_id_by_platform=thread_id_by_platform
+                        if isinstance(thread_id_by_platform, dict)
+                        else None,
+                    )
+                    if plan.implement_plan is not None:
+                        notifier.set_task_descriptions(plan.implement_plan.tasks)
+                    on_task_complete = notifier.on_task_complete
+                except Exception as exc:
+                    logger.debug("Failed to initialize execution notifier: %s", exc)
 
         try:
             if mode == "hybrid":
                 outcome = await self._run_hybrid(
                     plan,
                     parallel_execution=parallel_execution,
+                    max_parallel=max_parallel,
                     on_task_complete=on_task_complete,
+                )
+            elif mode == "fabric":
+                outcome = await self._run_fabric(
+                    plan,
+                    on_task_complete=on_task_complete,
+                    max_parallel=max_parallel,
                 )
             elif mode == "computer_use":
                 outcome = await self._run_computer_use(plan)
             else:
-                outcome = await self._run_workflow(plan, parallel_execution=parallel_execution)
+                outcome = await self._run_workflow(
+                    plan,
+                    parallel_execution=parallel_execution,
+                    max_parallel=max_parallel,
+                )
         except Exception as e:
             logger.error("Plan execution failed: %s: %s", plan.id, e)
             duration = time.time() - start_time
@@ -253,6 +334,12 @@ class PlanExecutor:
 
         # Record outcome
         _plan_outcomes[plan.id] = outcome
+
+        if notifier is not None:
+            try:
+                await notifier.send_completion_summary()
+            except Exception as exc:
+                logger.debug("Failed to send execution summary: %s", exc)
 
         # Write back to memory (best-effort)
         try:
@@ -290,6 +377,7 @@ class PlanExecutor:
         plan: DecisionPlan,
         *,
         parallel_execution: bool = False,
+        max_parallel: int | None = None,
     ) -> PlanOutcome:
         """Run the workflow engine against the plan's generated definition."""
         engine: Any  # Union of WorkflowEngine and EnhancedWorkflowEngine
@@ -297,8 +385,8 @@ class PlanExecutor:
             from aragora.workflow.engine_v2 import EnhancedWorkflowEngine, ResourceLimits
 
             limits = ResourceLimits(
-                max_parallel_agents=self._max_parallel
-                if self._max_parallel is not None
+                max_parallel_agents=max_parallel
+                if max_parallel is not None
                 else ResourceLimits().max_parallel_agents
             )
             engine = EnhancedWorkflowEngine(limits=limits)
@@ -311,13 +399,22 @@ class PlanExecutor:
 
         # Execute
         start_time = time.time()
+        inputs = {
+            "plan_id": plan.id,
+            "debate_id": plan.debate_id,
+            "task": plan.task,
+        }
+        if isinstance(plan.metadata, dict):
+            owner_id = plan.metadata.get("owner_id") or plan.metadata.get("user_id")
+            workspace_id = plan.metadata.get("workspace_id") or plan.metadata.get("tenant_id")
+            if owner_id:
+                inputs["user_id"] = owner_id
+            if workspace_id:
+                inputs["workspace_id"] = workspace_id
+
         result = await engine.execute(
             definition,
-            inputs={
-                "plan_id": plan.id,
-                "debate_id": plan.debate_id,
-                "task": plan.task,
-            },
+            inputs=inputs,
             workflow_id=plan.workflow_id,
         )
 
@@ -377,6 +474,7 @@ class PlanExecutor:
         plan: DecisionPlan,
         *,
         parallel_execution: bool = False,
+        max_parallel: int | None = None,
         on_task_complete: Any | None = None,
     ) -> PlanOutcome:
         """Run plan tasks using HybridExecutor (Claude + Codex).
@@ -405,10 +503,39 @@ class PlanExecutor:
                 tasks_total=0,
             )
 
-        # Create HybridExecutor
+        # Create HybridExecutor (configurable via plan metadata/profile)
+        impl_meta: dict[str, Any] = {}
+        if isinstance(plan.metadata, dict):
+            impl_meta = plan.metadata.get("implementation") or {}
+        if not isinstance(impl_meta, dict):
+            impl_meta = {}
+
+        profile = plan.implementation_profile
+
+        implementers = (
+            profile.implementers
+            if profile and profile.implementers is not None
+            else impl_meta.get("implementers")
+        )
+        if isinstance(implementers, str):
+            implementers = [item.strip() for item in implementers.split(",") if item.strip()]
+
         executor = HybridExecutor(
             repo_path=self._repo_path,
             max_retries=2,
+            strategy=profile.strategy
+            if profile and profile.strategy is not None
+            else impl_meta.get("strategy"),
+            implementers=implementers,
+            critic=profile.critic
+            if profile and profile.critic is not None
+            else impl_meta.get("critic"),
+            reviser=profile.reviser
+            if profile and profile.reviser is not None
+            else impl_meta.get("reviser"),
+            max_revisions=profile.max_revisions
+            if profile and profile.max_revisions is not None
+            else impl_meta.get("max_revisions"),
         )
 
         # Extract tasks from plan
@@ -420,8 +547,8 @@ class PlanExecutor:
 
         if parallel_execution:
             _os.environ["IMPL_PARALLEL_TASKS"] = "1"
-            if self._max_parallel:
-                _os.environ["IMPL_MAX_PARALLEL"] = str(self._max_parallel)
+            if max_parallel:
+                _os.environ["IMPL_MAX_PARALLEL"] = str(max_parallel)
 
         start_time = time.time()
 
@@ -432,7 +559,7 @@ class PlanExecutor:
                 results = await executor.execute_plan_parallel(
                     tasks=tasks,
                     completed=completed,
-                    max_parallel=self._max_parallel,
+                    max_parallel=max_parallel,
                     on_task_complete=on_task_complete,
                 )
             else:
@@ -489,6 +616,108 @@ class PlanExecutor:
             if parallel_execution:
                 _os.environ.pop("IMPL_PARALLEL_TASKS", None)
                 _os.environ.pop("IMPL_MAX_PARALLEL", None)
+
+    async def _run_fabric(
+        self,
+        plan: DecisionPlan,
+        *,
+        on_task_complete: Any | None = None,
+        max_parallel: int | None = None,
+    ) -> PlanOutcome:
+        """Run plan tasks using AgentFabric for multi-agent execution."""
+        from aragora.fabric import AgentFabric
+        from aragora.implement.fabric_integration import (
+            FabricImplementationConfig,
+            FabricImplementationRunner,
+        )
+        from aragora.pipeline.decision_plan.core import ImplementationProfile
+
+        if not plan.implement_plan or not plan.implement_plan.tasks:
+            return PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=False,
+                error="No implementation tasks in plan",
+                tasks_total=0,
+            )
+
+        profile = plan.implementation_profile
+        if profile is None and isinstance(plan.metadata, dict):
+            impl_payload = plan.metadata.get("implementation_profile") or plan.metadata.get(
+                "implementation"
+            )
+            if isinstance(impl_payload, dict):
+                profile = ImplementationProfile.from_dict(impl_payload)
+
+        models: list[str] = []
+        if profile:
+            if profile.fabric_models:
+                models = list(profile.fabric_models)
+            elif profile.implementers:
+                models = list(profile.implementers)
+        if not models:
+            models = ["claude"]
+
+        meta = plan.metadata if isinstance(plan.metadata, dict) else {}
+        config = FabricImplementationConfig(
+            pool_id=profile.fabric_pool_id if profile else None,
+            models=models,
+            min_agents=profile.fabric_min_agents if profile and profile.fabric_min_agents else 1,
+            max_agents=profile.fabric_max_agents
+            if profile and profile.fabric_max_agents is not None
+            else max_parallel,
+            timeout_seconds=profile.fabric_timeout_seconds
+            if profile and profile.fabric_timeout_seconds
+            else 1800.0,
+            org_id=meta.get("org_id", "") or "",
+            user_id=meta.get("owner_id", "") or meta.get("user_id", "") or "",
+            workspace_id=meta.get("workspace_id", "") or meta.get("tenant_id", "") or "",
+        )
+
+        start_time = time.time()
+
+        async with AgentFabric() as fabric:
+            runner = FabricImplementationRunner(
+                fabric,
+                repo_path=self._repo_path,
+                implementation_profile=profile,
+            )
+            results = await runner.run_plan(
+                plan.implement_plan.tasks,
+                config=config,
+                on_task_complete=on_task_complete,
+            )
+
+        duration = time.time() - start_time
+        tasks_total = len(plan.implement_plan.tasks)
+        tasks_completed = sum(1 for r in results if r.success)
+        errors = [r.error for r in results if r.error]
+        error_msg = "; ".join(errors) if errors else None
+        total_cost = sum(getattr(r, "cost_usd", 0.0) or 0.0 for r in results)
+
+        lessons: list[str] = []
+        if tasks_completed < tasks_total:
+            lessons.append(
+                f"Only {tasks_completed}/{tasks_total} tasks completed via fabric execution"
+            )
+
+        success = tasks_completed == tasks_total and not error_msg
+        plan.status = PlanStatus.COMPLETED if success else PlanStatus.FAILED
+        plan.execution_completed_at = datetime.now()
+
+        return PlanOutcome(
+            plan_id=plan.id,
+            debate_id=plan.debate_id,
+            task=plan.task,
+            success=success,
+            tasks_completed=tasks_completed,
+            tasks_total=tasks_total,
+            total_cost_usd=plan.budget.spent_usd + total_cost,
+            error=error_msg,
+            duration_seconds=duration,
+            lessons=lessons,
+        )
 
     async def _run_computer_use(self, plan: DecisionPlan) -> PlanOutcome:
         """Run plan using ComputerUseOrchestrator for browser-based implementation.

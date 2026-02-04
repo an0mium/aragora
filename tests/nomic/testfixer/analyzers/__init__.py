@@ -1,0 +1,1 @@
+# TestFixer analyzer tests

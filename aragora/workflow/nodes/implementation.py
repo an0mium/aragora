@@ -72,6 +72,26 @@ class ImplementationStep(BaseStep):
             from aragora.implement.executor import HybridExecutor
             from aragora.implement.types import ImplementTask
 
+            metadata = context.metadata if isinstance(context.metadata, dict) else {}
+            plan_meta = (
+                metadata.get("plan_metadata")
+                if isinstance(metadata.get("plan_metadata"), dict)
+                else {}
+            )
+            profile_payload = (
+                metadata.get("implementation_profile")
+                or plan_meta.get("implementation_profile")
+                or plan_meta.get("implementation")
+            )
+            profile = None
+            if isinstance(profile_payload, dict):
+                try:
+                    from aragora.pipeline.decision_plan import ImplementationProfile
+
+                    profile = ImplementationProfile.from_dict(profile_payload)
+                except Exception:
+                    profile = None
+
             task = ImplementTask(
                 id=task_id,
                 description=description,
@@ -79,7 +99,16 @@ class ImplementationStep(BaseStep):
                 complexity=complexity,
             )
 
-            executor = HybridExecutor(repo_path=repo_path)
+            executor = HybridExecutor(
+                repo_path=repo_path,
+                strategy=profile.strategy if profile and profile.strategy is not None else None,
+                implementers=profile.implementers if profile and profile.implementers else None,
+                critic=profile.critic if profile and profile.critic is not None else None,
+                reviser=profile.reviser if profile and profile.reviser is not None else None,
+                max_revisions=profile.max_revisions
+                if profile and profile.max_revisions is not None
+                else None,
+            )
             result = await executor.execute_task_with_retry(task)
 
             elapsed = time.monotonic() - start

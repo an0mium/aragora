@@ -15,24 +15,92 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+
+
+def _get_api_client(api_url: str | None = None, api_key: str | None = None):
+    """Get API client if available and server is reachable."""
+    try:
+        from aragora.client import AragoraClient
+
+        url = api_url or os.environ.get("ARAGORA_API_URL", DEFAULT_API_URL)
+        key = api_key or os.environ.get("ARAGORA_API_TOKEN") or os.environ.get("ARAGORA_API_KEY")
+        client = AragoraClient(base_url=url, api_key=key)
+        # Quick health check (public)
+        client.system.health()
+        return client
+    except Exception:
+        return None
+
+
+def _resolve_api_mode(
+    use_api: bool,
+    use_local: bool,
+    api_url: str | None,
+    api_key: str | None,
+    *,
+    supports_api: bool,
+) -> tuple[bool, Any | None]:
+    """Resolve whether to use API mode and return client if available."""
+    if use_local:
+        return False, None
+    if use_api:
+        if not supports_api:
+            print("Error: This subcommand is not available in API mode.", flush=True)
+            raise SystemExit(1)
+        client = _get_api_client(api_url, api_key)
+        if client is None:
+            print("Error: --api specified but server is not reachable.", flush=True)
+            raise SystemExit(1)
+        return True, client
+    if not supports_api:
+        return False, None
+    client = _get_api_client(api_url, api_key)
+    if client is None:
+        return False, None
+    return True, client
+
 
 def cmd_nomic(args: argparse.Namespace) -> None:
     """Handle 'nomic' command - dispatch to subcommands."""
     subcommand = getattr(args, "nomic_command", None)
+    api_url = getattr(args, "api_url", DEFAULT_API_URL)
+    api_key = getattr(args, "api_key", None)
+    use_api = bool(getattr(args, "api", False))
+    use_local = bool(getattr(args, "local", False))
 
     if subcommand == "run":
-        asyncio.run(_cmd_run(args))
+        supports_api = True
+        use_api_mode, client = _resolve_api_mode(
+            use_api, use_local, api_url, api_key, supports_api=supports_api
+        )
+        if use_api_mode and client is not None:
+            _cmd_run_api(args, client)
+        else:
+            asyncio.run(_cmd_run(args))
     elif subcommand == "status":
-        _cmd_status(args)
+        supports_api = True
+        use_api_mode, client = _resolve_api_mode(
+            use_api, use_local, api_url, api_key, supports_api=supports_api
+        )
+        if use_api_mode and client is not None:
+            _cmd_status_api(args, client)
+        else:
+            _cmd_status(args)
     elif subcommand == "history":
+        supports_api = False
+        _resolve_api_mode(use_api, use_local, api_url, api_key, supports_api=supports_api)
         _cmd_history(args)
     elif subcommand == "resume":
+        supports_api = False
+        _resolve_api_mode(use_api, use_local, api_url, api_key, supports_api=supports_api)
         asyncio.run(_cmd_resume(args))
     else:
         # Default: show help
@@ -123,6 +191,41 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         print(f"\nError: {e}")
 
 
+def _cmd_run_api(args: argparse.Namespace, client: Any) -> None:
+    """Run nomic loop via API."""
+    cycles = getattr(args, "cycles", 1)
+    require_approval = getattr(args, "approval", False)
+    as_json = getattr(args, "json", False)
+
+    # Warn about local-only options
+    if getattr(args, "protected", ""):
+        print("Warning: --protected is ignored in API mode.", flush=True)
+    if getattr(args, "max_files", None) not in (None, 20):
+        print("Warning: --max-files is ignored in API mode.", flush=True)
+
+    payload = {
+        "cycles": cycles,
+        "max_cycles": cycles,
+        "auto_approve": not require_approval,
+    }
+
+    try:
+        result = client.nomic.start(payload)
+        if as_json:
+            print(json.dumps(result, indent=2, default=str))
+            return
+        print("\nNomic loop started via API.")
+        print(f"  Target cycles: {cycles}")
+        if require_approval:
+            print("  Approval: required")
+        else:
+            print("  Approval: auto")
+        if "pid" in result:
+            print(f"  PID: {result.get('pid')}")
+    except Exception as e:
+        print(f"\nError starting nomic loop via API: {e}")
+
+
 def _cmd_status(args: argparse.Namespace) -> None:
     """Show current nomic loop status."""
     as_json = getattr(args, "json", False)
@@ -200,6 +303,50 @@ def _cmd_status(args: argparse.Namespace) -> None:
 
     except Exception as e:
         print(f"\nError getting status: {e}")
+
+
+def _cmd_status_api(args: argparse.Namespace, client: Any) -> None:
+    """Show current nomic loop status via API."""
+    as_json = getattr(args, "json", False)
+    try:
+        state = client.nomic.state()
+        health = client.nomic.health()
+        metrics = client.nomic.metrics()
+        payload = {
+            "state": state,
+            "health": health,
+            "metrics": metrics,
+        }
+        if as_json:
+            print(json.dumps(payload, indent=2, default=str))
+            return
+
+        print("\n" + "=" * 60)
+        print("NOMIC LOOP STATUS (API)")
+        print("=" * 60)
+        print(f"\n  Running:          {state.get('running', False)}")
+        print(f"  Cycle:            {state.get('cycle', 0)}")
+        print(f"  Phase:            {state.get('phase', 'unknown')}")
+        print(f"  Paused:           {state.get('paused', False)}")
+        if state.get("started_at"):
+            print(f"  Started at:       {state.get('started_at')}")
+
+        print("\n  Health:")
+        print(f"    Status:         {health.get('status', 'unknown')}")
+        if health.get("warnings"):
+            for warning in health.get("warnings", [])[:3]:
+                print(f"    Warning:        {warning}")
+
+        stuck = metrics.get("stuck_detection", {}) if isinstance(metrics, dict) else {}
+        if stuck:
+            print("\n  Stuck detection:")
+            print(f"    Is stuck:       {stuck.get('is_stuck', False)}")
+            if stuck.get("phase"):
+                print(f"    Phase:          {stuck.get('phase')}")
+            if stuck.get("idle_seconds") is not None:
+                print(f"    Idle seconds:   {stuck.get('idle_seconds')}")
+    except Exception as e:
+        print(f"\nError getting status via API: {e}")
 
 
 def _cmd_history(args: argparse.Namespace) -> None:
@@ -329,6 +476,27 @@ def add_nomic_parser(subparsers: Any) -> None:
         description="Run and manage autonomous self-improvement cycles",
     )
     np.set_defaults(func=cmd_nomic)
+    run_mode = np.add_mutually_exclusive_group()
+    run_mode.add_argument(
+        "--api",
+        action="store_true",
+        help="Use API server for supported subcommands",
+    )
+    run_mode.add_argument(
+        "--local",
+        action="store_true",
+        help="Force local mode (offline/air-gapped)",
+    )
+    np.add_argument(
+        "--api-url",
+        default=DEFAULT_API_URL,
+        help=f"API server URL (default: {DEFAULT_API_URL})",
+    )
+    np.add_argument(
+        "--api-key",
+        default=None,
+        help="API key for server authentication (default: ARAGORA_API_KEY)",
+    )
 
     np_sub = np.add_subparsers(dest="nomic_command")
 

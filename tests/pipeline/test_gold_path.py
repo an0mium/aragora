@@ -664,6 +664,37 @@ class TestHybridExecutorBridge:
         assert "No implementation tasks" in outcome.error
 
     @pytest.mark.asyncio
+    async def test_fabric_mode_delegates_to_fabric_runner(self):
+        """execution_mode='fabric' should use fabric runner."""
+        from aragora.pipeline.executor import PlanExecutor
+
+        result = _make_debate_result()
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
+        plan.status = PlanStatus.APPROVED
+
+        fake_outcome = PlanOutcome(
+            plan_id=plan.id,
+            debate_id=plan.debate_id,
+            task=plan.task,
+            success=True,
+            tasks_completed=len(plan.implement_plan.tasks),
+            tasks_total=len(plan.implement_plan.tasks),
+        )
+
+        executor = PlanExecutor(execution_mode="fabric")
+
+        with patch("aragora.pipeline.executor.record_plan_outcome", new=AsyncMock()):
+            with patch.object(PlanExecutor, "_generate_receipt", AsyncMock(return_value=None)):
+                with patch.object(PlanExecutor, "_ingest_to_km", AsyncMock()):
+                    with patch.object(
+                        PlanExecutor, "_run_fabric", AsyncMock(return_value=fake_outcome)
+                    ) as mock_run:
+                        outcome = await executor.execute(plan, execution_mode="fabric")
+
+        assert outcome is fake_outcome
+        mock_run.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_workflow_mode_still_works(self):
         """Default workflow mode should still work."""
         from aragora.pipeline.executor import PlanExecutor

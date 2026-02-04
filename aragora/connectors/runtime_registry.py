@@ -164,6 +164,14 @@ class ConnectorRegistry:
         # Evidence / AI connectors
         self._try_register("github", "ai", "aragora.connectors.github", ["search", "issues", "prs"])
         self._try_register("arxiv", "ai", "aragora.connectors.arxiv", ["search", "papers"])
+        self._try_register("pubmed", "ai", "aragora.connectors.pubmed", ["search", "papers"])
+        self._try_register(
+            "semantic_scholar",
+            "ai",
+            "aragora.connectors.semantic_scholar",
+            ["search", "papers"],
+        )
+        self._try_register("crossref", "ai", "aragora.connectors.crossref", ["search", "citations"])
         self._try_register(
             "wikipedia", "ai", "aragora.connectors.wikipedia", ["search", "articles"]
         )
@@ -173,6 +181,13 @@ class ConnectorRegistry:
         )
         self._try_register("twitter", "ai", "aragora.connectors.twitter", ["search", "posts"])
         self._try_register("web", "ai", "aragora.connectors.web", ["search"])
+        self._try_register(
+            "clinical_tables",
+            "ai",
+            "aragora.connectors.clinical_tables",
+            ["icd", "lookup"],
+        )
+        self._try_register("rxnav", "ai", "aragora.connectors.rxnav", ["drug", "lookup"])
 
         # Memory connectors
         self._try_register(

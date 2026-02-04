@@ -519,15 +519,41 @@ class HumanCheckpointStep(BaseStep):
         try:
             from aragora.approvals.chat import send_chat_approval_request
 
+            metadata = context.metadata if isinstance(context.metadata, dict) else {}
+            plan_meta = (
+                metadata.get("plan_metadata")
+                if isinstance(metadata.get("plan_metadata"), dict)
+                else {}
+            )
+
             targets = (
                 config.get("chat_targets")
                 or config.get("chat_channels")
                 or config.get("assignees")
                 or config.get("escalation_emails")
+                or metadata.get("chat_targets")
+                or metadata.get("approval_targets")
+                or metadata.get("channel_targets")
+                or plan_meta.get("chat_targets")
+                or plan_meta.get("approval_targets")
+                or plan_meta.get("channel_targets")
                 or []
             )
             if isinstance(targets, str):
                 targets = [targets]
+
+            thread_id = (
+                config.get("thread_id")
+                or metadata.get("thread_id")
+                or metadata.get("origin_thread_id")
+                or plan_meta.get("thread_id")
+                or plan_meta.get("origin_thread_id")
+            )
+            thread_id_by_platform = (
+                config.get("thread_id_by_platform")
+                or metadata.get("thread_id_by_platform")
+                or plan_meta.get("thread_id_by_platform")
+            )
 
             fields = [
                 ("Workflow", request.workflow_id),
@@ -545,6 +571,8 @@ class HumanCheckpointStep(BaseStep):
                 kind="workflow",
                 target_id=request.id,
                 ttl_seconds=int(request.timeout_seconds) if request.timeout_seconds else None,
+                thread_id=thread_id,
+                thread_id_by_platform=thread_id_by_platform,
             )
         except Exception as e:
             logger.debug("Chat approval notification skipped: %s", e)

@@ -6,6 +6,8 @@ package.  All public names are re-exported here so that existing imports
 continue to work unchanged.
 """
 
+import asyncio  # noqa: F401 - needed for test patching
+
 from aragora.analysis.codebase.sast import (  # noqa: F401
     AVAILABLE_RULESETS,
     CWE_FIX_RECOMMENDATIONS,

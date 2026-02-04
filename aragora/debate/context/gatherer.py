@@ -532,6 +532,7 @@ class ContextGatherer:
         domain: str,
         task: str,
         include_glacial_insights: bool = True,
+        tenant_id: str | None = None,
     ) -> tuple[str, list[str], dict[str, Any]]:
         """Retrieve relevant memories from ContinuumMemory for debate context.
 
@@ -553,7 +554,11 @@ class ContextGatherer:
             return cached, [], {}
 
         context, ids, tiers = self._processor.get_continuum_context(
-            continuum_memory, domain, task, include_glacial_insights
+            continuum_memory,
+            domain,
+            task,
+            include_glacial_insights,
+            tenant_id=tenant_id,
         )
 
         if context:

@@ -270,6 +270,14 @@ class DebateProtocol:
     )
     divergence_threshold: float = 0.40  # Below this is diverging
 
+    # Statistical stability detection (Beta-Binomial model)
+    # Uses KS-distance between vote distributions to detect when consensus has stabilized
+    # Based on: https://arxiv.org/abs/2510.12697 (Multi-Agent Debate for LLM Judges)
+    enable_stability_detection: bool = False  # Off by default for backwards compatibility
+    stability_threshold: float = 0.85  # Probability threshold for stability
+    stability_ks_threshold: float = 0.1  # Max KS-distance to consider stable
+    stability_min_stable_rounds: int = 1  # Consecutive stable rounds required
+
     # Vote option grouping: Merge semantically similar vote choices
     # Prevents artificial disagreement from wording variations
     vote_grouping: bool = True

@@ -175,6 +175,7 @@ class RedTeamValidator:
                     model_type=agent_type,  # type: ignore[arg-type]
                     name=f"attacker_{agent_type}",
                     role="critic",
+                    timeout=self.config.agent_timeout,
                 )
                 self.attackers.append(agent)
                 logger.info("redteam_validator.attacker_created type=%s", agent_type)
@@ -192,6 +193,7 @@ class RedTeamValidator:
                     model_type=self.config.defender_type,  # type: ignore[arg-type]
                     name=f"defender_{self.config.defender_type}",
                     role="proposer",
+                    timeout=self.config.agent_timeout,
                 )
                 logger.info("redteam_validator.defender_created type=%s", self.config.defender_type)
             except Exception as e:

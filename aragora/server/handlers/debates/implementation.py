@@ -151,6 +151,11 @@ class _RequestConfig:
     openclaw_actions: Any
     computer_use_actions: Any
     openclaw_session: Any
+    implementation_profile: dict[str, Any] | None
+    fabric_models: Any
+    channel_targets: Any
+    thread_id: Any
+    thread_id_by_platform: Any
     workflow_mode: bool
     execute_workflow: bool
     repo_path: Path | None
@@ -174,8 +179,13 @@ def _parse_request(payload: dict[str, Any], ctx: dict[str, Any]) -> _RequestConf
     openclaw_actions = payload.get("openclaw_actions")
     computer_use_actions = payload.get("computer_use_actions")
     openclaw_session = payload.get("openclaw_session")
+    implementation_profile = payload.get("implementation_profile")
+    fabric_models = payload.get("fabric_models")
+    channel_targets = payload.get("channel_targets") or payload.get("chat_targets")
+    thread_id = payload.get("thread_id") or payload.get("origin_thread_id")
+    thread_id_by_platform = payload.get("thread_id_by_platform")
 
-    if execution_mode in {"hybrid", "computer_use"}:
+    if execution_mode in {"hybrid", "fabric", "computer_use"}:
         execution_engine = execution_mode
         execution_mode = "execute"
 
@@ -212,6 +222,13 @@ def _parse_request(payload: dict[str, Any], ctx: dict[str, Any]) -> _RequestConf
         openclaw_actions=openclaw_actions,
         computer_use_actions=computer_use_actions,
         openclaw_session=openclaw_session,
+        implementation_profile=implementation_profile
+        if isinstance(implementation_profile, dict)
+        else None,
+        fabric_models=fabric_models,
+        channel_targets=channel_targets,
+        thread_id=thread_id,
+        thread_id_by_platform=thread_id_by_platform,
         workflow_mode=workflow_mode,
         execute_workflow=execute_workflow,
         repo_path=repo_path,
@@ -452,6 +469,29 @@ class ImplementationOperationsMixin:
         if isinstance(rc.openclaw_session, dict):
             metadata["openclaw_session"] = rc.openclaw_session
 
+        implementation_profile = None
+        if isinstance(rc.implementation_profile, dict):
+            implementation_profile = dict(rc.implementation_profile)
+        else:
+            implementation_profile = {}
+
+        if rc.fabric_models is not None and "fabric_models" not in implementation_profile:
+            implementation_profile["fabric_models"] = rc.fabric_models
+        if rc.channel_targets is not None and "channel_targets" not in implementation_profile:
+            implementation_profile["channel_targets"] = rc.channel_targets
+        if rc.thread_id is not None and "thread_id" not in implementation_profile:
+            implementation_profile["thread_id"] = rc.thread_id
+        if (
+            rc.thread_id_by_platform is not None
+            and "thread_id_by_platform" not in implementation_profile
+        ):
+            implementation_profile["thread_id_by_platform"] = rc.thread_id_by_platform
+
+        if implementation_profile:
+            metadata.setdefault("implementation_profile", implementation_profile)
+        else:
+            implementation_profile = None
+
         plan = DecisionPlanFactory.from_debate_result(
             debate_result,
             budget_limit_usd=budget_limit,
@@ -460,6 +500,7 @@ class ImplementationOperationsMixin:
             repo_path=rc.repo_path,
             metadata=metadata,
             implement_plan=package.plan,
+            implementation_profile=implementation_profile,
         )
         store_plan(plan)
 
@@ -606,7 +647,7 @@ class ImplementationOperationsMixin:
             return exec_err
 
         engine = rc.execution_engine or "hybrid"
-        if engine not in {"hybrid", "computer_use"}:
+        if engine not in {"hybrid", "fabric", "computer_use"}:
             engine = "hybrid"
 
         if approval_request.status not in {
@@ -626,6 +667,8 @@ class ImplementationOperationsMixin:
             self._execute_computer_use(
                 rc, response_payload, approval_request, requested_by, computer_use_plan
             )
+        elif engine == "fabric":
+            self._execute_fabric(debate_id, package, rc, response_payload)
         else:
             self._execute_hybrid(debate_id, package, rc, response_payload)
 
@@ -731,6 +774,77 @@ class ImplementationOperationsMixin:
             self._append_review(hybrid_executor, execution_payload, review_mode)
 
         response_payload["execution"] = execution_payload
+
+    def _execute_fabric(
+        self: _DebatesHandlerProtocol,
+        debate_id: str,
+        package: Any,
+        rc: _RequestConfig,
+        response_payload: dict[str, Any],
+    ) -> None:
+        """Execute via fabric engine with multi-agent orchestration."""
+        from aragora.fabric import AgentFabric
+        from aragora.implement.fabric_integration import (
+            FabricImplementationConfig,
+            FabricImplementationRunner,
+        )
+
+        notifier = ExecutionNotifier(
+            debate_id=debate_id,
+            notify_channel=rc.notify_origin,
+            notify_websocket=rc.notify_origin,
+        )
+        notifier.set_task_descriptions(package.plan.tasks)
+
+        async def _run() -> list[Any]:
+            profile = None
+            if isinstance(rc.implementation_profile, dict):
+                try:
+                    from aragora.pipeline.decision_plan import ImplementationProfile
+
+                    profile = ImplementationProfile.from_dict(rc.implementation_profile)
+                except Exception:
+                    profile = None
+
+            async with AgentFabric() as fabric:
+                runner = FabricImplementationRunner(
+                    fabric,
+                    repo_path=rc.repo_path or Path.cwd(),
+                    implementation_profile=profile,
+                )
+                models = ["claude"]
+                if profile and profile.fabric_models:
+                    models = list(profile.fabric_models)
+                elif profile and profile.implementers:
+                    models = list(profile.implementers)
+                return await runner.run_plan(
+                    package.plan.tasks,
+                    config=FabricImplementationConfig(
+                        models=models,
+                        min_agents=profile.fabric_min_agents
+                        if profile and profile.fabric_min_agents
+                        else 1,
+                        max_agents=profile.fabric_max_agents if profile else None,
+                    ),
+                    on_task_complete=notifier.on_task_complete,
+                )
+
+        try:
+            results = run_async(_run())
+            if rc.notify_origin:
+                run_async(notifier.send_completion_summary())
+            response_payload["execution"] = {
+                "status": "completed",
+                "mode": "fabric",
+                "results": [r.to_dict() for r in results],
+                "progress": notifier.progress.to_dict(),
+            }
+        except Exception as exc:
+            response_payload["execution"] = {
+                "status": "failed",
+                "mode": "fabric",
+                "error": str(exc),
+            }
 
     @staticmethod
     def _append_review(

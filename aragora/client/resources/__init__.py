@@ -23,6 +23,7 @@ from .knowledge import KnowledgeAPI
 from .leaderboard import LeaderboardAPI
 from .matrix_debates import MatrixDebatesAPI
 from .memory import MemoryAPI
+from .nomic import NomicAPI
 from .notifications import NotificationsAPI
 from .onboarding import OnboardingAPI
 from .openclaw import OpenClawAPI
@@ -34,6 +35,7 @@ from .replay import ReplayAPI
 from .system import SystemAPI
 from .tenants import TenantsAPI
 from .tournaments import TournamentsAPI
+from .verticals import VerticalsAPI
 from .verification import VerificationAPI
 from .workflows import WorkflowsAPI
 
@@ -57,6 +59,7 @@ __all__ = [
     "LeaderboardAPI",
     "MatrixDebatesAPI",
     "MemoryAPI",
+    "NomicAPI",
     "NotificationsAPI",
     "OnboardingAPI",
     "OpenClawAPI",
@@ -68,6 +71,7 @@ __all__ = [
     "SystemAPI",
     "TenantsAPI",
     "TournamentsAPI",
+    "VerticalsAPI",
     "VerificationAPI",
     "WorkflowsAPI",
 ]

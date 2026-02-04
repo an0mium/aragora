@@ -292,6 +292,114 @@ class BudgetAllocation:
 
 
 @dataclass
+class ImplementationProfile:
+    """Execution configuration for implementation tasks."""
+
+    execution_mode: str | None = None
+    implementers: list[str] | None = None
+    critic: str | None = None
+    reviser: str | None = None
+    strategy: str | None = None
+    max_revisions: int | None = None
+    parallel_execution: bool | None = None
+    max_parallel: int | None = None
+    complexity_router: dict[str, str] | None = None
+
+    # Fabric orchestration options
+    fabric_pool_id: str | None = None
+    fabric_models: list[str] | None = None
+    fabric_min_agents: int | None = None
+    fabric_max_agents: int | None = None
+    fabric_timeout_seconds: float | None = None
+
+    # Channel routing overrides
+    channel_targets: list[str] | None = None
+    thread_id: str | None = None
+    thread_id_by_platform: dict[str, str] | None = None
+
+    @staticmethod
+    def _normalize_list(value: Any | None) -> list[str] | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            items = [item.strip() for item in value.split(",") if item.strip()]
+            return items or None
+        if isinstance(value, (list, tuple)):
+            items = [str(item).strip() for item in value if str(item).strip()]
+            return items or None
+        return None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ImplementationProfile":
+        """Parse an ImplementationProfile from a dictionary."""
+        implementers = cls._normalize_list(data.get("implementers"))
+        fabric_models = cls._normalize_list(data.get("fabric_models") or data.get("models"))
+        channel_targets = cls._normalize_list(
+            data.get("channel_targets") or data.get("chat_targets") or data.get("notify_channels")
+        )
+        thread_id_by_platform = None
+        raw_threads = data.get("thread_id_by_platform")
+        if isinstance(raw_threads, dict):
+            thread_id_by_platform = {
+                str(key): str(value)
+                for key, value in raw_threads.items()
+                if key is not None and value is not None
+            }
+
+        raw_router = data.get("complexity_router") or data.get("agent_by_complexity")
+        complexity_router = None
+        if isinstance(raw_router, dict):
+            complexity_router = {
+                str(key).lower(): str(value)
+                for key, value in raw_router.items()
+                if key is not None and value is not None
+            }
+
+        return cls(
+            execution_mode=data.get("execution_mode"),
+            implementers=implementers,
+            critic=data.get("critic"),
+            reviser=data.get("reviser"),
+            strategy=data.get("strategy"),
+            max_revisions=data.get("max_revisions"),
+            parallel_execution=data.get("parallel_execution"),
+            max_parallel=data.get("max_parallel"),
+            complexity_router=complexity_router,
+            fabric_pool_id=data.get("fabric_pool_id") or data.get("pool_id"),
+            fabric_models=fabric_models,
+            fabric_min_agents=data.get("fabric_min_agents"),
+            fabric_max_agents=data.get("fabric_max_agents"),
+            fabric_timeout_seconds=data.get("fabric_timeout_seconds"),
+            channel_targets=channel_targets,
+            thread_id=data.get("thread_id") or data.get("origin_thread_id"),
+            thread_id_by_platform=thread_id_by_platform,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary, omitting None values."""
+        payload = {
+            "execution_mode": self.execution_mode,
+            "implementers": self.implementers,
+            "critic": self.critic,
+            "reviser": self.reviser,
+            "strategy": self.strategy,
+            "max_revisions": self.max_revisions,
+            "parallel_execution": self.parallel_execution,
+            "max_parallel": self.max_parallel,
+            "complexity_router": self.complexity_router,
+            "fabric_pool_id": self.fabric_pool_id,
+            "fabric_models": self.fabric_models,
+            "fabric_min_agents": self.fabric_min_agents,
+            "fabric_max_agents": self.fabric_max_agents,
+            "fabric_timeout_seconds": self.fabric_timeout_seconds,
+            "channel_targets": self.channel_targets,
+            "thread_id": self.thread_id,
+            "thread_id_by_platform": self.thread_id_by_platform,
+        }
+        return {key: value for key, value in payload.items() if value is not None}
+
+
+@dataclass
 class DecisionPlan:
     """Bridges DebateResult to executable implementation with full decision trail.
 
@@ -358,12 +466,19 @@ class DecisionPlan:
 
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
+    implementation_profile: ImplementationProfile | None = None
 
     def __post_init__(self) -> None:
         if self.debate_result and not self.debate_id:
             self.debate_id = self.debate_result.debate_id
         if self.debate_result and not self.task:
             self.task = self.debate_result.task
+        if self.implementation_profile is None and isinstance(self.metadata, dict):
+            impl_payload = self.metadata.get("implementation_profile") or self.metadata.get(
+                "implementation"
+            )
+            if isinstance(impl_payload, dict):
+                self.implementation_profile = ImplementationProfile.from_dict(impl_payload)
 
     # -------------------------------------------------------------------------
     # Risk assessment
@@ -502,6 +617,10 @@ class DecisionPlan:
                 "debate_id": self.debate_id,
                 "debate_confidence": self.debate_result.confidence if self.debate_result else 0,
                 "risk_count": len(self.risk_register.risks) if self.risk_register else 0,
+                "plan_metadata": self.metadata if isinstance(self.metadata, dict) else {},
+                "implementation_profile": self.implementation_profile.to_dict()
+                if self.implementation_profile
+                else None,
             },
         )
 
@@ -891,6 +1010,9 @@ class DecisionPlan:
             "has_critical_risks": self.has_critical_risks,
             "requires_human_approval": self.requires_human_approval,
             "metadata": self.metadata,
+            "implementation_profile": self.implementation_profile.to_dict()
+            if self.implementation_profile
+            else None,
         }
 
     def summary(self) -> str:

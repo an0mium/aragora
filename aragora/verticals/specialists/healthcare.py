@@ -20,6 +20,7 @@ from aragora.verticals.config import (
     VerticalConfig,
 )
 from aragora.verticals.registry import VerticalRegistry
+from aragora.verticals.tooling import drug_lookup, icd_lookup, pubmed_search, web_search_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -212,31 +213,120 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
 
     async def _pubmed_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search PubMed for medical literature."""
+        query = parameters.get("query") or parameters.get("q") or ""
+        limit = int(parameters.get("limit", 10))
+        result = await pubmed_search(query, limit=limit)
+        if result.get("error"):
+            fallback = await web_search_fallback(
+                query,
+                limit=limit,
+                site="pubmed.ncbi.nlm.nih.gov",
+                note="PubMed connector unavailable; using web search fallback.",
+            )
+            return {
+                "articles": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
         return {
-            "articles": [],
-            "message": "PubMed search not yet implemented - requires NCBI API integration",
+            "articles": result.get("articles", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", query),
+            "mode": "connector",
         }
 
     async def _drug_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up drug information."""
+        drug_name = (
+            parameters.get("drug")
+            or parameters.get("name")
+            or parameters.get("query")
+            or parameters.get("q")
+            or ""
+        )
+        limit = int(parameters.get("limit", 5))
+        include_interactions = bool(parameters.get("include_interactions", True))
+        result = await drug_lookup(
+            drug_name,
+            limit=limit,
+            include_interactions=include_interactions,
+        )
+        if result.get("error"):
+            query = f"{drug_name} drug interactions" if drug_name else ""
+            fallback = await web_search_fallback(
+                query,
+                limit=limit,
+                note="RxNav connector unavailable; using web search fallback.",
+            )
+            evidence = fallback.get("results", [])
+            drug_info = evidence[0] if isinstance(evidence, list) and evidence else None
+            return {
+                "drug": drug_name,
+                "drug_info": drug_info,
+                "interactions": evidence,
+                "count": fallback.get("count", 0),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
         return {
-            "drug_info": None,
-            "interactions": [],
-            "message": "Drug lookup not yet implemented",
+            "drug": drug_name,
+            "drug_info": result.get("drug_info"),
+            "interactions": result.get("interactions", []),
+            "count": result.get("count", 0),
+            "mode": "connector",
         }
 
     async def _icd_lookup(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Look up ICD-10 codes."""
+        code = (
+            parameters.get("code")
+            or parameters.get("icd")
+            or parameters.get("query")
+            or parameters.get("q")
+            or ""
+        )
+        limit = int(parameters.get("limit", 5))
+        result = await icd_lookup(code, limit=limit)
+        if result.get("error"):
+            query = f"ICD-10 {code}" if code else ""
+            fallback = await web_search_fallback(
+                query,
+                limit=limit,
+                note="ICD connector unavailable; using web search fallback.",
+            )
+            return {
+                "codes": fallback.get("results", []),
+                "count": fallback.get("count", 0),
+                "query": fallback.get("query", query),
+                "mode": fallback.get("mode", "web_fallback"),
+                "note": fallback.get("note"),
+                "error": fallback.get("error"),
+            }
         return {
-            "codes": [],
-            "message": "ICD lookup not yet implemented",
+            "codes": result.get("codes", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", code),
+            "mode": "connector",
         }
 
     async def _clinical_guidelines_search(self, parameters: dict[str, Any]) -> dict[str, Any]:
         """Search clinical practice guidelines."""
+        topic = parameters.get("topic") or parameters.get("query") or parameters.get("q") or ""
+        limit = int(parameters.get("limit", 5))
+        note = "Clinical guidelines connector not yet integrated; using web search fallback."
+        query = f"{topic} clinical guidelines" if topic else ""
+        result = await web_search_fallback(query, limit=limit, note=note)
         return {
-            "guidelines": [],
-            "message": "Clinical guidelines search not yet implemented",
+            "guidelines": result.get("results", []),
+            "count": result.get("count", 0),
+            "query": result.get("query", query),
+            "mode": result.get("mode", "web_fallback"),
+            "note": result.get("note"),
+            "error": result.get("error"),
         }
 
     async def _check_framework_compliance(
