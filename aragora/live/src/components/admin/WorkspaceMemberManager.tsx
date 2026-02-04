@@ -176,7 +176,7 @@ function InviteModal({
 }
 
 export function WorkspaceMemberManager({
-  workspaceId,
+  workspaceId: _workspaceId,
   members,
   roles,
   loading = false,

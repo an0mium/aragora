@@ -17,7 +17,7 @@ export function BudgetStatus({ budget, loading = false }: BudgetStatusProps) {
     return `$${value.toFixed(2)}`;
   };
 
-  const getAlertColor = (level: string): string => {
+  const _getAlertColor = (level: string): string => {
     switch (level) {
       case 'critical':
         return 'red';

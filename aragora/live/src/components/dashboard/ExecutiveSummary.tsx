@@ -30,7 +30,7 @@ export function ExecutiveSummary({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const getTimeRangeLabel = (range: TimeRange): string => {
+  const _getTimeRangeLabel = (range: TimeRange): string => {
     switch (range) {
       case '24h':
         return '24 Hours';

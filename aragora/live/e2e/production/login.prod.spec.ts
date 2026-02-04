@@ -18,14 +18,14 @@ import { test, expect, Page } from '@playwright/test';
 
 // Production URLs
 const ARAGORA_LOGIN_URL = 'https://aragora.ai/auth/login';
-const ARAGORA_DASHBOARD_URL = 'https://aragora.ai/dashboard';
+const _ARAGORA_DASHBOARD_URL = 'https://aragora.ai/dashboard';
 const ARAGORA_HOME_URL = 'https://aragora.ai';
 
 // Timeout constants
 const NAVIGATION_TIMEOUT = 30000;
 const AUTH_TIMEOUT = 60000;
 
-interface LoginResult {
+interface _LoginResult {
   success: boolean;
   finalUrl: string;
   error?: string;

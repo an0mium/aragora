@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { WorkspaceMemberManager, WorkspaceMember, WorkspaceRole } from '@/components/admin/WorkspaceMemberManager';
 import { RoleMatrixViewer, Role, Permission } from '@/components/admin/RoleMatrixViewer';

@@ -561,7 +561,7 @@ export function useDebateWebSocket({
       }
     };
 
-  }, [enabled, wsUrl, debateId, reconnectTrigger, clearDebateStartTimeout, accessToken]);
+  }, [enabled, wsUrl, debateId, reconnectTrigger, clearDebateStartTimeout, accessToken, onAuthRevoked]);
 
   return {
     status,

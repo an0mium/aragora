@@ -24,7 +24,7 @@ export function ROIMetrics({ roi, loading = false }: ROIMetricsProps) {
     return `${hours.toFixed(0)} hrs`;
   };
 
-  const getTrendDirection = (trend: string): 'up' | 'down' | 'neutral' => {
+  const _getTrendDirection = (trend: string): 'up' | 'down' | 'neutral' => {
     if (trend === 'increasing' || trend === 'improving') return 'up';
     if (trend === 'decreasing' || trend === 'declining') return 'down';
     return 'neutral';
