@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -32,19 +33,6 @@ from aragora.server.handlers.base import HandlerResult, error_response, json_res
 
 if TYPE_CHECKING:
     from aiohttp import web
-
-# Lazy import - try loading email reply loop
-try:
-    from aragora.integrations.email_reply_loop import (
-        EmailReplyLoop,
-        ParsedEmail,
-    )
-
-    _HAS_EMAIL_LOOP = True
-except ImportError:
-    _HAS_EMAIL_LOOP = False
-    EmailReplyLoop = None  # type: ignore[misc,assignment]
-    ParsedEmail = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +87,10 @@ class EmailWebhookHandler:
 
     async def _handle_sendgrid_inbound(self, request: "web.Request") -> HandlerResult:
         """Handle SendGrid Inbound Parse (multipart form)."""
+        from aragora.integrations.email_reply_loop import (
+            InboundEmail,
+            process_inbound_email,
+        )
 
         data = await request.post()
 
@@ -122,14 +114,18 @@ class EmailWebhookHandler:
         in_reply_to = _extract_header(headers_raw, "In-Reply-To")
         references = _extract_header(headers_raw, "References")
 
-        # Create parsed email
-        parsed = ParsedEmail(
+        # Parse sender address to extract email and name
+        from_email, from_name = _parse_email_address(sender)
+
+        # Create inbound email
+        email_data = InboundEmail(
             message_id=message_id or f"sendgrid-{datetime.now().timestamp()}",
-            sender=sender,
-            recipients=[to] if to else envelope.get("to", []),
+            from_email=from_email,
+            from_name=from_name,
+            to_email=to or (envelope.get("to", [""])[0] if envelope.get("to") else ""),
             subject=subject,
-            body=text_body,
-            html_body=html_body,
+            body_plain=text_body,
+            body_html=html_body,
             in_reply_to=in_reply_to,
             references=references.split() if references else [],
             received_at=datetime.now(timezone.utc),
@@ -137,15 +133,14 @@ class EmailWebhookHandler:
 
         # Process through reply loop
         try:
-            loop = EmailReplyLoop()
-            result = await loop.process_email(parsed)
+            result = await process_inbound_email(email_data)
             self._processed_count += 1
 
             return json_response(
                 {
                     "status": "processed",
-                    "message_id": parsed.message_id,
-                    "debate_id": result.get("debate_id") if result else None,
+                    "message_id": email_data.message_id,
+                    "debate_id": email_data.debate_id if result else None,
                 }
             )
 
@@ -214,9 +209,9 @@ class EmailWebhookHandler:
         - signature (timestamp, token, signature)
         """
         try:
-            from aragora.integrations.email_reply_loop import (  # type: ignore[attr-defined]
-                EmailReplyLoop,
-                ParsedEmail,
+            from aragora.integrations.email_reply_loop import (
+                InboundEmail,
+                process_inbound_email,
                 verify_mailgun_signature,
             )
 
@@ -242,29 +237,32 @@ class EmailWebhookHandler:
             in_reply_to = str(data.get("In-Reply-To", ""))
             references_str = str(data.get("References", ""))
 
-            # Create parsed email
-            parsed = ParsedEmail(
+            # Parse sender address to extract email and name
+            from_email, from_name = _parse_email_address(sender)
+
+            # Create inbound email
+            email_data = InboundEmail(
                 message_id=message_id or f"mailgun-{datetime.now().timestamp()}",
-                sender=sender,
-                recipients=[recipient] if recipient else [],
+                from_email=from_email,
+                from_name=from_name,
+                to_email=recipient,
                 subject=subject,
-                body=text_body,
-                html_body=html_body,
+                body_plain=text_body,
+                body_html=html_body,
                 in_reply_to=in_reply_to,
                 references=references_str.split() if references_str else [],
                 received_at=datetime.now(timezone.utc),
             )
 
             # Process through reply loop
-            loop = EmailReplyLoop()
-            result = await loop.process_email(parsed)
+            result = await process_inbound_email(email_data)
             self._processed_count += 1
 
             return json_response(
                 {
                     "status": "processed",
-                    "message_id": parsed.message_id,
-                    "debate_id": result.get("debate_id") if result else None,
+                    "message_id": email_data.message_id,
+                    "debate_id": email_data.debate_id if result else None,
                 }
             )
 
@@ -370,6 +368,7 @@ class EmailWebhookHandler:
 
     async def _handle_ses_email_receipt(self, notification: dict[str, Any]) -> HandlerResult:
         """Handle SES email receipt (for receiving emails via SES)."""
+        from aragora.integrations.email_reply_loop import InboundEmail, process_inbound_email
 
         mail = notification.get("mail", {})
         content = notification.get("content", "")
@@ -378,25 +377,35 @@ class EmailWebhookHandler:
         # For simplicity, extract basic headers; full parsing would use email.parser
         headers = mail.get("commonHeaders", {})
 
-        parsed = ParsedEmail(
+        # Get sender from commonHeaders
+        from_list = headers.get("from", [])
+        sender = from_list[0] if from_list else ""
+        from_email, from_name = _parse_email_address(sender)
+
+        # Get recipients
+        to_list = headers.get("to", [])
+        to_email = to_list[0] if to_list else ""
+
+        # Create inbound email
+        email_data = InboundEmail(
             message_id=headers.get("messageId", mail.get("messageId", "")),
-            sender=headers.get("from", [""])[0] if headers.get("from") else "",
-            recipients=headers.get("to", []),
+            from_email=from_email,
+            from_name=from_name,
+            to_email=to_email,
             subject=headers.get("subject", ""),
-            body=content[:10000] if content else "",  # Truncate for safety
+            body_plain=content[:10000] if content else "",  # Truncate for safety
             received_at=datetime.now(timezone.utc),
         )
 
         # Process through reply loop
-        loop = EmailReplyLoop()
-        result = await loop.process_email(parsed)
+        result = await process_inbound_email(email_data)
         self._processed_count += 1
 
         return json_response(
             {
                 "status": "processed",
-                "message_id": parsed.message_id,
-                "debate_id": result.get("debate_id") if result else None,
+                "message_id": email_data.message_id,
+                "debate_id": email_data.debate_id if result else None,
             }
         )
 
@@ -465,6 +474,24 @@ def _extract_header(headers_raw: str, header_name: str) -> str:
         if line.lower().startswith(f"{header_name.lower()}:"):
             return line.split(":", 1)[1].strip()
     return ""
+
+
+def _parse_email_address(address: str) -> tuple[str, str]:
+    """Parse email address to (email, name)."""
+    if not address:
+        return "", ""
+
+    # Format: "Name <email@example.com>" or "email@example.com"
+    match = re.match(r'"?([^"<]+)"?\s*<([^>]+)>', address)
+    if match:
+        return match.group(2).strip(), match.group(1).strip()
+
+    # Plain email
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+", address)
+    if email_match:
+        return email_match.group(0), ""
+
+    return address, ""
 
 
 def register_email_webhook_routes(app: Any) -> EmailWebhookHandler:
