@@ -40,12 +40,19 @@ logger = logging.getLogger(__name__)
 
 
 def _maybe_await(value: Any) -> Any:
-    """Resolve awaitables in sync OAuth handlers."""
+    """Resolve awaitables in sync OAuth handlers.
+
+    Uses run_async() to dispatch to the main event loop where the asyncpg
+    pool lives, instead of asyncio.run() which creates a temporary loop
+    that is destroyed on return (breaking DB operations).
+    """
     if inspect.isawaitable(value):
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(cast(Coroutine[Any, Any, Any], value))
+            from aragora.utils.async_utils import run_async
+
+            return run_async(cast(Coroutine[Any, Any, Any], value))
     return value
 
 
@@ -367,6 +374,16 @@ class OAuthHandler(
             else:
                 user = user_store.get_user_by_email(user_info.email)
             if user:
+                # Security: only link OAuth when email is verified by provider
+                if not user_info.email_verified:
+                    logger.warning(
+                        "OAuth account linking blocked: unverified email %s from %s",
+                        user_info.email,
+                        user_info.provider,
+                    )
+                    return self._redirect_with_error(
+                        "Email verification required to link your account."
+                    )
                 await self._maybe_await_async(
                     self._link_oauth_to_user(user_store, user.id, user_info)
                 )
@@ -515,6 +532,15 @@ class OAuthHandler(
 
     async def _create_oauth_user_async(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Async implementation for creating a new user from OAuth info."""
+        # Security: only auto-create accounts when email is verified by the provider
+        if not user_info.email_verified:
+            logger.warning(
+                "OAuth account creation blocked: unverified email %s from %s",
+                user_info.email,
+                user_info.provider,
+            )
+            return None
+
         from aragora.billing.models import hash_password
 
         # Generate random password (user will use OAuth to login)

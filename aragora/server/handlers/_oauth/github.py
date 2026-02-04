@@ -158,8 +158,21 @@ class GitHubOAuthMixin:
 
         if not user:
             # Check if email already registered (without OAuth)
-            user = user_store.get_user_by_email(user_info.email)
+            get_by_email = getattr(user_store, "get_user_by_email_async", None)
+            if get_by_email and inspect.iscoroutinefunction(get_by_email):
+                user = await get_by_email(user_info.email)
+            else:
+                user = user_store.get_user_by_email(user_info.email)
             if user:
+                # Security: only link OAuth when email is verified by GitHub
+                if not user_info.email_verified:
+                    logger.warning(
+                        "OAuth linking blocked: unverified email %s from GitHub",
+                        user_info.email,
+                    )
+                    return self._redirect_with_error(
+                        "Email verification required to link your account."
+                    )
                 # Link OAuth to existing account
                 await _maybe_await(self._link_oauth_to_user(user_store, user.id, user_info))
             else:
@@ -170,7 +183,11 @@ class GitHubOAuthMixin:
             return self._redirect_with_error("Failed to create user account")
 
         # Update last login
-        user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
+        update_async = getattr(user_store, "update_user_async", None)
+        if update_async and inspect.iscoroutinefunction(update_async):
+            await update_async(user.id, last_login_at=datetime.now(timezone.utc))
+        else:
+            user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
 
         # Create tokens
         from aragora.billing.jwt_auth import create_token_pair

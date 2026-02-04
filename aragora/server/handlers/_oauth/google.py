@@ -209,6 +209,15 @@ class GoogleOAuthMixin:
                 )
 
             if user:
+                # Security: only link OAuth when email is verified by Google
+                if not user_info.email_verified:
+                    logger.warning(
+                        "OAuth linking blocked: unverified email %s from Google",
+                        user_info.email,
+                    )
+                    return self._redirect_with_error(
+                        "Email verification required to link your account."
+                    )
                 # Link OAuth to existing account
                 logger.info(f"OAuth callback: linking OAuth to existing user {user.id}")
                 await _maybe_await(self._link_oauth_to_user(user_store, user.id, user_info))
