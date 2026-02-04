@@ -92,6 +92,10 @@ class MemoryHandler(SecureHandler):
         "/api/v1/memory/pressure",
         "/api/v1/memory/tiers",
         "/api/v1/memory/search",
+        "/api/v1/memory/search-index",
+        "/api/v1/memory/search-timeline",
+        "/api/v1/memory/entries",
+        "/api/v1/memory/viewer",
         "/api/v1/memory/critiques",
     ]
 
@@ -159,6 +163,26 @@ class MemoryHandler(SecureHandler):
             if not _retrieve_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._search_memories(query_params)
+
+        if path == "/api/v1/memory/search-index":
+            if not _retrieve_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._search_index(query_params)
+
+        if path == "/api/v1/memory/search-timeline":
+            if not _retrieve_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._search_timeline(query_params)
+
+        if path == "/api/v1/memory/entries":
+            if not _retrieve_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._get_entries(query_params)
+
+        if path == "/api/v1/memory/viewer":
+            if not _retrieve_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._render_viewer()
 
         if path == "/api/v1/memory/critiques":
             # Rate limit: 30/min for stats operations

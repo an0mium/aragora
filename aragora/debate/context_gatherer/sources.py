@@ -551,12 +551,33 @@ class SourceGatheringMixin:
             return None
 
         try:
-            # Query knowledge mound for relevant items
-            result = await self._knowledge_mound.query(
-                query=task,
-                sources=("all",),  # Query all knowledge sources
-                limit=10,
-            )
+            # Query knowledge mound for relevant items (RBAC-aware when possible)
+            if getattr(self, "_auth_context", None) and hasattr(
+                self._knowledge_mound, "query_with_visibility"
+            ):
+                actor_id = getattr(self._auth_context, "user_id", "") or ""
+                workspace_id = getattr(self._auth_context, "workspace_id", "") or ""
+                org_id = getattr(self._auth_context, "org_id", None)
+                if actor_id and workspace_id:
+                    result = await self._knowledge_mound.query_with_visibility(
+                        task,
+                        actor_id=actor_id,
+                        actor_workspace_id=workspace_id,
+                        actor_org_id=org_id,
+                        limit=10,
+                    )
+                else:
+                    result = await self._knowledge_mound.query(
+                        query=task,
+                        sources=("all",),  # Query all knowledge sources
+                        limit=10,
+                    )
+            else:
+                result = await self._knowledge_mound.query(
+                    query=task,
+                    sources=("all",),  # Query all knowledge sources
+                    limit=10,
+                )
 
             if not result.items:
                 logger.debug("[knowledge] No relevant knowledge found for task")

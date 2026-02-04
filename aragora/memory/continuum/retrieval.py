@@ -30,6 +30,8 @@ _MEMORY_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["memory"]
 class RetrievalMixin:
     """Mixin providing retrieval operations for ContinuumMemory."""
 
+    _GET_MANY_MAX_IDS: int = 200
+
     def retrieve(
         self: "ContinuumMemory",
         query: str | None = None,
@@ -185,6 +187,175 @@ class RetrievalMixin:
                 pass  # Emitter not available
 
         return AwaitableList(entries)
+
+    def get_many(
+        self: "ContinuumMemory",
+        ids: list[str],
+        tenant_id: str | None = None,
+    ) -> list[ContinuumMemoryEntry]:
+        """Fetch multiple memory entries by ID (preserves input order).
+
+        Args:
+            ids: List of memory IDs to fetch
+            tenant_id: Optional tenant ID for isolation
+
+        Returns:
+            List of ContinuumMemoryEntry in the same order as input IDs.
+        """
+        if not ids:
+            return []
+
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for entry_id in ids:
+            if entry_id in seen:
+                continue
+            seen.add(entry_id)
+            ordered.append(entry_id)
+            if len(ordered) >= self._GET_MANY_MAX_IDS:
+                break
+
+        placeholders: str = ",".join("?" * len(ordered))
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                FROM continuum_memory
+                WHERE id IN ({placeholders})
+                """,
+                tuple(ordered),
+            )
+            rows = cursor.fetchall()
+
+        entries_by_id: dict[str, ContinuumMemoryEntry] = {}
+        for row in rows:
+            entry = ContinuumMemoryEntry(
+                id=row[0],
+                tier=MemoryTier(row[1]),
+                content=row[2],
+                importance=row[3],
+                surprise_score=row[4],
+                consolidation_score=row[5],
+                update_count=row[6],
+                success_count=row[7],
+                failure_count=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+                metadata=safe_json_loads(row[11], {}),
+                red_line=bool(row[12]),
+                red_line_reason=row[13],
+            )
+
+            if tenant_id is not None:
+                entry_tenant = entry.metadata.get("tenant_id")
+                if entry_tenant != tenant_id:
+                    continue
+
+            entries_by_id[entry.id] = entry
+
+        return [entries_by_id[entry_id] for entry_id in ordered if entry_id in entries_by_id]
+
+    def get_timeline_entries(
+        self: "ContinuumMemory",
+        anchor_id: str,
+        before: int = 3,
+        after: int = 3,
+        tiers: list[MemoryTier] | None = None,
+        min_importance: float = 0.0,
+    ) -> dict[str, Any] | None:
+        """Get timeline entries around a specific memory ID.
+
+        Args:
+            anchor_id: Memory entry to anchor the timeline around.
+            before: Number of entries before the anchor.
+            after: Number of entries after the anchor.
+            tiers: Optional tier filter.
+            min_importance: Minimum importance filter.
+
+        Returns:
+            Dict with "anchor", "before", "after" entries or None if anchor missing.
+        """
+        anchor = self.get(anchor_id)
+        if anchor is None:
+            return None
+
+        if tiers is None:
+            tiers = list(MemoryTier)
+        tier_values: list[str] = [t.value for t in tiers]
+        placeholders: str = ",".join("?" * len(tier_values))
+
+        def _rows_to_entries(rows: list[tuple[Any, ...]]) -> list[ContinuumMemoryEntry]:
+            entries: list[ContinuumMemoryEntry] = []
+            for row in rows:
+                entries.append(
+                    ContinuumMemoryEntry(
+                        id=row[0],
+                        tier=MemoryTier(row[1]),
+                        content=row[2],
+                        importance=row[3],
+                        surprise_score=row[4],
+                        consolidation_score=row[5],
+                        update_count=row[6],
+                        success_count=row[7],
+                        failure_count=row[8],
+                        created_at=row[9],
+                        updated_at=row[10],
+                        metadata=safe_json_loads(row[11], {}),
+                        red_line=bool(row[12]),
+                        red_line_reason=row[13],
+                    )
+                )
+            return entries
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                FROM continuum_memory
+                WHERE tier IN ({placeholders})
+                  AND importance >= ?
+                  AND id != ?
+                  AND datetime(created_at) <= datetime(?)
+                ORDER BY datetime(created_at) DESC
+                LIMIT ?
+                """,
+                (*tier_values, min_importance, anchor_id, anchor.created_at, before),
+            )
+            before_rows = cursor.fetchall()
+
+            cursor.execute(
+                f"""
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                FROM continuum_memory
+                WHERE tier IN ({placeholders})
+                  AND importance >= ?
+                  AND id != ?
+                  AND datetime(created_at) >= datetime(?)
+                ORDER BY datetime(created_at) ASC
+                LIMIT ?
+                """,
+                (*tier_values, min_importance, anchor_id, anchor.created_at, after),
+            )
+            after_rows = cursor.fetchall()
+
+        before_entries = _rows_to_entries(before_rows)
+        after_entries = _rows_to_entries(after_rows)
+        # Reverse before entries to chronological order
+        before_entries.reverse()
+
+        return {
+            "anchor": anchor,
+            "before": before_entries,
+            "after": after_entries,
+        }
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def retrieve_async(

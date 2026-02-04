@@ -183,12 +183,35 @@ def _get_active_alerts(tracker, workspace_id: str) -> list[dict[str, Any]]:
     return alerts
 
 
+def _empty_cost_summary() -> CostSummary:
+    """Return an empty cost summary when no data is available."""
+    now = datetime.now(timezone.utc)
+    return CostSummary(
+        total_cost=0.0,
+        budget=0.0,
+        tokens_used=0,
+        api_calls=0,
+        last_updated=now,
+        cost_by_provider=[],
+        cost_by_feature=[],
+        daily_costs=[],
+        alerts=[],
+    )
+
+
 async def get_cost_summary(
     workspace_id: str = "default",
     time_range: str = "7d",
 ) -> CostSummary:
-    """Get cost summary data from CostTracker."""
+    """Get cost summary data from CostTracker.
+
+    Behavior depends on ARAGORA_DEMO_MODE:
+    - When demo mode is enabled: Returns mock data for development/demos
+    - When demo mode is disabled: Returns real data or empty data if unavailable
+    """
     from .helpers import _generate_mock_summary
+
+    demo_mode = _is_demo_mode()
 
     now = datetime.now(timezone.utc)
     range_days = {"24h": 1, "7d": 7, "30d": 30, "90d": 90}.get(time_range, 7)
@@ -254,9 +277,16 @@ async def get_cost_summary(
                 else []
             )
 
-            # If no real data yet, fall back to mock
+            # If no real data yet
             if total_cost == 0 and not report.cost_over_time:
-                return _generate_mock_summary(time_range)
+                if demo_mode:
+                    logger.info(
+                        "[CostHandler] No cost data, returning mock data (ARAGORA_DEMO_MODE=true)"
+                    )
+                    return _generate_mock_summary(time_range)
+                else:
+                    logger.debug("[CostHandler] No cost data, returning empty summary")
+                    return _empty_cost_summary()
 
             return CostSummary(
                 total_cost=total_cost,
@@ -264,27 +294,29 @@ async def get_cost_summary(
                 tokens_used=report.total_tokens_in + report.total_tokens_out,
                 api_calls=report.total_api_calls,
                 last_updated=now,
-                cost_by_provider=(
-                    cost_by_provider
-                    if cost_by_provider
-                    else _generate_mock_summary(time_range).cost_by_provider
-                ),
-                cost_by_feature=(
-                    cost_by_feature
-                    if cost_by_feature
-                    else _generate_mock_summary(time_range).cost_by_feature
-                ),
-                daily_costs=(
-                    report.cost_over_time
-                    if report.cost_over_time
-                    else _generate_mock_summary(time_range).daily_costs
-                ),
+                cost_by_provider=cost_by_provider if cost_by_provider else [],
+                cost_by_feature=cost_by_feature if cost_by_feature else [],
+                daily_costs=report.cost_over_time if report.cost_over_time else [],
                 alerts=_get_active_alerts(tracker, workspace_id),
             )
 
         except Exception as e:
-            logger.warning(f"[CostHandler] CostTracker query failed, using mock: {e}")
-            return _generate_mock_summary(time_range)
+            if demo_mode:
+                logger.warning(
+                    f"[CostHandler] CostTracker query failed, using mock "
+                    f"(ARAGORA_DEMO_MODE=true): {e}"
+                )
+                return _generate_mock_summary(time_range)
+            else:
+                logger.warning(f"[CostHandler] CostTracker query failed, returning empty: {e}")
+                return _empty_cost_summary()
 
-    # Fallback to mock data if no tracker
-    return _generate_mock_summary(time_range)
+    # No tracker available
+    if demo_mode:
+        logger.info(
+            "[CostHandler] CostTracker unavailable, returning mock data (ARAGORA_DEMO_MODE=true)"
+        )
+        return _generate_mock_summary(time_range)
+    else:
+        logger.debug("[CostHandler] CostTracker unavailable, returning empty summary")
+        return _empty_cost_summary()

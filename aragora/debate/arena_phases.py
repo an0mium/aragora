@@ -230,6 +230,7 @@ def init_phases(arena: "Arena") -> None:
         document_store=getattr(arena, "document_store", None),
         evidence_store=getattr(arena, "evidence_store", None),
         document_ids=getattr(arena.env, "documents", None),
+        auth_context=getattr(arena, "auth_context", None),
     )
 
     # Auto-initialize PopulationManager for genome evolution when auto_evolve is enabled

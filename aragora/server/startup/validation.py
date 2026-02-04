@@ -269,6 +269,21 @@ def check_production_requirements() -> list[str]:
     agent_warnings = check_agent_credentials()
     warnings.extend(agent_warnings)
 
+    # Check demo mode status
+    demo_mode = os.environ.get("ARAGORA_DEMO_MODE", "").lower() in ("true", "1", "yes")
+    if demo_mode:
+        if is_production:
+            warnings.append(
+                "ARAGORA_DEMO_MODE is enabled in production! "
+                "Mock data will be returned for some endpoints. "
+                "This should only be used for demos, not real deployments."
+            )
+        else:
+            logger.info(
+                "[DEMO MODE] ARAGORA_DEMO_MODE=true - Mock data will be returned "
+                "when backend services are unavailable."
+            )
+
     # Log all warnings
     for warning in warnings:
         logger.warning(f"[PRODUCTION CONFIG] {warning}")
