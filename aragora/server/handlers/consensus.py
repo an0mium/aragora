@@ -98,11 +98,32 @@ class ConsensusHandler(BaseHandler):
         """Check RBAC permission for memory operations."""
         permission = f"memory.{action}"
         try:
-            user_id = str(user.id) if hasattr(user, "id") else str(user.get("id", "unknown"))
-            org_id = user.org_id if hasattr(user, "org_id") else user.get("org_id")
-            roles = (
-                set(user.roles) if hasattr(user, "roles") else set(user.get("roles", ["member"]))
-            )
+            # Handle both UserAuthContext objects and dicts
+            if hasattr(user, "user_id"):
+                user_id = str(user.user_id) if user.user_id else "unknown"
+            elif hasattr(user, "id"):
+                user_id = str(user.id) if user.id else "unknown"
+            elif isinstance(user, dict):
+                user_id = str(user.get("id", "unknown"))
+            else:
+                user_id = "unknown"
+
+            if hasattr(user, "org_id"):
+                org_id = user.org_id
+            elif isinstance(user, dict):
+                org_id = user.get("org_id")
+            else:
+                org_id = None
+
+            # UserAuthContext has 'role' (singular), dicts may have 'roles' (plural)
+            if hasattr(user, "roles"):
+                roles = set(user.roles)
+            elif hasattr(user, "role"):
+                roles = {user.role} if user.role else {"member"}
+            elif isinstance(user, dict):
+                roles = set(user.get("roles", ["member"]))
+            else:
+                roles = {"member"}
 
             context = AuthorizationContext(
                 user_id=user_id,
