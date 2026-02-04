@@ -11,13 +11,22 @@ Runs test commands and parses output to extract:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
+import platform
 import re
+import shutil
+import signal
+import subprocess
+import sys
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +118,7 @@ class TestResult:
     duration_seconds: float = 0.0
     started_at: datetime = field(default_factory=datetime.now)
     framework: TestFramework = TestFramework.UNKNOWN
+    diagnostics: "RunDiagnostics | None" = None
 
     @property
     def success(self) -> bool:
@@ -130,6 +140,38 @@ class TestResult:
             )
 
 
+@dataclass
+class RunDiagnostics:
+    """Artifacts and crash classification for a test run."""
+
+    run_dir: Path
+    stdout_path: Path
+    stderr_path: Path
+    exit_code_path: Path
+    meta_path: Path
+    env_path: Path
+    resource_path: Path
+    kernel_log_path: Path | None = None
+    classification: str | None = None
+    exit_signal: str | None = None
+    notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_dir": str(self.run_dir),
+            "stdout_path": str(self.stdout_path),
+            "stderr_path": str(self.stderr_path),
+            "exit_code_path": str(self.exit_code_path),
+            "meta_path": str(self.meta_path),
+            "env_path": str(self.env_path),
+            "resource_path": str(self.resource_path),
+            "kernel_log_path": str(self.kernel_log_path) if self.kernel_log_path else None,
+            "classification": self.classification,
+            "exit_signal": self.exit_signal,
+            "notes": self.notes,
+        }
+
+
 def detect_framework(command: str) -> TestFramework:
     """Detect test framework from command."""
     cmd_lower = command.lower()
@@ -148,6 +190,159 @@ def detect_framework(command: str) -> TestFramework:
         return TestFramework.UNITTEST
 
     return TestFramework.UNKNOWN
+
+
+def _safe_write_text(path: Path, content: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    except Exception as exc:
+        logger.warning("test.run.write_failed path=%s error=%s", path, exc)
+
+
+def _safe_write_json(path: Path, payload: dict[str, Any]) -> None:
+    _safe_write_text(path, json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def _run_command(command: list[str], cwd: Path | None = None) -> str | None:
+    try:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip()
+    except Exception:
+        return None
+
+
+def _get_git_head(repo_path: Path) -> str | None:
+    return _run_command(["git", "rev-parse", "HEAD"], cwd=repo_path)
+
+
+def _collect_env_snapshot(
+    *,
+    repo_path: Path,
+    command: str,
+    run_id: str,
+    framework: TestFramework,
+    env: dict[str, str],
+) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "command": command,
+        "repo_path": str(repo_path),
+        "framework": framework.value,
+        "python": sys.version,
+        "platform": platform.platform(),
+        "cwd": str(repo_path),
+        "git_head": _get_git_head(repo_path),
+        "env_keys": sorted(env.keys()),
+    }
+
+
+def _collect_resource_snapshot(repo_path: Path) -> dict[str, Any]:
+    snapshot: dict[str, Any] = {}
+    try:
+        snapshot["load_avg"] = os.getloadavg()
+    except (AttributeError, OSError):
+        snapshot["load_avg"] = None
+
+    try:
+        disk = shutil.disk_usage(repo_path)
+        snapshot["disk"] = {
+            "total": disk.total,
+            "used": disk.used,
+            "free": disk.free,
+        }
+    except Exception:
+        snapshot["disk"] = None
+
+    meminfo_path = Path("/proc/meminfo")
+    if meminfo_path.exists():
+        meminfo: dict[str, int] = {}
+        try:
+            for line in meminfo_path.read_text(encoding="utf-8").splitlines():
+                if ":" in line:
+                    key, value = line.split(":", 1)
+                    parts = value.strip().split()
+                    if parts:
+                        try:
+                            meminfo[key] = int(parts[0])
+                        except ValueError:
+                            continue
+            snapshot["meminfo_kb"] = meminfo
+        except Exception:
+            snapshot["meminfo_kb"] = None
+    else:
+        snapshot["meminfo_kb"] = None
+
+    return snapshot
+
+
+def _collect_kernel_log() -> str | None:
+    if os.name != "posix":
+        return None
+    for command in (["dmesg", "-T"], ["journalctl", "-k", "-n", "200"]):
+        output = _run_command(command)
+        if output:
+            return "\n".join(output.splitlines()[-200:])
+    return None
+
+
+def _signal_name_from_exit(exit_code: int) -> str | None:
+    try:
+        if exit_code < 0:
+            sig = -exit_code
+        elif exit_code >= 128:
+            sig = exit_code - 128
+        else:
+            return None
+        return signal.Signals(sig).name
+    except Exception:
+        return None
+
+
+def _classify_exit(
+    *,
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+    kernel_log: str | None,
+    timed_out: bool,
+) -> tuple[str | None, str | None, list[str]]:
+    notes: list[str] = []
+    if timed_out:
+        return "timeout", None, notes
+    if exit_code == 0:
+        return "success", None, notes
+
+    combined = f"{stdout}\n{stderr}"
+    exit_signal = _signal_name_from_exit(exit_code)
+
+    if exit_signal:
+        notes.append(f"exit_signal={exit_signal}")
+
+    if exit_code in (137, -9) or exit_signal == "SIGKILL":
+        if kernel_log and re.search(r"Out of memory|Killed process", kernel_log, re.IGNORECASE):
+            return "oom_kill", exit_signal, notes
+        if "Killed" in combined:
+            return "killed", exit_signal, notes
+
+    if exit_code in (139, -11) or "Segmentation fault" in combined:
+        return "segfault", exit_signal, notes
+
+    if not stdout.strip() and not stderr.strip():
+        return "empty_output", exit_signal, notes
+
+    if re.search(r"\bFAILED\b|\bERROR\b", combined):
+        return "test_failures", exit_signal, notes
+
+    return "nonzero_exit", exit_signal, notes
 
 
 def parse_pytest_output(stdout: str, stderr: str) -> tuple[dict[str, int], list[TestFailure]]:
@@ -344,6 +539,9 @@ class TestRunner:
         test_command: str,
         timeout_seconds: float = 300.0,
         env: dict[str, str] | None = None,
+        run_id: str | None = None,
+        artifacts_dir: Path | None = None,
+        enable_diagnostics: bool = True,
     ):
         """Initialize the runner.
 
@@ -357,7 +555,30 @@ class TestRunner:
         self.test_command = test_command
         self.timeout = timeout_seconds
         self.env = env
+        self.run_id = run_id
+        self.artifacts_dir = artifacts_dir
+        self.enable_diagnostics = enable_diagnostics
         self.framework = detect_framework(test_command)
+
+    def _build_env(self) -> dict[str, str]:
+        env = os.environ.copy()
+        if self.env:
+            env.update(self.env)
+        if self.enable_diagnostics:
+            env.setdefault("PYTHONFAULTHANDLER", "1")
+            env.setdefault("PYTHONASYNCIODEBUG", "1")
+            env.setdefault("PYTHONHASHSEED", "0")
+        return env
+
+    def _prepare_run_dir(self, started_at: datetime) -> tuple[str, Path]:
+        run_id = self.run_id or uuid.uuid4().hex
+        root = self.artifacts_dir or (self.repo_path / ".testfixer" / "runs")
+        ts = started_at.strftime("%Y%m%d_%H%M%S")
+        head = _get_git_head(self.repo_path)
+        suffix = head[:7] if head else "nogit"
+        run_dir = root / f"{ts}_{run_id[:8]}_{suffix}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return run_id, run_dir
 
     async def run(self) -> TestResult:
         """Run tests and return parsed results.
@@ -367,15 +588,64 @@ class TestRunner:
         """
         start_time = time.time()
         started_at = datetime.now()
+        run_id, run_dir = self._prepare_run_dir(started_at)
+        env = self._build_env()
+        env_snapshot = _collect_env_snapshot(
+            repo_path=self.repo_path,
+            command=self.test_command,
+            run_id=run_id,
+            framework=self.framework,
+            env=env,
+        )
+        resource_snapshot = _collect_resource_snapshot(self.repo_path)
+
+        stdout_path = run_dir / "stdout.log"
+        stderr_path = run_dir / "stderr.log"
+        exit_code_path = run_dir / "exit.code"
+        meta_path = run_dir / "run.json"
+        env_path = run_dir / "env.json"
+        resource_path = run_dir / "resources.json"
+
+        diagnostics = RunDiagnostics(
+            run_dir=run_dir,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            exit_code_path=exit_code_path,
+            meta_path=meta_path,
+            env_path=env_path,
+            resource_path=resource_path,
+        )
+
+        _safe_write_json(env_path, env_snapshot)
+        _safe_write_json(resource_path, resource_snapshot)
+        _safe_write_json(
+            meta_path,
+            {
+                "run_id": run_id,
+                "command": self.test_command,
+                "cwd": str(self.repo_path),
+                "framework": self.framework.value,
+                "started_at": started_at.isoformat(),
+            },
+        )
+
         logger.info(
-            "test.run.start command=%s cwd=%s timeout=%s framework=%s",
+            "test.run.start run_id=%s command=%s cwd=%s timeout=%s framework=%s run_dir=%s",
+            run_id,
             self.test_command,
             self.repo_path,
             self.timeout,
             self.framework.value,
+            run_dir,
         )
-        if self.env is not None:
-            logger.debug("test.run.env_keys=%s", sorted(self.env.keys()))
+        logger.debug("test.run.env_keys=%s", sorted(env.keys()))
+
+        stdout = ""
+        stderr = ""
+        exit_code = -1
+        timed_out = False
+        execution_error: Exception | None = None
+        process_pid: int | None = None
 
         try:
             # Run the test command
@@ -384,7 +654,19 @@ class TestRunner:
                 cwd=self.repo_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=self.env,
+                env=env,
+            )
+            process_pid = process.pid
+            _safe_write_json(
+                meta_path,
+                {
+                    "run_id": run_id,
+                    "command": self.test_command,
+                    "cwd": str(self.repo_path),
+                    "framework": self.framework.value,
+                    "started_at": started_at.isoformat(),
+                    "pid": process_pid,
+                },
             )
 
             try:
@@ -393,37 +675,26 @@ class TestRunner:
                     timeout=self.timeout,
                 )
             except asyncio.TimeoutError:
+                timed_out = True
                 process.kill()
                 await process.wait()
                 logger.error(
-                    "test.run.timeout command=%s timeout=%s",
+                    "test.run.timeout run_id=%s command=%s timeout=%s",
+                    run_id,
                     self.test_command,
                     self.timeout,
                 )
-                return TestResult(
-                    command=self.test_command,
-                    exit_code=-1,
-                    stdout="",
-                    stderr=f"Test execution timed out after {self.timeout}s",
-                    failures=[
-                        TestFailure(
-                            test_name="timeout",
-                            test_file="",
-                            error_type="TimeoutError",
-                            error_message=f"Tests did not complete within {self.timeout}s",
-                            stack_trace="",
-                        )
-                    ],
-                    duration_seconds=self.timeout,
-                    started_at=started_at,
-                    framework=self.framework,
-                )
+                stdout_bytes = b""
+                stderr_bytes = f"Test execution timed out after {self.timeout}s".encode("utf-8")
+                exit_code = -1
+            else:
+                exit_code = process.returncode if process.returncode is not None else 0
 
             stdout = stdout_bytes.decode("utf-8", errors="replace")
             stderr = stderr_bytes.decode("utf-8", errors="replace")
-            exit_code = process.returncode or 0
             logger.info(
-                "test.run.complete exit_code=%s duration=%.2fs stdout_bytes=%s stderr_bytes=%s",
+                "test.run.complete run_id=%s exit_code=%s duration=%.2fs stdout_bytes=%s stderr_bytes=%s",
+                run_id,
                 exit_code,
                 time.time() - start_time,
                 len(stdout_bytes),
@@ -434,30 +705,75 @@ class TestRunner:
                 logger.debug("test.run.stderr_tail=%s", stderr[-800:])
 
         except Exception as e:
-            logger.exception("test.run.execution_error")
-            return TestResult(
-                command=self.test_command,
-                exit_code=-1,
-                stdout="",
-                stderr=str(e),
-                failures=[
-                    TestFailure(
-                        test_name="execution_error",
-                        test_file="",
-                        error_type=type(e).__name__,
-                        error_message=str(e),
-                        stack_trace="",
-                    )
-                ],
-                duration_seconds=time.time() - start_time,
-                started_at=started_at,
-                framework=self.framework,
-            )
+            execution_error = e
+            logger.exception("test.run.execution_error run_id=%s", run_id)
+            stderr = str(e)
+            stdout = ""
+            exit_code = -1
 
         duration = time.time() - start_time
 
+        _safe_write_text(stdout_path, stdout)
+        _safe_write_text(stderr_path, stderr)
+        _safe_write_text(exit_code_path, str(exit_code))
+
+        kernel_log = _collect_kernel_log()
+        if kernel_log:
+            kernel_path = run_dir / "kernel.log"
+            _safe_write_text(kernel_path, kernel_log)
+            diagnostics.kernel_log_path = kernel_path
+
+        classification, exit_signal, notes = _classify_exit(
+            exit_code=exit_code,
+            stdout=stdout,
+            stderr=stderr,
+            kernel_log=kernel_log,
+            timed_out=timed_out,
+        )
+        diagnostics.classification = classification
+        diagnostics.exit_signal = exit_signal
+        diagnostics.notes.extend(notes)
+
+        _safe_write_json(
+            meta_path,
+            {
+                "run_id": run_id,
+                "command": self.test_command,
+                "cwd": str(self.repo_path),
+                "framework": self.framework.value,
+                "started_at": started_at.isoformat(),
+                "finished_at": datetime.now().isoformat(),
+                "pid": process_pid,
+                "exit_code": exit_code,
+                "classification": classification,
+                "exit_signal": exit_signal,
+            },
+        )
+
         # Parse output based on framework
-        if self.framework == TestFramework.PYTEST:
+        if timed_out:
+            stats = {"total": 0, "passed": 0, "failed": 1, "skipped": 0, "errors": 0}
+            failures = [
+                TestFailure(
+                    test_name="timeout",
+                    test_file="",
+                    error_type="TimeoutError",
+                    error_message=f"Tests did not complete within {self.timeout}s",
+                    stack_trace="",
+                )
+            ]
+        elif execution_error is not None:
+            stats = {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "errors": 1}
+            failures = [
+                TestFailure(
+                    test_name="execution_error",
+                    test_file="",
+                    error_type=type(execution_error).__name__,
+                    error_message=str(execution_error),
+                    stack_trace="",
+                )
+            ]
+        elif self.framework == TestFramework.PYTEST:
             stats, failures = parse_pytest_output(stdout, stderr)
         else:
             # Fallback: just check exit code
@@ -516,6 +832,7 @@ class TestRunner:
             duration_seconds=duration,
             started_at=started_at,
             framework=self.framework,
+            diagnostics=diagnostics,
         )
 
     async def run_single_test(self, test_id: str) -> TestResult:
@@ -537,5 +854,8 @@ class TestRunner:
             test_command=command,
             timeout_seconds=self.timeout,
             env=self.env,
+            run_id=self.run_id,
+            artifacts_dir=self.artifacts_dir,
+            enable_diagnostics=self.enable_diagnostics,
         )
         return await runner.run()

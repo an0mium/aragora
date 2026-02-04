@@ -111,6 +111,8 @@ async def _run(args: argparse.Namespace) -> int:
         revert_on_failure=not args.no_revert,
         attempt_store=attempt_store,
         run_id=run_id,
+        artifacts_dir=Path(args.artifacts_dir).resolve() if args.artifacts_dir else None,
+        enable_diagnostics=not args.no_diagnostics,
     )
     if args.require_approval:
 
@@ -175,4 +177,14 @@ def build_parser(subparsers) -> None:
     parser.add_argument("--log-file", default=None, help="Path to log file (or '-' for stderr)")
     parser.add_argument("--log-level", default="info", help="Log level (debug, info, warning)")
     parser.add_argument("--run-id", default=None, help="Optional run id for correlation")
+    parser.add_argument(
+        "--artifacts-dir",
+        default=None,
+        help="Directory for per-run artifacts (default: .testfixer/runs)",
+    )
+    parser.add_argument(
+        "--no-diagnostics",
+        action="store_true",
+        help="Disable crash diagnostics and artifact collection",
+    )
     parser.set_defaults(func=cmd_testfixer)

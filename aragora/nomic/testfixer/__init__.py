@@ -40,6 +40,7 @@ from aragora.nomic.testfixer.runner import (
     TestRunner,
     TestResult,
     TestFailure,
+    RunDiagnostics,
 )
 from aragora.nomic.testfixer.analyzer import (
     FailureAnalyzer,
@@ -61,6 +62,7 @@ __all__ = [
     "TestRunner",
     "TestResult",
     "TestFailure",
+    "RunDiagnostics",
     "FailureAnalyzer",
     "FailureAnalysis",
     "FailureCategory",

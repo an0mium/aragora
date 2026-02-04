@@ -82,11 +82,16 @@ Automated fix loop for the first failing test:
 - Trigger: on failed `Tests` workflow or manual dispatch
 - Requires: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` secrets
 - Output: PR with proposed fix, plus `.testfixer/attempts.jsonl` artifact
+- Artifacts: `.testfixer/runs/<timestamp>_<runid>_<sha>/` (stdout/stderr, exit code, env/resources, kernel logs when available)
 
 You can also run it locally:
 
 ```bash
 aragora testfixer . --test-command "pytest tests/ -q --maxfail=1"
+
+# Custom artifact location or disable diagnostics
+aragora testfixer . --artifacts-dir /tmp/testfixer-runs
+aragora testfixer . --no-diagnostics
 ```
 
 ## Test Organization

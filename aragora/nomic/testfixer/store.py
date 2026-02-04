@@ -28,6 +28,9 @@ class TestFixerAttemptStore:
         logger.debug("store.append path=%s type=%s", self.path, record.get("type"))
 
     def record_attempt(self, attempt: "FixAttempt") -> None:
+        diagnostics: dict[str, Any] | None = None
+        if attempt.test_result_after and attempt.test_result_after.diagnostics:
+            diagnostics = attempt.test_result_after.diagnostics.to_dict()
         self._append(
             {
                 "type": "attempt",
@@ -55,10 +58,14 @@ class TestFixerAttemptStore:
                 "applied": attempt.applied,
                 "success": attempt.success,
                 "notes": attempt.notes,
+                "diagnostics": diagnostics,
             }
         )
 
     def record_run(self, result: "FixLoopResult") -> None:
+        final_diagnostics: dict[str, Any] | None = None
+        if result.final_test_result and result.final_test_result.diagnostics:
+            final_diagnostics = result.final_test_result.diagnostics.to_dict()
         self._append(
             {
                 "type": "run",
@@ -70,6 +77,7 @@ class TestFixerAttemptStore:
                 "fixes_applied": result.fixes_applied,
                 "fixes_successful": result.fixes_successful,
                 "fixes_reverted": result.fixes_reverted,
+                "final_diagnostics": final_diagnostics,
                 "attempts": [
                     {
                         "iteration": attempt.iteration,

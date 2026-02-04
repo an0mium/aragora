@@ -129,6 +129,8 @@ aragora testfixer /path/to/repo --test-command "pytest tests/ -q --maxfail=1"
 | `--attempt-store` | - | Path to JSONL file to record fix attempts |
 | `--require-consensus` | - | Require multi-agent consensus before applying |
 | `--no-revert` | - | Do not revert failed fixes |
+| `--artifacts-dir` | - | Directory for per-run artifacts (default: `.testfixer/runs`) |
+| `--no-diagnostics` | - | Disable crash diagnostics and artifact collection |
 
 **Examples:**
 
@@ -138,6 +140,9 @@ aragora testfixer . --test-command "pytest tests/ -q --maxfail=1"
 
 # Use API agents and persist attempts
 aragora testfixer . --agents "anthropic-api,openai-api" --attempt-store .testfixer/attempts.jsonl
+
+# Custom artifact path
+aragora testfixer . --artifacts-dir /tmp/testfixer-runs
 ```
 
 ---

@@ -148,6 +148,8 @@ class FixLoopConfig:
     attempts_dir: Path | None = None
     attempt_store: "TestFixerAttemptStore | None" = None
     run_id: str | None = None
+    artifacts_dir: Path | None = None
+    enable_diagnostics: bool = True
 
 
 class TestFixerOrchestrator:
@@ -189,12 +191,16 @@ class TestFixerOrchestrator:
         self.repo_path = Path(repo_path)
         self.test_command = test_command
         self.config = config or FixLoopConfig()
+        self.run_id = self.config.run_id or uuid.uuid4().hex
 
         # Initialize components
         self.runner = TestRunner(
             repo_path=self.repo_path,
             test_command=test_command,
             timeout_seconds=test_timeout,
+            run_id=self.run_id,
+            artifacts_dir=self.config.artifacts_dir,
+            enable_diagnostics=self.config.enable_diagnostics,
         )
         self.analyzer = FailureAnalyzer(repo_path=self.repo_path)
         self.proposer = PatchProposer(
@@ -206,7 +212,6 @@ class TestFixerOrchestrator:
         # State
         self._failure_history: list[str] = []  # Track failure patterns to detect loops
         self._applied_patches: list[tuple[PatchProposal, Path]] = []
-        self.run_id = self.config.run_id or uuid.uuid4().hex
 
     async def run_fix_loop(
         self,
@@ -258,6 +263,15 @@ class TestFixerOrchestrator:
                     test_result.exit_code,
                     test_result.summary(),
                 )
+                if test_result.diagnostics:
+                    logger.info(
+                        "testfixer.diagnostics run_id=%s iteration=%s classification=%s exit_signal=%s run_dir=%s",
+                        self.run_id,
+                        iteration,
+                        test_result.diagnostics.classification,
+                        test_result.diagnostics.exit_signal,
+                        test_result.diagnostics.run_dir,
+                    )
 
                 # Callback
                 if self.config.on_iteration_complete:
@@ -465,6 +479,15 @@ class TestFixerOrchestrator:
                     iteration,
                     retest_result.summary(),
                 )
+                if retest_result.diagnostics:
+                    logger.info(
+                        "testfixer.retest.diagnostics run_id=%s iteration=%s classification=%s exit_signal=%s run_dir=%s",
+                        self.run_id,
+                        iteration,
+                        retest_result.diagnostics.classification,
+                        retest_result.diagnostics.exit_signal,
+                        retest_result.diagnostics.run_dir,
+                    )
 
                 # Check if fix worked
                 fix_worked = retest_result.success or (

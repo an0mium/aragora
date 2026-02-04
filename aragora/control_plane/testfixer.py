@@ -22,6 +22,8 @@ class TestFixerTaskPayload:
     min_confidence: float = 0.5
     timeout_seconds: float = 300.0
     attempt_store_path: str | None = None
+    artifacts_dir: str | None = None
+    enable_diagnostics: bool = True
 
 
 class TestFixerControlPlane:
@@ -56,6 +58,8 @@ class TestFixerControlPlane:
             attempt_store_path=Path(payload["attempt_store_path"])
             if payload.get("attempt_store_path")
             else None,
+            artifacts_dir=Path(payload["artifacts_dir"]) if payload.get("artifacts_dir") else None,
+            enable_diagnostics=payload.get("enable_diagnostics", True),
         )
         result = await run_fix_loop(config)
         return result.to_dict()

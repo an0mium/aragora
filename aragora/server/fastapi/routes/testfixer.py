@@ -41,6 +41,8 @@ class RunRequest(BaseModel):
     min_confidence: float = 0.5
     timeout_seconds: float = 300.0
     attempt_store_path: str | None = None
+    artifacts_dir: str | None = None
+    enable_diagnostics: bool = True
 
 
 def _maybe_json(value: Any) -> Any:
@@ -205,6 +207,8 @@ async def run(request: RunRequest) -> dict[str, Any]:
         min_confidence=request.min_confidence,
         timeout_seconds=request.timeout_seconds,
         attempt_store_path=Path(request.attempt_store_path) if request.attempt_store_path else None,
+        artifacts_dir=Path(request.artifacts_dir) if request.artifacts_dir else None,
+        enable_diagnostics=request.enable_diagnostics,
     )
     result = await run_fix_loop(config)
     return result.to_dict()

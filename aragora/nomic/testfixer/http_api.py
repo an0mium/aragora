@@ -26,6 +26,8 @@ class TestFixerRunConfig:
     min_confidence: float = 0.5
     timeout_seconds: float = 300.0
     attempt_store_path: Path | None = None
+    artifacts_dir: Path | None = None
+    enable_diagnostics: bool = True
 
 
 async def analyze_failure(repo_path: Path, failure: TestFailure) -> dict[str, Any]:
@@ -124,6 +126,8 @@ async def run_fix_loop(config: TestFixerRunConfig):
         max_iterations=config.max_iterations,
         min_confidence_to_apply=config.min_confidence,
         attempt_store=attempt_store,
+        artifacts_dir=config.artifacts_dir,
+        enable_diagnostics=config.enable_diagnostics,
     )
 
     fixer = TestFixerOrchestrator(
