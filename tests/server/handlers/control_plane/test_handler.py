@@ -598,3 +598,46 @@ class TestCoordinatorIntegration:
 
         coord = handler._get_coordinator()
         assert coord is mock_coordinator
+
+
+# ---------------------------------------------------------------------------
+# Test Task History
+# ---------------------------------------------------------------------------
+
+
+class TestTaskHistory:
+    """Tests for task history endpoint."""
+
+    def test_task_history_endpoint_exists(self, control_plane_handler, mock_coordinator):
+        """Task history endpoint is available."""
+        # Verify the method exists
+        assert hasattr(control_plane_handler, "_handle_task_history")
+
+    def test_task_history_without_coordinator(self):
+        """Task history returns 503 without coordinator."""
+        handler = ControlPlaneHandler({})
+        ControlPlaneHandler.coordinator = None
+
+        result = handler._handle_task_history({})
+        assert result.status_code == 503
+
+    def test_task_history_parses_query_params(self, control_plane_handler, mock_coordinator):
+        """Task history parses query parameters correctly."""
+        # Mock the scheduler to return empty list
+        mock_coordinator._scheduler = MagicMock()
+        mock_coordinator._scheduler.list_by_status = AsyncMock(return_value=[])
+
+        result = control_plane_handler._handle_task_history(
+            {
+                "limit": "50",
+                "offset": "10",
+                "status": "completed",
+            }
+        )
+
+        # Should return 200 with empty history
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["limit"] == 50
+        assert data["offset"] == 10
+        assert data["history"] == []

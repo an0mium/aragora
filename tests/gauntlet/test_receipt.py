@@ -449,6 +449,54 @@ class TestDecisionReceiptHTML:
         assert "test-123" in html
         assert "PASS" in html
 
+    def test_to_html_no_signature_block_when_unsigned(self, basic_receipt):
+        """Test HTML does not contain signature block when not signed."""
+        html = basic_receipt.to_html()
+
+        assert "Cryptographically Signed Document" not in html
+        assert "Signature:" not in html
+
+    def test_to_html_signature_block_when_signed(self, basic_receipt):
+        """Test HTML contains signature verification block when signed."""
+        # Add signature fields to receipt
+        basic_receipt.signature = "base64encodedSignatureData1234567890abcdef"
+        basic_receipt.signature_algorithm = "HMAC-SHA256"
+        basic_receipt.signature_key_id = "key-001"
+        basic_receipt.signed_at = "2024-01-15T11:00:00Z"
+
+        html = basic_receipt.to_html()
+
+        # Verify signature block is present
+        assert "Cryptographically Signed Document" in html
+        assert "HMAC-SHA256" in html
+        assert "key-001" in html
+        assert "2024-01-15T11:00:00Z" in html
+        # Verify truncated signature display
+        assert "base64encodedSig" in html  # First 16 chars
+        assert "567890abcdef" in html  # Last 12 chars
+        # Verify verification instructions
+        assert "aragora verify test-123" in html
+        assert "verify/test-123" in html
+
+    def test_signature_verification_html_empty_when_unsigned(self, basic_receipt):
+        """Test _signature_verification_html returns empty string when not signed."""
+        result = basic_receipt._signature_verification_html()
+        assert result == ""
+
+    def test_signature_verification_html_content_when_signed(self, basic_receipt):
+        """Test _signature_verification_html returns proper content when signed."""
+        basic_receipt.signature = "shortSig"
+        basic_receipt.signature_algorithm = "Ed25519"
+        basic_receipt.signature_key_id = "ed-key-123"
+        basic_receipt.signed_at = "2024-01-15T12:00:00Z"
+
+        result = basic_receipt._signature_verification_html()
+
+        assert "Ed25519" in result
+        assert "ed-key-123" in result
+        assert "shortSig" in result  # Short signature displayed in full
+        assert "2024-01-15T12:00:00Z" in result
+
 
 class TestDecisionReceiptSARIF:
     """Test SARIF export."""

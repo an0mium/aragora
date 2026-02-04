@@ -12,6 +12,7 @@ from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aragora.server.handlers.utils.responses import HandlerResult
 
 
 @pytest.fixture
@@ -103,6 +104,33 @@ class TestMatrixDebatePostValidation:
         """Returns 404 for non-matrix POST paths."""
         result = await matrix_handler.handle_post(mock_http_handler, "/api/debates/other", {})
         assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_accepts_router_signature(self, matrix_handler, mock_http_handler):
+        """Accepts (path, query_params, handler) signature from router."""
+        payload = {
+            "task": "Evaluate architecture tradeoffs for scale",
+            "scenarios": [{"name": "baseline"}],
+        }
+        matrix_handler.read_json_body_validated = MagicMock(return_value=(payload, None))
+        matrix_handler.get_auth_context = AsyncMock(return_value=MagicMock())
+        matrix_handler.check_permission = MagicMock()
+        matrix_handler._run_matrix_debate = AsyncMock(
+            return_value=HandlerResult(
+                status_code=200,
+                content_type="application/json",
+                body=b"{}",
+            )
+        )
+
+        result = await matrix_handler.handle_post(
+            "/api/v1/debates/matrix",
+            {},
+            mock_http_handler,
+        )
+
+        assert result.status_code == 200
+        matrix_handler._run_matrix_debate.assert_awaited_once_with(mock_http_handler, payload)
 
     @pytest.mark.asyncio
     async def test_returns_400_without_task(self, matrix_handler, mock_http_handler):

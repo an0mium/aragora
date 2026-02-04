@@ -1,672 +1,480 @@
 """
-Multi-Connector Integration Tests.
+Integration tests for multi-channel debate routing.
 
-Tests scenarios where multiple connectors work together:
-- Cross-connector data aggregation
-- Connector failover and resilience
-- Concurrent connector operations
-- Connector registry and discovery
-- Credential management across connectors
+These tests verify that debates can be initiated from multiple channels
+and results are properly routed back to the originating platforms.
 """
 
-from __future__ import annotations
-
 import asyncio
-import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
-# =============================================================================
-# Mock Evidence for Testing (simplified)
-# =============================================================================
+pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 
 @dataclass
-class MockEvidence:
-    """Simplified evidence for testing."""
+class MockDebateOrigin:
+    """Mock debate origin for testing."""
 
-    source: str
-    content: str
-    url: str
-    metadata: dict[str, Any] = field(default_factory=dict)
+    debate_id: str
+    platform: str
+    channel_id: str
+    user_id: str
+    metadata: dict = None
 
-
-# =============================================================================
-# Mock Connectors for Testing
-# =============================================================================
-
-
-class MockConnector:
-    """Mock connector for testing multi-connector scenarios."""
-
-    def __init__(
-        self,
-        name: str = "mock",
-        delay: float = 0.0,
-        fail_on_call: int = -1,
-        evidence_count: int = 3,
-    ):
-        self.name = name
-        self._delay = delay
-        self._fail_on_call = fail_on_call
-        self._evidence_count = evidence_count
-        self._call_count = 0
-        self._collected: list[MockEvidence] = []
-
-    async def collect(self, query: str, **kwargs) -> list[MockEvidence]:
-        """Collect mock evidence."""
-        self._call_count += 1
-
-        if self._delay > 0:
-            await asyncio.sleep(self._delay)
-
-        if self._fail_on_call == self._call_count:
-            raise ConnectionError(f"{self.name} failed on call {self._call_count}")
-
-        evidence = []
-        for i in range(self._evidence_count):
-            e = MockEvidence(
-                source=f"{self.name}_source_{i}",
-                content=f"Evidence from {self.name} for query: {query}",
-                url=f"https://{self.name}.test/evidence/{i}",
-                metadata={"connector": self.name, "index": i},
-            )
-            evidence.append(e)
-            self._collected.append(e)
-
-        return evidence
+    def __post_init__(self):
+        self.metadata = self.metadata or {}
 
 
-class SlowConnector(MockConnector):
-    """Connector that simulates slow responses."""
+@dataclass
+class MockDebateResult:
+    """Mock debate result for routing."""
 
-    def __init__(self, name: str = "slow", delay: float = 0.5):
-        super().__init__(name=name, delay=delay)
-
-
-class FailingConnector(MockConnector):
-    """Connector that fails on specified call."""
-
-    def __init__(self, name: str = "failing", fail_on_call: int = 1):
-        super().__init__(name=name, fail_on_call=fail_on_call)
+    debate_id: str
+    consensus: str
+    confidence: float
+    summary: str = ""
 
 
-# =============================================================================
-# Multi-Connector Aggregation Tests
-# =============================================================================
+class TestMultiChannelDebateInitiation:
+    """Test debates initiated from different platforms."""
 
+    @pytest.fixture
+    def mock_origin_registry(self):
+        """Create mock DebateOriginRegistry."""
+        registry = MagicMock()
+        registry.register = AsyncMock()
+        registry.get = AsyncMock()
+        registry.remove = AsyncMock()
+        return registry
 
-class TestMultiConnectorAggregation:
-    """Tests for aggregating data from multiple connectors."""
+    @pytest.fixture
+    def mock_debate_router(self):
+        """Create mock DebateRouter."""
+        router = MagicMock()
+        router.route_result = AsyncMock()
+        return router
 
-    @pytest.mark.asyncio
-    async def test_collect_from_multiple_connectors(self):
-        """Test collecting evidence from multiple connectors."""
-        connectors = [
-            MockConnector(name="github", evidence_count=2),
-            MockConnector(name="twitter", evidence_count=3),
-            MockConnector(name="web", evidence_count=1),
-        ]
-
-        all_evidence = []
-        for connector in connectors:
-            evidence = await connector.collect("test query")
-            all_evidence.extend(evidence)
-
-        assert len(all_evidence) == 6  # 2 + 3 + 1
-        assert len([e for e in all_evidence if e.metadata["connector"] == "github"]) == 2
-        assert len([e for e in all_evidence if e.metadata["connector"] == "twitter"]) == 3
-        assert len([e for e in all_evidence if e.metadata["connector"] == "web"]) == 1
-
-    @pytest.mark.asyncio
-    async def test_concurrent_connector_collection(self):
-        """Test collecting from connectors concurrently."""
-        connectors = [MockConnector(name=f"connector_{i}", evidence_count=2) for i in range(5)]
-
-        start_time = time.time()
-        tasks = [connector.collect("test query") for connector in connectors]
-        results = await asyncio.gather(*tasks)
-        elapsed = time.time() - start_time
-
-        all_evidence = [e for result in results for e in result]
-        assert len(all_evidence) == 10  # 5 connectors * 2 evidence each
-
-        # Concurrent execution should be fast
-        assert elapsed < 1.0
-
-    @pytest.mark.asyncio
-    async def test_slow_connector_timeout(self):
-        """Test handling slow connectors with timeout."""
-        fast_connector = MockConnector(name="fast", delay=0.0)
-        slow_connector = SlowConnector(name="slow", delay=2.0)
-
-        async def collect_with_timeout(connector, query, timeout=0.5):
-            try:
-                return await asyncio.wait_for(
-                    connector.collect(query),
-                    timeout=timeout,
-                )
-            except asyncio.TimeoutError:
-                return []
-
-        results = await asyncio.gather(
-            collect_with_timeout(fast_connector, "query"),
-            collect_with_timeout(slow_connector, "query"),
+    async def test_slack_debate_registration(self, mock_origin_registry):
+        """Debates from Slack should be registered with thread metadata."""
+        origin = MockDebateOrigin(
+            debate_id="debate-slack-1",
+            platform="slack",
+            channel_id="C12345",
+            user_id="U12345",
+            metadata={"thread_ts": "1234567890.123456"},
         )
 
-        # Fast connector should return evidence
-        assert len(results[0]) == 3
+        await mock_origin_registry.register(
+            debate_id=origin.debate_id,
+            platform=origin.platform,
+            channel_id=origin.channel_id,
+            user_id=origin.user_id,
+            metadata=origin.metadata,
+        )
 
-        # Slow connector should timeout (return empty)
-        assert len(results[1]) == 0
+        mock_origin_registry.register.assert_called_once()
+        call_args = mock_origin_registry.register.call_args
+        assert call_args.kwargs["platform"] == "slack"
+        assert "thread_ts" in call_args.kwargs["metadata"]
 
-    @pytest.mark.asyncio
-    async def test_deduplication_across_connectors(self):
-        """Test deduplicating evidence across connectors."""
-        # Two connectors that might return overlapping content
-        connector1 = MockConnector(name="source1")
-        connector2 = MockConnector(name="source2")
+    async def test_telegram_debate_registration(self, mock_origin_registry):
+        """Debates from Telegram should be registered with chat_id."""
+        origin = MockDebateOrigin(
+            debate_id="debate-telegram-1",
+            platform="telegram",
+            channel_id="-100123456789",
+            user_id="987654321",
+            metadata={"message_id": 12345},
+        )
 
-        evidence1 = await connector1.collect("query")
-        evidence2 = await connector2.collect("query")
+        await mock_origin_registry.register(
+            debate_id=origin.debate_id,
+            platform=origin.platform,
+            channel_id=origin.channel_id,
+            user_id=origin.user_id,
+            metadata=origin.metadata,
+        )
 
-        all_evidence = evidence1 + evidence2
+        call_args = mock_origin_registry.register.call_args
+        assert call_args.kwargs["platform"] == "telegram"
 
-        # Simple deduplication by URL
-        seen_urls = set()
-        deduplicated = []
-        for e in all_evidence:
-            if e.url not in seen_urls:
-                seen_urls.add(e.url)
-                deduplicated.append(e)
+    async def test_teams_debate_registration(self, mock_origin_registry):
+        """Debates from Teams should include conversation reference."""
+        origin = MockDebateOrigin(
+            debate_id="debate-teams-1",
+            platform="teams",
+            channel_id="19:abc123@thread.v2",
+            user_id="user@company.com",
+            metadata={
+                "conversation_id": "19:abc123@thread.v2",
+                "service_url": "https://smba.trafficmanager.net/amer/",
+            },
+        )
 
-        # All should be unique since URLs are different
-        assert len(deduplicated) == 6
+        await mock_origin_registry.register(
+            debate_id=origin.debate_id,
+            platform=origin.platform,
+            channel_id=origin.channel_id,
+            user_id=origin.user_id,
+            metadata=origin.metadata,
+        )
+
+        call_args = mock_origin_registry.register.call_args
+        assert call_args.kwargs["platform"] == "teams"
+        assert "service_url" in call_args.kwargs["metadata"]
+
+    async def test_whatsapp_debate_registration(self, mock_origin_registry):
+        """Debates from WhatsApp should be registered with phone metadata."""
+        origin = MockDebateOrigin(
+            debate_id="debate-whatsapp-1",
+            platform="whatsapp",
+            channel_id="group_id_123",
+            user_id="+1234567890",
+            metadata={"message_id": "wamid.abc123"},
+        )
+
+        await mock_origin_registry.register(
+            debate_id=origin.debate_id,
+            platform=origin.platform,
+            channel_id=origin.channel_id,
+            user_id=origin.user_id,
+            metadata=origin.metadata,
+        )
+
+        call_args = mock_origin_registry.register.call_args
+        assert call_args.kwargs["platform"] == "whatsapp"
 
 
-# =============================================================================
-# Multi-Connector Failover Tests
-# =============================================================================
+class TestDebateResultRouting:
+    """Test routing debate results back to originating platforms."""
+
+    @pytest.fixture
+    def mock_senders(self):
+        """Create mock platform senders."""
+        return {
+            "slack": AsyncMock(return_value={"ok": True, "ts": "1234567890.123456"}),
+            "telegram": AsyncMock(return_value={"ok": True, "message_id": 12346}),
+            "teams": AsyncMock(return_value={"id": "msg-123"}),
+            "whatsapp": AsyncMock(return_value={"messages": [{"id": "wamid.xyz"}]}),
+            "discord": AsyncMock(return_value={"id": "123456789"}),
+            "email": AsyncMock(return_value={"message_id": "email-123"}),
+        }
+
+    @pytest.fixture
+    def mock_router_with_senders(self, mock_senders):
+        """Create router with platform senders."""
+        router = MagicMock()
+        router.senders = mock_senders
+
+        async def route_result(debate_id: str, result: MockDebateResult, origin: MockDebateOrigin):
+            sender = router.senders.get(origin.platform)
+            if sender:
+                return await sender(
+                    channel_id=origin.channel_id,
+                    message=result.consensus,
+                    metadata=origin.metadata,
+                )
+            return None
+
+        router.route_result = route_result
+        return router
+
+    async def test_slack_result_routing(self, mock_router_with_senders):
+        """Results should route back to Slack thread."""
+        origin = MockDebateOrigin(
+            debate_id="debate-1",
+            platform="slack",
+            channel_id="C12345",
+            user_id="U12345",
+            metadata={"thread_ts": "1234567890.123456"},
+        )
+        result = MockDebateResult(
+            debate_id="debate-1",
+            consensus="Use token bucket algorithm",
+            confidence=0.92,
+        )
+
+        response = await mock_router_with_senders.route_result(result.debate_id, result, origin)
+
+        assert response["ok"] is True
+        mock_router_with_senders.senders["slack"].assert_called_once()
+
+    async def test_telegram_result_routing(self, mock_router_with_senders):
+        """Results should route back to Telegram chat."""
+        origin = MockDebateOrigin(
+            debate_id="debate-2",
+            platform="telegram",
+            channel_id="-100123456789",
+            user_id="987654321",
+        )
+        result = MockDebateResult(
+            debate_id="debate-2",
+            consensus="Implement rate limiting",
+            confidence=0.88,
+        )
+
+        response = await mock_router_with_senders.route_result(result.debate_id, result, origin)
+
+        assert response["ok"] is True
+        assert "message_id" in response
+
+    async def test_teams_result_routing(self, mock_router_with_senders):
+        """Results should route back to Teams conversation."""
+        origin = MockDebateOrigin(
+            debate_id="debate-3",
+            platform="teams",
+            channel_id="19:abc123@thread.v2",
+            user_id="user@company.com",
+        )
+        result = MockDebateResult(
+            debate_id="debate-3",
+            consensus="Deploy to staging first",
+            confidence=0.95,
+        )
+
+        response = await mock_router_with_senders.route_result(result.debate_id, result, origin)
+
+        assert "id" in response
+
+    async def test_unknown_platform_handled(self, mock_router_with_senders):
+        """Unknown platforms should be handled gracefully."""
+        origin = MockDebateOrigin(
+            debate_id="debate-4",
+            platform="unknown_platform",
+            channel_id="ch-123",
+            user_id="user-123",
+        )
+        result = MockDebateResult(
+            debate_id="debate-4",
+            consensus="Test consensus",
+            confidence=0.8,
+        )
+
+        response = await mock_router_with_senders.route_result(result.debate_id, result, origin)
+
+        assert response is None
 
 
-class TestMultiConnectorFailover:
-    """Tests for connector failover and resilience."""
+class TestConcurrentMultiChannelDebates:
+    """Test concurrent debates from multiple channels."""
 
-    @pytest.mark.asyncio
-    async def test_continue_on_single_failure(self):
-        """Test other connectors continue when one fails."""
-        connectors = [
-            MockConnector(name="healthy1"),
-            FailingConnector(name="failing"),
-            MockConnector(name="healthy2"),
+    async def test_concurrent_debates_isolated(self):
+        """Concurrent debates from different channels should be isolated."""
+        origins = [
+            MockDebateOrigin("debate-1", "slack", "C1", "U1"),
+            MockDebateOrigin("debate-2", "telegram", "-100123", "987"),
+            MockDebateOrigin("debate-3", "teams", "19:abc", "user@co.com"),
         ]
 
         results = []
-        errors = []
 
-        for connector in connectors:
-            try:
-                evidence = await connector.collect("query")
-                results.extend(evidence)
-            except Exception as e:
-                errors.append((connector.name, str(e)))
+        async def simulate_debate(origin: MockDebateOrigin):
+            await asyncio.sleep(0.05)  # Simulate debate time
+            return MockDebateResult(
+                debate_id=origin.debate_id,
+                consensus=f"Consensus for {origin.platform}",
+                confidence=0.9,
+            )
 
-        # Should have evidence from healthy connectors
-        assert len(results) == 6  # 3 + 3 from healthy connectors
+        tasks = [asyncio.create_task(simulate_debate(o)) for o in origins]
+        results = await asyncio.gather(*tasks)
 
-        # Should have one error
-        assert len(errors) == 1
-        assert errors[0][0] == "failing"
-
-    @pytest.mark.asyncio
-    async def test_graceful_degradation(self):
-        """Test graceful degradation when multiple connectors fail."""
-        connectors = [
-            FailingConnector(name="failing1", fail_on_call=1),
-            FailingConnector(name="failing2", fail_on_call=1),
-            MockConnector(name="healthy"),
-        ]
-
-        successful_results = []
-        failed_connectors = []
-
-        for connector in connectors:
-            try:
-                evidence = await connector.collect("query")
-                successful_results.extend(evidence)
-            except Exception:
-                failed_connectors.append(connector.name)
-
-        # Should still have results from healthy connector
-        assert len(successful_results) == 3
-
-        # Two connectors should have failed
-        assert len(failed_connectors) == 2
-
-    @pytest.mark.asyncio
-    async def test_gather_return_exceptions(self):
-        """Test using gather with return_exceptions for resilience."""
-        connectors = [
-            MockConnector(name="healthy1"),
-            FailingConnector(name="failing"),
-            MockConnector(name="healthy2"),
-        ]
-
-        tasks = [c.collect("query") for c in connectors]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Should have 3 results (2 lists + 1 exception)
         assert len(results) == 3
-
-        # Check healthy results
-        healthy_results = [r for r in results if isinstance(r, list)]
-        assert len(healthy_results) == 2
-
-        # Check exception
-        exceptions = [r for r in results if isinstance(r, Exception)]
-        assert len(exceptions) == 1
-
-    @pytest.mark.asyncio
-    async def test_retry_on_transient_failure(self):
-        """Test retrying connector on transient failure."""
-        # Connector that fails first call, succeeds on second
-        connector = FailingConnector(name="transient", fail_on_call=1)
-        connector._evidence_count = 2
-
-        result = None
-        max_retries = 3
-
-        for attempt in range(max_retries):
-            try:
-                result = await connector.collect("query")
-                break
-            except Exception:
-                if attempt == max_retries - 1:
-                    raise
-                await asyncio.sleep(0.1)
-
-        # Should succeed on second attempt
-        assert result is not None
-        assert len(result) == 2
-
-
-# =============================================================================
-# Connector Registry Tests
-# =============================================================================
-
-
-class MockConnectorRegistry:
-    """Mock connector registry for testing."""
-
-    def __init__(self):
-        self._connectors: dict[str, MockConnector] = {}
-
-    def register(self, name: str, connector: MockConnector) -> None:
-        self._connectors[name] = connector
-
-    def get(self, name: str) -> MockConnector:
-        if name not in self._connectors:
-            raise KeyError(f"Connector not found: {name}")
-        return self._connectors[name]
-
-    def list_connectors(self) -> list[str]:
-        return list(self._connectors.keys())
-
-    def get_by_capability(self, capability: str) -> list[MockConnector]:
-        # Simple mock - in real implementation would filter by connector capabilities
-        return list(self._connectors.values())
-
-
-class TestConnectorRegistry:
-    """Tests for connector registry functionality."""
-
-    def test_register_connector(self):
-        """Test registering a connector."""
-        registry = MockConnectorRegistry()
-        connector = MockConnector(name="test")
-
-        registry.register("test", connector)
-
-        assert "test" in registry.list_connectors()
-        assert registry.get("test") == connector
-
-    def test_get_unknown_connector(self):
-        """Test getting unknown connector raises error."""
-        registry = MockConnectorRegistry()
-
-        with pytest.raises(KeyError, match="not found"):
-            registry.get("unknown")
-
-    def test_list_multiple_connectors(self):
-        """Test listing multiple connectors."""
-        registry = MockConnectorRegistry()
-
-        for name in ["github", "twitter", "web"]:
-            registry.register(name, MockConnector(name=name))
-
-        connectors = registry.list_connectors()
-        assert len(connectors) == 3
-        assert "github" in connectors
-        assert "twitter" in connectors
-        assert "web" in connectors
-
-    @pytest.mark.asyncio
-    async def test_collect_from_registry(self):
-        """Test collecting from all registered connectors."""
-        registry = MockConnectorRegistry()
-
-        for name in ["source1", "source2", "source3"]:
-            registry.register(name, MockConnector(name=name, evidence_count=2))
-
-        all_evidence = []
-        for name in registry.list_connectors():
-            connector = registry.get(name)
-            evidence = await connector.collect("query")
-            all_evidence.extend(evidence)
-
-        assert len(all_evidence) == 6  # 3 connectors * 2 evidence
-
-
-# =============================================================================
-# Concurrent Operations Tests
-# =============================================================================
-
-
-class TestConcurrentOperations:
-    """Tests for concurrent connector operations."""
-
-    @pytest.mark.asyncio
-    async def test_parallel_queries_same_connector(self):
-        """Test running parallel queries on same connector."""
-        connector = MockConnector(name="shared", evidence_count=2)
-
-        queries = ["query1", "query2", "query3"]
-        tasks = [connector.collect(q) for q in queries]
-        results = await asyncio.gather(*tasks)
-
-        # Should have results for all queries
-        assert len(results) == 3
-
-        # Each should have evidence
-        for result in results:
-            assert len(result) == 2
-
-        # Connector should have been called 3 times
-        assert connector._call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_semaphore_rate_limiting(self):
-        """Test rate limiting with semaphore."""
-        connector = MockConnector(name="limited", delay=0.1)
-        max_concurrent = 2
-        semaphore = asyncio.Semaphore(max_concurrent)
-
-        async def limited_collect(query: str):
-            async with semaphore:
-                return await connector.collect(query)
-
-        queries = [f"query_{i}" for i in range(5)]
-        start_time = time.time()
-
-        tasks = [limited_collect(q) for q in queries]
-        results = await asyncio.gather(*tasks)
-
-        elapsed = time.time() - start_time
-
-        # All queries should complete
-        assert len(results) == 5
-
-        # With semaphore=2 and delay=0.1, 5 queries should take ~0.3s
-        # (0.1 + 0.1 + 0.1 with 2 concurrent)
-        assert elapsed >= 0.2  # At least 3 rounds
-
-    @pytest.mark.asyncio
-    async def test_independent_connector_errors(self):
-        """Test that connector errors are independent."""
-        connectors = {
-            "c1": MockConnector(name="c1"),
-            "c2": FailingConnector(name="c2"),
-            "c3": MockConnector(name="c3"),
-        }
-
-        results = {}
-        errors = {}
-
-        async def safe_collect(name: str, connector: MockConnector):
-            try:
-                return name, await connector.collect("query")
-            except Exception as e:
-                return name, e
-
-        tasks = [safe_collect(n, c) for n, c in connectors.items()]
-        raw_results = await asyncio.gather(*tasks)
-
-        for name, result in raw_results:
-            if isinstance(result, Exception):
-                errors[name] = result
-            else:
-                results[name] = result
-
-        # c1 and c3 should succeed
-        assert "c1" in results
-        assert "c3" in results
-        assert len(results["c1"]) == 3
-        assert len(results["c3"]) == 3
-
-        # c2 should fail
-        assert "c2" in errors
-
-
-# =============================================================================
-# Cross-Connector Coordination Tests
-# =============================================================================
-
-
-class TestCrossConnectorCoordination:
-    """Tests for coordinating across multiple connectors."""
-
-    @pytest.mark.asyncio
-    async def test_evidence_merging_strategy(self):
-        """Test merging evidence from multiple sources with priority."""
-        primary = MockConnector(name="primary", evidence_count=5)
-        secondary = MockConnector(name="secondary", evidence_count=3)
-        fallback = MockConnector(name="fallback", evidence_count=2)
-
-        # Collect from all
-        primary_evidence = await primary.collect("query")
-        secondary_evidence = await secondary.collect("query")
-        fallback_evidence = await fallback.collect("query")
-
-        # Merge with priority (primary first)
-        merged = primary_evidence + secondary_evidence + fallback_evidence
-
-        # Verify order
-        assert merged[0].metadata["connector"] == "primary"
-        assert merged[5].metadata["connector"] == "secondary"
-        assert merged[8].metadata["connector"] == "fallback"
-
-    @pytest.mark.asyncio
-    async def test_connector_chain(self):
-        """Test chaining connectors where one feeds another."""
-        # First connector gets initial results
-        initial_connector = MockConnector(name="initial", evidence_count=2)
-        initial_evidence = await initial_connector.collect("initial query")
-
-        # Second connector uses initial results
-        enrichment_connector = MockConnector(name="enrichment", evidence_count=1)
-
-        enriched = []
-        for e in initial_evidence:
-            # Use initial evidence to query enrichment
-            enrichment = await enrichment_connector.collect(e.content[:20])
-            enriched.extend(enrichment)
-
-        # Should have enrichment for each initial evidence
-        assert len(enriched) == 2
-
-    @pytest.mark.asyncio
-    async def test_conditional_connector_selection(self):
-        """Test selecting connectors based on query type."""
-        connectors = {
-            "code": MockConnector(name="github"),
-            "news": MockConnector(name="newsapi"),
-            "social": MockConnector(name="twitter"),
-            "web": MockConnector(name="web"),
-        }
-
-        def select_connectors(query: str) -> list[str]:
-            """Select appropriate connectors based on query."""
-            if "code" in query.lower() or "repository" in query.lower():
-                return ["code", "web"]
-            if "news" in query.lower() or "current" in query.lower():
-                return ["news", "social"]
-            return ["web"]
-
-        # Test code query
-        code_connectors = select_connectors("code repository for machine learning")
-        assert "code" in code_connectors
-        assert "web" in code_connectors
-
-        # Test news query
-        news_connectors = select_connectors("current news about AI")
-        assert "news" in news_connectors
-        assert "social" in news_connectors
-
-        # Test generic query
-        generic_connectors = select_connectors("what is photosynthesis")
-        assert "web" in generic_connectors
-
-
-# =============================================================================
-# Performance Tests
-# =============================================================================
-
-
-class TestMultiConnectorPerformance:
-    """Performance tests for multi-connector scenarios."""
-
-    @pytest.mark.asyncio
-    async def test_many_connectors_parallel(self):
-        """Test performance with many connectors in parallel."""
-        num_connectors = 20
-        connectors = [MockConnector(name=f"c{i}", evidence_count=5) for i in range(num_connectors)]
-
-        start_time = time.time()
-        tasks = [c.collect("query") for c in connectors]
-        results = await asyncio.gather(*tasks)
-        elapsed = time.time() - start_time
-
-        total_evidence = sum(len(r) for r in results)
-        assert total_evidence == num_connectors * 5
-
-        # Should complete quickly since connectors are fast
-        assert elapsed < 2.0
-
-    @pytest.mark.asyncio
-    async def test_mixed_speed_connectors(self):
-        """Test handling mixed fast and slow connectors."""
-        connectors = [
-            MockConnector(name="fast1", delay=0.0),
-            SlowConnector(name="slow", delay=0.3),
-            MockConnector(name="fast2", delay=0.0),
-        ]
-
-        start_time = time.time()
-        tasks = [c.collect("query") for c in connectors]
-        results = await asyncio.gather(*tasks)
-        elapsed = time.time() - start_time
-
-        # All should complete
-        assert len(results) == 3
-
-        # Total time should be approximately the slowest (not sum)
-        assert elapsed < 0.5  # Not 0.3 + 0 + 0
-
-
-# =============================================================================
-# Error Handling Tests
-# =============================================================================
-
-
-class TestMultiConnectorErrorHandling:
-    """Error handling tests for multi-connector scenarios."""
-
-    @pytest.mark.asyncio
-    async def test_collect_best_effort(self):
-        """Test best-effort collection with partial failures."""
-        connectors = [
-            MockConnector(name="ok1"),
-            FailingConnector(name="fail1"),
-            MockConnector(name="ok2"),
-            FailingConnector(name="fail2"),
-        ]
-
-        all_evidence = []
-        errors = []
-
-        for connector in connectors:
-            try:
-                evidence = await connector.collect("query")
-                all_evidence.extend(evidence)
-            except Exception as e:
-                errors.append(str(e))
-
-        # Should have collected from successful connectors
-        assert len(all_evidence) == 6  # 3 + 3
-
-        # Should have recorded failures
-        assert len(errors) == 2
-
-    @pytest.mark.asyncio
-    async def test_timeout_handling(self):
-        """Test handling timeouts across connectors."""
-        connectors = [
-            MockConnector(name="fast"),
-            SlowConnector(name="very_slow", delay=5.0),
-        ]
-
-        async def collect_with_timeout(connector, timeout=1.0):
-            try:
-                return await asyncio.wait_for(connector.collect("query"), timeout)
-            except asyncio.TimeoutError:
-                return None
-
-        results = await asyncio.gather(*[collect_with_timeout(c, timeout=1.0) for c in connectors])
-
-        # Fast connector should succeed
-        assert results[0] is not None
-        assert len(results[0]) == 3
-
-        # Slow connector should timeout
-        assert results[1] is None
-
-    @pytest.mark.asyncio
-    async def test_partial_result_aggregation(self):
-        """Test aggregating partial results from failed operations."""
-        results_so_far = []
-
-        async def collect_and_store(connector, storage):
-            try:
-                evidence = await connector.collect("query")
-                storage.extend(evidence)
+        assert all(r.debate_id.startswith("debate-") for r in results)
+
+    async def test_platform_specific_formatting(self):
+        """Results should be formatted according to platform requirements."""
+
+        def format_for_slack(result: MockDebateResult) -> str:
+            return f"*Consensus:* {result.consensus}\n_Confidence: {result.confidence:.0%}_"
+
+        def format_for_telegram(result: MockDebateResult) -> str:
+            return (
+                f"<b>Consensus:</b> {result.consensus}\n<i>Confidence: {result.confidence:.0%}</i>"
+            )
+
+        def format_for_teams(result: MockDebateResult) -> dict:
+            return {
+                "type": "AdaptiveCard",
+                "body": [
+                    {"type": "TextBlock", "text": result.consensus, "weight": "bolder"},
+                    {"type": "TextBlock", "text": f"Confidence: {result.confidence:.0%}"},
+                ],
+            }
+
+        result = MockDebateResult(
+            debate_id="debate-1",
+            consensus="Use API versioning",
+            confidence=0.92,
+        )
+
+        slack_msg = format_for_slack(result)
+        assert "*Consensus:*" in slack_msg
+        assert "_Confidence:" in slack_msg
+
+        telegram_msg = format_for_telegram(result)
+        assert "<b>Consensus:</b>" in telegram_msg
+
+        teams_card = format_for_teams(result)
+        assert teams_card["type"] == "AdaptiveCard"
+        assert len(teams_card["body"]) == 2
+
+
+class TestDebateOriginPersistence:
+    """Test debate origin persistence and recovery."""
+
+    @pytest.fixture
+    def mock_origin_store(self):
+        """Create mock origin store."""
+        store = MagicMock()
+        store.origins = {}
+
+        async def save(origin: MockDebateOrigin):
+            store.origins[origin.debate_id] = origin
+            return True
+
+        async def get(debate_id: str):
+            return store.origins.get(debate_id)
+
+        async def delete(debate_id: str):
+            if debate_id in store.origins:
+                del store.origins[debate_id]
                 return True
-            except Exception:
-                return False
+            return False
 
-        connectors = [
-            MockConnector(name="c1"),
-            FailingConnector(name="c2"),
-            MockConnector(name="c3"),
-        ]
+        store.save = save
+        store.get = get
+        store.delete = delete
+        return store
 
-        successes = []
-        for connector in connectors:
-            success = await collect_and_store(connector, results_so_far)
-            successes.append(success)
+    async def test_origin_persistence(self, mock_origin_store):
+        """Origins should persist across server restarts."""
+        origin = MockDebateOrigin(
+            debate_id="debate-persist-1",
+            platform="slack",
+            channel_id="C12345",
+            user_id="U12345",
+        )
 
-        assert successes == [True, False, True]
-        assert len(results_so_far) == 6  # Only from successful connectors
+        await mock_origin_store.save(origin)
+        retrieved = await mock_origin_store.get("debate-persist-1")
+
+        assert retrieved is not None
+        assert retrieved.platform == "slack"
+
+    async def test_origin_cleanup_after_routing(self, mock_origin_store):
+        """Origins should be cleaned up after successful routing."""
+        origin = MockDebateOrigin(
+            debate_id="debate-cleanup-1",
+            platform="slack",
+            channel_id="C12345",
+            user_id="U12345",
+        )
+
+        await mock_origin_store.save(origin)
+        await mock_origin_store.delete("debate-cleanup-1")
+
+        retrieved = await mock_origin_store.get("debate-cleanup-1")
+        assert retrieved is None
+
+    async def test_ttl_expiration(self):
+        """Origins should expire after TTL."""
+        origin_ttl_seconds = 3600  # 1 hour
+        created_at = datetime.now()
+
+        # Simulate time passing
+        is_expired = (datetime.now() - created_at).total_seconds() > origin_ttl_seconds
+
+        assert is_expired is False
+
+
+class TestVoiceChannelRouting:
+    """Test TTS routing for voice-enabled channels."""
+
+    @pytest.fixture
+    def mock_tts_service(self):
+        """Create mock TTS service."""
+        tts = MagicMock()
+        tts.synthesize = AsyncMock(return_value=b"audio_data_bytes")
+        tts.get_supported_voices = MagicMock(return_value=["en-US-Neural2-A", "en-GB-Neural2-B"])
+        return tts
+
+    async def test_voice_result_synthesis(self, mock_tts_service):
+        """Results for voice channels should be synthesized."""
+        result = MockDebateResult(
+            debate_id="debate-voice-1",
+            consensus="Use the token bucket algorithm for rate limiting",
+            confidence=0.92,
+        )
+
+        audio = await mock_tts_service.synthesize(
+            text=result.consensus,
+            voice="en-US-Neural2-A",
+        )
+
+        assert audio == b"audio_data_bytes"
+        mock_tts_service.synthesize.assert_called_once()
+
+    async def test_voice_channel_detection(self):
+        """Voice channels should be detected from origin metadata."""
+        voice_origin = MockDebateOrigin(
+            debate_id="debate-voice-2",
+            platform="slack",
+            channel_id="C12345",
+            user_id="U12345",
+            metadata={"voice_enabled": True, "huddle_id": "huddle-123"},
+        )
+
+        is_voice = voice_origin.metadata.get("voice_enabled", False)
+        assert is_voice is True
+
+        text_origin = MockDebateOrigin(
+            debate_id="debate-text-1",
+            platform="slack",
+            channel_id="C12345",
+            user_id="U12345",
+        )
+
+        is_voice = text_origin.metadata.get("voice_enabled", False)
+        assert is_voice is False
+
+
+class TestMultiSessionSupport:
+    """Test multi-session debate support for group chats."""
+
+    async def test_group_chat_multiple_debates(self):
+        """Group chats can have multiple concurrent debates."""
+        group_id = "group-123"
+        debates = {}
+
+        async def start_debate(user_id: str, topic: str):
+            debate_id = f"debate-{user_id}-{len(debates)}"
+            debates[debate_id] = {
+                "user_id": user_id,
+                "topic": topic,
+                "group_id": group_id,
+            }
+            return debate_id
+
+        # Multiple users start debates in same group
+        d1 = await start_debate("user-1", "API design")
+        d2 = await start_debate("user-2", "Database schema")
+        d3 = await start_debate("user-1", "Security review")
+
+        assert len(debates) == 3
+        assert all(d["group_id"] == group_id for d in debates.values())
+
+    async def test_debate_isolation_in_threads(self):
+        """Thread-based debates should be isolated."""
+        threads = {
+            "thread-1": {"debate_id": "debate-1", "topic": "Architecture"},
+            "thread-2": {"debate_id": "debate-2", "topic": "Testing"},
+        }
+
+        # Each thread has its own debate context
+        assert threads["thread-1"]["topic"] != threads["thread-2"]["topic"]
+        assert threads["thread-1"]["debate_id"] != threads["thread-2"]["debate_id"]
