@@ -106,6 +106,18 @@ EXEMPT_HANDLERS = frozenset(
         "ControlPlaneHandler",
         "GauntletHandler",
         "SecurityHandler",
+        # Rate-limited read-only endpoints (public viewing)
+        "ReviewsHandler",
+        "ReplaysHandler",
+        # Feature/metadata discovery endpoints (public API info)
+        "FeaturesHandler",
+        # Admin connectors/streaming (use internal authz or future RBAC)
+        "ConnectorManagementHandler",
+        "StreamingConnectorHandler",
+        # Evolution metrics (read-only, rate-limited)
+        "EvolutionHandler",
+        # Task execution (rate-limited, has internal validation)
+        "TaskExecutionHandler",
     }
 )
 
@@ -127,6 +139,7 @@ RBAC_METHOD_PATTERNS = frozenset(
         "_check_memory_permission",
         "_check_auth",
         "require_auth_or_error",
+        "require_permission_or_error",
         "check_permission",
         "verify_permission",
     }
