@@ -130,6 +130,7 @@ class DebateRequest:
     documents: list[str] = field(default_factory=list)
     enable_verticals: bool = DEFAULT_ENABLE_VERTICALS
     vertical_id: str | None = None
+    context: str | None = None  # Optional context for the debate
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -200,6 +201,7 @@ class DebateRequest:
             documents=_normalize_documents(data.get("documents") or data.get("document_ids") or []),
             enable_verticals=enable_verticals,
             vertical_id=vertical_id,
+            context=data.get("context"),
         )
 
 

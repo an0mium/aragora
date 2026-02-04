@@ -362,6 +362,7 @@ def _build_initial_status(
         "state_cleanup": False,
         "watchdog_task": None,
         "control_plane_coordinator": None,
+        "knowledge_mound": False,
         "km_adapters": False,
         "workflow_checkpoint_persistence": False,
         "shared_control_plane_state": False,
@@ -421,6 +422,7 @@ async def _init_all_components(
     status["mayor_coordinator"] = await init_mayor_coordinator()
 
     # Knowledge and workflow
+    status["knowledge_mound"] = await init_knowledge_mound_from_env()
     status["km_adapters"] = await init_km_adapters()
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
     status["tts_integration"] = await init_tts_integration()

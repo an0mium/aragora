@@ -118,6 +118,7 @@ class DebateConfig:
     )  # Enable vertical specialist injection (auto-injects domain expert, set ARAGORA_ENABLE_VERTICALS=false to disable)
     vertical_id: str | None = None  # Explicit vertical ID (optional, auto-detected if None)
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
+    context: str | None = None  # Optional context for the debate
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.

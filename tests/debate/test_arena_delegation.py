@@ -186,7 +186,9 @@ class MockKnowledgeMoundOperations:
         self._context = context
         self.outcomes_ingested = []
 
-    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> str:
+    async def fetch_knowledge_context(
+        self, task: str, limit: int = 10, auth_context: Any = None
+    ) -> str:
         return self._context
 
     async def ingest_debate_outcome(self, result: Any) -> None:

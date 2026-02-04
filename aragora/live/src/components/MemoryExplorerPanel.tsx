@@ -124,6 +124,15 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
 
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
         const data = await statsRes.value.json();
+        // Normalize tier keys to lowercase for frontend consistency
+        // Backend may return FAST, MEDIUM, SLOW, GLACIAL
+        if (data.tiers) {
+          const normalizedTiers: Record<string, TierStats> = {};
+          for (const [key, value] of Object.entries(data.tiers)) {
+            normalizedTiers[key.toLowerCase()] = value as TierStats;
+          }
+          data.tiers = normalizedTiers;
+        }
         setStats(data);
         setUsingDemoData(false);
       } else {
@@ -143,7 +152,34 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
 
       if (pressureRes.status === 'fulfilled' && pressureRes.value.ok) {
         const data = await pressureRes.value.json();
-        setPressure(data);
+        // Normalize backend response to frontend interface
+        // Backend returns: { pressure, status, tier_utilization: { FAST: { count, limit, utilization } } }
+        // Frontend expects: { fast: { usage, limit }, overall_pressure }
+        if (data.tier_utilization) {
+          const normalized: MemoryPressure = {
+            fast: {
+              usage: data.tier_utilization.FAST?.count || 0,
+              limit: data.tier_utilization.FAST?.limit || 100,
+            },
+            medium: {
+              usage: data.tier_utilization.MEDIUM?.count || 0,
+              limit: data.tier_utilization.MEDIUM?.limit || 500,
+            },
+            slow: {
+              usage: data.tier_utilization.SLOW?.count || 0,
+              limit: data.tier_utilization.SLOW?.limit || 1000,
+            },
+            glacial: {
+              usage: data.tier_utilization.GLACIAL?.count || 0,
+              limit: data.tier_utilization.GLACIAL?.limit || 5000,
+            },
+            overall_pressure: data.pressure || 0,
+          };
+          setPressure(normalized);
+        } else {
+          // Fallback if already in expected format
+          setPressure(data);
+        }
       }
 
       if (archiveRes.status === 'fulfilled' && archiveRes.value.ok) {

@@ -513,6 +513,9 @@ async def validate_backend_connectivity(
     require_redis: bool = False,
     require_database: bool = False,
     timeout_seconds: float = 5.0,
+    enable_retries: bool | None = None,
+    max_retries: int = 3,
+    initial_backoff: float = 1.0,
 ) -> dict[str, Any]:
     """Validate connectivity to all configured backends.
 
@@ -523,6 +526,15 @@ async def validate_backend_connectivity(
         require_redis: If True, fail if Redis is not reachable
         require_database: If True, fail if PostgreSQL is not reachable
         timeout_seconds: Timeout for each connectivity test
+        enable_retries: Enable retry with exponential backoff. If None, uses
+                       ARAGORA_STARTUP_RETRY_ENABLED env var (default: True in production)
+        max_retries: Maximum retry attempts when retries enabled
+        initial_backoff: Initial backoff delay in seconds
+
+    Environment Variables:
+        ARAGORA_STARTUP_RETRY_ENABLED: Set to "false" to disable retries (default: "true")
+        ARAGORA_STARTUP_MAX_RETRIES: Override max_retries (default: 3)
+        ARAGORA_STARTUP_INITIAL_BACKOFF: Override initial_backoff (default: 1.0)
 
     Returns:
         Dictionary with connectivity status:
@@ -530,18 +542,49 @@ async def validate_backend_connectivity(
             "valid": True/False,
             "redis": {"connected": bool, "message": str},
             "database": {"connected": bool, "message": str},
-            "errors": [str, ...]
+            "errors": [str, ...],
+            "retries_enabled": bool
         }
     """
+    import os
+
     errors: list[str] = []
 
-    # Test Redis connectivity
-    redis_ok, redis_msg = await validate_redis_connectivity(timeout_seconds)
+    # Determine if retries should be enabled
+    if enable_retries is None:
+        enable_retries = os.environ.get("ARAGORA_STARTUP_RETRY_ENABLED", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
+    # Allow env var overrides for retry configuration
+    max_retries = int(os.environ.get("ARAGORA_STARTUP_MAX_RETRIES", str(max_retries)))
+    initial_backoff = float(os.environ.get("ARAGORA_STARTUP_INITIAL_BACKOFF", str(initial_backoff)))
+
+    # Test Redis connectivity (with or without retry)
+    if enable_retries and require_redis:
+        redis_ok, redis_msg = await validate_redis_connectivity_with_retry(
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+            initial_backoff=initial_backoff,
+        )
+    else:
+        redis_ok, redis_msg = await validate_redis_connectivity(timeout_seconds)
+
     if not redis_ok and require_redis:
         errors.append(f"Redis connectivity required but failed: {redis_msg}")
 
-    # Test database connectivity
-    db_ok, db_msg = await validate_database_connectivity(timeout_seconds)
+    # Test database connectivity (with or without retry)
+    if enable_retries and require_database:
+        db_ok, db_msg = await validate_database_connectivity_with_retry(
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+            initial_backoff=initial_backoff,
+        )
+    else:
+        db_ok, db_msg = await validate_database_connectivity(timeout_seconds)
+
     if not db_ok and require_database:
         errors.append(f"PostgreSQL connectivity required but failed: {db_msg}")
 
@@ -561,6 +604,7 @@ async def validate_backend_connectivity(
         "redis": {"connected": redis_ok, "message": redis_msg},
         "database": {"connected": db_ok, "message": db_msg},
         "errors": errors,
+        "retries_enabled": enable_retries,
     }
 
 
