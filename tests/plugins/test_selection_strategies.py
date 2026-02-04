@@ -18,6 +18,7 @@ import pytest
 
 from aragora.plugins.selection.protocols import SelectionContext
 from aragora.plugins.selection.strategies import (
+    AHMADRoleAssigner,
     DiverseTeamSelector,
     DomainBasedRoleAssigner,
     ELOWeightedScorer,
@@ -726,6 +727,40 @@ class TestDomainBasedRoleAssigner:
 
         for role in roles.values():
             assert role == "participant"
+
+
+# =============================================================================
+# AHMADRoleAssigner Tests
+# =============================================================================
+
+
+class TestAHMADRoleAssigner:
+    """Tests for adaptive A-HMAD role assignment."""
+
+    def test_assigner_properties(self):
+        """Assigner has correct name and description."""
+        assigner = AHMADRoleAssigner()
+        assert assigner.name == "ahmad"
+        assert "adaptive" in assigner.description.lower()
+
+    def test_assigns_roles_for_team(self, agent_pool, security_requirements, basic_context):
+        """All team members receive a role assignment."""
+        assigner = AHMADRoleAssigner()
+        team = agent_pool[:3]
+
+        roles = assigner.assign_roles(team, security_requirements, basic_context)
+
+        assert roles
+        assert all(agent.name in roles for agent in team)
+
+    def test_phase_uses_fallback(self, agent_pool, security_requirements, basic_context):
+        """Phase-specific roles defer to domain-based fallback."""
+        assigner = AHMADRoleAssigner()
+        team = agent_pool[:3]
+
+        roles = assigner.assign_roles(team, security_requirements, basic_context, phase="design")
+
+        assert roles.get("gemini") == "design_lead"
 
 
 # =============================================================================

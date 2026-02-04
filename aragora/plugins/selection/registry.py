@@ -204,6 +204,7 @@ def reset_selection_registry() -> None:
 def _register_builtins(registry: SelectionPluginRegistry) -> None:
     """Register built-in selection strategies."""
     from aragora.plugins.selection.strategies import (
+        AHMADRoleAssigner,
         DiverseTeamSelector,
         DomainBasedRoleAssigner,
         ELOWeightedScorer,
@@ -222,6 +223,7 @@ def _register_builtins(registry: SelectionPluginRegistry) -> None:
 
     # Role assigners
     registry.register_role_assigner("domain-based", DomainBasedRoleAssigner, set_default=True)
+    registry.register_role_assigner("ahmad", AHMADRoleAssigner)
     registry.register_role_assigner("simple", SimpleRoleAssigner)
 
 

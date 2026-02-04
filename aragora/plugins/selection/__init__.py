@@ -11,6 +11,7 @@ Built-in strategies:
 - ELOWeightedScorer: Default ELO + expertise weighted scoring
 - DiverseTeamSelector: Diversity-aware team selection
 - DomainBasedRoleAssigner: Domain expertise-based role assignment
+- AHMADRoleAssigner: Adaptive role specialization (A-HMAD)
 
 Example custom plugin:
     @register_scorer("my-scorer")
@@ -33,6 +34,7 @@ from aragora.plugins.selection.registry import (
     register_team_selector,
 )
 from aragora.plugins.selection.strategies import (
+    AHMADRoleAssigner,
     DiverseTeamSelector,
     DomainBasedRoleAssigner,
     ELOWeightedScorer,
@@ -54,4 +56,5 @@ __all__ = [
     "ELOWeightedScorer",
     "DiverseTeamSelector",
     "DomainBasedRoleAssigner",
+    "AHMADRoleAssigner",
 ]

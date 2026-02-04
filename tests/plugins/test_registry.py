@@ -698,6 +698,7 @@ class TestBuiltinRegistration:
 
         # Role assigners
         assert "domain-based" in registry._role_assigners
+        assert "ahmad" in registry._role_assigners
         assert "simple" in registry._role_assigners
 
     def test_builtin_scorers_implement_protocol(self):
@@ -730,7 +731,7 @@ class TestBuiltinRegistration:
         reset_selection_registry()
         registry = get_selection_registry()
 
-        for name in ["domain-based", "simple"]:
+        for name in ["domain-based", "ahmad", "simple"]:
             assigner = registry.get_role_assigner(name)
 
             assert isinstance(assigner, RoleAssignerProtocol)

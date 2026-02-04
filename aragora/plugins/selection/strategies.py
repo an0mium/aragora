@@ -476,6 +476,75 @@ class RandomTeamSelector(TeamSelectorProtocol):
         return selected
 
 
+class AHMADRoleAssigner(RoleAssignerProtocol):
+    """
+    Adaptive role assigner using A-HMAD dynamic specialization.
+
+    Uses AHMADRoleSpecializer to select roles based on topic/domain and
+    agent performance history, with domain-based fallback for phases.
+    """
+
+    def __init__(self) -> None:
+        self._fallback = DomainBasedRoleAssigner()
+        try:
+            from aragora.debate.role_specializer import AHMADRoleSpecializer
+
+            self._specializer = AHMADRoleSpecializer()
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.debug("AHMAD role specializer unavailable: %s", exc)
+            self._specializer = None
+
+    @property
+    def name(self) -> str:
+        return "ahmad"
+
+    @property
+    def description(self) -> str:
+        return "Adaptive role specialization using A-HMAD"
+
+    def assign_roles(
+        self,
+        team: list["AgentProfile"],
+        requirements: "TaskRequirements",
+        context: SelectionContext,
+        phase: str | None = None,
+    ) -> dict[str, str]:
+        if not team:
+            return {}
+
+        if phase:
+            return self._fallback.assign_roles(team, requirements, context, phase=phase)
+
+        if not self._specializer:
+            return self._fallback.assign_roles(team, requirements, context)
+
+        roles = self._specializer.analyze_topic(
+            topic=requirements.description or "",
+            domain=requirements.primary_domain,
+        )
+
+        available_agents = [agent.name for agent in team]
+        elo_scores = {agent.name: agent.elo_rating for agent in team}
+        calibration_scores = {agent.name: agent.brier_score for agent in team}
+        domain_scores = {agent.name: agent.expertise for agent in team}
+
+        composition = self._specializer.assign_roles(
+            roles=roles,
+            available_agents=available_agents,
+            elo_scores=elo_scores,
+            calibration_scores=calibration_scores,
+            domain_scores=domain_scores,
+        )
+
+        role_map = {assign.agent_id: assign.role.value for assign in composition.assignments}
+
+        for agent in team:
+            if agent.name not in role_map:
+                role_map[agent.name] = "generalist"
+
+        return role_map
+
+
 class SimpleRoleAssigner(RoleAssignerProtocol):
     """
     Simple role assigner - assigns generic roles.
