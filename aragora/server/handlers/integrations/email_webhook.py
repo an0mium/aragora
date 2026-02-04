@@ -28,10 +28,23 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
-from aragora.server.handlers.base import error_response, json_response
+from aragora.server.handlers.base import HandlerResult, error_response, json_response
 
 if TYPE_CHECKING:
     from aiohttp import web
+
+# Lazy import - try loading email reply loop
+try:
+    from aragora.integrations.email_reply_loop import (
+        EmailReplyLoop,
+        ParsedEmail,
+    )
+
+    _HAS_EMAIL_LOOP = True
+except ImportError:
+    _HAS_EMAIL_LOOP = False
+    EmailReplyLoop = None  # type: ignore[misc,assignment]
+    ParsedEmail = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +62,7 @@ class EmailWebhookHandler:
         self._error_count = 0
         self._last_error: str | None = None
 
-    async def handle_sendgrid(self, request: "web.Request") -> "web.Response":
+    async def handle_sendgrid(self, request: "web.Request") -> HandlerResult:
         """
         Handle SendGrid Inbound Parse webhook.
 
@@ -84,12 +97,8 @@ class EmailWebhookHandler:
             logger.exception("SendGrid webhook error")
             return error_response(f"Internal error: {e}", status=500)
 
-    async def _handle_sendgrid_inbound(self, request: "web.Request") -> "web.Response":
+    async def _handle_sendgrid_inbound(self, request: "web.Request") -> HandlerResult:
         """Handle SendGrid Inbound Parse (multipart form)."""
-        from aragora.integrations.email_reply_loop import (
-            EmailReplyLoop,
-            ParsedEmail,
-        )
 
         data = await request.post()
 
@@ -151,7 +160,7 @@ class EmailWebhookHandler:
                 status=202,
             )  # Still return 2xx to prevent retries
 
-    async def _handle_sendgrid_event(self, request: "web.Request") -> "web.Response":
+    async def _handle_sendgrid_event(self, request: "web.Request") -> HandlerResult:
         """Handle SendGrid Event webhook (JSON)."""
         from aragora.integrations.email_reply_loop import verify_sendgrid_signature
 
@@ -194,7 +203,7 @@ class EmailWebhookHandler:
             }
         )
 
-    async def handle_mailgun(self, request: "web.Request") -> "web.Response":
+    async def handle_mailgun(self, request: "web.Request") -> HandlerResult:
         """
         Handle Mailgun webhook.
 
@@ -205,7 +214,7 @@ class EmailWebhookHandler:
         - signature (timestamp, token, signature)
         """
         try:
-            from aragora.integrations.email_reply_loop import (
+            from aragora.integrations.email_reply_loop import (  # type: ignore[attr-defined]
                 EmailReplyLoop,
                 ParsedEmail,
                 verify_mailgun_signature,
@@ -265,7 +274,7 @@ class EmailWebhookHandler:
             logger.exception("Mailgun webhook error")
             return error_response(f"Internal error: {e}", status=500)
 
-    async def handle_ses(self, request: "web.Request") -> "web.Response":
+    async def handle_ses(self, request: "web.Request") -> HandlerResult:
         """
         Handle AWS SES SNS notification.
 
@@ -300,7 +309,7 @@ class EmailWebhookHandler:
             logger.exception("SES webhook error")
             return error_response(f"Internal error: {e}", status=500)
 
-    async def _confirm_sns_subscription(self, message: dict[str, Any]) -> "web.Response":
+    async def _confirm_sns_subscription(self, message: dict[str, Any]) -> HandlerResult:
         """Auto-confirm SNS subscription."""
         import aiohttp
 
@@ -327,7 +336,7 @@ class EmailWebhookHandler:
             logger.error(f"SNS subscription confirmation error: {e}")
             return error_response("Confirmation error", status=500)
 
-    async def _handle_ses_notification(self, message: dict[str, Any]) -> "web.Response":
+    async def _handle_ses_notification(self, message: dict[str, Any]) -> HandlerResult:
         """Handle SES notification (email receipt or delivery status)."""
         from aragora.integrations.email_reply_loop import (
             verify_ses_signature,
@@ -359,9 +368,8 @@ class EmailWebhookHandler:
         logger.debug(f"SES notification: {notification_type}")
         return json_response({"status": "acknowledged"})
 
-    async def _handle_ses_email_receipt(self, notification: dict[str, Any]) -> "web.Response":
+    async def _handle_ses_email_receipt(self, notification: dict[str, Any]) -> HandlerResult:
         """Handle SES email receipt (for receiving emails via SES)."""
-        from aragora.integrations.email_reply_loop import EmailReplyLoop, ParsedEmail
 
         mail = notification.get("mail", {})
         content = notification.get("content", "")
@@ -440,7 +448,7 @@ class EmailWebhookHandler:
             "last_error": self._last_error,
         }
 
-    async def handle_status(self, request: "web.Request") -> "web.Response":
+    async def handle_status(self, request: "web.Request") -> HandlerResult:
         """Return status and stats for email webhooks."""
         return json_response(
             {
@@ -477,7 +485,7 @@ def register_email_webhook_routes(app: Any) -> EmailWebhookHandler:
                 headers=getattr(result, "headers", None),
             )
         if isinstance(result, web.StreamResponse):
-            return result
+            return result  # type: ignore[return-value]
         return web.json_response(result)
 
     async def _sendgrid(request: "web.Request") -> "web.Response":

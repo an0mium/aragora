@@ -257,7 +257,7 @@ class LocalSchedulerAdapter:
 
     async def get_task_status(self, task_id: str) -> TaskInfo | None:
         """Get task status from local scheduler."""
-        handle = self._scheduler.get_task(task_id)
+        handle = await self._scheduler.get_handle(task_id)
         if handle is None:
             return None
 
@@ -357,15 +357,15 @@ class DistributedSchedulerAdapter:
 
         # Map priority
         priority_map = {
-            Priority.CRITICAL: TaskPriority.CRITICAL,
+            Priority.CRITICAL: TaskPriority.URGENT,
             Priority.HIGH: TaskPriority.HIGH,
             Priority.NORMAL: TaskPriority.NORMAL,
             Priority.LOW: TaskPriority.LOW,
         }
         cp_priority = priority_map.get(priority, TaskPriority.NORMAL)
 
-        # Submit task
-        task = await self._scheduler.submit(
+        # Submit task (returns task_id string)
+        task_id = await self._scheduler.submit(
             task_type=task_type,
             payload=payload,
             priority=cp_priority,
@@ -374,7 +374,7 @@ class DistributedSchedulerAdapter:
         )
 
         return TaskInfo(
-            task_id=task.task_id,
+            task_id=task_id,
             task_type=task_type,
             status=TaskStatus.PENDING,
             priority=priority,
@@ -386,7 +386,7 @@ class DistributedSchedulerAdapter:
         """Get task status from distributed scheduler."""
         from aragora.control_plane.scheduler import TaskStatus as CPTaskStatus
 
-        task = await self._scheduler.get_task(task_id)
+        task = await self._scheduler.get(task_id)
         if task is None:
             return None
 
@@ -402,14 +402,14 @@ class DistributedSchedulerAdapter:
         }
 
         return TaskInfo(
-            task_id=task.task_id,
+            task_id=task.id,
             task_type=task.task_type,
             status=status_map.get(task.status, TaskStatus.PENDING),
             priority=Priority.NORMAL,
             agent_id=task.assigned_agent,
-            created_at=task.created_at,
-            started_at=task.started_at,
-            completed_at=task.completed_at,
+            created_at=datetime.fromtimestamp(task.created_at),
+            started_at=datetime.fromtimestamp(task.started_at) if task.started_at else None,
+            completed_at=datetime.fromtimestamp(task.completed_at) if task.completed_at else None,
             result=task.result,
             error=task.error,
             metadata=task.metadata or {},
@@ -427,25 +427,40 @@ class DistributedSchedulerAdapter:
         limit: int = 100,
     ) -> list[TaskInfo]:
         """List tasks from distributed scheduler."""
-        tasks = await self._scheduler.list_tasks(
-            status=status.value if status else None,
-            agent_id=agent_id,
-            task_type=task_type,
-            limit=limit,
-        )
+        from aragora.control_plane.scheduler import TaskStatus as CPTaskStatus
 
-        return [
-            TaskInfo(
-                task_id=t.task_id,
-                task_type=t.task_type,
-                status=TaskStatus(t.status.value),
-                priority=Priority.NORMAL,
-                agent_id=t.assigned_agent,
-                created_at=t.created_at,
-                metadata=t.metadata or {},
+        if status is not None:
+            cp_status = CPTaskStatus(status.value)
+            raw_tasks = await self._scheduler.list_by_status(
+                status=cp_status,
+                limit=limit,
             )
-            for t in tasks
-        ]
+        else:
+            # No status filter: gather from all statuses
+            raw_tasks = []
+            for cp_s in CPTaskStatus:
+                raw_tasks.extend(await self._scheduler.list_by_status(status=cp_s, limit=limit))
+            raw_tasks = raw_tasks[:limit]
+
+        # Apply client-side filters for agent_id and task_type
+        results: list[TaskInfo] = []
+        for t in raw_tasks:
+            if agent_id and t.assigned_agent != agent_id:
+                continue
+            if task_type and t.task_type != task_type:
+                continue
+            results.append(
+                TaskInfo(
+                    task_id=t.id,
+                    task_type=t.task_type,
+                    status=TaskStatus(t.status.value),
+                    priority=Priority.NORMAL,
+                    agent_id=t.assigned_agent,
+                    created_at=t.created_at,  # type: ignore[arg-type]
+                    metadata=t.metadata or {},
+                )
+            )
+        return results[:limit]
 
     async def get_queue_stats(self) -> dict[str, Any]:
         """Get queue statistics from distributed scheduler."""

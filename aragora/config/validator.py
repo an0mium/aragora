@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     """
     errors: list[str] = []
     warnings: list[str] = []
+    config_summary: dict[str, Any] = {}
 
     # Run basic validation from settings module
     try:
@@ -62,10 +63,9 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
         basic_result = {"errors": [], "warnings": [], "config_summary": {"loaded": True}}
         errors.extend(basic_result.get("errors", []))
         warnings.extend(basic_result.get("warnings", []))
-        config_summary: dict[str, Any] = basic_result.get("config_summary", {})
+        config_summary = cast(dict[str, Any], basic_result.get("config_summary", {}))
     except Exception as e:
         errors.append(f"Basic configuration validation failed: {e}")
-        config_summary: dict[str, Any] = {}
 
     # Additional security checks
     env = os.environ.get("ARAGORA_ENV", "development").lower()

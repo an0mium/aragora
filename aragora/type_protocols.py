@@ -1383,6 +1383,69 @@ class EvidenceCollectorProtocol(Protocol):
 
 
 # =============================================================================
+# Evidence Protocol (breaks connectors.base circular import)
+# =============================================================================
+
+
+class EvidenceProtocol(Protocol):
+    """Protocol for Evidence objects.
+
+    Use this for typing Evidence parameters without importing from
+    aragora.connectors.base, which causes circular imports in 43+ files.
+    """
+
+    id: str
+    source_type: Any
+    source_id: str
+    content: str
+    title: str
+    confidence: float
+    freshness: float
+    authority: float
+    metadata: dict[str, Any]
+
+
+# =============================================================================
+# Stream Event Protocol (breaks server.stream circular import)
+# =============================================================================
+
+
+class StreamEventProtocol(Protocol):
+    """Protocol for stream events.
+
+    Use this for typing StreamEvent parameters without importing from
+    aragora.events.types or aragora.server.stream, which causes
+    circular imports in the events dispatcher and server handlers.
+    """
+
+    type: Any
+    data: dict[str, Any]
+    timestamp: float
+    round: int
+    agent: str
+
+
+# =============================================================================
+# Webhook Config Protocol (breaks storage circular import)
+# =============================================================================
+
+
+class WebhookConfigProtocol(Protocol):
+    """Protocol for webhook configuration.
+
+    Use this for typing WebhookConfig parameters without importing from
+    aragora.integrations.webhooks or aragora.storage.webhook_config_store.
+    """
+
+    name: str
+    url: str
+    secret: str
+    event_types: set[str]
+    timeout_s: float
+    max_retries: int
+
+
+# =============================================================================
 # Callback Types
 # =============================================================================
 
@@ -1482,6 +1545,10 @@ __all__ = [
     "ContinuumMemoryProtocol",
     "PositionTrackerProtocol",
     "EvidenceCollectorProtocol",
+    # Cross-cutting protocols (break circular imports)
+    "EvidenceProtocol",
+    "StreamEventProtocol",
+    "WebhookConfigProtocol",
     # Callback types
     "EventCallback",
     "AsyncEventCallback",

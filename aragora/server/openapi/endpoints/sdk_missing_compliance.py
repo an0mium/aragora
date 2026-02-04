@@ -138,12 +138,11 @@ _TOGGLE_RESULT_SCHEMA = {
 # =============================================================================
 
 SDK_MISSING_COMPLIANCE_ENDPOINTS: dict = {
-    # Compliance endpoints
     "/api/compliance/summary": {
         "get": {
             "tags": ["Compliance"],
             "summary": "Get compliance summary",
-            "description": "Retrieve overall compliance status including SOC2, GDPR, and HIPAA compliance scores.",
+            "description": "Retrieve overall compliance status including SOC2, GDPR, and HIPAA scores.",
             "operationId": "getComplianceSummary",
             "responses": {
                 "200": _ok_response("Compliance summary", _COMPLIANCE_SUMMARY_SCHEMA),
@@ -152,7 +151,6 @@ SDK_MISSING_COMPLIANCE_ENDPOINTS: dict = {
             "security": [{"bearerAuth": []}],
         },
     },
-    # Policies endpoints
     "/api/policies": {
         "get": {
             "tags": ["Policies"],
@@ -186,17 +184,7 @@ SDK_MISSING_COMPLIANCE_ENDPOINTS: dict = {
                             "properties": {
                                 "name": {"type": "string"},
                                 "description": {"type": "string"},
-                                "type": {
-                                    "type": "string",
-                                    "enum": [
-                                        "access_control",
-                                        "data_retention",
-                                        "encryption",
-                                        "audit",
-                                        "rate_limit",
-                                        "custom",
-                                    ],
-                                },
+                                "type": {"type": "string"},
                                 "enabled": {"type": "boolean", "default": True},
                                 "priority": {"type": "integer", "default": 100},
                                 "conditions": {"type": "object"},
@@ -217,195 +205,358 @@ SDK_MISSING_COMPLIANCE_ENDPOINTS: dict = {
     "/api/policies/validate": {
         "post": {
             "tags": ["Policies"],
-            "summary": "POST validate",
+            "summary": "Validate policy configuration",
+            "description": "Validate a policy configuration without creating it.",
             "operationId": "postPoliciesValidate",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["name", "type"],
+                            "properties": {
+                                "name": {"type": "string"},
+                                "type": {"type": "string"},
+                                "conditions": {"type": "object"},
+                            },
+                        }
+                    }
+                },
             },
+            "responses": {
+                "200": _ok_response("Validation result", _VALIDATION_RESULT_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/policies/violations": {
         "get": {
             "tags": ["Policies"],
-            "summary": "GET violations",
+            "summary": "List all policy violations",
+            "description": "Retrieve all active policy violations across the system.",
             "operationId": "getPoliciesViolations",
+            "parameters": [
+                {"name": "severity", "in": "query", "schema": {"type": "string"}},
+                {"name": "status", "in": "query", "schema": {"type": "string"}},
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Violation list", _VIOLATION_LIST_SCHEMA),
+                "401": STANDARD_ERRORS["401"],
             },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/policies/violations/{id}/resolve": {
         "post": {
             "tags": ["Policies"],
-            "summary": "POST resolve",
+            "summary": "Resolve policy violation",
+            "description": "Mark a policy violation as resolved.",
             "operationId": "postViolationsResolve",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "resolution_notes": {"type": "string"},
+                                "resolution_type": {"type": "string"},
+                            },
+                        }
+                    }
+                }
             },
+            "responses": {
+                "200": _ok_response("Resolved violation", _VIOLATION_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/policies/{id}": {
         "delete": {
             "tags": ["Policies"],
-            "summary": "DELETE {id}",
+            "summary": "Delete policy",
+            "description": "Delete a policy by ID.",
             "operationId": "deletePolicies",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Policy deleted", _DELETE_RESULT_SCHEMA),
                 "404": STANDARD_ERRORS["404"],
             },
+            "security": [{"bearerAuth": []}],
         },
         "get": {
             "tags": ["Policies"],
-            "summary": "GET {id}",
-            "operationId": "getPolicies",
+            "summary": "Get policy by ID",
+            "description": "Retrieve a specific policy by its identifier.",
+            "operationId": "getPolicyById",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Policy details", _POLICY_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
+            "security": [{"bearerAuth": []}],
         },
         "patch": {
             "tags": ["Policies"],
-            "summary": "PATCH {id}",
+            "summary": "Update policy",
+            "description": "Partially update a policy configuration.",
             "operationId": "patchPolicies",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "description": {"type": "string"},
+                                "enabled": {"type": "boolean"},
+                            },
+                        }
+                    }
+                }
             },
+            "responses": {
+                "200": _ok_response("Updated policy", _POLICY_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/policies/{id}/disable": {
         "post": {
             "tags": ["Policies"],
-            "summary": "POST disable",
+            "summary": "Disable policy",
+            "description": "Disable a policy without deleting it.",
             "operationId": "postPoliciesDisable",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Policy disabled", _TOGGLE_RESULT_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/policies/{id}/enable": {
         "post": {
             "tags": ["Policies"],
-            "summary": "POST enable",
+            "summary": "Enable policy",
+            "description": "Enable a previously disabled policy.",
             "operationId": "postPoliciesEnable",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Policy enabled", _TOGGLE_RESULT_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/policies/{id}/toggle": {
         "post": {
             "tags": ["Policies"],
-            "summary": "POST toggle",
+            "summary": "Toggle policy enabled state",
+            "description": "Toggle a policy between enabled and disabled states.",
             "operationId": "postPoliciesToggle",
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Policy toggled", _TOGGLE_RESULT_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/policies/{id}/violations": {
         "get": {
             "tags": ["Policies"],
-            "summary": "GET violations for policy",
+            "summary": "Get violations for policy",
+            "description": "Retrieve all violations associated with a specific policy.",
             "operationId": "getPolicyViolationsById",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
+                {"name": "status", "in": "query", "schema": {"type": "string"}},
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Violations for policy", _VIOLATION_LIST_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
+            "security": [{"bearerAuth": []}],
         },
     },
-    # Audit endpoints
     "/api/v1/audit/denied": {
         "delete": {
             "tags": ["Audit"],
-            "summary": "DELETE denied",
+            "summary": "Clear denied audit logs",
+            "description": "Clear audit logs of denied access attempts.",
             "operationId": "deleteAuditDenied",
+            "parameters": [
+                {
+                    "name": "before",
+                    "in": "query",
+                    "schema": {"type": "string", "format": "date-time"},
+                },
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
-                "404": STANDARD_ERRORS["404"],
+                "200": _ok_response("Cleared audit logs", {"deleted_count": {"type": "integer"}}),
+                "401": STANDARD_ERRORS["401"],
             },
+            "security": [{"bearerAuth": []}],
         },
         "post": {
             "tags": ["Audit"],
-            "summary": "POST denied",
+            "summary": "Record denied access",
+            "description": "Record a denied access attempt in the audit log.",
             "operationId": "postAuditDenied",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["action", "resource_type", "resource_id"],
+                            "properties": {
+                                "action": {"type": "string"},
+                                "resource_type": {"type": "string"},
+                                "resource_id": {"type": "string"},
+                                "reason": {"type": "string"},
+                            },
+                        }
+                    }
+                },
             },
+            "responses": {
+                "200": _ok_response("Audit entry created", _AUDIT_ENTRY_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+            },
+            "security": [{"bearerAuth": []}],
         },
         "put": {
             "tags": ["Audit"],
-            "summary": "PUT denied",
+            "summary": "Update denied audit configuration",
+            "description": "Update configuration for denied access audit logging.",
             "operationId": "putAuditDenied",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "retention_days": {"type": "integer"},
+                                "alert_threshold": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
             },
+            "responses": {
+                "200": _ok_response("Configuration updated", {"success": {"type": "boolean"}}),
+                "400": STANDARD_ERRORS["400"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
-    "/api/v1/audit/resource/{id}/{id}/history": {
+    "/api/v1/audit/resource/{resource_type}/{resource_id}/history": {
         "get": {
             "tags": ["Audit"],
-            "summary": "GET history",
+            "summary": "Get resource audit history",
+            "description": "Retrieve complete audit history for a specific resource.",
             "operationId": "getResourceHistory",
             "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
-                {"name": "id2", "in": "path", "required": True, "schema": {"type": "string"}},
+                {
+                    "name": "resource_type",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "resource_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}},
             ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+                "200": _ok_response("Audit history", _AUDIT_HISTORY_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
             },
+            "security": [{"bearerAuth": []}],
         },
     },
-    # Privacy endpoints
     "/api/v1/privacy/account": {
         "delete": {
             "tags": ["Privacy"],
-            "summary": "DELETE account",
+            "summary": "Delete account data (GDPR)",
+            "description": "Delete all personal data associated with the user's account.",
             "operationId": "deletePrivacyAccount",
+            "parameters": [
+                {
+                    "name": "confirmation",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+            ],
             "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
-                "404": STANDARD_ERRORS["404"],
+                "200": _ok_response(
+                    "Account data deleted",
+                    {
+                        "deleted": {"type": "boolean"},
+                        "completion_date": {"type": "string", "format": "date-time"},
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
             },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/v1/privacy/preferences": {
         "post": {
             "tags": ["Privacy"],
-            "summary": "POST preferences",
+            "summary": "Update privacy preferences",
+            "description": "Update user's privacy preferences including consent settings.",
             "operationId": "postPrivacyPreferences",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {
-                "200": _ok_response("Success", {"success": {"type": "boolean"}}),
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "marketing_consent": {"type": "boolean"},
+                                "analytics_consent": {"type": "boolean"},
+                                "third_party_sharing": {"type": "boolean"},
+                            },
+                        }
+                    }
+                },
             },
+            "responses": {
+                "200": _ok_response("Preferences updated", _PRIVACY_PREFERENCES_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
 }

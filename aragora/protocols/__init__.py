@@ -138,6 +138,10 @@ from aragora.type_protocols import (
     InsightStoreProtocol,
     BroadcastPipelineProtocol,
     EvidenceCollectorProtocol,
+    # Cross-cutting protocols (break circular imports)
+    EvidenceProtocol,
+    StreamEventProtocol,
+    WebhookConfigProtocol,
     # Callback types
     EventCallback,
     AsyncEventCallback,
@@ -229,6 +233,10 @@ __all__ = [
     "InsightStoreProtocol",
     "BroadcastPipelineProtocol",
     "EvidenceCollectorProtocol",
+    # Cross-cutting protocols
+    "EvidenceProtocol",
+    "StreamEventProtocol",
+    "WebhookConfigProtocol",
     # Callback types
     "EventCallback",
     "AsyncEventCallback",

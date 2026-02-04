@@ -688,6 +688,62 @@ class Organization:
     # Settings
     settings: dict[str, Any] = field(default_factory=dict)
 
+    # Trial tracking
+    trial_started_at: datetime | None = None
+    trial_expires_at: datetime | None = None
+    trial_debates_limit: int = 10  # Debates allowed during trial
+    trial_converted: bool = False  # Whether user upgraded from trial
+
+    @property
+    def is_in_trial(self) -> bool:
+        """Check if organization is in active trial period."""
+        if self.trial_started_at is None or self.trial_expires_at is None:
+            return False
+        now = datetime.now(timezone.utc)
+        return now < self.trial_expires_at and not self.trial_converted
+
+    @property
+    def trial_days_remaining(self) -> int:
+        """Get number of days remaining in trial."""
+        if not self.is_in_trial or self.trial_expires_at is None:
+            return 0
+        now = datetime.now(timezone.utc)
+        remaining = (self.trial_expires_at - now).days
+        return max(0, remaining)
+
+    @property
+    def trial_debates_remaining(self) -> int:
+        """Get remaining trial debates."""
+        if not self.is_in_trial:
+            return 0
+        return max(0, self.trial_debates_limit - self.debates_used_this_month)
+
+    @property
+    def is_trial_expired(self) -> bool:
+        """Check if trial has expired (was in trial but now past expiration)."""
+        if self.trial_started_at is None or self.trial_expires_at is None:
+            return False
+        if self.trial_converted:
+            return False  # Converted users aren't "expired"
+        now = datetime.now(timezone.utc)
+        return now >= self.trial_expires_at
+
+    def start_trial(self, duration_days: int = 7, debates_limit: int = 10) -> None:
+        """Start a new trial for this organization."""
+        now = datetime.now(timezone.utc)
+        self.trial_started_at = now
+        self.trial_expires_at = now + timedelta(days=duration_days)
+        self.trial_debates_limit = debates_limit
+        self.trial_converted = False
+        self.debates_used_this_month = 0
+        self.updated_at = now
+
+    def convert_trial(self, new_tier: SubscriptionTier) -> None:
+        """Convert trial to paid subscription."""
+        self.trial_converted = True
+        self.tier = new_tier
+        self.updated_at = datetime.now(timezone.utc)
+
     @property
     def limits(self) -> TierLimits:
         """Get limits for this organization's tier."""
@@ -695,12 +751,16 @@ class Organization:
 
     @property
     def debates_remaining(self) -> int:
-        """Get remaining debates this month."""
+        """Get remaining debates this month (respects trial limits)."""
+        if self.is_in_trial:
+            return self.trial_debates_remaining
         return max(0, self.limits.debates_per_month - self.debates_used_this_month)
 
     @property
     def is_at_limit(self) -> bool:
-        """Check if organization has reached debate limit."""
+        """Check if organization has reached debate limit (respects trial limits)."""
+        if self.is_in_trial:
+            return self.debates_used_this_month >= self.trial_debates_limit
         return self.debates_used_this_month >= self.limits.debates_per_month
 
     def increment_debates(self, count: int = 1) -> bool:
@@ -740,6 +800,19 @@ class Organization:
             "is_at_limit": self.is_at_limit,
             "limits": self.limits.to_dict(),
             "settings": self.settings,
+            # Trial information
+            "trial_started_at": self.trial_started_at.isoformat()
+            if self.trial_started_at
+            else None,
+            "trial_expires_at": self.trial_expires_at.isoformat()
+            if self.trial_expires_at
+            else None,
+            "trial_debates_limit": self.trial_debates_limit,
+            "trial_converted": self.trial_converted,
+            "is_in_trial": self.is_in_trial,
+            "trial_days_remaining": self.trial_days_remaining,
+            "trial_debates_remaining": self.trial_debates_remaining,
+            "is_trial_expired": self.is_trial_expired,
         }
 
     @classmethod
@@ -771,6 +844,19 @@ class Organization:
                 org.billing_cycle_start = datetime.fromisoformat(data["billing_cycle_start"])
             else:
                 org.billing_cycle_start = data["billing_cycle_start"]
+        # Trial fields
+        if "trial_started_at" in data and data["trial_started_at"]:
+            if isinstance(data["trial_started_at"], str):
+                org.trial_started_at = datetime.fromisoformat(data["trial_started_at"])
+            else:
+                org.trial_started_at = data["trial_started_at"]
+        if "trial_expires_at" in data and data["trial_expires_at"]:
+            if isinstance(data["trial_expires_at"], str):
+                org.trial_expires_at = datetime.fromisoformat(data["trial_expires_at"])
+            else:
+                org.trial_expires_at = data["trial_expires_at"]
+        org.trial_debates_limit = data.get("trial_debates_limit", 10)
+        org.trial_converted = data.get("trial_converted", False)
         return org
 
 

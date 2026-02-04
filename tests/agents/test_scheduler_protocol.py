@@ -261,7 +261,7 @@ class TestLocalSchedulerAdapter:
         mock_handle = MagicMock()
         mock_handle.task_id = "task-123"
         mock_handle.status = TaskStatus.PENDING
-        mock_handle.created_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.utcnow()
 
         adapter._scheduler.schedule = AsyncMock(return_value=mock_handle)
 
@@ -282,7 +282,7 @@ class TestLocalSchedulerAdapter:
         mock_handle = MagicMock()
         mock_handle.task_id = "task-456"
         mock_handle.status = TaskStatus.PENDING
-        mock_handle.created_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.utcnow()
 
         adapter._scheduler.schedule = AsyncMock(return_value=mock_handle)
 
@@ -301,13 +301,13 @@ class TestLocalSchedulerAdapter:
         mock_handle.task_id = "task-789"
         mock_handle.status = TaskStatus.RUNNING
         mock_handle.agent_id = "agent-1"
-        mock_handle.created_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.utcnow()
         mock_handle.started_at = datetime.utcnow()
         mock_handle.completed_at = None
         mock_handle.result = None
         mock_handle.error = None
 
-        adapter._scheduler.get_task = MagicMock(return_value=mock_handle)
+        adapter._scheduler.get_handle = AsyncMock(return_value=mock_handle)
         adapter._task_types["task-789"] = "generation"
 
         result = await adapter.get_task_status("task-789")
@@ -320,7 +320,7 @@ class TestLocalSchedulerAdapter:
     @pytest.mark.asyncio
     async def test_get_task_status_not_found(self, adapter):
         """Test getting status of non-existent task."""
-        adapter._scheduler.get_task = MagicMock(return_value=None)
+        adapter._scheduler.get_handle = AsyncMock(return_value=None)
 
         result = await adapter.get_task_status("nonexistent")
 
@@ -343,7 +343,7 @@ class TestLocalSchedulerAdapter:
         mock_handle1.task_id = "task-1"
         mock_handle1.status = TaskStatus.COMPLETED
         mock_handle1.agent_id = "agent-1"
-        mock_handle1.created_at = datetime.utcnow()
+        mock_handle1.scheduled_at = datetime.utcnow()
         mock_handle1.started_at = datetime.utcnow()
         mock_handle1.completed_at = datetime.utcnow()
         mock_handle1.result = {"answer": 42}
@@ -364,7 +364,7 @@ class TestLocalSchedulerAdapter:
         mock_handle1.task_id = "task-1"
         mock_handle1.status = TaskStatus.COMPLETED
         mock_handle1.agent_id = "agent-1"
-        mock_handle1.created_at = datetime.utcnow()
+        mock_handle1.scheduled_at = datetime.utcnow()
         mock_handle1.started_at = None
         mock_handle1.completed_at = None
         mock_handle1.result = None
@@ -374,7 +374,7 @@ class TestLocalSchedulerAdapter:
         mock_handle2.task_id = "task-2"
         mock_handle2.status = TaskStatus.PENDING
         mock_handle2.agent_id = "agent-2"
-        mock_handle2.created_at = datetime.utcnow()
+        mock_handle2.scheduled_at = datetime.utcnow()
         mock_handle2.started_at = None
         mock_handle2.completed_at = None
         mock_handle2.result = None
@@ -429,10 +429,8 @@ class TestDistributedSchedulerAdapter:
     @pytest.mark.asyncio
     async def test_schedule_task(self, adapter):
         """Test scheduling a task through distributed adapter."""
-        mock_task = MagicMock()
-        mock_task.task_id = "dist-task-123"
-
-        adapter._scheduler.submit = AsyncMock(return_value=mock_task)
+        # submit() returns task_id string directly
+        adapter._scheduler.submit = AsyncMock(return_value="dist-task-123")
 
         result = await adapter.schedule_task(
             task_type="debate",
@@ -448,10 +446,8 @@ class TestDistributedSchedulerAdapter:
     @pytest.mark.asyncio
     async def test_schedule_task_priority_mapping(self, adapter):
         """Test that priorities are mapped correctly to control plane."""
-        mock_task = MagicMock()
-        mock_task.task_id = "dist-task-456"
-
-        adapter._scheduler.submit = AsyncMock(return_value=mock_task)
+        # submit() returns task_id string directly
+        adapter._scheduler.submit = AsyncMock(return_value="dist-task-456")
 
         # Test CRITICAL priority
         await adapter.schedule_task(
@@ -467,30 +463,25 @@ class TestDistributedSchedulerAdapter:
     @pytest.mark.asyncio
     async def test_get_task_status_found(self, adapter):
         """Test getting status from distributed scheduler."""
-        from unittest.mock import MagicMock
+        import time
 
-        # Create mock status enum
-        MockCPTaskStatus = MagicMock()
-        MockCPTaskStatus.RUNNING = MagicMock()
-        MockCPTaskStatus.RUNNING.value = "running"
+        from aragora.control_plane.scheduler import TaskStatus as CPTaskStatus
 
         mock_task = MagicMock()
-        mock_task.task_id = "dist-task-789"
+        mock_task.id = "dist-task-789"
         mock_task.task_type = "analysis"
-        mock_task.status = MockCPTaskStatus.RUNNING
+        mock_task.status = CPTaskStatus.RUNNING
         mock_task.assigned_agent = "agent-claude"
-        mock_task.created_at = datetime.utcnow()
-        mock_task.started_at = datetime.utcnow()
+        mock_task.created_at = time.time()
+        mock_task.started_at = time.time()
         mock_task.completed_at = None
         mock_task.result = None
         mock_task.error = None
         mock_task.metadata = {"source": "api"}
 
-        adapter._scheduler.get_task = AsyncMock(return_value=mock_task)
+        adapter._scheduler.get = AsyncMock(return_value=mock_task)
 
-        # Patch the status mapping
-        with patch.dict("aragora.agents.scheduler_protocol.__dict__", {}):
-            result = await adapter.get_task_status("dist-task-789")
+        result = await adapter.get_task_status("dist-task-789")
 
         assert result is not None
         assert result.task_id == "dist-task-789"
@@ -499,7 +490,7 @@ class TestDistributedSchedulerAdapter:
     @pytest.mark.asyncio
     async def test_get_task_status_not_found(self, adapter):
         """Test getting status of non-existent distributed task."""
-        adapter._scheduler.get_task = AsyncMock(return_value=None)
+        adapter._scheduler.get = AsyncMock(return_value=None)
 
         result = await adapter.get_task_status("nonexistent")
 
@@ -631,7 +622,7 @@ class TestIntegrationScenarios:
         mock_handle = MagicMock()
         mock_handle.task_id = "lifecycle-task"
         mock_handle.status = TaskStatus.PENDING
-        mock_handle.created_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.utcnow()
         mock_handle.agent_id = "default"
         mock_handle.started_at = None
         mock_handle.completed_at = None
@@ -639,7 +630,7 @@ class TestIntegrationScenarios:
         mock_handle.error = None
 
         scheduler._scheduler.schedule = AsyncMock(return_value=mock_handle)
-        scheduler._scheduler.get_task = MagicMock(return_value=mock_handle)
+        scheduler._scheduler.get_handle = AsyncMock(return_value=mock_handle)
         scheduler._scheduler.cancel = AsyncMock(return_value=True)
 
         # Schedule task

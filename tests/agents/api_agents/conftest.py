@@ -490,6 +490,50 @@ def mock_env_with_grok_key(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _restore_create_client_session():
+    """Re-establish create_client_session on agent modules before each test.
+
+    Several agent modules (crewai_agent, langgraph_agent, lm_studio) bind
+    ``create_client_session`` at module level.  When earlier tests in the full
+    suite patch this attribute and cleanup goes wrong (e.g. ``delattr`` instead
+    of ``setattr`` on restore), the binding disappears and subsequent patches
+    fail with ``AttributeError: does not have the attribute``.
+
+    This fixture defensively re-establishes the binding from the canonical
+    source (``api_common``) before *and* after every test.
+    """
+    from aragora.agents.api_agents import common as api_common
+
+    modules_to_fix = []
+    for mod_name in (
+        "aragora.agents.api_agents.anthropic",
+        "aragora.agents.api_agents.crewai_agent",
+        "aragora.agents.api_agents.gemini",
+        "aragora.agents.api_agents.langgraph_agent",
+        "aragora.agents.api_agents.lm_studio",
+        "aragora.agents.api_agents.ollama",
+        "aragora.agents.api_agents.openai_compatible",
+        "aragora.agents.api_agents.openrouter",
+    ):
+        import sys
+
+        mod = sys.modules.get(mod_name)
+        if mod is not None:
+            modules_to_fix.append(mod)
+
+    def _ensure_binding():
+        for mod in modules_to_fix:
+            if not hasattr(mod, "create_client_session") or not callable(
+                getattr(mod, "create_client_session", None)
+            ):
+                mod.create_client_session = api_common.create_client_session
+
+    _ensure_binding()
+    yield
+    _ensure_binding()
+
+
+@pytest.fixture(autouse=True)
 def _allow_localhost_for_api_agents(monkeypatch):
     """Ensure localhost is allowed for API agent tests.
 

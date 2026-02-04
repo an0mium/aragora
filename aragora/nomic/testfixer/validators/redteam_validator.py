@@ -172,7 +172,7 @@ class RedTeamValidator:
         for agent_type in self.config.attacker_types:
             try:
                 agent = create_agent(
-                    model_type=agent_type,
+                    model_type=agent_type,  # type: ignore[arg-type]
                     name=f"attacker_{agent_type}",
                     role="critic",
                 )
@@ -189,7 +189,7 @@ class RedTeamValidator:
         if self.config.allow_defense:
             try:
                 self.defender = create_agent(
-                    model_type=self.config.defender_type,
+                    model_type=self.config.defender_type,  # type: ignore[arg-type]
                     name=f"defender_{self.config.defender_type}",
                     role="proposer",
                 )
@@ -225,7 +225,7 @@ class RedTeamValidator:
         patches_summary = []
         for patch in proposal.patches[:3]:
             patches_summary.append(
-                f"**{patch.file_path}**:\n```python\n{self._truncate(patch.new_content, 3000)}\n```"
+                f"**{patch.file_path}**:\n```python\n{self._truncate(patch.patched_content, 3000)}\n```"
             )
 
         patches_text = "\n\n".join(patches_summary)

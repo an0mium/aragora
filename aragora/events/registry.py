@@ -422,7 +422,7 @@ class EventRegistry:
                 description=f"Stream event: {name}",
             )
 
-    def _register_notification_events(self, enum_class: type) -> None:
+    def _register_notification_events(self, enum_class: type[Enum]) -> None:
         """Register NotificationEventType events."""
         category_map = {
             "task_": EventCategory.CONTROL_PLANE,
@@ -455,7 +455,7 @@ class EventRegistry:
                 description=f"Control plane event: {name}",
             )
 
-    def _register_deliberation_events(self, enum_class: type) -> None:
+    def _register_deliberation_events(self, enum_class: type[Enum]) -> None:
         """Register DeliberationEventType events."""
         for member in enum_class:
             name = member.value
@@ -473,7 +473,7 @@ class EventRegistry:
                 description=f"Deliberation event: {name}",
             )
 
-    def _register_security_events(self, enum_class: type) -> None:
+    def _register_security_events(self, enum_class: type[Enum]) -> None:
         """Register SecurityEventType events."""
         for member in enum_class:
             name = member.value

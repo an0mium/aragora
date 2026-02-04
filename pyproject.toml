@@ -69,6 +69,7 @@ dev = [
     "pytest-timeout>=2.0,<3.0",
     "pytest-xdist>=3.5,<4.0",  # Parallel test execution
     "pytest-rerunfailures>=14.0,<15.0",  # Rerun flaky tests
+    "pytest-randomly>=3.15,<4.0",  # Randomize test order to detect pollution
     "black>=23.0,<27.0",
     "ruff>=0.1,<1.0",
     "bandit>=1.7,<2.0",
@@ -91,6 +92,7 @@ test = [
     "pytest-timeout>=2.0,<3.0",
     "pytest-xdist>=3.5,<4.0",
     "pytest-rerunfailures>=14.0,<15.0",
+    "pytest-randomly>=3.15,<4.0",  # Randomize test order to detect pollution
     "black>=23.0,<27.0",
     "ruff>=0.1,<1.0",
     "bandit>=1.7,<2.0",
@@ -254,6 +256,7 @@ all = [
     "pytest-timeout>=2.0,<3.0",
     "pytest-xdist>=3.5,<4.0",
     "pytest-rerunfailures>=14.0,<15.0",
+    "pytest-randomly>=3.15,<4.0",
     "black>=23.0,<27.0",
     "ruff>=0.1,<1.0",
     "bandit>=1.7,<2.0",
@@ -452,6 +455,9 @@ markers = [
     "enterprise: marks tests for enterprise-only features (SSO, multi-tenancy, audit)",
 ]
 # Automatically rerun flaky tests up to 3 times
+# pytest-randomly: Tests run in random order by default to detect pollution
+# To reproduce a specific order: pytest -p randomly --randomly-seed=<seed>
+# To disable randomization: pytest -p no:randomly
 addopts = "--import-mode=importlib --reruns 2 --reruns-delay 1 --only-rerun AssertionError"
 # Parallel test execution: pip install pytest-xdist && pytest -n auto
 # To run serial-only tests: pytest -m serial -n0

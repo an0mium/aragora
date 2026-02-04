@@ -151,6 +151,8 @@ class BillingHandler(SecureHandler):
         "/api/v1/billing/plans",
         "/api/v1/billing/usage",
         "/api/v1/billing/subscription",
+        "/api/v1/billing/trial",
+        "/api/v1/billing/trial/start",
         "/api/v1/billing/checkout",
         "/api/v1/billing/portal",
         "/api/v1/billing/cancel",
@@ -192,6 +194,12 @@ class BillingHandler(SecureHandler):
 
         if path == "/api/v1/billing/subscription" and method == "GET":
             return self._get_subscription(handler)
+
+        if path == "/api/v1/billing/trial" and method == "GET":
+            return self._get_trial_status(handler)
+
+        if path == "/api/v1/billing/trial/start" and method == "POST":
+            return self._start_trial(handler)
 
         if path == "/api/v1/billing/checkout" and method == "POST":
             return self._create_checkout(handler)

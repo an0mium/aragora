@@ -126,7 +126,7 @@ class ArenaValidator:
                     model = self.config.models.get(agent_type)
 
                 agent = create_agent(
-                    model_type=agent_type,
+                    model_type=agent_type,  # type: ignore[arg-type]
                     name=f"validator_{agent_type}",
                     role="critic",
                     model=model,
@@ -162,7 +162,7 @@ class ArenaValidator:
         patches_summary = []
         for patch in proposal.patches[:5]:  # Limit to 5 patches
             patch_info = (
-                f"**{patch.file_path}**:\n```\n{self._truncate(patch.new_content, 5000)}\n```"
+                f"**{patch.file_path}**:\n```\n{self._truncate(patch.patched_content, 5000)}\n```"
             )
             patches_summary.append(patch_info)
 
@@ -467,9 +467,8 @@ IMPROVEMENTS: [Suggestions]
         # Create protocol
         protocol = DebateProtocol(
             rounds=self.config.debate_rounds,
-            consensus="threshold",
+            consensus="majority",
             consensus_threshold=self.config.consensus_threshold,
-            enable_critique=True,
         )
 
         try:
@@ -487,7 +486,7 @@ IMPROVEMENTS: [Suggestions]
 
             # Convert debate result to ValidationResult
             is_valid = "APPROVE" in debate_result.final_answer.upper()
-            confidence = debate_result.consensus_confidence or 0.5
+            confidence = debate_result.confidence or 0.5
 
             return ValidationResult(
                 is_valid=is_valid,
@@ -495,12 +494,12 @@ IMPROVEMENTS: [Suggestions]
                 consensus_reached=debate_result.consensus_reached,
                 agreement_ratio=confidence,
                 supporting_agents=[
-                    v.agent for v in debate_result.votes if "approve" in v.vote.lower()
+                    v.agent for v in debate_result.votes if "approve" in v.choice.lower()
                 ]
                 if debate_result.votes
                 else [],
                 dissenting_agents=[
-                    v.agent for v in debate_result.votes if "reject" in v.vote.lower()
+                    v.agent for v in debate_result.votes if "reject" in v.choice.lower()
                 ]
                 if debate_result.votes
                 else [],

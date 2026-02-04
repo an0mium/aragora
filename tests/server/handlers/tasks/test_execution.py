@@ -105,7 +105,7 @@ class TestTaskExecute:
         body = _make_body()
         result = handler._handle_execute(body)
         assert result is not None
-        data, status = result
+        data, status, _ = result
         assert status == 201
         assert "task_id" in data
         assert data["status"] in ("completed", "pending", "running")
@@ -117,31 +117,31 @@ class TestTaskExecute:
     def test_execute_missing_goal(self, handler: TaskExecutionHandler):
         body = _make_body(goal="")
         result = handler._handle_execute(body)
-        data, status = result
+        data, status, _ = result
         assert status == 400
         assert "goal" in data.get("error", "").lower()
 
     def test_execute_no_goal_key(self, handler: TaskExecutionHandler):
         result = handler._handle_execute({"type": "debate"})
-        data, status = result
+        data, status, _ = result
         assert status == 400
 
     def test_execute_goal_too_long(self, handler: TaskExecutionHandler):
         body = _make_body(goal="x" * (MAX_GOAL_LENGTH + 1))
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
         assert "maximum length" in data.get("error", "").lower()
 
     def test_execute_missing_type(self, handler: TaskExecutionHandler):
         result = handler._handle_execute({"goal": "Do something"})
-        data, status = result
+        data, status, _ = result
         assert status == 400
         assert "type" in data.get("error", "").lower()
 
     def test_execute_invalid_type(self, handler: TaskExecutionHandler):
         body = _make_body(task_type="invalid_type")
         # Need to set type manually since _make_body maps task_type to "type" key
-        data, status = handler._handle_execute({"goal": "Test", "type": "invalid_type"})
+        data, status, _ = handler._handle_execute({"goal": "Test", "type": "invalid_type"})
         assert status == 400
         assert "invalid task type" in data.get("error", "").lower()
 
@@ -149,58 +149,58 @@ class TestTaskExecute:
         for task_type in VALID_TASK_TYPES:
             _clear_tasks()
             body = _make_body(task_type=task_type)
-            data, status = handler._handle_execute(body)
+            data, status, _ = handler._handle_execute(body)
             assert status == 201, f"Failed for type={task_type}: {data}"
 
     def test_execute_invalid_agents(self, handler: TaskExecutionHandler):
         body = _make_body(agents="not_a_list")
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
         assert "agents" in data.get("error", "").lower()
 
     def test_execute_agents_with_non_string(self, handler: TaskExecutionHandler):
         body = _make_body(agents=["claude", 42])
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
 
     def test_execute_invalid_max_steps_zero(self, handler: TaskExecutionHandler):
         body = _make_body(max_steps=0)
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
 
     def test_execute_invalid_max_steps_too_large(self, handler: TaskExecutionHandler):
         body = _make_body(max_steps=999)
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
 
     def test_execute_invalid_human_checkpoints(self, handler: TaskExecutionHandler):
         body = _make_body(human_checkpoints="yes")
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
 
     def test_execute_invalid_context(self, handler: TaskExecutionHandler):
         body = _make_body(context="not a dict")
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
 
     def test_execute_context_too_many_keys(self, handler: TaskExecutionHandler):
         big_ctx = {f"key_{i}": i for i in range(60)}
         body = _make_body(context=big_ctx)
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 400
         assert "too many keys" in data.get("error", "").lower()
 
     @patch("aragora.server.handlers.tasks.execution.emit_handler_event")
     def test_execute_human_checkpoint_sets_waiting(self, mock_emit, handler: TaskExecutionHandler):
         body = _make_body(human_checkpoints=True)
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         assert status == 201
         assert data["status"] == "waiting_approval"
 
     @patch("aragora.server.handlers.tasks.execution.emit_handler_event")
     def test_execute_stores_task(self, mock_emit, handler: TaskExecutionHandler):
         body = _make_body()
-        data, status = handler._handle_execute(body)
+        data, status, _ = handler._handle_execute(body)
         task_id = data["task_id"]
         assert task_id in _tasks
         assert _tasks[task_id].goal == "Test task"
@@ -217,13 +217,13 @@ class TestTaskGet:
     def test_get_existing_task(self, handler: TaskExecutionHandler):
         task = TaskRecord(id="test-123", goal="Test", type="debate", status="pending")
         _tasks["test-123"] = task
-        data, status = handler._handle_get_task("test-123")
+        data, status, _ = handler._handle_get_task("test-123")
         assert status == 200
         assert data["id"] == "test-123"
         assert data["goal"] == "Test"
 
     def test_get_nonexistent_task(self, handler: TaskExecutionHandler):
-        data, status = handler._handle_get_task("does-not-exist")
+        data, status, _ = handler._handle_get_task("does-not-exist")
         assert status == 404
         assert "not found" in data.get("error", "").lower()
 
@@ -237,7 +237,7 @@ class TestTaskList:
     """Tests for GET /api/v2/tasks."""
 
     def test_list_empty(self, handler: TaskExecutionHandler):
-        data, status = handler._handle_list_tasks({})
+        data, status, _ = handler._handle_list_tasks({})
         assert status == 200
         assert data["tasks"] == []
         assert data["total"] == 0
@@ -247,7 +247,7 @@ class TestTaskList:
             _tasks[f"t-{i}"] = TaskRecord(
                 id=f"t-{i}", goal=f"Task {i}", type="debate", status="pending"
             )
-        data, status = handler._handle_list_tasks({})
+        data, status, _ = handler._handle_list_tasks({})
         assert status == 200
         assert data["total"] == 3
         assert len(data["tasks"]) == 3
@@ -257,13 +257,13 @@ class TestTaskList:
         _tasks["b"] = TaskRecord(id="b", goal="B", type="debate", status="running")
         _tasks["c"] = TaskRecord(id="c", goal="C", type="debate", status="pending")
 
-        data, status = handler._handle_list_tasks({"status": "pending"})
+        data, status, _ = handler._handle_list_tasks({"status": "pending"})
         assert status == 200
         assert data["total"] == 2
         assert all(t["status"] == "pending" for t in data["tasks"])
 
     def test_list_invalid_status_filter(self, handler: TaskExecutionHandler):
-        data, status = handler._handle_list_tasks({"status": "bogus"})
+        data, status, _ = handler._handle_list_tasks({"status": "bogus"})
         assert status == 400
 
     def test_list_pagination(self, handler: TaskExecutionHandler):
@@ -275,7 +275,7 @@ class TestTaskList:
                 status="pending",
                 created_at=time.time() + i,
             )
-        data, status = handler._handle_list_tasks({"limit": "2", "offset": "1"})
+        data, status, _ = handler._handle_list_tasks({"limit": "2", "offset": "1"})
         assert status == 200
         assert len(data["tasks"]) == 2
         assert data["total"] == 5
@@ -283,7 +283,7 @@ class TestTaskList:
         assert data["offset"] == 1
 
     def test_list_limit_clamped(self, handler: TaskExecutionHandler):
-        data, status = handler._handle_list_tasks({"limit": "999"})
+        data, status, _ = handler._handle_list_tasks({"limit": "999"})
         assert status == 200
         assert data["limit"] == 100
 
@@ -300,7 +300,7 @@ class TestTaskApprove:
     def test_approve_success(self, mock_emit, handler: TaskExecutionHandler):
         task = TaskRecord(id="appr-1", goal="Approve me", type="debate", status="waiting_approval")
         _tasks["appr-1"] = task
-        data, status = handler._handle_approve("appr-1")
+        data, status, _ = handler._handle_approve("appr-1")
         assert status == 200
         assert "approved" in data.get("message", "").lower() or data["status"] in (
             "completed",
@@ -309,13 +309,13 @@ class TestTaskApprove:
         )
 
     def test_approve_not_found(self, handler: TaskExecutionHandler):
-        data, status = handler._handle_approve("no-such-task")
+        data, status, _ = handler._handle_approve("no-such-task")
         assert status == 404
 
     def test_approve_wrong_status(self, handler: TaskExecutionHandler):
         task = TaskRecord(id="appr-2", goal="Test", type="debate", status="pending")
         _tasks["appr-2"] = task
-        data, status = handler._handle_approve("appr-2")
+        data, status, _ = handler._handle_approve("appr-2")
         assert status == 409
         assert "waiting_approval" in data.get("error", "").lower()
 
@@ -331,21 +331,21 @@ class TestHandleDispatchers:
     def test_handle_get_list(self, handler: TaskExecutionHandler, mock_http_handler):
         result = handler.handle("/api/v2/tasks", {}, mock_http_handler)
         assert result is not None
-        data, status = result
+        data, status, _ = result
         assert status == 200
 
     def test_handle_get_task_by_id(self, handler: TaskExecutionHandler, mock_http_handler):
         _tasks["xyz"] = TaskRecord(id="xyz", goal="G", type="debate", status="pending")
         result = handler.handle("/api/v2/tasks/xyz", {}, mock_http_handler)
         assert result is not None
-        data, status = result
+        data, status, _ = result
         assert status == 200
         assert data["id"] == "xyz"
 
     def test_handle_get_unknown_path(self, handler: TaskExecutionHandler, mock_http_handler):
         result = handler.handle("/api/v2/tasks/a/b/c", {}, mock_http_handler)
         assert result is not None
-        _, status = result
+        _, status, _h = result
         assert status == 404
 
     def test_handle_get_non_matching(self, handler: TaskExecutionHandler, mock_http_handler):
@@ -359,7 +359,7 @@ class TestHandleDispatchers:
     def test_handle_post_unknown_sub_path(self, handler: TaskExecutionHandler, mock_http_handler):
         result = handler.handle_post("/api/v2/tasks/something/weird", {}, mock_http_handler)
         assert result is not None
-        _, status = result
+        _, status, _h = result
         assert status == 404
 
 
