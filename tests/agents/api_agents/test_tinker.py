@@ -910,6 +910,15 @@ class TestTinkerAgentTokenUsage:
 class TestTinkerAgentCircuitBreaker:
     """Tests for circuit breaker functionality."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_circuit_breaker(self):
+        from aragora.resilience import get_v2_circuit_breaker
+
+        breaker = get_v2_circuit_breaker("agent_tinker")
+        breaker.reset()
+        yield
+        breaker.reset()
+
     def test_circuit_breaker_is_enabled_by_default(self, mock_env_with_tinker_key):
         """Should have circuit breaker enabled by default."""
         from aragora.agents.api_agents.tinker import TinkerAgent
