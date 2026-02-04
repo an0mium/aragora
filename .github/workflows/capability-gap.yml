@@ -1,0 +1,61 @@
+name: Capability Surface Report
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/capabilities.yaml'
+      - 'aragora/capability_surfaces.yaml'
+      - 'scripts/capability_gap_report.py'
+      - '.github/workflows/capability-gap.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/capabilities.yaml'
+      - 'aragora/capability_surfaces.yaml'
+      - 'scripts/capability_gap_report.py'
+      - '.github/workflows/capability-gap.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: capability-gap-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  report:
+    name: Generate Capability Gap Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Generate report (markdown)
+        run: |
+          python scripts/capability_gap_report.py --format markdown --out /tmp/capability-gap.md
+          echo "Report generated at /tmp/capability-gap.md"
+
+      - name: Generate report (json)
+        run: |
+          python scripts/capability_gap_report.py --format json --out /tmp/capability-gap.json
+          echo "Report generated at /tmp/capability-gap.json"
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: capability-gap-report
+          path: |
+            /tmp/capability-gap.md
+            /tmp/capability-gap.json
+          retention-days: 14
