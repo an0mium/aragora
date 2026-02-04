@@ -12,6 +12,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+def _make_mock_backend(value: str) -> MagicMock:
+    """Create a mock enum value with .value attribute."""
+    mock = MagicMock()
+    mock.value = value
+    return mock
+
+
 # =============================================================================
 # init_tts_integration Tests
 # =============================================================================
@@ -125,11 +132,14 @@ class TestGetKMConfigFromEnv:
         monkeypatch.delenv("KM_POSTGRES_URL", raising=False)
         monkeypatch.delenv("DATABASE_URL", raising=False)
 
+        mock_sqlite = _make_mock_backend("sqlite")
+        mock_postgres = _make_mock_backend("postgres")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
-        mock_types.MoundBackend.POSTGRES = "postgres"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
+        mock_types.MoundBackend.POSTGRES = mock_postgres
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -138,18 +148,21 @@ class TestGetKMConfigFromEnv:
 
         mock_types.MoundConfig.assert_called_once()
         call_kwargs = mock_types.MoundConfig.call_args[1]
-        assert call_kwargs["backend"] == "sqlite"
+        assert call_kwargs["backend"] == mock_sqlite
 
     def test_auto_selects_postgres_with_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test auto backend selects Postgres when URL provided."""
         monkeypatch.setenv("KM_BACKEND", "auto")
         monkeypatch.setenv("KM_POSTGRES_URL", "postgresql://localhost:5432/test")
 
+        mock_sqlite = _make_mock_backend("sqlite")
+        mock_postgres = _make_mock_backend("postgres")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
-        mock_types.MoundBackend.POSTGRES = "postgres"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
+        mock_types.MoundBackend.POSTGRES = mock_postgres
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -157,7 +170,7 @@ class TestGetKMConfigFromEnv:
             config = get_km_config_from_env()
 
         call_kwargs = mock_types.MoundConfig.call_args[1]
-        assert call_kwargs["backend"] == "postgres"
+        assert call_kwargs["backend"] == mock_postgres
 
     def test_explicit_postgres_backend(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test explicit postgres backend selection."""
@@ -165,11 +178,14 @@ class TestGetKMConfigFromEnv:
         monkeypatch.setenv("KM_POSTGRES_URL", "postgresql://localhost:5432/test")
         monkeypatch.setenv("KM_POSTGRES_POOL_SIZE", "20")
 
+        mock_sqlite = _make_mock_backend("sqlite")
+        mock_postgres = _make_mock_backend("postgres")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
-        mock_types.MoundBackend.POSTGRES = "postgres"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
+        mock_types.MoundBackend.POSTGRES = mock_postgres
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -177,18 +193,21 @@ class TestGetKMConfigFromEnv:
             config = get_km_config_from_env()
 
         call_kwargs = mock_types.MoundConfig.call_args[1]
-        assert call_kwargs["backend"] == "postgres"
+        assert call_kwargs["backend"] == mock_postgres
         assert call_kwargs["postgres_pool_size"] == 20
 
     def test_unknown_backend_defaults_sqlite(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test unknown backend falls back to SQLite."""
         monkeypatch.setenv("KM_BACKEND", "unknown_db")
 
+        mock_sqlite = _make_mock_backend("sqlite")
+        mock_postgres = _make_mock_backend("postgres")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
-        mock_types.MoundBackend.POSTGRES = "postgres"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
+        mock_types.MoundBackend.POSTGRES = mock_postgres
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -196,7 +215,7 @@ class TestGetKMConfigFromEnv:
             config = get_km_config_from_env()
 
         call_kwargs = mock_types.MoundConfig.call_args[1]
-        assert call_kwargs["backend"] == "sqlite"
+        assert call_kwargs["backend"] == mock_sqlite
 
     def test_feature_flags_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test feature flags parsed from environment."""
@@ -206,10 +225,12 @@ class TestGetKMConfigFromEnv:
         monkeypatch.setenv("KM_ENABLE_DEDUP", "0")
         monkeypatch.setenv("KM_ENABLE_COST_ADAPTER", "1")
 
+        mock_sqlite = _make_mock_backend("sqlite")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -230,10 +251,12 @@ class TestGetKMConfigFromEnv:
         monkeypatch.setenv("KM_INSIGHT_MIN_CONFIDENCE", "0.9")
         monkeypatch.setenv("KM_BELIEF_MIN_CONFIDENCE", "0.95")
 
+        mock_sqlite = _make_mock_backend("sqlite")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -253,10 +276,12 @@ class TestGetKMConfigFromEnv:
         monkeypatch.setenv("KM_REDIS_CACHE_TTL", "600")
         monkeypatch.setenv("KM_REDIS_CULTURE_TTL", "7200")
 
+        mock_sqlite = _make_mock_backend("sqlite")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -275,10 +300,12 @@ class TestGetKMConfigFromEnv:
         monkeypatch.setenv("KM_WEAVIATE_API_KEY", "test-api-key")
         monkeypatch.setenv("KM_WEAVIATE_COLLECTION", "TestCollection")
 
+        mock_sqlite = _make_mock_backend("sqlite")
+
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=MagicMock())
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
 
         with patch.dict("sys.modules", {"aragora.knowledge.mound.types": mock_types}):
             from aragora.server.startup.knowledge_mound import get_km_config_from_env
@@ -307,8 +334,9 @@ class TestInitKnowledgeMoundFromEnv:
         mock_mound = MagicMock()
         mock_mound.initialize = AsyncMock()
 
+        mock_sqlite = _make_mock_backend("sqlite")
         mock_config = MagicMock()
-        mock_config.backend = MagicMock(value="sqlite")
+        mock_config.backend = mock_sqlite
 
         mock_km_module = MagicMock()
         mock_km_module.set_mound_config = MagicMock()
@@ -317,7 +345,7 @@ class TestInitKnowledgeMoundFromEnv:
         mock_types = MagicMock()
         mock_types.MoundConfig = MagicMock(return_value=mock_config)
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.SQLITE = "sqlite"
+        mock_types.MoundBackend.SQLITE = mock_sqlite
 
         with patch.dict(
             "sys.modules",
@@ -363,16 +391,18 @@ class TestInitKnowledgeMoundFromEnv:
         mock_mound = MagicMock()
         mock_mound.initialize = AsyncMock(side_effect=ConnectionError("database connection failed"))
 
+        mock_postgres = _make_mock_backend("postgres")
+        mock_config = MagicMock()
+        mock_config.backend = mock_postgres
+
         mock_km_module = MagicMock()
         mock_km_module.set_mound_config = MagicMock()
         mock_km_module.get_knowledge_mound = MagicMock(return_value=mock_mound)
 
         mock_types = MagicMock()
-        mock_types.MoundConfig = MagicMock(
-            return_value=MagicMock(backend=MagicMock(value="postgres"))
-        )
+        mock_types.MoundConfig = MagicMock(return_value=mock_config)
         mock_types.MoundBackend = MagicMock()
-        mock_types.MoundBackend.POSTGRES = "postgres"
+        mock_types.MoundBackend.POSTGRES = mock_postgres
 
         with patch.dict(
             "sys.modules",
