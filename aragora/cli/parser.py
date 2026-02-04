@@ -131,6 +131,11 @@ Examples:
     _add_decide_parser(subparsers)
     _add_plans_parser(subparsers)
     build_testfixer_parser(subparsers)
+    _add_computer_use_parser(subparsers)
+    _add_connectors_parser(subparsers)
+    _add_rbac_parser(subparsers)
+    _add_km_parser(subparsers)
+    _add_costs_parser(subparsers)
 
     return parser
 
@@ -1148,3 +1153,38 @@ Examples:
 
     # Default behavior when just 'aragora plans' is called
     plans_parser.set_defaults(func=cmd_plans)
+
+
+def _add_computer_use_parser(subparsers) -> None:
+    """Add the 'computer-use' subcommand parser."""
+    from aragora.cli.commands.computer_use import add_computer_use_parser
+
+    add_computer_use_parser(subparsers)
+
+
+def _add_connectors_parser(subparsers) -> None:
+    """Add the 'connectors' subcommand parser."""
+    from aragora.cli.commands.connectors import add_connectors_parser
+
+    add_connectors_parser(subparsers)
+
+
+def _add_rbac_parser(subparsers) -> None:
+    """Add the 'rbac' subcommand parser."""
+    from aragora.cli.commands.rbac_ops import add_rbac_ops_parser
+
+    add_rbac_ops_parser(subparsers)
+
+
+def _add_km_parser(subparsers) -> None:
+    """Add the 'km' subcommand parser for Knowledge Mound API operations."""
+    from aragora.cli.commands.knowledge import add_knowledge_ops_parser
+
+    add_knowledge_ops_parser(subparsers)
+
+
+def _add_costs_parser(subparsers) -> None:
+    """Add the 'costs' subcommand parser for billing API operations."""
+    from aragora.cli.commands.billing_ops import add_billing_ops_parser
+
+    add_billing_ops_parser(subparsers)

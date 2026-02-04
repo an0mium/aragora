@@ -57,6 +57,7 @@ from .core import (
     validate_handler_instance,
     validate_handlers_on_init,
 )
+from .instrumented import auto_instrument_handler
 
 # Import domain-specific registries
 from .admin import ADMIN_HANDLER_REGISTRY
@@ -186,10 +187,12 @@ class HandlerRegistryMixin:
             "knowledge_mound": getattr(cls, "knowledge_mound", None),
         }
 
-        # Initialize all handlers from registry
+        # Initialize all handlers from registry with auto-instrumentation
         for attr_name, handler_class in HANDLER_REGISTRY:
             if handler_class is not None:
-                setattr(cls, attr_name, handler_class(ctx))
+                instance = handler_class(ctx)
+                auto_instrument_handler(instance)
+                setattr(cls, attr_name, instance)
 
         cls._handlers_initialized = True
         logger.info(f"[handlers] Modular handlers initialized ({len(HANDLER_REGISTRY)} handlers)")
