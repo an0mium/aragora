@@ -61,6 +61,12 @@ class ExportOptions:
     include_config: bool = False
     max_vulnerabilities: int = 100
 
+    # Pagination options for PDF/HTML
+    max_provenance_records: int = 50
+    provenance_sampling: str = "first_last"  # "all", "first_last", "sampled"
+    findings_per_page: int = 10  # For paginated HTML/PDF export
+    use_pagination: bool = True  # Use paginated output for PDF
+
     # Validation
     validate_schema: bool = False
 
@@ -454,6 +460,9 @@ def _export_receipt_pdf(receipt: "DecisionReceipt", opts: ExportOptions) -> byte
     Converts the HTML representation to PDF format. Requires weasyprint
     to be installed: pip install aragora[documents]
 
+    Uses paginated HTML with CSS page breaks for large receipts to prevent
+    memory issues during PDF generation.
+
     Args:
         receipt: The DecisionReceipt to export
         opts: Export options
@@ -471,8 +480,18 @@ def _export_receipt_pdf(receipt: "DecisionReceipt", opts: ExportOptions) -> byte
             "PDF export requires weasyprint. Install with: pip install aragora[documents]"
         )
 
-    # Get HTML representation
-    html_content = receipt.to_html()
+    # Get HTML representation - use paginated version for better performance
+    if opts.use_pagination:
+        html_content = receipt.to_html_paginated(
+            findings_per_page=opts.findings_per_page,
+            max_provenance=opts.max_provenance_records,
+            provenance_sampling=opts.provenance_sampling,
+        )
+    else:
+        html_content = receipt.to_html(
+            max_findings=opts.max_vulnerabilities,
+            max_provenance=opts.max_provenance_records,
+        )
 
     # Convert HTML to PDF
     html_doc = HTML(string=html_content)

@@ -1713,11 +1713,12 @@ class TestReceiptsHandlerPdfExport:
 
     @pytest.mark.asyncio
     async def test_export_pdf_weasyprint_missing(self, receipts_handler, mock_receipt_store):
-        """Test PDF export returns 501 when weasyprint unavailable."""
+        """Test PDF export gracefully degrades to HTML when weasyprint unavailable."""
         mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
 
         mock_receipt = MagicMock()
         mock_receipt.to_pdf.side_effect = ImportError("weasyprint not found")
+        mock_receipt.to_html.return_value = "<div>Receipt Content</div>"
         mock_receipt_class = MagicMock(from_dict=MagicMock(return_value=mock_receipt))
 
         with patch.dict(
@@ -1730,7 +1731,12 @@ class TestReceiptsHandlerPdfExport:
                 query_params={"format": "pdf"},
             )
 
-        assert result.status_code == 501
+        # Handler gracefully degrades to HTML with print instructions
+        assert result.status_code == 200
+        assert result.content_type == "text/html"
+        assert result.headers.get("X-PDF-Fallback") == "true"
+        body = result.body.decode("utf-8")
+        assert "PDF export is unavailable" in body
 
 
 # ===========================================================================

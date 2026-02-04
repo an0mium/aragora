@@ -583,16 +583,22 @@ class TestExportReceipt:
 
     @pytest.mark.asyncio
     async def test_export_pdf_missing_weasyprint(self, handler):
+        """When WeasyPrint is unavailable, handler gracefully degrades to HTML fallback."""
         mock_dr = MagicMock()
         mock_dr.to_pdf.side_effect = ImportError("No module named 'weasyprint'")
+        mock_dr.to_html.return_value = "<div>Receipt Content</div>"
 
         with patch(
             "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_dr
         ):
             result = await handler._export_receipt("receipt-001", {"format": "pdf"})
-            assert result.status_code == 501
-            data = _parse_body(result)
-            assert "weasyprint" in data["error"].lower()
+            # Handler gracefully degrades to HTML with print instructions
+            assert result.status_code == 200
+            assert result.content_type == "text/html"
+            assert result.headers.get("X-PDF-Fallback") == "true"
+            body = result.body.decode("utf-8")
+            assert "PDF export is unavailable" in body
+            assert "Print" in body  # Instructions to use browser print
 
     @pytest.mark.asyncio
     async def test_export_sarif(self, handler):

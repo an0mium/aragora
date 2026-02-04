@@ -127,8 +127,7 @@ Yes, implement token bucket rate limiting
     )
 
     # Mock to_html method
-    receipt.to_html = MagicMock(
-        return_value="""<!DOCTYPE html>
+    html_content = """<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -154,7 +153,9 @@ Yes, implement token bucket rate limiting
 </body>
 </html>
 """
-    )
+    receipt.to_html = MagicMock(return_value=html_content)
+    # Mock to_html_paginated for paginated PDF export
+    receipt.to_html_paginated = MagicMock(return_value=html_content)
 
     # Mock to_json method
     receipt.to_json = MagicMock(
