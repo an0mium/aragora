@@ -14,7 +14,6 @@ from aragora.audit.unified import audit_admin, audit_data
 from aragora.server.handlers.utils.responses import error_dict
 
 from aragora.connectors.enterprise import (
-    SyncScheduler,
     SyncSchedule,
     GitHubEnterpriseConnector,
     S3Connector,
@@ -23,6 +22,7 @@ from aragora.connectors.enterprise import (
     FHIRConnector,
 )
 from aragora.connectors.enterprise.sync.scheduler import SyncStatus
+from aragora.server.handlers.connectors.shared import get_scheduler
 
 if TYPE_CHECKING:
     from aragora.rbac import AuthorizationContext as AuthorizationContextType
@@ -116,18 +116,6 @@ def _resolve_tenant_id(
         ):
             return auth_context.org_id
     return fallback_tenant_id
-
-
-# Global scheduler instance (initialized on first use)
-_scheduler: SyncScheduler | None = None
-
-
-def get_scheduler() -> SyncScheduler:
-    """Get or create the global sync scheduler."""
-    global _scheduler
-    if _scheduler is None:
-        _scheduler = SyncScheduler(max_concurrent_syncs=5)
-    return _scheduler
 
 
 # =============================================================================

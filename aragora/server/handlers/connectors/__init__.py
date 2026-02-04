@@ -16,5 +16,6 @@ Phase Y: Connector Consolidation.
 """
 
 from .management import ConnectorManagementHandler  # noqa: F401
+from .shared import get_scheduler  # noqa: F401
 
-__all__ = ["ConnectorManagementHandler"]
+__all__ = ["ConnectorManagementHandler", "get_scheduler"]
