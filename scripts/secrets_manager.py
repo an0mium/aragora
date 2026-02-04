@@ -84,9 +84,6 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-# Avoid leaking secrets via verbose HTTP logs.
-for noisy_logger in ("httpx", "httpcore"):
-    logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 # =============================================================================
 # Constants and Colors

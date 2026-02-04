@@ -24,7 +24,6 @@ import threading
 from typing import Any, Protocol, cast
 
 from aragora.audit.unified import audit_data
-from aragora.server.decision_integrity_utils import extract_execution_overrides
 
 # RBAC imports - optional dependency
 try:
@@ -91,7 +90,7 @@ def _verify_telegram_secret(secret_token: str) -> bool:
     SECURITY: Fails closed in production if TELEGRAM_WEBHOOK_SECRET is not configured.
     """
     if not TELEGRAM_WEBHOOK_SECRET:
-        env = os.environ.get("ARAGORA_ENV", "production").lower()
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             logger.error(
@@ -117,7 +116,7 @@ def _verify_webhook_token(token: str) -> bool:
     (since the webhook token is derived from it).
     """
     if not TELEGRAM_WEBHOOK_TOKEN:
-        env = os.environ.get("ARAGORA_ENV", "production").lower()
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
             logger.error(
@@ -423,13 +422,10 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                     "include_context": command == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
-                    "requested_by": f"telegram:{user_id}",
                 }
                 if command == "implement":
-                    args, overrides = extract_execution_overrides(args)
                     decision_integrity["execution_mode"] = "execute"
                     decision_integrity["execution_engine"] = "hybrid"
-                    decision_integrity.update(overrides)
             return self._cmd_debate(
                 chat_id,
                 user_id,
@@ -695,7 +691,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                     request_kwargs["config"] = config
 
                 # Create decision request
-                request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
+                request = DecisionRequest(**request_kwargs)
 
                 # Register origin for result routing (best-effort)
                 try:

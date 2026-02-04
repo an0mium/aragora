@@ -4,32 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
-
-
-def extract_execution_overrides(text: str) -> tuple[str, dict[str, Any]]:
-    """Extract execution overrides (e.g., --computer-use) from user text."""
-    if not text:
-        return text, {}
-    tokens = text.split()
-    overrides: dict[str, Any] = {}
-    cleaned: list[str] = []
-    for token in tokens:
-        flag = token.lower()
-        if flag in {"--computer-use", "--browser", "--ui"}:
-            overrides["execution_mode"] = "execute"
-            overrides["execution_engine"] = "computer_use"
-            continue
-        if flag in {"--hybrid"}:
-            overrides["execution_mode"] = "execute"
-            overrides["execution_engine"] = "hybrid"
-            continue
-        cleaned.append(token)
-    return " ".join(cleaned).strip(), overrides
 
 
 def _serialize_approval_request(approval_request: Any) -> dict[str, Any]:
@@ -53,36 +31,17 @@ def _serialize_approval_request(approval_request: Any) -> dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Internal config holder for build_decision_integrity_payload
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _IntegrityBuildConfig:
-    """Parsed configuration for a decision integrity build."""
-
-    cfg: dict[str, Any]
-    execution_mode: str
-    execution_engine: str
-    workflow_mode: bool
-    execute_workflow: bool
-    include_receipt: bool
-    include_plan: bool
-    include_context: bool
-    plan_strategy: str
-    notify_origin: bool
-
-
-def _parse_integrity_config(
-    decision_integrity: dict[str, Any] | bool | None,
+async def build_decision_integrity_payload(
     *,
+    result: Any,
+    debate_id: str | None,
+    arena: Any | None,
+    decision_integrity: dict[str, Any] | bool | None,
+    document_store: Any | None = None,
+    evidence_store: Any | None = None,
     notify_origin_override: bool | None = None,
-) -> _IntegrityBuildConfig | None:
-    """Parse and normalise the ``decision_integrity`` parameter.
-
-    Returns ``None`` when the caller should bail out early.
-    """
+) -> dict[str, Any] | None:
+    """Build a decision integrity payload, optionally executing the plan."""
     if decision_integrity is None:
         return None
     if isinstance(decision_integrity, bool):
@@ -119,22 +78,15 @@ def _parse_integrity_config(
     if not any([include_receipt, include_plan, include_context]):
         return None
 
-    return _IntegrityBuildConfig(
-        cfg=cfg,
-        execution_mode=execution_mode,
-        execution_engine=execution_engine,
-        workflow_mode=workflow_mode,
-        execute_workflow=execute_workflow,
-        include_receipt=include_receipt,
-        include_plan=include_plan,
-        include_context=include_context,
-        plan_strategy=plan_strategy,
-        notify_origin=notify_origin,
-    )
+    try:
+        from aragora.pipeline.decision_integrity import (
+            build_decision_integrity_package,
+            coerce_debate_result,
+        )
+    except Exception as exc:
+        logger.debug("Decision integrity pipeline unavailable: %s", exc)
+        return None
 
-
-def _build_debate_payload(result: Any, debate_id: str | None) -> dict[str, Any]:
-    """Construct the debate payload dict from a result object."""
     debate_payload: dict[str, Any] = {}
     if hasattr(result, "to_dict"):
         try:
@@ -153,36 +105,18 @@ def _build_debate_payload(result: Any, debate_id: str | None) -> dict[str, Any]:
         }
     if debate_id:
         debate_payload["debate_id"] = debate_id
-    return debate_payload
 
-
-async def _build_package(
-    debate_payload: dict[str, Any],
-    bc: _IntegrityBuildConfig,
-    arena: Any | None,
-    document_store: Any | None,
-    evidence_store: Any | None,
-) -> Any | None:
-    """Build the decision integrity package, returning it or ``None``."""
-    try:
-        from aragora.pipeline.decision_integrity import build_decision_integrity_package
-    except Exception as exc:
-        logger.debug("Decision integrity pipeline unavailable: %s", exc)
-        return None
-
-    continuum_memory = getattr(arena, "continuum_memory", None) if bc.include_context else None
-    cross_debate_memory = (
-        getattr(arena, "cross_debate_memory", None) if bc.include_context else None
-    )
-    knowledge_mound = getattr(arena, "knowledge_mound", None) if bc.include_context else None
+    continuum_memory = getattr(arena, "continuum_memory", None) if include_context else None
+    cross_debate_memory = getattr(arena, "cross_debate_memory", None) if include_context else None
+    knowledge_mound = getattr(arena, "knowledge_mound", None) if include_context else None
 
     try:
-        return await build_decision_integrity_package(
+        package = await build_decision_integrity_package(
             debate_payload,
-            include_receipt=bc.include_receipt,
-            include_plan=bc.include_plan,
-            include_context=bc.include_context,
-            plan_strategy=bc.plan_strategy,
+            include_receipt=include_receipt,
+            include_plan=include_plan,
+            include_context=include_context,
+            plan_strategy=plan_strategy,
             continuum_memory=continuum_memory,
             cross_debate_memory=cross_debate_memory,
             knowledge_mound=knowledge_mound,
@@ -193,262 +127,7 @@ async def _build_package(
         logger.debug("Decision integrity build failed: %s", exc)
         return None
 
-
-def _create_decision_plan(
-    bc: _IntegrityBuildConfig,
-    package: Any,
-    debate_payload: dict[str, Any],
-    debate_key: str | None,
-    arena: Any | None,
-) -> Any | None:
-    """Create a ``DecisionPlan`` from the package, or return ``None``."""
-    if bc.execution_mode not in {"request_approval", "execute"} and not bc.workflow_mode:
-        return None
-    if package.plan is None:
-        logger.debug("Decision integrity execution requested but no plan available.")
-        return None
-
-    try:
-        from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlanFactory
-        from aragora.pipeline.decision_integrity import coerce_debate_result
-        from aragora.pipeline.executor import store_plan
-        from aragora.pipeline.risk_register import RiskLevel
-
-        approval_mode_raw = str(bc.cfg.get("approval_mode", "risk_based"))
-        try:
-            approval_mode = ApprovalMode(approval_mode_raw)
-        except ValueError:
-            approval_mode = ApprovalMode.RISK_BASED
-
-        max_auto_risk_raw = str(bc.cfg.get("max_auto_risk", "low"))
-        try:
-            max_auto_risk = RiskLevel(max_auto_risk_raw)
-        except ValueError:
-            max_auto_risk = RiskLevel.LOW
-
-        budget_limit = None
-        budget_value = bc.cfg.get("budget_limit_usd")
-        if budget_value is not None:
-            try:
-                budget_limit = float(budget_value)
-            except (TypeError, ValueError):
-                budget_limit = None
-
-        metadata: dict[str, Any] = {
-            "source": "decision_integrity",
-            "debate_id": debate_key,
-        }
-        if isinstance(bc.cfg.get("openclaw_actions"), list):
-            metadata["openclaw_actions"] = bc.cfg["openclaw_actions"]
-        if isinstance(bc.cfg.get("computer_use_actions"), list):
-            metadata["computer_use_actions"] = bc.cfg["computer_use_actions"]
-        if isinstance(bc.cfg.get("openclaw_session"), dict):
-            metadata["openclaw_session"] = bc.cfg["openclaw_session"]
-
-        repo_root = bc.cfg.get("repo_path") or bc.cfg.get("repo_root")
-        if not repo_root:
-            repo_root = getattr(arena, "repo_root", None)
-        if not repo_root:
-            repo_root = os.environ.get("ARAGORA_REPO_ROOT")
-        repo_path = Path(repo_root) if repo_root else None
-
-        plan = DecisionPlanFactory.from_debate_result(
-            coerce_debate_result(debate_payload),
-            budget_limit_usd=budget_limit,
-            approval_mode=approval_mode,
-            max_auto_risk=max_auto_risk,
-            repo_path=repo_path,
-            metadata=metadata,
-            implement_plan=package.plan,
-        )
-        store_plan(plan)
-        return plan
-    except Exception as exc:
-        logger.debug("Decision plan creation failed: %s", exc)
-        return None
-
-
-async def _maybe_request_approval(
-    bc: _IntegrityBuildConfig,
-    plan: Any,
-    payload: dict[str, Any],
-) -> Any | None:
-    """Submit an approval request if the execution mode requires it.
-
-    Returns the ``ApprovalRequest`` (or ``None``).
-    """
-    request_approval = bc.execution_mode in {"request_approval", "execute"}
-    if bc.workflow_mode and plan.requires_human_approval:
-        request_approval = True
-    if not request_approval:
-        return None
-
-    try:
-        from aragora.server.handlers.autonomous.approvals import get_approval_flow
-
-        requested_by = str(bc.cfg.get("requested_by") or "system")
-        changes = []
-        if plan.implement_plan is not None:
-            for task in plan.implement_plan.tasks:
-                changes.append(
-                    {
-                        "id": task.id,
-                        "description": task.description,
-                        "files": task.files,
-                        "complexity": task.complexity,
-                    }
-                )
-        approval_flow = get_approval_flow()
-        approval_request = await approval_flow.request_approval(
-            title=f"Implement debate {plan.debate_id}",
-            description="Execute decision implementation plan generated from debate.",
-            changes=changes,
-            risk_level=str(bc.cfg.get("risk_level", "medium")),
-            requested_by=requested_by,
-            timeout_seconds=bc.cfg.get("approval_timeout_seconds"),
-            metadata={"debate_id": plan.debate_id, "plan_id": plan.id},
-        )
-        payload["approval"] = _serialize_approval_request(approval_request)
-
-        try:
-            from aragora.autonomous.loop_enhancement import ApprovalStatus
-
-            if approval_request.status in {
-                ApprovalStatus.APPROVED,
-                ApprovalStatus.AUTO_APPROVED,
-            }:
-                plan.approve(
-                    approver_id=approval_request.approved_by or requested_by or "system",
-                    reason="Auto-approved by policy"
-                    if approval_request.status == ApprovalStatus.AUTO_APPROVED
-                    else "Approved",
-                )
-                from aragora.pipeline.executor import store_plan
-
-                store_plan(plan)
-        except Exception:
-            pass
-        return approval_request
-    except Exception as exc:
-        logger.debug("Approval request failed: %s", exc)
-        return None
-
-
-async def _execute_plan(
-    bc: _IntegrityBuildConfig,
-    plan: Any,
-    arena: Any | None,
-    debate_key: str | None,
-    approval_request: Any | None,
-) -> dict[str, Any] | None:
-    """Execute the plan and return the execution payload, or ``None``."""
-    should_execute = bc.execution_mode == "execute" or bc.execute_workflow
-    if not should_execute:
-        return None
-
-    if os.environ.get("ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION", "0") != "1":
-        return {
-            "status": "disabled",
-            "reason": "Set ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION=1 to enable.",
-        }
-
-    if plan.requires_human_approval and not plan.is_approved:
-        return {
-            "status": "pending_approval",
-            "approval_id": approval_request.id if approval_request else None,
-        }
-
-    try:
-        from aragora.pipeline.execution_notifier import ExecutionNotifier
-        from aragora.pipeline.executor import PlanExecutor
-
-        engine = bc.execution_engine or ("workflow" if bc.workflow_mode else "hybrid")
-        parallel_execution = bool(bc.cfg.get("parallel_execution", False))
-
-        notifier = None
-        on_task_complete = None
-        if engine in {"hybrid", "computer_use"}:
-            notifier = ExecutionNotifier(
-                debate_id=plan.debate_id or str(debate_key or ""),
-                plan_id=plan.id,
-                notify_channel=bc.notify_origin,
-                notify_websocket=bc.notify_origin,
-            )
-            if engine == "hybrid" and plan.implement_plan is not None:
-                notifier.set_task_descriptions(plan.implement_plan.tasks)
-            if engine == "computer_use":
-                max_steps = bc.cfg.get("computer_use_max_steps", 50)
-                try:
-                    notifier.progress.total_tasks = int(max_steps)
-                except (TypeError, ValueError):
-                    notifier.progress.total_tasks = 50
-            on_task_complete = notifier.on_task_complete
-
-        executor = PlanExecutor(
-            continuum_memory=getattr(arena, "continuum_memory", None),
-            knowledge_mound=getattr(arena, "knowledge_mound", None),
-            parallel_execution=parallel_execution,
-            execution_mode=engine,
-        )
-        outcome = await executor.execute(
-            plan,
-            parallel_execution=parallel_execution,
-            execution_mode=engine,
-            on_task_complete=on_task_complete,
-        )
-        if notifier and bc.notify_origin:
-            await notifier.send_completion_summary()
-        result_payload: dict[str, Any] = {
-            "status": "completed",
-            "mode": engine,
-            "outcome": outcome.to_dict(),
-        }
-        if engine == "computer_use" and notifier:
-            result_payload["progress"] = notifier.progress.to_dict()
-        return result_payload
-    except Exception as exc:
-        return {
-            "status": "failed",
-            "error": str(exc),
-        }
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-async def build_decision_integrity_payload(
-    *,
-    result: Any,
-    debate_id: str | None,
-    arena: Any | None,
-    decision_integrity: dict[str, Any] | bool | None,
-    document_store: Any | None = None,
-    evidence_store: Any | None = None,
-    notify_origin_override: bool | None = None,
-) -> dict[str, Any] | None:
-    """Build a decision integrity payload, optionally executing the plan."""
-    bc = _parse_integrity_config(decision_integrity, notify_origin_override=notify_origin_override)
-    if bc is None:
-        return None
-
-    debate_payload = _build_debate_payload(result, debate_id)
-
-    package = await _build_package(debate_payload, bc, arena, document_store, evidence_store)
-    if package is None:
-        return None
-
     payload = package.to_dict()
-
-    # Inject execution mode/engine into payload
-    if "execution_mode" in bc.cfg or "execution_engine" in bc.cfg:
-        payload["execution_mode"] = bc.execution_mode
-        effective_engine = bc.execution_engine or ("workflow" if bc.workflow_mode else "")
-        if bc.execution_mode in {"execute", "request_approval"} and not effective_engine:
-            effective_engine = "hybrid"
-        if effective_engine:
-            payload["execution_engine"] = effective_engine
 
     debate_key = (
         payload.get("debate_id")
@@ -457,22 +136,189 @@ async def build_decision_integrity_payload(
         or getattr(result, "id", None)
     )
 
-    # Plan creation → approval → execution
-    plan = _create_decision_plan(bc, package, debate_payload, debate_key, arena)
+    plan = None
+    if execution_mode in {"request_approval", "execute"} or workflow_mode:
+        if package.plan is None:
+            logger.debug("Decision integrity execution requested but no plan available.")
+        else:
+            try:
+                from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlanFactory
+                from aragora.pipeline.executor import store_plan
+                from aragora.pipeline.risk_register import RiskLevel
 
+                approval_mode_raw = str(cfg.get("approval_mode", "risk_based"))
+                try:
+                    approval_mode = ApprovalMode(approval_mode_raw)
+                except ValueError:
+                    approval_mode = ApprovalMode.RISK_BASED
+
+                max_auto_risk_raw = str(cfg.get("max_auto_risk", "low"))
+                try:
+                    max_auto_risk = RiskLevel(max_auto_risk_raw)
+                except ValueError:
+                    max_auto_risk = RiskLevel.LOW
+
+                budget_limit = None
+                budget_value = cfg.get("budget_limit_usd")
+                if budget_value is not None:
+                    try:
+                        budget_limit = float(budget_value)
+                    except (TypeError, ValueError):
+                        budget_limit = None
+
+                metadata: dict[str, Any] = {
+                    "source": "decision_integrity",
+                    "debate_id": debate_key,
+                }
+                if isinstance(cfg.get("openclaw_actions"), list):
+                    metadata["openclaw_actions"] = cfg.get("openclaw_actions")
+                if isinstance(cfg.get("computer_use_actions"), list):
+                    metadata["computer_use_actions"] = cfg.get("computer_use_actions")
+                if isinstance(cfg.get("openclaw_session"), dict):
+                    metadata["openclaw_session"] = cfg.get("openclaw_session")
+
+                repo_root = cfg.get("repo_path") or cfg.get("repo_root")
+                if not repo_root:
+                    repo_root = getattr(arena, "repo_root", None)
+                if not repo_root:
+                    repo_root = os.environ.get("ARAGORA_REPO_ROOT")
+                repo_path = Path(repo_root) if repo_root else None
+
+                plan = DecisionPlanFactory.from_debate_result(
+                    coerce_debate_result(debate_payload),
+                    budget_limit_usd=budget_limit,
+                    approval_mode=approval_mode,
+                    max_auto_risk=max_auto_risk,
+                    repo_path=repo_path,
+                    metadata=metadata,
+                    implement_plan=package.plan,
+                )
+                store_plan(plan)
+                payload["decision_plan"] = plan.to_dict()
+                payload["plan_id"] = plan.id
+            except Exception as exc:
+                logger.debug("Decision plan creation failed: %s", exc)
+
+    approval_request = None
     if plan is not None:
-        payload["decision_plan"] = plan.to_dict()
-        payload["plan_id"] = plan.id
+        request_approval = execution_mode in {"request_approval", "execute"}
+        if workflow_mode and plan.requires_human_approval:
+            request_approval = True
 
-        approval_request = await _maybe_request_approval(bc, plan, payload)
+        if request_approval:
+            try:
+                from aragora.server.handlers.autonomous.approvals import get_approval_flow
 
-        execution_payload = await _execute_plan(bc, plan, arena, debate_key, approval_request)
-        if execution_payload is not None:
-            key = "workflow_execution" if bc.workflow_mode else "execution"
-            payload[key] = execution_payload
+                requested_by = str(cfg.get("requested_by") or "system")
+                changes = []
+                if plan.implement_plan is not None:
+                    for task in plan.implement_plan.tasks:
+                        changes.append(
+                            {
+                                "id": task.id,
+                                "description": task.description,
+                                "files": task.files,
+                                "complexity": task.complexity,
+                            }
+                        )
+                approval_flow = get_approval_flow()
+                approval_request = await approval_flow.request_approval(
+                    title=f"Implement debate {plan.debate_id}",
+                    description="Execute decision implementation plan generated from debate.",
+                    changes=changes,
+                    risk_level=str(cfg.get("risk_level", "medium")),
+                    requested_by=requested_by,
+                    timeout_seconds=cfg.get("approval_timeout_seconds"),
+                    metadata={"debate_id": plan.debate_id, "plan_id": plan.id},
+                )
+                payload["approval"] = _serialize_approval_request(approval_request)
+                try:
+                    from aragora.autonomous.loop_enhancement import ApprovalStatus
 
-    # Route result to originating channel
-    if bc.notify_origin and debate_key:
+                    if approval_request.status in {
+                        ApprovalStatus.APPROVED,
+                        ApprovalStatus.AUTO_APPROVED,
+                    }:
+                        plan.approve(
+                            approver_id=approval_request.approved_by or requested_by or "system",
+                            reason="Auto-approved by policy"
+                            if approval_request.status == ApprovalStatus.AUTO_APPROVED
+                            else "Approved",
+                        )
+                        from aragora.pipeline.executor import store_plan
+
+                        store_plan(plan)
+                except Exception:
+                    pass
+            except Exception as exc:
+                logger.debug("Approval request failed: %s", exc)
+
+    execution_payload: dict[str, Any] | None = None
+    should_execute = execution_mode == "execute" or execute_workflow
+    if plan is not None and should_execute:
+        if os.environ.get("ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION", "0") != "1":
+            execution_payload = {
+                "status": "disabled",
+                "reason": "Set ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION=1 to enable.",
+            }
+        elif plan.requires_human_approval and not plan.is_approved:
+            execution_payload = {
+                "status": "pending_approval",
+                "approval_id": approval_request.id if approval_request else None,
+            }
+        else:
+            try:
+                from aragora.pipeline.executor import PlanExecutor
+                from aragora.pipeline.execution_notifier import ExecutionNotifier
+
+                engine = execution_engine or ("workflow" if workflow_mode else "hybrid")
+                parallel_execution = bool(cfg.get("parallel_execution", False))
+
+                notifier = None
+                on_task_complete = None
+                if engine == "hybrid":
+                    notifier = ExecutionNotifier(
+                        debate_id=plan.debate_id or str(debate_key or ""),
+                        plan_id=plan.id,
+                        notify_channel=notify_origin,
+                        notify_websocket=notify_origin,
+                    )
+                    if plan.implement_plan is not None:
+                        notifier.set_task_descriptions(plan.implement_plan.tasks)
+                    on_task_complete = notifier.on_task_complete
+
+                executor = PlanExecutor(
+                    continuum_memory=getattr(arena, "continuum_memory", None),
+                    knowledge_mound=getattr(arena, "knowledge_mound", None),
+                    parallel_execution=parallel_execution,
+                    execution_mode=engine,
+                )
+                outcome = await executor.execute(
+                    plan,
+                    parallel_execution=parallel_execution,
+                    execution_mode=engine,
+                    on_task_complete=on_task_complete,
+                )
+                if notifier and notify_origin:
+                    await notifier.send_completion_summary()
+                execution_payload = {
+                    "status": "completed",
+                    "mode": engine,
+                    "outcome": outcome.to_dict(),
+                }
+            except Exception as exc:
+                execution_payload = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
+
+    if execution_payload is not None:
+        if workflow_mode:
+            payload["workflow_execution"] = execution_payload
+        else:
+            payload["execution"] = execution_payload
+
+    if notify_origin and debate_key:
         try:
             from aragora.server.result_router import route_result
 

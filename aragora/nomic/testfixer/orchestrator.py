@@ -612,6 +612,7 @@ class TestFixerOrchestrator:
                     await self.config.on_fix_applied(attempt)
                 if self.config.attempt_store:
                     self.config.attempt_store.record_attempt(attempt)
+                self._learn_from_attempt(attempt)
 
                 if fix_worked and self.config.stop_on_first_success:
                     result.attempts.append(attempt)
@@ -622,6 +623,7 @@ class TestFixerOrchestrator:
                 result.attempts.append(attempt)
                 if self.config.attempt_store:
                     self.config.attempt_store.record_attempt(attempt)
+                self._learn_from_attempt(attempt)
 
                 # Save attempt if configured
                 if self.config.save_attempts and self.config.attempts_dir:

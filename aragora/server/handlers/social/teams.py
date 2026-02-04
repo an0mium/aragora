@@ -19,7 +19,6 @@ Environment Variables:
 from __future__ import annotations
 
 import asyncio
-import threading
 import json
 import logging
 import os
@@ -27,7 +26,6 @@ import re
 from typing import Any, Callable, Coroutine, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
-from aragora.server.decision_integrity_utils import extract_execution_overrides
 
 logger = logging.getLogger(__name__)
 
@@ -43,30 +41,9 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
 
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        task = loop.create_task(coro, name=name)
-        task.add_done_callback(lambda t: _handle_task_exception(t, name))
-        return task
-
-    def _run_in_thread() -> None:
-        try:
-            asyncio.run(coro)
-        except Exception as exc:  # pragma: no cover - safety net
-            logger.error(f"Task {name} failed with exception: {exc}", exc_info=exc)
-
-    thread = threading.Thread(target=_run_in_thread, name=f"teams-task-{name}", daemon=True)
-    thread.start()
-
-    class _BackgroundTask:
-        def add_done_callback(self, _cb):
-            return None
-
-    return _BackgroundTask()  # type: ignore[return-value]
+    task = asyncio.create_task(coro, name=name)
+    task.add_done_callback(lambda t: _handle_task_exception(t, name))
+    return task
 
 
 from ..base import (
@@ -312,7 +289,6 @@ class TeamsIntegrationHandler(BaseHandler):
                     mode_label="plan",
                 )
             if command == "implement":
-                topic, overrides = extract_execution_overrides(args.strip())
                 decision_integrity = {
                     "include_receipt": True,
                     "include_plan": True,
@@ -323,9 +299,8 @@ class TeamsIntegrationHandler(BaseHandler):
                     "execution_engine": "hybrid",
                     "requested_by": f"teams:{from_user.get('id')}",
                 }
-                decision_integrity.update(overrides)
                 return await self._start_debate(
-                    topic=topic,
+                    topic=args.strip(),
                     conversation=conversation,
                     service_url=service_url,
                     user=from_user,

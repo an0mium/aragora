@@ -226,13 +226,13 @@ class ArenaDelegatesMixin:
 
     def _format_conclusion(self, result: "DebateResult") -> str:
         """Format debate conclusion. Delegates to orchestrator_output."""
-        from aragora.debate.orchestrator_output import format_conclusion
+        from aragora.debate.orchestrator_setup import format_conclusion
 
         return format_conclusion(result)
 
     async def _translate_conclusions(self, result: "DebateResult") -> None:
         """Translate conclusions. Delegates to orchestrator_output."""
-        from aragora.debate.orchestrator_output import translate_conclusions
+        from aragora.debate.orchestrator_setup import translate_conclusions
 
         await translate_conclusions(result, self.protocol)
 

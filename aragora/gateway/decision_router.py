@@ -50,6 +50,14 @@ Usage:
 
 from __future__ import annotations
 
+import warnings
+
+warnings.warn(
+    "aragora.gateway.decision_router is deprecated. Use aragora.core.decision_router instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 import asyncio
 import logging
 import time

@@ -27,17 +27,6 @@ Usage:
 
 from __future__ import annotations
 
-# =============================================================================
-# PERMISSION SECTIONS
-# =============================================================================
-# ADMIN PERMISSIONS
-# DEBATE PERMISSIONS
-# AGENT PERMISSIONS
-# USER MANAGEMENT PERMISSIONS
-# ORGANIZATION PERMISSIONS
-# CONTROL PLANE PERMISSIONS
-# COMPLIANCE PERMISSIONS
-
 # Import the helper function for use in this package
 from ._helpers import _permission
 
@@ -294,7 +283,6 @@ from .knowledge import (
     PERM_KNOWLEDGE_UPDATE,
     PERM_KNOWLEDGE_WRITE,
     PERM_MEMORY_DELETE,
-    PERM_MEMORY_MANAGE,
     PERM_MEMORY_READ,
     PERM_MEMORY_UPDATE,
     PERM_MEMORY_WRITE,
@@ -377,6 +365,20 @@ from .autonomous import (
     PERM_AUTONOMOUS_APPROVE,
     PERM_AUTONOMOUS_READ,
     PERM_AUTONOMOUS_WRITE,
+)
+
+# Security permissions
+from .security import (
+    PERM_CVE_READ,
+    PERM_SAST_READ,
+    PERM_SAST_SCAN,
+    PERM_SBOM_COMPARE,
+    PERM_SBOM_GENERATE,
+    PERM_SBOM_READ,
+    PERM_SECRETS_READ,
+    PERM_SECRETS_SCAN,
+    PERM_VULNERABILITY_READ,
+    PERM_VULNERABILITY_SCAN,
 )
 
 # Resource permissions
@@ -671,7 +673,6 @@ __all__ = [
     "PERM_MEMORY_UPDATE",
     "PERM_MEMORY_DELETE",
     "PERM_MEMORY_WRITE",
-    "PERM_MEMORY_MANAGE",
     "PERM_REASONING_READ",
     "PERM_REASONING_UPDATE",
     "PERM_PROVENANCE_READ",
@@ -815,4 +816,15 @@ __all__ = [
     "PERM_ALERTS_READ",
     "PERM_ALERTS_WRITE",
     "PERM_ALERTS_ADMIN",
+    # Security/Codebase scanning
+    "PERM_VULNERABILITY_SCAN",
+    "PERM_VULNERABILITY_READ",
+    "PERM_SECRETS_SCAN",
+    "PERM_SECRETS_READ",
+    "PERM_SAST_SCAN",
+    "PERM_SAST_READ",
+    "PERM_SBOM_GENERATE",
+    "PERM_SBOM_READ",
+    "PERM_SBOM_COMPARE",
+    "PERM_CVE_READ",
 ]

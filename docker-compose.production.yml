@@ -84,7 +84,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      sentinel-1:
+        condition: service_healthy
+      sentinel-2:
+        condition: service_healthy
+      sentinel-3:
         condition: service_healthy
     environment:
       # AI Providers
@@ -95,8 +99,11 @@ services:
       - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD}@postgres:5432/aragora
       - ARAGORA_DB_BACKEND=postgres
       - ARAGORA_POSTGRES_DSN=postgresql://aragora:${POSTGRES_PASSWORD}@postgres:5432/aragora
-      # Redis
-      - REDIS_URL=redis://redis:6379
+      # Redis Sentinel HA
+      - ARAGORA_REDIS_MODE=${ARAGORA_REDIS_MODE:-sentinel}
+      - ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+      - ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+      - ARAGORA_REDIS_PASSWORD=${REDIS_PASSWORD:-}
       # Environment mode
       - ARAGORA_ENV=${ARAGORA_ENV:-production}
       - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-production}
@@ -204,6 +211,168 @@ services:
           cpus: '2'
           memory: 2G
 
+  # ============================================================================
+  # Redis Sentinel HA Cluster
+  # ============================================================================
+  # Architecture: 1 master + 2 replicas + 3 sentinels
+  # Automatic failover with quorum of 2 sentinels
+  # Set ARAGORA_REDIS_MODE=sentinel in .env.production to enable
+
+  redis-master:
+    image: redis:7-alpine
+    container_name: aragora-redis-master
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - redis-master-data:/data
+      - ./deploy/redis/redis-master.conf:/etc/redis/redis.conf:ro
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  redis-replica-1:
+    image: redis:7-alpine
+    container_name: aragora-redis-replica-1
+    command: redis-server /etc/redis/redis.conf
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    volumes:
+      - redis-replica-1-data:/data
+      - ./deploy/redis/redis-replica.conf:/etc/redis/redis.conf:ro
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  redis-replica-2:
+    image: redis:7-alpine
+    container_name: aragora-redis-replica-2
+    command: redis-server /etc/redis/redis.conf
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    volumes:
+      - redis-replica-2-data:/data
+      - ./deploy/redis/redis-replica.conf:/etc/redis/redis.conf:ro
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  sentinel-1:
+    image: redis:7-alpine
+    container_name: aragora-sentinel-1
+    command: redis-sentinel /etc/redis/sentinel.conf
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica-1:
+        condition: service_healthy
+      redis-replica-2:
+        condition: service_healthy
+    volumes:
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - sentinel-1-data:/data
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  sentinel-2:
+    image: redis:7-alpine
+    container_name: aragora-sentinel-2
+    command: redis-sentinel /etc/redis/sentinel.conf
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica-1:
+        condition: service_healthy
+      redis-replica-2:
+        condition: service_healthy
+    volumes:
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - sentinel-2-data:/data
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  sentinel-3:
+    image: redis:7-alpine
+    container_name: aragora-sentinel-3
+    command: redis-sentinel /etc/redis/sentinel.conf
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica-1:
+        condition: service_healthy
+      redis-replica-2:
+        condition: service_healthy
+    volumes:
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - sentinel-3-data:/data
+    networks:
+      - aragora-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  # Legacy single-node Redis (for non-HA deployments)
+  # Use this by setting ARAGORA_REDIS_MODE=standalone
   redis:
     image: redis:7-alpine
     container_name: aragora-redis
@@ -224,6 +393,8 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    profiles:
+      - standalone-redis
     deploy:
       resources:
         limits:
@@ -240,7 +411,11 @@ services:
       dockerfile: Dockerfile
     command: python -m scripts.queue_worker --concurrency 5
     depends_on:
-      redis:
+      sentinel-1:
+        condition: service_healthy
+      sentinel-2:
+        condition: service_healthy
+      sentinel-3:
         condition: service_healthy
       aragora:
         condition: service_healthy
@@ -248,7 +423,11 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - REDIS_URL=redis://redis:6379
+      # Redis Sentinel HA
+      - ARAGORA_REDIS_MODE=${ARAGORA_REDIS_MODE:-sentinel}
+      - ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+      - ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+      - ARAGORA_REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD}@postgres:5432/aragora
       - ARAGORA_QUEUE_RETRY_MAX=3
     volumes:
@@ -421,6 +600,20 @@ volumes:
     name: aragora-prod-logs
   postgres-data:
     name: aragora-prod-postgres
+  # Redis Sentinel HA volumes
+  redis-master-data:
+    name: aragora-prod-redis-master
+  redis-replica-1-data:
+    name: aragora-prod-redis-replica-1
+  redis-replica-2-data:
+    name: aragora-prod-redis-replica-2
+  sentinel-1-data:
+    name: aragora-prod-sentinel-1
+  sentinel-2-data:
+    name: aragora-prod-sentinel-2
+  sentinel-3-data:
+    name: aragora-prod-sentinel-3
+  # Legacy single-node Redis volume
   redis-data:
     name: aragora-prod-redis
   letsencrypt:

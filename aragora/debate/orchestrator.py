@@ -60,7 +60,7 @@ from aragora.debate.orchestrator_init import (
     run_init_subsystems as _init_run_init_subsystems,
     store_post_tracker_config as _init_store_post_tracker_config,
 )
-from aragora.debate.orchestrator_lifecycle import (
+from aragora.debate.orchestrator_setup import (
     init_caches as _lifecycle_init_caches,
     init_checkpoint_ops as _lifecycle_init_checkpoint_ops,
     init_event_emitter as _lifecycle_init_event_emitter,
@@ -102,7 +102,7 @@ from aragora.debate.orchestrator_state import (
 )
 
 # Re-export for backward compatibility (tests import from orchestrator)
-from aragora.debate.orchestrator_domains import (  # noqa: F401
+from aragora.debate.orchestrator_setup import (  # noqa: F401
     compute_domain_from_task as _compute_domain_from_task,
 )
 

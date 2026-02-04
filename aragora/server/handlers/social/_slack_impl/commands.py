@@ -16,7 +16,6 @@ from typing import Any
 from urllib.parse import parse_qs
 
 from aragora.config import DEFAULT_ROUNDS
-from aragora.server.decision_integrity_utils import extract_execution_overrides
 
 try:
     from aragora.server.storage import get_debates_db
@@ -31,8 +30,8 @@ from .config import (
     _get_audit_logger,
     _get_user_rate_limiter,
     _get_workspace_rate_limiter,
+    create_tracked_task,
 )
-import aragora.server.handlers.social._slack_impl as slack_impl
 from .config import rate_limit
 from .blocks import BlocksMixin
 
@@ -165,7 +164,6 @@ class CommandsMixin(BlocksMixin):
                         mode_label="plan",
                     )
                 elif subcommand == "implement":
-                    args, overrides = extract_execution_overrides(args)
                     decision_integrity = {
                         "include_receipt": True,
                         "include_plan": True,
@@ -176,7 +174,6 @@ class CommandsMixin(BlocksMixin):
                         "execution_engine": "hybrid",
                         "requested_by": f"slack:{user_id}",
                     }
-                    decision_integrity.update(overrides)
                     result = self._command_debate(
                         args,
                         user_id,
@@ -443,7 +440,7 @@ class CommandsMixin(BlocksMixin):
 
         # Queue the question asynchronously
         if response_url:
-            slack_impl.create_tracked_task(
+            create_tracked_task(
                 self._answer_question_async(question, response_url, user_id, channel_id),
                 name=f"slack-ask-{question[:30]}",
             )
@@ -913,7 +910,7 @@ class CommandsMixin(BlocksMixin):
 
         # Queue the gauntlet run asynchronously
         if response_url:
-            slack_impl.create_tracked_task(
+            create_tracked_task(
                 self._run_gauntlet_async(statement, response_url, user_id, channel_id, team_id),
                 name=f"slack-gauntlet-{statement[:30]}",
             )
@@ -1129,7 +1126,7 @@ class CommandsMixin(BlocksMixin):
 
         # Queue the debate creation asynchronously
         if response_url:
-            slack_impl.create_tracked_task(
+            create_tracked_task(
                 self._create_debate_async(
                     topic,
                     response_url,
@@ -1298,7 +1295,7 @@ class CommandsMixin(BlocksMixin):
             def on_round_complete(round_num: int, agent: str, response: str) -> None:
                 nonlocal last_round
                 # Post individual agent response to thread (fire-and-forget)
-                slack_impl.create_tracked_task(
+                create_tracked_task(
                     self._post_agent_response(
                         response_url,
                         agent,
@@ -1313,7 +1310,7 @@ class CommandsMixin(BlocksMixin):
                 # Post round progress update when round changes
                 if round_num > last_round:
                     last_round = round_num
-                    slack_impl.create_tracked_task(
+                    create_tracked_task(
                         self._post_round_update(
                             response_url,
                             topic,

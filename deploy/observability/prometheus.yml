@@ -19,9 +19,10 @@ alerting:
         - targets:
           - alertmanager:9093
 
-# Load alerting rules
+# Load alerting and SLO rules
 rule_files:
   - "alerts.rules"
+  - "slo-rules.yml"
 
 scrape_configs:
   # Aragora API server metrics

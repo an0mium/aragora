@@ -17,7 +17,7 @@ from aragora.debate.orchestrator_agents import (
     select_debate_team as _agents_select_debate_team,
     should_terminate_early as _agents_should_terminate_early,
 )
-from aragora.debate.orchestrator_domains import (
+from aragora.debate.orchestrator_setup import (
     compute_domain_from_task as _compute_domain_from_task,
 )
 

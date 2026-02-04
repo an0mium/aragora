@@ -58,7 +58,12 @@ class ResponseHelpersMixin:
         def send_header(self, keyword: str, value: str) -> None: ...
         def end_headers(self) -> None: ...
 
-    def _send_json(self, data: Any, status: int = 200) -> None:
+    def _send_json(
+        self,
+        data: Any,
+        status: int = 200,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         """Send JSON response with all standard headers."""
         self._response_status = status
         content = json.dumps(data).encode()
@@ -71,6 +76,9 @@ class ResponseHelpersMixin:
         self._add_trace_headers()
         self._add_version_headers()
         self._add_v1_deprecation_headers()
+        if headers:
+            for name, value in headers.items():
+                self.send_header(name, value)
         self.end_headers()
         self.wfile.write(content)
 
@@ -109,11 +117,63 @@ class ResponseHelpersMixin:
 
     def _add_trace_headers(self) -> None:
         """Add trace ID header to response for correlation."""
-        from aragora.server.middleware.tracing import TRACE_ID_HEADER, get_trace_id
+        try:
+            from aragora.server.middleware.correlation import get_correlation
+
+            ctx = get_correlation()
+        except Exception:
+            ctx = None
+
+        if ctx is not None:
+            try:
+                from aragora.server.middleware.request_logging import REQUEST_ID_HEADER
+
+                self.send_header(REQUEST_ID_HEADER, ctx.request_id)
+            except Exception:
+                pass
+            from aragora.server.middleware.tracing import (
+                PARENT_SPAN_HEADER,
+                SPAN_ID_HEADER,
+                TRACE_ID_HEADER,
+            )
+
+            self.send_header(TRACE_ID_HEADER, ctx.trace_id)
+            self.send_header(SPAN_ID_HEADER, ctx.span_id)
+            if ctx.parent_span_id:
+                self.send_header(PARENT_SPAN_HEADER, ctx.parent_span_id)
+            return
+
+        # Fallback to legacy context vars
+        try:
+            from aragora.server.middleware.request_logging import (
+                REQUEST_ID_HEADER,
+                get_current_request_id,
+            )
+
+            request_id = get_current_request_id()
+            if request_id:
+                self.send_header(REQUEST_ID_HEADER, request_id)
+        except Exception:
+            pass
+
+        from aragora.server.middleware.tracing import (
+            PARENT_SPAN_HEADER,
+            SPAN_ID_HEADER,
+            TRACE_ID_HEADER,
+            get_parent_span_id,
+            get_span_id,
+            get_trace_id,
+        )
 
         trace_id = get_trace_id()
         if trace_id:
             self.send_header(TRACE_ID_HEADER, trace_id)
+        span_id = get_span_id()
+        if span_id:
+            self.send_header(SPAN_ID_HEADER, span_id)
+        parent_span_id = get_parent_span_id()
+        if parent_span_id:
+            self.send_header(PARENT_SPAN_HEADER, parent_span_id)
 
     def _add_rate_limit_headers(self) -> None:
         """Add rate limit headers to response.

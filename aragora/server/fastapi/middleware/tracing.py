@@ -7,7 +7,6 @@ Adds trace ID propagation and request timing for observability.
 from __future__ import annotations
 
 import time
-import uuid
 from typing import Callable
 
 from fastapi import Request, Response
@@ -19,28 +18,57 @@ class TracingMiddleware(BaseHTTPMiddleware):
     Middleware for distributed tracing.
 
     - Generates or propagates trace IDs
+    - Generates request IDs
     - Records request timing
-    - Adds trace headers to responses
+    - Adds correlation headers to responses
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Get or generate trace ID
-        trace_id = request.headers.get("X-Trace-ID")
-        if not trace_id:
-            trace_id = str(uuid.uuid4())[:8]
-
-        # Store trace ID on request state
-        request.state.trace_id = trace_id
         request.state.start_time = time.perf_counter()
 
-        # Process request
+        ctx = None
+        try:
+            from aragora.server.middleware.correlation import init_correlation
+            from aragora.server.middleware.request_logging import (
+                REQUEST_ID_HEADER,
+                generate_request_id,
+            )
+
+            headers = dict(request.headers)
+            request_id = (
+                headers.get(REQUEST_ID_HEADER)
+                or headers.get(REQUEST_ID_HEADER.lower())
+                or generate_request_id()
+            )
+            ctx = init_correlation(headers, request_id=request_id)
+
+            request.state.trace_id = ctx.trace_id
+            request.state.request_id = ctx.request_id
+            request.state.span_id = ctx.span_id
+        except Exception:
+            # Fall back to minimal timing-only behavior if correlation setup fails
+            pass
+
         response = await call_next(request)
 
-        # Calculate duration
         duration_ms = (time.perf_counter() - request.state.start_time) * 1000
-
-        # Add trace headers to response
-        response.headers["X-Trace-ID"] = trace_id
         response.headers["X-Response-Time"] = f"{duration_ms:.2f}ms"
+
+        if ctx is not None:
+            try:
+                from aragora.server.middleware.request_logging import REQUEST_ID_HEADER
+                from aragora.server.middleware.tracing import (
+                    PARENT_SPAN_HEADER,
+                    SPAN_ID_HEADER,
+                    TRACE_ID_HEADER,
+                )
+
+                response.headers[REQUEST_ID_HEADER] = ctx.request_id
+                response.headers[TRACE_ID_HEADER] = ctx.trace_id
+                response.headers[SPAN_ID_HEADER] = ctx.span_id
+                if ctx.parent_span_id:
+                    response.headers[PARENT_SPAN_HEADER] = ctx.parent_span_id
+            except Exception:
+                pass
 
         return response

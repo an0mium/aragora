@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_ROUNDS
-from aragora.server.decision_integrity_utils import extract_execution_overrides
 
 from aragora.server.handlers.bots.teams_utils import (
     _active_debates,
@@ -202,13 +201,10 @@ class TeamsEventProcessor:
                     "include_context": command == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
-                    "requested_by": f"teams:{user_id}",
                 }
                 if command == "implement":
-                    args, overrides = extract_execution_overrides(args)
                     decision_integrity["execution_mode"] = "execute"
                     decision_integrity["execution_engine"] = "hybrid"
-                    decision_integrity.update(overrides)
             return await self._cmd_debate(
                 args,
                 conversation_id,

@@ -142,10 +142,66 @@ class RequestLifecycleManager:
 
         is_api_request = path.startswith("/api/")
 
+        request_headers: dict[str, str] = {}
+        if hasattr(self.handler, "headers"):
+            try:
+                request_headers = {k: v for k, v in self.handler.headers.items()}
+            except Exception:
+                request_headers = {}
+
+        request_id: str | None = None
+        try:
+            from aragora.server.middleware.request_logging import (
+                REQUEST_ID_HEADER,
+                generate_request_id,
+            )
+
+            request_id = (
+                request_headers.get(REQUEST_ID_HEADER)
+                or request_headers.get(REQUEST_ID_HEADER.lower())
+                or generate_request_id()
+            )
+        except Exception:
+            request_id = None
+
         # Start tracing span for API requests
         span = None
         if self.tracing and (is_api_request or not trace_api_only):
-            span = self.tracing.start_request_span(method, path, dict(self.handler.headers))
+            span = self.tracing.start_request_span(method, path, request_headers)
+
+            # Bind correlation context to tracing span if available
+            try:
+                from aragora.server.middleware.correlation import init_correlation
+
+                init_correlation(
+                    request_headers,
+                    request_id=request_id,
+                    trace_id=span.trace_id,
+                    span_id=span.span_id,
+                    parent_span_id=span.parent_span_id,
+                )
+            except Exception:
+                try:
+                    from aragora.server.middleware.request_logging import set_current_request_id
+
+                    if request_id:
+                        set_current_request_id(request_id)
+                except Exception:
+                    pass
+        else:
+            # Even without tracing, establish correlation context for logs/headers
+            try:
+                from aragora.server.middleware.correlation import init_correlation
+
+                init_correlation(request_headers, request_id=request_id)
+            except Exception:
+                try:
+                    from aragora.server.middleware.request_logging import set_current_request_id
+
+                    if request_id:
+                        set_current_request_id(request_id)
+                except Exception:
+                    pass
 
         # Determine timeout for this request
         timeout_seconds = _get_request_timeout(path)

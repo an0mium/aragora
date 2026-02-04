@@ -50,13 +50,9 @@ logger = logging.getLogger(__name__)
 
 # Execution mode type
 ExecutionMode = Literal["workflow", "hybrid", "computer_use"]
-ReviewMode = Literal["off", "post", "strict"]
 
 # Environment variable to control default execution mode
 DEFAULT_EXECUTION_MODE: ExecutionMode = os.environ.get("PLAN_EXECUTION_MODE", "workflow")  # type: ignore[assignment]
-DEFAULT_REVIEW_MODE: ReviewMode = os.environ.get("ARAGORA_IMPLEMENTATION_REVIEW_MODE", "off")  # type: ignore[assignment]
-DEFAULT_REVIEW_MAX_CHARS = int(os.environ.get("ARAGORA_IMPLEMENTATION_REVIEW_MAX_CHARS", "12000"))
-DEFAULT_REVIEW_TIMEOUT = int(os.environ.get("ARAGORA_IMPLEMENTATION_REVIEW_TIMEOUT", "2400"))
 
 # Permission required to execute plans
 PLAN_EXECUTE_PERMISSION = "decisions:execute"
@@ -137,9 +133,6 @@ class PlanExecutor:
         max_parallel: int | None = None,
         execution_mode: ExecutionMode | None = None,
         repo_path: Path | None = None,
-        review_mode: ReviewMode | None = None,
-        review_max_chars: int | None = None,
-        review_timeout_seconds: int | None = None,
     ) -> None:
         if continuum_memory is None:
             try:
@@ -162,13 +155,6 @@ class PlanExecutor:
         self._max_parallel = max_parallel
         self._execution_mode: ExecutionMode = execution_mode or DEFAULT_EXECUTION_MODE
         self._repo_path = repo_path or Path.cwd()
-        self._review_mode: ReviewMode = review_mode or DEFAULT_REVIEW_MODE
-        self._review_max_chars = (
-            review_max_chars if review_max_chars is not None else DEFAULT_REVIEW_MAX_CHARS
-        )
-        self._review_timeout_seconds = (
-            review_timeout_seconds if review_timeout_seconds is not None else DEFAULT_REVIEW_TIMEOUT
-        )
 
     async def execute(
         self,
@@ -177,7 +163,6 @@ class PlanExecutor:
         parallel_execution: bool | None = None,
         auth_context: AuthorizationContext | None = None,
         execution_mode: ExecutionMode | None = None,
-        review_mode: ReviewMode | None = None,
         on_task_complete: Any | None = None,
     ) -> PlanOutcome:
         """Execute a DecisionPlan and return the outcome.
@@ -190,7 +175,6 @@ class PlanExecutor:
                 If None, execution proceeds (for internal/system calls).
             execution_mode: Override the default execution mode for this call.
                 "workflow" uses WorkflowEngine, "hybrid" uses HybridExecutor.
-            review_mode: Optional review mode override ("off", "post", "strict").
             on_task_complete: Optional callback invoked per task completion.
 
         Returns:
@@ -242,18 +226,16 @@ class PlanExecutor:
 
         # Determine execution mode
         mode = execution_mode or self._execution_mode
-        effective_review_mode = review_mode or self._review_mode
 
         try:
             if mode == "hybrid":
                 outcome = await self._run_hybrid(
                     plan,
                     parallel_execution=parallel_execution,
-                    review_mode=effective_review_mode,
                     on_task_complete=on_task_complete,
                 )
             elif mode == "computer_use":
-                outcome = await self._run_computer_use(plan, on_task_complete=on_task_complete)
+                outcome = await self._run_computer_use(plan)
             else:
                 outcome = await self._run_workflow(plan, parallel_execution=parallel_execution)
         except Exception as e:
@@ -395,7 +377,6 @@ class PlanExecutor:
         plan: DecisionPlan,
         *,
         parallel_execution: bool = False,
-        review_mode: ReviewMode = "off",
         on_task_complete: Any | None = None,
     ) -> PlanOutcome:
         """Run plan tasks using HybridExecutor (Claude + Codex).
@@ -486,29 +467,6 @@ class PlanExecutor:
 
             success = tasks_completed == tasks_total and not error_msg
 
-            review_payload: dict[str, Any] | None = None
-            review_passed: bool | None = None
-            if review_mode != "off":
-                try:
-                    diff = executor.get_review_diff(max_chars=self._review_max_chars)
-                    if diff.strip():
-                        review_payload = await executor.review_with_codex(
-                            diff, timeout=self._review_timeout_seconds
-                        )
-                        review_passed = review_payload.get("approved") if review_payload else None
-                        if review_passed is False:
-                            lessons.append("Codex review flagged issues")
-                        elif review_passed is None:
-                            lessons.append("Codex review did not complete")
-                except Exception as exc:
-                    review_payload = {"approved": None, "error": str(exc)}
-                    review_passed = None
-                    lessons.append("Codex review failed to run")
-
-                if review_mode == "strict" and review_passed is not True:
-                    success = False
-                    error_msg = (error_msg + "; " if error_msg else "") + "Codex review failed"
-
             # Update plan status
             plan.status = PlanStatus.COMPLETED if success else PlanStatus.FAILED
             plan.execution_completed_at = datetime.now()
@@ -524,8 +482,6 @@ class PlanExecutor:
                 error=error_msg,
                 duration_seconds=duration,
                 lessons=lessons,
-                review=review_payload,
-                review_passed=review_passed,
             )
 
         finally:
@@ -534,12 +490,7 @@ class PlanExecutor:
                 _os.environ.pop("IMPL_PARALLEL_TASKS", None)
                 _os.environ.pop("IMPL_MAX_PARALLEL", None)
 
-    async def _run_computer_use(
-        self,
-        plan: DecisionPlan,
-        *,
-        on_task_complete: Any | None = None,
-    ) -> PlanOutcome:
+    async def _run_computer_use(self, plan: DecisionPlan) -> PlanOutcome:
         """Run plan using ComputerUseOrchestrator for browser-based implementation.
 
         Computer Use mode executes tasks through browser automation via Playwright,
@@ -553,12 +504,9 @@ class PlanExecutor:
             PlanOutcome with execution results
         """
         from aragora.computer_use.executor import ExecutorConfig, PlaywrightActionExecutor
-        from types import SimpleNamespace
-
         from aragora.computer_use.orchestrator import (
             ComputerUseConfig,
             ComputerUseOrchestrator,
-            StepStatus,
             create_default_computer_policy,
         )
 
@@ -571,28 +519,10 @@ class PlanExecutor:
             task_descriptions = [t.description for t in plan.implement_plan.tasks]
             goal = f"{plan.task}\n\nTasks:\n" + "\n".join(f"- {d}" for d in task_descriptions)
 
-        def _on_step(step_result: Any) -> None:
-            if not on_task_complete:
-                return
-            success = getattr(step_result, "status", None) == StepStatus.SUCCESS and getattr(
-                getattr(step_result, "result", None), "success", False
-            )
-            duration_ms = getattr(getattr(step_result, "result", None), "duration_ms", 0.0)
-            error = getattr(getattr(step_result, "result", None), "error", None)
-            result_obj = SimpleNamespace(
-                success=success,
-                duration_seconds=duration_ms / 1000.0 if duration_ms else 0.0,
-                error=error,
-                model_used="computer_use",
-            )
-            step_id = f"step-{getattr(step_result, 'step_number', 'unknown')}"
-            on_task_complete(step_id, result_obj)
-
         # Configure computer use
         config = ComputerUseConfig(
             max_steps=50,  # Reasonable limit for automated tasks
             screenshot_delay_ms=500,
-            on_step_complete=_on_step if on_task_complete else None,
         )
         policy = create_default_computer_policy()
 
@@ -625,20 +555,9 @@ class PlanExecutor:
             duration = time.time() - start_time
 
             # Extract metrics from result
-            success = False
-            if hasattr(result, "success"):
-                success = bool(getattr(result, "success"))
-            elif hasattr(result, "status"):
-                status = getattr(result, "status")
-                status_value = getattr(status, "value", status)
-                success = str(status_value).lower() == "completed"
-
+            success = result.success if hasattr(result, "success") else False
             error = result.error if hasattr(result, "error") else None
-            if hasattr(result, "steps_completed"):
-                steps_completed = result.steps_completed
-            else:
-                steps = getattr(result, "steps", None)
-                steps_completed = len(steps) if isinstance(steps, list) else 0
+            steps_completed = result.steps_completed if hasattr(result, "steps_completed") else 0
 
             if steps_completed > 0:
                 lessons.append(f"Completed {steps_completed} browser automation steps")

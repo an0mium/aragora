@@ -14,15 +14,21 @@ orchestrator_domains.py, and orchestrator_output.py. Consolidated for maintainab
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.debate.checkpoint_ops import CheckpointOperations
+from aragora.debate.event_emission import EventEmitter
 from aragora.debate.grounded_operations import GroundedOperations
 from aragora.debate.hierarchy import AgentHierarchy, HierarchyConfig
 from aragora.debate.knowledge_manager import ArenaKnowledgeManager
+from aragora.debate.lifecycle_manager import LifecycleManager
+from aragora.debate.state_cache import DebateStateCache
 from aragora.logging_config import get_logger as get_structured_logger
+from aragora.utils.cache_registry import register_lru_cache
 
 if TYPE_CHECKING:
-    from aragora.core import Agent
+    from aragora.core import Agent, DebateResult
     from aragora.debate.context import DebateContext
     from aragora.debate.orchestrator import Arena
     from aragora.rlm.cognitive_limiter import RLMCognitiveLoadLimiter
@@ -310,3 +316,189 @@ async def teardown_agent_channels(arena: Arena) -> None:
         logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
     finally:
         arena._channel_integration = None
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle / cache management (from orchestrator_lifecycle.py)
+# ---------------------------------------------------------------------------
+
+
+def init_caches(arena: Arena) -> None:
+    """Initialize caches for computed values.
+
+    Creates the DebateStateCache for caching debate state computations.
+
+    Args:
+        arena: Arena instance to initialize.
+    """
+    arena._cache = DebateStateCache()
+
+
+def init_lifecycle_manager(arena: Arena) -> None:
+    """Initialize LifecycleManager for cleanup and task cancellation.
+
+    Creates the LifecycleManager with references to the cache, circuit breaker,
+    and checkpoint manager for coordinated lifecycle operations.
+
+    Args:
+        arena: Arena instance to initialize.
+    """
+    arena._lifecycle = LifecycleManager(
+        cache=arena._cache,
+        circuit_breaker=arena.circuit_breaker,
+        checkpoint_manager=arena.checkpoint_manager,
+    )
+
+
+def init_event_emitter(arena: Arena) -> None:
+    """Initialize EventEmitter for spectator/websocket events.
+
+    Creates the EventEmitter with connections to event bus, event bridge,
+    hooks, and persona manager for broadcasting debate events.
+
+    Args:
+        arena: Arena instance to initialize.
+    """
+    arena._event_emitter = EventEmitter(
+        event_bus=arena.event_bus,
+        event_bridge=arena.event_bridge,
+        hooks=arena.hooks,
+        persona_manager=arena.persona_manager,
+    )
+
+
+def init_checkpoint_ops(arena: Arena) -> None:
+    """Initialize CheckpointOperations for checkpoint and memory operations.
+
+    Creates the CheckpointOperations helper. Note: memory_manager is set to None
+    initially and should be updated after _init_phases when memory_manager exists.
+
+    Args:
+        arena: Arena instance to initialize.
+    """
+    arena._checkpoint_ops = CheckpointOperations(
+        checkpoint_manager=arena.checkpoint_manager,
+        memory_manager=None,  # Set after _init_phases when memory_manager exists
+        cache=arena._cache,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Domain classification (from orchestrator_domains.py)
+# ---------------------------------------------------------------------------
+
+
+@register_lru_cache
+@lru_cache(maxsize=1024)
+def compute_domain_from_task(task_lower: str) -> str:
+    """Compute domain from lowercased task string.
+
+    Module-level cached helper to avoid O(n) string matching
+    for repeated task strings across debate instances.
+
+    Args:
+        task_lower: Lowercased task description string
+
+    Returns:
+        Domain name: security, performance, testing, architecture,
+        debugging, api, database, frontend, or general
+    """
+    if any(w in task_lower for w in ("security", "hack", "vulnerability", "auth", "encrypt")):
+        return "security"
+    if any(w in task_lower for w in ("performance", "speed", "optimize", "cache", "latency")):
+        return "performance"
+    if any(w in task_lower for w in ("test", "testing", "coverage", "regression")):
+        return "testing"
+    if any(w in task_lower for w in ("design", "architecture", "pattern", "structure")):
+        return "architecture"
+    if any(w in task_lower for w in ("bug", "error", "fix", "crash", "exception")):
+        return "debugging"
+    if any(w in task_lower for w in ("api", "endpoint", "rest", "graphql")):
+        return "api"
+    if any(w in task_lower for w in ("database", "sql", "query", "schema")):
+        return "database"
+    if any(w in task_lower for w in ("ui", "frontend", "react", "css", "layout")):
+        return "frontend"
+    return "general"
+
+
+# Backward compatibility alias
+_compute_domain_from_task = compute_domain_from_task
+
+
+# ---------------------------------------------------------------------------
+# Output formatting and translation (from orchestrator_output.py)
+# ---------------------------------------------------------------------------
+
+
+def format_conclusion(result: DebateResult) -> str:
+    """Format debate conclusion. Delegates to ResultFormatter.
+
+    Args:
+        result: The completed debate result.
+
+    Returns:
+        A formatted conclusion string.
+    """
+    from aragora.debate.result_formatter import ResultFormatter
+
+    return ResultFormatter().format_conclusion(result)
+
+
+async def translate_conclusions(
+    result: DebateResult,
+    protocol: Any,
+) -> None:
+    """Translate debate conclusions to configured target languages.
+
+    Uses the translation module to provide multi-language support.
+    Translations are stored in ``result.translations`` dict.
+
+    Args:
+        result: The completed debate result (mutated in place).
+        protocol: The debate protocol (checked for ``target_languages``,
+            ``default_language``).
+    """
+    if not result.final_answer:
+        return
+
+    target_languages = getattr(protocol, "target_languages", [])
+    if not target_languages:
+        return
+
+    try:
+        from aragora.debate.translation import (
+            Language,
+            get_translation_service,
+        )
+
+        service = get_translation_service()
+        default_lang = getattr(protocol, "default_language", "en")
+
+        # Detect or use configured source language
+        source_lang = Language.from_code(default_lang) or Language.ENGLISH
+
+        for target_code in target_languages:
+            target_lang = Language.from_code(target_code)
+            if not target_lang or target_lang == source_lang:
+                continue
+
+            try:
+                translation_result = await service.translate(
+                    result.final_answer,
+                    target_lang,
+                    source_lang,
+                )
+                if translation_result.confidence > 0.5:
+                    result.translations[target_code] = translation_result.translated_text
+                    logger.debug(
+                        f"Translated conclusion to {target_lang.name_english} "
+                        f"(confidence: {translation_result.confidence:.2f})"
+                    )
+            except (ConnectionError, OSError, ValueError, TypeError) as e:
+                logger.warning(f"Translation to {target_code} failed: {e}")
+
+    except ImportError as e:
+        logger.debug(f"Translation module not available: {e}")
+    except (AttributeError, RuntimeError) as e:
+        logger.warning(f"Translation failed (non-critical): {e}")

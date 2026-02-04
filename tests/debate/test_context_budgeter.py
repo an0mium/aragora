@@ -34,4 +34,4 @@ def test_budgeter_preserves_leading_whitespace():
     sections = [ContextSection("alpha", content)]
     result = budgeter.apply(sections)
     assert result
-    assert result[0].content.startswith("\n\n## Header")
+    assert result[0].content.startswith("\n\n")

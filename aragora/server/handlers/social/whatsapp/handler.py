@@ -35,7 +35,6 @@ from ...base import (
     error_response,
     json_response,
 )
-from aragora.server.decision_integrity_utils import extract_execution_overrides
 from .commands import (
     command_agents,
     command_debate,
@@ -462,7 +461,6 @@ class WhatsAppHandler(BaseHandler):
         elif lower_text.startswith("implement "):
             record_command("whatsapp", "implement")
             topic = text[10:].strip()
-            topic, overrides = extract_execution_overrides(topic)
             emit_command_received(
                 "whatsapp", from_number, from_number, profile_name, "implement", topic
             )
@@ -476,7 +474,6 @@ class WhatsAppHandler(BaseHandler):
                 "execution_engine": "hybrid",
                 "requested_by": f"whatsapp:{from_number}",
             }
-            decision_integrity.update(overrides)
             command_debate(self, from_number, profile_name, topic, decision_integrity)
             return
         elif lower_text.startswith("gauntlet "):

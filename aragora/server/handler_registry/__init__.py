@@ -368,6 +368,7 @@ class HandlerRegistryMixin:
                     self.send_header("X-RateLimit-Remaining", str(rate_limit_result.remaining))
                     self._add_cors_headers()
                     self._add_security_headers()
+                    self._add_trace_headers()
                     self.end_headers()
                     self.wfile.write(
                         json.dumps(
@@ -424,6 +425,7 @@ class HandlerRegistryMixin:
                 # Add CORS and security headers for modular handlers
                 self._add_cors_headers()
                 self._add_security_headers()
+                self._add_trace_headers()
                 self.end_headers()
                 self.wfile.write(result.body)
                 return True
@@ -446,6 +448,7 @@ class HandlerRegistryMixin:
                 self.send_header("Content-Type", "application/json")
                 self._add_cors_headers()
                 self._add_security_headers()
+                self._add_trace_headers()
                 self.end_headers()
                 self.wfile.write(
                     json.dumps({"error": "Permission denied", "code": "forbidden"}).encode()
@@ -457,6 +460,7 @@ class HandlerRegistryMixin:
             self.send_header("Content-Type", "application/json")
             self._add_cors_headers()
             self._add_security_headers()
+            self._add_trace_headers()
             self.end_headers()
             self.wfile.write(
                 json.dumps(

@@ -20,9 +20,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .middleware.tracing import TracingMiddleware
-from .middleware.validation import RequestValidationMiddleware
+from .middleware.validation import RequestValidationMiddleware, ValidationLimits
 from .middleware.error_handling import setup_exception_handlers
-from .routes import health, debates, decisions, testfixer
+from .routes import health, debates, decisions
 
 logger = logging.getLogger(__name__)
 
@@ -245,13 +245,24 @@ def create_app(
     app.add_middleware(TracingMiddleware)
 
     # Request validation middleware (body size, JSON depth, array limits)
-    app.add_middleware(RequestValidationMiddleware)
+    # Use ARAGORA_VALIDATION_BLOCKING=false to run in warn-only mode during migration
+    validation_blocking = os.environ.get("ARAGORA_VALIDATION_BLOCKING", "true").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    validation_limits = ValidationLimits(blocking_mode=validation_blocking)
+    if not validation_blocking:
+        logger.warning(
+            "Request validation running in WARN-ONLY mode (ARAGORA_VALIDATION_BLOCKING=false). "
+            "Invalid requests will be logged but not rejected."
+        )
+    app.add_middleware(RequestValidationMiddleware, limits=validation_limits)
 
     # Register routes
     app.include_router(health.router)
     app.include_router(debates.router)
     app.include_router(decisions.router)
-    app.include_router(testfixer.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)

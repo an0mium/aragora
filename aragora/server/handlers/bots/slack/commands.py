@@ -19,7 +19,6 @@ from urllib.parse import parse_qs
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import HandlerResult, json_response
-from aragora.server.decision_integrity_utils import extract_execution_overrides
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 from .blocks import build_debate_message_blocks
@@ -64,8 +63,6 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
         channel_id = params.get("channel_id", [""])[0]
         response_url = params.get("response_url", [""])[0]
         team_id = params.get("team_id", [""])[0]
-        # Thread support: if command is invoked from a thread, responses go to that thread
-        thread_ts = params.get("thread_ts", [None])[0]
 
         # Validate required identifiers
         if user_id:
@@ -204,27 +201,22 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
 
             decision_integrity = None
             if subcommand in ("plan", "implement"):
-                if subcommand == "implement":
-                    args, overrides = extract_execution_overrides(args)
                 decision_integrity = {
                     "include_receipt": True,
                     "include_plan": True,
                     "include_context": subcommand == "implement",
                     "plan_strategy": "single_task",
                     "notify_origin": True,
-                    "requested_by": f"slack:{user_id}",
                 }
                 if subcommand == "implement":
                     decision_integrity["execution_mode"] = "execute"
                     decision_integrity["execution_engine"] = "hybrid"
-                    decision_integrity.update(overrides)
 
             debate_id = await start_slack_debate(
                 topic=args,
                 channel_id=channel_id,
                 user_id=user_id,
                 response_url=response_url,
-                thread_ts=thread_ts,
                 attachments=attachments,
                 decision_integrity=decision_integrity,
             )
