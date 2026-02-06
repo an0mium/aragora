@@ -63,6 +63,12 @@ from aragora.computer_use.claude_bridge import (
     ClaudeComputerUseBridge,
     ConversationMessage,
 )
+from aragora.computer_use.storage import (
+    ComputerUsePolicy as StoredPolicy,
+    ComputerUseStorage,
+    ComputerUseTask,
+    get_computer_use_storage,
+)
 
 __all__ = [
     # Actions
@@ -98,4 +104,9 @@ __all__ = [
     "BridgeConfig",
     "ClaudeComputerUseBridge",
     "ConversationMessage",
+    # Storage
+    "ComputerUseStorage",
+    "ComputerUseTask",
+    "StoredPolicy",
+    "get_computer_use_storage",
 ]

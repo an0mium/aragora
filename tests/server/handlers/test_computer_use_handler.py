@@ -129,12 +129,24 @@ def mock_orchestrator():
 
 
 @pytest.fixture
-def handler(mock_server_context, mock_orchestrator):
+def temp_db_path(tmp_path):
+    """Create a temporary database path."""
+    return str(tmp_path / "test_computer_use.db")
+
+
+@pytest.fixture
+def handler(mock_server_context, mock_orchestrator, temp_db_path):
     """Create handler with mocked dependencies."""
+    from aragora.computer_use.storage import ComputerUseStorage
+
     h = ComputerUseHandler(mock_server_context)
     h._orchestrator = mock_orchestrator
-    # Seed some tasks
-    h._tasks["task-001"] = {
+    # Use temporary database for storage
+    storage = ComputerUseStorage(db_path=temp_db_path, backend="sqlite")
+    h._storage = storage
+
+    # Seed some tasks via storage
+    storage.save_task({
         "task_id": "task-001",
         "goal": "Open settings",
         "max_steps": 10,
@@ -143,8 +155,8 @@ def handler(mock_server_context, mock_orchestrator):
         "created_at": "2025-01-29T10:00:00Z",
         "steps": [{"action": "click", "success": True}],
         "result": {"success": True, "message": "Done", "steps_taken": 1},
-    }
-    h._tasks["task-002"] = {
+    })
+    storage.save_task({
         "task_id": "task-002",
         "goal": "Enable dark mode",
         "max_steps": 5,
@@ -153,7 +165,7 @@ def handler(mock_server_context, mock_orchestrator):
         "created_at": "2025-01-29T11:00:00Z",
         "steps": [],
         "result": None,
-    }
+    })
     return h
 
 
@@ -374,8 +386,10 @@ class TestCancelTask:
         body = json.loads(result.body)
         assert body["message"] == "Task cancelled"
 
-        # Verify task status was updated
-        assert handler._tasks["task-002"]["status"] == "cancelled"
+        # Verify task status was updated via storage
+        task = handler._get_storage().get_task("task-002")
+        assert task is not None
+        assert task.status == "cancelled"
 
     def test_cancel_task_not_found(self, handler):
         """Test cancelling non-existent task returns 404."""

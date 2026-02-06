@@ -131,8 +131,16 @@ def mock_server_context():
 
 
 @pytest.fixture
-def handler(mock_server_context):
+def temp_db_path(tmp_path):
+    """Create a temporary database path."""
+    return str(tmp_path / "test_computer_use.db")
+
+
+@pytest.fixture
+def handler(mock_server_context, temp_db_path):
     """Create handler with COMPUTER_USE_AVAILABLE=True and mocked dependencies."""
+    from aragora.computer_use.storage import ComputerUseStorage
+
     with (
         patch("aragora.server.handlers.computer_use_handler.COMPUTER_USE_AVAILABLE", True),
         patch("aragora.server.handlers.computer_use_handler.RBAC_AVAILABLE", False),
@@ -153,13 +161,16 @@ def handler(mock_server_context):
 
         h = ComputerUseHandler(mock_server_context)
         h._orchestrator = MagicMock()
+        # Use temp database for storage
+        h._storage = ComputerUseStorage(db_path=temp_db_path, backend="sqlite")
         return h
 
 
 @pytest.fixture
 def handler_with_tasks(handler):
     """Create handler pre-seeded with tasks."""
-    handler._tasks["task-aaa"] = {
+    storage = handler._get_storage()
+    storage.save_task({
         "task_id": "task-aaa",
         "goal": "Open browser",
         "max_steps": 10,
@@ -172,8 +183,8 @@ def handler_with_tasks(handler):
             {"action": "screenshot", "success": False},
         ],
         "result": {"success": True, "message": "Done", "steps_taken": 3},
-    }
-    handler._tasks["task-bbb"] = {
+    })
+    storage.save_task({
         "task_id": "task-bbb",
         "goal": "Navigate to settings",
         "max_steps": 5,
@@ -182,8 +193,8 @@ def handler_with_tasks(handler):
         "created_at": "2025-01-29T11:00:00Z",
         "steps": [],
         "result": None,
-    }
-    handler._tasks["task-ccc"] = {
+    })
+    storage.save_task({
         "task_id": "task-ccc",
         "goal": "Click button",
         "max_steps": 3,
@@ -192,8 +203,8 @@ def handler_with_tasks(handler):
         "created_at": "2025-01-29T09:00:00Z",
         "steps": [{"action": "click", "success": False}],
         "result": {"success": False, "message": "Element not found", "steps_taken": 1},
-    }
-    handler._tasks["task-ddd"] = {
+    })
+    storage.save_task({
         "task_id": "task-ddd",
         "goal": "Scroll page",
         "max_steps": 2,
@@ -202,8 +213,8 @@ def handler_with_tasks(handler):
         "created_at": "2025-01-29T12:00:00Z",
         "steps": [],
         "result": None,
-    }
-    handler._tasks["task-eee"] = {
+    })
+    storage.save_task({
         "task_id": "task-eee",
         "goal": "Already cancelled",
         "max_steps": 2,
@@ -212,7 +223,7 @@ def handler_with_tasks(handler):
         "created_at": "2025-01-29T08:00:00Z",
         "steps": [],
         "result": None,
-    }
+    })
     return handler
 
 
@@ -225,14 +236,13 @@ class TestComputerUseHandlerInit:
     """Test handler initialization."""
 
     def test_handler_initializes_with_empty_state(self, mock_server_context):
-        """Test that handler initializes with empty task store and policies."""
+        """Test that handler initializes with no storage and orchestrator."""
         with patch("aragora.server.handlers.computer_use_handler.COMPUTER_USE_AVAILABLE", True):
             from aragora.server.handlers.computer_use_handler import ComputerUseHandler
 
             h = ComputerUseHandler(mock_server_context)
-            assert h._tasks == {}
-            assert h._action_stats == {}
-            assert h._policies == {}
+            # Storage is lazy-loaded, so initially None
+            assert h._storage is None
             assert h._orchestrator is None
 
     def test_handler_stores_server_context(self, mock_server_context):
@@ -603,10 +613,12 @@ class TestCreateTask:
             result = handler.handle_post("/api/v1/computer-use/tasks", {}, mock_handler)
 
         body = json.loads(result.body)
-        task = handler._tasks[body["task_id"]]
-        assert task["result"]["success"] is True
-        assert task["result"]["message"] == "Dry run completed"
-        assert task["result"]["steps_taken"] == 0
+        task = handler._get_storage().get_task(body["task_id"])
+        assert task is not None
+        result_dict = task.to_dict()["result"]
+        assert result_dict["success"] is True
+        assert result_dict["message"] == "Dry run completed"
+        assert result_dict["steps_taken"] == 0
 
     def test_create_task_execution_success(self, handler):
         """Test creating a task that executes successfully."""
@@ -715,9 +727,11 @@ class TestCreateTask:
 
         # Verify the task result contains the error
         task_id = body["task_id"]
-        task = handler._tasks[task_id]
-        assert task["result"]["success"] is False
-        assert "Connection timeout" in task["result"]["message"]
+        task = handler._get_storage().get_task(task_id)
+        assert task is not None
+        result_dict = task.to_dict()["result"]
+        assert result_dict["success"] is False
+        assert "Connection timeout" in result_dict["message"]
 
     def test_create_task_missing_goal(self, handler):
         """Test creating task without goal returns 400."""
@@ -773,8 +787,9 @@ class TestCreateTask:
             result = handler.handle_post("/api/v1/computer-use/tasks", {}, mock_handler)
 
         body = json.loads(result.body)
-        task = handler._tasks[body["task_id"]]
-        assert task["max_steps"] == 10
+        task = handler._get_storage().get_task(body["task_id"])
+        assert task is not None
+        assert task.max_steps == 10
 
     def test_create_task_with_custom_max_steps(self, handler):
         """Test creating task with custom max_steps."""
@@ -795,8 +810,9 @@ class TestCreateTask:
             result = handler.handle_post("/api/v1/computer-use/tasks", {}, mock_handler)
 
         body = json.loads(result.body)
-        task = handler._tasks[body["task_id"]]
-        assert task["max_steps"] == 25
+        task = handler._get_storage().get_task(body["task_id"])
+        assert task is not None
+        assert task.max_steps == 25
 
     def test_create_task_generates_unique_ids(self, handler):
         """Test that multiple task creations generate unique IDs."""
@@ -839,7 +855,8 @@ class TestCreateTask:
             result = handler.handle_post("/api/v1/computer-use/tasks", {}, mock_handler)
 
         body = json.loads(result.body)
-        assert body["task_id"] in handler._tasks
+        task = handler._get_storage().get_task(body["task_id"])
+        assert task is not None
 
     def test_create_task_orchestrator_unavailable(self, handler):
         """Test creating task when orchestrator returns None."""
@@ -905,11 +922,13 @@ class TestCreateTask:
             result = handler.handle_post("/api/v1/computer-use/tasks", {}, mock_handler)
 
         body = json.loads(result.body)
-        task = handler._tasks[body["task_id"]]
-        assert len(task["steps"]) == 3
-        assert task["steps"][0]["action"] == "screenshot"
-        assert task["steps"][1]["action"] == "click"
-        assert task["steps"][2]["action"] == "type"
+        task = handler._get_storage().get_task(body["task_id"])
+        assert task is not None
+        steps = task.to_dict()["steps"]
+        assert len(steps) == 3
+        assert steps[0]["action"] == "screenshot"
+        assert steps[1]["action"] == "click"
+        assert steps[2]["action"] == "type"
 
 
 # ===========================================================================
@@ -931,7 +950,9 @@ class TestCancelTask:
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["message"] == "Task cancelled"
-        assert handler_with_tasks._tasks["task-bbb"]["status"] == "cancelled"
+        task = handler_with_tasks._get_storage().get_task("task-bbb")
+        assert task is not None
+        assert task.status == "cancelled"
 
     def test_cancel_pending_task(self, handler_with_tasks):
         """Test cancelling a pending task succeeds."""
@@ -942,7 +963,9 @@ class TestCancelTask:
             )
 
         assert result.status_code == 200
-        assert handler_with_tasks._tasks["task-ddd"]["status"] == "cancelled"
+        task = handler_with_tasks._get_storage().get_task("task-ddd")
+        assert task is not None
+        assert task.status == "cancelled"
 
     def test_cancel_completed_task_fails(self, handler_with_tasks):
         """Test cancelling completed task returns 400."""
@@ -993,10 +1016,13 @@ class TestCancelTask:
             )
 
         assert result.status_code == 200
-        task = handler_with_tasks._tasks["task-bbb"]
-        assert "cancelled_at" in task
+        task = handler_with_tasks._get_storage().get_task("task-bbb")
+        assert task is not None
+        task_dict = task.to_dict()
+        assert "cancelled_at" in task_dict
+        assert task_dict["cancelled_at"] is not None
         # Verify it's an ISO format timestamp
-        assert "T" in task["cancelled_at"]
+        assert "T" in task_dict["cancelled_at"]
 
 
 # ===========================================================================
@@ -1059,13 +1085,16 @@ class TestActionStats:
 
     def test_action_stats_ignores_unknown_actions(self, handler):
         """Test that stats ignores action types not in the predefined list."""
-        handler._tasks["task-x"] = {
+        storage = handler._get_storage()
+        storage.save_task({
             "task_id": "task-x",
+            "goal": "Unknown action test",
+            "status": "completed",
             "steps": [
                 {"action": "unknown_action", "success": True},
                 {"action": "click", "success": True},
             ],
-        }
+        })
         mock_handler = MockRequestHandler()
         with patch.object(handler, "_check_rbac_permission", return_value=None):
             result = handler.handle("/api/v1/computer-use/actions/stats", {}, mock_handler)
@@ -1098,11 +1127,13 @@ class TestListPolicies:
 
     def test_list_policies_with_custom_policies(self, handler):
         """Test listing policies includes custom policies."""
-        custom_policy = MockComputerPolicy()
-        custom_policy.name = "Custom Policy"
-        custom_policy.description = "My custom policy"
-        custom_policy.allowed_actions = ["screenshot"]
-        handler._policies["policy-custom"] = custom_policy
+        storage = handler._get_storage()
+        storage.save_policy({
+            "policy_id": "policy-custom",
+            "name": "Custom Policy",
+            "description": "My custom policy",
+            "allowed_actions": ["screenshot"],
+        })
 
         mock_handler = MockRequestHandler()
         with patch.object(handler, "_check_rbac_permission", return_value=None):
@@ -1116,11 +1147,13 @@ class TestListPolicies:
 
     def test_list_policies_custom_policy_attributes(self, handler):
         """Test that custom policy attributes are correctly serialized."""
-        custom_policy = MockComputerPolicy()
-        custom_policy.name = "Restricted"
-        custom_policy.description = "Limited actions"
-        custom_policy.allowed_actions = ["screenshot", "scroll"]
-        handler._policies["policy-restricted"] = custom_policy
+        storage = handler._get_storage()
+        storage.save_policy({
+            "policy_id": "policy-restricted",
+            "name": "Restricted",
+            "description": "Limited actions",
+            "allowed_actions": ["screenshot", "scroll"],
+        })
 
         mock_handler = MockRequestHandler()
         with patch.object(handler, "_check_rbac_permission", return_value=None):
@@ -1227,8 +1260,8 @@ class TestCreatePolicy:
 
         assert result.status_code == 400
 
-    def test_create_policy_stores_in_dict(self, handler):
-        """Test that created policy is stored in _policies dict."""
+    def test_create_policy_stores_in_storage(self, handler):
+        """Test that created policy is stored in storage."""
         mock_handler = MockRequestHandler()
 
         with (
@@ -1248,7 +1281,8 @@ class TestCreatePolicy:
             result = handler.handle_post("/api/v1/computer-use/policies", {}, mock_handler)
 
         body = json.loads(result.body)
-        assert body["policy_id"] in handler._policies
+        policy = handler._get_storage().get_policy(body["policy_id"])
+        assert policy is not None
 
     def test_create_multiple_policies(self, handler):
         """Test creating multiple policies generates unique IDs."""
@@ -1777,12 +1811,13 @@ class TestRoutingEdgeCases:
     def test_handle_get_task_with_short_path(self, handler):
         """Test that handle correctly identifies task ID from path."""
         mock_handler = MockRequestHandler()
-        handler._tasks["abc"] = {
+        storage = handler._get_storage()
+        storage.save_task({
             "task_id": "abc",
             "goal": "test",
             "status": "pending",
             "created_at": "2025-01-01T00:00:00Z",
-        }
+        })
         with patch.object(handler, "_check_rbac_permission", return_value=None):
             result = handler.handle("/api/v1/computer-use/tasks/abc", {}, mock_handler)
         assert result.status_code == 200
@@ -2125,7 +2160,8 @@ class TestEndToEndFlows:
         mock_handler = MockRequestHandler()
 
         # Create a task that stays pending (non dry_run but execution fails quickly)
-        handler._tasks["task-pending-e2e"] = {
+        storage = handler._get_storage()
+        storage.save_task({
             "task_id": "task-pending-e2e",
             "goal": "Pending task",
             "max_steps": 5,
@@ -2134,7 +2170,7 @@ class TestEndToEndFlows:
             "created_at": "2025-01-30T00:00:00Z",
             "steps": [],
             "result": None,
-        }
+        })
 
         # Cancel it
         with patch.object(handler, "_check_rbac_permission", return_value=None):
@@ -2145,7 +2181,9 @@ class TestEndToEndFlows:
             )
 
         assert cancel_result.status_code == 200
-        assert handler._tasks["task-pending-e2e"]["status"] == "cancelled"
+        task = storage.get_task("task-pending-e2e")
+        assert task is not None
+        assert task.status == "cancelled"
 
     def test_create_policy_then_list(self, handler):
         """Test creating a policy then listing includes it."""
@@ -2185,8 +2223,11 @@ class TestEndToEndFlows:
         mock_handler = MockRequestHandler()
 
         # Add a task with known steps
-        handler._tasks["task-stats"] = {
+        storage = handler._get_storage()
+        storage.save_task({
             "task_id": "task-stats",
+            "goal": "Stats test",
+            "status": "completed",
             "steps": [
                 {"action": "click", "success": True},
                 {"action": "click", "success": False},
@@ -2195,7 +2236,7 @@ class TestEndToEndFlows:
                 {"action": "key", "success": False},
                 {"action": "key", "success": True},
             ],
-        }
+        })
 
         with patch.object(handler, "_check_rbac_permission", return_value=None):
             result = handler.handle("/api/v1/computer-use/actions/stats", {}, mock_handler)
