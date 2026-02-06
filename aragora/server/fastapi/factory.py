@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.tracing import TracingMiddleware
 from .middleware.validation import RequestValidationMiddleware, ValidationLimits
 from .middleware.error_handling import setup_exception_handlers
@@ -229,6 +230,9 @@ def create_app(
     )
 
     # Add middleware (order matters - first added is outermost)
+
+    # Security headers middleware (outermost - applies to all responses including errors)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # CORS middleware
     allowed_origins = _get_allowed_origins()

@@ -2,6 +2,7 @@
 Tests for FastAPI middleware components.
 
 Covers:
+- SecurityHeadersMiddleware (CSP, X-Frame-Options, etc.)
 - TracingMiddleware (X-Trace-ID, response timing)
 - RequestValidationMiddleware (body size, JSON depth limits)
 - Error handling (custom exception types)
@@ -74,3 +75,48 @@ class TestErrorHandling:
         )
         # Either 401 (no valid auth) or 422 (validation error) expected
         assert response.status_code in [401, 422]
+
+
+class TestSecurityHeadersMiddleware:
+    """Tests for security headers middleware."""
+
+    def test_x_frame_options_present(self, client):
+        """Should include X-Frame-Options header."""
+        response = client.get("/healthz")
+        assert response.headers.get("x-frame-options") == "DENY"
+
+    def test_x_content_type_options_present(self, client):
+        """Should include X-Content-Type-Options header."""
+        response = client.get("/healthz")
+        assert response.headers.get("x-content-type-options") == "nosniff"
+
+    def test_x_xss_protection_present(self, client):
+        """Should include X-XSS-Protection header."""
+        response = client.get("/healthz")
+        assert response.headers.get("x-xss-protection") == "1; mode=block"
+
+    def test_referrer_policy_present(self, client):
+        """Should include Referrer-Policy header."""
+        response = client.get("/healthz")
+        assert response.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+
+    def test_content_security_policy_present(self, client):
+        """Should include Content-Security-Policy header."""
+        response = client.get("/healthz")
+        csp = response.headers.get("content-security-policy")
+        assert csp is not None
+        assert "default-src 'self'" in csp
+        assert "frame-ancestors 'none'" in csp
+
+    def test_security_headers_on_error_responses(self, client):
+        """Security headers should be present even on error responses."""
+        response = client.get("/api/v2/nonexistent-endpoint")
+        # Even 404 responses should have security headers
+        assert response.headers.get("x-frame-options") == "DENY"
+        assert response.headers.get("x-content-type-options") == "nosniff"
+
+    def test_security_headers_on_api_routes(self, client):
+        """Security headers should be present on API routes."""
+        response = client.get("/api/v2/health")
+        assert response.headers.get("x-frame-options") == "DENY"
+        assert "content-security-policy" in response.headers
