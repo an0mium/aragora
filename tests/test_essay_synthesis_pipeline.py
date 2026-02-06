@@ -90,7 +90,6 @@ def test_claim_extraction():
     assert stats["claims_extracted"] == len(claims)
 
     print(f"✓ Claim extraction passed ({len(claims)} unique claims)")
-    return claims
 
 
 def test_topic_clustering():
@@ -122,7 +121,6 @@ def test_topic_clustering():
     assert stats["clusters_created"] == len(clusters)
 
     print(f"✓ Topic clustering passed ({len(clusters)} clusters)")
-    return clusters
 
 
 def test_outline_generation():
@@ -155,7 +153,6 @@ def test_outline_generation():
         print(f"      - {section.title} ({len(section.subsections)} subsections)")
 
     print(f"✓ Outline generation passed ({outline.section_count} sections)")
-    return outline
 
 
 def test_export_for_synthesis():
