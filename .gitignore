@@ -93,6 +93,9 @@ config.local.yaml
 # Local drafts / scratch
 drafts/
 
+# Local exports / generated artifacts
+exports/
+
 # Claude-mem context files
 aragora/**/CLAUDE.md
 scripts/CLAUDE.md
