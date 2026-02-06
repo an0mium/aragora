@@ -73,6 +73,140 @@ _DEBATE_BASE_SCHEMA = {
     },
 }
 
+_DECISION_INTEGRITY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "include_receipt": {
+            "type": "boolean",
+            "default": True,
+            "description": "Include decision receipt in response",
+        },
+        "include_plan": {
+            "type": "boolean",
+            "default": True,
+            "description": "Include implementation plan in response",
+        },
+        "include_context": {
+            "type": "boolean",
+            "default": False,
+            "description": "Capture and include context snapshot (memory + knowledge)",
+        },
+        "plan_strategy": {
+            "type": "string",
+            "description": "Implementation plan strategy",
+            "default": "single_task",
+        },
+        "execution_mode": {
+            "type": "string",
+            "description": "Execution mode (plan_only, request_approval, execute, workflow)",
+        },
+        "execution_engine": {
+            "type": "string",
+            "description": "Execution engine override (hybrid, fabric, computer_use, workflow)",
+        },
+        "parallel_execution": {
+            "type": "boolean",
+            "description": "Execute independent tasks in parallel",
+        },
+        "max_parallel": {
+            "type": "integer",
+            "description": "Max parallel tasks for execution",
+        },
+        "notify_origin": {
+            "type": "boolean",
+            "description": "Send progress and completion to originating channel",
+        },
+        "risk_level": {
+            "type": "string",
+            "description": "Risk level for approval requests",
+            "default": "medium",
+        },
+        "approval_timeout_seconds": {
+            "type": "integer",
+            "description": "Approval timeout in seconds",
+        },
+        "approval_mode": {
+            "type": "string",
+            "description": "Approval mode (risk_based, always, never)",
+        },
+        "max_auto_risk": {
+            "type": "string",
+            "description": "Max risk level allowed for auto-approval",
+        },
+        "budget_limit_usd": {
+            "type": "number",
+            "description": "Budget cap for implementation execution",
+        },
+        "openclaw_actions": {
+            "type": "array",
+            "items": {"type": "object"},
+            "description": "OpenClaw action overrides",
+        },
+        "computer_use_actions": {
+            "type": "array",
+            "items": {"type": "object"},
+            "description": "Computer-use action overrides",
+        },
+        "openclaw_session": {
+            "type": "object",
+            "description": "OpenClaw session configuration",
+        },
+        "implementation_profile": {
+            "type": "object",
+            "description": "Implementation profile overrides",
+        },
+        "implementers": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Preferred implementer agents",
+        },
+        "critic": {"type": "string", "description": "Critic agent override"},
+        "reviser": {"type": "string", "description": "Reviser agent override"},
+        "strategy": {"type": "string", "description": "Implementation strategy"},
+        "max_revisions": {"type": "integer", "description": "Max revision passes"},
+        "complexity_router": {
+            "type": "object",
+            "description": "Route by task complexity",
+        },
+        "task_type_router": {
+            "type": "object",
+            "description": "Route by task type",
+        },
+        "capability_router": {
+            "type": "object",
+            "description": "Route by capability",
+        },
+        "fabric_models": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Fabric model pool",
+        },
+        "fabric_pool_id": {"type": "string", "description": "Fabric pool ID"},
+        "fabric_min_agents": {
+            "type": "integer",
+            "description": "Fabric min agents",
+        },
+        "fabric_max_agents": {
+            "type": "integer",
+            "description": "Fabric max agents",
+        },
+        "fabric_timeout_seconds": {
+            "type": "number",
+            "description": "Fabric run timeout",
+        },
+        "channel_targets": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Explicit channel targets",
+        },
+        "thread_id": {"type": "string", "description": "Thread ID override"},
+        "thread_id_by_platform": {
+            "type": "object",
+            "description": "Thread IDs keyed by platform",
+        },
+    },
+}
+
 # Known request body schemas for common endpoint patterns
 KNOWN_SCHEMAS: dict[str, dict] = {
     # ==========================================================================
@@ -112,6 +246,10 @@ KNOWN_SCHEMAS: dict[str, dict] = {
             },
         },
     },
+    "POST /api/v1/debates/{id}/decision-integrity": _DECISION_INTEGRITY_SCHEMA,
+    "POST /api/v1/debates/{param}/decision-integrity": _DECISION_INTEGRITY_SCHEMA,
+    "PATCH /api/v1/debates/{id}/decision-integrity": _DECISION_INTEGRITY_SCHEMA,
+    "PATCH /api/v1/debates/{param}/decision-integrity": _DECISION_INTEGRITY_SCHEMA,
     # ==========================================================================
     # Persona endpoints
     # ==========================================================================
