@@ -110,10 +110,19 @@ async def _cmd_list(args: argparse.Namespace) -> None:
         print(f"\nConnectors ({len(connectors)}):\n")
         for conn in connectors:
             name = conn.get("name", "unknown")
-            ctype = conn.get("type", "unknown")
+            ctype = conn.get("connector_type", conn.get("type", "unknown"))
             status = conn.get("status", "unknown")
-            icon = "+" if status == "connected" else "-"
-            print(f"  [{icon}] {name:20} type: {ctype:12} status: {status}")
+            configured = conn.get("configured", None)
+            if configured is True:
+                configured_label = "yes"
+            elif configured is False:
+                configured_label = "no"
+            else:
+                configured_label = "?"
+            icon = "+" if status in {"healthy", "connected"} else "-"
+            print(
+                f"  [{icon}] {name:20} type: {ctype:12} status: {status:10} configured: {configured_label}"
+            )
 
         if not connectors:
             print("  No connectors configured.")

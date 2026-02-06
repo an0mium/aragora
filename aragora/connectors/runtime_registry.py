@@ -288,36 +288,6 @@ class ConnectorRegistry:
         )
         self._connectors[name] = info
 
-
-def _extract_config_status(module: Any) -> tuple[bool | None, dict[str, Any] | None]:
-    """Inspect module for configuration metadata without instantiating connectors."""
-    if hasattr(module, "get_config_status"):
-        try:
-            config_meta = module.get_config_status()
-            if isinstance(config_meta, dict):
-                configured = config_meta.get("configured")
-                return configured, config_meta
-        except Exception as exc:  # noqa: BLE001
-            return None, {"error": str(exc)}
-
-    required = getattr(module, "CONFIG_ENV_VARS", None)
-    optional = getattr(module, "OPTIONAL_ENV_VARS", None)
-    if required or optional:
-        required_list = list(required or [])
-        optional_list = list(optional or [])
-        missing_required = [key for key in required_list if not os.environ.get(key)]
-        missing_optional = [key for key in optional_list if not os.environ.get(key)]
-        configured = len(missing_required) == 0
-        return configured, {
-            "configured": configured,
-            "required": required_list,
-            "optional": optional_list,
-            "missing_required": missing_required,
-            "missing_optional": missing_optional,
-        }
-
-    return None, None
-
     # ------------------------------------------------------------------
     # CRUD helpers
     # ------------------------------------------------------------------
@@ -420,6 +390,36 @@ def _extract_config_status(module: Any) -> tuple[bool | None, dict[str, Any] | N
             "by_status": dict(sorted(by_status.items())),
             "connectors": [c.to_dict() for c in self.list_all()],
         }
+
+
+def _extract_config_status(module: Any) -> tuple[bool | None, dict[str, Any] | None]:
+    """Inspect module for configuration metadata without instantiating connectors."""
+    if hasattr(module, "get_config_status"):
+        try:
+            config_meta = module.get_config_status()
+            if isinstance(config_meta, dict):
+                configured = config_meta.get("configured")
+                return configured, config_meta
+        except Exception as exc:  # noqa: BLE001
+            return None, {"error": str(exc)}
+
+    required = getattr(module, "CONFIG_ENV_VARS", None)
+    optional = getattr(module, "OPTIONAL_ENV_VARS", None)
+    if required or optional:
+        required_list = list(required or [])
+        optional_list = list(optional or [])
+        missing_required = [key for key in required_list if not os.environ.get(key)]
+        missing_optional = [key for key in optional_list if not os.environ.get(key)]
+        configured = len(missing_required) == 0
+        return configured, {
+            "configured": configured,
+            "required": required_list,
+            "optional": optional_list,
+            "missing_required": missing_required,
+            "missing_optional": missing_optional,
+        }
+
+    return None, None
 
 
 def get_connector_registry() -> ConnectorRegistry:
