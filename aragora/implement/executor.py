@@ -112,6 +112,9 @@ class HybridExecutor:
         critic: str | None = None,
         reviser: str | None = None,
         max_revisions: int | None = None,
+        complexity_router: dict[str, str] | None = None,
+        task_type_router: dict[str, str] | None = None,
+        capability_router: dict[str, str] | None = None,
     ):
         self.repo_path = repo_path
 
@@ -137,11 +140,17 @@ class HybridExecutor:
         env_critic = os.environ.get("IMPL_CRITIC", "")
         env_reviser = os.environ.get("IMPL_REVISER", "")
         env_complexity_router = os.environ.get("IMPL_AGENT_BY_COMPLEXITY", "")
+        env_task_type_router = os.environ.get("IMPL_AGENT_BY_TASK_TYPE", "")
+        env_capability_router = os.environ.get("IMPL_AGENT_BY_CAPABILITY", "")
 
         self._implementer_pool = self._parse_agent_list(implementers, env_implementers)
         self._critic_type = (critic or env_critic or "codex").strip()
         self._reviser_type = (reviser or env_reviser or "").strip()
-        self._complexity_router = self._parse_complexity_router(env_complexity_router)
+        self._complexity_router = complexity_router or self._parse_router_map(env_complexity_router)
+        self._task_type_router = task_type_router or self._parse_router_map(env_task_type_router)
+        self._capability_router = capability_router or self._parse_router_map(
+            env_capability_router
+        )
         self._implementer_index = 0
         self._dynamic_agents: dict[tuple[str, str], Any] = {}
 
@@ -179,7 +188,7 @@ Make only the changes specified. Follow existing code style."""
         return [item.strip() for item in raw.split(",") if item.strip()]
 
     @staticmethod
-    def _parse_complexity_router(raw: str) -> dict[str, str]:
+    def _parse_router_map(raw: str) -> dict[str, str]:
         mapping: dict[str, str] = {}
         if not raw:
             return mapping
@@ -192,6 +201,11 @@ Make only the changes specified. Follow existing code style."""
             if key and value:
                 mapping[key] = value
         return mapping
+
+    @staticmethod
+    def _parse_complexity_router(raw: str) -> dict[str, str]:
+        """Backward-compatible alias for router parsing."""
+        return HybridExecutor._parse_router_map(raw)
 
     def _get_dynamic_agent(
         self, agent_type: str, role: str, timeout: int, system_prompt: str
@@ -246,6 +260,39 @@ Make only the changes specified. Follow existing code style."""
         return agent
 
     def _select_implementer(self, task: "ImplementTask") -> tuple[Any, str]:
+        task_type = str(getattr(task, "task_type", "") or "").lower()
+        if self._task_type_router and task_type in self._task_type_router:
+            agent_type = self._task_type_router[task_type]
+            agent = self._get_dynamic_agent(
+                agent_type,
+                role="implementer",
+                timeout=self.claude_timeout,
+                system_prompt="""You are implementing code changes in a repository.
+Be precise, follow existing patterns, and make only necessary changes.
+Include proper type hints and docstrings.""",
+            )
+            if agent is not None:
+                return agent, agent_type
+
+        capabilities = getattr(task, "capabilities", None)
+        if capabilities and self._capability_router:
+            if isinstance(capabilities, str):
+                capabilities = [capabilities]
+            for capability in capabilities:
+                cap_key = str(capability).lower()
+                if cap_key in self._capability_router:
+                    agent_type = self._capability_router[cap_key]
+                    agent = self._get_dynamic_agent(
+                        agent_type,
+                        role="implementer",
+                        timeout=self.claude_timeout,
+                        system_prompt="""You are implementing code changes in a repository.
+Be precise, follow existing patterns, and make only necessary changes.
+Include proper type hints and docstrings.""",
+                    )
+                    if agent is not None:
+                        return agent, agent_type
+
         complexity_key = str(getattr(task, "complexity", "moderate")).lower()
         if self._complexity_router and complexity_key in self._complexity_router:
             agent_type = self._complexity_router[complexity_key]

@@ -540,6 +540,22 @@ class PlanExecutor:
         if isinstance(implementers, str):
             implementers = [item.strip() for item in implementers.split(",") if item.strip()]
 
+        complexity_router = (
+            profile.complexity_router
+            if profile and profile.complexity_router is not None
+            else impl_meta.get("complexity_router") or impl_meta.get("agent_by_complexity")
+        )
+        task_type_router = (
+            profile.task_type_router
+            if profile and profile.task_type_router is not None
+            else impl_meta.get("task_type_router") or impl_meta.get("agent_by_task_type")
+        )
+        capability_router = (
+            profile.capability_router
+            if profile and profile.capability_router is not None
+            else impl_meta.get("capability_router") or impl_meta.get("agent_by_capability")
+        )
+
         executor = HybridExecutor(
             repo_path=self._repo_path,
             max_retries=2,
@@ -556,6 +572,9 @@ class PlanExecutor:
             max_revisions=profile.max_revisions
             if profile and profile.max_revisions is not None
             else impl_meta.get("max_revisions"),
+            complexity_router=complexity_router,
+            task_type_router=task_type_router,
+            capability_router=capability_router,
         )
 
         # Extract tasks from plan

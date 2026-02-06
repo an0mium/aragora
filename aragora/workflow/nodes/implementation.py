@@ -117,6 +117,9 @@ class ImplementationStep(BaseStep):
                 max_revisions=profile.max_revisions
                 if profile and profile.max_revisions is not None
                 else None,
+                complexity_router=profile.complexity_router if profile else None,
+                task_type_router=profile.task_type_router if profile else None,
+                capability_router=profile.capability_router if profile else None,
             )
             result = await executor.execute_task_with_retry(task)
 

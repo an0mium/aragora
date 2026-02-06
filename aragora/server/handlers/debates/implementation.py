@@ -902,6 +902,9 @@ class ImplementationOperationsMixin:
             reviser=profile.reviser if profile else None,
             strategy=profile.strategy if profile else None,
             max_revisions=profile.max_revisions if profile else None,
+            complexity_router=profile.complexity_router if profile else None,
+            task_type_router=profile.task_type_router if profile else None,
+            capability_router=profile.capability_router if profile else None,
         )
         parallel_execution = (
             rc.parallel_execution
