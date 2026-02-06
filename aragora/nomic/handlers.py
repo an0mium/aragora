@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Optional
 
@@ -34,6 +35,131 @@ logger = logging.getLogger(__name__)
 StateHandler = Callable[
     [StateContext, Event], "Coroutine[Any, Any, tuple[NomicState, dict[str, Any]]]"
 ]
+
+
+def _select_sica_agent(agents: list[Any], model_name: str | None) -> Any | None:
+    """Select an agent for SICA prompts based on model name."""
+    model = (model_name or "").lower()
+    candidates = [
+        ("codex",),
+        ("openai",),
+        ("gpt",),
+        ("claude",),
+        ("gemini",),
+        ("grok",),
+    ]
+    for key_tuple in candidates:
+        key = key_tuple[0]
+        if key in model:
+            for agent in agents:
+                if agent and key in getattr(agent, "name", "").lower():
+                    return agent
+    for agent in agents:
+        if agent:
+            return agent
+    return None
+
+
+async def _run_sica_cycle(
+    repo_path: Path,
+    agents: list[Any],
+    log_fn: Callable[[str], None],
+) -> dict[str, Any]:
+    """Run the SICA improvement cycle if enabled via env."""
+    if os.environ.get("NOMIC_SICA_ENABLED", "0") != "1":
+        return {"status": "disabled"}
+
+    try:
+        from aragora.nomic.sica_improver import (
+            ImprovementType,
+            SICAConfig,
+            SICAImprover,
+        )
+    except Exception as exc:
+        log_fn(f"[sica] Unavailable: {exc}")
+        return {"status": "unavailable", "error": str(exc)}
+
+    raw_types = [
+        t.strip()
+        for t in os.environ.get(
+            "NOMIC_SICA_IMPROVEMENT_TYPES",
+            "reliability,testability,readability",
+        ).split(",")
+        if t.strip()
+    ]
+    improvement_types: list[ImprovementType] = []
+    for raw in raw_types:
+        try:
+            improvement_types.append(ImprovementType(raw))
+        except Exception:
+            log_fn(f"[sica] Unknown improvement type '{raw}', skipping")
+
+    generator_model = os.environ.get("NOMIC_SICA_GENERATOR_MODEL", "codex")
+    require_approval = os.environ.get("NOMIC_SICA_REQUIRE_APPROVAL", "1") == "1"
+    run_tests = os.environ.get("NOMIC_SICA_RUN_TESTS", "1") == "1"
+    run_typecheck = os.environ.get("NOMIC_SICA_RUN_TYPECHECK", "1") == "1"
+    run_lint = os.environ.get("NOMIC_SICA_RUN_LINT", "1") == "1"
+
+    test_command = os.environ.get("NOMIC_SICA_TEST_COMMAND", "pytest")
+    typecheck_command = os.environ.get("NOMIC_SICA_TYPECHECK_COMMAND", "mypy")
+    lint_command = os.environ.get("NOMIC_SICA_LINT_COMMAND", "ruff check")
+    validation_timeout = float(
+        os.environ.get("NOMIC_SICA_VALIDATION_TIMEOUT", "300")
+    )
+    max_opportunities = int(os.environ.get("NOMIC_SICA_MAX_OPPORTUNITIES", "5"))
+    max_rollbacks = int(os.environ.get("NOMIC_SICA_MAX_ROLLBACKS", "3"))
+
+    agent = _select_sica_agent(agents, generator_model)
+
+    async def query_fn(model: str, prompt: str, max_tokens: int) -> str:
+        if not agent:
+            raise RuntimeError("No agent available for SICA")
+        return await agent.generate(prompt, context=[])
+
+    config = SICAConfig(
+        improvement_types=improvement_types or None,
+        generator_model=generator_model,
+        require_human_approval=require_approval,
+        run_tests=run_tests,
+        run_typecheck=run_typecheck,
+        run_lint=run_lint,
+        test_command=test_command,
+        typecheck_command=typecheck_command,
+        lint_command=lint_command,
+        validation_timeout_seconds=validation_timeout,
+        max_opportunities_per_cycle=max_opportunities,
+        max_rollbacks_per_cycle=max_rollbacks,
+    )
+
+    if require_approval:
+
+        async def approve(patch):
+            if not sys.stdin.isatty():
+                log_fn("[sica] Approval required but no TTY; rejecting.")
+                return False
+            log_fn(f"[sica] Proposed patch: {patch.description}")
+            if patch.diff:
+                print("\n" + patch.diff)
+            response = input("Apply this patch? [y/N]: ").strip().lower()
+            return response in ("y", "yes")
+
+        config.approval_callback = approve
+
+    improver = SICAImprover(
+        repo_path=repo_path,
+        config=config,
+        query_fn=query_fn if agent else None,
+    )
+    if not agent:
+        log_fn("[sica] No agent available; running heuristic-only cycle")
+
+    result = await improver.run_improvement_cycle()
+    log_fn(f"[sica] {result.summary()}")
+    return {
+        "status": "success" if result.patches_successful else "no_changes",
+        "summary": result.summary(),
+        "result": result.to_dict(),
+    }
 
 
 async def context_handler(
@@ -287,6 +413,8 @@ async def verify_handler(
     event: Event,
     *,
     verify_phase: Any,
+    repo_path: Path,
+    sica_agents: list[Any] | None = None,
 ) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the VERIFY state.
@@ -311,18 +439,38 @@ async def verify_handler(
                 "test_output": result.get("test_output", ""),
                 "duration_seconds": result.get("duration_seconds", 0),
             }
-        else:
-            # Verification failed - rollback and recover
-            checks = result.get("data", {}).get("checks", [])
-            failed_checks = [c for c in checks if not c.get("passed")]
 
-            logger.warning(f"Verification failed: {len(failed_checks)} checks failed")
-            return NomicState.RECOVERY, {
-                "error": "verification_failed",
-                "phase": "verify",
-                "failed_checks": failed_checks,
-                "test_output": result.get("test_output", ""),
-            }
+        sica_result = None
+        if sica_agents is None:
+            sica_agents = []
+
+        if os.environ.get("NOMIC_SICA_ENABLED", "0") == "1":
+            sica_result = await _run_sica_cycle(repo_path, sica_agents, logger.info)
+
+            if sica_result.get("status") == "success":
+                reverify = await verify_phase.execute()
+                if reverify.get("tests_passed") and reverify.get("syntax_valid"):
+                    return NomicState.COMMIT, {
+                        "tests_passed": True,
+                        "syntax_valid": True,
+                        "test_output": reverify.get("test_output", ""),
+                        "duration_seconds": reverify.get("duration_seconds", 0),
+                        "sica": sica_result,
+                    }
+                result = reverify
+
+        # Verification failed - rollback and recover
+        checks = result.get("data", {}).get("checks", [])
+        failed_checks = [c for c in checks if not c.get("passed")]
+
+        logger.warning(f"Verification failed: {len(failed_checks)} checks failed")
+        return NomicState.RECOVERY, {
+            "error": "verification_failed",
+            "phase": "verify",
+            "failed_checks": failed_checks,
+            "test_output": result.get("test_output", ""),
+            "sica": sica_result,
+        }
 
     except Exception as e:
         logger.error(f"Verify phase error: {e}")
@@ -471,6 +619,9 @@ def create_implement_handler(
 
 def create_verify_handler(
     verify_phase: Any,
+    *,
+    repo_path: Path,
+    sica_agents: list[Any] | None = None,
 ) -> StateHandler:
     """
     Create a verify handler bound to a VerifyPhase instance.
@@ -483,7 +634,13 @@ def create_verify_handler(
     """
 
     async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
-        return await verify_handler(context, event, verify_phase=verify_phase)
+        return await verify_handler(
+            context,
+            event,
+            verify_phase=verify_phase,
+            repo_path=repo_path,
+            sica_agents=sica_agents,
+        )
 
     return handler
 
@@ -691,13 +848,22 @@ def create_handlers(
         stream_emit_fn=stream_emit_fn,
     )
 
+    sica_agents: list[Any] = []
+    for agent in (codex_agent, claude_agent, *agents):
+        if agent and agent not in sica_agents:
+            sica_agents.append(agent)
+
     # Create and return bound handlers
     return {
         NomicState.CONTEXT: create_context_handler(context_phase),
         NomicState.DEBATE: create_debate_handler(debate_phase),
         NomicState.DESIGN: create_design_handler(design_phase),
         NomicState.IMPLEMENT: create_implement_handler(implement_phase),
-        NomicState.VERIFY: create_verify_handler(verify_phase),
+        NomicState.VERIFY: create_verify_handler(
+            verify_phase,
+            repo_path=aragora_path,
+            sica_agents=sica_agents,
+        ),
         NomicState.COMMIT: create_commit_handler(commit_phase),
     }
 
