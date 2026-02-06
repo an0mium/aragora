@@ -464,24 +464,9 @@ class ComputerUseHandler(BaseHandler):
         if error := self._check_rbac_permission(handler, "computer_use:actions:read"):
             return error
 
-        # Aggregate stats from completed tasks
-        stats = {
-            "click": {"total": 0, "success": 0, "failed": 0},
-            "type": {"total": 0, "success": 0, "failed": 0},
-            "screenshot": {"total": 0, "success": 0, "failed": 0},
-            "scroll": {"total": 0, "success": 0, "failed": 0},
-            "key": {"total": 0, "success": 0, "failed": 0},
-        }
-
-        for task in self._tasks.values():
-            for step in task.get("steps", []):
-                action = step.get("action", "").lower()
-                if action in stats:
-                    stats[action]["total"] += 1
-                    if step.get("success"):
-                        stats[action]["success"] += 1
-                    else:
-                        stats[action]["failed"] += 1
+        # Get aggregated stats from storage
+        storage = self._get_storage()
+        stats = storage.get_action_stats()
 
         return json_response({"stats": stats})
 
@@ -496,7 +481,7 @@ class ComputerUseHandler(BaseHandler):
         if error := self._check_rbac_permission(handler, "computer_use:policies:read"):
             return error
 
-        # Return configured policies
+        # Start with built-in default policy
         policies: list[dict[str, Any]] = [
             {
                 "id": "default",
@@ -507,15 +492,11 @@ class ComputerUseHandler(BaseHandler):
             }
         ]
 
-        for policy_id, policy in self._policies.items():
-            policies.append(
-                {
-                    "id": policy_id,
-                    "name": getattr(policy, "name", policy_id),
-                    "description": getattr(policy, "description", ""),
-                    "allowed_actions": getattr(policy, "allowed_actions", []),
-                }
-            )
+        # Add custom policies from storage
+        storage = self._get_storage()
+        stored_policies = storage.list_policies()
+        for policy in stored_policies:
+            policies.append(policy.to_dict())
 
         return json_response(
             {
@@ -543,10 +524,24 @@ class ComputerUseHandler(BaseHandler):
 
         policy_id = f"policy-{uuid.uuid4().hex[:8]}"
 
-        # Create policy (simplified for now)
-        policy = create_default_computer_policy()
+        # Get tenant context
+        auth_ctx = self._get_auth_context(handler)
+        tenant_id = getattr(auth_ctx, "org_id", None) if auth_ctx else None
 
-        self._policies[policy_id] = policy
+        # Create policy record
+        policy_data = {
+            "policy_id": policy_id,
+            "name": name,
+            "description": body.get("description", ""),
+            "allowed_actions": body.get(
+                "allowed_actions", ["screenshot", "click", "type", "scroll", "key"]
+            ),
+            "blocked_domains": body.get("blocked_domains", []),
+            "tenant_id": tenant_id,
+        }
+
+        storage = self._get_storage()
+        storage.save_policy(policy_data)
 
         logger.info(f"Created computer use policy: {policy_id} - {name}")
 
