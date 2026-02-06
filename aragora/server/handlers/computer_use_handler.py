@@ -26,6 +26,10 @@ from typing import TYPE_CHECKING, Any
 
 from aragora.events.handler_events import emit_handler_event, CREATED, APPROVED
 
+from aragora.computer_use.storage import (
+    ComputerUseStorage,
+    get_computer_use_storage,
+)
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -125,10 +129,14 @@ class ComputerUseHandler(BaseHandler):
     def __init__(self, server_context: Any) -> None:
         super().__init__(server_context)
         self._orchestrator: ComputerUseOrchestrator | None = None
-        self._tasks: dict[str, dict[str, Any]] = {}  # In-memory task store
-        self._action_stats: dict[str, dict[str, int]] = {}
-        self._policies: dict[str, Any] = {}
+        self._storage: ComputerUseStorage | None = None
         self._approval_workflow: Any | None = None
+
+    def _get_storage(self) -> ComputerUseStorage:
+        """Get or create the storage instance."""
+        if self._storage is None:
+            self._storage = get_computer_use_storage()
+        return self._storage
 
     def _get_orchestrator(self) -> ComputerUseOrchestrator | None:
         """Get or create computer use orchestrator."""
@@ -292,19 +300,14 @@ class ComputerUseHandler(BaseHandler):
         limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
         status_filter = query_params.get("status")
 
-        tasks = list(self._tasks.values())
-
-        if status_filter:
-            tasks = [t for t in tasks if t.get("status") == status_filter]
-
-        # Sort by created_at descending
-        tasks.sort(key=lambda t: t.get("created_at", ""), reverse=True)
-        tasks = tasks[:limit]
+        storage = self._get_storage()
+        tasks = storage.list_tasks(limit=limit, status=status_filter)
+        total = storage.count_tasks(status=status_filter)
 
         return json_response(
             {
-                "tasks": tasks,
-                "total": len(tasks),
+                "tasks": [t.to_dict() for t in tasks],
+                "total": total,
             }
         )
 
@@ -315,11 +318,12 @@ class ComputerUseHandler(BaseHandler):
         if error := self._check_rbac_permission(handler, "computer_use:tasks:read"):
             return error
 
-        task = self._tasks.get(task_id)
+        storage = self._get_storage()
+        task = storage.get_task(task_id)
         if not task:
             return error_response(f"Task not found: {task_id}", 404)
 
-        return json_response({"task": task})
+        return json_response({"task": task.to_dict()})
 
     @rate_limit(requests_per_minute=10, limiter_name="computer_use_create")
     @handle_errors("create task")
@@ -345,9 +349,14 @@ class ComputerUseHandler(BaseHandler):
         max_steps = body.get("max_steps", 10)
         dry_run = body.get("dry_run", False)
 
+        # Get auth context for metadata
+        auth_ctx = self._get_auth_context(handler)
+        user_id = getattr(auth_ctx, "user_id", None) if auth_ctx else None
+        tenant_id = getattr(auth_ctx, "org_id", None) if auth_ctx else None
+
         # Create task record
         task_id = f"task-{uuid.uuid4().hex[:12]}"
-        task = {
+        task: dict[str, Any] = {
             "task_id": task_id,
             "goal": goal,
             "max_steps": max_steps,
@@ -356,8 +365,12 @@ class ComputerUseHandler(BaseHandler):
             "created_at": datetime.now(timezone.utc).isoformat(),
             "steps": [],
             "result": None,
+            "user_id": user_id,
+            "tenant_id": tenant_id,
         }
-        self._tasks[task_id] = task
+
+        storage = self._get_storage()
+        storage.save_task(task)
 
         # Execute task (in dry_run mode or mock mode for now)
         if dry_run:
@@ -367,15 +380,15 @@ class ComputerUseHandler(BaseHandler):
                 "message": "Dry run completed",
                 "steps_taken": 0,
             }
+            storage.save_task(task)
         else:
             # Run the task asynchronously
             try:
-                auth_ctx = self._get_auth_context(handler)
                 metadata: dict[str, Any] = {}
                 if auth_ctx:
                     metadata = {
-                        "user_id": getattr(auth_ctx, "user_id", None),
-                        "tenant_id": getattr(auth_ctx, "org_id", None),
+                        "user_id": user_id,
+                        "tenant_id": tenant_id,
                         "roles": list(getattr(auth_ctx, "roles", [])),
                     }
                 result: Any = run_async(
@@ -395,6 +408,7 @@ class ComputerUseHandler(BaseHandler):
                     }
                     for s in result.steps
                 ]
+                storage.save_task(task)
             except Exception as e:
                 task["status"] = "failed"
                 task["result"] = {
@@ -402,6 +416,8 @@ class ComputerUseHandler(BaseHandler):
                     "message": str(e),
                     "steps_taken": 0,
                 }
+                task["error"] = str(e)
+                storage.save_task(task)
 
         logger.info(f"Created computer use task: {task_id} - {goal}")
         emit_handler_event("computer_use", CREATED, {"task_id": task_id})
@@ -423,15 +439,15 @@ class ComputerUseHandler(BaseHandler):
         if error := self._check_rbac_permission(handler, "computer_use:tasks:cancel"):
             return error
 
-        task = self._tasks.get(task_id)
+        storage = self._get_storage()
+        task = storage.get_task(task_id)
         if not task:
             return error_response(f"Task not found: {task_id}", 404)
 
-        if task["status"] in ("completed", "failed", "cancelled"):
-            return error_response(f"Task already {task['status']}", 400)
+        if task.status in ("completed", "failed", "cancelled"):
+            return error_response(f"Task already {task.status}", 400)
 
-        task["status"] = "cancelled"
-        task["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+        storage.update_task_status(task_id, "cancelled")
 
         logger.info(f"Cancelled computer use task: {task_id}")
 
