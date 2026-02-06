@@ -322,6 +322,24 @@ aws secretsmanager get-secret-value --region us-east-2 --secret-id aragora/api/s
 If you still use the bundled secret (`aragora/production`), ensure the same key is also updated
 there for backward compatibility.
 
+### GovInfo + NICE API Key Rotation
+
+GovInfo and NICE keys are stored in AWS Secrets Manager using individual paths:
+`aragora/api/govinfo` and `aragora/api/nice`. Rotate manually and update both
+`us-east-1` and `us-east-2`.
+
+```bash
+# Rotate via secrets manager script (prompts for new key)
+python scripts/secrets_manager.py rotate GOVINFO_API_KEY
+python scripts/secrets_manager.py rotate NICE_API_KEY
+
+# Optional: verify regions after rotation
+aws secretsmanager get-secret-value --region us-east-1 --secret-id aragora/api/govinfo
+aws secretsmanager get-secret-value --region us-east-2 --secret-id aragora/api/govinfo
+aws secretsmanager get-secret-value --region us-east-1 --secret-id aragora/api/nice
+aws secretsmanager get-secret-value --region us-east-2 --secret-id aragora/api/nice
+```
+
 ## Load Balancing
 
 ### Current Setup
