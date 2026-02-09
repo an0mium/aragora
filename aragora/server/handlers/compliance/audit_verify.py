@@ -34,6 +34,10 @@ def get_receipt_store():  # type: ignore[override]
 
         return compat.get_receipt_store()
     except Exception:
+        logger.debug(
+            "compliance_handler.get_receipt_store unavailable, using base receipt store",
+            exc_info=True,
+        )
         return _base_get_receipt_store()
 
 
@@ -98,6 +102,10 @@ class AuditVerifyMixin:
 
                 store = _store_get()
             except Exception:
+                logger.warning(
+                    "Direct receipt_store import failed, using compat fallback for batch verify",
+                    exc_info=True,
+                )
                 store = get_receipt_store()
             results, summary = store.verify_batch(receipt_ids)
 
@@ -248,11 +256,19 @@ class AuditVerifyMixin:
 
                 store = compat.get_audit_store()
             except Exception:
+                logger.debug(
+                    "compliance_handler.get_audit_store unavailable for date range verify",
+                    exc_info=True,
+                )
                 try:
                     from aragora.storage.audit_store import get_audit_store as _audit_get
 
                     store = _audit_get()
                 except Exception:
+                    logger.warning(
+                        "Direct audit_store import also failed, using module-level fallback",
+                        exc_info=True,
+                    )
                     store = get_audit_store()
             from_str = date_range.get("from")
             to_str = date_range.get("to")
@@ -320,6 +336,10 @@ class AuditVerifyMixin:
 
                 store = compat.get_audit_store()
             except Exception:
+                logger.debug(
+                    "compliance_handler.get_audit_store unavailable for event fetch",
+                    exc_info=True,
+                )
                 store = get_audit_store()
             # Convert datetimes to the format expected by the store
             events = store.get_log(

@@ -147,6 +147,7 @@ class RequestLifecycleManager:
             try:
                 request_headers = {k: v for k, v in self.handler.headers.items()}
             except Exception:
+                logger.debug("Failed to extract request headers", exc_info=True)
                 request_headers = {}
 
         request_id: str | None = None
@@ -162,6 +163,7 @@ class RequestLifecycleManager:
                 or generate_request_id()
             )
         except Exception:
+            logger.debug("Request ID generation unavailable", exc_info=True)
             request_id = None
 
         # Start tracing span for API requests
@@ -181,13 +183,14 @@ class RequestLifecycleManager:
                     parent_span_id=span.parent_span_id,
                 )
             except Exception:
+                logger.debug("Correlation context init failed with tracing span", exc_info=True)
                 try:
                     from aragora.server.middleware.request_logging import set_current_request_id
 
                     if request_id:
                         set_current_request_id(request_id)
                 except Exception:
-                    pass
+                    logger.debug("Fallback request ID binding also failed", exc_info=True)
         else:
             # Even without tracing, establish correlation context for logs/headers
             try:
@@ -195,13 +198,14 @@ class RequestLifecycleManager:
 
                 init_correlation(request_headers, request_id=request_id)
             except Exception:
+                logger.debug("Correlation context init failed (no tracing)", exc_info=True)
                 try:
                     from aragora.server.middleware.request_logging import set_current_request_id
 
                     if request_id:
                         set_current_request_id(request_id)
                 except Exception:
-                    pass
+                    logger.debug("Fallback request ID binding also failed", exc_info=True)
 
         # Determine timeout for this request
         timeout_seconds = _get_request_timeout(path)

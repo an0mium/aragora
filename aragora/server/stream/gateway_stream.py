@@ -359,6 +359,7 @@ def _maybe_register_tool_capture(server: GatewayStreamServer) -> None:
 
         capture = ToolMemoryCapture()
     except Exception:
+        logger.debug("ToolMemoryCapture unavailable, tool usage capture disabled", exc_info=True)
         return
 
     async def _capture_tool_event(event: GatewayEvent) -> None:
@@ -368,6 +369,7 @@ def _maybe_register_tool_capture(server: GatewayStreamServer) -> None:
         try:
             from aragora.memory.continuum import MemoryTier, get_continuum_memory
         except Exception:
+            logger.debug("Continuum memory unavailable for tool event capture", exc_info=True)
             return
 
         tool_name = event.data.get("capability")
@@ -380,6 +382,7 @@ def _maybe_register_tool_capture(server: GatewayStreamServer) -> None:
                 tier_value = capture.config.tier
                 tier = MemoryTier(tier_value) if tier_value else MemoryTier.FAST
             except Exception:
+                logger.debug("Invalid memory tier in capture config, defaulting to FAST", exc_info=True)
                 tier = MemoryTier.FAST
 
             content = capture.format_content(

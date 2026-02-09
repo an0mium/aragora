@@ -82,6 +82,10 @@ class MemoryProgressiveMixin:
                 tenant_enforcement_enabled,
             )
         except Exception:
+            logger.warning(
+                "Memory access module unavailable, RBAC/tenant filtering disabled for search index",
+                exc_info=True,
+            )
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
             tenant_enforcement_enabled = None  # type: ignore[assignment]
@@ -214,6 +218,10 @@ class MemoryProgressiveMixin:
         try:
             from aragora.memory.access import resolve_tenant_id, tenant_enforcement_enabled
         except Exception:
+            logger.warning(
+                "Memory access module unavailable, RBAC/tenant filtering disabled for timeline",
+                exc_info=True,
+            )
             resolve_tenant_id = None  # type: ignore[assignment]
             tenant_enforcement_enabled = None  # type: ignore[assignment]
 
@@ -243,6 +251,10 @@ class MemoryProgressiveMixin:
         try:
             from aragora.memory.access import filter_entries
         except Exception:
+            logger.warning(
+                "Memory access module unavailable, RBAC entry filtering disabled for timeline",
+                exc_info=True,
+            )
             filter_entries = None  # type: ignore[assignment]
 
         if filter_entries:
@@ -300,6 +312,10 @@ class MemoryProgressiveMixin:
                 tenant_enforcement_enabled,
             )
         except Exception:
+            logger.warning(
+                "Memory access module unavailable, RBAC/tenant filtering disabled for bulk retrieval",
+                exc_info=True,
+            )
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
             tenant_enforcement_enabled = None  # type: ignore[assignment]
@@ -375,6 +391,10 @@ class MemoryProgressiveMixin:
                 tenant_enforcement_enabled,
             )
         except Exception:
+            logger.warning(
+                "Memory access module unavailable, RBAC/tenant filtering disabled for search",
+                exc_info=True,
+            )
             filter_entries = None  # type: ignore[assignment]
             resolve_tenant_id = None  # type: ignore[assignment]
             tenant_enforcement_enabled = None  # type: ignore[assignment]
