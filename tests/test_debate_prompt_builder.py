@@ -368,12 +368,18 @@ class TestGetPersonaContext:
     """Tests for get_persona_context method."""
 
     def test_no_persona_manager(self, prompt_builder, mock_agent):
-        """Test returns empty without persona_manager."""
+        """Test returns domain guidance for general domain, persona context for technical."""
+        # With a general-domain task, get_persona_context returns domain guidance
+        result = prompt_builder.get_persona_context(mock_agent)
+        assert isinstance(result, str)
+        # For a technical-domain task (no domain guidance), returns "" when no persona_manager
+        prompt_builder.env.task = "Refactor the database migration code"
         result = prompt_builder.get_persona_context(mock_agent)
         assert result == ""
 
     def test_with_persona(self, prompt_builder, mock_agent, mock_persona_manager):
-        """Test returns persona context when available."""
+        """Test returns persona context when available for technical domain."""
+        prompt_builder.env.task = "Refactor the database migration code"
         prompt_builder.persona_manager = mock_persona_manager
         result = prompt_builder.get_persona_context(mock_agent)
         assert result == "Persona context"
