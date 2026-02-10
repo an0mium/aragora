@@ -95,6 +95,7 @@ runs:
       run: |
         mkdir -p ./aragora-artifacts
 
+        # Run review with github format for PR comment
         aragora review \
           --diff-file pr.diff \
           --output-format github \
@@ -104,6 +105,16 @@ runs:
           --focus "${{ inputs.focus }}" \
           > ./aragora-artifacts/comment.md 2> ./aragora-artifacts/review.log || true
 
+        # Also generate JSON output for structured data extraction
+        aragora review \
+          --diff-file pr.diff \
+          --output-format json \
+          --output-dir ./aragora-artifacts \
+          --agents "${{ inputs.agents }}" \
+          --rounds ${{ inputs.rounds }} \
+          --focus "${{ inputs.focus }}" \
+          > /dev/null 2>> ./aragora-artifacts/review.log || true
+
         if [ -f "./aragora-artifacts/comment.md" ] && [ -s "./aragora-artifacts/comment.md" ]; then
           echo "review_path=./aragora-artifacts/comment.md" >> $GITHUB_OUTPUT
           echo "review_generated=true" >> $GITHUB_OUTPUT
@@ -111,9 +122,40 @@ runs:
           echo "review_generated=false" >> $GITHUB_OUTPUT
         fi
 
-        echo "unanimous_count=0" >> $GITHUB_OUTPUT
-        echo "critical_count=0" >> $GITHUB_OUTPUT
-        echo "agreement_score=0" >> $GITHUB_OUTPUT
+        # Extract counts from JSON review output
+        if [ -f "./aragora-artifacts/review.json" ]; then
+          UNANIMOUS=$(python3 -c "
+import json, sys
+try:
+    data = json.load(open('./aragora-artifacts/review.json'))
+    print(len(data.get('unanimous_critiques', [])))
+except Exception:
+    print('0')
+" 2>/dev/null)
+          CRITICAL=$(python3 -c "
+import json, sys
+try:
+    data = json.load(open('./aragora-artifacts/review.json'))
+    print(len(data.get('critical_issues', [])))
+except Exception:
+    print('0')
+" 2>/dev/null)
+          AGREEMENT=$(python3 -c "
+import json, sys
+try:
+    data = json.load(open('./aragora-artifacts/review.json'))
+    print(data.get('agreement_score', 0))
+except Exception:
+    print('0')
+" 2>/dev/null)
+          echo "unanimous_count=${UNANIMOUS:-0}" >> $GITHUB_OUTPUT
+          echo "critical_count=${CRITICAL:-0}" >> $GITHUB_OUTPUT
+          echo "agreement_score=${AGREEMENT:-0}" >> $GITHUB_OUTPUT
+        else
+          echo "unanimous_count=0" >> $GITHUB_OUTPUT
+          echo "critical_count=0" >> $GITHUB_OUTPUT
+          echo "agreement_score=0" >> $GITHUB_OUTPUT
+        fi
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}

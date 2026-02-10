@@ -1,0 +1,52 @@
+# Aragora AI Code Review - Strict Mode
+#
+# This variant fails the CI check if critical issues are found.
+# Use this for repositories where you want AI review to be a required check.
+#
+# Add this file to your repository at: .github/workflows/aragora-review.yml
+
+name: Aragora AI Code Review (Strict)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: aragora-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Run Aragora Review
+        id: review
+        uses: an0mium/aragora@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          agents: 'anthropic-api,openai-api'
+          rounds: '3'
+          focus: 'security,performance,quality'
+          post-comment: 'true'
+          # Fail the workflow if any critical issues are found
+          fail-on-critical: 'true'
+          max-diff-size: '100000'
+
+      - name: Review Summary
+        if: always()
+        run: |
+          echo "### Review Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Unanimous issues: ${{ steps.review.outputs.unanimous-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical issues: ${{ steps.review.outputs.critical-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Agreement score: ${{ steps.review.outputs.agreement-score }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.review.outputs.critical-count }}" != "0" ]; then
+            echo "::warning::Critical issues detected - review required before merging"
+          fi
