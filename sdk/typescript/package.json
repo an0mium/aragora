@@ -1,6 +1,6 @@
 {
   "name": "@aragora/sdk",
-  "version": "2.5.0",
+  "version": "2.6.3",
   "description": "Official TypeScript SDK for Aragora multi-agent debate platform",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -51,7 +51,7 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.2.0",
+    "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "@vitest/coverage-v8": "^4.0.18",

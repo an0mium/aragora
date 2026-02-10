@@ -50,61 +50,61 @@ class Error(BaseModel):
         str,
         Field(
             description="Human-readable error message",
-            example="Invalid request: missing required field 'task'",
+            examples=["Invalid request: missing required field 'task'"],
         ),
     ]
     code: Annotated[
         Code | None,
         Field(
             description="Machine-readable error code for programmatic handling",
-            example="MISSING_FIELD",
+            examples=["MISSING_FIELD"],
         ),
     ] = None
     trace_id: Annotated[
         str | None,
         Field(
-            description="Unique request ID for debugging and support", example="req_abc123xyz789"
+            description="Unique request ID for debugging and support", examples=["req_abc123xyz789"]
         ),
     ] = None
     field: Annotated[
         str | None,
         Field(
             description="Name of the field that caused the error (for validation errors)",
-            example="task",
+            examples=["task"],
         ),
     ] = None
     resource_type: Annotated[
         str | None,
-        Field(description="Type of resource involved in the error", example="debate"),
+        Field(description="Type of resource involved in the error", examples=["debate"]),
     ] = None
     resource_id: Annotated[
         str | None,
-        Field(description="ID of the resource involved in the error", example="deb_abc123"),
+        Field(description="ID of the resource involved in the error", examples=["deb_abc123"]),
     ] = None
     limit: Annotated[
         int | None,
-        Field(description="The limit that was exceeded (for quota/rate errors)", example=60),
+        Field(description="The limit that was exceeded (for quota/rate errors)", examples=[60]),
     ] = None
     retry_after: Annotated[
         int | None,
-        Field(description="Seconds to wait before retrying (for rate limit errors)", example=45),
+        Field(description="Seconds to wait before retrying (for rate limit errors)", examples=[45]),
     ] = None
     resets_at: Annotated[
         datetime | None,
-        Field(description="When the quota/rate limit resets", example="2024-01-16T00:00:00Z"),
+        Field(description="When the quota/rate limit resets", examples=["2024-01-16T00:00:00Z"]),
     ] = None
     upgrade_url: Annotated[
         AnyUrl | None,
         Field(
             description="URL to upgrade plan (for quota errors)",
-            example="https://aragora.ai/pricing",
+            examples=["https://aragora.ai/pricing"],
         ),
     ] = None
     support_url: Annotated[
         AnyUrl | None,
         Field(
             description="URL for support/issue reporting",
-            example="https://github.com/anthropics/aragora/issues",
+            examples=["https://github.com/anthropics/aragora/issues"],
         ),
     ] = None
 
@@ -185,7 +185,7 @@ class DebateCreateRequest(BaseModel):
         str,
         Field(
             description="The topic or question for the debate",
-            example="Should we adopt microservices architecture for our e-commerce platform?",
+            examples=["Should we adopt microservices architecture for our e-commerce platform?"],
             max_length=2000,
             min_length=10,
         ),
@@ -198,24 +198,24 @@ class DebateCreateRequest(BaseModel):
         list[str] | None,
         Field(
             description="List of agent names to participate. If empty, auto_select is used.",
-            example=["claude", "gpt-4", "gemini"],
-            max_items=8,
-            min_items=2,
+            examples=["claude", "gpt-4", "gemini"],
+            max_length=8,
+            min_length=2,
         ),
     ] = None
     rounds: Annotated[
         int | None,
-        Field(description="Maximum number of debate rounds", example=3, ge=1, le=10),
+        Field(description="Maximum number of debate rounds", examples=[3], ge=1, le=10),
     ] = 3
     consensus: Annotated[
         Consensus | None,
-        Field(description="Consensus strategy to use", example="majority"),
+        Field(description="Consensus strategy to use", examples=["majority"]),
     ] = "majority"
     context: Annotated[
         str | None,
         Field(
             description="Additional context or background information",
-            example="We have 1M daily active users and need 99.9% uptime.",
+            examples=["We have 1M daily active users and need 99.9% uptime."],
             max_length=10000,
         ),
     ] = None
@@ -240,36 +240,36 @@ class DebateCreateRequest(BaseModel):
 class DebateCreateResponse(BaseModel):
     success: Annotated[
         bool,
-        Field(description="Whether the debate was created successfully", example=True),
+        Field(description="Whether the debate was created successfully", examples=[True]),
     ]
     debate_id: Annotated[
         str | None,
-        Field(description="Unique identifier for the created debate", example="deb_abc123xyz"),
+        Field(description="Unique identifier for the created debate", examples=["deb_abc123xyz"]),
     ] = None
     status: Annotated[DebateStatus | None, Field(description="Current status of the debate")] = None
     task: Annotated[
         str | None,
         Field(
             description="The debate topic (echoed back)",
-            example="Should we adopt microservices architecture?",
+            examples=["Should we adopt microservices architecture?"],
         ),
     ] = None
     agents: Annotated[
         list[str] | None,
         Field(
-            description="Agents participating in the debate", example=["claude", "gpt-4", "gemini"]
+            description="Agents participating in the debate", examples=["claude", "gpt-4", "gemini"]
         ),
     ] = None
     websocket_url: Annotated[
         str | None,
         Field(
             description="WebSocket URL to stream debate progress",
-            example="wss://api.aragora.ai/ws/debates/deb_abc123xyz",
+            examples=["wss://api.aragora.ai/ws/debates/deb_abc123xyz"],
         ),
     ] = None
     estimated_duration: Annotated[
         int | None,
-        Field(description="Estimated debate duration in seconds", example=120),
+        Field(description="Estimated debate duration in seconds", examples=[120]),
     ] = None
     error: Annotated[str | None, Field(description="Error message if success is false")] = None
 
