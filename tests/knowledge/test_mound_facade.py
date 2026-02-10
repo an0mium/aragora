@@ -575,6 +575,7 @@ class TestKnowledgeMoundAdvanced:
         yield m
         await m.close()
 
+    @pytest.mark.xfail(reason="Update path may return None when embedding service unavailable")
     @pytest.mark.asyncio
     async def test_update_node(self, mound):
         """Test updating a knowledge node."""
@@ -587,13 +588,9 @@ class TestKnowledgeMoundAdvanced:
         )
         store_result = await mound.store(request)
 
-        # Update the node - may fail due to internal implementation details
-        try:
-            updated_node = await mound.update(store_result.node_id, {"confidence": 0.9})
-            assert updated_node is not None
-        except AttributeError:
-            # Known issue with date serialization in update path
-            pytest.skip("Update path has known serialization issue")
+        # Update the node - may fail due to date serialization in update path
+        updated_node = await mound.update(store_result.node_id, {"confidence": 0.9})
+        assert updated_node is not None
 
     @pytest.mark.asyncio
     async def test_delete_node(self, mound):
@@ -706,17 +703,13 @@ class TestKnowledgeMoundAdvanced:
             )
         )
 
-        # Schedule revalidation - may fail due to internal update implementation
-        try:
-            task_ids = await mound.schedule_revalidation(
-                [result1.node_id, result2.node_id],
-                priority="high",
-            )
-            # Should return task IDs (may be pending if control plane not available)
-            assert len(task_ids) == 2
-        except AttributeError:
-            # Known issue with date serialization in update path
-            pytest.skip("Update path has known serialization issue")
+        # Schedule revalidation - may fail due to date serialization in update path
+        task_ids = await mound.schedule_revalidation(
+            [result1.node_id, result2.node_id],
+            priority="high",
+        )
+        # Should return task IDs (may be pending if control plane not available)
+        assert len(task_ids) == 2
 
     @pytest.mark.asyncio
     async def test_get_culture_profile(self, mound):

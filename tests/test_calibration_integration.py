@@ -322,10 +322,7 @@ class TestCalibrationLeaderboardEndpoint:
         """Test ROUTES includes leaderboard endpoint."""
         assert "/api/calibration/leaderboard" in handler.ROUTES
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_COMPLEX_TESTS"),
-        reason="Handler patching requires complex setup; tested via integration tests",
-    )
+    @pytest.mark.xfail(reason="Handler patching requires complex setup; tested via integration tests")
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", True)
     @patch("aragora.server.handlers.agents.calibration.EloSystem")
     def test_leaderboard_returns_json(self, mock_elo_cls, handler):
@@ -355,10 +352,7 @@ class TestCalibrationLeaderboardEndpoint:
         assert "agents" in body
         assert "metric" in body
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_COMPLEX_TESTS"),
-        reason="Handler patching requires complex setup; tested via integration tests",
-    )
+    @pytest.mark.xfail(reason="Handler patching requires complex setup; tested via integration tests")
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False)
     def test_leaderboard_unavailable_without_elo(self, handler):
         """Test leaderboard returns 503 without ELO system."""
@@ -418,10 +412,7 @@ class TestCalibrationEdgeCases:
         agent.role = "proposer"
         return agent
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_COMPLEX_TESTS"),
-        reason="Known issue: Arena initialization calls get_rating during setup - needs isolated unit test",
-    )
+    @pytest.mark.xfail(reason="Known issue: Arena initialization calls get_rating during setup")
     def test_calibration_weight_exception_handling(self, mock_agent):
         """Test calibration weight handles exceptions gracefully."""
         mock_elo = MagicMock(spec=EloSystem)
@@ -435,10 +426,7 @@ class TestCalibrationEdgeCases:
         weight = arena._get_calibration_weight("any")
         assert weight == 1.0
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_COMPLEX_TESTS"),
-        reason="Known issue: Arena initialization calls get_rating during setup - needs isolated unit test",
-    )
+    @pytest.mark.xfail(reason="Known issue: Arena initialization calls get_rating during setup")
     def test_composite_score_exception_handling(self, mock_agent):
         """Test composite score handles exceptions gracefully."""
         mock_elo = MagicMock(spec=EloSystem)

@@ -1,14 +1,31 @@
-# aragora-client
+# aragora-client (DEPRECATED)
+
+> **This package is deprecated.** Use [`aragora-sdk`](https://pypi.org/project/aragora-sdk/) instead:
+>
+> ```bash
+> pip install aragora-sdk
+> ```
+>
+> `aragora-sdk` is the canonical Python SDK with the same API surface.
+> `aragora-client` will receive no further updates.
 
 Python SDK for the Aragora control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.
 
 ## Installation
 
+Recommended:
+
+```bash
+pip install aragora-sdk
+```
+
+Legacy (deprecated):
+
 ```bash
 pip install aragora-client
 ```
 
-## Quick Start
+## Quick Start (Legacy)
 
 ```python
 import asyncio

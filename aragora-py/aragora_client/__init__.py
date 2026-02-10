@@ -1,10 +1,16 @@
 """
-Aragora Python SDK.
+Aragora Python SDK (Legacy).
+
+.. deprecated:: 2.6.3
+    ``aragora-client`` is deprecated. Use ``aragora-sdk`` instead::
+
+        pip install aragora-sdk
+        from aragora_sdk import AragoraClient
 
 A Python client for the Aragora control plane for multi-agent vetted decisionmaking.
 
 Example:
-    >>> from aragora_client import AragoraClient
+    >>> from aragora_sdk import AragoraClient  # preferred
     >>> client = AragoraClient("http://localhost:8080")
     >>> debate = await client.debates.run(task="Should we use microservices?")
     >>> print(debate.consensus.conclusion)

@@ -1,3 +1,4 @@
+# LEGACY: publishes deprecated aragora-client package (replaced by aragora-sdk)
 name: Publish Aragora Client to PyPI
 
 on:

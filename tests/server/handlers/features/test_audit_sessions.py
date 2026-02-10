@@ -1119,3 +1119,516 @@ class TestConstants:
         assert AUDIT_EXECUTE_PERMISSION == "audit:execute"
         assert AUDIT_DELETE_PERMISSION == "audit:delete"
         assert AUDIT_INTERVENE_PERMISSION == "audit:intervene"
+
+
+# ---------------------------------------------------------------------------
+# Circuit Breaker
+# ---------------------------------------------------------------------------
+
+
+class TestCircuitBreaker:
+    def test_get_circuit_breaker_returns_instance(self):
+        from aragora.server.handlers.features.audit_sessions import (
+            get_audit_sessions_circuit_breaker,
+        )
+
+        cb = get_audit_sessions_circuit_breaker()
+        assert cb is not None
+        assert cb.name == "audit_sessions_handler"
+
+    def test_get_circuit_breaker_status_returns_dict(self):
+        from aragora.server.handlers.features.audit_sessions import (
+            get_audit_sessions_circuit_breaker_status,
+        )
+
+        status = get_audit_sessions_circuit_breaker_status()
+        assert isinstance(status, dict)
+
+    def test_circuit_breaker_singleton(self):
+        from aragora.server.handlers.features.audit_sessions import (
+            get_audit_sessions_circuit_breaker,
+        )
+
+        cb1 = get_audit_sessions_circuit_breaker()
+        cb2 = get_audit_sessions_circuit_breaker()
+        assert cb1 is cb2
+
+
+# ---------------------------------------------------------------------------
+# Handler Initialization
+# ---------------------------------------------------------------------------
+
+
+class TestHandlerInit:
+    def test_init_with_server_context(self):
+        ctx = {"storage": "mock"}
+        h = AuditSessionsHandler(server_context=ctx)
+        assert h.ctx == ctx
+
+    def test_init_with_ctx(self):
+        ctx = {"key": "value"}
+        h = AuditSessionsHandler(ctx=ctx)
+        assert h.ctx == ctx
+
+    def test_init_with_none(self):
+        h = AuditSessionsHandler()
+        assert h.ctx == {}
+
+    def test_init_server_context_takes_priority(self):
+        ctx1 = {"a": 1}
+        ctx2 = {"b": 2}
+        h = AuditSessionsHandler(ctx=ctx1, server_context=ctx2)
+        assert h.ctx == ctx2
+
+
+# ---------------------------------------------------------------------------
+# Module exports
+# ---------------------------------------------------------------------------
+
+
+class TestModuleExports:
+    def test_all_exports(self):
+        assert "AuditSessionsHandler" in audit_mod.__all__
+        assert "get_audit_sessions_circuit_breaker" in audit_mod.__all__
+        assert "get_audit_sessions_circuit_breaker_status" in audit_mod.__all__
+        assert len(audit_mod.__all__) == 3
+
+
+# ---------------------------------------------------------------------------
+# Permission mapping edge case
+# ---------------------------------------------------------------------------
+
+
+class TestPermissionMappingEdgeCases:
+    def test_default_fallback_returns_read(self):
+        h = _make_handler()
+        perm = h._get_required_permission("/api/v1/audit/sessions/abc/unknown", "PATCH")
+        assert perm == AUDIT_READ_PERMISSION
+
+
+# ---------------------------------------------------------------------------
+# Create session additional validation
+# ---------------------------------------------------------------------------
+
+
+class TestCreateSessionDetails:
+    @pytest.mark.asyncio
+    async def test_create_session_with_custom_config(self, handler):
+        config = {"use_debate": True, "min_confidence": 0.8, "parallel_agents": 5}
+        req = FakeRequest(
+            method="POST",
+            path="/api/v1/audit/sessions",
+            body_data={
+                "document_ids": ["doc-x"],
+                "audit_types": ["quality"],
+                "config": config,
+            },
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 201
+        body = _parse_body(resp)
+        assert body["config"] == config
+        assert body["audit_types"] == ["quality"]
+
+    @pytest.mark.asyncio
+    async def test_create_session_progress_fields(self, handler):
+        req = FakeRequest(
+            method="POST",
+            path="/api/v1/audit/sessions",
+            body_data={"document_ids": ["d1", "d2", "d3"]},
+        )
+        resp = await handler.handle_request(req)
+        body = _parse_body(resp)
+        progress = body["progress"]
+        assert progress["total_documents"] == 3
+        assert progress["processed_documents"] == 0
+        assert progress["total_chunks"] == 0
+        assert progress["processed_chunks"] == 0
+        assert progress["findings_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_create_session_has_timestamps(self, handler):
+        req = FakeRequest(
+            method="POST",
+            path="/api/v1/audit/sessions",
+            body_data={"document_ids": ["d1"]},
+        )
+        resp = await handler.handle_request(req)
+        body = _parse_body(resp)
+        assert body["created_at"] is not None
+        assert body["updated_at"] is not None
+        assert body["started_at"] is None
+        assert body["completed_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_create_session_empty_document_ids_list(self, handler):
+        req = FakeRequest(
+            method="POST",
+            path="/api/v1/audit/sessions",
+            body_data={"document_ids": []},
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 400
+        body = _parse_body(resp)
+        assert "document_ids" in body["error"]
+
+
+# ---------------------------------------------------------------------------
+# List sessions sorting
+# ---------------------------------------------------------------------------
+
+
+class TestListSessionsSorting:
+    @pytest.mark.asyncio
+    async def test_list_sorted_descending_by_created_at(self, handler):
+        _sessions["s-old"] = {
+            "id": "s-old",
+            "document_ids": [],
+            "audit_types": [],
+            "config": {},
+            "status": "pending",
+            "created_at": "2025-01-01T00:00:00+00:00",
+            "updated_at": "",
+            "started_at": None,
+            "completed_at": None,
+            "progress": {},
+            "agents": [],
+            "error": None,
+        }
+        _sessions["s-new"] = {
+            "id": "s-new",
+            "document_ids": [],
+            "audit_types": [],
+            "config": {},
+            "status": "pending",
+            "created_at": "2025-06-01T00:00:00+00:00",
+            "updated_at": "",
+            "started_at": None,
+            "completed_at": None,
+            "progress": {},
+            "agents": [],
+            "error": None,
+        }
+        req = FakeRequest(method="GET", path="/api/v1/audit/sessions")
+        resp = await handler.handle_request(req)
+        body = _parse_body(resp)
+        assert body["sessions"][0]["id"] == "s-new"
+        assert body["sessions"][1]["id"] == "s-old"
+
+    @pytest.mark.asyncio
+    async def test_list_filter_matches_exact_status(self, handler, _seed_session):
+        req = FakeRequest(
+            method="GET",
+            path="/api/v1/audit/sessions",
+            query_params={"status": "pending"},
+        )
+        resp = await handler.handle_request(req)
+        body = _parse_body(resp)
+        assert body["total"] == 1
+
+    @pytest.mark.asyncio
+    async def test_list_filter_no_match(self, handler, _seed_session):
+        req = FakeRequest(
+            method="GET",
+            path="/api/v1/audit/sessions",
+            query_params={"status": "completed"},
+        )
+        resp = await handler.handle_request(req)
+        body = _parse_body(resp)
+        assert body["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Report Export with findings data
+# ---------------------------------------------------------------------------
+
+
+class TestExportReportWithFindings:
+    @pytest.mark.asyncio
+    async def test_export_report_fallback_includes_findings(self, handler, _seed_session):
+        _findings[_seed_session] = [
+            {"id": "f1", "severity": "high", "status": "open"},
+            {"id": "f2", "severity": "low", "status": "acknowledged"},
+        ]
+        req = FakeRequest(
+            method="GET",
+            path=f"/api/v1/audit/sessions/{_seed_session}/report",
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 200
+        body = _parse_body(resp)
+        assert len(body["findings"]) == 2
+        assert body["session"]["id"] == _seed_session
+
+    @pytest.mark.asyncio
+    async def test_export_report_query_params_ignored_in_fallback(self, handler, _seed_session):
+        """Query params like format, template don't affect fallback JSON export."""
+        req = FakeRequest(
+            method="GET",
+            path=f"/api/v1/audit/sessions/{_seed_session}/report",
+            query_params={"format": "html", "template": "executive_summary"},
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 200
+        body = _parse_body(resp)
+        assert "session" in body
+        assert "findings" in body
+
+
+# ---------------------------------------------------------------------------
+# _parse_json_body branches
+# ---------------------------------------------------------------------------
+
+
+class TestParseJsonBody:
+    @pytest.mark.asyncio
+    async def test_parse_json_body_via_json_method(self):
+        h = _make_handler()
+        req = MagicMock()
+        req.json = AsyncMock(return_value={"key": "val"})
+        result = await h._parse_json_body(req)
+        assert result == {"key": "val"}
+
+    @pytest.mark.asyncio
+    async def test_parse_json_body_via_body_method(self):
+        h = _make_handler()
+        req = MagicMock(spec=[])  # No .json attribute
+
+        async def fake_body():
+            return json.dumps({"from": "body"}).encode()
+
+        req.body = fake_body
+        result = await h._parse_json_body(req)
+        assert result == {"from": "body"}
+
+    @pytest.mark.asyncio
+    async def test_parse_json_body_empty_request(self):
+        h = _make_handler()
+        req = MagicMock(spec=[])  # No .json, no .body
+        result = await h._parse_json_body(req)
+        assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle state transitions additional tests
+# ---------------------------------------------------------------------------
+
+
+class TestLifecycleTransitions:
+    @pytest.mark.asyncio
+    async def test_start_running_session_fails(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        req = FakeRequest(
+            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start"
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 400
+        body = _parse_body(resp)
+        assert "running" in body["error"]
+
+    @pytest.mark.asyncio
+    async def test_start_cancelled_session_fails(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "cancelled"
+        req = FakeRequest(
+            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start"
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 400
+
+    @pytest.mark.asyncio
+    async def test_pause_completed_session_fails(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "completed"
+        req = FakeRequest(
+            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/pause"
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 400
+
+    @pytest.mark.asyncio
+    async def test_resume_running_session_fails(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        req = FakeRequest(
+            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/resume"
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 400
+
+    @pytest.mark.asyncio
+    async def test_resume_completed_session_fails(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "completed"
+        req = FakeRequest(
+            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/resume"
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 400
+
+    @pytest.mark.asyncio
+    async def test_delete_completed_session_succeeds(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "completed"
+        req = FakeRequest(
+            method="DELETE", path=f"/api/v1/audit/sessions/{_seed_session}"
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 200
+
+    @pytest.mark.asyncio
+    async def test_delete_cancelled_session_succeeds(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "cancelled"
+        req = FakeRequest(
+            method="DELETE", path=f"/api/v1/audit/sessions/{_seed_session}"
+        )
+        resp = await handler.handle_request(req)
+        assert resp["status"] == 200
+
+    @pytest.mark.asyncio
+    async def test_start_updates_timestamps(self, handler, _seed_session):
+        original_updated = _sessions[_seed_session]["updated_at"]
+        req = FakeRequest(
+            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start"
+        )
+        with patch.object(handler, "_run_audit_background", new_callable=AsyncMock):
+            await handler.handle_request(req)
+        assert _sessions[_seed_session]["updated_at"] != original_updated
+        assert _sessions[_seed_session]["started_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_pause_updates_timestamp(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        original_updated = _sessions[_seed_session]["updated_at"]
+        req = FakeRequest(
+            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/pause"
+        )
+        await handler.handle_request(req)
+        assert _sessions[_seed_session]["updated_at"] != original_updated
+
+    @pytest.mark.asyncio
+    async def test_cancel_sets_completed_at(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        req = FakeRequest(
+            method="POST",
+            path=f"/api/v1/audit/sessions/{_seed_session}/cancel",
+            body_data={},
+        )
+        await handler.handle_request(req)
+        assert _sessions[_seed_session]["completed_at"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Findings edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestFindingsEdgeCases:
+    @pytest.mark.asyncio
+    async def test_findings_unknown_severity_sorted_last(self, handler, _seed_session):
+        _findings[_seed_session] = [
+            {"id": "f-unknown", "severity": "unknown_level"},
+            {"id": "f-critical", "severity": "critical"},
+        ]
+        req = FakeRequest(
+            method="GET", path=f"/api/v1/audit/sessions/{_seed_session}/findings"
+        )
+        resp = await handler.handle_request(req)
+        body = _parse_body(resp)
+        assert body["findings"][0]["id"] == "f-critical"
+        assert body["findings"][1]["id"] == "f-unknown"
+
+    @pytest.mark.asyncio
+    async def test_findings_multiple_filters_combined(self, handler, _seed_session):
+        _findings[_seed_session] = [
+            {"id": "f1", "severity": "high", "audit_type": "security", "status": "open"},
+            {"id": "f2", "severity": "high", "audit_type": "compliance", "status": "open"},
+            {"id": "f3", "severity": "low", "audit_type": "security", "status": "open"},
+            {"id": "f4", "severity": "high", "audit_type": "security", "status": "acknowledged"},
+        ]
+        req = FakeRequest(
+            method="GET",
+            path=f"/api/v1/audit/sessions/{_seed_session}/findings",
+            query_params={"severity": "high", "audit_type": "security", "status": "open"},
+        )
+        resp = await handler.handle_request(req)
+        body = _parse_body(resp)
+        assert body["total"] == 1
+        assert body["findings"][0]["id"] == "f1"
+
+
+# ---------------------------------------------------------------------------
+# Background audit run
+# ---------------------------------------------------------------------------
+
+
+class TestBackgroundAuditRun:
+    """Tests for _run_audit_background.
+
+    We replace the asyncio attribute *on the handler module* so that
+    asyncio.sleep becomes an instant no-op without contaminating the real
+    event loop (which would break hive_mind monitor loops, etc.).
+    """
+
+    @staticmethod
+    def _fake_asyncio():
+        """Build a fake asyncio namespace that only overrides sleep."""
+        fake = MagicMock()
+        fake.sleep = AsyncMock(return_value=None)
+        fake.create_task = asyncio.get_event_loop().create_task
+        fake.Queue = asyncio.Queue
+        fake.QueueFull = asyncio.QueueFull
+        fake.wait_for = asyncio.wait_for
+        fake.TimeoutError = asyncio.TimeoutError
+        return fake
+
+    @pytest.mark.asyncio
+    async def test_background_completes_session(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+            await handler._run_audit_background(_seed_session)
+        assert _sessions[_seed_session]["status"] == "completed"
+        assert _sessions[_seed_session]["completed_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_background_nonexistent_session_returns(self, handler):
+        # Should not raise for missing session
+        await handler._run_audit_background("nonexistent-id")
+
+    @pytest.mark.asyncio
+    async def test_background_emits_completed_event(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        queue = asyncio.Queue()
+        _event_queues[_seed_session] = [queue]
+        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+            await handler._run_audit_background(_seed_session)
+        events = []
+        while not queue.empty():
+            events.append(queue.get_nowait())
+        event_types = [e["type"] for e in events]
+        assert "audit_completed" in event_types
+
+    @pytest.mark.asyncio
+    async def test_background_respects_cancelled_status(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "cancelled"
+        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+            await handler._run_audit_background(_seed_session)
+        # Should remain cancelled, not set to completed
+        assert _sessions[_seed_session]["status"] == "cancelled"
+
+    @pytest.mark.asyncio
+    async def test_background_cleans_up_cancellation_token(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        _cancellation_tokens[_seed_session] = MagicMock(is_cancelled=False)
+        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+            await handler._run_audit_background(_seed_session)
+        assert _seed_session not in _cancellation_tokens
+
+    @pytest.mark.asyncio
+    async def test_background_error_sets_failed_status(self, handler, _seed_session):
+        _sessions[_seed_session]["status"] = "running"
+        # Trigger the outer except by making _emit_event raise
+        original_emit = handler._emit_event
+
+        async def failing_emit(sid, event):
+            raise RuntimeError("simulated error")
+
+        handler._emit_event = failing_emit
+        await handler._run_audit_background(_seed_session)
+        assert _sessions[_seed_session]["status"] == "failed"
+        assert _sessions[_seed_session]["error"] == "simulated error"

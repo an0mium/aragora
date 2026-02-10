@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from typing import Any
 from urllib.parse import quote
 
@@ -57,6 +58,22 @@ from aragora_client.types import (
     VerifyClaimRequest,
 )
 from aragora_client.workflows import WorkflowsAPI
+
+
+_DEPRECATION_WARNED = False
+
+
+def _warn_deprecated_once() -> None:
+    global _DEPRECATION_WARNED
+    if _DEPRECATION_WARNED:
+        return
+    _DEPRECATION_WARNED = True
+    warnings.warn(
+        "aragora-client is deprecated. Use aragora-sdk instead (pip install aragora-sdk, "
+        "import aragora_sdk).",
+        FutureWarning,
+        stacklevel=3,
+    )
 
 
 class DebatesAPI:
@@ -1484,6 +1501,8 @@ class AragoraClient:
             timeout: Request timeout in seconds.
             headers: Optional additional headers.
         """
+        _warn_deprecated_once()
+
         self.base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout

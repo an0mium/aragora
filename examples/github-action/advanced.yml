@@ -1,0 +1,67 @@
+# Aragora AI Code Review - Advanced Workflow
+#
+# Demonstrates:
+# - strict gating (`fail-on-critical`)
+# - custom agents/rounds/focus
+# - rich job summary using action outputs
+#
+# For setup instructions, see: docs/GITHUB_ACTION_SETUP.md
+
+name: Aragora AI Code Review (Advanced)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '**.py'
+      - '**.ts'
+      - '**.js'
+      - '**.go'
+
+concurrency:
+  group: aragora-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
+
+    steps:
+      - name: Run Aragora Review (Strict)
+        id: review
+        uses: an0mium/aragora@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          agents: 'anthropic-api,openai-api'
+          rounds: '3'
+          focus: 'security,performance,quality'
+          post-comment: 'true'
+          fail-on-critical: 'true'
+          max-diff-size: '100000'
+
+      - name: Review Summary
+        if: always()
+        run: |
+          echo "### Aragora Review" >> $GITHUB_STEP_SUMMARY
+          echo "- Comment generated: ${{ steps.review.outputs.review-generated }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review markdown: ${{ steps.review.outputs.review-path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review JSON: ${{ steps.review.outputs.review-json-path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review log: ${{ steps.review.outputs.review-log-path }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Findings" >> $GITHUB_STEP_SUMMARY
+          echo "- Unanimous: ${{ steps.review.outputs.unanimous-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: ${{ steps.review.outputs.critical-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- High: ${{ steps.review.outputs.high-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Medium: ${{ steps.review.outputs.medium-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Low: ${{ steps.review.outputs.low-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Total: ${{ steps.review.outputs.total-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Risk areas: ${{ steps.review.outputs.risk-areas-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Split opinions: ${{ steps.review.outputs.split-opinions-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Agreement: ${{ steps.review.outputs.agreement-score }}" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,33 @@
+# Aragora AI Code Review - Basic Workflow
+#
+# Add this file to your repository at: .github/workflows/aragora-review.yml
+#
+# For setup instructions, see: docs/GITHUB_ACTION_SETUP.md
+
+name: Aragora AI Code Review (Basic)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: aragora-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Run Aragora Review
+        id: review
+        uses: an0mium/aragora@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          post-comment: 'true'

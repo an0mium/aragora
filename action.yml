@@ -44,12 +44,39 @@ outputs:
   review-path:
     description: 'Path to the generated review file'
     value: ${{ steps.review.outputs.review_path }}
+  review-generated:
+    description: 'Whether a review comment was generated'
+    value: ${{ steps.review.outputs.review_generated }}
+  review-json-path:
+    description: 'Path to the generated JSON review file'
+    value: ${{ steps.review.outputs.review_json_path }}
+  review-log-path:
+    description: 'Path to the review log file'
+    value: ${{ steps.review.outputs.review_log_path }}
   unanimous-count:
     description: 'Number of unanimous issues found'
     value: ${{ steps.review.outputs.unanimous_count }}
   critical-count:
     description: 'Number of critical issues found'
     value: ${{ steps.review.outputs.critical_count }}
+  high-count:
+    description: 'Number of high severity issues found'
+    value: ${{ steps.review.outputs.high_count }}
+  medium-count:
+    description: 'Number of medium severity issues found'
+    value: ${{ steps.review.outputs.medium_count }}
+  low-count:
+    description: 'Number of low severity issues found'
+    value: ${{ steps.review.outputs.low_count }}
+  total-count:
+    description: 'Total number of severity-tagged issues (critical+high+medium+low)'
+    value: ${{ steps.review.outputs.total_count }}
+  risk-areas-count:
+    description: 'Number of risk areas noted'
+    value: ${{ steps.review.outputs.risk_areas_count }}
+  split-opinions-count:
+    description: 'Number of split-opinion items (agent disagreement)'
+    value: ${{ steps.review.outputs.split_opinions_count }}
   agreement-score:
     description: 'Agent agreement score (0-1)'
     value: ${{ steps.review.outputs.agreement_score }}
@@ -122,40 +149,53 @@ runs:
           echo "review_generated=false" >> $GITHUB_OUTPUT
         fi
 
-        # Extract counts from JSON review output
-        if [ -f "./aragora-artifacts/review.json" ]; then
-          UNANIMOUS=$(python3 -c "
-import json, sys
+        # Action-level metadata and extracted counts from JSON output
+        echo "review_log_path=./aragora-artifacts/review.log" >> $GITHUB_OUTPUT
+
+        python3 - <<'PY' >> "$GITHUB_OUTPUT"
+import json
+from pathlib import Path
+
+path = Path("./aragora-artifacts/review.json")
+if path.is_file():
+    print("review_json_path=./aragora-artifacts/review.json")
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        data = {}
+else:
+    print("review_json_path=")
+    data = {}
+
+def count_list(key: str) -> int:
+    value = data.get(key, [])
+    return len(value) if isinstance(value, list) else 0
+
+unanimous = count_list("unanimous_critiques")
+critical = count_list("critical_issues")
+high = count_list("high_issues")
+medium = count_list("medium_issues")
+low = count_list("low_issues")
+risk_areas = count_list("risk_areas")
+split_opinions = count_list("split_opinions")
+total = critical + high + medium + low
+
+agreement = data.get("agreement_score", 0) or 0
 try:
-    data = json.load(open('./aragora-artifacts/review.json'))
-    print(len(data.get('unanimous_critiques', [])))
+    agreement = float(agreement)
 except Exception:
-    print('0')
-" 2>/dev/null)
-          CRITICAL=$(python3 -c "
-import json, sys
-try:
-    data = json.load(open('./aragora-artifacts/review.json'))
-    print(len(data.get('critical_issues', [])))
-except Exception:
-    print('0')
-" 2>/dev/null)
-          AGREEMENT=$(python3 -c "
-import json, sys
-try:
-    data = json.load(open('./aragora-artifacts/review.json'))
-    print(data.get('agreement_score', 0))
-except Exception:
-    print('0')
-" 2>/dev/null)
-          echo "unanimous_count=${UNANIMOUS:-0}" >> $GITHUB_OUTPUT
-          echo "critical_count=${CRITICAL:-0}" >> $GITHUB_OUTPUT
-          echo "agreement_score=${AGREEMENT:-0}" >> $GITHUB_OUTPUT
-        else
-          echo "unanimous_count=0" >> $GITHUB_OUTPUT
-          echo "critical_count=0" >> $GITHUB_OUTPUT
-          echo "agreement_score=0" >> $GITHUB_OUTPUT
-        fi
+    agreement = 0
+
+print(f"unanimous_count={unanimous}")
+print(f"critical_count={critical}")
+print(f"high_count={high}")
+print(f"medium_count={medium}")
+print(f"low_count={low}")
+print(f"total_count={total}")
+print(f"risk_areas_count={risk_areas}")
+print(f"split_opinions_count={split_opinions}")
+print(f"agreement_score={agreement}")
+PY
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}

@@ -46,6 +46,12 @@ jobs:
           echo "### Review Results" >> $GITHUB_STEP_SUMMARY
           echo "- Unanimous issues: ${{ steps.review.outputs.unanimous-count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Critical issues: ${{ steps.review.outputs.critical-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- High issues: ${{ steps.review.outputs.high-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Medium issues: ${{ steps.review.outputs.medium-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Low issues: ${{ steps.review.outputs.low-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Total issues: ${{ steps.review.outputs.total-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Risk areas: ${{ steps.review.outputs.risk-areas-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Split opinions: ${{ steps.review.outputs.split-opinions-count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Agreement score: ${{ steps.review.outputs.agreement-score }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.review.outputs.critical-count }}" != "0" ]; then
             echo "::warning::Critical issues detected - review required before merging"

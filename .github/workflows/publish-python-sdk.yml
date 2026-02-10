@@ -1,8 +1,8 @@
-name: Publish Python SDK to PyPI (DEPRECATED)
+name: Publish Python SDK to PyPI
 
-# DEPRECATED: This workflow publishes the legacy `aragora` package.
-# The canonical Python SDK is `aragora-client` published from aragora-py/.
-# This workflow is disabled by default. Use workflow_dispatch for final releases only.
+# CANONICAL: Publishes `aragora-sdk` from sdk/python/.
+# The legacy `aragora-client` package (aragora-py/) is deprecated.
+# Manual dispatch only to prevent accidental publishes.
 
 on:
   workflow_dispatch:

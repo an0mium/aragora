@@ -131,14 +131,14 @@ class TestConvert:
         assert SkillCapability.SHELL_EXECUTION in capabilities
 
     def test_convert_uses_default_capabilities_when_none_specified(self) -> None:
-        """When no requires are specified, defaults to SHELL_EXECUTION and READ_LOCAL."""
+        """When no requires are specified, defaults to READ_LOCAL only (no shell)."""
         parsed = _make_parsed(requires=[])
-        bridge = OpenClawSkillConverter.convert(parsed)
+        bridge = OpenClawSkillConverter.convert(parsed, skip_scan=True)
 
         capabilities = bridge.manifest.capabilities
-        assert SkillCapability.SHELL_EXECUTION in capabilities
         assert SkillCapability.READ_LOCAL in capabilities
-        assert len(capabilities) == 2
+        assert SkillCapability.SHELL_EXECUTION not in capabilities
+        assert len(capabilities) == 1
 
     def test_convert_fallback_description(self) -> None:
         """When description is empty, a fallback description is generated."""

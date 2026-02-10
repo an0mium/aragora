@@ -413,6 +413,23 @@ def reset_circuit_breakers():
 
 
 @pytest.fixture(autouse=True)
+def reset_continuum_memory_singleton():
+    """Reset ContinuumMemory singleton between tests.
+
+    Prevents cross-test pollution via the global ContinuumMemory instance.
+    """
+    try:
+        from aragora.memory.continuum.singleton import reset_continuum_memory
+    except Exception:
+        yield
+        return
+
+    reset_continuum_memory()
+    yield
+    reset_continuum_memory()
+
+
+@pytest.fixture(autouse=True)
 def mock_sentence_transformers(request, monkeypatch):
     """Mock SentenceTransformer to prevent HuggingFace model downloads.
 
@@ -1610,6 +1627,57 @@ def _reset_lazy_globals_impl():
         from aragora.storage.schema import DatabaseManager
 
         DatabaseManager.clear_instances()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset additional global singletons/caches that commonly pollute tests.
+    # Keep this best-effort: optional modules may not be importable in all envs.
+    try:
+        from aragora.core.embeddings.cache import reset_caches
+
+        reset_caches()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.core.embeddings.service import reset_embedding_service
+
+        reset_embedding_service()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.rlm.factory import reset_singleton
+
+        reset_singleton()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.reasoning.evidence_bridge import reset_evidence_bridge
+
+        reset_evidence_bridge()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.observability.incident_store import reset_incident_store
+
+        reset_incident_store()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.observability.slo_history import reset_slo_history_store
+
+        reset_slo_history_store()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+
+        reset_cross_subscriber_manager()
     except (ImportError, AttributeError):
         pass
 
