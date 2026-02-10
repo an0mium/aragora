@@ -21,6 +21,9 @@ export { TemplateSelectStep } from './TemplateSelectStep';
 export { FirstDebateStep } from './FirstDebateStep';
 export { CompletionStep } from './CompletionStep';
 
+// Integration setup
+export { IntegrationSelector } from './IntegrationSelector';
+
 // SME-specific step components
 export { BusinessTypeStep, type BusinessType } from './BusinessTypeStep';
 export { SetupPathSelector, type SetupPath } from './SetupPathSelector';
