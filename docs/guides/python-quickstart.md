@@ -5,7 +5,7 @@ Get started with the Aragora Python SDK in 5 minutes.
 ## Installation
 
 ```bash
-pip install aragora-client
+pip install aragora-sdk
 ```
 
 If you want to run a local server, install the full control plane package:
@@ -46,7 +46,7 @@ All SDK calls are async. The examples below use `asyncio.run()`.
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -61,7 +61,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -87,7 +87,7 @@ For more control, create a debate and poll for status:
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -119,8 +119,8 @@ Stream debate events in real-time:
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
-from aragora_client.websocket import stream_debate
+from aragora_sdk import AragoraClient
+from aragora_sdk.websocket import stream_debate
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -148,7 +148,7 @@ Stress-test decisions with adversarial AI personas:
 ```python
 import asyncio
 from pathlib import Path
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -171,7 +171,7 @@ Query agent performance:
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -197,7 +197,7 @@ Explore multiple solution paths:
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -221,7 +221,7 @@ Test multiple scenarios in parallel:
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -250,7 +250,7 @@ Verify claims with formal methods:
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -268,8 +268,8 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
-from aragora_client.exceptions import (
+from aragora_sdk import AragoraClient
+from aragora_sdk.exceptions import (
     AragoraAuthenticationError,
     AragoraNotFoundError,
     AragoraTimeoutError,
@@ -296,7 +296,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     client = AragoraClient(

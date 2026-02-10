@@ -1,58 +1,54 @@
----
-title: Aragora Project Status
-description: Aragora Project Status
----
-
 # Aragora Project Status
 
 *Last updated: February 10, 2026*
 
-> See [README](../analysis/adr) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
+> See [README](../README.md) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
+
+## Next Steps (Canonical)
+
+Priorities are tracked here to avoid drift across multiple NEXT_STEPS docs.
+
+- **Offline/dev golden path**: keep `--demo` and explicit `--local` runs quiet and network-free (no outbound provider calls, no KM/RLM/background enrichments).
+- **Docs alignment**: keep agent catalog and file path references synced to runtime (`list_available_agents()`) and current module layout.
+- **SDK and package alignment**: keep Python, TypeScript SDK, live UI, and IDE extension versions aligned to `v2.6.3`.
+- **External penetration test**: requires third-party vendor engagement.
 
 ## Phase 8: GA Final Polish (February 9-10, 2026)
 
 ### Exception Handler Sweep
-- **175+ bare `except Exception: pass` handlers → 0 remaining** across 88+ files
-- All replaced with `logger.debug/warning("message", exc_info=True)` for observability
-- Server modules use graceful degradation pattern; data paths use `logger.warning`; observability uses `logger.debug`
+- **0 bare `except Exception: pass` remaining** (175+ fixed across 88+ files)
+- All replaced with `logger.debug/warning("message", exc_info=True)`
 
 ### Pydantic v2 Migration
-- **4 `class Config:` patterns → `model_config = {...}`** in FastAPI routes
-- `aragora/server/fastapi/routes/debates.py` and `decisions.py`
+- 4 `class Config:` → `model_config = {...}` in FastAPI routes
 
 ### SDK Consolidation
-- **`aragora-client` package deprecated** — `DeprecationWarning` on import, classifier set to `Development Status :: 7 - Inactive`
-- **`aragora-sdk` confirmed canonical** — CI/CD workflow headers corrected
-- **12 documentation references migrated** from `aragora_client` to `aragora_sdk`
+- `aragora-client` deprecated (DeprecationWarning, classifier `7 - Inactive`)
+- `aragora-sdk` confirmed canonical; 12 doc references migrated
 
 ### Database Reliability
-- **Migration version locking**: TOCTOU protection with advisory locks (PostgreSQL) and WAL locking (SQLite)
-- **Connectivity validation at startup**: SQLite and PostgreSQL connectivity checks before migrations run
+- Migration version locking with TOCTOU protection (advisory locks)
+- Connectivity validation at startup (SQLite + PostgreSQL)
 
 ### Memory & Isolation
-- **Multi-tenant memory isolation**: Tenant-scoped memory operations with RBAC enforcement
-- **Memory coordinator improvements**: Atomic cross-system writes with retry logic
-- **Tier transition race conditions**: Fixed concurrent promote/demote edge cases
+- Multi-tenant memory isolation with RBAC enforcement
+- Memory coordinator atomic writes with retry
+- Tier transition race condition fixes
 
 ### SME Dashboard & Onboarding
-- **Usage Dashboard**: `/usage` page with `CostBreakdown` and `UsageTrend` React components
-- **Onboarding UI**: `IntegrationSelector` component for guided setup
+- `/usage` page with CostBreakdown and UsageTrend components
+- IntegrationSelector onboarding component
 
-### SDK Routes Expansion
-- **57 new SDK routes**: audit (20), debates (13), auth (12), gateway (12)
-- **Python SDK**: auth 43 methods, gateway 22, debates ~25, audit 38
-- **TypeScript SDK**: matching parity for all 4 namespaces
+### SDK Routes & Tests
+- 57 new SDK routes (audit, debates, auth, gateway)
+- 282 new handler tests (audit_sessions, template_marketplace, finding_workflow)
+- 770 ruff type violations fixed
+- 8 large files split; files >1500 LOC: 23 → 15
 
-### Test Suite Improvements
-- **282 new handler tests**: audit_sessions (129), template_marketplace (109), finding_workflow (44)
-- **4 known_bug skips → xfail**: calibration integration tests now run and report expected failures
-- **Skip baseline**: 425 (down from 431)
-- **Type modernization**: 770 ruff violations fixed (761 auto + 9 manual)
-
-### Code Health
-- **File splitting**: 8 files >1500 LOC split into focused modules (sdk_missing, receipt, checkpoint, coordinator, qbo, analytics_metrics, postgres_store, debate_rounds)
-- **Files >1500 LOC**: 23 → 15 (target met)
-- **Tests**: 136,037 collected across 3,000+ test files
+### Test Health
+- 4 known_bug skips → xfail
+- Skip baseline: 425
+- Tests: 136,037 collected across 3,000+ files
 
 ## Phase 7 Complete (February 2026)
 
@@ -163,6 +159,8 @@ Independent verification of production readiness found the project is **98% GA-r
 - **Email Sync Reliability**: Circuit breaker, exponential backoff retry, OAuth token persistence with encryption
 - **Bot Cache Optimization**: Heap-based O(log n) TTL cleanup for response caching
 - **Circuit Breaker Defaults**: Tuned (threshold=5, cooldown=60s) across all resilience patterns
+- **Debate Stability Detection**: Beta-Binomial model with KS-distance for statistical early stopping (opt-in via `enable_stability_detection`)
+- **Knowledge Mound Adapter Base**: 25+ adapters using unified base class with resilience, metrics, and tracing
 
 ---
 
@@ -1107,19 +1105,19 @@ Current released version is **v2.6.3**.
   - Verdict summary (PASS/FAIL/WARN) with finding counts
 - `aragora/server/handlers/gauntlet.py` - 6 API endpoints:
   - GET `/api/gauntlet/receipts` - List receipts with filters (verdict, date range)
-  - GET `/api/gauntlet/receipts/\{id\}` - Get receipt by ID
-  - POST `/api/gauntlet/receipts/\{id\}/verify` - Verify artifact integrity
-  - GET `/api/gauntlet/receipts/\{id\}/export` - Export as HTML/JSON
+  - GET `/api/gauntlet/receipts/{id}` - Get receipt by ID
+  - POST `/api/gauntlet/receipts/{id}/verify` - Verify artifact integrity
+  - GET `/api/gauntlet/receipts/{id}/export` - Export as HTML/JSON
   - GET `/api/gauntlet/runs` - List gauntlet runs
-  - GET `/api/gauntlet/runs/\{id\}` - Get run details
+  - GET `/api/gauntlet/runs/{id}` - Get run details
 - 23 tests in `tests/server/handlers/test_gauntlet_handler.py`
 
 **Decision Explainability API** (PRIORITY 3 - COMPLETE)
 - `aragora/server/handlers/explainability.py` - 4 API endpoints:
-  - GET `/api/debates/\{id\}/explainability` - Get full explanation
-  - GET `/api/debates/\{id\}/explainability/factors` - Get contributing factors
-  - GET `/api/debates/\{id\}/explainability/counterfactual` - Generate what-if scenarios
-  - GET `/api/debates/\{id\}/explainability/provenance` - Get decision provenance chain
+  - GET `/api/debates/{id}/explainability` - Get full explanation
+  - GET `/api/debates/{id}/explainability/factors` - Get contributing factors
+  - GET `/api/debates/{id}/explainability/counterfactual` - Generate what-if scenarios
+  - GET `/api/debates/{id}/explainability/provenance` - Get decision provenance chain
 - Natural language decision narratives with confidence scores
 - Factor decomposition: agent contributions, evidence quality, consensus strength
 - Counterfactual analysis for alternative outcome exploration
@@ -2030,9 +2028,9 @@ All stabilization items addressed:
   - `population_manager` / `auto_evolve` / `breeding_threshold` - Genesis evolution
 - **New API Endpoints**:
   - `POST /api/debates/graph` - Run graph-structured debates with branching
-  - `GET /api/debates/graph/\{id\}` - Get graph debate by ID
+  - `GET /api/debates/graph/{id}` - Get graph debate by ID
   - `POST /api/debates/matrix` - Run parallel scenario debates
-  - `GET /api/debates/matrix/\{id\}` - Get matrix debate results
+  - `GET /api/debates/matrix/{id}` - Get matrix debate results
 - **New Event Type**:
   - `RHETORICAL_OBSERVATION` - Rhetorical pattern detected in debate rounds
 
@@ -2174,7 +2172,7 @@ All stabilization items addressed:
 - **NEW**: Fixed CORS header fallback behavior (don't send Allow-Origin for unauthorized origins)
 - **NEW**: Added agent introspection API endpoints (/api/introspection/*)
 - **NEW**: Added formal verification integration for decidable claims (Z3 backend)
-- **NEW**: Added plugins API endpoints (/api/plugins, /api/plugins/\{name\}, /api/plugins/\{name\}/run)
+- **NEW**: Added plugins API endpoints (/api/plugins, /api/plugins/{name}, /api/plugins/{name}/run)
 - **NEW**: Added genesis API endpoints (/api/genesis/stats, /api/genesis/events, /api/genesis/lineage/*, /api/genesis/tree/*)
 - **NEW**: Connected Z3 SMT solver to post-debate claim verification (auto-verifies decidable claims)
 - **NEW**: Added Replay Theater visualization (ReplayGenerator, self-contained HTML replays)
@@ -2188,10 +2186,10 @@ All stabilization items addressed:
 - **NEW**: Added ELO confidence weighting from probe results (low-confidence debates = reduced ELO impact)
 - **NEW**: Added TournamentManager class for reading tournament SQLite databases
 - **NEW**: Wired /api/tournaments with real tournament data from nomic_dir
-- **NEW**: Added /api/tournaments/\{tournament_id\} endpoint for tournament details
+- **NEW**: Added /api/tournaments/{tournament_id} endpoint for tournament details
 - **NEW**: Added TOKEN_START, TOKEN_DELTA, TOKEN_END event mapping to SpectatorStream bridge
-- **NEW**: Added /api/agent/\{name\}/consistency endpoint for FlipDetector scores
-- **NEW**: Added /api/agent/\{name\}/network endpoint for relationship data (rivals, allies)
+- **NEW**: Added /api/agent/{name}/consistency endpoint for FlipDetector scores
+- **NEW**: Added /api/agent/{name}/network endpoint for relationship data (rivals, allies)
 - **NEW**: Emit MATCH_RECORDED WebSocket event after ELO match recording in orchestrator
 - **NEW**: Fixed security: path traversal protection in custom.py (CustomModeLoader)
 - **NEW**: Fixed security: environment variable bracket access in formal.py and evolver.py
@@ -2299,8 +2297,8 @@ All stabilization items addressed:
 | Crux → Fix Guidance | Active | `scripts/nomic_loop.py` (belief network → fix prompts) |
 | Probe → ELO Weighting | Active | `aragora/ranking/elo.py` (confidence_weight parameter) |
 | Path Traversal Protection | Active | `aragora/tools/code.py` (_resolve_path validation) |
-| Agent Consistency API | Active | `aragora/server/handlers/agents/agents.py` (/api/agent/\{name\}/consistency) |
-| Agent Network API | Active | `aragora/server/handlers/agents/agents.py` (/api/agent/\{name\}/network) |
+| Agent Consistency API | Active | `aragora/server/handlers/agents/agents.py` (/api/agent/{name}/consistency) |
+| Agent Network API | Active | `aragora/server/handlers/agents/agents.py` (/api/agent/{name}/network) |
 | MATCH_RECORDED Event | Active | `aragora/debate/orchestrator.py` (WebSocket emission) |
 | Custom Mode Security | Active | `aragora/modes/custom.py` (path traversal protection) |
 | Crux Cache Lifecycle | Active | `scripts/nomic_loop.py:run_cycle()` (cleared at cycle start) |
@@ -2319,7 +2317,7 @@ All stabilization items addressed:
 | ConsensusKnowledgeBase | Active | `aragora/live/src/components/ConsensusKnowledgeBase.tsx` (settled topics) |
 | DebateViewer Critique Handling | Active | `aragora/live/src/components/debate-viewer/DebateViewer.tsx` (critique + consensus) |
 | ArgumentCartographer | Active | `aragora/debate/orchestrator.py` (graph visualization) |
-| Graph Export API | Active | `aragora/server/handlers/debates/handler.py` (/api/debate/\{loop_id\}/graph/*) |
+| Graph Export API | Active | `aragora/server/handlers/debates/handler.py` (/api/debate/{loop_id}/graph/*) |
 | Audience Clusters | Active | `aragora/debate/prompt_context.py` (audience suggestion clustering) |
 | Replay Export API | Active | `aragora/server/handlers/replays.py` (/api/replays/*) |
 | Database Query Indexes | Active | `aragora/ranking/elo.py` (8 indexes for common queries) |
@@ -2331,7 +2329,7 @@ All stabilization items addressed:
 | Seed Demo API | Active | `aragora/server/handlers/consensus.py` (/api/consensus/seed-demo) |
 | Broadcast Audio Generation | Active | `aragora/broadcast/` (TTS, mixing, storage) |
 | Podcast RSS Feed | Active | `aragora/server/handlers/features/audio.py` (/api/podcast/feed.xml) |
-| Audio File Serving | Active | `aragora/server/handlers/features/audio.py` (/audio/\{id\}.mp3) |
+| Audio File Serving | Active | `aragora/server/handlers/features/audio.py` (/audio/{id}.mp3) |
 | Mistral Direct API | Active | `aragora/agents/api_agents/mistral.py` (MistralAPIAgent, CodestralAgent) |
 | TeamSelector | Active | `aragora/debate/team_selector.py` (ELO+calibration scoring) |
 | TricksterAlertPanel | Active | `aragora/live/src/components/TricksterAlertPanel.tsx` |

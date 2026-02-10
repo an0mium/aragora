@@ -74,8 +74,17 @@ That's it. The next PR will get an AI code review comment.
 | Output | Description |
 |--------|-------------|
 | `review-path` | Path to generated review file |
+| `review-generated` | Whether a PR comment was generated |
+| `review-json-path` | Path to the generated `review.json` (structured output) |
+| `review-log-path` | Path to the `review.log` file |
 | `unanimous-count` | Issues all agents agree on |
 | `critical-count` | Critical severity issues |
+| `high-count` | High severity issues |
+| `medium-count` | Medium severity issues |
+| `low-count` | Low severity issues |
+| `total-count` | Total severity issues (`critical+high+medium+low`) |
+| `risk-areas-count` | Risk areas noted (lower confidence items) |
+| `split-opinions-count` | Split opinions (agent disagreement items) |
 | `agreement-score` | Agent agreement score (0-1) |
 
 ### Strict Mode (Block PRs on Critical Issues)
@@ -87,6 +96,7 @@ Set `fail-on-critical: 'true'` and add the review as a required status check:
 3. Enable "Require status checks to pass" and add "AI Code Review"
 
 See `examples/github-action/aragora-review-strict.yml` for a complete example.
+See also `examples/github-action/basic.yml` and `examples/github-action/advanced.yml`.
 
 ## How It Works
 
