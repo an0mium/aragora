@@ -681,10 +681,23 @@ class DebateRoundsPhase:
                 # Record timeout to governor
                 governor.record_agent_timeout(critic.name, timeout)
                 return (critic, proposal_agent, e)
-            except Exception as e:
-                # Record failure to governor
+            except (ConnectionError, OSError, ValueError, TypeError, RuntimeError) as e:
+                # Specific agent failure modes: network errors, malformed responses, type mismatches
                 latency_ms = (time.perf_counter() - start_time) * 1000
                 governor.record_agent_response(critic.name, latency_ms, success=False)
+                logger.warning(
+                    "critique_agent_error critic=%s target=%s error_type=%s: %s",
+                    critic.name, proposal_agent, type(e).__name__, e,
+                )
+                return (critic, proposal_agent, e)
+            except Exception as e:
+                # Unexpected error - log at error level for investigation
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                governor.record_agent_response(critic.name, latency_ms, success=False)
+                logger.error(
+                    "critique_unexpected_error critic=%s target=%s error_type=%s: %s",
+                    critic.name, proposal_agent, type(e).__name__, e,
+                )
                 return (critic, proposal_agent, e)
 
         # Create critique tasks based on topology with bounded concurrency
@@ -730,8 +743,11 @@ class DebateRoundsPhase:
                 critic, proposal_agent, crit_result = await completed_task
             except asyncio.CancelledError:
                 raise
+            except (ConnectionError, OSError, ValueError, TypeError, RuntimeError) as e:
+                logger.error("critique_task_error error_type=%s: %s", type(e).__name__, e)
+                continue
             except Exception as e:
-                logger.error("task_exception phase=critique error=%s", e)
+                logger.error("critique_task_unexpected error_type=%s: %s", type(e).__name__, e)
                 continue
 
             critique_count += 1
@@ -916,10 +932,23 @@ class DebateRoundsPhase:
                 # Record timeout to governor
                 governor.record_agent_timeout(agent.name, timeout)
                 raise
-            except Exception:
-                # Record failure to governor
+            except (ConnectionError, OSError, ValueError, TypeError, RuntimeError) as e:
+                # Specific agent failure modes
                 latency_ms = (time.perf_counter() - start_time) * 1000
                 governor.record_agent_response(agent.name, latency_ms, success=False)
+                logger.warning(
+                    "revision_agent_error agent=%s error_type=%s: %s",
+                    agent.name, type(e).__name__, e,
+                )
+                raise
+            except Exception as e:
+                # Unexpected error - log at error level
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                governor.record_agent_response(agent.name, latency_ms, success=False)
+                logger.error(
+                    "revision_unexpected_error agent=%s error_type=%s: %s",
+                    agent.name, type(e).__name__, e,
+                )
                 raise
 
         revision_tasks = []
@@ -1458,8 +1487,16 @@ class DebateRoundsPhase:
 
             except asyncio.TimeoutError:
                 logger.warning("Final synthesis timeout for agent %s", agent.name)
+            except (ConnectionError, OSError, ValueError, TypeError, RuntimeError) as e:
+                logger.error(
+                    "synthesis_agent_error agent=%s error_type=%s: %s",
+                    agent.name, type(e).__name__, e,
+                )
             except Exception as e:
-                logger.error("Final synthesis error for agent %s: %s", agent.name, e)
+                logger.error(
+                    "synthesis_unexpected_error agent=%s error_type=%s: %s",
+                    agent.name, type(e).__name__, e,
+                )
 
         # Notify spectator
         if self._notify_spectator:

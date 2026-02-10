@@ -343,7 +343,7 @@ target-version = ["py310", "py311", "py312"]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing, G004 = no f-string in logger
+select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004", "C4", "SIM910"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing, G004 = no f-string in logger, C4 = unnecessary comprehensions, SIM910 = dict.get default None
 ignore = ["E402", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -368,7 +368,9 @@ ignore = ["E402", "E501"]
 # 2307+ existing violations documented - scheduled for Phase 30 migration
 # G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)
 # New code should use lazy % formatting: logger.info("msg %s", var) instead of logger.info(f"msg {var}")
-"aragora/*" = ["BLE001", "G004"]
+# C4: 2000+ existing unnecessary comprehension violations - fix incrementally
+# SIM910: 48 existing dict.get(key, None) → dict.get(key) violations
+"aragora/*" = ["BLE001", "G004", "C4", "SIM910"]
 # Legacy modules with explicit BLE001 tracking (subset of above, for reference)
 "aragora/analysis/codebase/bug_detector.py" = ["BLE001", "G004"]
 "aragora/agents/code_reviewer.py" = ["BLE001", "G004"]

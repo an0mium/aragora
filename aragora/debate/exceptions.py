@@ -65,6 +65,44 @@ class CheckpointNotFoundError(CheckpointError):
     pass
 
 
+class AgentResponseError(DebateExecutionError):
+    """An agent produced an invalid or failed response during debate."""
+
+    def __init__(self, agent_name: str = "", phase: str = "", cause: Exception | None = None):
+        msg = "Agent response error"
+        if agent_name:
+            msg = f"Agent '{agent_name}' response error"
+        if phase:
+            msg += f" during {phase}"
+        if cause:
+            msg += f": {cause}"
+        super().__init__(msg)
+        self.agent_name = agent_name
+        self.phase = phase
+        self.__cause__ = cause
+
+
+class CritiqueGenerationError(AgentResponseError):
+    """Error generating a critique during the debate round."""
+
+    def __init__(self, agent_name: str = "", cause: Exception | None = None):
+        super().__init__(agent_name=agent_name, phase="critique", cause=cause)
+
+
+class RevisionGenerationError(AgentResponseError):
+    """Error generating a revision during the debate round."""
+
+    def __init__(self, agent_name: str = "", cause: Exception | None = None):
+        super().__init__(agent_name=agent_name, phase="revision", cause=cause)
+
+
+class SynthesisGenerationError(AgentResponseError):
+    """Error generating final synthesis during debate conclusion."""
+
+    def __init__(self, agent_name: str = "", cause: Exception | None = None):
+        super().__init__(agent_name=agent_name, phase="synthesis", cause=cause)
+
+
 __all__ = [
     # Re-exported from aragora.exceptions
     "AragoraError",
@@ -86,4 +124,9 @@ __all__ = [
     "AgentCircuitOpenError",
     "CheckpointError",
     "CheckpointNotFoundError",
+    # Agent execution exceptions
+    "AgentResponseError",
+    "CritiqueGenerationError",
+    "RevisionGenerationError",
+    "SynthesisGenerationError",
 ]
