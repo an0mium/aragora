@@ -407,6 +407,19 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_compliance_adapter",
         },
     ),
+    (
+        ".langextract_adapter",
+        "LangExtractAdapter",
+        {
+            "name": "langextract",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_validations_from_km",
+            "priority": 72,
+            "enabled_by_default": False,
+            "config_key": "km_langextract_adapter",
+        },
+    ),
 ]
 
 

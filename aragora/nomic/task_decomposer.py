@@ -84,6 +84,13 @@ COMPLEXITY_INDICATORS = {
         "build",
         "enhance",
         "extend",
+        "improve",
+        "optimize",
+        "adapter",
+        "comprehensive",
+        "coverage",
+        "module",
+        "pipeline",
     ],
     "low": [
         "fix",
@@ -250,13 +257,24 @@ class TaskDecomposer:
 
         # Length complexity (0-3 points)
         word_count = len(task.split())
-        length_score = min(word_count / 100, 3)
+        length_score = min(word_count / 30, 3)
+
+        # Concept breadth (0-3 bonus points)
+        concepts = self._concept_pattern.findall(task_lower) if hasattr(self, "_concept_pattern") else []
+        unique_concepts = set(c.lower() for c in concepts)
+        concept_score = min(len(unique_concepts), 3)
+
+        # Multi-clause goals (commas, "and", semicolons indicate compound tasks)
+        clause_count = len(re.split(r",\s+and\s+|\band\b|;\s*", task)) - 1
+        clause_score = min(clause_count, 2)
 
         # Combine scores with weights
         total = (
             file_score * self.config.file_complexity_weight * 10 / 3
             + keyword_score * self.config.concept_complexity_weight * 10 / 4
             + length_score * self.config.length_complexity_weight * 10 / 3
+            + concept_score * 0.8
+            + clause_score * 0.5
         )
 
         # Add bonus for debate context if available

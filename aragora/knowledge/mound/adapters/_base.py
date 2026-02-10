@@ -68,6 +68,8 @@ ADAPTER_CIRCUIT_CONFIGS: dict[str, AdapterCircuitBreakerConfig] = {
     "rlm": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
     # Blockchain adapter - external with potential network latency
     "erc8004": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0),
+    # Document extraction adapter - external LLM calls
+    "langextract": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0),
 }
 
 
