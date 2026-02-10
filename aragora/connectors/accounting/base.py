@@ -38,6 +38,8 @@ from aragora.connectors.exceptions import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # Type variable for credentials
 C = TypeVar("C")
 
@@ -428,7 +430,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         offset = 0
         max_iterations = pagination.max_pages or 1000
 
-        while True:
+        for _page_idx in range(_MAX_PAGES):
             if page >= max_iterations:
                 logger.warning(
                     f"[{self.PROVIDER_NAME}] Pagination limit {max_iterations} reached "

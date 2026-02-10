@@ -42,6 +42,8 @@ from aragora.connectors.ecommerce.woocommerce.models import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class WooCommerceConnector(EnterpriseConnector):
     """
@@ -236,12 +238,7 @@ class WooCommerceConnector(EnterpriseConnector):
         if status:
             params["status"] = status.value
 
-        max_pages = 1000
-        while True:
-            if params["page"] > max_pages:
-                logger.warning(f"Pagination limit {max_pages} reached for orders, stopping")
-                break
-
+        for _page in range(_MAX_PAGES):
             data = await self._request("GET", "orders", params=params)
 
             if not data:
@@ -527,12 +524,7 @@ class WooCommerceConnector(EnterpriseConnector):
         if status:
             params["status"] = status.value
 
-        max_pages = 1000
-        while True:
-            if params["page"] > max_pages:
-                logger.warning(f"Pagination limit {max_pages} reached for products, stopping")
-                break
-
+        for _page in range(_MAX_PAGES):
             data = await self._request("GET", "products", params=params)
 
             if not data:
@@ -671,15 +663,7 @@ class WooCommerceConnector(EnterpriseConnector):
         """
         params: dict[str, Any] = {"per_page": per_page, "page": 1}
 
-        max_pages = 1000
-        while True:
-            if params["page"] > max_pages:
-                logger.warning(
-                    f"Pagination limit {max_pages} reached for variations "
-                    f"of product {product_id}, stopping"
-                )
-                break
-
+        for _page in range(_MAX_PAGES):
             data = await self._request("GET", f"products/{product_id}/variations", params=params)
 
             if not data:
@@ -771,7 +755,7 @@ class WooCommerceConnector(EnterpriseConnector):
         if since:
             params["modified_after"] = since.isoformat()
 
-        while True:
+        for _page in range(_MAX_PAGES):
             data = await self._request("GET", "customers", params=params)
 
             if not data:
@@ -784,6 +768,8 @@ class WooCommerceConnector(EnterpriseConnector):
                 break
 
             params["page"] += 1
+        else:
+            logger.warning("Pagination safety cap reached for customers")
 
     def _parse_customer(self, data: dict[str, Any]) -> WooCustomer:
         """Parse customer from API response."""
@@ -890,7 +876,7 @@ class WooCommerceConnector(EnterpriseConnector):
         """
         params: dict[str, Any] = {"per_page": per_page, "page": 1}
 
-        while True:
+        for _page in range(_MAX_PAGES):
             data = await self._request("GET", "coupons", params=params)
 
             if not data:
@@ -903,6 +889,8 @@ class WooCommerceConnector(EnterpriseConnector):
                 break
 
             params["page"] += 1
+        else:
+            logger.warning("Pagination safety cap reached for coupons")
 
     async def create_coupon(
         self,
@@ -1057,7 +1045,7 @@ class WooCommerceConnector(EnterpriseConnector):
         """
         params: dict[str, Any] = {"per_page": per_page, "page": 1}
 
-        while True:
+        for _page in range(_MAX_PAGES):
             data = await self._request("GET", "taxes", params=params)
 
             if not data:
@@ -1070,6 +1058,8 @@ class WooCommerceConnector(EnterpriseConnector):
                 break
 
             params["page"] += 1
+        else:
+            logger.warning("Pagination safety cap reached for tax rates")
 
     # =========================================================================
     # Reports

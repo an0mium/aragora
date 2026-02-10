@@ -97,6 +97,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class SyncStatus(Enum):
     """Status of the sync service."""
@@ -589,7 +591,7 @@ class GmailSyncService:
                 new_message_ids: set[str] = set()
                 latest_history_id = self._state.history_id
 
-                while True:
+                for _page in range(_MAX_PAGES):
                     history, page_token, history_id = await self._connector.get_history(
                         start_history_id=self._state.history_id,
                         page_token=page_token,

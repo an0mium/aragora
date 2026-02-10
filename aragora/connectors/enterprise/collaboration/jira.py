@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, AsyncIterator, Optional
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -234,7 +236,7 @@ class JiraConnector(EnterpriseConnector):
         start = 0
         max_results = 50
 
-        while True:
+        for _page in range(_MAX_PAGES):
             params = {
                 "startAt": start,
                 "maxResults": max_results,
@@ -265,6 +267,8 @@ class JiraConnector(EnterpriseConnector):
             if data.get("isLast", True) or len(data.get("values", [])) < max_results:
                 break
             start += max_results
+        else:
+            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for projects")
 
         return projects
 
@@ -327,7 +331,7 @@ class JiraConnector(EnterpriseConnector):
         start_at = 0
         max_results = 50
 
-        while True:
+        for _page in range(_MAX_PAGES):
             data = await self._search_issues(jql, start_at, max_results)
 
             for item in data.get("issues", []):
@@ -419,6 +423,8 @@ class JiraConnector(EnterpriseConnector):
             if start_at + max_results >= total:
                 break
             start_at += max_results
+        else:
+            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for issues")
 
     async def _get_issue_comments(self, issue_key: str) -> list[JiraComment]:
         """Get comments for an issue."""
@@ -429,7 +435,7 @@ class JiraConnector(EnterpriseConnector):
         start_at = 0
         max_results = 50
 
-        while True:
+        for _page in range(_MAX_PAGES):
             try:
                 data = await self._api_request(
                     f"/issue/{issue_key}/comment",

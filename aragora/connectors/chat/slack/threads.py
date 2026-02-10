@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 HTTPX_AVAILABLE = importlib.util.find_spec("httpx") is not None
 
 if TYPE_CHECKING:
@@ -259,16 +261,7 @@ class SlackThreadManager:
 
         all_messages: list[ChatMessage] = []
         cursor: str | None = None
-        max_pages = 1000
-        page = 0
-        while True:
-            page += 1
-            if page > max_pages:
-                logger.warning(
-                    f"Pagination limit {max_pages} reached for thread stats "
-                    f"(thread_ts={thread_ts}), stopping with {len(all_messages)} messages"
-                )
-                break
+        for _page in range(_MAX_PAGES):
             messages, next_cursor = await self.get_thread_messages(
                 thread_ts, channel_id, limit=200, cursor=cursor
             )
@@ -276,6 +269,11 @@ class SlackThreadManager:
             if not next_cursor:
                 break
             cursor = next_cursor
+        else:
+            logger.warning(
+                f"Pagination safety cap reached for thread stats "
+                f"(thread_ts={thread_ts}), stopping with {len(all_messages)} messages"
+            )
 
         if not all_messages:
             return ThreadStats(
@@ -302,16 +300,7 @@ class SlackThreadManager:
 
         all_messages: list[ChatMessage] = []
         cursor: str | None = None
-        max_pages = 1000
-        page = 0
-        while True:
-            page += 1
-            if page > max_pages:
-                logger.warning(
-                    f"Pagination limit {max_pages} reached for thread participants "
-                    f"(thread_ts={thread_ts}), stopping with {len(all_messages)} messages"
-                )
-                break
+        for _page in range(_MAX_PAGES):
             messages, next_cursor = await self.get_thread_messages(
                 thread_ts, channel_id, limit=200, cursor=cursor
             )
@@ -319,6 +308,11 @@ class SlackThreadManager:
             if not next_cursor or len(all_messages) > 1000:
                 break
             cursor = next_cursor
+        else:
+            logger.warning(
+                f"Pagination safety cap reached for thread participants "
+                f"(thread_ts={thread_ts}), stopping with {len(all_messages)} messages"
+            )
 
         participant_data: dict[str, dict[str, Any]] = {}
         for msg in all_messages:

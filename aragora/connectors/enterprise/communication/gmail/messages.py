@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class GmailBaseMethods(Protocol):
     """Protocol defining expected methods from base classes for type checking."""
@@ -542,7 +544,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             page_token = None
             new_message_ids = set()
 
-            while True:
+            for _page in range(_MAX_PAGES):
                 history, page_token, new_history_id = await self.get_history(
                     history_id,
                     page_token=page_token,
@@ -605,7 +607,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         # Iterate through messages
         page_token = None
-        while True:
+        for _page in range(_MAX_PAGES):
             message_ids, page_token = await self.list_messages(
                 query=query,
                 max_results=min(self.max_results, batch_size),

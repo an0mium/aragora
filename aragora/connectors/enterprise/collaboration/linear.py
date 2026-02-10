@@ -28,6 +28,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class IssuePriority(int, Enum):
     """Issue priority levels."""
@@ -1205,7 +1207,7 @@ class LinearConnector(EnterpriseConnector):
             LinearIssue objects
         """
         cursor: str | None = None
-        while True:
+        for _page in range(_MAX_PAGES):
             issues, end_cursor = await self.get_issues(
                 first=limit,
                 after=cursor,
@@ -1217,6 +1219,8 @@ class LinearConnector(EnterpriseConnector):
             if not end_cursor:
                 break
             cursor = end_cursor
+        else:
+            logger.warning("Pagination safety cap reached for Linear issues")
 
     async def _paginate_projects(
         self,

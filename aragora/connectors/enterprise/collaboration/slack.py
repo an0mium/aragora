@@ -30,6 +30,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 @dataclass
 class SlackChannel:
@@ -197,7 +199,7 @@ class SlackConnector(EnterpriseConnector):
         channels = []
         cursor = None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             params: dict[str, Any] = {
                 "limit": 200,
                 "exclude_archived": not self.include_archived,

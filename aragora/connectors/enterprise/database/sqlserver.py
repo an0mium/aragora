@@ -34,6 +34,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # Default columns to use for change tracking
 DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "timestamp"]
 
@@ -493,11 +495,13 @@ class SQLServerConnector(EnterpriseConnector):
             return
 
         try:
-            while True:
+            for _page in range(_MAX_PAGES):
                 for table in cdc_tables:
                     await self._process_table_cdc_changes(pool, table)
 
                 await asyncio.sleep(self.poll_interval_seconds)
+            else:
+                logger.warning("[SQL Server CDC] Polling safety cap reached")
 
         except asyncio.CancelledError:
             logger.info("[SQL Server CDC] Polling cancelled")
@@ -600,11 +604,13 @@ class SQLServerConnector(EnterpriseConnector):
         tables = self.tables or await self._discover_tables()
 
         try:
-            while True:
+            for _page in range(_MAX_PAGES):
                 for table in tables:
                     await self._process_table_ct_changes(pool, table)
 
                 await asyncio.sleep(self.poll_interval_seconds)
+            else:
+                logger.warning("[SQL Server CT] Polling safety cap reached")
 
         except asyncio.CancelledError:
             logger.info("[SQL Server CT] Polling cancelled")

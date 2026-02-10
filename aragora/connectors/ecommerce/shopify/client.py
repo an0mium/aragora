@@ -45,6 +45,8 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class ShopifyConnector(EnterpriseConnector):
     """
@@ -224,7 +226,7 @@ class ShopifyConnector(EnterpriseConnector):
             params["updated_at_min"] = since.isoformat()
 
         page_info = None
-        while True:
+        for _page in range(_MAX_PAGES):
             if page_info:
                 # When using page_info, only include it and limit (other params are encoded in cursor)
                 params = {"page_info": page_info, "limit": limit}
@@ -245,6 +247,8 @@ class ShopifyConnector(EnterpriseConnector):
             page_info = self._parse_link_header(headers.get("Link") or headers.get("link"))
             if not page_info:
                 break
+        else:
+            logger.warning("Pagination safety cap reached for Shopify orders")
 
     def _parse_order(self, data: dict[str, Any]) -> ShopifyOrder:
         """Parse order data from API response."""

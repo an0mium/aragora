@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, AsyncIterator, Optional
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -210,7 +212,7 @@ class ConfluenceConnector(EnterpriseConnector):
         start = 0
         limit = 100
 
-        while True:
+        for _page in range(_MAX_PAGES):
             params = {
                 "start": start,
                 "limit": limit,
@@ -244,6 +246,8 @@ class ConfluenceConnector(EnterpriseConnector):
             if len(data.get("results", [])) < limit:
                 break
             start += limit
+        else:
+            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for spaces")
 
         return spaces
 
@@ -256,7 +260,7 @@ class ConfluenceConnector(EnterpriseConnector):
         start = 0
         limit = 50
 
-        while True:
+        for _page in range(_MAX_PAGES):
             params = {
                 "spaceKey": space_key,
                 "start": start,
@@ -331,6 +335,10 @@ class ConfluenceConnector(EnterpriseConnector):
             if len(data.get("results", [])) < limit:
                 break
             start += limit
+        else:
+            logger.warning(
+                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for space {space_key}"
+            )
 
     async def _get_page_comments(self, page_id: str) -> list[dict[str, Any]]:
         """Get comments for a page."""
@@ -341,7 +349,7 @@ class ConfluenceConnector(EnterpriseConnector):
         start = 0
         limit = 50
 
-        while True:
+        for _page in range(_MAX_PAGES):
             params = {
                 "start": start,
                 "limit": limit,

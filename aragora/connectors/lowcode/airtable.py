@@ -23,6 +23,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class FieldType(str, Enum):
     """Airtable field types."""
@@ -516,7 +518,7 @@ class AirtableConnector:
         all_records: list[AirtableRecord] = []
         offset: str | None = None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             records, next_offset = await self.list_records(
                 base_id,
                 table_id_or_name,

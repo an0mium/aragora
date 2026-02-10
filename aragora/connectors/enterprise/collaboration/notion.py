@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, AsyncIterator, Optional
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -278,7 +280,7 @@ class NotionConnector(EnterpriseConnector):
         content_parts = []
         cursor = None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             blocks, cursor = await self._get_block_children(page_id, cursor)
 
             for block in blocks:
@@ -329,7 +331,7 @@ class NotionConnector(EnterpriseConnector):
 
         cursor = None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             blocks, cursor = await self._get_block_children(page_id, cursor)
 
             for block in blocks:
@@ -643,7 +645,7 @@ class NotionConnector(EnterpriseConnector):
         pages_for_recursion: list[str] = []  # Track pages to check for child pages
 
         # Search for all pages
-        while True:
+        for _page in range(_MAX_PAGES):
             results, cursor = await self._search_pages(filter_type="page", start_cursor=cursor)
 
             for item in results:
@@ -793,7 +795,7 @@ class NotionConnector(EnterpriseConnector):
         if self.include_databases:
             cursor = None
 
-            while True:
+            for _page in range(_MAX_PAGES):
                 results, cursor = await self._search_pages(
                     filter_type="database", start_cursor=cursor
                 )
@@ -807,7 +809,7 @@ class NotionConnector(EnterpriseConnector):
 
                     # Query database entries
                     entry_cursor = None
-                    while True:
+                    for _entry_page in range(_MAX_PAGES):
                         entries, entry_cursor = await self._query_database(
                             database.id, entry_cursor
                         )

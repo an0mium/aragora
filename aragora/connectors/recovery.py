@@ -53,6 +53,8 @@ from aragora.connectors.exceptions import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_RETRIES = 100  # Safety cap for reconnection loops
+
 T = TypeVar("T")
 
 
@@ -236,7 +238,7 @@ class RecoveryStrategy:
         total_wait = 0.0
         last_error: Exception | None = None
 
-        while True:
+        for _retry in range(_MAX_RETRIES):
             # Check circuit breaker
             cb = self._get_circuit_breaker()
             if cb is not None and not cb.can_proceed():
@@ -331,8 +333,13 @@ class RecoveryStrategy:
                     f"{attempt + 1} attempts: {classified}"
                 )
                 raise classified from e
+        else:
+            logger.warning(
+                f"[{self.connector_name}] Recovery retry cap ({_MAX_RETRIES}) "
+                f"reached for {operation_name}"
+            )
 
-        # Should never reach here
+        # Should never reach here under normal operation
         if last_error:
             raise classify_exception(last_error, self.connector_name)
         raise ConnectorError("Unknown error", connector_name=self.connector_name)

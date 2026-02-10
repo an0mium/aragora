@@ -60,6 +60,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class OutlookSyncStatus(Enum):
     """Status of the sync service."""
@@ -548,7 +550,7 @@ class OutlookSyncService:
                     filter_query = f"receivedDateTime ge {since_date.isoformat()}"
 
                     page_token = None
-                    while True:
+                    for _page in range(_MAX_PAGES):
                         message_ids, page_token = await self._connector.list_messages(
                             folder_id=folder.id,
                             query=filter_query,

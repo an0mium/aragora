@@ -23,6 +23,8 @@ from aragora.connectors.enterprise.healthcare.ehr.base import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # Epic-specific FHIR resource types and extensions
 EPIC_RESOURCE_EXTENSIONS = {
     "Patient": [
@@ -318,7 +320,7 @@ class EpicAdapter(EHRAdapter):
         # Filter by resource type if specified
         type_filter = set(resource_types) if resource_types else None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             for entry in bundle.get("entry", []):
                 resource = entry.get("resource", {})
                 resource_type = resource.get("resourceType")

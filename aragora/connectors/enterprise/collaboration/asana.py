@@ -31,6 +31,8 @@ from aragora.connectors.enterprise.base import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class TaskStatus(str, Enum):
     """Asana task completion status."""
@@ -402,7 +404,7 @@ class AsanaConnector(EnterpriseConnector):
         params["limit"] = min(limit, 100)
         offset = None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             if offset:
                 params["offset"] = offset
 
@@ -416,6 +418,8 @@ class AsanaConnector(EnterpriseConnector):
                 break
 
             offset = next_page["offset"]
+        else:
+            logger.warning("Pagination safety cap reached for Asana API")
 
     # -------------------------------------------------------------------------
     # Workspaces

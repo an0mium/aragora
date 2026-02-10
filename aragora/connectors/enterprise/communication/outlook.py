@@ -35,6 +35,8 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # Microsoft Graph API scopes
 OUTLOOK_SCOPES_READONLY = [
     "https://graph.microsoft.com/Mail.Read",
@@ -849,7 +851,7 @@ class OutlookConnector(EnterpriseConnector):
                 continue
 
             page_token = None
-            while True:
+            for _page in range(_MAX_PAGES):
                 message_ids, page_token = await self.list_messages(
                     folder_id=folder.id,
                     max_results=min(self.max_results, batch_size),

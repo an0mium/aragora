@@ -22,6 +22,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class FieldType(str, Enum):
     """Knack field types."""
@@ -475,7 +477,7 @@ class KnackConnector:
         all_records: list[KnackRecord] = []
         page = 1
 
-        while True:
+        for _page in range(_MAX_PAGES):
             records, total_pages, _ = await self.get_records(
                 object_key,
                 page=page,

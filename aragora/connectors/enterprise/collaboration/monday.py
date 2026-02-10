@@ -33,6 +33,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # Monday.com API constants
 MONDAY_API_URL = "https://api.monday.com/v2"
 MONDAY_AUTH_URL = "https://auth.monday.com/oauth2/authorize"
@@ -1254,7 +1256,7 @@ class MondayConnector(EnterpriseConnector):
         for board_id in board_ids:
             cursor: str | None = None
 
-            while True:
+            for _page in range(_MAX_PAGES):
                 items, cursor = await self.list_items(
                     board_id=board_id,
                     limit=batch_size,

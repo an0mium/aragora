@@ -30,6 +30,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # =============================================================================
 # HL7 v2 Constants
 # =============================================================================
@@ -1108,7 +1110,7 @@ class HL7v2Connector(EnterpriseConnector):
             logger.info(f"HL7 MLLP connection from {peer}")
 
             try:
-                while True:
+                for _page in range(_MAX_PAGES):
                     # Read until we see the end of message marker
                     data = await reader.readuntil(MLLP_END_BLOCK + MLLP_CARRIAGE_RETURN)
                     if not data:

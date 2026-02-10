@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 _REAL_ASYNCIO_SLEEP = asyncio.sleep
 
 
@@ -342,7 +344,7 @@ class GmailWatchMixin(GmailBaseMethods):
             page_token = None
             new_history_id = self._gmail_state.history_id
 
-            while True:
+            for _page in range(_MAX_PAGES):
                 history, page_token, history_id = await self.get_history(
                     self._gmail_state.history_id,
                     page_token=page_token,

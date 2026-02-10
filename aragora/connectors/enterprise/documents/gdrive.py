@@ -21,6 +21,8 @@ from typing import Any, AsyncIterator, Optional
 
 import httpx
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -333,7 +335,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         drives = []
         page_token = None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             params: dict[str, Any] = {"pageSize": 100}
             if page_token:
                 params["pageToken"] = page_token
@@ -345,6 +347,8 @@ class GoogleDriveConnector(EnterpriseConnector):
             page_token = data.get("nextPageToken")
             if not page_token:
                 break
+        else:
+            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for shared drives")
 
         return drives
 
@@ -564,7 +568,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         for folder_id in folders_to_process:
             page_token = None
 
-            while True:
+            for _page in range(_MAX_PAGES):
                 files, page_token = await self._list_files(
                     folder_id=folder_id,
                     page_token=page_token,

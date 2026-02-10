@@ -37,6 +37,8 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class AmazonMarketplace(str, Enum):
     """Amazon marketplace identifiers."""
@@ -458,7 +460,7 @@ class AmazonConnector(EnterpriseConnector):
 
             # Paginate through orders
             next_token = None
-            while True:
+            for _page in range(_MAX_PAGES):
                 if next_token:
                     response = orders_api.get_orders(NextToken=next_token)
                 else:
@@ -471,6 +473,8 @@ class AmazonConnector(EnterpriseConnector):
                 next_token = response.payload.get("NextToken")
                 if not next_token:
                     break
+            else:
+                logger.warning("Pagination safety cap reached for Amazon orders")
 
     def _parse_sp_api_order(self, data: dict[str, Any]) -> AmazonOrder:
         """Parse SP-API order response into AmazonOrder dataclass."""

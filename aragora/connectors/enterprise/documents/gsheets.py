@@ -22,6 +22,8 @@ from typing import Any, AsyncIterator, Optional
 
 import httpx
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -502,7 +504,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         for folder_id in self.folder_ids:
             page_token = None
 
-            while True:
+            for _page in range(_MAX_PAGES):
                 files, page_token = await self._list_spreadsheets_in_folder(folder_id, page_token)
 
                 for file_info in files:

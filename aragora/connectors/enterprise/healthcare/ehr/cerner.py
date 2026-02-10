@@ -23,6 +23,8 @@ from aragora.connectors.enterprise.healthcare.ehr.base import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # Cerner identifier system mappings (commonly used in Cerner Millennium)
 CERNER_IDENTIFIER_SYSTEMS = {
     "federated_person_principal": "urn:cerner:identifier:federated-person-principal",
@@ -153,7 +155,7 @@ class CernerAdapter(EHRAdapter):
 
         type_filter = set(resource_types) if resource_types else None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             for entry in bundle.get("entry", []):
                 resource = entry.get("resource", {})
                 resource_type = resource.get("resourceType")

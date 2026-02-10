@@ -28,6 +28,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 class _TeamsConnectorProtocol(Protocol):
     """Protocol for methods expected by TeamsChannelsMixin from the main connector."""
@@ -115,7 +117,7 @@ class TeamsChannelsMixin:
             if params:
                 endpoint = f"{endpoint}?{'&'.join(params)}"
 
-            while True:
+            for _page in range(_MAX_PAGES):
                 if next_link:
                     # Use the full nextLink URL directly
                     success, data, error = await self._graph_api_request(
@@ -204,6 +206,8 @@ class TeamsChannelsMixin:
                 next_link = data.get("@odata.nextLink")
                 if not next_link or len(messages) >= limit:
                     break
+            else:
+                logger.warning("Pagination safety cap reached for Teams channel messages")
 
             logger.debug(f"Retrieved {len(messages)} messages from Teams channel {channel_id}")
             return messages[:limit]

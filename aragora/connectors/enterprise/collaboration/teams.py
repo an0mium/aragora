@@ -30,6 +30,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 
 @dataclass
 class TeamsTeam:
@@ -267,7 +269,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         items_yielded = 0
         next_link = None
 
-        while True:
+        for _page in range(_MAX_PAGES):
             if next_link:
                 # Use full URL for pagination
                 token = await self._get_access_token()
@@ -295,6 +297,8 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
             next_link = data.get("@odata.nextLink")
             if not next_link:
                 break
+        else:
+            logger.warning("Pagination safety cap reached for Teams Graph API")
 
     async def _list_teams(self) -> AsyncIterator[TeamsTeam]:
         """List all teams the app has access to."""

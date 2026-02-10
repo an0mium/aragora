@@ -31,6 +31,8 @@ from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
+_MAX_PAGES = 1000  # Safety cap for pagination loops
+
 # Standard ServiceNow tables for ITSM
 SERVICENOW_TABLES = {
     "incident": {
@@ -390,7 +392,7 @@ class ServiceNowConnector(EnterpriseConnector):
         offset = 0
         limit = 100
 
-        while True:
+        for _page in range(_MAX_PAGES):
             data = await self._get_table_records(table, modified_since, offset, limit)
             records = data.get("result", [])
 
