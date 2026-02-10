@@ -36,6 +36,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY aragora/ ./aragora/
 COPY pyproject.toml README.md ./
+COPY deploy/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Create non-root user for security
 RUN useradd -m -u 1000 aragora && \
@@ -57,7 +58,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose ports
 EXPOSE 8080 8765
 
-# Default command
+# Entrypoint runs migrations, then starts the server
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["python", "-m", "aragora.server.unified_server", \
      "--host", "0.0.0.0", \
      "--port", "8080", \
