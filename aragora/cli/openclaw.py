@@ -442,6 +442,14 @@ def cmd_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve_gateway(args: argparse.Namespace) -> int:
+    """Launch the standalone OpenClaw governance gateway."""
+    from aragora.compat.openclaw.standalone import cmd_openclaw_serve
+
+    cmd_openclaw_serve(args)
+    return 0
+
+
 # =============================================================================
 # Parser Registration
 # =============================================================================
@@ -550,3 +558,31 @@ Examples:
     )
     audit_parser.add_argument("--server", default=DEFAULT_API_URL, help="API server URL")
     audit_parser.set_defaults(func=cmd_audit)
+
+    # Serve command -- standalone gateway
+    serve_parser = openclaw_subparsers.add_parser(
+        "serve",
+        help="Run standalone OpenClaw governance gateway",
+    )
+    serve_parser.add_argument(
+        "--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)"
+    )
+    serve_parser.add_argument(
+        "--port", "-p", type=int, default=8100,
+        help="Port to listen on (default: 8100)",
+    )
+    serve_parser.add_argument(
+        "--policy", help="Path to policy YAML file",
+    )
+    serve_parser.add_argument(
+        "--default-policy", default="deny", choices=["allow", "deny"],
+        help="Default policy when no rule matches (default: deny)",
+    )
+    serve_parser.add_argument(
+        "--cors", default="*", help="CORS allowed origins (comma-separated)",
+    )
+    serve_parser.add_argument(
+        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Log level (default: INFO)",
+    )
+    serve_parser.set_defaults(func=_cmd_serve_gateway)

@@ -16,6 +16,8 @@ Endpoints:
 - POST /api/v1/skills/marketplace/{skill_id}/install - Install a skill
 - DELETE /api/v1/skills/marketplace/{skill_id}/install - Uninstall a skill
 - POST /api/v1/skills/marketplace/{skill_id}/rate - Rate a skill
+- PUT /api/v1/skills/marketplace/{skill_id}/verify - Set skill verified (admin)
+- DELETE /api/v1/skills/marketplace/{skill_id}/verify - Revoke verification (admin)
 - GET /api/v1/skills/marketplace/installed - List installed skills
 - GET /api/v1/skills/marketplace/stats - Get marketplace statistics
 """
@@ -174,6 +176,26 @@ class SkillMarketplaceHandler(SecureHandler):
                     except ForbiddenError:
                         return error_response("Permission denied: skills:rate", 403)
                     return await self._rate_skill(skill_id, body or {}, auth_context)
+
+                # Verify skill (admin)
+                if len(parts) == 6 and parts[5] == "verify" and method == "PUT":
+                    if not _is_authenticated(auth_context):
+                        return error_response("Authentication required", 401)
+                    try:
+                        self.check_permission(auth_context, "skills:admin")
+                    except ForbiddenError:
+                        return error_response("Permission denied: skills:admin", 403)
+                    return await self._set_verification(skill_id, True, auth_context)
+
+                # Revoke verification (admin)
+                if len(parts) == 6 and parts[5] == "verify" and method == "DELETE":
+                    if not _is_authenticated(auth_context):
+                        return error_response("Authentication required", 401)
+                    try:
+                        self.check_permission(auth_context, "skills:admin")
+                    except ForbiddenError:
+                        return error_response("Permission denied: skills:admin", 403)
+                    return await self._set_verification(skill_id, False, auth_context)
 
         return None
 
@@ -509,6 +531,54 @@ class SkillMarketplaceHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Error rating skill: {e}")
             return error_response(f"Rating failed: {e}", 500)
+
+    async def _set_verification(
+        self,
+        skill_id: str,
+        verified: bool,
+        auth_context: AuthorizationContext | dict[str, Any],
+    ) -> HandlerResult:
+        """Set or revoke verification status for a skill."""
+        try:
+            from aragora.skills.marketplace import get_marketplace
+
+            marketplace = get_marketplace()
+
+            # Check skill exists
+            listing = await marketplace.get_skill(skill_id)
+            if not listing:
+                return error_response("Skill not found", 404)
+
+            user_id = getattr(auth_context, "user_id", None) or (
+                auth_context.get("user_id") if isinstance(auth_context, dict) else None
+            )
+
+            success = await marketplace.set_verified(skill_id, verified)
+
+            if not success:
+                return error_response("Failed to update verification status", 500)
+
+            logger.info(
+                "Skill %s verification changed to %s by %s",
+                skill_id,
+                verified,
+                user_id,
+            )
+
+            return json_response(
+                {
+                    "skill_id": skill_id,
+                    "is_verified": verified,
+                    "changed_by": user_id,
+                    "changed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+
+        except ImportError:
+            return error_response("Skill marketplace not available", 503)
+        except Exception as e:
+            logger.error(f"Error updating verification status: {e}")
+            return error_response(f"Verification update failed: {e}", 500)
 
     async def _list_installed(self, auth_context: AuthorizationContext) -> HandlerResult:
         """List installed skills for the tenant."""

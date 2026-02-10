@@ -1,0 +1,79 @@
+# Aragora OpenClaw Governance Gateway -- Standalone (Minimal)
+#
+# Runs the Aragora gateway as a lightweight governance proxy for OpenClaw.
+# No PostgreSQL or Redis required -- uses SQLite for audit trails.
+#
+# Usage:
+#   docker-compose -f docker-compose.standalone.yml up -d
+#
+# Override defaults:
+#   GATEWAY_PORT=9000 docker-compose -f docker-compose.standalone.yml up -d
+
+version: '3.8'
+
+services:
+  aragora-gateway:
+    image: aragora/gateway:latest
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    command: ["python", "-m", "aragora.compat.openclaw.standalone", "--port", "8100", "--default-policy", "deny"]
+    ports:
+      - "${GATEWAY_PORT:-8100}:8100"
+    environment:
+      ARAGORA_ENV: production
+      OPENCLAW_URL: http://openclaw:3000
+      POLICY_FILE: /etc/aragora/policies/policy.yaml
+      DEFAULT_POLICY: deny
+      AUDIT_ENABLED: "true"
+    volumes:
+      - ./policies:/etc/aragora/policies:ro
+      - gateway-data:/var/lib/aragora
+    depends_on:
+      openclaw:
+        condition: service_started
+    networks:
+      - gateway-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  openclaw:
+    image: openclawai/openclaw:latest
+    environment:
+      DISPLAY: ":99"
+      OPENCLAW_BIND: "0.0.0.0"
+      OPENCLAW_PORT: 3000
+      WORKSPACE_ROOT: /workspace
+      OPENCLAW_SANDBOX: "true"
+    volumes:
+      - openclaw-workspace:/workspace
+    networks:
+      - gateway-net
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
+volumes:
+  gateway-data:
+  openclaw-workspace:
+
+networks:
+  gateway-net:
+    driver: bridge

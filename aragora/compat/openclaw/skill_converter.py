@@ -26,6 +26,7 @@ from aragora.skills.base import (
 
 from .capability_mapper import CapabilityMapper
 from .skill_parser import OpenClawSkillParser, ParsedOpenClawSkill
+from .skill_scanner import DangerousSkillError, SkillScanner, Verdict
 
 logger = logging.getLogger(__name__)
 
@@ -110,57 +111,128 @@ class OpenClawSkillConverter:
     """Converts OpenClaw skills to Aragora skills."""
 
     @staticmethod
-    def convert(parsed_skill: ParsedOpenClawSkill) -> OpenClawBridgeSkill:
+    def convert(
+        parsed_skill: ParsedOpenClawSkill,
+        *,
+        skip_scan: bool = False,
+    ) -> OpenClawBridgeSkill:
         """
         Convert a parsed OpenClaw skill to an Aragora bridge skill.
 
+        The skill is scanned for malicious patterns before conversion.
+        DANGEROUS skills raise :class:`DangerousSkillError`.
+        SUSPICIOUS skills are converted but a warning is attached to the
+        bridge skill metadata.
+
         Args:
             parsed_skill: The parsed SKILL.md data.
+            skip_scan: If True, bypass the malware scan (for tests only).
 
         Returns:
             An OpenClawBridgeSkill that can be registered in Aragora.
+
+        Raises:
+            DangerousSkillError: If the skill is classified as DANGEROUS.
         """
+        # --- Security scan ---------------------------------------------------
+        scan_warning: str | None = None
+        if not skip_scan:
+            scanner = SkillScanner()
+            scan_result = scanner.scan(parsed_skill)
+
+            if scan_result.verdict == Verdict.DANGEROUS:
+                logger.warning(
+                    "Rejecting dangerous OpenClaw skill %r: risk_score=%d",
+                    parsed_skill.name,
+                    scan_result.risk_score,
+                )
+                raise DangerousSkillError(scan_result)
+
+            if scan_result.verdict == Verdict.SUSPICIOUS:
+                scan_warning = (
+                    f"Skill flagged as SUSPICIOUS (risk_score={scan_result.risk_score}). "
+                    f"Findings: {'; '.join(f.description for f in scan_result.findings[:5])}"
+                )
+                logger.warning(
+                    "OpenClaw skill %r is suspicious: %s",
+                    parsed_skill.name,
+                    scan_warning,
+                )
+
+        # --- Capability mapping -----------------------------------------------
         capabilities = CapabilityMapper.to_aragora(parsed_skill.requires)
 
-        # If no capabilities specified, default to basic ones
+        # If no capabilities specified, default to safe read-only access.
+        # SECURITY: Never grant SHELL_EXECUTION by default -- a malicious
+        # SKILL.md that omits `requires:` should not get shell access.
         if not capabilities:
-            capabilities = [
-                SkillCapability.SHELL_EXECUTION,
-                SkillCapability.READ_LOCAL,
-            ]
+            capabilities = [SkillCapability.READ_LOCAL]
 
-        return OpenClawBridgeSkill(
+        bridge = OpenClawBridgeSkill(
             parsed_skill=parsed_skill,
             capabilities=capabilities,
         )
 
+        # Attach scan warning to bridge metadata so callers can inspect it
+        if scan_warning:
+            bridge._scan_warning = scan_warning  # type: ignore[attr-defined]
+
+        return bridge
+
     @staticmethod
-    def convert_file(path: str | Path) -> OpenClawBridgeSkill:
+    def convert_file(
+        path: str | Path,
+        *,
+        skip_scan: bool = False,
+    ) -> OpenClawBridgeSkill:
         """
         Parse and convert a SKILL.md file.
 
         Args:
             path: Path to the SKILL.md file.
+            skip_scan: If True, bypass the malware scan.
 
         Returns:
             An OpenClawBridgeSkill.
+
+        Raises:
+            DangerousSkillError: If the skill is classified as DANGEROUS.
         """
         parsed = OpenClawSkillParser.parse_file(path)
-        return OpenClawSkillConverter.convert(parsed)
+        return OpenClawSkillConverter.convert(parsed, skip_scan=skip_scan)
 
     @staticmethod
-    def convert_directory(directory: str | Path) -> list[OpenClawBridgeSkill]:
+    def convert_directory(
+        directory: str | Path,
+        *,
+        skip_scan: bool = False,
+    ) -> list[OpenClawBridgeSkill]:
         """
         Parse and convert all SKILL.md files in a directory.
 
+        Dangerous skills are logged and skipped rather than raising.
+
         Args:
             directory: Path to search for SKILL.md files.
+            skip_scan: If True, bypass the malware scan.
 
         Returns:
-            List of converted bridge skills.
+            List of converted bridge skills (dangerous ones excluded).
         """
         parsed_skills = OpenClawSkillParser.parse_directory(directory)
-        return [OpenClawSkillConverter.convert(s) for s in parsed_skills]
+        results: list[OpenClawBridgeSkill] = []
+        for s in parsed_skills:
+            try:
+                results.append(
+                    OpenClawSkillConverter.convert(s, skip_scan=skip_scan)
+                )
+            except DangerousSkillError as exc:
+                logger.warning(
+                    "Skipping dangerous skill %r in directory scan: %s",
+                    s.name,
+                    exc,
+                )
+        return results
 
     @staticmethod
     def to_skill_md(skill: Skill) -> str:

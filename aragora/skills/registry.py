@@ -27,7 +27,9 @@ Usage:
 
 from __future__ import annotations
 
+import ast
 import asyncio
+import inspect
 import logging
 import time
 from collections import defaultdict
@@ -45,6 +47,45 @@ from .base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Lazy audit imports -- kept optional so skill execution never breaks when
+# the audit subsystem is unavailable.
+# ---------------------------------------------------------------------------
+_audit_log_cls = None
+_audit_event_cls = None
+_audit_category_cls = None
+_audit_outcome_cls = None
+
+
+def _ensure_audit_imports() -> bool:
+    """Lazily import audit types.  Returns True if available."""
+    global _audit_log_cls, _audit_event_cls, _audit_category_cls, _audit_outcome_cls
+    if _audit_event_cls is not None:
+        return True
+    try:
+        from aragora.audit.log import AuditLog as _AuditLog
+        from aragora.audit.log import AuditEvent as _AuditEvent
+        from aragora.audit.log import AuditCategory as _AuditCategory
+        from aragora.audit.log import AuditOutcome as _AuditOutcome
+
+        _audit_log_cls = _AuditLog
+        _audit_event_cls = _AuditEvent
+        _audit_category_cls = _AuditCategory
+        _audit_outcome_cls = _AuditOutcome
+        return True
+    except Exception:
+        return False
+
+
+def _skill_status_to_audit_outcome(status: SkillStatus) -> str:
+    """Map SkillStatus to AuditOutcome value string."""
+    if status == SkillStatus.SUCCESS:
+        return "success"
+    elif status == SkillStatus.PERMISSION_DENIED:
+        return "denied"
+    else:
+        return "failure"
 
 
 @dataclass
@@ -88,6 +129,135 @@ class RateLimitState:
     request_count: int = 0
 
 
+# Modules that indicate capabilities requiring declaration
+_SHELL_MODULES = frozenset({"subprocess", "os", "shutil", "pathlib", "tempfile", "glob"})
+_NETWORK_MODULES = frozenset({
+    "socket", "ssl", "http", "urllib", "urllib3", "requests",
+    "httpx", "aiohttp", "ftplib", "smtplib", "poplib",
+    "imaplib", "telnetlib", "xmlrpc",
+})
+
+
+def validate_skill_imports(
+    skill_class: type,
+    manifest: SkillManifest,
+) -> list[str]:
+    """
+    Validate that a skill's module imports are consistent with its declared capabilities.
+
+    Uses inspect.getsource() to get the skill's module source, parses it with ast,
+    and checks whether imports like subprocess, os, socket are present when the
+    manifest does not declare SHELL_EXECUTION or NETWORK capabilities.
+
+    This is advisory only -- returns a list of warning strings (not errors).
+
+    Args:
+        skill_class: The skill class to inspect.
+        manifest: The skill's declared manifest.
+
+    Returns:
+        List of warning strings. Empty list means no issues found.
+    """
+    warnings: list[str] = []
+
+    try:
+        module = inspect.getmodule(skill_class)
+        if module is None:
+            return warnings
+        source = inspect.getsource(module)
+    except (OSError, TypeError):
+        # Cannot get source -- dynamically generated or built-in
+        return warnings
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        warnings.append(
+            f"Skill '{manifest.name}': could not parse module source for import validation"
+        )
+        return warnings
+
+    declared_capabilities = set(manifest.capabilities)
+    has_shell = SkillCapability.SHELL_EXECUTION in declared_capabilities
+    has_network = SkillCapability.NETWORK in declared_capabilities
+    has_external_api = SkillCapability.EXTERNAL_API in declared_capabilities
+
+    found_imports: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                found_imports.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            found_imports.add(node.module.split(".")[0])
+
+    # Check shell-related imports without SHELL_EXECUTION capability
+    if not has_shell:
+        shell_found = found_imports & _SHELL_MODULES
+        if shell_found:
+            warnings.append(
+                f"Skill '{manifest.name}' imports {sorted(shell_found)} "
+                f"but does not declare SHELL_EXECUTION capability"
+            )
+
+    # Check network-related imports without NETWORK or EXTERNAL_API capability
+    if not has_network and not has_external_api:
+        network_found = found_imports & _NETWORK_MODULES
+        if network_found:
+            warnings.append(
+                f"Skill '{manifest.name}' imports {sorted(network_found)} "
+                f"but does not declare NETWORK or EXTERNAL_API capability"
+            )
+
+    return warnings
+
+
+def _validate_skill_code(skill: Skill) -> list[str]:
+    """
+    Validate a skill's execute method source code using AST-based validation.
+
+    For skills that declare CODE_EXECUTION or SHELL_EXECUTION capabilities,
+    attempts to get the source of the execute() method and runs
+    validate_python_code() on it in non-strict mode.
+
+    This is best-effort: some skills have dynamically generated code that
+    cannot be inspected. Returns warnings, never raises.
+
+    Args:
+        skill: The skill instance to validate.
+
+    Returns:
+        List of warning strings. Empty list means no issues or could not validate.
+    """
+    import textwrap
+
+    warnings: list[str] = []
+
+    try:
+        source = inspect.getsource(skill.execute)
+    except (OSError, TypeError):
+        # Cannot get source -- dynamically generated or C extension
+        return warnings
+
+    # Dedent the source since it's typically indented as a class method
+    source = textwrap.dedent(source)
+
+    try:
+        from .builtin.code_execution import CodeValidationError, validate_python_code
+
+        validate_python_code(source, strict_mode=False)
+    except CodeValidationError as e:
+        warnings.append(
+            f"Skill '{skill.manifest.name}' execute() code validation warning: {e}"
+        )
+    except Exception as e:
+        # Don't break registration for unexpected validation errors
+        warnings.append(
+            f"Skill '{skill.manifest.name}' code validation could not complete: {e}"
+        )
+
+    return warnings
+
+
 class SkillRegistry:
     """
     Central registry for skills.
@@ -117,6 +287,7 @@ class SkillRegistry:
         self._skills: dict[str, Skill] = {}
         self._metrics: dict[str, SkillExecutionMetrics] = defaultdict(SkillExecutionMetrics)
         self._rate_limits: dict[str, RateLimitState] = defaultdict(RateLimitState)
+        self._validation_warnings: dict[str, list[str]] = {}
         self._rbac_checker = rbac_checker
         self._enable_metrics = enable_metrics
         self._enable_rate_limiting = enable_rate_limiting
@@ -131,6 +302,13 @@ class SkillRegistry:
         """
         Register a skill.
 
+        Performs best-effort validation at registration time:
+        - For skills with CODE_EXECUTION or SHELL_EXECUTION capabilities,
+          validates the execute() method source using AST analysis.
+        - Checks that module imports are consistent with declared capabilities.
+
+        Validation failures produce warnings but do not prevent registration.
+
         Args:
             skill: The skill to register
             replace: If True, replace existing skill with same name
@@ -142,6 +320,30 @@ class SkillRegistry:
 
         if name in self._skills and not replace:
             raise ValueError(f"Skill '{name}' already registered. Use replace=True to override.")
+
+        # Clear old warnings on replace
+        if replace:
+            self._validation_warnings.pop(name, None)
+
+        # Best-effort validation at registration time
+        all_warnings: list[str] = []
+
+        # Validate execute() source for skills with code/shell execution capabilities
+        manifest = skill.manifest
+        code_caps = {SkillCapability.CODE_EXECUTION, SkillCapability.SHELL_EXECUTION}
+        if code_caps & set(manifest.capabilities):
+            code_warnings = _validate_skill_code(skill)
+            all_warnings.extend(code_warnings)
+
+        # Validate imports vs declared capabilities
+        import_warnings = validate_skill_imports(type(skill), manifest)
+        all_warnings.extend(import_warnings)
+
+        # Store warnings and log them
+        if all_warnings:
+            self._validation_warnings[name] = all_warnings
+            for warning in all_warnings:
+                logger.warning(f"Skill validation: {warning}")
 
         self._skills[name] = skill
         logger.info(
@@ -240,6 +442,14 @@ class SkillRegistry:
 
         manifest = skill.manifest
 
+        # --- Audit: log invocation start ---
+        logger.info(
+            "Skill invocation: skill=%s user=%s tenant=%s",
+            skill_name,
+            context.user_id,
+            context.tenant_id,
+        )
+
         # Run pre-invoke hooks
         for hook in self._hooks["pre_invoke"]:
             try:
@@ -257,6 +467,17 @@ class SkillRegistry:
                         status=SkillStatus.RATE_LIMITED,
                     )
                     self._record_metrics(skill_name, result, start_time)
+                    duration = time.time() - start_time
+                    logger.info(
+                        "Skill completed: skill=%s user=%s status=%s duration=%.3fs",
+                        skill_name,
+                        context.user_id,
+                        result.status.value,
+                        duration,
+                    )
+                    self._emit_audit_event(
+                        skill_name, manifest, context, result, duration,
+                    )
                     return result
 
             # Validate input
@@ -267,6 +488,17 @@ class SkillRegistry:
                     status=SkillStatus.INVALID_INPUT,
                 )
                 self._record_metrics(skill_name, result, start_time)
+                duration = time.time() - start_time
+                logger.info(
+                    "Skill completed: skill=%s user=%s status=%s duration=%.3fs",
+                    skill_name,
+                    context.user_id,
+                    result.status.value,
+                    duration,
+                )
+                self._emit_audit_event(
+                    skill_name, manifest, context, result, duration,
+                )
                 return result
 
             # Check permissions
@@ -274,6 +506,18 @@ class SkillRegistry:
             if not has_perm:
                 result = SkillResult.create_permission_denied(missing_perm or "unknown")
                 self._record_metrics(skill_name, result, start_time)
+                duration = time.time() - start_time
+                logger.info(
+                    "Skill completed: skill=%s user=%s status=%s duration=%.3fs",
+                    skill_name,
+                    context.user_id,
+                    result.status.value,
+                    duration,
+                )
+                self._emit_audit_event(
+                    skill_name, manifest, context, result, duration,
+                    error_message=f"Missing permission: {missing_perm}",
+                )
                 return result
 
             # Check debate context if required
@@ -283,6 +527,17 @@ class SkillRegistry:
                     error_code="debate_context_required",
                 )
                 self._record_metrics(skill_name, result, start_time)
+                duration = time.time() - start_time
+                logger.info(
+                    "Skill completed: skill=%s user=%s status=%s duration=%.3fs",
+                    skill_name,
+                    context.user_id,
+                    result.status.value,
+                    duration,
+                )
+                self._emit_audit_event(
+                    skill_name, manifest, context, result, duration,
+                )
                 return result
 
             # Execute with timeout
@@ -302,6 +557,19 @@ class SkillRegistry:
             # Record metrics
             self._record_metrics(skill_name, result, start_time)
 
+            # --- Audit: log completion ---
+            duration = time.time() - start_time
+            logger.info(
+                "Skill completed: skill=%s user=%s status=%s duration=%.3fs",
+                skill_name,
+                context.user_id,
+                result.status.value,
+                duration,
+            )
+            self._emit_audit_event(
+                skill_name, manifest, context, result, duration,
+            )
+
             # Run post-invoke hooks
             for hook in self._hooks["post_invoke"]:
                 try:
@@ -316,6 +584,20 @@ class SkillRegistry:
             result = SkillResult.create_failure(str(e))
             self._record_metrics(skill_name, result, start_time)
 
+            # --- Audit: log failure ---
+            duration = time.time() - start_time
+            logger.info(
+                "Skill completed: skill=%s user=%s status=%s duration=%.3fs",
+                skill_name,
+                context.user_id,
+                result.status.value,
+                duration,
+            )
+            self._emit_audit_event(
+                skill_name, manifest, context, result, duration,
+                error_message=str(e),
+            )
+
             # Run error hooks
             for hook in self._hooks["on_error"]:
                 try:
@@ -324,6 +606,60 @@ class SkillRegistry:
                     logger.warning(f"Error hook failed: {hook_error}")
 
             return result
+
+    def _emit_audit_event(
+        self,
+        skill_name: str,
+        manifest: SkillManifest,
+        context: SkillContext,
+        result: SkillResult,
+        duration: float,
+        error_message: str | None = None,
+    ) -> None:
+        """
+        Emit a structured audit event for a skill invocation.
+
+        This is best-effort: if the audit subsystem is unavailable or raises,
+        the error is logged but never propagated to the caller.
+        """
+        try:
+            if not _ensure_audit_imports():
+                return
+
+            outcome_str = _skill_status_to_audit_outcome(result.status)
+            outcome = _audit_outcome_cls(outcome_str)
+
+            details: dict[str, Any] = {
+                "skill_name": skill_name,
+                "skill_version": manifest.version,
+                "required_permissions": manifest.required_permissions,
+                "status": result.status.value,
+                "duration_seconds": round(duration, 4),
+            }
+            if error_message or result.error_message:
+                details["error"] = error_message or result.error_message
+
+            event = _audit_event_cls(
+                category=_audit_category_cls.ACCESS,
+                action="skill_invoke",
+                actor_id=context.user_id or "anonymous",
+                resource_type="skill",
+                resource_id=skill_name,
+                outcome=outcome,
+                org_id=context.tenant_id or "",
+                correlation_id=context.correlation_id or "",
+                details=details,
+                reason=error_message or "",
+            )
+
+            audit_log = _audit_log_cls()
+            audit_log.log(event)
+        except Exception:
+            logger.debug(
+                "Audit event emission failed for skill=%s (non-fatal)",
+                skill_name,
+                exc_info=True,
+            )
 
     async def _check_permissions(
         self,

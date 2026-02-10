@@ -38,6 +38,12 @@ from .marketplace import (
     get_marketplace,
 )
 
+try:
+    from aragora.compat.openclaw.skill_scanner import ScanResult, SkillScanner
+except ImportError:
+    ScanResult = None  # type: ignore[assignment,misc]
+    SkillScanner = None  # type: ignore[assignment,misc]
+
 logger = logging.getLogger(__name__)
 
 
@@ -152,6 +158,9 @@ class SkillPublisher:
 
         # Check reserved names
         issues.extend(self._check_reserved_names(manifest))
+
+        # Security scan of description content
+        issues.extend(self._scan_description(manifest))
 
         is_valid = not any(i.severity == "error" for i in issues)
         warnings = [i.message for i in issues if i.severity == "warning"]
@@ -360,6 +369,58 @@ class SkillPublisher:
 
         return issues
 
+    def _scan_description(self, manifest: SkillManifest) -> list[ValidationIssue]:
+        """Scan skill description for malicious patterns."""
+        issues: list[ValidationIssue] = []
+        if not SkillScanner or not manifest.description:
+            return issues
+
+        scanner = SkillScanner()
+        result = scanner.scan_text(manifest.description)
+
+        if result.is_dangerous:
+            issues.append(
+                ValidationIssue(
+                    severity="error",
+                    code="SCAN_DANGEROUS",
+                    message=(
+                        f"Security scan failed: verdict={result.verdict.value} "
+                        f"risk_score={result.risk_score} "
+                        f"({len(result.findings)} finding(s))"
+                    ),
+                    field="description",
+                    suggestion="Remove dangerous patterns from skill description",
+                )
+            )
+        elif result.findings:
+            findings_summary = "; ".join(f.description for f in result.findings[:3])
+            issues.append(
+                ValidationIssue(
+                    severity="warning",
+                    code="SCAN_SUSPICIOUS",
+                    message=(
+                        f"Security scan flagged content: verdict={result.verdict.value} "
+                        f"risk_score={result.risk_score} - {findings_summary}"
+                    ),
+                    field="description",
+                )
+            )
+
+        return issues
+
+    def _run_scan(self, skill: Skill) -> "ScanResult | None":
+        """Run security scan on skill content if scanner is available."""
+        if not SkillScanner:
+            return None
+
+        # Scan the description as primary content
+        description = skill.manifest.description or ""
+        if not description.strip():
+            return None
+
+        scanner = SkillScanner()
+        return scanner.scan_text(description)
+
     # ==========================================================================
     # Publishing
     # ==========================================================================
@@ -372,6 +433,7 @@ class SkillPublisher:
         category: SkillCategory = SkillCategory.CUSTOM,
         tier: SkillTier = SkillTier.FREE,
         changelog: str = "Initial release",
+        scan_result: "ScanResult | None" = None,
         **kwargs: Any,
     ) -> tuple[bool, SkillListing | None, list[ValidationIssue]]:
         """
@@ -384,6 +446,8 @@ class SkillPublisher:
             category: Skill category
             tier: Access tier
             changelog: Version changelog
+            scan_result: Pre-computed scan result (e.g. from OpenClaw converter).
+                If not provided, a scan will be run on the skill description.
             **kwargs: Additional listing metadata
 
         Returns:
@@ -393,6 +457,39 @@ class SkillPublisher:
         validation = await self.validate(skill)
         if not validation.is_valid:
             return False, None, validation.issues
+
+        # Run security scan if not already provided
+        if scan_result is None:
+            scan_result = self._run_scan(skill)
+
+        # Block DANGEROUS skills from publishing
+        if scan_result is not None and scan_result.is_dangerous:
+            findings_summary = "; ".join(
+                f.description for f in scan_result.findings[:5]
+            )
+            return (
+                False,
+                None,
+                validation.issues
+                + [
+                    ValidationIssue(
+                        severity="error",
+                        code="SCAN_DANGEROUS",
+                        message=(
+                            f"Skill rejected by security scan: "
+                            f"verdict={scan_result.verdict.value} "
+                            f"risk_score={scan_result.risk_score} - "
+                            f"{findings_summary}"
+                        ),
+                    )
+                ],
+            )
+
+        # Pass scan data to marketplace for storage
+        if scan_result is not None:
+            kwargs["scan_verdict"] = scan_result.verdict.value
+            kwargs["scan_risk_score"] = scan_result.risk_score
+            kwargs["scan_findings_count"] = len(scan_result.findings)
 
         # Publish to marketplace
         try:

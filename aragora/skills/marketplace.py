@@ -169,6 +169,11 @@ class SkillListing:
     is_verified: bool = False
     is_deprecated: bool = False
 
+    # Security scan results
+    scan_verdict: str | None = None  # SAFE, SUSPICIOUS, DANGEROUS, or None
+    scan_risk_score: int | None = None  # 0-100 risk score
+    scan_findings_count: int = 0  # Number of findings from scanner
+
     # Timestamps
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -204,6 +209,9 @@ class SkillListing:
             "is_published": self.is_published,
             "is_verified": self.is_verified,
             "is_deprecated": self.is_deprecated,
+            "scan_verdict": self.scan_verdict,
+            "scan_risk_score": self.scan_risk_score,
+            "scan_findings_count": self.scan_findings_count,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "published_at": self.published_at.isoformat() if self.published_at else None,
@@ -304,6 +312,9 @@ class SkillMarketplace:
                     is_published INTEGER DEFAULT 0,
                     is_verified INTEGER DEFAULT 0,
                     is_deprecated INTEGER DEFAULT 0,
+                    scan_verdict TEXT,
+                    scan_risk_score INTEGER,
+                    scan_findings_count INTEGER DEFAULT 0,
                     created_at TEXT,
                     updated_at TEXT,
                     published_at TEXT,
@@ -402,6 +413,11 @@ class SkillMarketplace:
             published_at=datetime.now(timezone.utc),
         )
 
+        # Extract scan data from kwargs
+        scan_verdict = kwargs.pop("scan_verdict", None)
+        scan_risk_score = kwargs.pop("scan_risk_score", None)
+        scan_findings_count = kwargs.pop("scan_findings_count", 0)
+
         if existing:
             # Update existing skill
             cursor.execute(
@@ -414,7 +430,10 @@ class SkillMarketplace:
                     required_permissions = ?,
                     tags = ?,
                     updated_at = ?,
-                    is_published = 1
+                    is_published = 1,
+                    scan_verdict = COALESCE(?, scan_verdict),
+                    scan_risk_score = COALESCE(?, scan_risk_score),
+                    scan_findings_count = COALESCE(?, scan_findings_count)
                 WHERE skill_id = ?
             """,
                 (
@@ -425,6 +444,9 @@ class SkillMarketplace:
                     json.dumps(manifest.required_permissions),
                     json.dumps(manifest.tags),
                     now,
+                    scan_verdict,
+                    scan_risk_score,
+                    scan_findings_count if scan_verdict else None,
                     skill_id,
                 ),
             )
@@ -437,8 +459,9 @@ class SkillMarketplace:
                     category, tier, tags, current_version, versions,
                     capabilities, required_permissions,
                     is_published, created_at, updated_at, published_at,
-                    homepage_url, repository_url, documentation_url
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+                    homepage_url, repository_url, documentation_url,
+                    scan_verdict, scan_risk_score, scan_findings_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     skill_id,
@@ -459,6 +482,9 @@ class SkillMarketplace:
                     kwargs.get("homepage_url"),
                     kwargs.get("repository_url"),
                     kwargs.get("documentation_url"),
+                    scan_verdict,
+                    scan_risk_score,
+                    scan_findings_count,
                 ),
             )
 
@@ -670,6 +696,9 @@ class SkillMarketplace:
             is_published=bool(row["is_published"]),
             is_verified=bool(row["is_verified"]),
             is_deprecated=bool(row["is_deprecated"]),
+            scan_verdict=row["scan_verdict"] if "scan_verdict" in row.keys() else None,
+            scan_risk_score=row["scan_risk_score"] if "scan_risk_score" in row.keys() else None,
+            scan_findings_count=row["scan_findings_count"] if "scan_findings_count" in row.keys() else 0,
             created_at=datetime.fromisoformat(row["created_at"])
             if row["created_at"]
             else datetime.now(timezone.utc),
@@ -1024,6 +1053,44 @@ class SkillMarketplace:
             (skill_id, tenant_id),
         )
         return cursor.fetchone() is not None
+
+    # ==========================================================================
+    # Verification
+    # ==========================================================================
+
+    async def set_verified(self, skill_id: str, verified: bool) -> bool:
+        """
+        Set or revoke verification status for a skill.
+
+        Args:
+            skill_id: Skill to update
+            verified: True to verify, False to revoke
+
+        Returns:
+            True if updated successfully, False if skill not found
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
+
+        cursor.execute(
+            """
+            UPDATE skills SET is_verified = ?, updated_at = ?
+            WHERE skill_id = ?
+        """,
+            (1 if verified else 0, now, skill_id),
+        )
+
+        if cursor.rowcount > 0:
+            conn.commit()
+            logger.info(
+                "Skill %s verification changed to %s",
+                skill_id,
+                verified,
+            )
+            return True
+
+        return False
 
     # ==========================================================================
     # Statistics
