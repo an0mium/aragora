@@ -197,6 +197,10 @@ class ConfluenceConnector(EnterpriseConnector):
                 try:
                     return response.json()
                 except Exception:
+                    logger.debug(
+                        "Confluence response had no content attribute and JSON decode failed; returning {}",
+                        exc_info=True,
+                    )
                     return {}
             return response.json() if content else {}
 

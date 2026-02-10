@@ -376,6 +376,23 @@ class DebateProtocol:
     trending_injection_max_topics: int = 3  # Max trending topics to inject per prompt
     trending_relevance_filter: bool = True  # Only include topics relevant to debate task
 
+    # ThinkPRM: Process Reward Models for step-wise debate verification
+    # When enabled, debate rounds are verified for logical consistency using
+    # verbalized reasoning (arXiv:2504.16828). Runs after debate completion.
+    enable_think_prm: bool = False  # Opt-in: requires extra model calls
+    think_prm_verifier_agent: str = "claude"  # Agent to use for verification
+    think_prm_parallel: bool = True  # Verify steps in parallel
+    think_prm_max_parallel: int = 3  # Max concurrent verifications
+
+    # LLM question classification: Improves persona selection but requires a model call.
+    # In offline/demo mode, disable to avoid network-backed classification.
+    enable_llm_question_classification: bool = True
+
+    # Mandatory synthesis generation: Default uses external Anthropic models with fallback.
+    # Disable in offline/demo mode to avoid attempting network calls; synthesis will be
+    # produced by combining proposals instead.
+    enable_llm_synthesis: bool = True
+
     # ===== Agent-as-a-Judge Bias Mitigation (arXiv:2508.02994) =====
     # Position bias: Shuffle proposal order and average votes across permutations
     # Research shows LLMs favor proposals in certain positions (first/last)

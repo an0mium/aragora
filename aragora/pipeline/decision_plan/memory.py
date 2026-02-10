@@ -194,7 +194,7 @@ async def record_plan_outcome(
                         agent_prediction_error=1.0 - outcome.completion_rate,
                     )
                 except Exception:
-                    pass  # Best-effort update of original debate entry
+                    logger.debug("Failed to update debate memory outcome", exc_info=True)
 
         except Exception as e:
             err = f"ContinuumMemory write failed: {e}"
@@ -265,7 +265,7 @@ async def record_plan_outcome(
                             )
                             stored_count += 1
                         except Exception:
-                            pass  # Best-effort pattern storage
+                            logger.debug("Failed to store pattern in knowledge mound", exc_info=True)
 
                     if stored_count > 0:
                         logger.info(

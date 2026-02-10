@@ -35,6 +35,7 @@ class PatternType(Enum):
     HIERARCHICAL = "hierarchical"
     REVIEW_CYCLE = "review_cycle"
     DIALECTIC = "dialectic"
+    ENSEMBLE = "ensemble"
     DEBATE = "debate"
     CUSTOM = "custom"
 

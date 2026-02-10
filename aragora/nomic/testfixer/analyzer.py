@@ -261,7 +261,7 @@ def extract_relevant_code(
             code_snippets[file_path] = snippet
 
         except Exception:
-            pass
+            logger.debug("Failed to read %s for snippet extraction", file_path)
 
     return code_snippets
 
@@ -437,6 +437,7 @@ class FailureAnalyzer:
                     try:
                         content = path.read_text()
                     except Exception:
+                        logger.debug("Failed to read %s, skipping import search", path)
                         continue
                     if f"import {missing_mod}" in content or f"from {missing_mod}" in content:
                         root_cause_file = f
@@ -455,6 +456,7 @@ class FailureAnalyzer:
                 try:
                     content = path.read_text()
                 except Exception:
+                    logger.debug("Failed to read %s, skipping", path)
                     continue
                 if "from enum import StrEnum" in content:
                     root_cause_file = f

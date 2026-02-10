@@ -69,6 +69,6 @@ class TracingMiddleware(BaseHTTPMiddleware):
                 if ctx.parent_span_id:
                     response.headers[PARENT_SPAN_HEADER] = ctx.parent_span_id
             except Exception:
-                pass
+                logger.debug("Failed to set tracing headers", exc_info=True)
 
         return response

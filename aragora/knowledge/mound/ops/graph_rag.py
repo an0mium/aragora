@@ -431,6 +431,7 @@ class GraphRAGRetriever:
                 content = node.content if node else ""
                 metadata = node.metadata if node else {}
             except Exception:
+                logger.warning("Failed to retrieve node %s from graph store", node_id, exc_info=True)
                 content = ""
                 metadata = {}
 
@@ -474,6 +475,7 @@ class GraphRAGRetriever:
                             adjacency[node_id].add(neighbor_id)
                             adjacency[neighbor_id].add(node_id)
             except Exception:
+                logger.debug("Failed to process relationships for node %s", node_id, exc_info=True)
                 continue
 
         # Find connected components

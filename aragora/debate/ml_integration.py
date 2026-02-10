@@ -567,7 +567,7 @@ class ConsensusEstimator:
 
                     record_debate_stability(self._last_stability.stability)
                 except Exception:
-                    pass
+                    logger.debug("Failed to record debate stability metric", exc_info=True)
 
         estimate = self.estimate_consensus(
             responses=responses,
@@ -581,7 +581,7 @@ class ConsensusEstimator:
 
                 record_early_termination("ml")
             except Exception:
-                pass
+                logger.debug("Failed to record early termination metric", exc_info=True)
             return True
 
         if stability_ok and current_round >= self.min_rounds:
@@ -596,7 +596,7 @@ class ConsensusEstimator:
 
                 record_early_termination("stability")
             except Exception:
-                pass
+                logger.debug("Failed to record early termination metric", exc_info=True)
             return True
 
         return False

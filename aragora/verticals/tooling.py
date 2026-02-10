@@ -28,7 +28,7 @@ def _evidence_to_dict(item: Any) -> dict[str, Any]:
         try:
             return item.to_dict()
         except Exception:
-            pass
+            logger.debug("to_dict() conversion failed for %s", type(item).__name__, exc_info=True)
     if isinstance(item, dict):
         return item
     return {"value": str(item)}

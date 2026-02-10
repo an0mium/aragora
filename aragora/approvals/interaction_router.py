@@ -62,7 +62,7 @@ def _resolve_actor(interaction: Any) -> tuple[str, str, bool]:
             display = identity.display_name or identity.email or display
             mapped = True
     except Exception:
-        pass
+        _logger.debug("External identity lookup failed for user %s", user_id, exc_info=True)
 
     return user_id, display, mapped
 
@@ -258,7 +258,7 @@ class ApprovalInteractionRouter:
                 replace_original=replace_original,
             )
         except Exception:
-            pass
+            _logger.debug("Failed to respond to interaction", exc_info=True)
 
 
 __all__ = ["ApprovalInteractionRouter"]

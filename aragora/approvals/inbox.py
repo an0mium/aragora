@@ -94,7 +94,7 @@ def collect_pending_approvals(
                     )
                 )
         except Exception:
-            pass
+            logger.debug("Failed to fetch workflow approvals for inbox", exc_info=True)
 
     if "decision_plan" in sources:
         try:
@@ -134,7 +134,7 @@ def collect_pending_approvals(
                     )
                 )
         except Exception:
-            pass
+            logger.debug("Failed to fetch decision plan approvals for inbox", exc_info=True)
 
     if "computer_use" in sources:
         try:
@@ -180,7 +180,7 @@ def collect_pending_approvals(
                         )
                     )
         except Exception:
-            pass
+            logger.debug("Failed to fetch computer use approvals for inbox", exc_info=True)
 
     if "gateway" in sources:
         try:
@@ -218,7 +218,7 @@ def collect_pending_approvals(
                         )
                     )
         except Exception:
-            pass
+            logger.debug("Failed to fetch gateway approvals for inbox", exc_info=True)
 
     items.sort(key=lambda item: item._sort_ts, reverse=True)
     return [item.to_dict() for item in items[:limit]]

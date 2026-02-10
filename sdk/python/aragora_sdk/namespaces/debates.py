@@ -521,6 +521,259 @@ class DebatesAPI:
         """Get matrix comparison for a multi-scenario debate."""
         return self._client.request("GET", f"/api/v1/debates/matrix/{debate_id}")
 
+    # ========== Streaming ==========
+
+    def stream_debates(self) -> dict[str, Any]:
+        """Stream debate events via Server-Sent Events.
+
+        Returns an SSE stream of real-time debate events including
+        debate_started, round_start, agent_message, consensus, and debate_end.
+
+        Returns:
+            SSE stream response with debate events
+        """
+        return self._client.request("GET", "/api/v1/debates/stream")
+
+    # ========== RLM / Compression ==========
+
+    def compress(
+        self,
+        debate_id: str,
+        target_levels: _List[str] | None = None,
+        compression_ratio: float = 0.3,
+    ) -> dict[str, Any]:
+        """Compress debate context using RLM hierarchical abstraction.
+
+        Args:
+            debate_id: The debate ID
+            target_levels: Abstraction levels to generate (e.g. ["ABSTRACT", "SUMMARY", "DETAILED"])
+            compression_ratio: Target compression ratio (0.0-1.0, default 0.3)
+
+        Returns:
+            Compression result with original_tokens, compressed_tokens, compression_ratios,
+            time_seconds, and levels_created
+        """
+        payload: dict[str, Any] = {"compression_ratio": compression_ratio}
+        if target_levels:
+            payload["target_levels"] = target_levels
+        return self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/compress", json=payload
+        )
+
+    def get_context_level(self, debate_id: str, level: str) -> dict[str, Any]:
+        """Get debate content at a specific abstraction level.
+
+        Args:
+            debate_id: The debate ID
+            level: Abstraction level (ABSTRACT, SUMMARY, DETAILED, or RAW)
+
+        Returns:
+            Context at the requested level with content, token_count, and nodes
+        """
+        return self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/context/{level}"
+        )
+
+    def query_rlm(
+        self,
+        debate_id: str,
+        query: str,
+        strategy: str = "auto",
+        max_iterations: int = 3,
+        start_level: str = "SUMMARY",
+    ) -> dict[str, Any]:
+        """Query a debate using RLM with iterative refinement.
+
+        Args:
+            debate_id: The debate ID
+            query: The question to ask about the debate
+            strategy: Query strategy (auto, peek, grep, partition_map, summarize, hierarchical)
+            max_iterations: Maximum refinement iterations (1-10, default 3)
+            start_level: Starting abstraction level (ABSTRACT, SUMMARY, DETAILED, RAW)
+
+        Returns:
+            Query result with answer, confidence, refinement_history, and token usage
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/query-rlm",
+            json={
+                "query": query,
+                "strategy": strategy,
+                "max_iterations": max_iterations,
+                "start_level": start_level,
+            },
+        )
+
+    def get_refinement_status(self, debate_id: str) -> dict[str, Any]:
+        """Get the status of an ongoing RLM refinement process.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Refinement status with active_queries, cached_contexts, and status
+        """
+        return self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/refinement-status"
+        )
+
+    # ========== Decision Integrity ==========
+
+    def get_decision_integrity(self, debate_id: str) -> dict[str, Any]:
+        """Get the decision integrity package for a debate.
+
+        Generates a decision receipt and implementation plan bundle
+        containing audit-ready documentation of the debate outcome.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Decision integrity package with receipt and implementation plan
+        """
+        return self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
+        )
+
+    # ========== Intervention ==========
+
+    def intervention_inject(
+        self,
+        debate_id: str,
+        content: str,
+        injection_type: str = "argument",
+        source: str = "user",
+    ) -> dict[str, Any]:
+        """Inject a user argument or follow-up question into a debate.
+
+        The injected content will be included in the next round's context
+        and considered by all agents.
+
+        Args:
+            debate_id: The active debate ID
+            content: The argument or question to inject
+            injection_type: Type of injection ("argument" or "follow_up")
+            source: Source identifier (default "user")
+
+        Returns:
+            Injection result with injection_id and confirmation
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/intervention/inject",
+            json={"content": content, "type": injection_type, "source": source},
+        )
+
+    def intervention_log(self, debate_id: str, limit: int = 50) -> dict[str, Any]:
+        """Get the intervention audit log for a debate.
+
+        Returns all interventions with timestamps for compliance and audit purposes.
+
+        Args:
+            debate_id: The debate ID
+            limit: Maximum number of log entries to return (default 50)
+
+        Returns:
+            Intervention log with total_interventions and interventions list
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/debates/{debate_id}/intervention/log",
+            params={"limit": limit},
+        )
+
+    def intervention_pause(self, debate_id: str) -> dict[str, Any]:
+        """Pause an active debate.
+
+        Pausing stops agent responses but preserves all debate state.
+        The debate can be resumed at any point.
+
+        Args:
+            debate_id: The active debate ID
+
+        Returns:
+            Pause result with is_paused status and paused_at timestamp
+        """
+        return self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/intervention/pause"
+        )
+
+    def intervention_resume(self, debate_id: str) -> dict[str, Any]:
+        """Resume a paused debate.
+
+        Resumes agent responses from where they left off.
+
+        Args:
+            debate_id: The paused debate ID
+
+        Returns:
+            Resume result with resumed_at timestamp and pause_duration_seconds
+        """
+        return self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/intervention/resume"
+        )
+
+    def intervention_state(self, debate_id: str) -> dict[str, Any]:
+        """Get the current intervention state for a debate.
+
+        Returns pause status, agent weights, consensus threshold,
+        and counts of pending injections and follow-ups.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Intervention state with is_paused, consensus_threshold, agent_weights,
+            pending_injections, and pending_follow_ups
+        """
+        return self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/intervention/state"
+        )
+
+    def intervention_update_threshold(
+        self, debate_id: str, threshold: float
+    ) -> dict[str, Any]:
+        """Update the consensus threshold for a debate.
+
+        Threshold is the minimum agreement level required for consensus:
+        0.5 = simple majority, 0.75 = strong majority (default), 1.0 = unanimous.
+
+        Args:
+            debate_id: The active debate ID
+            threshold: New threshold value (0.5 to 1.0)
+
+        Returns:
+            Update result with old_threshold and new_threshold
+        """
+        return self._client.request(
+            "PUT",
+            f"/api/v1/debates/{debate_id}/intervention/threshold",
+            json={"threshold": threshold},
+        )
+
+    def intervention_update_weights(
+        self, debate_id: str, agent: str, weight: float
+    ) -> dict[str, Any]:
+        """Update an agent's influence weight in a debate.
+
+        Weight affects how much the agent's vote counts in consensus:
+        0.0 = muted, 1.0 = normal influence, 2.0 = double influence.
+
+        Args:
+            debate_id: The active debate ID
+            agent: Agent name or ID
+            weight: New weight value (0.0 to 2.0)
+
+        Returns:
+            Update result with agent, old_weight, and new_weight
+        """
+        return self._client.request(
+            "PUT",
+            f"/api/v1/debates/{debate_id}/intervention/weights",
+            json={"agent": agent, "weight": weight},
+        )
+
 
 class AsyncDebatesAPI:
     """
@@ -1006,3 +1259,256 @@ class AsyncDebatesAPI:
     async def get_matrix_comparison(self, debate_id: str) -> dict[str, Any]:
         """Get matrix comparison for a multi-scenario debate."""
         return await self._client.request("GET", f"/api/v1/debates/matrix/{debate_id}")
+
+    # ========== Streaming ==========
+
+    async def stream_debates(self) -> dict[str, Any]:
+        """Stream debate events via Server-Sent Events.
+
+        Returns an SSE stream of real-time debate events including
+        debate_started, round_start, agent_message, consensus, and debate_end.
+
+        Returns:
+            SSE stream response with debate events
+        """
+        return await self._client.request("GET", "/api/v1/debates/stream")
+
+    # ========== RLM / Compression ==========
+
+    async def compress(
+        self,
+        debate_id: str,
+        target_levels: _List[str] | None = None,
+        compression_ratio: float = 0.3,
+    ) -> dict[str, Any]:
+        """Compress debate context using RLM hierarchical abstraction.
+
+        Args:
+            debate_id: The debate ID
+            target_levels: Abstraction levels to generate (e.g. ["ABSTRACT", "SUMMARY", "DETAILED"])
+            compression_ratio: Target compression ratio (0.0-1.0, default 0.3)
+
+        Returns:
+            Compression result with original_tokens, compressed_tokens, compression_ratios,
+            time_seconds, and levels_created
+        """
+        payload: dict[str, Any] = {"compression_ratio": compression_ratio}
+        if target_levels:
+            payload["target_levels"] = target_levels
+        return await self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/compress", json=payload
+        )
+
+    async def get_context_level(self, debate_id: str, level: str) -> dict[str, Any]:
+        """Get debate content at a specific abstraction level.
+
+        Args:
+            debate_id: The debate ID
+            level: Abstraction level (ABSTRACT, SUMMARY, DETAILED, or RAW)
+
+        Returns:
+            Context at the requested level with content, token_count, and nodes
+        """
+        return await self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/context/{level}"
+        )
+
+    async def query_rlm(
+        self,
+        debate_id: str,
+        query: str,
+        strategy: str = "auto",
+        max_iterations: int = 3,
+        start_level: str = "SUMMARY",
+    ) -> dict[str, Any]:
+        """Query a debate using RLM with iterative refinement.
+
+        Args:
+            debate_id: The debate ID
+            query: The question to ask about the debate
+            strategy: Query strategy (auto, peek, grep, partition_map, summarize, hierarchical)
+            max_iterations: Maximum refinement iterations (1-10, default 3)
+            start_level: Starting abstraction level (ABSTRACT, SUMMARY, DETAILED, RAW)
+
+        Returns:
+            Query result with answer, confidence, refinement_history, and token usage
+        """
+        return await self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/query-rlm",
+            json={
+                "query": query,
+                "strategy": strategy,
+                "max_iterations": max_iterations,
+                "start_level": start_level,
+            },
+        )
+
+    async def get_refinement_status(self, debate_id: str) -> dict[str, Any]:
+        """Get the status of an ongoing RLM refinement process.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Refinement status with active_queries, cached_contexts, and status
+        """
+        return await self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/refinement-status"
+        )
+
+    # ========== Decision Integrity ==========
+
+    async def get_decision_integrity(self, debate_id: str) -> dict[str, Any]:
+        """Get the decision integrity package for a debate.
+
+        Generates a decision receipt and implementation plan bundle
+        containing audit-ready documentation of the debate outcome.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Decision integrity package with receipt and implementation plan
+        """
+        return await self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
+        )
+
+    # ========== Intervention ==========
+
+    async def intervention_inject(
+        self,
+        debate_id: str,
+        content: str,
+        injection_type: str = "argument",
+        source: str = "user",
+    ) -> dict[str, Any]:
+        """Inject a user argument or follow-up question into a debate.
+
+        The injected content will be included in the next round's context
+        and considered by all agents.
+
+        Args:
+            debate_id: The active debate ID
+            content: The argument or question to inject
+            injection_type: Type of injection ("argument" or "follow_up")
+            source: Source identifier (default "user")
+
+        Returns:
+            Injection result with injection_id and confirmation
+        """
+        return await self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/intervention/inject",
+            json={"content": content, "type": injection_type, "source": source},
+        )
+
+    async def intervention_log(self, debate_id: str, limit: int = 50) -> dict[str, Any]:
+        """Get the intervention audit log for a debate.
+
+        Returns all interventions with timestamps for compliance and audit purposes.
+
+        Args:
+            debate_id: The debate ID
+            limit: Maximum number of log entries to return (default 50)
+
+        Returns:
+            Intervention log with total_interventions and interventions list
+        """
+        return await self._client.request(
+            "GET",
+            f"/api/v1/debates/{debate_id}/intervention/log",
+            params={"limit": limit},
+        )
+
+    async def intervention_pause(self, debate_id: str) -> dict[str, Any]:
+        """Pause an active debate.
+
+        Pausing stops agent responses but preserves all debate state.
+        The debate can be resumed at any point.
+
+        Args:
+            debate_id: The active debate ID
+
+        Returns:
+            Pause result with is_paused status and paused_at timestamp
+        """
+        return await self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/intervention/pause"
+        )
+
+    async def intervention_resume(self, debate_id: str) -> dict[str, Any]:
+        """Resume a paused debate.
+
+        Resumes agent responses from where they left off.
+
+        Args:
+            debate_id: The paused debate ID
+
+        Returns:
+            Resume result with resumed_at timestamp and pause_duration_seconds
+        """
+        return await self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/intervention/resume"
+        )
+
+    async def intervention_state(self, debate_id: str) -> dict[str, Any]:
+        """Get the current intervention state for a debate.
+
+        Returns pause status, agent weights, consensus threshold,
+        and counts of pending injections and follow-ups.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Intervention state with is_paused, consensus_threshold, agent_weights,
+            pending_injections, and pending_follow_ups
+        """
+        return await self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/intervention/state"
+        )
+
+    async def intervention_update_threshold(
+        self, debate_id: str, threshold: float
+    ) -> dict[str, Any]:
+        """Update the consensus threshold for a debate.
+
+        Threshold is the minimum agreement level required for consensus:
+        0.5 = simple majority, 0.75 = strong majority (default), 1.0 = unanimous.
+
+        Args:
+            debate_id: The active debate ID
+            threshold: New threshold value (0.5 to 1.0)
+
+        Returns:
+            Update result with old_threshold and new_threshold
+        """
+        return await self._client.request(
+            "PUT",
+            f"/api/v1/debates/{debate_id}/intervention/threshold",
+            json={"threshold": threshold},
+        )
+
+    async def intervention_update_weights(
+        self, debate_id: str, agent: str, weight: float
+    ) -> dict[str, Any]:
+        """Update an agent's influence weight in a debate.
+
+        Weight affects how much the agent's vote counts in consensus:
+        0.0 = muted, 1.0 = normal influence, 2.0 = double influence.
+
+        Args:
+            debate_id: The active debate ID
+            agent: Agent name or ID
+            weight: New weight value (0.0 to 2.0)
+
+        Returns:
+            Update result with agent, old_weight, and new_weight
+        """
+        return await self._client.request(
+            "PUT",
+            f"/api/v1/debates/{debate_id}/intervention/weights",
+            json={"agent": agent, "weight": weight},
+        )

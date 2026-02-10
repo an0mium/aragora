@@ -20,8 +20,16 @@ This module is split into focused submodules:
 
 from __future__ import annotations
 
+try:
+    import httpx  # noqa: F401
+
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
 from aragora.connectors.chat.telegram.bot_management import TelegramBotManagementMixin
 from aragora.connectors.chat.telegram.client import TelegramConnectorBase
+from aragora.connectors.chat.telegram.client import _classify_telegram_error
 from aragora.connectors.chat.telegram.files import TelegramFilesMixin
 from aragora.connectors.chat.telegram.inline import TelegramInlineMixin
 from aragora.connectors.chat.telegram.media import TelegramMediaMixin

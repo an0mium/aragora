@@ -8,12 +8,16 @@ schema changes.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Iterable
+
+_logger = logging.getLogger(__name__)
 
 try:  # Optional import for typing only
     from aragora.rbac.models import AuthorizationContext
 except Exception:  # pragma: no cover - optional dependency
+    _logger.debug("RBAC models unavailable, using Any for AuthorizationContext")
     AuthorizationContext = Any  # type: ignore
 
 
@@ -44,6 +48,7 @@ def _has_permission(auth_context: AuthorizationContext | None, permission: str) 
         try:
             return bool(check(permission))
         except Exception:
+            _logger.debug("Permission check failed for %s", permission, exc_info=True)
             return False
     return False
 
@@ -56,6 +61,7 @@ def _has_role(auth_context: AuthorizationContext | None, *roles: str) -> bool:
         try:
             return bool(check(*roles))
         except Exception:
+            _logger.debug("Role check failed for %s", roles, exc_info=True)
             return False
     # Fallback: check roles attribute
     current_roles = getattr(auth_context, "roles", set()) or set()

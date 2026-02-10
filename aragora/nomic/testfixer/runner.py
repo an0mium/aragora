@@ -217,6 +217,7 @@ def _run_command(command: list[str], cwd: Path | None = None) -> str | None:
             return None
         return result.stdout.strip()
     except Exception:
+        logger.debug("Command failed: %s", cmd, exc_info=True)
         return None
 
 
@@ -304,6 +305,7 @@ def _signal_name_from_exit(exit_code: int) -> str | None:
             return None
         return signal.Signals(sig).name
     except Exception:
+        logger.debug("Failed to map exit code %d to signal name", exit_code)
         return None
 
 

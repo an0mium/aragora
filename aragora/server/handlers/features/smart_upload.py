@@ -1064,6 +1064,7 @@ if HANDLER_BASE_AVAILABLE:
 
                 auth_context = await get_auth_context(handler, require_auth=True)
             except Exception:
+                logger.debug("Auth context unavailable for upload metadata enrichment", exc_info=True)
                 return options
 
             metadata = options.get("metadata")

@@ -214,6 +214,212 @@ class GatewayAPI:
             json={"channel": channel, "content": content},
         )
 
+    # =========================================================================
+    # Gateway Health
+    # =========================================================================
+
+    def health(self) -> dict[str, Any]:
+        """
+        Check gateway health status.
+
+        Returns:
+            Dict with gateway health status and component details.
+        """
+        return self._client.request("GET", "/api/v1/gateway/health")
+
+    # =========================================================================
+    # Agents
+    # =========================================================================
+
+    def list_agents(self) -> dict[str, Any]:
+        """
+        List registered gateway agents.
+
+        Returns:
+            Dict with agents array and total count.
+        """
+        return self._client.request("GET", "/api/v1/gateway/agents")
+
+    def get_agent(self, agent_name: str) -> dict[str, Any]:
+        """
+        Get details for a specific gateway agent.
+
+        Args:
+            agent_name: Agent name or identifier.
+
+        Returns:
+            Dict with agent info.
+        """
+        return self._client.request("GET", f"/api/v1/gateway/agents/{agent_name}")
+
+    def get_agent_health(self, agent_name: str) -> dict[str, Any]:
+        """
+        Check health of a specific gateway agent.
+
+        Args:
+            agent_name: Agent name or identifier.
+
+        Returns:
+            Dict with agent health status.
+        """
+        return self._client.request(
+            "GET", f"/api/v1/gateway/agents/{agent_name}/health"
+        )
+
+    # =========================================================================
+    # Credentials
+    # =========================================================================
+
+    def list_credentials(self) -> dict[str, Any]:
+        """
+        List stored credentials (metadata only, no secrets).
+
+        Returns:
+            Dict with credentials array and total count.
+        """
+        return self._client.request("GET", "/api/v1/gateway/credentials")
+
+    def create_credential(
+        self,
+        name: str,
+        credential_type: str,
+        value: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Store a new credential in the gateway.
+
+        Args:
+            name: Credential name for identification.
+            credential_type: Type of credential (api_key, oauth_token, etc.).
+            value: Credential value (will be encrypted at rest).
+            metadata: Optional additional metadata.
+
+        Returns:
+            Dict with credential_id and success message.
+        """
+        data: dict[str, Any] = {
+            "name": name,
+            "type": credential_type,
+            "value": value,
+        }
+        if metadata:
+            data["metadata"] = metadata
+
+        return self._client.request("POST", "/api/v1/gateway/credentials", json=data)
+
+    def delete_credential(self, credential_id: str) -> dict[str, Any]:
+        """
+        Delete a stored credential.
+
+        Args:
+            credential_id: Credential ID.
+
+        Returns:
+            Dict with success message.
+        """
+        return self._client.request(
+            "DELETE", f"/api/v1/gateway/credentials/{credential_id}"
+        )
+
+    # =========================================================================
+    # Messages (extended)
+    # =========================================================================
+
+    def send_message(
+        self,
+        channel: str,
+        content: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Submit a message to the gateway for routing.
+
+        Args:
+            channel: Target channel for routing.
+            content: Message content to route.
+            metadata: Optional additional message metadata.
+
+        Returns:
+            Dict with routed status, agent_id, and rule_id.
+        """
+        data: dict[str, Any] = {"channel": channel, "content": content}
+        if metadata:
+            data["metadata"] = metadata
+
+        return self._client.request("POST", "/api/v1/gateway/messages", json=data)
+
+    def get_message(self, message_id: str) -> dict[str, Any]:
+        """
+        Get details for a specific routed message.
+
+        Args:
+            message_id: Message ID.
+
+        Returns:
+            Dict with message details and routing info.
+        """
+        return self._client.request(
+            "GET", f"/api/v1/gateway/messages/{message_id}"
+        )
+
+    # =========================================================================
+    # Routing (extended)
+    # =========================================================================
+
+    def list_routing(self) -> dict[str, Any]:
+        """
+        List routing rules with statistics.
+
+        Returns:
+            Dict with rules array, total count, and stats.
+        """
+        return self._client.request("GET", "/api/v1/gateway/routing")
+
+    def create_routing_rule(
+        self,
+        channel: str,
+        pattern: str,
+        agent_id: str,
+        priority: int | None = None,
+        enabled: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Create a new routing rule.
+
+        Args:
+            channel: Channel to apply the rule to.
+            pattern: Message matching pattern (regex supported).
+            agent_id: Target agent for matched messages.
+            priority: Rule evaluation priority (lower is higher).
+            enabled: Whether the rule is active.
+
+        Returns:
+            Dict with created rule and success message.
+        """
+        data: dict[str, Any] = {
+            "channel": channel,
+            "pattern": pattern,
+            "agent_id": agent_id,
+            "enabled": enabled,
+        }
+        if priority is not None:
+            data["priority"] = priority
+
+        return self._client.request("POST", "/api/v1/gateway/routing", json=data)
+
+    def get_routing_rule(self, route_id: str) -> dict[str, Any]:
+        """
+        Get details for a specific routing rule.
+
+        Args:
+            route_id: Routing rule ID.
+
+        Returns:
+            Dict with rule details.
+        """
+        return self._client.request("GET", f"/api/v1/gateway/routing/{route_id}")
+
 
 class AsyncGatewayAPI:
     """Asynchronous Gateway API."""
@@ -307,4 +513,127 @@ class AsyncGatewayAPI:
             "POST",
             "/api/v1/gateway/messages/route",
             json={"channel": channel, "content": content},
+        )
+
+    # =========================================================================
+    # Gateway Health
+    # =========================================================================
+
+    async def health(self) -> dict[str, Any]:
+        """Check gateway health status."""
+        return await self._client.request("GET", "/api/v1/gateway/health")
+
+    # =========================================================================
+    # Agents
+    # =========================================================================
+
+    async def list_agents(self) -> dict[str, Any]:
+        """List registered gateway agents."""
+        return await self._client.request("GET", "/api/v1/gateway/agents")
+
+    async def get_agent(self, agent_name: str) -> dict[str, Any]:
+        """Get details for a specific gateway agent."""
+        return await self._client.request(
+            "GET", f"/api/v1/gateway/agents/{agent_name}"
+        )
+
+    async def get_agent_health(self, agent_name: str) -> dict[str, Any]:
+        """Check health of a specific gateway agent."""
+        return await self._client.request(
+            "GET", f"/api/v1/gateway/agents/{agent_name}/health"
+        )
+
+    # =========================================================================
+    # Credentials
+    # =========================================================================
+
+    async def list_credentials(self) -> dict[str, Any]:
+        """List stored credentials (metadata only, no secrets)."""
+        return await self._client.request("GET", "/api/v1/gateway/credentials")
+
+    async def create_credential(
+        self,
+        name: str,
+        credential_type: str,
+        value: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Store a new credential in the gateway."""
+        data: dict[str, Any] = {
+            "name": name,
+            "type": credential_type,
+            "value": value,
+        }
+        if metadata:
+            data["metadata"] = metadata
+
+        return await self._client.request(
+            "POST", "/api/v1/gateway/credentials", json=data
+        )
+
+    async def delete_credential(self, credential_id: str) -> dict[str, Any]:
+        """Delete a stored credential."""
+        return await self._client.request(
+            "DELETE", f"/api/v1/gateway/credentials/{credential_id}"
+        )
+
+    # =========================================================================
+    # Messages (extended)
+    # =========================================================================
+
+    async def send_message(
+        self,
+        channel: str,
+        content: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Submit a message to the gateway for routing."""
+        data: dict[str, Any] = {"channel": channel, "content": content}
+        if metadata:
+            data["metadata"] = metadata
+
+        return await self._client.request(
+            "POST", "/api/v1/gateway/messages", json=data
+        )
+
+    async def get_message(self, message_id: str) -> dict[str, Any]:
+        """Get details for a specific routed message."""
+        return await self._client.request(
+            "GET", f"/api/v1/gateway/messages/{message_id}"
+        )
+
+    # =========================================================================
+    # Routing (extended)
+    # =========================================================================
+
+    async def list_routing(self) -> dict[str, Any]:
+        """List routing rules with statistics."""
+        return await self._client.request("GET", "/api/v1/gateway/routing")
+
+    async def create_routing_rule(
+        self,
+        channel: str,
+        pattern: str,
+        agent_id: str,
+        priority: int | None = None,
+        enabled: bool = True,
+    ) -> dict[str, Any]:
+        """Create a new routing rule."""
+        data: dict[str, Any] = {
+            "channel": channel,
+            "pattern": pattern,
+            "agent_id": agent_id,
+            "enabled": enabled,
+        }
+        if priority is not None:
+            data["priority"] = priority
+
+        return await self._client.request(
+            "POST", "/api/v1/gateway/routing", json=data
+        )
+
+    async def get_routing_rule(self, route_id: str) -> dict[str, Any]:
+        """Get details for a specific routing rule."""
+        return await self._client.request(
+            "GET", f"/api/v1/gateway/routing/{route_id}"
         )

@@ -564,7 +564,7 @@ def _wait_for_health(compose_cmd: list[str], compose_file: str, project_root: st
                     print("  [+] Health check passed")
                     return
         except Exception:
-            pass
+            logger.debug("Health check attempt failed", exc_info=True)
 
         # Show progress
         elapsed = int(time.time() - start)

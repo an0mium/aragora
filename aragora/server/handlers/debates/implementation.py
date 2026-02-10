@@ -745,7 +745,7 @@ class ImplementationOperationsMixin:
                 if not decision.allowed:
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except Exception:
-                pass  # Legacy compatibility
+                logger.debug("Permission check failed, continuing with legacy compatibility", exc_info=True)
 
         changes = self._build_changes_list(package.plan)
         requested_by = getattr(user, "user_id", None) if user else "system"

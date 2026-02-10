@@ -106,6 +106,7 @@ def _should_use_knowledge_mound() -> bool:
 
         return bool(get_settings().integration.knowledge_mound_enabled)
     except Exception:
+        logger.debug("Settings unavailable for KM check, using env fallback", exc_info=True)
         import os
 
         return os.environ.get("ARAGORA_INTEGRATION_KNOWLEDGE_MOUND", "true").lower() == "true"

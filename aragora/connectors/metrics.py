@@ -215,6 +215,7 @@ def _init_metrics() -> bool:
             ):
                 _init_noop_metrics()
         except Exception:
+            logger.debug("Prometheus metrics validation failed, using no-op metrics", exc_info=True)
             _init_noop_metrics()
 
         _initialized = True

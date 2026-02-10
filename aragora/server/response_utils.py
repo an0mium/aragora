@@ -130,7 +130,7 @@ class ResponseHelpersMixin:
 
                 self.send_header(REQUEST_ID_HEADER, ctx.request_id)
             except Exception:
-                pass
+                logger.debug("Failed to send request ID header", exc_info=True)
             from aragora.server.middleware.tracing import (
                 PARENT_SPAN_HEADER,
                 SPAN_ID_HEADER,
@@ -154,7 +154,7 @@ class ResponseHelpersMixin:
             if request_id:
                 self.send_header(REQUEST_ID_HEADER, request_id)
         except Exception:
-            pass
+            logger.debug("Failed to send legacy request ID header", exc_info=True)
 
         from aragora.server.middleware.tracing import (
             PARENT_SPAN_HEADER,

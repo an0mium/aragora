@@ -162,8 +162,15 @@ def get_metrics_config() -> MetricsConfig:
     """Get metrics configuration from environment variables."""
     global _metrics_config
     if _metrics_config is None:
+        # Offline mode should be network-free and quiet. Prometheus metrics are
+        # primarily a server concern, so default them off when ARAGORA_OFFLINE is set.
+        from aragora.utils.env import is_offline_mode
+
+        enabled = os.getenv("METRICS_ENABLED", "true").lower() in ("true", "1", "yes")
+        if is_offline_mode():
+            enabled = False
         _metrics_config = MetricsConfig(
-            enabled=os.getenv("METRICS_ENABLED", "true").lower() in ("true", "1", "yes"),
+            enabled=enabled,
             port=int(os.getenv("METRICS_PORT", "9090")),
         )
     return _metrics_config

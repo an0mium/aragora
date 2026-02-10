@@ -257,7 +257,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
                         }
                     )
                 except Exception:
-                    pass
+                    logger.debug("Failed to read checkpoint file %s", cp_file, exc_info=True)
 
         status_data = {
             "nomic_dir": str(nomic_dir),

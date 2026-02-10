@@ -177,10 +177,7 @@ class ERC8004Connector(BaseConnector):
             provider = None
             if provider_cls is not None:
                 if is_configured:
-                    try:
-                        provider = self._get_provider()
-                    except Exception:
-                        provider = None
+                    provider = self._get_provider()
                 else:
                     provider = provider_cls.from_env(self._credentials.chain_id)
 

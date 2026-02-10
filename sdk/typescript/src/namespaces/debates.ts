@@ -2482,4 +2482,424 @@ export class DebatesAPI {
   async deleteNote(debateId: string, noteId: string): Promise<{ success: boolean }> {
     return this.client.request('DELETE', `/api/v1/debates/${debateId}/notes/${noteId}`);
   }
+
+  // ===========================================================================
+  // Streaming
+  // ===========================================================================
+
+  /**
+   * Stream debate events via Server-Sent Events.
+   *
+   * Returns an SSE stream of real-time debate events including
+   * debate_started, round_start, agent_message, consensus, and debate_end.
+   *
+   * @example
+   * ```typescript
+   * const stream = await client.debates.streamDebates();
+   * console.log('Connected to debate event stream');
+   * ```
+   */
+  async streamDebates(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/debates/stream');
+  }
+
+  // ===========================================================================
+  // RLM / Compression
+  // ===========================================================================
+
+  /**
+   * Compress debate context using RLM hierarchical abstraction.
+   *
+   * Creates compressed representations of the debate at multiple
+   * abstraction levels for efficient querying.
+   *
+   * @param debateId - The debate ID
+   * @param options - Compression options
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.compress('debate-123', {
+   *   targetLevels: ['ABSTRACT', 'SUMMARY', 'DETAILED'],
+   *   compressionRatio: 0.3,
+   * });
+   * console.log(`Original: ${result.original_tokens} tokens`);
+   * console.log(`Compressed: ${JSON.stringify(result.compressed_tokens)}`);
+   * ```
+   */
+  async compress(
+    debateId: string,
+    options?: {
+      targetLevels?: string[];
+      compressionRatio?: number;
+    }
+  ): Promise<{
+    original_tokens: number;
+    compressed_tokens: Record<string, number>;
+    compression_ratios: Record<string, number>;
+    time_seconds: number;
+    levels_created: number;
+  }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/compress`, {
+      body: {
+        target_levels: options?.targetLevels,
+        compression_ratio: options?.compressionRatio ?? 0.3,
+      },
+    });
+  }
+
+  /**
+   * Get debate content at a specific abstraction level.
+   *
+   * Returns the debate context compressed to the requested level
+   * of abstraction (ABSTRACT, SUMMARY, DETAILED, or RAW).
+   *
+   * @param debateId - The debate ID
+   * @param level - Abstraction level
+   *
+   * @example
+   * ```typescript
+   * const context = await client.debates.getContextLevel('debate-123', 'SUMMARY');
+   * console.log(`Level: ${context.level}, Tokens: ${context.token_count}`);
+   * console.log(context.content);
+   * ```
+   */
+  async getContextLevel(
+    debateId: string,
+    level: 'ABSTRACT' | 'SUMMARY' | 'DETAILED' | 'RAW'
+  ): Promise<{
+    level: string;
+    content: string;
+    token_count: number;
+    nodes: Array<{
+      id: string;
+      content: string;
+      token_count: number;
+      key_topics: string[];
+    }>;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/context/${level}`);
+  }
+
+  /**
+   * Query a debate using RLM with iterative refinement.
+   *
+   * Asks a question about a debate and uses RLM to find the answer
+   * by iteratively refining through abstraction levels.
+   *
+   * @param debateId - The debate ID
+   * @param query - The question to ask about the debate
+   * @param options - Query options
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.queryRlm('debate-123', 'What was the consensus on pricing?', {
+   *   strategy: 'auto',
+   *   maxIterations: 3,
+   * });
+   * console.log(`Answer: ${result.answer}`);
+   * console.log(`Confidence: ${result.confidence}`);
+   * ```
+   */
+  async queryRlm(
+    debateId: string,
+    query: string,
+    options?: {
+      strategy?: 'auto' | 'peek' | 'grep' | 'partition_map' | 'summarize' | 'hierarchical';
+      maxIterations?: number;
+      startLevel?: 'ABSTRACT' | 'SUMMARY' | 'DETAILED' | 'RAW';
+    }
+  ): Promise<{
+    answer: string;
+    ready: boolean;
+    iteration: number;
+    refinement_history: unknown[];
+    confidence: number;
+    nodes_examined: unknown[];
+    tokens_processed: number;
+    sub_calls_made: number;
+  }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/query-rlm`, {
+      body: {
+        query,
+        strategy: options?.strategy ?? 'auto',
+        max_iterations: options?.maxIterations ?? 3,
+        start_level: options?.startLevel ?? 'SUMMARY',
+      },
+    });
+  }
+
+  /**
+   * Get the status of an ongoing RLM refinement process.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const status = await client.debates.getRefinementStatus('debate-123');
+   * console.log(`Status: ${status.status}, Active queries: ${status.active_queries}`);
+   * ```
+   */
+  async getRefinementStatus(debateId: string): Promise<{
+    debate_id: string;
+    active_queries: number;
+    cached_contexts: number;
+    status: string;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/refinement-status`);
+  }
+
+  // ===========================================================================
+  // Decision Integrity
+  // ===========================================================================
+
+  /**
+   * Get the decision integrity package for a debate.
+   *
+   * Generates a decision receipt and implementation plan bundle
+   * containing audit-ready documentation of the debate outcome.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const pkg = await client.debates.getDecisionIntegrity('debate-123');
+   * console.log(`Receipt: ${pkg.receipt_id}`);
+   * console.log(`Plan steps: ${pkg.implementation_plan?.steps?.length}`);
+   * ```
+   */
+  async getDecisionIntegrity(debateId: string): Promise<{
+    receipt_id: string;
+    debate_id: string;
+    receipt: Record<string, unknown>;
+    implementation_plan: Record<string, unknown>;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/decision-integrity`);
+  }
+
+  // ===========================================================================
+  // Intervention
+  // ===========================================================================
+
+  /**
+   * Inject a user argument or follow-up question into a debate.
+   *
+   * The injected content will be included in the next round's context
+   * and considered by all agents.
+   *
+   * @param debateId - The active debate ID
+   * @param content - The argument or question to inject
+   * @param options - Injection options
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.interventionInject('debate-123', 'Consider the cost implications', {
+   *   type: 'argument',
+   *   source: 'user',
+   * });
+   * console.log(`Injected: ${result.injection_id}, appears in: ${result.will_appear_in}`);
+   * ```
+   */
+  async interventionInject(
+    debateId: string,
+    content: string,
+    options?: {
+      type?: 'argument' | 'follow_up';
+      source?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    debate_id: string;
+    injection_id: string;
+    type: string;
+    message: string;
+    will_appear_in: string;
+  }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/intervention/inject`, {
+      body: {
+        content,
+        type: options?.type ?? 'argument',
+        source: options?.source ?? 'user',
+      },
+    });
+  }
+
+  /**
+   * Get the intervention audit log for a debate.
+   *
+   * Returns all interventions with timestamps for compliance and audit purposes.
+   *
+   * @param debateId - The debate ID
+   * @param limit - Maximum number of log entries to return (default 50)
+   *
+   * @example
+   * ```typescript
+   * const log = await client.debates.interventionLog('debate-123');
+   * console.log(`Total interventions: ${log.total_interventions}`);
+   * for (const entry of log.interventions) {
+   *   console.log(`${entry.timestamp}: ${entry.type}`);
+   * }
+   * ```
+   */
+  async interventionLog(
+    debateId: string,
+    limit: number = 50
+  ): Promise<{
+    debate_id: string;
+    total_interventions: number;
+    interventions: Array<{
+      timestamp: string;
+      debate_id: string;
+      type: string;
+      data: Record<string, unknown>;
+      user_id: string | null;
+    }>;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/intervention/log`, {
+      params: { limit },
+    });
+  }
+
+  /**
+   * Pause an active debate.
+   *
+   * Pausing stops agent responses but preserves all debate state.
+   * The debate can be resumed at any point.
+   *
+   * @param debateId - The active debate ID
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.interventionPause('debate-123');
+   * if (result.success) {
+   *   console.log(`Debate paused at ${result.paused_at}`);
+   * }
+   * ```
+   */
+  async interventionPause(debateId: string): Promise<{
+    success: boolean;
+    debate_id: string;
+    is_paused: boolean;
+    paused_at: string;
+    message: string;
+  }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/intervention/pause`);
+  }
+
+  /**
+   * Resume a paused debate.
+   *
+   * Resumes agent responses from where they left off.
+   *
+   * @param debateId - The paused debate ID
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.interventionResume('debate-123');
+   * if (result.success) {
+   *   console.log(`Debate resumed at ${result.resumed_at}`);
+   *   console.log(`Was paused for ${result.pause_duration_seconds}s`);
+   * }
+   * ```
+   */
+  async interventionResume(debateId: string): Promise<{
+    success: boolean;
+    debate_id: string;
+    is_paused: boolean;
+    resumed_at: string;
+    pause_duration_seconds: number | null;
+    message: string;
+  }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/intervention/resume`);
+  }
+
+  /**
+   * Get the current intervention state for a debate.
+   *
+   * Returns pause status, agent weights, consensus threshold,
+   * and counts of pending injections and follow-ups.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const state = await client.debates.interventionState('debate-123');
+   * console.log(`Paused: ${state.is_paused}`);
+   * console.log(`Threshold: ${state.consensus_threshold}`);
+   * console.log(`Pending injections: ${state.pending_injections}`);
+   * ```
+   */
+  async interventionState(debateId: string): Promise<{
+    debate_id: string;
+    is_paused: boolean;
+    paused_at: string | null;
+    consensus_threshold: number;
+    agent_weights: Record<string, number>;
+    pending_injections: number;
+    pending_follow_ups: number;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/intervention/state`);
+  }
+
+  /**
+   * Update the consensus threshold for a debate.
+   *
+   * Threshold is the minimum agreement level required for consensus:
+   * 0.5 = simple majority, 0.75 = strong majority (default), 1.0 = unanimous.
+   *
+   * @param debateId - The active debate ID
+   * @param threshold - New threshold value (0.5 to 1.0)
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.interventionUpdateThreshold('debate-123', 0.8);
+   * console.log(`Threshold changed from ${result.old_threshold} to ${result.new_threshold}`);
+   * ```
+   */
+  async interventionUpdateThreshold(
+    debateId: string,
+    threshold: number
+  ): Promise<{
+    success: boolean;
+    debate_id: string;
+    old_threshold: number;
+    new_threshold: number;
+    message: string;
+  }> {
+    return this.client.request('PUT', `/api/v1/debates/${debateId}/intervention/threshold`, {
+      body: { threshold },
+    });
+  }
+
+  /**
+   * Update an agent's influence weight in a debate.
+   *
+   * Weight affects how much the agent's vote counts in consensus:
+   * 0.0 = muted, 1.0 = normal influence, 2.0 = double influence.
+   *
+   * @param debateId - The active debate ID
+   * @param agent - Agent name or ID
+   * @param weight - New weight value (0.0 to 2.0)
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.interventionUpdateWeights('debate-123', 'claude', 1.5);
+   * console.log(`${result.agent} weight: ${result.old_weight} -> ${result.new_weight}`);
+   * ```
+   */
+  async interventionUpdateWeights(
+    debateId: string,
+    agent: string,
+    weight: number
+  ): Promise<{
+    success: boolean;
+    debate_id: string;
+    agent: string;
+    old_weight: number;
+    new_weight: number;
+    message: string;
+  }> {
+    return this.client.request('PUT', `/api/v1/debates/${debateId}/intervention/weights`, {
+      body: { agent, weight },
+    });
+  }
 }

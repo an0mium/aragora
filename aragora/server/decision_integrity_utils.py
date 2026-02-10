@@ -354,7 +354,7 @@ async def build_decision_integrity_payload(
 
                         store_plan(plan)
                 except Exception:
-                    pass
+                    logger.debug("Failed to store approved plan", exc_info=True)
             except Exception as exc:
                 logger.debug("Approval request failed: %s", exc)
 

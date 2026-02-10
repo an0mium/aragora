@@ -24,9 +24,12 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import logging
 import math
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Protocol, TypeVar
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -379,6 +382,7 @@ class PowerSampler:
             except asyncio.TimeoutError:
                 return ("", temp, time.time() - start)
             except Exception:
+                logger.debug("Power sampling generation failed at temp=%.2f", temp, exc_info=True)
                 return ("", temp, time.time() - start)
 
         tasks = [generate_one(t) for t in temperatures[: self.config.n_samples]]

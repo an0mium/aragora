@@ -5926,6 +5926,109 @@ export class AragoraClient {
     });
   }
 
+  /**
+   * List pending invitations for the organization.
+   */
+  async listPendingInvites(): Promise<{ invites: Array<{ id: string; email: string; role: string; expires_at: string; created_at: string }> }> {
+    return this.request<{ invites: Array<{ id: string; email: string; role: string; expires_at: string; created_at: string }> }>('GET', '/api/v1/auth/invites');
+  }
+
+  /**
+   * Revoke a pending invitation.
+   */
+  async revokeInvite(inviteId: string): Promise<{ revoked: boolean }> {
+    return this.request<{ revoked: boolean }>('DELETE', `/api/v1/auth/invites/${inviteId}`);
+  }
+
+  /**
+   * Check authentication service health.
+   */
+  async getAuthHealth(): Promise<{ status: string; services: Record<string, string> }> {
+    return this.request<{ status: string; services: Record<string, string> }>('GET', '/api/auth/health');
+  }
+
+  /**
+   * Get the authenticated user's profile via /api/auth/profile.
+   */
+  async getProfile(): Promise<import('./types').User> {
+    return this.request<import('./types').User>('GET', '/api/auth/profile');
+  }
+
+  /**
+   * Combined MFA setup and verification endpoint.
+   */
+  async mfa(request: { action: string; code?: string; method?: string }): Promise<{ status: string; secret?: string; qr_code_uri?: string; backup_codes?: string[] }> {
+    return this.request<{ status: string; secret?: string; qr_code_uri?: string; backup_codes?: string[] }>('POST', '/api/auth/mfa', {
+      body: request,
+    });
+  }
+
+  /**
+   * Get OAuth authorization URL via the authorize endpoint.
+   */
+  async getOAuthAuthorizeUrl(params: { provider: string; redirect_uri?: string; state?: string }): Promise<{ authorization_url: string }> {
+    return this.request<{ authorization_url: string }>('GET', '/api/auth/oauth/authorize', { params });
+  }
+
+  /**
+   * Get OAuth configuration diagnostics.
+   */
+  async getOAuthDiagnostics(): Promise<{ providers: Record<string, unknown>; status: Record<string, string> }> {
+    return this.request<{ providers: Record<string, unknown>; status: Record<string, string> }>('GET', '/api/auth/oauth/diagnostics');
+  }
+
+  /**
+   * Handle OAuth callback with authorization code.
+   */
+  async getOAuthCallback(params: { code: string; state?: string }): Promise<{ access_token: string; user: import('./types').User }> {
+    return this.request<{ access_token: string; user: import('./types').User }>('GET', '/api/auth/oauth/callback', { params });
+  }
+
+  /**
+   * Request a password reset via /api/auth/forgot-password.
+   */
+  async forgotPassword(email: string): Promise<{ sent: boolean }> {
+    return this.request<{ sent: boolean }>('POST', '/api/auth/forgot-password', {
+      body: { email },
+    });
+  }
+
+  /**
+   * Reset password via /api/auth/reset-password.
+   */
+  async resetPasswordAlt(request: { token: string; new_password: string }): Promise<{ reset: boolean }> {
+    return this.request<{ reset: boolean }>('POST', '/api/auth/reset-password', {
+      body: request,
+    });
+  }
+
+  /**
+   * Resend email verification via /api/auth/resend-verification.
+   */
+  async resendVerificationAlt(email?: string): Promise<{ sent: boolean }> {
+    return this.request<{ sent: boolean }>('POST', '/api/auth/resend-verification', {
+      body: email ? { email } : undefined,
+    });
+  }
+
+  /**
+   * Check invitation validity via /api/auth/check-invite.
+   */
+  async checkInviteAlt(token: string): Promise<{ valid: boolean; email: string; organization_id: string; role: string; expires_at: number }> {
+    return this.request<{ valid: boolean; email: string; organization_id: string; role: string; expires_at: number }>('GET', '/api/auth/check-invite', {
+      params: { token },
+    });
+  }
+
+  /**
+   * Accept a team invitation via /api/auth/accept-invite.
+   */
+  async acceptInviteAlt(token: string): Promise<{ organization_id: string; role: string }> {
+    return this.request<{ organization_id: string; role: string }>('POST', '/api/auth/accept-invite', {
+      body: { token },
+    });
+  }
+
   // ===========================================================================
   // Admin
   // ===========================================================================

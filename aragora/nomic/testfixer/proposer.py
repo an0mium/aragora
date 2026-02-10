@@ -93,6 +93,7 @@ class FilePatch:
             full_path.write_text(self.patched_content)
             return True
         except Exception:
+            logger.warning("Failed to apply patch to %s", self.file_path, exc_info=True)
             return False
 
     def revert(self, repo_path: Path) -> bool:
@@ -109,6 +110,7 @@ class FilePatch:
             full_path.write_text(self.original_content)
             return True
         except Exception:
+            logger.warning("Failed to revert patch for %s", self.file_path, exc_info=True)
             return False
 
 
@@ -417,6 +419,7 @@ class SimpleCodeGenerator:
                         try:
                             content = py_file.read_text()
                         except Exception:
+                            logger.debug("Failed to read %s, skipping import search", py_file)
                             continue
                         if re.search(rf"\b{re.escape(symbol)}\b", content):
                             candidate_module = py_file.stem

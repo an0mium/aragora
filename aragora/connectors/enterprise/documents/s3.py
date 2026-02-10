@@ -257,8 +257,9 @@ class S3Connector(EnterpriseConnector):
         items_processed = 0
         last_modified_cutoff = state.last_item_timestamp
 
+        _max_pages = 1000
         try:
-            while True:
+            for _page_guard in range(_max_pages):
                 # List objects
                 response = await asyncio.get_running_loop().run_in_executor(
                     None, lambda: client.list_objects_v2(**list_kwargs)
@@ -339,6 +340,8 @@ class S3Connector(EnterpriseConnector):
                 else:
                     state.cursor = None
                     break
+            else:
+                logger.warning("Pagination limit reached (%d pages)", _max_pages)
 
         except (OSError, ValueError, KeyError) as e:
             logger.error(f"S3 sync failed: {e}")

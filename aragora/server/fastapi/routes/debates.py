@@ -39,8 +39,7 @@ class DebateSummary(BaseModel):
     agent_count: int = 0
     has_consensus: bool = False
 
-    class Config:
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 class DebateListResponse(BaseModel):
@@ -67,8 +66,7 @@ class DebateDetail(BaseModel):
     updated_at: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 class MessageResponse(BaseModel):

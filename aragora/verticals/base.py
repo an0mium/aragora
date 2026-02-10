@@ -261,6 +261,7 @@ class VerticalSpecialistAgent(APIAgent):
                 and settings.integration.vertical_tool_audit_enabled
             )
         except Exception:
+            logger.debug("Settings unavailable for tool audit check", exc_info=True)
             return False
 
     async def _record_tool_audit(

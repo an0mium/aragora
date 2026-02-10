@@ -480,7 +480,7 @@ class DebateFactory:
             try:
                 specialist.system_prompt = specialist.build_system_prompt()
             except Exception:
-                pass
+                logger.debug("Failed to build system prompt for specialist %s", vertical_id, exc_info=True)
             agent_result.agents.append(specialist)
             logger.info("Injected vertical specialist: %s", vertical_id)
         except Exception as e:

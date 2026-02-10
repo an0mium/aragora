@@ -87,6 +87,28 @@ class SynthesisGenerator:
         synthesis = None
         synthesis_source = "opus"
 
+        # In offline/demo mode (or when explicitly disabled), avoid attempting
+        # network-backed synthesis models. Always produce a synthesis by
+        # combining proposals.
+        from aragora.utils.env import is_offline_mode
+
+        if is_offline_mode() or not getattr(self.protocol, "enable_llm_synthesis", True):
+            synthesis = self._combine_proposals_as_synthesis(ctx)
+            synthesis_source = "combined"
+
+        if synthesis:
+            # Store synthesis in result
+            ctx.result.synthesis = synthesis
+            ctx.result.final_answer = synthesis
+
+            # Emit explicit synthesis event (guaranteed delivery)
+            self._emit_synthesis_events(ctx, synthesis, synthesis_source)
+
+            # Generate export download links for aragora.ai debates
+            self._generate_export_links(ctx)
+
+            return True
+
         # Try 1: Claude Opus 4.5
         try:
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent

@@ -410,7 +410,7 @@ Include proper type hints and docstrings.""",
                             )
                         )
                     except Exception:
-                        pass
+                        logger.debug("Failed to track usage for task %s", next_task.id, exc_info=True)
                     await self.fabric.complete_task(next_task.id, result=result)
                     if on_task_complete:
                         on_task_complete(next_task.id, result)

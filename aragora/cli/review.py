@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -28,6 +29,8 @@ from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.config.settings import DebateSettings, AgentSettings
+
+logger = logging.getLogger(__name__)
 
 # Default agents for code review (fast, diverse perspectives)
 DEFAULT_REVIEW_AGENTS = AgentSettings().default_agents
@@ -439,6 +442,246 @@ def format_github_comment(result: DebateResult | None, findings: dict[str, Any])
     return "\n".join(lines)
 
 
+def findings_to_sarif(findings: dict, tool_name: str = "Aragora Review") -> dict:
+    """Convert review findings to SARIF 2.1.0 format.
+
+    Transforms the structured review findings into a SARIF document suitable
+    for upload to GitHub Security tab, Azure DevOps, or other SARIF consumers.
+
+    Args:
+        findings: Review findings dict from extract_review_findings or get_demo_findings
+        tool_name: Name of the tool for the SARIF driver entry
+
+    Returns:
+        SARIF 2.1.0 dictionary
+    """
+    sarif_level_map = {
+        "CRITICAL": "error",
+        "HIGH": "error",
+        "MEDIUM": "warning",
+        "LOW": "note",
+    }
+
+    sarif_severity_map = {
+        "CRITICAL": "9.0",
+        "HIGH": "7.0",
+        "MEDIUM": "4.0",
+        "LOW": "1.0",
+    }
+
+    rules: list[dict[str, Any]] = []
+    rule_ids: dict[str, int] = {}
+    results: list[dict[str, Any]] = []
+
+    # Collect all issues across severity levels
+    severity_buckets = [
+        ("CRITICAL", findings.get("critical_issues", [])),
+        ("HIGH", findings.get("high_issues", [])),
+        ("MEDIUM", findings.get("medium_issues", [])),
+        ("LOW", findings.get("low_issues", [])),
+    ]
+
+    for severity, issues in severity_buckets:
+        for issue in issues:
+            # Determine category from issue data
+            agent = issue.get("agent", "unknown")
+            issue_text = issue.get("issue", "")
+            target = issue.get("target", "")
+
+            # Create or reuse rule
+            category = f"review/{severity.lower()}"
+            if category not in rule_ids:
+                rule_id = f"ARAGORA-REVIEW-{len(rule_ids) + 1:03d}"
+                rule_ids[category] = len(rules)
+                rules.append(
+                    {
+                        "id": rule_id,
+                        "name": f"CodeReview{severity.title()}",
+                        "shortDescription": {"text": f"Aragora Review: {severity} severity finding"},
+                        "helpUri": "https://aragora.ai/docs/review",
+                        "properties": {
+                            "security-severity": sarif_severity_map.get(severity, "4.0"),
+                            "tags": ["code-review", "aragora", severity.lower()],
+                        },
+                    }
+                )
+
+            rule_idx = rule_ids[category]
+            rule_id = rules[rule_idx]["id"]
+
+            # Build location from target if available
+            location: dict[str, Any] = {
+                "physicalLocation": {
+                    "artifactLocation": {
+                        "uri": target if target else "review-input",
+                        "uriBaseId": "SRCROOT",
+                    }
+                }
+            }
+
+            result_entry: dict[str, Any] = {
+                "ruleId": rule_id,
+                "ruleIndex": rule_idx,
+                "level": sarif_level_map.get(severity, "warning"),
+                "message": {"text": issue_text},
+                "locations": [location],
+                "fingerprints": {
+                    "aragora/v1": hashlib.sha256(
+                        f"{severity}:{issue_text}:{target}".encode()
+                    ).hexdigest()[:32]
+                },
+                "properties": {
+                    "agent": agent,
+                    "severity": severity,
+                },
+            }
+
+            # Add suggestions if present
+            suggestions = issue.get("suggestions", [])
+            if suggestions:
+                result_entry["fixes"] = [
+                    {"description": {"text": s}} for s in suggestions[:3]
+                ]
+
+            results.append(result_entry)
+
+    # Add unanimous critiques as results too
+    for critique_text in findings.get("unanimous_critiques", []):
+        category = "review/unanimous"
+        if category not in rule_ids:
+            rule_id = f"ARAGORA-REVIEW-{len(rule_ids) + 1:03d}"
+            rule_ids[category] = len(rules)
+            rules.append(
+                {
+                    "id": rule_id,
+                    "name": "UnanimousFinding",
+                    "shortDescription": {"text": "Aragora Review: Unanimous agent agreement"},
+                    "helpUri": "https://aragora.ai/docs/review",
+                    "properties": {
+                        "security-severity": "7.0",
+                        "tags": ["code-review", "aragora", "unanimous"],
+                    },
+                }
+            )
+
+        rule_idx = rule_ids[category]
+        rule_id = rules[rule_idx]["id"]
+
+        results.append(
+            {
+                "ruleId": rule_id,
+                "ruleIndex": rule_idx,
+                "level": "error",
+                "message": {"text": critique_text},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": "review-input",
+                                "uriBaseId": "SRCROOT",
+                            }
+                        }
+                    }
+                ],
+                "fingerprints": {
+                    "aragora/v1": hashlib.sha256(
+                        f"unanimous:{critique_text}".encode()
+                    ).hexdigest()[:32]
+                },
+                "properties": {
+                    "unanimous": True,
+                },
+            }
+        )
+
+    sarif = {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": tool_name,
+                        "version": "1.0.0",
+                        "informationUri": "https://aragora.ai/review",
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+            }
+        ],
+    }
+
+    return sarif
+
+
+async def run_gauntlet_on_diff(
+    diff: str,
+    findings: dict,
+    agents_str: str = "anthropic-api,openai-api",
+) -> dict:
+    """Run gauntlet adversarial stress-test on the review content.
+
+    Uses the CODE_REVIEW gauntlet template for adversarial validation
+    of the code diff, then returns combined findings.
+
+    Args:
+        diff: The code diff content
+        findings: Existing review findings to merge with
+        agents_str: Comma-separated agent names
+
+    Returns:
+        Updated findings dict with gauntlet results merged in
+    """
+    from aragora.gauntlet.templates import GauntletTemplate, get_template
+    from aragora.gauntlet.runner import GauntletRunner
+
+    # Get the code review template config
+    config = get_template(GauntletTemplate.CODE_REVIEW)
+
+    # Override agents with what the user has configured
+    config.agents = [a.strip() for a in agents_str.split(",") if a.strip()]
+
+    # Run the gauntlet
+    runner = GauntletRunner(config=config)
+    gauntlet_result = await runner.run(
+        input_content=diff,
+        context="Code review diff - adversarial stress test",
+    )
+
+    # Merge gauntlet vulnerabilities into findings
+    gauntlet_findings = {
+        "gauntlet_id": gauntlet_result.gauntlet_id,
+        "gauntlet_verdict": gauntlet_result.verdict.value if hasattr(gauntlet_result.verdict, "value") else str(gauntlet_result.verdict),
+        "gauntlet_robustness": gauntlet_result.attack_summary.robustness_score if gauntlet_result.attack_summary else 0.0,
+        "gauntlet_vulnerabilities": [],
+    }
+
+    for vuln in gauntlet_result.vulnerabilities:
+        severity = vuln.severity.value.upper() if hasattr(vuln.severity, "value") else str(vuln.severity).upper()
+        vuln_data = {
+            "agent": vuln.agent_name or vuln.source,
+            "issue": vuln.description,
+            "target": vuln.category,
+            "suggestions": [vuln.mitigation] if vuln.mitigation else [],
+        }
+
+        gauntlet_findings["gauntlet_vulnerabilities"].append(vuln.to_dict())
+
+        # Merge into appropriate severity bucket
+        if severity == "CRITICAL":
+            findings.setdefault("critical_issues", []).append(vuln_data)
+        elif severity == "HIGH":
+            findings.setdefault("high_issues", []).append(vuln_data)
+        elif severity == "MEDIUM":
+            findings.setdefault("medium_issues", []).append(vuln_data)
+        else:
+            findings.setdefault("low_issues", []).append(vuln_data)
+
+    findings["gauntlet"] = gauntlet_findings
+    return findings
+
+
 def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command."""
 
@@ -457,8 +700,6 @@ def cmd_review(args: argparse.Namespace) -> int:
                 (output_dir / "comment.md").write_text(comment)
             print(comment)
         elif args.output_format == "json":
-            import json
-
             output = {
                 "demo_mode": True,
                 "unanimous_critiques": findings["unanimous_critiques"],
@@ -477,6 +718,19 @@ def cmd_review(args: argparse.Namespace) -> int:
         else:
             print("Demo mode only supports github and json output formats", file=sys.stderr)
             return 1
+
+        # Generate SARIF output in demo mode if requested
+        sarif_output = getattr(args, "sarif", None)
+        if sarif_output is not None:
+            sarif_path = Path(sarif_output) if sarif_output else Path("review-results.sarif")
+            try:
+                sarif_data = findings_to_sarif(findings)
+                sarif_json = json.dumps(sarif_data, indent=2)
+                sarif_path.parent.mkdir(parents=True, exist_ok=True)
+                sarif_path.write_text(sarif_json)
+                print(f"SARIF output written to: {sarif_path}", file=sys.stderr)
+            except Exception as e:
+                print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
 
         print("\n---", file=sys.stderr)
         print("This was a demo. To run a real review, configure API keys:", file=sys.stderr)
@@ -618,8 +872,6 @@ def cmd_review(args: argparse.Namespace) -> int:
         print(comment)
 
     elif args.output_format == "json":
-        import json
-
         # Convert to JSON-serializable format
         output = {
             "unanimous_critiques": findings["unanimous_critiques"],
@@ -656,6 +908,43 @@ def cmd_review(args: argparse.Namespace) -> int:
         except ImportError:
             print("Error: HTML export not available", file=sys.stderr)
             return 1
+
+    # Run gauntlet adversarial stress-test if requested
+    if getattr(args, "gauntlet", False):
+        print("Running gauntlet adversarial stress-test...", file=sys.stderr)
+        try:
+            findings = asyncio.run(
+                run_gauntlet_on_diff(
+                    diff=diff,
+                    findings=findings,
+                    agents_str=agents_str,
+                )
+            )
+            gauntlet_info = findings.get("gauntlet", {})
+            gauntlet_verdict = gauntlet_info.get("gauntlet_verdict", "unknown")
+            gauntlet_vulns = len(gauntlet_info.get("gauntlet_vulnerabilities", []))
+            print(
+                f"Gauntlet complete: verdict={gauntlet_verdict}, "
+                f"vulnerabilities={gauntlet_vulns}",
+                file=sys.stderr,
+            )
+        except Exception as e:
+            print(f"Warning: Gauntlet stress-test failed: {e}", file=sys.stderr)
+            logger.debug("Gauntlet error details", exc_info=True)
+
+    # Generate SARIF output if requested
+    sarif_output = getattr(args, "sarif", None)
+    if sarif_output is not None:
+        sarif_path = Path(sarif_output) if sarif_output else Path("review-results.sarif")
+        try:
+            sarif_data = findings_to_sarif(findings)
+            sarif_json = json.dumps(sarif_data, indent=2)
+            sarif_path.parent.mkdir(parents=True, exist_ok=True)
+            sarif_path.write_text(sarif_json)
+            print(f"SARIF output written to: {sarif_path}", file=sys.stderr)
+        except Exception as e:
+            print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
+            logger.debug("SARIF export error details", exc_info=True)
 
     return 0
 
@@ -708,6 +997,24 @@ def create_review_parser(subparsers) -> None:
     parser.add_argument(
         "--output-dir",
         help="Directory to save output artifacts",
+    )
+
+    parser.add_argument(
+        "--sarif",
+        nargs="?",
+        const="review-results.sarif",
+        default=None,
+        metavar="PATH",
+        help="Export findings as SARIF 2.1.0 (default: review-results.sarif). "
+        "Integrates with GitHub Security tab when used in CI.",
+    )
+
+    parser.add_argument(
+        "--gauntlet",
+        action="store_true",
+        default=False,
+        help="Run adversarial gauntlet stress-test after review debate. "
+        "Uses the CODE_REVIEW gauntlet template for deeper vulnerability analysis.",
     )
 
     parser.add_argument(

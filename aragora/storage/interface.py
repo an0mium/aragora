@@ -582,7 +582,7 @@ class RedisStoreMixin:
             try:
                 self._redis_client.close()
             except Exception:
-                pass
+                logger.debug("Failed to close Redis client", exc_info=True)
 
 
 __all__ = [

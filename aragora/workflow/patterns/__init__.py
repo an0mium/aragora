@@ -39,6 +39,7 @@ from aragora.workflow.patterns.map_reduce import MapReducePattern
 from aragora.workflow.patterns.hierarchical import HierarchicalPattern
 from aragora.workflow.patterns.review_cycle import ReviewCyclePattern
 from aragora.workflow.patterns.dialectic import DialecticPattern
+from aragora.workflow.patterns.ensemble import EnsemblePattern
 from aragora.workflow.patterns.post_debate import (
     PostDebatePattern,
     PostDebateConfig,
@@ -53,6 +54,7 @@ PATTERN_REGISTRY = {
     PatternType.HIERARCHICAL: HierarchicalPattern,
     PatternType.REVIEW_CYCLE: ReviewCyclePattern,
     PatternType.DIALECTIC: DialecticPattern,
+    PatternType.ENSEMBLE: EnsemblePattern,
 }
 
 
@@ -85,6 +87,7 @@ __all__ = [
     "HierarchicalPattern",
     "ReviewCyclePattern",
     "DialecticPattern",
+    "EnsemblePattern",
     "PostDebatePattern",
     "PostDebateConfig",
     "get_default_post_debate_workflow",

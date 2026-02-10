@@ -115,6 +115,106 @@ export interface RouteMessageOptions {
 }
 
 /**
+ * Gateway agent information.
+ */
+export interface GatewayAgent {
+  /** Agent name */
+  name: string;
+  /** Agent type */
+  type: string;
+  /** Agent status */
+  status: 'active' | 'inactive' | 'error';
+  /** Supported channels */
+  channels?: string[];
+  /** Agent capabilities */
+  capabilities?: string[];
+  /** Last health check time */
+  last_health_check?: string;
+  /** Registration time */
+  registered_at: string;
+}
+
+/**
+ * Gateway credential metadata (no secrets).
+ */
+export interface GatewayCredential {
+  /** Credential ID */
+  id: string;
+  /** Credential name */
+  name: string;
+  /** Credential type */
+  type: string;
+  /** Creation time */
+  created_at: string;
+  /** Last rotation time */
+  last_rotated?: string;
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for creating a credential.
+ */
+export interface CreateCredentialOptions {
+  /** Credential name */
+  name: string;
+  /** Credential type (api_key, oauth_token, etc.) */
+  type: string;
+  /** Credential value (encrypted at rest) */
+  value: string;
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for creating a routing rule.
+ */
+export interface CreateRoutingRuleOptions {
+  /** Channel to apply the rule to */
+  channel: string;
+  /** Message matching pattern (regex supported) */
+  pattern: string;
+  /** Target agent for matched messages */
+  agentId: string;
+  /** Rule evaluation priority (lower is higher) */
+  priority?: number;
+  /** Whether the rule is active */
+  enabled?: boolean;
+}
+
+/**
+ * Options for sending a message.
+ */
+export interface SendMessageOptions {
+  /** Target channel for routing */
+  channel: string;
+  /** Message content to route */
+  content: string;
+  /** Additional message metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Gateway message information.
+ */
+export interface GatewayMessage {
+  /** Message ID */
+  message_id: string;
+  /** Target channel */
+  channel: string;
+  /** Message content */
+  content: string;
+  /** Delivery status */
+  status: 'pending' | 'routed' | 'delivered' | 'failed';
+  /** Agent the message was routed to */
+  agent_id?: string;
+  /** Routing rule that matched */
+  rule_id?: string;
+  /** Creation time */
+  created_at: string;
+}
+
+/**
  * Client interface for making HTTP requests.
  */
 interface GatewayClientInterface {
@@ -308,5 +408,210 @@ export class GatewayAPI {
         content: options.content,
       },
     });
+  }
+
+  // =========================================================================
+  // Gateway Health
+  // =========================================================================
+
+  /**
+   * Check gateway health status.
+   *
+   * @returns Gateway health status and component details
+   */
+  async health(): Promise<{
+    status: string;
+    components: Record<string, { status: string; latency_ms?: number }>;
+  }> {
+    return this.client.request('GET', '/api/v1/gateway/health');
+  }
+
+  // =========================================================================
+  // Agents
+  // =========================================================================
+
+  /**
+   * List registered gateway agents.
+   *
+   * @returns List of agents with total count
+   */
+  async listAgents(): Promise<{
+    agents: GatewayAgent[];
+    total: number;
+  }> {
+    return this.client.request('GET', '/api/v1/gateway/agents');
+  }
+
+  /**
+   * Get details for a specific gateway agent.
+   *
+   * @param agentName - Agent name or identifier
+   * @returns Agent information
+   */
+  async getAgent(agentName: string): Promise<{
+    agent: GatewayAgent;
+  }> {
+    return this.client.request('GET', `/api/v1/gateway/agents/${agentName}`);
+  }
+
+  /**
+   * Check health of a specific gateway agent.
+   *
+   * @param agentName - Agent name or identifier
+   * @returns Agent health status
+   */
+  async getAgentHealth(agentName: string): Promise<{
+    status: string;
+    agent: string;
+    latency_ms?: number;
+    last_check: string;
+  }> {
+    return this.client.request('GET', `/api/v1/gateway/agents/${agentName}/health`);
+  }
+
+  // =========================================================================
+  // Credentials
+  // =========================================================================
+
+  /**
+   * List stored credentials (metadata only, no secrets).
+   *
+   * @returns List of credentials with total count
+   */
+  async listCredentials(): Promise<{
+    credentials: GatewayCredential[];
+    total: number;
+  }> {
+    return this.client.request('GET', '/api/v1/gateway/credentials');
+  }
+
+  /**
+   * Store a new credential in the gateway.
+   *
+   * @param options - Credential creation options
+   * @returns Created credential ID and success message
+   */
+  async createCredential(options: CreateCredentialOptions): Promise<{
+    credential_id: string;
+    message: string;
+  }> {
+    const data: Record<string, unknown> = {
+      name: options.name,
+      type: options.type,
+      value: options.value,
+    };
+    if (options.metadata) data.metadata = options.metadata;
+
+    return this.client.request('POST', '/api/v1/gateway/credentials', {
+      json: data,
+    });
+  }
+
+  /**
+   * Delete a stored credential.
+   *
+   * @param credentialId - Credential ID to delete
+   * @returns Success message
+   */
+  async deleteCredential(credentialId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.client.request('DELETE', `/api/v1/gateway/credentials/${credentialId}`);
+  }
+
+  // =========================================================================
+  // Messages (extended)
+  // =========================================================================
+
+  /**
+   * Submit a message to the gateway for routing.
+   *
+   * @param options - Message options including channel, content, and optional metadata
+   * @returns Routing result with agent and rule information
+   */
+  async sendMessage(options: SendMessageOptions): Promise<{
+    routed: boolean;
+    agent_id: string;
+    rule_id?: string;
+    message_id: string;
+  }> {
+    const data: Record<string, unknown> = {
+      channel: options.channel,
+      content: options.content,
+    };
+    if (options.metadata) data.metadata = options.metadata;
+
+    return this.client.request('POST', '/api/v1/gateway/messages', {
+      json: data,
+    });
+  }
+
+  /**
+   * Get details for a specific routed message.
+   *
+   * @param messageId - Message ID
+   * @returns Message details and routing information
+   */
+  async getMessage(messageId: string): Promise<{
+    message: GatewayMessage;
+  }> {
+    return this.client.request('GET', `/api/v1/gateway/messages/${messageId}`);
+  }
+
+  // =========================================================================
+  // Routing (extended)
+  // =========================================================================
+
+  /**
+   * List routing rules with statistics.
+   *
+   * @returns List of routing rules with total count and aggregate stats
+   */
+  async listRouting(): Promise<{
+    rules: RoutingRule[];
+    total: number;
+    stats: {
+      total_rules: number;
+      messages_routed: number;
+      routing_errors: number;
+    };
+  }> {
+    return this.client.request('GET', '/api/v1/gateway/routing');
+  }
+
+  /**
+   * Create a new routing rule.
+   *
+   * @param options - Routing rule creation options
+   * @returns Created rule and success message
+   */
+  async createRoutingRule(options: CreateRoutingRuleOptions): Promise<{
+    rule: RoutingRule;
+    message: string;
+  }> {
+    const data: Record<string, unknown> = {
+      channel: options.channel,
+      pattern: options.pattern,
+      agent_id: options.agentId,
+      enabled: options.enabled ?? true,
+    };
+    if (options.priority !== undefined) data.priority = options.priority;
+
+    return this.client.request('POST', '/api/v1/gateway/routing', {
+      json: data,
+    });
+  }
+
+  /**
+   * Get details for a specific routing rule.
+   *
+   * @param routeId - Routing rule ID
+   * @returns Routing rule details
+   */
+  async getRoutingRule(routeId: string): Promise<{
+    rule: RoutingRule;
+  }> {
+    return this.client.request('GET', `/api/v1/gateway/routing/${routeId}`);
   }
 }

@@ -546,6 +546,261 @@ class AuthAPI:
         """
         return self._client.request("DELETE", f"/api/v1/auth/invites/{invite_id}")
 
+    # ===========================================================================
+    # Auth Health
+    # ===========================================================================
+
+    def health(self) -> dict[str, Any]:
+        """
+        Check authentication service health.
+
+        Returns:
+            Dict with status and service health details
+        """
+        return self._client.request("GET", "/api/auth/health")
+
+    # ===========================================================================
+    # Profile (alternative endpoint)
+    # ===========================================================================
+
+    def get_profile(self) -> dict[str, Any]:
+        """
+        Get the authenticated user's profile.
+
+        Alternative to get_current_user(), uses /api/auth/profile endpoint.
+
+        Returns:
+            Dict with user profile information
+        """
+        return self._client.request("GET", "/api/auth/profile")
+
+    # ===========================================================================
+    # MFA (combined endpoint)
+    # ===========================================================================
+
+    def mfa(
+        self,
+        action: str = "setup",
+        code: str | None = None,
+        method: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Combined MFA setup and verification endpoint.
+
+        Args:
+            action: MFA action (setup, verify, enable, disable)
+            code: MFA code for verify/enable actions
+            method: MFA method for setup (totp, hotp)
+
+        Returns:
+            Dict with MFA operation result
+        """
+        data: dict[str, Any] = {"action": action}
+        if code:
+            data["code"] = code
+        if method:
+            data["method"] = method
+
+        return self._client.request("POST", "/api/auth/mfa", json=data)
+
+    # ===========================================================================
+    # OAuth (additional endpoints)
+    # ===========================================================================
+
+    def get_oauth_authorize_url(
+        self,
+        provider: str,
+        redirect_uri: str | None = None,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get OAuth authorization URL via the authorize endpoint.
+
+        Args:
+            provider: OAuth provider (google, github, microsoft)
+            redirect_uri: Callback URL
+            state: CSRF state parameter
+
+        Returns:
+            Dict with authorization_url
+        """
+        params: dict[str, str] = {"provider": provider}
+        if redirect_uri:
+            params["redirect_uri"] = redirect_uri
+        if state:
+            params["state"] = state
+
+        return self._client.request(
+            "GET", "/api/auth/oauth/authorize", params=params
+        )
+
+    def get_oauth_diagnostics(self) -> dict[str, Any]:
+        """
+        Get OAuth configuration diagnostics.
+
+        Returns diagnostic information about OAuth provider configuration,
+        useful for troubleshooting authentication issues.
+
+        Returns:
+            Dict with provider configs, status, and diagnostic details
+        """
+        return self._client.request("GET", "/api/auth/oauth/diagnostics")
+
+    def get_oauth_callback(
+        self,
+        code: str,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Handle OAuth callback with authorization code.
+
+        Args:
+            code: Authorization code from OAuth provider
+            state: CSRF state parameter
+
+        Returns:
+            Dict with access_token and user info
+        """
+        params: dict[str, str] = {"code": code}
+        if state:
+            params["state"] = state
+
+        return self._client.request(
+            "GET", "/api/auth/oauth/callback", params=params
+        )
+
+    # ===========================================================================
+    # Password (alternative endpoints)
+    # ===========================================================================
+
+    def forgot_password(self, email: str) -> dict[str, Any]:
+        """
+        Request a password reset via the forgot-password endpoint.
+
+        Alternative to request_password_reset(), uses /api/auth/forgot-password.
+
+        Args:
+            email: Email address to send reset link to
+
+        Returns:
+            Dict with success status
+        """
+        return self._client.request(
+            "POST",
+            "/api/auth/forgot-password",
+            json={"email": email},
+        )
+
+    def reset_password_alt(self, token: str, new_password: str) -> dict[str, Any]:
+        """
+        Reset password via the reset-password endpoint.
+
+        Alternative to reset_password(), uses /api/auth/reset-password.
+
+        Args:
+            token: Password reset token from email
+            new_password: New password
+
+        Returns:
+            Dict with success status
+        """
+        return self._client.request(
+            "POST",
+            "/api/auth/reset-password",
+            json={"token": token, "new_password": new_password},
+        )
+
+    # ===========================================================================
+    # Verification (alternative endpoint)
+    # ===========================================================================
+
+    def resend_verification_alt(self, email: str | None = None) -> dict[str, Any]:
+        """
+        Resend email verification via the resend-verification endpoint.
+
+        Alternative to resend_verification(), uses /api/auth/resend-verification.
+
+        Args:
+            email: Optional email address
+
+        Returns:
+            Dict with success status
+        """
+        data: dict[str, Any] = {}
+        if email:
+            data["email"] = email
+
+        return self._client.request(
+            "POST", "/api/auth/resend-verification", json=data
+        )
+
+    # ===========================================================================
+    # Invitations (alternative endpoints)
+    # ===========================================================================
+
+    def check_invite_alt(self, token: str) -> dict[str, Any]:
+        """
+        Check invitation validity via the check-invite endpoint.
+
+        Alternative to check_invite(), uses /api/auth/check-invite.
+
+        Args:
+            token: Invitation token
+
+        Returns:
+            Dict with valid, email, organization_id, role, expires_at
+        """
+        return self._client.request(
+            "GET",
+            "/api/auth/check-invite",
+            params={"token": token},
+        )
+
+    def accept_invite_alt(self, token: str) -> dict[str, Any]:
+        """
+        Accept a team invitation via the accept-invite endpoint.
+
+        Alternative to accept_invite(), uses /api/auth/accept-invite.
+
+        Args:
+            token: Invitation token
+
+        Returns:
+            Dict with organization_id and role
+        """
+        return self._client.request(
+            "POST",
+            "/api/auth/accept-invite",
+            json={"token": token},
+        )
+
+    # ===========================================================================
+    # Organization Setup
+    # ===========================================================================
+
+    def setup_organization(
+        self,
+        name: str,
+        slug: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Set up a new organization after registration.
+
+        Args:
+            name: Organization name
+            slug: Optional URL-friendly slug
+
+        Returns:
+            Dict with organization details
+        """
+        data: dict[str, Any] = {"name": name}
+        if slug:
+            data["slug"] = slug
+
+        return self._client.request(
+            "POST", "/api/auth/setup-organization", json=data
+        )
+
 
 class AsyncAuthAPI:
     """
@@ -836,3 +1091,153 @@ class AsyncAuthAPI:
     async def revoke_invite(self, invite_id: str) -> dict[str, Any]:
         """Revoke a pending invitation."""
         return await self._client.request("DELETE", f"/api/v1/auth/invites/{invite_id}")
+
+    # ===========================================================================
+    # Auth Health
+    # ===========================================================================
+
+    async def health(self) -> dict[str, Any]:
+        """Check authentication service health."""
+        return await self._client.request("GET", "/api/auth/health")
+
+    # ===========================================================================
+    # Profile (alternative endpoint)
+    # ===========================================================================
+
+    async def get_profile(self) -> dict[str, Any]:
+        """Get the authenticated user's profile via /api/auth/profile."""
+        return await self._client.request("GET", "/api/auth/profile")
+
+    # ===========================================================================
+    # MFA (combined endpoint)
+    # ===========================================================================
+
+    async def mfa(
+        self,
+        action: str = "setup",
+        code: str | None = None,
+        method: str | None = None,
+    ) -> dict[str, Any]:
+        """Combined MFA setup and verification endpoint."""
+        data: dict[str, Any] = {"action": action}
+        if code:
+            data["code"] = code
+        if method:
+            data["method"] = method
+
+        return await self._client.request("POST", "/api/auth/mfa", json=data)
+
+    # ===========================================================================
+    # OAuth (additional endpoints)
+    # ===========================================================================
+
+    async def get_oauth_authorize_url(
+        self,
+        provider: str,
+        redirect_uri: str | None = None,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get OAuth authorization URL via the authorize endpoint."""
+        params: dict[str, str] = {"provider": provider}
+        if redirect_uri:
+            params["redirect_uri"] = redirect_uri
+        if state:
+            params["state"] = state
+
+        return await self._client.request(
+            "GET", "/api/auth/oauth/authorize", params=params
+        )
+
+    async def get_oauth_diagnostics(self) -> dict[str, Any]:
+        """Get OAuth configuration diagnostics."""
+        return await self._client.request("GET", "/api/auth/oauth/diagnostics")
+
+    async def get_oauth_callback(
+        self,
+        code: str,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """Handle OAuth callback with authorization code."""
+        params: dict[str, str] = {"code": code}
+        if state:
+            params["state"] = state
+
+        return await self._client.request(
+            "GET", "/api/auth/oauth/callback", params=params
+        )
+
+    # ===========================================================================
+    # Password (alternative endpoints)
+    # ===========================================================================
+
+    async def forgot_password(self, email: str) -> dict[str, Any]:
+        """Request a password reset via /api/auth/forgot-password."""
+        return await self._client.request(
+            "POST",
+            "/api/auth/forgot-password",
+            json={"email": email},
+        )
+
+    async def reset_password_alt(
+        self, token: str, new_password: str
+    ) -> dict[str, Any]:
+        """Reset password via /api/auth/reset-password."""
+        return await self._client.request(
+            "POST",
+            "/api/auth/reset-password",
+            json={"token": token, "new_password": new_password},
+        )
+
+    # ===========================================================================
+    # Verification (alternative endpoint)
+    # ===========================================================================
+
+    async def resend_verification_alt(
+        self, email: str | None = None
+    ) -> dict[str, Any]:
+        """Resend email verification via /api/auth/resend-verification."""
+        data: dict[str, Any] = {}
+        if email:
+            data["email"] = email
+
+        return await self._client.request(
+            "POST", "/api/auth/resend-verification", json=data
+        )
+
+    # ===========================================================================
+    # Invitations (alternative endpoints)
+    # ===========================================================================
+
+    async def check_invite_alt(self, token: str) -> dict[str, Any]:
+        """Check invitation validity via /api/auth/check-invite."""
+        return await self._client.request(
+            "GET",
+            "/api/auth/check-invite",
+            params={"token": token},
+        )
+
+    async def accept_invite_alt(self, token: str) -> dict[str, Any]:
+        """Accept a team invitation via /api/auth/accept-invite."""
+        return await self._client.request(
+            "POST",
+            "/api/auth/accept-invite",
+            json={"token": token},
+        )
+
+    # ===========================================================================
+    # Organization Setup
+    # ===========================================================================
+
+    async def setup_organization(
+        self,
+        name: str,
+        slug: str | None = None,
+    ) -> dict[str, Any]:
+        """Set up a new organization after registration."""
+        data: dict[str, Any] = {"name": name}
+        if slug:
+            data["slug"] = slug
+
+        return await self._client.request(
+            "POST", "/api/auth/setup-organization", json=data
+        )

@@ -238,7 +238,7 @@ class QueryOperationsMixin(_QueryMixinBase):
 
                     record_lara_route(route_decision.route)
                 except Exception:
-                    pass
+                    logger.debug("Failed to record LaRA route metric", exc_info=True)
 
             # Check cache first (include offset in cache key)
             cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}:{route_key}"
@@ -387,6 +387,7 @@ class QueryOperationsMixin(_QueryMixinBase):
             try:
                 supports_rlm = bool(rlm_check())
             except Exception:
+                logger.debug("RLM availability check failed, disabling RLM routing", exc_info=True)
                 supports_rlm = False
 
         router = LaRARouter(

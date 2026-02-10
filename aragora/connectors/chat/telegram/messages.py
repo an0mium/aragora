@@ -22,20 +22,6 @@ logger = logging.getLogger(__name__)
 class TelegramMessagesMixin:
     """Mixin providing message operations for TelegramConnector."""
 
-    # These are provided by TelegramConnectorBase
-    parse_mode: str
-
-    async def _telegram_api_request(
-        self,
-        endpoint: str,
-        payload: dict[str, Any] | None = None,
-        operation: str = "api_call",
-        **kwargs: Any,
-    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
-
-    def _escape_markdown(self, text: str) -> str: ...
-    def _blocks_to_keyboard(self, blocks: list[dict[str, Any]]) -> dict[str, Any] | None: ...
-
     async def send_message(
         self,
         channel_id: str,

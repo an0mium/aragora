@@ -101,7 +101,7 @@ def instrumented_handler(handler_name: str, method_name: str = "handle") -> Call
                             duration,
                         )
                     except Exception:
-                        pass
+                        logger.debug("Failed to record request metrics", exc_info=True)
                 if safe_start_span is not None:
                     try:
                         span = safe_start_span(
@@ -119,7 +119,7 @@ def instrumented_handler(handler_name: str, method_name: str = "handle") -> Call
                         if hasattr(span, "__exit__"):
                             span.__exit__(None, None, None)
                     except Exception:
-                        pass
+                        logger.debug("Failed to record span", exc_info=True)
 
         return wrapper
 

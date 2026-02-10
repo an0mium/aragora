@@ -16,14 +16,6 @@ logger = logging.getLogger(__name__)
 class TelegramBotManagementMixin:
     """Mixin providing bot management operations for TelegramConnector."""
 
-    async def _telegram_api_request(
-        self,
-        endpoint: str,
-        payload: dict[str, Any] | None = None,
-        operation: str = "api_call",
-        **kwargs: Any,
-    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
-
     async def set_my_commands(
         self,
         commands: list[dict[str, str]],

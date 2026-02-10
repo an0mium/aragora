@@ -14,6 +14,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -1248,7 +1249,7 @@ def get_settings() -> Settings:
         # Ensure Secrets Manager values populate env before settings load.
         hydrate_env_from_secrets(overwrite=True)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("Secrets hydration unavailable, using env directly", exc_info=True)
     return Settings()
 
 

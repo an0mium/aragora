@@ -315,6 +315,11 @@ class ArenaKnowledgeManager:
             agents: List of agents participating
             protocol: Debate protocol settings
         """
+        from aragora.utils.env import is_offline_mode
+
+        if is_offline_mode():
+            return
+
         try:
             from aragora.events.cross_subscribers import get_cross_subscriber_manager
             from aragora.events.types import StreamEvent, StreamEventType
@@ -352,6 +357,11 @@ class ArenaKnowledgeManager:
         Returns:
             Dict of protocol hints derived from organizational culture
         """
+        from aragora.utils.env import is_offline_mode
+
+        if is_offline_mode():
+            return {}
+
         try:
             from aragora.events.cross_subscribers import get_cross_subscriber_manager
 

@@ -33,35 +33,6 @@ logger = logging.getLogger(__name__)
 class TelegramWebhooksMixin:
     """Mixin providing webhook handling for TelegramConnector."""
 
-    # These are provided by TelegramConnectorBase
-    parse_mode: str
-
-    async def _telegram_api_request(
-        self,
-        endpoint: str,
-        payload: dict[str, Any] | None = None,
-        operation: str = "api_call",
-        **kwargs: Any,
-    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
-
-    async def send_message(
-        self,
-        channel_id: str,
-        text: str,
-        blocks: list[dict[str, Any] | None] = None,
-        thread_id: str | None = None,
-        **kwargs: Any,
-    ) -> SendMessageResponse: ...
-
-    async def update_message(
-        self,
-        channel_id: str,
-        message_id: str,
-        text: str,
-        blocks: list[dict[str, Any] | None] = None,
-        **kwargs: Any,
-    ) -> SendMessageResponse: ...
-
     async def handle_webhook(
         self,
         payload: dict[str, Any],

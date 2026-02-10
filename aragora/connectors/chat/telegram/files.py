@@ -30,29 +30,6 @@ except ImportError:
 class TelegramFilesMixin:
     """Mixin providing file operations for TelegramConnector."""
 
-    # These are provided by TelegramConnectorBase
-    bot_token: str
-    _request_timeout: float
-
-    async def _telegram_api_request(
-        self,
-        endpoint: str,
-        payload: dict[str, Any] | None = None,
-        operation: str = "api_call",
-        **kwargs: Any,
-    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
-
-    async def _http_request(
-        self,
-        method: str,
-        url: str,
-        headers: dict[str, str] | None = None,
-        timeout: float | None = None,
-        return_raw: bool = False,
-        operation: str = "http_request",
-        **kwargs: Any,
-    ) -> tuple[bool, bytes | dict[str, Any] | None, str | None]: ...
-
     async def upload_file(
         self,
         channel_id: str,

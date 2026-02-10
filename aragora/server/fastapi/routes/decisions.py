@@ -53,15 +53,18 @@ class StartDebateRequest(BaseModel):
     enable_checkpointing: bool = Field(True, description="Enable debate checkpointing")
     enable_memory: bool = Field(True, description="Enable memory system")
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "task": "What is the best caching strategy for a high-traffic API?",
-                "agents": get_settings().agent.default_agent_list[:3],
-                "rounds": DEFAULT_ROUNDS,
-                "consensus": DEFAULT_CONSENSUS,
-            }
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "task": "What is the best caching strategy for a high-traffic API?",
+                    "agents": get_settings().agent.default_agent_list[:3],
+                    "rounds": DEFAULT_ROUNDS,
+                    "consensus": DEFAULT_CONSENSUS,
+                }
+            ]
         }
+    }
 
 
 class DebateResponse(BaseModel):
@@ -81,8 +84,7 @@ class DebateResponse(BaseModel):
     completed_at: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 class StartDebateResponse(BaseModel):

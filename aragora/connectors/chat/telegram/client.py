@@ -135,7 +135,10 @@ class TelegramConnectorBase(ChatPlatformConnector):
         Returns:
             Tuple of (success, response_data, error_message)
         """
-        if not HTTPX_AVAILABLE:
+        # Expose/patch this behavior via the package-level constant for tests.
+        from aragora.connectors.chat.telegram import HTTPX_AVAILABLE as PKG_HTTPX_AVAILABLE
+
+        if not PKG_HTTPX_AVAILABLE:
             return False, None, "httpx not available"
 
         # Check circuit breaker

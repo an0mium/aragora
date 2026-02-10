@@ -379,8 +379,9 @@ class DropboxConnector(EnterpriseConnector):
         }
 
         result = await self._api_request("/files/list_folder", data)
+        _max_pages = 1000
 
-        while True:
+        for _page_guard in range(_max_pages):
             for entry in result.get("entries", []):
                 # Skip folders for file listing
                 if entry[".tag"] == "folder":
@@ -410,6 +411,8 @@ class DropboxConnector(EnterpriseConnector):
                 "/files/list_folder/continue",
                 {"cursor": cursor},
             )
+        else:
+            logger.warning("Pagination limit reached (%d pages)", _max_pages)
 
     async def list_folders(
         self,
@@ -431,8 +434,9 @@ class DropboxConnector(EnterpriseConnector):
         data = {"path": path, "recursive": False}
 
         result = await self._api_request("/files/list_folder", data)
+        _max_pages = 1000
 
-        while True:
+        for _page_guard in range(_max_pages):
             for entry in result.get("entries", []):
                 if entry[".tag"] != "folder":
                     continue
@@ -453,6 +457,8 @@ class DropboxConnector(EnterpriseConnector):
                 "/files/list_folder/continue",
                 {"cursor": cursor},
             )
+        else:
+            logger.warning("Pagination limit reached (%d pages)", _max_pages)
 
     async def download_file(self, file_path: str) -> bytes:
         """
@@ -592,7 +598,8 @@ class DropboxConnector(EnterpriseConnector):
                 {"path": path, "recursive": True},
             )
 
-        while True:
+        _max_pages = 1000
+        for _page_guard in range(_max_pages):
             for entry in result.get("entries", []):
                 if entry[".tag"] == "folder":
                     continue
@@ -645,6 +652,8 @@ class DropboxConnector(EnterpriseConnector):
                 "/files/list_folder/continue",
                 {"cursor": cursor},
             )
+        else:
+            logger.warning("Pagination limit reached (%d pages)", _max_pages)
 
         # Yield cursor for next sync
         final_cursor = result.get("cursor")

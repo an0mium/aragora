@@ -92,7 +92,7 @@ class KnowledgeHandler(
         try:
             _knowledge_limiter._buckets.clear()
         except Exception:
-            pass
+            logger.debug("Failed to clear knowledge limiter buckets", exc_info=True)
         self._fact_store: FactStore | InMemoryFactStore | None = None
         self._query_engine: DatasetQueryEngine | SimpleQueryEngine | None = None
 

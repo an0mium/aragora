@@ -118,6 +118,17 @@ interface AuthClientInterface {
   acceptInvite(token: string): Promise<{ organization_id: string; role: string }>;
   listPendingInvites(): Promise<{ invites: Array<{ id: string; email: string; role: string; expires_at: string; created_at: string }> }>;
   revokeInvite(inviteId: string): Promise<{ revoked: boolean }>;
+  getAuthHealth(): Promise<{ status: string; services: Record<string, string> }>;
+  getProfile(): Promise<import('../types').User>;
+  mfa(request: { action: string; code?: string; method?: string }): Promise<{ status: string; secret?: string; qr_code_uri?: string; backup_codes?: string[] }>;
+  getOAuthAuthorizeUrl(params: { provider: string; redirect_uri?: string; state?: string }): Promise<{ authorization_url: string }>;
+  getOAuthDiagnostics(): Promise<{ providers: Record<string, unknown>; status: Record<string, string> }>;
+  getOAuthCallback(params: { code: string; state?: string }): Promise<{ access_token: string; user: import('../types').User }>;
+  forgotPassword(email: string): Promise<{ sent: boolean }>;
+  resetPasswordAlt(request: { token: string; new_password: string }): Promise<{ reset: boolean }>;
+  resendVerificationAlt(email?: string): Promise<{ sent: boolean }>;
+  checkInviteAlt(token: string): Promise<{ valid: boolean; email: string; organization_id: string; role: string; expires_at: number }>;
+  acceptInviteAlt(token: string): Promise<{ organization_id: string; role: string }>;
 }
 
 /**
@@ -404,5 +415,129 @@ export class AuthAPI {
    */
   async revokeInvite(inviteId: string): Promise<{ revoked: boolean }> {
     return this.client.revokeInvite(inviteId);
+  }
+
+  /**
+   * Check authentication service health.
+   */
+  async health(): Promise<{ status: string; services: Record<string, string> }> {
+    return this.client.getAuthHealth();
+  }
+
+  /**
+   * Get the authenticated user's profile.
+   *
+   * Alternative to me(), uses /api/auth/profile endpoint.
+   */
+  async getProfile(): Promise<import('../types').User> {
+    return this.client.getProfile();
+  }
+
+  /**
+   * Combined MFA setup and verification endpoint.
+   *
+   * @param request - MFA request with action, optional code, and optional method
+   */
+  async mfa(request: { action: string; code?: string; method?: string }): Promise<{
+    status: string;
+    secret?: string;
+    qr_code_uri?: string;
+    backup_codes?: string[];
+  }> {
+    return this.client.mfa(request);
+  }
+
+  /**
+   * Get OAuth authorization URL via the authorize endpoint.
+   *
+   * @param params - Provider, optional redirect URI, and optional state
+   */
+  async getOAuthAuthorizeUrl(params: {
+    provider: string;
+    redirect_uri?: string;
+    state?: string;
+  }): Promise<{ authorization_url: string }> {
+    return this.client.getOAuthAuthorizeUrl(params);
+  }
+
+  /**
+   * Get OAuth configuration diagnostics.
+   *
+   * Useful for troubleshooting authentication issues.
+   */
+  async getOAuthDiagnostics(): Promise<{
+    providers: Record<string, unknown>;
+    status: Record<string, string>;
+  }> {
+    return this.client.getOAuthDiagnostics();
+  }
+
+  /**
+   * Handle OAuth callback with authorization code.
+   *
+   * @param params - Authorization code and optional state
+   */
+  async getOAuthCallback(params: {
+    code: string;
+    state?: string;
+  }): Promise<{ access_token: string; user: import('../types').User }> {
+    return this.client.getOAuthCallback(params);
+  }
+
+  /**
+   * Request a password reset via the forgot-password endpoint.
+   *
+   * Alternative to requestPasswordReset(), uses /api/auth/forgot-password.
+   */
+  async forgotPassword(email: string): Promise<{ sent: boolean }> {
+    return this.client.forgotPassword(email);
+  }
+
+  /**
+   * Reset password via the reset-password endpoint.
+   *
+   * Alternative to resetPassword(), uses /api/auth/reset-password.
+   */
+  async resetPasswordAlt(request: {
+    token: string;
+    new_password: string;
+  }): Promise<{ reset: boolean }> {
+    return this.client.resetPasswordAlt(request);
+  }
+
+  /**
+   * Resend email verification via the resend-verification endpoint.
+   *
+   * Alternative to resendVerification(), uses /api/auth/resend-verification.
+   */
+  async resendVerificationAlt(email?: string): Promise<{ sent: boolean }> {
+    return this.client.resendVerificationAlt(email);
+  }
+
+  /**
+   * Check invitation validity via the check-invite endpoint.
+   *
+   * Alternative to checkInvite(), uses /api/auth/check-invite.
+   */
+  async checkInviteAlt(token: string): Promise<{
+    valid: boolean;
+    email: string;
+    organization_id: string;
+    role: string;
+    expires_at: number;
+  }> {
+    return this.client.checkInviteAlt(token);
+  }
+
+  /**
+   * Accept a team invitation via the accept-invite endpoint.
+   *
+   * Alternative to acceptInvite(), uses /api/auth/accept-invite.
+   */
+  async acceptInviteAlt(token: string): Promise<{
+    organization_id: string;
+    role: string;
+  }> {
+    return this.client.acceptInviteAlt(token);
   }
 }

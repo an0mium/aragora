@@ -34,6 +34,131 @@ if TYPE_CHECKING:
 
 logger = get_structured_logger(__name__)
 
+# ThinkPRM integration -- availability flag and helper functions
+
+try:
+    from aragora.verification.think_prm import (
+        ProcessVerificationResult,
+        ThinkPRMConfig,
+        ThinkPRMVerifier,
+    )
+
+    THINK_PRM_AVAILABLE = True
+except ImportError:
+    THINK_PRM_AVAILABLE = False
+
+
+def _convert_messages_to_think_prm_rounds(
+    messages: list,
+) -> list[dict]:
+    """Convert debate Messages into ThinkPRM round format.
+
+    Groups messages by round number and formats them as contribution dicts
+    expected by ThinkPRMVerifier.verify_debate_process().
+
+    Args:
+        messages: List of aragora.core.Message objects with round attribute.
+
+    Returns:
+        List of round dicts, each with a 'contributions' list.
+    """
+    if not messages:
+        return []
+
+    # Group by round number
+    rounds_map: dict[int, list[dict]] = {}
+    for msg in messages:
+        round_num = getattr(msg, "round", 0) or 0
+        if round_num not in rounds_map:
+            rounds_map[round_num] = []
+        rounds_map[round_num].append(
+            {
+                "content": getattr(msg, "content", ""),
+                "agent_id": getattr(msg, "agent", "unknown"),
+                "dependencies": [],
+            }
+        )
+
+    # Sort by round number and return
+    return [
+        {"contributions": rounds_map[r]}
+        for r in sorted(rounds_map.keys())
+    ]
+
+
+async def _run_think_prm_verification(
+    arena: "Arena",
+    ctx: "DebateContext",
+) -> "ProcessVerificationResult | None":
+    """Run ThinkPRM verification on completed debate rounds.
+
+    Args:
+        arena: The Arena instance with agents and protocol config.
+        ctx: DebateContext with context_messages and debate_id.
+
+    Returns:
+        ProcessVerificationResult or None if verification cannot run.
+    """
+    if not THINK_PRM_AVAILABLE:
+        return None
+
+    agents = getattr(arena, "agents", [])
+    if not agents:
+        return None
+
+    messages = getattr(ctx, "context_messages", [])
+    if not messages:
+        return None
+
+    # Convert messages to ThinkPRM round format
+    rounds = _convert_messages_to_think_prm_rounds(messages)
+    if not rounds:
+        return None
+
+    # Find the verifier agent
+    protocol = getattr(arena, "protocol", None)
+    verifier_agent_id = getattr(protocol, "think_prm_verifier_agent", "claude")
+    parallel = getattr(protocol, "think_prm_parallel", True)
+    max_parallel = getattr(protocol, "think_prm_max_parallel", 3)
+
+    # Use the autonomic executor's generate method as the query function
+    autonomic = getattr(arena, "autonomic", None)
+    if autonomic is None:
+        return None
+
+    # Find the agent to use for verification
+    verifier = None
+    for agent in agents:
+        if getattr(agent, "name", None) == verifier_agent_id:
+            verifier = agent
+            break
+    if verifier is None and agents:
+        verifier = agents[0]  # Fallback to first agent
+
+    async def query_fn(agent_id: str, prompt: str, max_tokens: int = 1000) -> str:
+        return await autonomic.generate(verifier, prompt, [])
+
+    # Set the debate_id on round data for result tracking
+    if rounds:
+        rounds[0]["debate_id"] = getattr(ctx, "debate_id", "unknown")
+
+    # Configure and run verifier
+    config = ThinkPRMConfig(
+        verifier_agent_id=verifier_agent_id,
+        parallel_verification=parallel,
+        max_parallel=max_parallel,
+    )
+    prm_verifier = ThinkPRMVerifier(config)
+
+    try:
+        result = await prm_verifier.verify_debate_process(rounds, query_fn)
+        # Override debate_id from context
+        result.debate_id = getattr(ctx, "debate_id", "unknown")
+        return result
+    except Exception as e:
+        logger.warning("think_prm_verification_failed: %s", e)
+        return None
+
 
 @dataclass
 class _DebateExecutionState:
@@ -163,7 +288,13 @@ async def initialize_debate_context(
     # Classify question domain using LLM for accurate persona selection
     if arena.prompt_builder:
         try:
-            await arena.prompt_builder.classify_question_async(use_llm=True)
+            from aragora.utils.env import is_offline_mode
+
+            use_llm = getattr(arena.protocol, "enable_llm_question_classification", True)
+            if is_offline_mode():
+                use_llm = False
+
+            await arena.prompt_builder.classify_question_async(use_llm=use_llm)
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
             logger.warning(f"Question classification timed out: {e}")
         except (ValueError, TypeError, AttributeError) as e:

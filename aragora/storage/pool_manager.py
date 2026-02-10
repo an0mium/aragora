@@ -102,7 +102,7 @@ async def initialize_shared_pool(
             try:
                 _shared_pool.terminate()
             except Exception:
-                pass
+                logger.debug("Failed to terminate stale pool", exc_info=True)
         _shared_pool = None
         _pool_event_loop = None
 

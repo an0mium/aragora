@@ -239,7 +239,7 @@ def _maybe_add_vertical_specialist_local(
         try:
             specialist.system_prompt = specialist.build_system_prompt()
         except Exception:
-            pass
+            logger.debug("Failed to build system prompt for specialist %s", resolved_vertical, exc_info=True)
         agents.append(specialist)
         print(f"[verticals] Injected specialist: {resolved_vertical}")
     except Exception as e:
@@ -602,8 +602,16 @@ async def run_debate(
     vertical_id: str | None = None,
     auto_select: bool = False,
     auto_select_config: dict[str, Any] | None = None,
+    offline: bool = False,
 ):
     """Run a decision stress-test (debate engine)."""
+    from aragora.utils.env import is_offline_mode
+
+    offline = offline or is_offline_mode()
+    if offline:
+        # Offline mode should be network-free and quiet.
+        enable_audience = False
+        learn = False
 
     # Get mode system prompt if specified
     mode_system_prompt = ""
@@ -734,7 +742,34 @@ async def run_debate(
             print("[audience] Connected to streaming server - audience participation enabled")
 
     # Run debate
-    arena = Arena(env, agents, protocol, memory=memory, event_emitter=event_emitter)
+    arena_kwargs: dict[str, Any] = {}
+    if offline:
+        arena_kwargs.update(
+            {
+                # Disable subsystems that can initialize adapters / embeddings or
+                # attempt network calls in local demo/offline runs.
+                "knowledge_mound": None,
+                "auto_create_knowledge_mound": False,
+                "enable_knowledge_retrieval": False,
+                "enable_knowledge_ingestion": False,
+                "enable_cross_debate_memory": False,
+                # Avoid RLM-based compression and related model calls.
+                "use_rlm_limiter": False,
+                # Disable ML / quality-gate components that may rely on API agents.
+                "enable_ml_delegation": False,
+                "enable_quality_gates": False,
+                "enable_consensus_estimation": False,
+            }
+        )
+
+    arena = Arena(
+        env,
+        agents,
+        protocol,
+        memory=memory,
+        event_emitter=event_emitter,
+        **arena_kwargs,
+    )
     result = await arena.run()
 
     # Store result
@@ -765,6 +800,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
     force_local = False
     if getattr(args, "demo", False):
         print("Demo mode enabled - using built-in demo agents.")
+        # Demo mode is meant to be network-free; align with the global offline flag
+        # so subsystems can short-circuit consistently.
+        os.environ.setdefault("ARAGORA_OFFLINE", "1")
         agents = "demo,demo,demo"
         rounds = min(args.rounds, 2)
         learn = False
@@ -779,6 +817,25 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 "enable_rhetorical_observer": False,
                 "role_rotation": False,
                 "role_matching": False,
+                # Keep demo/local mode network-free and deterministic.
+                "enable_trending_injection": False,
+                "enable_llm_question_classification": False,
+                "enable_llm_synthesis": False,
+            }
+        )
+
+    from aragora.utils.env import is_offline_mode
+
+    offline = is_offline_mode()
+    if offline:
+        enable_audience = False
+        learn = False
+        protocol_overrides.update(
+            {
+                "enable_trending_injection": False,
+                "enable_llm_question_classification": False,
+                "enable_llm_synthesis": False,
+                "enable_research": False,
             }
         )
 
@@ -808,7 +865,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
     )
     vertical_id = getattr(args, "vertical", None)
 
-    if force_local:
+    if force_local or offline:
         requested_local = True
         requested_api = False
 
@@ -934,6 +991,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
             vertical_id=vertical_id,
             auto_select=auto_select,
             auto_select_config=auto_select_config,
+            offline=offline or force_local,
         )
     )
 
