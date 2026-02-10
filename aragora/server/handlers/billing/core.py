@@ -15,21 +15,22 @@ Endpoints:
 - POST /api/webhooks/stripe - Handle Stripe webhooks
 
 Migrated from admin/billing.py as part of handler consolidation.
+
+Implementation is split across submodules for maintainability:
+- core_helpers.py: Shared validation utilities (_validate_iso_date, _safe_positive_int)
+- core_webhooks.py: Stripe webhook event handlers (WebhookMixin)
+- core_reporting.py: Usage export, forecast, invoices, audit log (ReportingMixin)
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import re
-import sqlite3
-
-from aragora.events.handler_events import emit_handler_event, CREATED, DELETED
 import sys
-from datetime import datetime, timezone
 from typing import Any
 
 from aragora.audit.unified import audit_admin, audit_data
+from aragora.events.handler_events import emit_handler_event, CREATED, DELETED
 
 # Module-level imports for test mocking compatibility
 from aragora.billing.models import TIER_LIMITS, SubscriptionTier
@@ -44,7 +45,6 @@ from aragora.server.validation.schema import CHECKOUT_SESSION_SCHEMA, validate_a
 from ..base import (
     HandlerResult,
     error_response,
-    get_string_param,
     handle_errors,
     json_response,
     log_request,
@@ -52,6 +52,21 @@ from ..base import (
 from ..secure import SecureHandler
 from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
+
+# Import submodule mixins
+from .core_webhooks import WebhookMixin
+from .core_reporting import ReportingMixin
+
+# Re-export helpers for backward compatibility
+from .core_helpers import (  # noqa: F401
+    _ISO_DATE_RE,
+    _MAX_EXPORT_ROWS,
+    _get_admin_billing_callable,
+    _is_duplicate_webhook,
+    _mark_webhook_processed,
+    _safe_positive_int,
+    _validate_iso_date,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,75 +84,15 @@ def _get_billing_limiter() -> RateLimiter:
     return _billing_limiter
 
 
-def _get_admin_billing_callable(name: str, fallback):
-    """Resolve a callable from admin.billing for test patching."""
-    admin_billing = sys.modules.get("aragora.server.handlers.admin.billing")
-    if admin_billing is not None:
-        candidate = getattr(admin_billing, name, None)
-        if callable(candidate) and candidate is not fallback:
-            return candidate
-    return fallback
-
-
-# --- Input validation helpers for financial operations ---
-
-# ISO date pattern: YYYY-MM-DD
-_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
-# Maximum number of usage events returned in an export to prevent DoS
-_MAX_EXPORT_ROWS = 10_000
-
-
-def _validate_iso_date(value: str | None) -> str | None:
-    """Validate and return an ISO date string (YYYY-MM-DD), or None if invalid."""
-    if value is None:
-        return None
-    if not isinstance(value, str) or not _ISO_DATE_RE.match(value):
-        return None
-    # Verify it actually parses as a real date
-    try:
-        datetime.strptime(value, "%Y-%m-%d")
-    except ValueError:
-        return None
-    return value
-
-
-def _safe_positive_int(value: str, default: int, maximum: int) -> int:
-    """Parse a string to a bounded non-negative integer."""
-    try:
-        parsed = int(value)
-    except (ValueError, TypeError):
-        return default
-    if parsed < 0:
-        return default
-    return min(parsed, maximum)
-
-
-# Webhook idempotency tracking (persistent SQLite by default)
-# Uses aragora.storage.webhook_store for persistence across restarts
-
-
-def _is_duplicate_webhook(event_id: str) -> bool:
-    """Check if webhook event was already processed."""
-    from aragora.storage.webhook_store import get_webhook_store
-
-    store = get_webhook_store()
-    return store.is_processed(event_id)
-
-
-def _mark_webhook_processed(event_id: str, result: str = "success") -> None:
-    """Mark webhook event as processed."""
-    from aragora.storage.webhook_store import get_webhook_store
-
-    store = get_webhook_store()
-    store.mark_processed(event_id, result)
-
-
-class BillingHandler(SecureHandler):
+class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
     """Handler for billing and subscription endpoints.
 
     Extends SecureHandler for JWT-based authentication, RBAC permission
     enforcement, and security audit logging.
+
+    Implementation is split across mixins:
+    - WebhookMixin: Stripe webhook event handlers (_handle_checkout_completed, etc.)
+    - ReportingMixin: Audit log, CSV export, forecast, invoices
     """
 
     def __init__(self, ctx: dict | None = None):
@@ -562,8 +517,6 @@ class BillingHandler(SecureHandler):
 
         Requires org:billing permission (owner only).
         """
-        from aragora.billing.stripe_client import StripeConfigError
-
         # User is authenticated and has billing permission
 
         # Parse request body
@@ -658,8 +611,6 @@ class BillingHandler(SecureHandler):
 
         Requires org:billing permission (owner only).
         """
-        from aragora.billing.stripe_client import StripeConfigError
-
         # User is authenticated and has billing permission
 
         # Parse request body
@@ -746,319 +697,6 @@ class BillingHandler(SecureHandler):
             )
         except (AttributeError, IOError, OSError) as e:
             logger.warning(f"Failed to log audit event: {e}")
-
-    @handle_errors("get audit log")
-    @require_permission("admin:audit")
-    def _get_audit_log(self, handler: Any, user: Any | None = None) -> HandlerResult:
-        """Get billing audit log for organization (Enterprise feature).
-
-        Requires admin:audit permission (admin/owner only).
-        """
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Service unavailable", 503)
-
-        # Get organization and check tier
-        db_user = user_store.get_user_by_id(user.user_id)
-        if not db_user or not db_user.org_id:
-            return error_response("No organization found", 404)
-
-        org = user_store.get_organization_by_id(db_user.org_id)
-        if not org:
-            return error_response("Organization not found", 404)
-
-        # Check if audit logs are enabled for this tier
-        if not org.limits.audit_logs:
-            return error_response("Audit logs require Enterprise tier", 403)
-
-        # Only admins/owners can view audit logs
-        if user.role not in ("owner", "admin"):
-            return error_response("Insufficient permissions", 403)
-
-        # Get query params with safe parsing
-        limit = _safe_positive_int(get_string_param(handler, "limit", "50"), 50, 100)
-        offset = _safe_positive_int(get_string_param(handler, "offset", "0"), 0, 100_000)
-        action_filter = get_string_param(handler, "action", None)
-
-        # Get audit entries
-        entries = user_store.get_audit_log(
-            org_id=org.id,
-            action=action_filter,
-            resource_type="subscription",
-            limit=limit,
-            offset=offset,
-        )
-
-        total = user_store.get_audit_log_count(
-            org_id=org.id,
-            action=action_filter,
-            resource_type="subscription",
-        )
-
-        return json_response(
-            {
-                "entries": entries,
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-            }
-        )
-
-    @handle_errors("export usage CSV")
-    @require_permission("org:billing")
-    def _export_usage_csv(self, handler: Any, user: Any | None = None) -> HandlerResult:
-        """Export usage data as CSV.
-
-        Requires org:billing permission (owner only).
-        """
-        import csv
-        import io
-
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Service unavailable", 503)
-
-        db_user = user_store.get_user_by_id(user.user_id)
-        if not db_user or not db_user.org_id:
-            return error_response("No organization found", 404)
-
-        org = user_store.get_organization_by_id(db_user.org_id)
-        if not org:
-            return error_response("Organization not found", 404)
-
-        # Get and validate date range from query params
-        start_date = _validate_iso_date(get_string_param(handler, "start", None))
-        end_date = _validate_iso_date(get_string_param(handler, "end", None))
-
-        # Get usage events from store using parameterized queries
-        usage_events = []
-        if hasattr(user_store, "_transaction"):
-            try:
-                with user_store._transaction() as cursor:
-                    query = (
-                        "SELECT id, org_id, event_type, count, metadata, created_at "
-                        "FROM usage_events WHERE org_id = ?"
-                    )
-                    params: list[Any] = [org.id]
-
-                    if start_date:
-                        query += " AND created_at >= ?"
-                        params.append(start_date)
-                    if end_date:
-                        query += " AND created_at <= ?"
-                        params.append(end_date)
-
-                    query += " ORDER BY created_at DESC LIMIT ?"
-                    params.append(_MAX_EXPORT_ROWS)
-                    cursor.execute(query, params)
-                    usage_events = cursor.fetchall()
-            except (sqlite3.Error, OSError, ValueError) as e:
-                logger.error(f"Database error exporting usage data for org {org.id}: {e}")
-                return error_response("Failed to export usage data", 500)
-
-        # Build CSV
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Date", "Event Type", "Count", "Metadata"])
-
-        for row in usage_events:
-            writer.writerow(
-                [
-                    row[5],  # created_at
-                    row[2],  # event_type
-                    row[3],  # count
-                    row[4],  # metadata
-                ]
-            )
-
-        # Add summary row
-        writer.writerow([])
-        writer.writerow(["Summary"])
-        writer.writerow(["Organization", org.name])
-        writer.writerow(["Tier", org.tier.value])
-        writer.writerow(["Debates Used", org.debates_used_this_month])
-        writer.writerow(["Debates Limit", org.limits.debates_per_month])
-        writer.writerow(["Billing Cycle Start", org.billing_cycle_start.isoformat()])
-
-        csv_content = output.getvalue()
-        output.close()
-
-        # Return CSV file
-        filename = f"usage_export_{org.slug}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
-        return HandlerResult(
-            status_code=200,
-            content_type="text/csv",
-            body=csv_content.encode("utf-8"),
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-            },
-        )
-
-    @handle_errors("get usage forecast")
-    @require_permission("org:billing")
-    def _get_usage_forecast(self, handler: Any, user: Any | None = None) -> HandlerResult:
-        """Get usage forecast and cost projection.
-
-        Requires org:billing permission (owner only).
-        """
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Service unavailable", 503)
-
-        db_user = user_store.get_user_by_id(user.user_id)
-        if not db_user or not db_user.org_id:
-            return error_response("No organization found", 404)
-
-        org = user_store.get_organization_by_id(db_user.org_id)
-        if not org:
-            return error_response("Organization not found", 404)
-
-        # Calculate days elapsed in billing cycle
-        now = datetime.now(timezone.utc)
-        days_elapsed = (now - org.billing_cycle_start).days
-        days_in_cycle = 30  # Approximate
-
-        if days_elapsed < 1:
-            days_elapsed = 1  # Avoid division by zero
-
-        # Calculate run rate
-        debates_per_day = org.debates_used_this_month / days_elapsed
-        days_remaining = max(0, days_in_cycle - days_elapsed)
-
-        # Project usage
-        projected_debates = org.debates_used_this_month + (debates_per_day * days_remaining)
-        projected_debates = int(projected_debates)
-
-        # Calculate if will hit limit
-        will_hit_limit = projected_debates >= org.limits.debates_per_month
-        debates_overage = max(0, projected_debates - org.limits.debates_per_month)
-
-        # Get usage tracker for token/cost data
-        usage_tracker = self._get_usage_tracker()
-        projected_cost = 0.0
-        tokens_per_day = 0
-
-        if usage_tracker:
-            summary = usage_tracker.get_summary(
-                org_id=org.id,
-                start_time=org.billing_cycle_start,
-            )
-            if summary and days_elapsed > 0:
-                tokens_per_day = summary.total_tokens / days_elapsed
-                cost_per_day = float(summary.total_cost) / days_elapsed
-                projected_cost = float(summary.total_cost) + (cost_per_day * days_remaining)
-
-        # Suggest tier upgrade if hitting limits
-        tier_recommendation = None
-        from aragora.billing.models import TIER_LIMITS, SubscriptionTier
-
-        if will_hit_limit and org.tier != SubscriptionTier.ENTERPRISE:
-            # Find next tier
-            tier_order = [
-                SubscriptionTier.FREE,
-                SubscriptionTier.STARTER,
-                SubscriptionTier.PROFESSIONAL,
-                SubscriptionTier.ENTERPRISE,
-            ]
-            current_idx = tier_order.index(org.tier)
-            if current_idx < len(tier_order) - 1:
-                next_tier = tier_order[current_idx + 1]
-                tier_recommendation = {
-                    "recommended_tier": next_tier.value,
-                    "debates_limit": TIER_LIMITS[next_tier].debates_per_month,
-                    "price_monthly": f"${TIER_LIMITS[next_tier].price_monthly_cents / 100:.2f}",
-                }
-
-        return json_response(
-            {
-                "forecast": {
-                    "current_usage": {
-                        "debates": org.debates_used_this_month,
-                        "debates_limit": org.limits.debates_per_month,
-                    },
-                    "projection": {
-                        "debates_end_of_cycle": projected_debates,
-                        "debates_per_day": round(debates_per_day, 2),
-                        "tokens_per_day": int(tokens_per_day),
-                        "cost_end_of_cycle_usd": round(projected_cost, 2),
-                    },
-                    "days_remaining": days_remaining,
-                    "days_elapsed": days_elapsed,
-                    "will_hit_limit": will_hit_limit,
-                    "debates_overage": debates_overage,
-                    "tier_recommendation": tier_recommendation,
-                },
-            }
-        )
-
-    @handle_errors("get invoices")
-    @require_permission("org:billing")
-    def _get_invoices(self, handler: Any, user: Any | None = None) -> HandlerResult:
-        """Get invoice history from Stripe.
-
-        Requires org:billing permission (owner only).
-        """
-        from aragora.billing.stripe_client import StripeConfigError
-
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Service unavailable", 503)
-
-        db_user = user_store.get_user_by_id(user.user_id)
-        if not db_user or not db_user.org_id:
-            return error_response("No organization found", 404)
-
-        org = user_store.get_organization_by_id(db_user.org_id)
-        if not org or not org.stripe_customer_id:
-            return error_response("No billing account found", 404)
-
-        limit = _safe_positive_int(get_string_param(handler, "limit", "10"), 10, 100)
-
-        try:
-            stripe = get_stripe_client()
-            invoices_data = stripe.list_invoices(
-                customer_id=org.stripe_customer_id,
-                limit=limit,
-            )
-
-            invoices = []
-            for inv in invoices_data:
-                invoices.append(
-                    {
-                        "id": inv.get("id"),
-                        "number": inv.get("number"),
-                        "status": inv.get("status"),
-                        "amount_due": (inv.get("amount_due") or 0) / 100,
-                        "amount_paid": (inv.get("amount_paid") or 0) / 100,
-                        "currency": inv.get("currency", "usd").upper(),
-                        "created": datetime.fromtimestamp(inv.get("created", 0)).isoformat(),
-                        "period_start": (
-                            datetime.fromtimestamp(inv.get("period_start", 0)).isoformat()
-                            if inv.get("period_start")
-                            else None
-                        ),
-                        "period_end": (
-                            datetime.fromtimestamp(inv.get("period_end", 0)).isoformat()
-                            if inv.get("period_end")
-                            else None
-                        ),
-                        "hosted_invoice_url": inv.get("hosted_invoice_url"),
-                        "invoice_pdf": inv.get("invoice_pdf"),
-                    }
-                )
-
-            return json_response({"invoices": invoices})
-
-        except StripeConfigError as e:
-            logger.error(f"Stripe invoices failed: {type(e).__name__}: {e}")
-            return error_response("Payment service unavailable", 503)
-        except StripeAPIError as e:
-            logger.error(f"Stripe API error getting invoices: {type(e).__name__}: {e}")
-            return error_response("Failed to retrieve invoices from payment provider", 502)
-        except StripeError as e:
-            # Catch any other Stripe errors
-            logger.error(f"Stripe error getting invoices: {type(e).__name__}: {e}")
-            return error_response("Payment service error", 500)
 
     @handle_errors("cancel subscription")
     @log_request("cancel subscription")
@@ -1182,388 +820,6 @@ class BillingHandler(SecureHandler):
         except StripeError as e:
             logger.error(f"Stripe error resuming subscription: {type(e).__name__}: {e}")
             return error_response("Failed to resume subscription", 500)
-
-    @handle_errors("stripe webhook")
-    def _handle_stripe_webhook(self, handler: Any) -> HandlerResult:
-        """Handle Stripe webhook events."""
-        from aragora.billing.stripe_client import (
-            parse_webhook_event,
-        )
-
-        # Get raw body and signature (limit to 1MB for webhook payloads)
-        MAX_WEBHOOK_SIZE = 1 * 1024 * 1024
-        content_length = self.validate_content_length(handler, max_size=MAX_WEBHOOK_SIZE)
-        if content_length is None:
-            return error_response("Invalid or too large Content-Length", 400)
-        try:
-            payload = handler.rfile.read(content_length)
-        except (ValueError, AttributeError):
-            return error_response("Invalid request", 400)
-
-        signature = handler.headers.get("Stripe-Signature", "")
-        if not signature:
-            return error_response("Missing signature", 400)
-
-        # Parse and verify webhook
-        event = parse_webhook_event(payload, signature)
-        if not event:
-            return error_response("Invalid webhook signature", 400)
-
-        duplicate_checker = _get_admin_billing_callable(
-            "_is_duplicate_webhook", _is_duplicate_webhook
-        )
-        mark_processed = _get_admin_billing_callable(
-            "_mark_webhook_processed", _mark_webhook_processed
-        )
-
-        # Get event ID for idempotency check (use top-level Stripe event ID)
-        event_id = event.event_id
-        if not event_id:
-            logger.warning("Webhook event missing ID, cannot check idempotency")
-        elif duplicate_checker(event_id):
-            logger.info(f"Skipping duplicate webhook event: {event_id}")
-            return json_response({"received": True, "duplicate": True})
-
-        logger.info(f"Received Stripe webhook: {event.type} (id={event_id})")
-
-        # Get user store
-        user_store = self._get_user_store()
-
-        # Handle different event types
-        result = None
-        if event.type == "checkout.session.completed":
-            result = self._handle_checkout_completed(event, user_store)
-
-        elif event.type == "customer.subscription.created":
-            result = self._handle_subscription_created(event, user_store)
-
-        elif event.type == "customer.subscription.updated":
-            result = self._handle_subscription_updated(event, user_store)
-
-        elif event.type == "customer.subscription.deleted":
-            result = self._handle_subscription_deleted(event, user_store)
-
-        elif event.type == "invoice.payment_succeeded":
-            result = self._handle_invoice_paid(event, user_store)
-
-        elif event.type == "invoice.payment_failed":
-            result = self._handle_invoice_failed(event, user_store)
-
-        elif event.type == "invoice.finalized":
-            result = self._handle_invoice_finalized(event, user_store)
-
-        else:
-            # Acknowledge unhandled events
-            result = json_response({"received": True})
-
-        # Mark event as processed (only for successful handling)
-        if event_id and result and result.status_code < 400:
-            mark_processed(event_id)
-
-        return result
-
-    def _handle_checkout_completed(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle checkout.session.completed event."""
-        from aragora.billing.models import SubscriptionTier
-
-        session = event.object
-        metadata = event.metadata
-
-        user_id = metadata.get("user_id")
-        org_id = metadata.get("org_id")
-        tier_str = metadata.get("tier", "starter")
-
-        customer_id = session.get("customer")
-        subscription_id = session.get("subscription")
-
-        logger.info(
-            f"Checkout completed: user={user_id}, org={org_id}, "
-            f"customer={customer_id}, subscription={subscription_id}"
-        )
-
-        if user_store and org_id:
-            org = user_store.get_organization_by_id(org_id)
-            if org:
-                old_tier = org.tier.value
-
-                # Parse tier
-                try:
-                    tier = SubscriptionTier(tier_str)
-                except ValueError:
-                    tier = SubscriptionTier.STARTER
-
-                # Update organization with Stripe IDs and tier
-                user_store.update_organization(
-                    org_id,
-                    stripe_customer_id=customer_id,
-                    stripe_subscription_id=subscription_id,
-                    tier=tier,
-                )
-                logger.info(f"Updated org {org_id} with subscription, tier={tier.value}")
-
-                # Log audit event
-                self._log_audit(
-                    user_store,
-                    action="subscription.created",
-                    resource_type="subscription",
-                    resource_id=subscription_id,
-                    user_id=user_id,
-                    org_id=org_id,
-                    old_value={"tier": old_tier},
-                    new_value={"tier": tier.value, "subscription_id": subscription_id},
-                    metadata={"checkout_session": session.get("id")},
-                )
-
-        return json_response({"received": True})
-
-    def _handle_subscription_created(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle customer.subscription.created event."""
-        logger.info(f"Subscription created: {event.subscription_id}")
-        return json_response({"received": True})
-
-    def _handle_subscription_updated(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle customer.subscription.updated event."""
-        from aragora.billing.stripe_client import get_tier_from_price_id
-
-        subscription = event.object
-        subscription_id = subscription.get("id")
-        status = subscription.get("status")
-        cancel_at_period_end = subscription.get("cancel_at_period_end", False)
-
-        # Get price ID from items
-        items = subscription.get("items", {}).get("data", [])
-        price_id = items[0].get("price", {}).get("id", "") if items else ""
-
-        logger.info(
-            f"Subscription updated: {subscription_id}, "
-            f"status={status}, cancel_at_period_end={cancel_at_period_end}"
-        )
-
-        # Update organization tier if price changed
-        if user_store and subscription_id:
-            org = user_store.get_organization_by_subscription(subscription_id)
-            if org:
-                old_tier = org.tier.value
-                updates = {}
-                new_tier = None
-                if price_id:
-                    tier = get_tier_from_price_id(price_id)
-                    if tier:
-                        updates["tier"] = tier
-                        new_tier = tier.value
-
-                if updates:
-                    user_store.update_organization(org.id, **updates)
-                    logger.info(f"Updated org {org.id} tier from subscription update")
-
-                    # Log audit event for tier change
-                    if new_tier and new_tier != old_tier:
-                        self._log_audit(
-                            user_store,
-                            action="subscription.tier_changed",
-                            resource_type="subscription",
-                            resource_id=subscription_id,
-                            org_id=org.id,
-                            old_value={"tier": old_tier},
-                            new_value={"tier": new_tier, "status": status},
-                        )
-
-        return json_response({"received": True})
-
-    def _handle_subscription_deleted(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle customer.subscription.deleted event."""
-        from aragora.billing.models import SubscriptionTier
-
-        subscription = event.object
-        subscription_id = subscription.get("id")
-
-        logger.info(f"Subscription deleted: {subscription_id}")
-
-        # Downgrade organization to free tier and clear subscription ID
-        if user_store and subscription_id:
-            org = user_store.get_organization_by_subscription(subscription_id)
-            if org:
-                old_tier = org.tier.value
-
-                user_store.update_organization(
-                    org.id,
-                    tier=SubscriptionTier.FREE,
-                    stripe_subscription_id=None,
-                )
-                logger.info(f"Downgraded org {org.id} to FREE tier after subscription deletion")
-
-                # Log audit event
-                self._log_audit(
-                    user_store,
-                    action="subscription.deleted",
-                    resource_type="subscription",
-                    resource_id=subscription_id,
-                    org_id=org.id,
-                    old_value={"tier": old_tier, "subscription_id": subscription_id},
-                    new_value={"tier": "free", "subscription_id": None},
-                )
-
-        return json_response({"received": True})
-
-    def _handle_invoice_paid(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle invoice.payment_succeeded event."""
-        from aragora.billing.payment_recovery import get_recovery_store
-
-        invoice = event.object
-        customer_id = invoice.get("customer")
-        subscription_id = invoice.get("subscription")
-        amount_paid = invoice.get("amount_paid") or 0
-
-        logger.info(
-            f"Invoice paid: customer={customer_id}, "
-            f"subscription={subscription_id}, amount={amount_paid / 100:.2f}"
-        )
-
-        # Reset monthly usage counters on successful payment
-        if user_store and customer_id:
-            org = user_store.get_organization_by_stripe_customer(customer_id)
-            if org:
-                try:
-                    user_store.reset_org_usage(org.id)
-                    logger.info(f"Reset usage for org {org.id} after invoice payment")
-                except (AttributeError, ValueError, OSError) as e:
-                    logger.error(f"Failed to reset usage for org {org.id}: {e}")
-
-                # Mark any active payment failure as recovered
-                try:
-                    recovery_store = get_recovery_store()
-                    if recovery_store.mark_recovered(org.id):
-                        logger.info(f"Payment recovered for org {org.id}")
-                except (AttributeError, ValueError, OSError) as e:
-                    logger.error(f"Failed to update recovery status for org {org.id}: {e}")
-
-        return json_response({"received": True})
-
-    def _handle_invoice_failed(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle invoice.payment_failed event.
-
-        Records failure in recovery store and sends escalating notifications.
-        Auto-downgrade is handled by background job checking grace periods.
-        """
-        from aragora.billing.notifications import get_billing_notifier
-        from aragora.billing.payment_recovery import get_recovery_store
-
-        invoice = event.object
-        customer_id = invoice.get("customer")
-        subscription_id = invoice.get("subscription")
-        attempt_count = invoice.get("attempt_count", 1)
-        invoice_id = invoice.get("id")
-        hosted_invoice_url = invoice.get("hosted_invoice_url")
-
-        logger.warning(
-            f"Invoice payment failed: customer={customer_id}, "
-            f"subscription={subscription_id}, attempt={attempt_count}"
-        )
-
-        # Record failure and get tracking info
-        failure = None
-        if user_store and customer_id:
-            org = user_store.get_organization_by_stripe_customer(customer_id)
-            if org:
-                # Record in payment recovery store
-                try:
-                    recovery_store = get_recovery_store()
-                    failure = recovery_store.record_failure(
-                        org_id=org.id,
-                        stripe_customer_id=customer_id,
-                        stripe_subscription_id=subscription_id,
-                        invoice_id=invoice_id,
-                        invoice_url=hosted_invoice_url,
-                    )
-                except (AttributeError, IOError, OSError) as e:
-                    logger.error(f"Failed to record payment failure for org {org.id}: {e}")
-                    failure = None
-
-                if failure:
-                    logger.info(
-                        f"Payment failure recorded for org {org.id}: "
-                        f"attempt={failure.attempt_count}, "
-                        f"days_failing={failure.days_failing}, "
-                        f"days_until_downgrade={failure.days_until_downgrade}"
-                    )
-
-                    # Log warning if nearing grace period end
-                    if failure.days_until_downgrade <= 3:
-                        logger.warning(
-                            f"Org {org.id} payment grace period ending soon: "
-                            f"{failure.days_until_downgrade} days until auto-downgrade"
-                        )
-
-                # Send notification to organization owner
-                try:
-                    owner = user_store.get_organization_owner(org.id)
-                    if owner and owner.email:
-                        notifier = get_billing_notifier()
-
-                        # Escalate notification severity based on attempt count
-                        notify_result = notifier.notify_payment_failed(
-                            org_id=org.id,
-                            org_name=org.name,
-                            email=owner.email,
-                            attempt_count=failure.attempt_count if failure else attempt_count,
-                            invoice_url=hosted_invoice_url,
-                            days_until_downgrade=(
-                                failure.days_until_downgrade if failure else None
-                            ),
-                        )
-                        logger.info(
-                            f"Payment failure notification sent to {owner.email}: "
-                            f"method={notify_result.method}, success={notify_result.success}"
-                        )
-                except (AttributeError, IOError, OSError) as e:
-                    logger.error(
-                        f"Failed to send payment failure notification for org {org.id}: {e}"
-                    )
-
-        return json_response(
-            {
-                "received": True,
-                "failure_tracked": failure is not None,
-            }
-        )
-
-    def _handle_invoice_finalized(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle invoice.finalized event.
-
-        Flushes any remainder usage that didn't meet the MIN_TOKENS_THRESHOLD
-        during regular sync cycles. This ensures all usage is billed before
-        the invoice is finalized.
-        """
-        from aragora.billing.usage_sync import get_usage_sync_service
-
-        invoice = event.object
-        customer_id = invoice.get("customer")
-        subscription_id = invoice.get("subscription")
-
-        logger.info(f"Invoice finalized: customer={customer_id}, subscription={subscription_id}")
-
-        # Flush remainder usage for the org
-        flushed_records = []
-        if user_store and customer_id:
-            org = user_store.get_organization_by_stripe_customer(customer_id)
-            if org:
-                try:
-                    usage_sync = get_usage_sync_service()
-                    flushed_records = usage_sync.flush_period(org_id=org.id)
-                    if flushed_records:
-                        logger.info(
-                            f"Flushed {len(flushed_records)} usage records for org {org.id} "
-                            f"on invoice finalize"
-                        )
-                except (AttributeError, IOError, OSError) as e:
-                    logger.error(f"Failed to flush usage on invoice finalize: {e}")
-
-        return json_response(
-            {
-                "received": True,
-                "usage_flushed": len(flushed_records),
-            }
-        )
 
 
 __all__ = ["BillingHandler", "_billing_limiter"]
