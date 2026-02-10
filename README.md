@@ -6,9 +6,9 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**You don't just get an answer. You get a defensible decision trail.**
+**Individual LLMs are unreliable. Their personas shift with context, their confidence doesn't correlate with accuracy, and they say what you want to hear. For consequential decisions, you need infrastructure that treats this as a feature to be engineered around, not a problem to be ignored.**
 
-Aragora orchestrates 30+ agent types across CLI, direct API, OpenRouter, and local backends to adversarially vet decisions against your organization's knowledge, then delivers audit-ready decision receipts to any channel.
+Aragora orchestrates 30+ agent types in structured adversarial debates -- forcing models to challenge each other's reasoning, surface blind spots, and produce decisions with complete audit trails showing where they agreed, where they disagreed, and why.
 
 ```bash
 # Stress-test a specification
@@ -25,7 +25,7 @@ aragora serve
 
 ## Five Pillars
 
-Aragora is built on five architectural commitments that together produce something no single-model tool can offer.
+Aragora is built on five architectural commitments designed for a world where individual AI agents cannot be trusted with consequential decisions alone.
 
 ### 1. SMB-Ready, Enterprise-Grade
 
@@ -41,7 +41,7 @@ Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, R
 
 ### 4. Multi-Agent Robustness
 
-Different models have different blind spots. Aragora runs Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and local models in structured Propose / Critique / Revise debates with configurable consensus (majority, unanimous, judge-based). ELO rankings track agent performance. Calibration scoring measures prediction accuracy. The Trickster detects hollow consensus. The result: outputs that are more robust, less biased, and higher quality than any single model, with a complete dissent trail showing where the models disagreed and why.
+Individual LLMs exhibit persona instability -- their outputs shift based on framing, context, and even prompt ordering. Aragora treats this as a feature: by running Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and local models in structured Propose / Critique / Revise debates, the system surfaces disagreements that reveal genuine uncertainty. ELO rankings track agent performance. Calibration scoring (Brier scores) measures prediction accuracy. The Trickster detects hollow consensus where models agree without genuine reasoning. The result: when models with different training data independently converge on an answer, that convergence is meaningful -- and when they disagree, the dissent trail tells you exactly where human judgment is needed.
 
 ### 5. Self-Healing and Self-Extending
 
@@ -51,15 +51,18 @@ The Nomic Loop is Aragora's autonomous self-improvement system: agents debate im
 
 ## Why Aragora?
 
-Most AI tools give you one model's opinion. Aragora gives you **adversarial validation** from multiple models, with a complete audit trail showing how the decision was reached, what was contested, and where risks remain.
+A single LLM will confidently give you a wrong answer and you won't know it. Research shows that LLM personas are context-dependent, fragile under adversarial pressure, and prone to sycophantic agreement with whoever is asking. [Stanford's taxonomy of LLM reasoning failures](https://arxiv.org/abs/2602.06176) documents systematic breakdowns in formal logic, unfaithful chain-of-thought, and robustness failures under minor prompt variations -- exactly the failure modes that structured adversarial debate is designed to surface. When the decision matters -- hiring, architecture, compliance, strategy -- one model's opinion is insufficient.
+
+Aragora treats each model as an **unreliable witness** and uses structured debate protocols to extract signal from their disagreements:
 
 | What you get | How it works |
 |---|---|
-| **Decision Receipts** | Cryptographic audit trails with evidence chains and dissent tracking |
-| **Gauntlet Mode** | Red-team stress-tests for specs, policies, and architectures |
-| **Multi-Model Consensus** | Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more debating in structured rounds |
+| **Adversarial Validation** | Models with different training data and blind spots challenge each other's reasoning |
+| **Decision Receipts** | Cryptographic audit trails with evidence chains, dissent tracking, and confidence calibration |
+| **Gauntlet Mode** | Red-team stress-tests for specs, policies, and architectures using adversarial personas |
+| **Calibrated Trust** | ELO rankings and Brier scores track which models are actually reliable on which domains |
+| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (28 adapters) |
 | **Channel Delivery** | Results route to Slack, Teams, Discord, Telegram, WhatsApp, email, or voice |
-| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound |
 
 ---
 
@@ -83,7 +86,7 @@ See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete 5-minute
 | Package | Purpose | Install |
 |---|---|---|
 | `aragora` | Full control plane | `pip install aragora` |
-| `aragora-client` | Lightweight async client | `pip install aragora-client` |
+| `aragora-sdk` | Python SDK client | `pip install aragora-sdk` |
 | `@aragora/sdk` | TypeScript/Node.js SDK | `npm install @aragora/sdk` |
 
 ---
@@ -111,7 +114,7 @@ Decision receipts provide cryptographic audit trails for every finding.
 
 ### 2. AI Code Review
 
-Get **unanimous AI consensus** on your pull requests:
+Get **multi-model consensus** on your pull requests:
 
 ```bash
 git diff main | aragora review
@@ -119,7 +122,7 @@ aragora review https://github.com/owner/repo/pull/123
 aragora review --demo  # try without API keys
 ```
 
-When 3+ independent models agree on an issue, you know it's worth fixing. Split opinions show tradeoffs for human judgment.
+When 3+ independent models with different training data agree on an issue, that convergence is meaningful. Split opinions show where human judgment is needed -- the disagreement is the signal.
 
 ### 3. Structured Debates
 
@@ -303,6 +306,7 @@ Aragora synthesizes ideas from these open-source projects:
 - **[ai-counsel](https://github.com/AI-Counsel/ai-counsel)** -- Semantic convergence detection (MIT)
 - **[DebateLLM](https://github.com/Tsinghua-MARS-Lab/DebateLLM)** -- Agreement intensity modulation (Apache 2.0)
 - **[claude-flow](https://github.com/ruvnet/claude-flow)** -- Adaptive topology switching (MIT)
+- **[LLM Reasoning Failures](https://arxiv.org/abs/2602.06176)** -- Stanford taxonomy of systematic reasoning breakdowns (Song et al. 2026)
 
 See the full attribution table in [docs/CREDITS.md](docs/CREDITS.md).
 

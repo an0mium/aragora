@@ -211,3 +211,69 @@ class TestRationale:
 
         if result.complexity_score >= 5:
             assert "concept" in result.rationale.lower() or "span" in result.rationale.lower()
+
+
+class TestDepthLimits:
+    """Tests for recursive decomposition depth limits."""
+
+    def test_depth_limit_prevents_decomposition(self):
+        """analyze() at max depth should return should_decompose=False."""
+        config = DecomposerConfig(max_depth=2, complexity_threshold=3)
+        decomposer = TaskDecomposer(config=config)
+
+        # This task would normally trigger decomposition
+        result = decomposer.analyze(
+            "Refactor the entire database system with major architectural changes. "
+            "Migrate all models and redesign security in db.py, models.py",
+            depth=2,  # At max depth
+        )
+
+        assert result.should_decompose is False
+        assert "depth" in result.rationale.lower()
+        assert len(result.subtasks) == 0
+
+    def test_depth_below_limit_allows_decomposition(self):
+        """analyze() below max depth should still allow decomposition."""
+        config = DecomposerConfig(max_depth=3, complexity_threshold=3)
+        decomposer = TaskDecomposer(config=config)
+
+        result = decomposer.analyze(
+            "Refactor the entire database system with major architectural changes. "
+            "Migrate all models, update API layer, and redesign security in "
+            "db.py, models.py, handlers.py, auth.py, middleware.py",
+            depth=1,
+        )
+
+        # Should still be allowed to decompose at depth=1 (below max_depth=3)
+        if result.complexity_score >= config.complexity_threshold:
+            assert result.should_decompose is True
+
+    def test_default_max_depth_is_three(self):
+        """Default max_depth should be 3."""
+        config = DecomposerConfig()
+        assert config.max_depth == 3
+
+    def test_depth_zero_is_default(self):
+        """analyze() without depth parameter should default to 0."""
+        decomposer = TaskDecomposer()
+        # Should work normally (depth=0 is well below max_depth=3)
+        result = decomposer.analyze(
+            "Refactor the entire system-wide database and redesign security. "
+            "Update db.py, models.py, handlers.py, auth.py",
+        )
+        # Should compute complexity normally
+        assert result.complexity_score > 0
+
+    @pytest.mark.parametrize("max_depth", [1, 2, 5])
+    def test_configurable_max_depth(self, max_depth):
+        """max_depth should be configurable."""
+        config = DecomposerConfig(max_depth=max_depth, complexity_threshold=1)
+        decomposer = TaskDecomposer(config=config)
+
+        # At exactly max_depth -> blocked
+        result = decomposer.analyze("Refactor everything in db.py", depth=max_depth)
+        assert result.should_decompose is False
+
+        # One below max_depth -> allowed
+        result = decomposer.analyze("Refactor everything in db.py", depth=max_depth - 1)
+        # Should compute normally (may or may not decompose based on complexity)

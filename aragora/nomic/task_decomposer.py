@@ -55,6 +55,7 @@ class DecomposerConfig:
     complexity_threshold: int = 5  # Score above which decomposition is triggered
     max_subtasks: int = 5
     min_subtasks: int = 2
+    max_depth: int = 3  # Maximum recursive decomposition depth
     file_complexity_weight: float = 0.3
     concept_complexity_weight: float = 0.4
     length_complexity_weight: float = 0.3
@@ -150,12 +151,14 @@ class TaskDecomposer:
         self,
         task_description: str,
         debate_result: Optional["DebateResult"] = None,
+        depth: int = 0,
     ) -> TaskDecomposition:
         """Analyze a task and determine if decomposition is needed.
 
         Args:
             task_description: The task or improvement proposal
             debate_result: Optional debate result for additional context
+            depth: Current recursion depth (0 = top-level)
 
         Returns:
             TaskDecomposition with analysis and optional subtasks
@@ -167,6 +170,21 @@ class TaskDecomposer:
                 complexity_level="low",
                 should_decompose=False,
                 rationale="Empty task",
+            )
+
+        # Enforce depth limit to prevent unbounded recursive decomposition
+        if depth >= self.config.max_depth:
+            logger.info(
+                f"decomposition_depth_limit_reached depth={depth} "
+                f"max={self.config.max_depth}"
+            )
+            complexity_score = self._calculate_complexity(task_description, debate_result)
+            return TaskDecomposition(
+                original_task=task_description,
+                complexity_score=complexity_score,
+                complexity_level=self._score_to_level(complexity_score),
+                should_decompose=False,
+                rationale=f"Max decomposition depth ({self.config.max_depth}) reached",
             )
 
         # Calculate complexity score
@@ -191,7 +209,8 @@ class TaskDecomposer:
         if should_decompose:
             result.subtasks = self._generate_subtasks(task_description, debate_result)
             logger.info(
-                f"task_decomposed complexity={complexity_score} subtasks={len(result.subtasks)}"
+                f"task_decomposed complexity={complexity_score} "
+                f"subtasks={len(result.subtasks)} depth={depth}"
             )
         else:
             logger.debug(
@@ -437,6 +456,7 @@ class TaskDecomposer:
         goal: str,
         agents: Optional[list[Any]] = None,
         context: str = "",
+        depth: int = 0,
     ) -> TaskDecomposition:
         """Analyze an abstract goal using multi-agent debate.
 
@@ -452,6 +472,7 @@ class TaskDecomposer:
             agents: Optional list of agents to use in debate. If not provided,
                    will use default API agents.
             context: Optional additional context about the codebase or project
+            depth: Current recursion depth (0 = top-level)
 
         Returns:
             TaskDecomposition with debate-derived subtasks
@@ -464,6 +485,13 @@ class TaskDecomposer:
             for subtask in result.subtasks:
                 print(f"  - {subtask.title}: {subtask.description}")
         """
+        # Enforce depth limit
+        if depth >= self.config.max_depth:
+            logger.info(
+                f"debate_decomposition_depth_limit depth={depth} "
+                f"max={self.config.max_depth}"
+            )
+            return self.analyze(goal, depth=self.config.max_depth)
         from aragora.core import Environment
         from aragora.debate.protocol import DebateProtocol
 
@@ -498,7 +526,7 @@ class TaskDecomposer:
         if result is None:
             # All attempts failed, fall back to heuristic
             logger.warning("debate_decomposition_all_failed falling back to heuristic")
-            return self.analyze(goal)
+            return self.analyze(goal, depth=depth)
 
         # Parse subtasks from final answer (consensus text)
         subtasks = self._parse_debate_subtasks(result.final_answer or "")

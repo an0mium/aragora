@@ -212,6 +212,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
     async def sync_from_km(
         self,
         push_elo_ratings: bool = True,
+        push_calibration: bool = True,
         push_receipts: bool = True,
     ) -> ValidationSyncResult:
         """Sync Knowledge Mound data to blockchain (reverse flow).
@@ -223,6 +224,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
         Args:
             push_elo_ratings: Whether to push ELO ratings as reputation.
+            push_calibration: Whether to push calibration (Brier) scores.
             push_receipts: Whether to push receipts as validations.
 
         Returns:
@@ -281,7 +283,15 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     skipped += elo_result["skipped"]
                     errors.extend(elo_result["errors"])
 
-                # Step 3: Push gauntlet receipts as validation records
+                # Step 3: Push calibration scores as reputation feedback
+                if push_calibration and config.has_reputation_registry:
+                    cal_result = await self._push_calibration_as_reputation(linked_agents)
+                    analyzed += cal_result["analyzed"]
+                    updated += cal_result["updated"]
+                    skipped += cal_result["skipped"]
+                    errors.extend(cal_result["errors"])
+
+                # Step 4: Push gauntlet receipts as validation records
                 # _push_receipts_as_validations is defined below in this class
                 if push_receipts and config.has_validation_registry:
                     receipt_result = await self._push_receipts_as_validations(linked_agents)  # type: ignore[attr-defined]
@@ -509,6 +519,274 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
             "skipped": skipped,
             "errors": errors,
         }
+
+    async def _push_calibration_as_reputation(
+        self,
+        linked_agents: list[Any],
+    ) -> dict[str, Any]:
+        """Push calibration (Brier) scores as reputation feedback.
+
+        Calibration measures prediction accuracy — how well an agent's
+        confidence correlates with actual outcomes. This is a stronger
+        trustworthiness signal than raw ELO because it captures epistemic
+        honesty: agents that say "I'm 70% sure" and are right 70% of the
+        time score better than agents that always say 99%.
+
+        Uses tag1="calibration" and tag2=domain for domain-specific scores.
+
+        Args:
+            linked_agents: List of AgentBlockchainLink records.
+
+        Returns:
+            Dict with analyzed, updated, skipped counts and errors.
+        """
+        analyzed = 0
+        updated = 0
+        skipped = 0
+        errors: list[str] = []
+
+        if self._signer is None:
+            return {
+                "analyzed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": ["No signer configured"],
+            }
+
+        try:
+            from aragora.ranking.calibration_engine import CalibrationEngine
+        except ImportError:
+            logger.debug("CalibrationEngine not available")
+            return {
+                "analyzed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": ["CalibrationEngine not available"],
+            }
+
+        reputation_contract = self._get_reputation_contract()
+
+        # Create a CalibrationEngine instance
+        try:
+            from aragora.ranking.elo import EloSystem
+
+            elo_system = EloSystem()
+            calibration_engine = CalibrationEngine(elo_system=elo_system)
+        except Exception as e:
+            return {
+                "analyzed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": [f"Could not create CalibrationEngine: {e}"],
+            }
+
+        for link in linked_agents:
+            analyzed += 1
+            agent_id = link.aragora_agent_id
+            token_id = link.token_id
+
+            try:
+                # Get calibration stats for this agent
+                stats = calibration_engine.get_domain_stats(agent_id)
+
+                total_predictions = stats.get("total", 0)
+                if total_predictions < 5:
+                    logger.debug(
+                        f"Agent {agent_id} has insufficient predictions "
+                        f"({total_predictions}) for calibration reputation"
+                    )
+                    skipped += 1
+                    continue
+
+                brier_score = stats.get("brier_score", 1.0)
+
+                # Convert Brier score to reputation value
+                # Brier score: 0 = perfect, 1 = worst
+                # Reputation: 0-1000, higher = better
+                # calibration_reputation = (1 - brier_score) * 1000
+                calibration_reputation = int((1.0 - min(1.0, max(0.0, brier_score))) * 1000)
+
+                # Compute feedback hash
+                import hashlib
+
+                feedback_data = (
+                    f"{agent_id}:calibration:{brier_score:.4f}:{total_predictions}"
+                )
+                feedback_hash = hashlib.sha256(feedback_data.encode()).digest()
+
+                # Push overall calibration score
+                try:
+                    tx_hash = reputation_contract.give_feedback(
+                        agent_id=token_id,
+                        value=calibration_reputation,
+                        signer=self._signer,
+                        value_decimals=0,
+                        tag1="calibration",
+                        tag2="brier_score",
+                        endpoint="",
+                        feedback_uri=f"aragora://calibration/{agent_id}",
+                        feedback_hash=feedback_hash,
+                    )
+
+                    self._emit_event(
+                        "calibration_pushed",
+                        {
+                            "agent_id": agent_id,
+                            "token_id": token_id,
+                            "brier_score": brier_score,
+                            "calibration_reputation": calibration_reputation,
+                            "total_predictions": total_predictions,
+                            "tx_hash": tx_hash,
+                        },
+                    )
+
+                    logger.info(
+                        f"Pushed calibration for {agent_id} (token {token_id}): "
+                        f"Brier={brier_score:.4f} -> reputation {calibration_reputation}, "
+                        f"tx={tx_hash[:16]}..."
+                    )
+                    updated += 1
+
+                except Exception as e:
+                    error_msg = (
+                        f"Failed to push calibration for {agent_id}: {str(e)}"
+                    )
+                    errors.append(error_msg)
+                    logger.warning(error_msg)
+
+                # Push per-domain calibration scores
+                domains = stats.get("domains", {})
+                for domain, domain_stats in domains.items():
+                    domain_predictions = domain_stats.get("total_predictions", 0)
+                    if domain_predictions < 3:
+                        continue
+
+                    domain_brier = domain_stats.get("brier_score", 1.0)
+                    domain_rep = int(
+                        (1.0 - min(1.0, max(0.0, domain_brier))) * 1000
+                    )
+
+                    domain_data = (
+                        f"{agent_id}:calibration:{domain}:{domain_brier:.4f}"
+                    )
+                    domain_hash = hashlib.sha256(domain_data.encode()).digest()
+
+                    try:
+                        tx_hash = reputation_contract.give_feedback(
+                            agent_id=token_id,
+                            value=domain_rep,
+                            signer=self._signer,
+                            value_decimals=0,
+                            tag1="calibration",
+                            tag2=domain,
+                            endpoint="",
+                            feedback_uri=f"aragora://calibration/{agent_id}/{domain}",
+                            feedback_hash=domain_hash,
+                        )
+                        updated += 1
+
+                    except Exception as e:
+                        logger.debug(
+                            f"Failed to push domain calibration {domain} "
+                            f"for {agent_id}: {e}"
+                        )
+
+            except Exception as e:
+                error_msg = f"Error processing calibration for {agent_id}: {str(e)}"
+                errors.append(error_msg)
+                logger.warning(error_msg)
+
+        return {
+            "analyzed": analyzed,
+            "updated": updated,
+            "skipped": skipped,
+            "errors": errors,
+        }
+
+    async def register_prediction_commitment(
+        self,
+        agent_id: str,
+        token_id: int,
+        topic: str,
+        debate_id: str = "",
+    ) -> dict[str, Any]:
+        """Register a prediction pre-commitment for an agent before debate.
+
+        Implements the CbKVC (credential-based Key-Value Commitment) pattern
+        from Jutla et al. — agents must register which topics they will opine
+        on *before* seeing the question. This prevents cherry-picking: agents
+        can't selectively report calibration only on domains where they're
+        already well-calibrated.
+
+        Called at debate start. The matching calibration score push happens
+        at debate end via _push_calibration_as_reputation().
+
+        The commitment is stored on-chain as a reputation feedback record with
+        tag1="commitment" so it can be verified against later calibration
+        submissions.
+
+        Args:
+            agent_id: Aragora agent identifier.
+            token_id: On-chain ERC-8004 token ID for this agent.
+            topic: Debate topic or question being committed to.
+            debate_id: Optional debate identifier for traceability.
+
+        Returns:
+            Dict with commitment_hash, tx_hash (if on-chain), and status.
+        """
+        import hashlib
+
+        # Generate deterministic commitment hash from agent + topic
+        commitment_data = f"{agent_id}:commitment:{topic}:{debate_id}"
+        commitment_hash = hashlib.sha256(commitment_data.encode()).digest()
+
+        result: dict[str, Any] = {
+            "agent_id": agent_id,
+            "token_id": token_id,
+            "topic_hash": hashlib.sha256(topic.encode()).hexdigest()[:16],
+            "commitment_hash": commitment_hash.hex()[:32],
+            "debate_id": debate_id,
+            "status": "recorded",
+        }
+
+        # If we have a signer and reputation contract, record on-chain
+        if self._signer is not None and self._enable_reverse_sync:
+            try:
+                reputation_contract = self._get_reputation_contract()
+
+                tx_hash = reputation_contract.give_feedback(
+                    agent_id=token_id,
+                    value=0,  # Commitment has no value yet — value comes later
+                    signer=self._signer,
+                    value_decimals=0,
+                    tag1="commitment",
+                    tag2=hashlib.sha256(topic.encode()).hexdigest()[:16],
+                    endpoint="",
+                    feedback_uri=f"aragora://commitment/{agent_id}/{debate_id}",
+                    feedback_hash=commitment_hash,
+                )
+
+                result["tx_hash"] = tx_hash
+                result["status"] = "on_chain"
+
+                logger.info(
+                    f"Registered prediction commitment for {agent_id} "
+                    f"(token {token_id}), topic_hash={result['topic_hash']}, "
+                    f"tx={tx_hash[:16]}..."
+                )
+
+            except Exception as e:
+                result["status"] = "local_only"
+                result["error"] = str(e)
+                logger.warning(
+                    f"On-chain commitment failed for {agent_id}, "
+                    f"recording locally: {e}"
+                )
+
+        # Always emit event for local tracking
+        self._emit_event("prediction_committed", result)
+
+        return result
 
     async def _push_receipts_as_validations(
         self,

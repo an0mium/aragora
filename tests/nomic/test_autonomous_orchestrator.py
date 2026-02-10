@@ -1112,3 +1112,154 @@ class TestGenerateSummary:
 
         assert "+" in summary  # Completed indicator
         assert "-" in summary  # Failed indicator
+
+
+class TestAntiFragileReassignment:
+    """Tests for anti-fragile agent reassignment on failure."""
+
+    def test_feedback_loop_reassign_on_first_workflow_failure(self):
+        """First workflow_failure should trigger agent reassignment."""
+        loop = FeedbackLoop(max_iterations=3)
+
+        subtask = SubTask(id="1", title="Test", description="Test task")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.DEVELOPER,
+            agent_type="codex",
+            attempt_count=0,
+        )
+
+        feedback = loop.analyze_failure(
+            assignment,
+            {"type": "workflow_failure", "message": "Agent timed out"},
+        )
+
+        assert feedback["action"] == "reassign_agent"
+        assert feedback["original_agent"] == "codex"
+
+    def test_feedback_loop_no_reassign_on_second_failure(self):
+        """Second failure of same type should not trigger reassignment."""
+        loop = FeedbackLoop(max_iterations=5)
+
+        subtask = SubTask(id="1", title="Test", description="Test task")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.DEVELOPER,
+            agent_type="codex",
+            attempt_count=1,  # Already retried once
+        )
+
+        feedback = loop.analyze_failure(
+            assignment,
+            {"type": "workflow_failure", "message": "Still failing"},
+        )
+
+        # Should escalate on unknown, not reassign (attempt_count != 0)
+        assert feedback["action"] == "escalate"
+
+    def test_feedback_loop_reassign_on_agent_timeout(self):
+        """Agent timeout should trigger reassignment on first attempt."""
+        loop = FeedbackLoop(max_iterations=3)
+
+        subtask = SubTask(id="1", title="Test", description="Test task")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.SME,
+            agent_type="gemini",
+            attempt_count=0,
+        )
+
+        feedback = loop.analyze_failure(
+            assignment,
+            {"type": "agent_timeout", "message": "Request timed out"},
+        )
+
+        assert feedback["action"] == "reassign_agent"
+
+    def test_select_alternative_agent_from_track(self):
+        """Should select next agent from track's preferred list."""
+        orchestrator = AutonomousOrchestrator()
+
+        subtask = SubTask(id="1", title="Test", description="Test")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.DEVELOPER,  # Has ["claude", "codex"]
+            agent_type="claude",
+        )
+
+        alt = orchestrator._select_alternative_agent(assignment)
+        assert alt == "codex"
+
+    def test_select_alternative_agent_falls_back_to_claude(self):
+        """Should fall back to claude when no alternatives in track."""
+        orchestrator = AutonomousOrchestrator()
+
+        subtask = SubTask(id="1", title="Test", description="Test")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.CORE,  # Has only ["claude"]
+            agent_type="gemini",  # Not in track list
+        )
+
+        alt = orchestrator._select_alternative_agent(assignment)
+        assert alt == "claude"
+
+    def test_select_alternative_agent_returns_none_when_only_claude(self):
+        """Should return None when already using claude and no alternatives."""
+        orchestrator = AutonomousOrchestrator()
+
+        subtask = SubTask(id="1", title="Test", description="Test")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.CORE,  # Has only ["claude"]
+            agent_type="claude",
+        )
+
+        alt = orchestrator._select_alternative_agent(assignment)
+        assert alt is None
+
+    @pytest.mark.asyncio
+    async def test_execute_with_reassignment_on_failure(self):
+        """Full integration: failed task should be reassigned to different agent."""
+        call_count = 0
+
+        async def mock_execute(workflow, inputs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return MagicMock(success=False, final_output=None, error="Agent failed")
+            return MagicMock(success=True, final_output={"status": "ok"}, error=None)
+
+        engine = MagicMock()
+        engine.execute = AsyncMock(side_effect=mock_execute)
+
+        decomposer = MagicMock()
+        decomposer.analyze = MagicMock(
+            return_value=TaskDecomposition(
+                original_task="Test",
+                complexity_score=5,
+                complexity_level="medium",
+                should_decompose=True,
+                subtasks=[
+                    SubTask(
+                        id="1",
+                        title="SDK Task",
+                        description="Add SDK method",
+                        file_scope=["sdk/python/client.py"],
+                        estimated_complexity="medium",
+                    ),
+                ],
+            )
+        )
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=engine,
+            task_decomposer=decomposer,
+            max_parallel_tasks=1,
+        )
+
+        result = await orchestrator.execute_goal(goal="Test", max_cycles=2)
+
+        # Should have succeeded on retry with different agent
+        assert result.completed_subtasks == 1
+        assert call_count == 2

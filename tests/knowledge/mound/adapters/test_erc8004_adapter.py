@@ -657,6 +657,513 @@ class TestEventEmission:
 
 
 # =============================================================================
+# Test Calibration to Reputation
+# =============================================================================
+
+
+class TestCalibrationReputation:
+    """Test pushing calibration (Brier) scores as on-chain reputation."""
+
+    @pytest.mark.asyncio
+    async def test_push_calibration_scores(self):
+        """Test that calibration Brier scores are pushed as reputation."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_bridge = MagicMock()
+        mock_bridge.get_all_links.return_value = [
+            _make_mock_agent_link(aragora_agent_id="claude", token_id=42),
+        ]
+
+        # Mock calibration engine
+        mock_cal_engine = MagicMock()
+        mock_cal_engine.get_domain_stats.return_value = {
+            "total": 20,
+            "correct": 16,
+            "accuracy": 0.8,
+            "brier_score": 0.15,
+            "domains": {
+                "security": {
+                    "total_predictions": 8,
+                    "total_correct": 7,
+                    "brier_score": 0.10,
+                },
+                "coding": {
+                    "total_predictions": 12,
+                    "total_correct": 9,
+                    "brier_score": 0.18,
+                },
+            },
+        }
+
+        mock_rep_contract = MagicMock()
+        mock_rep_contract.give_feedback.return_value = "0xcal123"
+
+        mock_elo_system_cls = MagicMock(return_value=MagicMock())
+
+        with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
+            with patch(
+                "aragora.ranking.calibration_engine.CalibrationEngine",
+                return_value=mock_cal_engine,
+            ):
+                with patch(
+                    "aragora.ranking.elo.EloSystem",
+                    mock_elo_system_cls,
+                ):
+                    with patch.object(
+                        adapter, "_get_reputation_contract", return_value=mock_rep_contract
+                    ):
+                        result = await adapter.sync_from_km(
+                            push_elo_ratings=False,
+                            push_calibration=True,
+                            push_receipts=False,
+                        )
+
+        assert result.records_analyzed >= 1
+        assert result.records_updated >= 1
+
+        # Check that give_feedback was called with calibration tags
+        calls = mock_rep_contract.give_feedback.call_args_list
+        tag1_values = [c.kwargs.get("tag1") for c in calls]
+        assert "calibration" in tag1_values
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "brier_score,expected_rep",
+        [
+            (0.0, 1000),   # Perfect calibration -> max reputation
+            (0.5, 500),    # Moderate -> 500
+            (1.0, 0),      # Worst -> 0
+            (0.15, 850),   # Good calibration -> high reputation
+        ],
+    )
+    async def test_calibration_brier_to_reputation_scaling(
+        self, brier_score: float, expected_rep: int
+    ):
+        """Test Brier score to reputation value conversion."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_bridge = MagicMock()
+        mock_bridge.get_all_links.return_value = [
+            _make_mock_agent_link(aragora_agent_id="agent", token_id=1),
+        ]
+
+        mock_cal_engine = MagicMock()
+        mock_cal_engine.get_domain_stats.return_value = {
+            "total": 20,
+            "brier_score": brier_score,
+            "domains": {},
+        }
+
+        mock_rep_contract = MagicMock()
+        mock_rep_contract.give_feedback.return_value = "0x123"
+
+        with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
+            with patch(
+                "aragora.ranking.calibration_engine.CalibrationEngine",
+                return_value=mock_cal_engine,
+            ):
+                with patch(
+                    "aragora.ranking.elo.EloSystem",
+                    MagicMock(return_value=MagicMock()),
+                ):
+                    with patch.object(
+                        adapter, "_get_reputation_contract", return_value=mock_rep_contract
+                    ):
+                        await adapter.sync_from_km(
+                            push_elo_ratings=False,
+                            push_calibration=True,
+                            push_receipts=False,
+                        )
+
+        call_args = mock_rep_contract.give_feedback.call_args
+        assert call_args is not None, f"give_feedback not called for Brier={brier_score}"
+        actual_value = call_args.kwargs.get("value")
+        assert actual_value == expected_rep, (
+            f"Brier {brier_score} should map to reputation {expected_rep}, got {actual_value}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_calibration_skips_insufficient_predictions(self):
+        """Test that agents with < 5 predictions are skipped."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_bridge = MagicMock()
+        mock_bridge.get_all_links.return_value = [
+            _make_mock_agent_link(aragora_agent_id="new_agent", token_id=1),
+        ]
+
+        mock_cal_engine = MagicMock()
+        mock_cal_engine.get_domain_stats.return_value = {
+            "total": 2,  # Too few predictions
+            "brier_score": 0.1,
+            "domains": {},
+        }
+
+        mock_rep_contract = MagicMock()
+
+        with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
+            with patch(
+                "aragora.ranking.calibration_engine.CalibrationEngine",
+                return_value=mock_cal_engine,
+            ):
+                with patch(
+                    "aragora.ranking.elo.EloSystem",
+                    MagicMock(return_value=MagicMock()),
+                ):
+                    with patch.object(
+                        adapter, "_get_reputation_contract", return_value=mock_rep_contract
+                    ):
+                        result = await adapter.sync_from_km(
+                            push_elo_ratings=False,
+                            push_calibration=True,
+                            push_receipts=False,
+                        )
+
+        assert result.records_skipped >= 1
+        mock_rep_contract.give_feedback.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_calibration_emits_event(self):
+        """Test that calibration_pushed events are emitted."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        events: list[tuple[str, dict]] = []
+
+        def capture_event(event_type: str, data: dict) -> None:
+            events.append((event_type, data))
+
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+            event_callback=capture_event,
+        )
+
+        mock_bridge = MagicMock()
+        mock_bridge.get_all_links.return_value = [
+            _make_mock_agent_link(aragora_agent_id="claude", token_id=42),
+        ]
+
+        mock_cal_engine = MagicMock()
+        mock_cal_engine.get_domain_stats.return_value = {
+            "total": 20,
+            "brier_score": 0.12,
+            "domains": {},
+        }
+
+        mock_rep_contract = MagicMock()
+        mock_rep_contract.give_feedback.return_value = "0xcal"
+
+        with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
+            with patch(
+                "aragora.ranking.calibration_engine.CalibrationEngine",
+                return_value=mock_cal_engine,
+            ):
+                with patch(
+                    "aragora.ranking.elo.EloSystem",
+                    MagicMock(return_value=MagicMock()),
+                ):
+                    with patch.object(
+                        adapter, "_get_reputation_contract", return_value=mock_rep_contract
+                    ):
+                        await adapter.sync_from_km(
+                            push_elo_ratings=False,
+                            push_calibration=True,
+                            push_receipts=False,
+                        )
+
+        event_types = [e[0] for e in events]
+        assert "calibration_pushed" in event_types
+
+        # Check event data
+        cal_event = next(e for e in events if e[0] == "calibration_pushed")
+        assert "brier_score" in cal_event[1]
+        assert "calibration_reputation" in cal_event[1]
+        assert cal_event[1]["agent_id"] == "claude"
+
+    @pytest.mark.asyncio
+    async def test_calibration_pushes_domain_scores(self):
+        """Test that per-domain calibration scores are pushed."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_bridge = MagicMock()
+        mock_bridge.get_all_links.return_value = [
+            _make_mock_agent_link(aragora_agent_id="claude", token_id=42),
+        ]
+
+        mock_cal_engine = MagicMock()
+        mock_cal_engine.get_domain_stats.return_value = {
+            "total": 20,
+            "brier_score": 0.15,
+            "domains": {
+                "security": {
+                    "total_predictions": 10,
+                    "total_correct": 9,
+                    "brier_score": 0.05,
+                },
+                "coding": {
+                    "total_predictions": 5,
+                    "total_correct": 3,
+                    "brier_score": 0.30,
+                },
+                "legal": {
+                    "total_predictions": 2,  # Too few, should be skipped
+                    "total_correct": 1,
+                    "brier_score": 0.50,
+                },
+            },
+        }
+
+        mock_rep_contract = MagicMock()
+        mock_rep_contract.give_feedback.return_value = "0xcal"
+
+        with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
+            with patch(
+                "aragora.ranking.calibration_engine.CalibrationEngine",
+                return_value=mock_cal_engine,
+            ):
+                with patch(
+                    "aragora.ranking.elo.EloSystem",
+                    MagicMock(return_value=MagicMock()),
+                ):
+                    with patch.object(
+                        adapter, "_get_reputation_contract", return_value=mock_rep_contract
+                    ):
+                        result = await adapter.sync_from_km(
+                            push_elo_ratings=False,
+                            push_calibration=True,
+                            push_receipts=False,
+                        )
+
+        # Should have pushed: 1 overall + 2 domains (legal skipped due to < 3 predictions)
+        calls = mock_rep_contract.give_feedback.call_args_list
+        assert len(calls) == 3  # overall + security + coding
+
+        # Verify domain tags
+        tag2_values = [c.kwargs.get("tag2") for c in calls]
+        assert "brier_score" in tag2_values  # Overall
+        assert "security" in tag2_values
+        assert "coding" in tag2_values
+        assert "legal" not in tag2_values  # Skipped
+
+
+# =============================================================================
+# Test Prediction Pre-Commitment (CbKVC)
+# =============================================================================
+
+
+class TestPredictionCommitment:
+    """Test prediction pre-commitment for tamper-resistant calibration.
+
+    The CbKVC pattern requires agents to register which topics they'll
+    opine on *before* seeing the question — preventing cherry-picking.
+    """
+
+    @pytest.mark.asyncio
+    async def test_register_commitment_with_signer(self):
+        """Commitment with signer should record on-chain."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_rep_contract = MagicMock()
+        mock_rep_contract.give_feedback.return_value = "0xcommit123"
+
+        with patch.object(
+            adapter, "_get_reputation_contract", return_value=mock_rep_contract
+        ):
+            result = await adapter.register_prediction_commitment(
+                agent_id="claude",
+                token_id=42,
+                topic="Should we adopt microservices?",
+                debate_id="debate_001",
+            )
+
+        assert result["status"] == "on_chain"
+        assert result["tx_hash"] == "0xcommit123"
+        assert result["agent_id"] == "claude"
+        assert result["token_id"] == 42
+        assert result["debate_id"] == "debate_001"
+        assert len(result["commitment_hash"]) == 32  # hex truncated
+        assert len(result["topic_hash"]) == 16  # hex truncated
+
+        # Verify on-chain call
+        mock_rep_contract.give_feedback.assert_called_once()
+        call_kwargs = mock_rep_contract.give_feedback.call_args.kwargs
+        assert call_kwargs["tag1"] == "commitment"
+        assert call_kwargs["value"] == 0  # Commitment has no value
+        assert call_kwargs["agent_id"] == 42
+
+    @pytest.mark.asyncio
+    async def test_register_commitment_without_signer(self):
+        """Commitment without signer should record locally only."""
+        provider = _make_mock_provider()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=None,  # No signer
+            enable_reverse_sync=True,
+        )
+
+        result = await adapter.register_prediction_commitment(
+            agent_id="gpt",
+            token_id=7,
+            topic="Design a rate limiter",
+        )
+
+        assert result["status"] == "recorded"
+        assert "tx_hash" not in result
+        assert result["agent_id"] == "gpt"
+
+    @pytest.mark.asyncio
+    async def test_register_commitment_reverse_sync_disabled(self):
+        """Commitment with reverse sync disabled should record locally."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=False,  # Disabled
+        )
+
+        result = await adapter.register_prediction_commitment(
+            agent_id="gemini",
+            token_id=3,
+            topic="Evaluate security architecture",
+        )
+
+        assert result["status"] == "recorded"
+        assert "tx_hash" not in result
+
+    @pytest.mark.asyncio
+    async def test_commitment_hash_deterministic(self):
+        """Same inputs should produce same commitment hash."""
+        adapter = ERC8004Adapter(provider=_make_mock_provider())
+
+        result1 = await adapter.register_prediction_commitment(
+            agent_id="claude", token_id=1, topic="test topic", debate_id="d1"
+        )
+        result2 = await adapter.register_prediction_commitment(
+            agent_id="claude", token_id=1, topic="test topic", debate_id="d1"
+        )
+
+        assert result1["commitment_hash"] == result2["commitment_hash"]
+        assert result1["topic_hash"] == result2["topic_hash"]
+
+    @pytest.mark.asyncio
+    async def test_different_topics_different_hashes(self):
+        """Different topics should produce different commitment hashes."""
+        adapter = ERC8004Adapter(provider=_make_mock_provider())
+
+        result1 = await adapter.register_prediction_commitment(
+            agent_id="claude", token_id=1, topic="topic A"
+        )
+        result2 = await adapter.register_prediction_commitment(
+            agent_id="claude", token_id=1, topic="topic B"
+        )
+
+        assert result1["commitment_hash"] != result2["commitment_hash"]
+        assert result1["topic_hash"] != result2["topic_hash"]
+
+    @pytest.mark.asyncio
+    async def test_commitment_emits_event(self):
+        """Commitment should emit prediction_committed event."""
+        adapter = ERC8004Adapter(provider=_make_mock_provider())
+
+        events: list[tuple] = []
+        adapter._emit_event = lambda name, data: events.append((name, data))
+
+        await adapter.register_prediction_commitment(
+            agent_id="claude", token_id=1, topic="test"
+        )
+
+        assert len(events) == 1
+        assert events[0][0] == "prediction_committed"
+        assert events[0][1]["agent_id"] == "claude"
+
+    @pytest.mark.asyncio
+    async def test_commitment_on_chain_failure_falls_back_to_local(self):
+        """On-chain failure should fall back to local recording."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_rep_contract = MagicMock()
+        mock_rep_contract.give_feedback.side_effect = Exception("RPC error")
+
+        with patch.object(
+            adapter, "_get_reputation_contract", return_value=mock_rep_contract
+        ):
+            result = await adapter.register_prediction_commitment(
+                agent_id="claude", token_id=42, topic="test"
+            )
+
+        assert result["status"] == "local_only"
+        assert "error" in result
+        assert "RPC error" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_commitment_tag2_is_topic_hash(self):
+        """On-chain commitment should use topic hash as tag2 for lookup."""
+        import hashlib
+
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_rep_contract = MagicMock()
+        mock_rep_contract.give_feedback.return_value = "0xabc"
+
+        topic = "Should we use GraphQL?"
+        expected_tag2 = hashlib.sha256(topic.encode()).hexdigest()[:16]
+
+        with patch.object(
+            adapter, "_get_reputation_contract", return_value=mock_rep_contract
+        ):
+            await adapter.register_prediction_commitment(
+                agent_id="claude", token_id=1, topic=topic
+            )
+
+        call_kwargs = mock_rep_contract.give_feedback.call_args.kwargs
+        assert call_kwargs["tag2"] == expected_tag2
+
+
+# =============================================================================
 # Test ELO to Reputation Conversion
 # =============================================================================
 
@@ -761,6 +1268,42 @@ class TestErrorHandling:
         assert result.records_updated == 0
         assert len(result.errors) > 0
         assert any("Transaction reverted" in e for e in result.errors)
+
+    @pytest.mark.asyncio
+    async def test_handles_calibration_errors(self):
+        """Test that calibration errors are caught and reported."""
+        provider = _make_mock_provider()
+        signer = _make_mock_signer()
+        adapter = ERC8004Adapter(
+            provider=provider,
+            signer=signer,
+            enable_reverse_sync=True,
+        )
+
+        mock_bridge = MagicMock()
+        mock_bridge.get_all_links.return_value = [
+            _make_mock_agent_link(aragora_agent_id="test", token_id=1),
+        ]
+
+        mock_cal_engine = MagicMock()
+        mock_cal_engine.get_domain_stats.side_effect = Exception("Calibration DB error")
+
+        with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
+            with patch(
+                "aragora.ranking.calibration_engine.CalibrationEngine",
+                return_value=mock_cal_engine,
+            ):
+                with patch(
+                    "aragora.ranking.elo.EloSystem",
+                    MagicMock(return_value=MagicMock()),
+                ):
+                    result = await adapter.sync_from_km(
+                        push_elo_ratings=False,
+                        push_calibration=True,
+                        push_receipts=False,
+                    )
+
+        assert len(result.errors) > 0
 
     @pytest.mark.asyncio
     async def test_handles_performance_adapter_errors(self):

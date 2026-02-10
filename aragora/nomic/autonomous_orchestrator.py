@@ -348,7 +348,13 @@ class FeedbackLoop:
         assignment: AgentAssignment,
         error_info: dict[str, Any],
     ) -> dict[str, Any]:
-        """Analyze a failure and determine next steps."""
+        """Analyze a failure and determine next steps.
+
+        Anti-fragile design: on first failure, tries reassigning to a different
+        agent before retrying the same one. This handles cases where an agent
+        type is fundamentally incompatible with a task (timeout, rate limit,
+        capability mismatch).
+        """
         subtask_id = assignment.subtask.id
         self._iteration_counts[subtask_id] = self._iteration_counts.get(subtask_id, 0) + 1
 
@@ -361,6 +367,17 @@ class FeedbackLoop:
 
         error_type = error_info.get("type", "unknown")
         error_message = error_info.get("message", "")
+
+        # Agent-level failures -> try a different agent before retrying same one
+        if error_type in ("agent_timeout", "agent_error", "workflow_failure"):
+            if assignment.attempt_count == 0:
+                # First failure: try reassigning to a different agent
+                return {
+                    "action": "reassign_agent",
+                    "reason": f"Agent {assignment.agent_type} failed on first attempt; "
+                    f"trying alternative agent",
+                    "original_agent": assignment.agent_type,
+                }
 
         # Test failures -> adjust implementation
         if error_type == "test_failure":
@@ -733,6 +750,22 @@ class AutonomousOrchestrator:
                 if feedback["action"] == "escalate":
                     assignment.status = "failed"
                     assignment.result = {"error": result.error, "feedback": feedback}
+                elif feedback["action"] == "reassign_agent":
+                    # Anti-fragile: try a different agent type
+                    alt_agent = self._select_alternative_agent(assignment)
+                    if alt_agent and alt_agent != assignment.agent_type:
+                        logger.info(
+                            "reassigning_agent",
+                            subtask_id=subtask.id,
+                            from_agent=assignment.agent_type,
+                            to_agent=alt_agent,
+                        )
+                        assignment.agent_type = alt_agent
+                    assignment.attempt_count += 1
+                    if assignment.attempt_count < assignment.max_attempts:
+                        await self._execute_single_assignment(assignment, max_cycles)
+                    else:
+                        assignment.status = "failed"
                 else:
                     # Retry based on feedback
                     assignment.attempt_count += 1
@@ -754,6 +787,25 @@ class AutonomousOrchestrator:
             assignment.completed_at = datetime.now(timezone.utc)
             self._completed_assignments.append(assignment)
             self._active_assignments.remove(assignment)
+
+    def _select_alternative_agent(self, assignment: AgentAssignment) -> str | None:
+        """Select an alternative agent type for reassignment on failure.
+
+        Picks the next available agent from the track's preferred list,
+        skipping the current agent. Falls back to 'claude' as the most
+        capable general-purpose agent.
+        """
+        config = self.track_configs.get(
+            assignment.track,
+            DEFAULT_TRACK_CONFIGS[Track.DEVELOPER],
+        )
+        candidates = [a for a in config.agent_types if a != assignment.agent_type]
+        if candidates:
+            return candidates[0]
+        # Fallback: if current agent isn't claude, try claude
+        if assignment.agent_type != "claude":
+            return "claude"
+        return None
 
     def _build_subtask_workflow(self, assignment: AgentAssignment) -> WorkflowDefinition:
         """Build a workflow definition for a subtask."""

@@ -444,6 +444,7 @@ class SICAImprover:
             try:
                 content = file_path.read_text()
             except Exception:
+                logger.debug("Failed to read %s, skipping", file_path)
                 continue
 
             # Analyze file for each improvement type
@@ -1034,6 +1035,7 @@ Preserve all existing functionality while fixing the issue."""
             )
             return result.returncode == 0
         except Exception:
+            logger.warning("Test suite execution failed", exc_info=True)
             return False
 
     async def request_approval(self, patch: ImprovementPatch) -> bool:
