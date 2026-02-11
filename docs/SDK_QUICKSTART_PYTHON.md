@@ -2,21 +2,21 @@
 
 > **Note:** For the comprehensive Python SDK guide with advanced features and streaming, see **[Python Quickstart Guide](guides/python-quickstart.md)**.
 >
-> This page provides a minimal 5-minute quickstart using the lightweight `aragora-client` package.
+> This page provides a minimal 5-minute quickstart using the `aragora-sdk` package.
 
 Get started with Aragora in under 5 minutes.
 
 ## Installation
 
 ```bash
-pip install aragora-client
+pip install aragora-sdk
 ```
 
 ## Basic Usage
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient("http://localhost:8080", api_key="your-key") as client:
@@ -35,7 +35,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient(

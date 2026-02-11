@@ -6,7 +6,7 @@ A full-featured command-line tool demonstrating the Aragora Python SDK.
 
 ```bash
 # Install Aragora SDK
-pip install aragora-client python-dotenv
+pip install aragora-sdk python-dotenv
 
 # Start the server (in another terminal)
 python -m aragora.server.unified_server --port 8080

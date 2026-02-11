@@ -21,7 +21,7 @@ npm install @aragora/sdk
 **Python**
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     async with AragoraClient("http://localhost:8080") as client:
@@ -73,7 +73,7 @@ for await (const event of client.streamDebate(debate.id)) {
 The Python SDK provides async-first access to all Aragora APIs.
 
 ```python
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 client = AragoraClient(
     base_url="http://localhost:8080",
@@ -146,7 +146,7 @@ Stream real-time events during a debate:
 
 **Python**
 ```python
-from aragora_client import stream_debate
+from aragora_sdk import stream_debate
 
 async for event in stream_debate(client, debate_id):
     if event.type == "agent_message":
@@ -277,7 +277,7 @@ All SDK methods throw typed exceptions:
 
 **Python**
 ```python
-from aragora_client import (
+from aragora_sdk import (
     AragoraError,
     AragoraAuthenticationError,
     AragoraNotFoundError,
@@ -316,7 +316,7 @@ The Aragora server enforces rate limits. Handle 429 responses:
 
 ```python
 import asyncio
-from aragora_client import AragoraError
+from aragora_sdk import AragoraError
 
 async def retry_with_backoff(fn, max_retries=3):
     for attempt in range(max_retries):

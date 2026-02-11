@@ -8,7 +8,7 @@ Welcome to Aragora's SME Starter Pack! This guide helps small and medium enterpr
 
 ```bash
 # Install the Python SDK
-pip install aragora-client
+pip install aragora-sdk
 
 # Or use the TypeScript SDK
 npm install @aragora/sdk
@@ -31,7 +31,7 @@ GEMINI_API_KEY=your-key-here
 ### 3. Run Your First Debate
 
 ```python
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 client = AragoraClient()
 
@@ -99,7 +99,7 @@ print(result.consensus_summary)
 Connect Aragora to Slack for debate notifications and quick decisions:
 
 ```python
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 client = AragoraClient()
 

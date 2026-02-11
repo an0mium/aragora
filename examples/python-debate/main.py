@@ -14,7 +14,7 @@ Usage:
     python main.py login --email user@example.com
 
 Requirements:
-    pip install aragora-client python-dotenv
+    pip install aragora-sdk python-dotenv
 """
 
 import argparse
@@ -31,13 +31,13 @@ try:
 except ImportError:
     pass
 
-from aragora_client import (
+from aragora_sdk import (
     AragoraClient,
     AragoraError,
     AragoraAuthenticationError,
     AragoraConnectionError,
 )
-from aragora_client.websocket import stream_debate
+from aragora_sdk.websocket import stream_debate
 
 
 async def get_client_async(base_url: str = "http://localhost:8080") -> AragoraClient:

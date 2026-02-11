@@ -115,7 +115,7 @@ A full-featured CLI tool demonstrating the Python SDK with auth, tournaments, an
 
 ```bash
 cd examples/python-debate
-pip install aragora-client python-dotenv
+pip install aragora-sdk python-dotenv
 
 # Run debates
 python main.py debate "Should we use Kubernetes?"

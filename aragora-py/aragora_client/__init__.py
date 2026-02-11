@@ -16,6 +16,15 @@ Example:
     >>> print(debate.consensus.conclusion)
 """
 
+import warnings
+
+warnings.warn(
+    "aragora-client is deprecated. Use aragora-sdk instead. "
+    "Install with: pip install aragora-sdk",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from aragora_client.admin import AdminAPI
 from aragora_client.analytics import AnalyticsAPI
 from aragora_client.audit import (

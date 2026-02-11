@@ -56,11 +56,11 @@ The architectural analysis was thorough and identified real opportunities, but s
 | SDK | Purpose | Status |
 |-----|---------|--------|
 | `aragora/client/` | Internal server-side type-safe client | Active |
-| `aragora-py/` (aragora-client) | Lightweight public SDK | Active v2.6.3 |
+| `aragora-py/` (aragora-client) | Legacy async-only public client | Deprecated (use aragora-sdk) |
 | `sdk/python/` (aragora-sdk) | Full-featured public SDK (135 namespaces) | Active v2.6.3 |
 | `sdk/typescript/` (@aragora/sdk) | TypeScript public SDK | Active v2.6.3 |
 
-**No consolidation needed.** Documentation should clarify when to use each.
+**No consolidation needed** beyond keeping `aragora-client` clearly deprecated and directing users to `aragora-sdk`.
 
 ### 2. Decision Router "Duplication" → Different Layers ❌→✅
 

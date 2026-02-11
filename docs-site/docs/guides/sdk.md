@@ -10,16 +10,16 @@ Prefer `/api/v1` endpoints for SDK usage; unversioned `/api` endpoints remain su
 
 ## Package Options
 
-- `aragora-client` - Recommended lightweight, async-only SDK for remote API use (`/api/v1`).
+- `aragora-sdk` - Recommended lightweight, async-only SDK for remote API use (`/api/v1`).
 - `aragora` - Full control plane package with server + CLI + sync/async SDK.
-- `aragora-sdk` - Deprecated; use `aragora-client` instead.
+- `aragora-client` - Deprecated; use `aragora-sdk` instead.
 
 TypeScript: use `@aragora/sdk` (official). `@aragora/client` is deprecated.
 
 ## Installation
 
 ```bash
-pip install aragora-client
+pip install aragora-sdk
 ```
 
 Or install the full control plane package (includes the SDK and server):
@@ -38,11 +38,11 @@ pip install -e .
 
 ## Quick Start
 
-### Standalone SDK (aragora-client)
+### Standalone SDK (aragora-sdk)
 
 ```python
 import asyncio
-from aragora_client import AragoraClient
+from aragora_sdk import AragoraClient
 
 async def main():
     client = AragoraClient("http://localhost:8080")
