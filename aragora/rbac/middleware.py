@@ -161,8 +161,8 @@ class RoutePermission:
         if self.resource_id_group is not None:
             try:
                 resource_id = match.group(self.resource_id_group)
-            except IndexError:
-                pass
+            except IndexError as e:
+                logger.debug("matches encountered an error: %s", e)
 
         return True, resource_id
 

@@ -769,8 +769,8 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
         if redis:
             try:
                 redis.delete(self._cache_key(tenant_id, provider, email_address))
-            except (ConnectionError, TimeoutError, OSError):
-                pass
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug("update last used encountered an error: %s", e)
 
     async def record_failure(
         self, tenant_id: str, provider: str, email_address: str, error: str
@@ -781,8 +781,8 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
         if redis:
             try:
                 redis.delete(self._cache_key(tenant_id, provider, email_address))
-            except (ConnectionError, TimeoutError, OSError):
-                pass
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug("record failure encountered an error: %s", e)
 
     async def reset_failures(self, tenant_id: str, provider: str, email_address: str) -> None:
         await self._sqlite.reset_failures(tenant_id, provider, email_address)
@@ -791,8 +791,8 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
         if redis:
             try:
                 redis.delete(self._cache_key(tenant_id, provider, email_address))
-            except (ConnectionError, TimeoutError, OSError):
-                pass
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug("reset failures encountered an error: %s", e)
 
     async def close(self) -> None:
         await self._sqlite.close()

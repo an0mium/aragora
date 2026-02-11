@@ -247,8 +247,8 @@ class MSHSegment:
                     msg_dt = datetime.strptime(dt_str[:12], "%Y%m%d%H%M")
                 elif len(dt_str) >= 8:
                     msg_dt = datetime.strptime(dt_str[:8], "%Y%m%d")
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from segment encountered an error: %s", e)
 
         return cls(
             field_separator=segment.get_field_value(1, "|"),
@@ -300,8 +300,8 @@ class PIDSegment:
             try:
                 if len(dob_str) >= 8:
                     dob = datetime.strptime(dob_str[:8], "%Y%m%d")
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from segment encountered an error: %s", e)
 
         # Parse patient identifiers (repeating field)
         pid3 = segment.get_field(3)
@@ -364,8 +364,8 @@ class PV1Segment:
                     admit_dt = datetime.strptime(admit_str[:14], "%Y%m%d%H%M%S")
                 elif len(admit_str) >= 8:
                     admit_dt = datetime.strptime(admit_str[:8], "%Y%m%d")
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from segment encountered an error: %s", e)
 
         # Parse discharge datetime (PV1-45)
         discharge_str = segment.get_field_value(45)
@@ -376,8 +376,8 @@ class PV1Segment:
                     discharge_dt = datetime.strptime(discharge_str[:14], "%Y%m%d%H%M%S")
                 elif len(discharge_str) >= 8:
                     discharge_dt = datetime.strptime(discharge_str[:8], "%Y%m%d")
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from segment encountered an error: %s", e)
 
         return cls(
             set_id=segment.get_field_value(1),
@@ -430,8 +430,8 @@ class OBXSegment:
                     obs_dt = datetime.strptime(obs_str[:14], "%Y%m%d%H%M%S")
                 elif len(obs_str) >= 8:
                     obs_dt = datetime.strptime(obs_str[:8], "%Y%m%d")
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from segment encountered an error: %s", e)
 
         return cls(
             set_id=segment.get_field_value(1),
@@ -482,8 +482,8 @@ class ORCSegment:
                     dt = datetime.strptime(dt_str[:14], "%Y%m%d%H%M%S")
                 elif len(dt_str) >= 8:
                     dt = datetime.strptime(dt_str[:8], "%Y%m%d")
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from segment encountered an error: %s", e)
 
         return cls(
             order_control=segment.get_field_value(1),
@@ -535,8 +535,8 @@ class OBRSegment:
                     return datetime.strptime(val[:14], "%Y%m%d%H%M%S")
                 elif len(val) >= 8:
                     return datetime.strptime(val[:8], "%Y%m%d")
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("parse dt encountered an error: %s", e)
             return None
 
         return cls(

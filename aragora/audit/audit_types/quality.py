@@ -505,8 +505,8 @@ If no significant issues found, respond with empty array: []"""
                             found_by="quality_analyst",
                         )
                         findings.append(finding)
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
         except Exception as e:
             logger.debug(f"LLM quality analysis skipped: {e}")

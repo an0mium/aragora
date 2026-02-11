@@ -474,8 +474,8 @@ class ExternalFrameworkAgent(APIAgent):
         if retry_after:
             try:
                 return float(retry_after)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse numeric value: %s", e)
         return None
 
     async def critique(
@@ -647,8 +647,8 @@ REASONING: [your explanation]"""
             try:
                 confidence = float(conf_match.group(1))
                 confidence = max(0.0, min(1.0, confidence))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse numeric value: %s", e)
 
         # Parse continue flag
         continue_debate = False

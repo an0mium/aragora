@@ -154,8 +154,8 @@ def cmd_template_list(args: argparse.Namespace) -> int:
                 try:
                     cat = TemplateCategory(args.category)
                     packages = [p for p in packages if p.metadata.category == cat]
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("cmd template list encountered an error: %s", e)
 
             if args.tags:
                 tag_set = set(args.tags)

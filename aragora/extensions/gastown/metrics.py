@@ -187,8 +187,8 @@ def get_gupp_recovery_count(hours: int = 24) -> int:
                                     recovered_dt = datetime.fromisoformat(recovered_at)
                                     if recovered_dt >= cutoff:
                                         recovery_count += 1
-                                except (ValueError, TypeError):
-                                    pass
+                                except (ValueError, TypeError) as e:
+                                    logger.debug("Failed to parse datetime value: %s", e)
                         except (json.JSONDecodeError, KeyError):
                             continue
             except Exception as e:

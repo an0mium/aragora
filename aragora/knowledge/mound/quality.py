@@ -220,8 +220,8 @@ class QualityScorer:
                     # Decay score for items not accessed recently
                     score *= max(0.5, 1 - days_since_access / 365)
 
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.warning("Failed to parse datetime value: %s", e)
 
         return score
 

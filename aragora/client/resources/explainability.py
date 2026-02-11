@@ -322,8 +322,8 @@ class ExplainabilityAPI:
         if data.get("generated_at"):
             try:
                 generated_at = datetime.fromisoformat(data["generated_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         factors = [self._parse_factor(f) for f in data.get("factors", [])]
         evidence = [self._parse_evidence(e) for e in data.get("evidence_chain", [])]
@@ -397,16 +397,16 @@ class ExplainabilityAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(str(data["created_at"]).replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("completed_at"):
             try:
                 completed_at = datetime.fromisoformat(
                     str(data["completed_at"]).replace("Z", "+00:00")
                 )
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return BatchJobStatus(
             batch_id=data.get("batch_id", ""),

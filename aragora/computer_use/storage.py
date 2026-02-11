@@ -52,14 +52,14 @@ class ComputerUseTask:
         steps = []
         try:
             steps = json.loads(self.steps_json) if self.steps_json else []
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug("Failed to parse JSON data: %s", e)
 
         result = None
         try:
             result = json.loads(self.result_json) if self.result_json else None
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug("Failed to parse JSON data: %s", e)
 
         return {
             "task_id": self.task_id,
@@ -112,14 +112,14 @@ class ComputerUsePolicy:
             allowed_actions = (
                 json.loads(self.allowed_actions_json) if self.allowed_actions_json else []
             )
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug("Failed to parse JSON data: %s", e)
         try:
             blocked_domains = (
                 json.loads(self.blocked_domains_json) if self.blocked_domains_json else []
             )
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug("Failed to parse JSON data: %s", e)
 
         return {
             "id": self.policy_id,

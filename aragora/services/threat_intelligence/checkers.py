@@ -494,8 +494,8 @@ class ThreatCheckersMixin:
                             last_reported = datetime.fromisoformat(
                                 result["lastReportedAt"].replace("Z", "+00:00")
                             )
-                        except ValueError:
-                            pass
+                        except ValueError as e:
+                            logger.debug("Failed to parse datetime value: %s", e)
 
                     return IPReputationResult(
                         ip_address=ip_address,

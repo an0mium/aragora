@@ -657,8 +657,8 @@ class SalesforceConnector(EnterpriseConnector):
         if state.cursor:
             try:
                 last_sync = datetime.fromisoformat(state.cursor)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         # Combine standard and custom objects
         all_objects = self.objects + self.custom_objects

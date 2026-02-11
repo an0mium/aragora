@@ -265,8 +265,8 @@ class SecurityEventEmitter:
             try:
                 self._handlers[event_type].remove(handler)
                 return True
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("unsubscribe encountered an error: %s", e)
         return False
 
     async def emit(self, event: SecurityEvent) -> None:

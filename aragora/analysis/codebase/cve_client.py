@@ -350,13 +350,13 @@ class CVEClient:
         if cve_data.get("published"):
             try:
                 published_at = datetime.fromisoformat(cve_data["published"].replace("Z", "+00:00"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
         if cve_data.get("lastModified"):
             try:
                 updated_at = datetime.fromisoformat(cve_data["lastModified"].replace("Z", "+00:00"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return VulnerabilityFinding(
             id=cve_id,
@@ -519,8 +519,8 @@ class CVEClient:
         if data.get("published"):
             try:
                 published_at = datetime.fromisoformat(data["published"].replace("Z", "+00:00"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return VulnerabilityFinding(
             id=vuln_id,
@@ -692,13 +692,13 @@ class CVEClient:
                 published_at = datetime.fromisoformat(
                     advisory["publishedAt"].replace("Z", "+00:00")
                 )
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
         if advisory.get("updatedAt"):
             try:
                 updated_at = datetime.fromisoformat(advisory["updatedAt"].replace("Z", "+00:00"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return VulnerabilityFinding(
             id=ghsa_id,

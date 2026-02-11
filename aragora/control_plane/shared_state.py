@@ -305,8 +305,8 @@ class SharedControlPlaneState:
                 try:
                     agent = AgentState.from_dict(json.loads(row[1]))
                     self._local_agents[row[0]] = agent
-                except (json.JSONDecodeError, KeyError):
-                    pass
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
             # Load tasks
             cursor = conn.execute(
@@ -317,8 +317,8 @@ class SharedControlPlaneState:
                 try:
                     task = TaskState.from_dict(json.loads(row[1]))
                     self._local_tasks.append(task)
-                except (json.JSONDecodeError, KeyError):
-                    pass
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
             # Load metrics
             cursor = conn.execute("SELECT key, value_int FROM control_plane_metrics")
@@ -675,8 +675,8 @@ class SharedControlPlaneState:
         for queue in self._stream_clients:
             try:
                 queue.put_nowait(event)
-            except asyncio.QueueFull:
-                pass
+            except asyncio.QueueFull as e:
+                logger.debug("broadcast event encountered an error: %s", e)
 
         # Publish to Redis for cross-instance events
         if self._redis:

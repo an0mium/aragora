@@ -305,8 +305,8 @@ class KnowledgeFederationMixin:
                                 )
                                 if item_time < since:
                                     continue
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as e:
+                                logger.warning("Failed to parse datetime value: %s", e)
                     filtered_items.append(item)
 
             # Apply scope filtering

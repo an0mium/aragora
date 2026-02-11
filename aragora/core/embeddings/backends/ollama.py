@@ -63,8 +63,8 @@ class OllamaBackend(EmbeddingBackend):
                     host = parts[0]
                     try:
                         port = int(parts[1])
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(0.5)

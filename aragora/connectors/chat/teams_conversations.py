@@ -452,8 +452,8 @@ class TeamsConversationStore:
         if row["metadata"]:
             try:
                 metadata = json.loads(row["metadata"])
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug("Failed to parse JSON data: %s", e)
 
         return TeamsConversationReference(
             conversation_id=row["conversation_id"],

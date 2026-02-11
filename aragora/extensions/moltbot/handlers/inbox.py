@@ -164,8 +164,8 @@ class MoltbotInboxHandler(BaseHandler):
 
             try:
                 channel_type = ChannelType(channel_type_str)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("handle list channels encountered an error: %s", e)
 
         channels = await inbox.list_channels(
             user_id=user_id,

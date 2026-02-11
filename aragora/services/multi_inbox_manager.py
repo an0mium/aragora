@@ -796,8 +796,8 @@ async def create_multi_inbox_manager(
             if config.get("type"):
                 try:
                     account_type = AccountType(config["type"])
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("multi_inbox_manager operation failed: %s", e)
 
             await manager.add_account(
                 account_id=config["account_id"],

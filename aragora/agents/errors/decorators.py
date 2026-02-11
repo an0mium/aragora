@@ -178,8 +178,8 @@ def _handle_response_error(
         if e.headers and "Retry-After" in e.headers:
             try:
                 retry_after = float(e.headers["Retry-After"])
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse numeric value: %s", e)
 
         error = AgentRateLimitError(
             "Rate limit exceeded (HTTP 429)",

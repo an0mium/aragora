@@ -479,8 +479,8 @@ class ExternalIdentityRepository:
         if row["raw_claims"]:
             try:
                 raw_claims = json.loads(row["raw_claims"])
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse JSON data: %s", e)
 
         return ExternalIdentity(
             id=row["id"],

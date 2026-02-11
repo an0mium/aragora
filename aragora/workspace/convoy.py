@@ -88,8 +88,8 @@ class ConvoyStatus(Enum):
         if workspace_status:
             try:
                 return cls(workspace_status)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from nomic encountered an error: %s", e)
         mapping = {
             NomicConvoyStatus.PENDING: cls.CREATED,
             NomicConvoyStatus.ACTIVE: cls.EXECUTING,

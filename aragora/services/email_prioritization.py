@@ -570,8 +570,8 @@ class EmailPrioritizer:
                         profile.last_interaction = datetime.fromisoformat(
                             history["last_interaction"]
                         )
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
 
             # Cache and add to results
             self._sender_profiles[addr] = profile

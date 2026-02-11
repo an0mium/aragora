@@ -395,8 +395,8 @@ class DependencyScanner:
                         )
                     )
 
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug("Failed to parse JSON data: %s", e)
 
         return deps
 
@@ -532,8 +532,8 @@ class DependencyScanner:
                         )
                     )
 
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug("Failed to parse JSON data: %s", e)
 
         return deps
 

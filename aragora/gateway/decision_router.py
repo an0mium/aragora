@@ -808,8 +808,8 @@ class DecisionRouter:
                     criteria_matched=list(matched_criteria),
                     confidence=1.0,
                 )
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("decision_router operation failed: %s", e)
 
         return None
 
@@ -1046,8 +1046,8 @@ class DecisionRouter:
                 if isinstance(category, ActionCategory):
                     return category
                 return ActionCategory(category.lower())
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("extract action category encountered an error: %s", e)
 
         # Infer from action type
         action = str(request.get("action", "") or request.get("action_type", "")).lower()

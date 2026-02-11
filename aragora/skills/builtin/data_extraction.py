@@ -475,8 +475,8 @@ class DataExtractionSkill(Skill):
                         metadata={"parsed": parsed, "json_type": "object"},
                     )
                 )
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug("Failed to parse JSON data: %s", e)
 
         # Find potential JSON arrays
         bracket_pattern = r"\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\]"
@@ -493,8 +493,8 @@ class DataExtractionSkill(Skill):
                         metadata={"parsed": parsed, "json_type": "array"},
                     )
                 )
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug("Failed to parse JSON data: %s", e)
 
         return results
 

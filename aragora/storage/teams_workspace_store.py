@@ -99,16 +99,16 @@ class TeamsWorkspace:
         service_url = None
         try:
             refresh_token = row["refresh_token"]
-        except (IndexError, KeyError):
-            pass
+        except (IndexError, KeyError) as e:
+            logger.warning("from row encountered an error: %s", e)
         try:
             token_expires_at = row["token_expires_at"]
-        except (IndexError, KeyError):
-            pass
+        except (IndexError, KeyError) as e:
+            logger.warning("from row encountered an error: %s", e)
         try:
             service_url = row["service_url"]
-        except (IndexError, KeyError):
-            pass
+        except (IndexError, KeyError) as e:
+            logger.warning("from row encountered an error: %s", e)
 
         return cls(
             tenant_id=row["tenant_id"],

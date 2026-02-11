@@ -971,8 +971,8 @@ class PostgresStore:
                 if len(parts) == 2:
                     cursor_id = parts[0]
                     cursor_ts = datetime.fromisoformat(parts[1])
-            except (ValueError, UnicodeDecodeError):
-                pass
+            except (ValueError, UnicodeDecodeError) as e:
+                logger.warning("Encoding/decoding failed: %s", e)
 
         async with self.connection() as conn:
             where_clauses: list[str] = []

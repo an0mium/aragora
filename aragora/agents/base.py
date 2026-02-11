@@ -3,6 +3,9 @@ Base utilities for creating agents.
 """
 
 from __future__ import annotations
+import logging
+logger = logging.getLogger(__name__)
+
 
 __all__ = [
     "CritiqueMixin",
@@ -224,8 +227,8 @@ class CritiqueMixin:
                             # Given as 0-1 scale, convert to 0-10
                             raw_severity = raw_severity * 10.0
                         severity = min(10.0, max(0.0, raw_severity))
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
             elif line.startswith(("-", "*", "•")):
                 item = line.lstrip("-*• ").strip()
                 if current_section == "issues":

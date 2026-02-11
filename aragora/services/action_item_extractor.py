@@ -666,8 +666,8 @@ class ActionItemExtractor:
                         target = target + timedelta(days=7)
                     return target
 
-        except (ValueError, TypeError, IndexError):
-            pass
+        except (ValueError, TypeError, IndexError) as e:
+            logger.debug("action_item_extractor operation failed: %s", e)
 
         return None
 

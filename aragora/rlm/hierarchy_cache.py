@@ -252,15 +252,15 @@ class RLMHierarchyCache:
                 try:
                     level = AbstractionLevel(level_str)
                     compressed_tokens[level] = val
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("deserialize compression encountered an error: %s", e)
 
             for level_str, val in data.get("compression_ratio", {}).items():
                 try:
                     level = AbstractionLevel(level_str)
                     compression_ratio[level] = val
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("hierarchy_cache operation failed: %s", e)
 
             return CompressionResult(
                 context=context,

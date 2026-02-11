@@ -486,16 +486,16 @@ class GmailAPI:
         if data.get("connected_at"):
             try:
                 connected_at = datetime.fromisoformat(data["connected_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("last_synced_at"):
             try:
                 last_synced_at = datetime.fromisoformat(
                     data["last_synced_at"].replace("Z", "+00:00")
                 )
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return GmailConnection(
             id=data.get("id", ""),
@@ -535,8 +535,8 @@ class GmailAPI:
         if data.get("processed_at"):
             try:
                 processed_at = datetime.fromisoformat(data["processed_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return ProcessedEmail(
             id=data.get("id", ""),

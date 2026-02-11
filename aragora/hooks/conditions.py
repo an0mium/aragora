@@ -268,8 +268,8 @@ class ConditionEvaluator:
         # Try numeric comparison
         try:
             return float(a) == float(b)
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug("Failed to parse numeric value: %s", e)
 
         # Try string comparison
         return str(a).lower() == str(b).lower()

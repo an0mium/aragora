@@ -366,8 +366,8 @@ class AccountingConnectorBase(ABC, Generic[C]):
             if retry_after:
                 try:
                     return min(float(retry_after), config.max_delay)
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse numeric value: %s", e)
 
         # Exponential backoff
         delay = config.base_delay * (2**attempt)

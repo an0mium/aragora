@@ -374,8 +374,8 @@ class SchemaTranslator:
             if row and row[0]:
                 sql_upper = row[0].upper()
                 return "AUTOINCREMENT" in sql_upper
-        except sqlite3.Error:
-            pass
+        except sqlite3.Error as e:
+            logger.debug("is autoincrement encountered an error: %s", e)
         return False
 
     def _translate_default(self, default: str, pg_type: str) -> str | None:
@@ -404,8 +404,8 @@ class SchemaTranslator:
         try:
             float(default)
             return default
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug("Failed to parse numeric value: %s", e)
 
         # JSON default
         if pg_type == "JSONB":

@@ -696,8 +696,8 @@ class MeetingDetector:
                 base = datetime(year, month, day, tzinfo=timezone.utc)
                 return self._parse_time_string(time_str, base)
 
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug("meeting_detector operation failed: %s", e)
 
         return None
 

@@ -649,8 +649,8 @@ class MetricsCollector:
                 for status in ("pending", "ready", "running"):
                     try:
                         total += int(TASK_QUEUE_SIZE.labels(status=status)._value.get())
-                    except (AttributeError, KeyError):
-                        pass
+                    except (AttributeError, KeyError) as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
                 snapshot.queue_size = total
         except (ImportError, AttributeError):
             # Use defaults

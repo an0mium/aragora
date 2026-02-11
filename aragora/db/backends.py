@@ -300,8 +300,8 @@ class SQLiteBackend(DatabaseBackend):
                     # Connection is broken, discard
                     try:
                         conn.close()
-                    except sqlite3.Error:
-                        pass
+                    except sqlite3.Error as e:
+                        logger.debug("Error during connection cleanup: %s", e)
 
         return self._create_connection()
 
@@ -315,8 +315,8 @@ class SQLiteBackend(DatabaseBackend):
         # Pool is full, close the connection
         try:
             conn.close()
-        except sqlite3.Error:
-            pass
+        except sqlite3.Error as e:
+            logger.debug("Error during connection cleanup: %s", e)
 
     @contextmanager
     def connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -380,8 +380,8 @@ class SQLiteBackend(DatabaseBackend):
             for conn in self._pool:
                 try:
                     conn.close()
-                except sqlite3.Error:
-                    pass
+                except sqlite3.Error as e:
+                    logger.debug("Error during connection cleanup: %s", e)
             self._pool.clear()
 
 

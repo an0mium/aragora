@@ -822,6 +822,6 @@ class SDPOLearner:
                 try:
                     action_type = ActionType(action_str)
                     cal.action_type_factors[action_type] = factor
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("load encountered an error: %s", e)
             self.calibrations[name] = cal

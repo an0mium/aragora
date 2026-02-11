@@ -640,8 +640,8 @@ class CanvasManager:
         if canvas_id in self._subscribers:
             try:
                 self._subscribers[canvas_id].remove(callback)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("unsubscribe encountered an error: %s", e)
 
     async def _broadcast(
         self,

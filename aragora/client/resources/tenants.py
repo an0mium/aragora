@@ -392,14 +392,14 @@ class TenantsAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("updated_at"):
             try:
                 updated_at = datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return Tenant(
             id=data.get("id", ""),
@@ -445,14 +445,14 @@ class TenantsAPI:
         if data.get("period_start"):
             try:
                 period_start = datetime.fromisoformat(data["period_start"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("period_end"):
             try:
                 period_end = datetime.fromisoformat(data["period_end"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return TenantUsage(
             tenant_id=data.get("tenant_id", ""),

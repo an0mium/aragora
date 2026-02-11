@@ -1116,8 +1116,8 @@ class HookHandlerRegistry:
                 if arena_config and hasattr(arena_config, "plan_approval_mode"):
                     try:
                         approval_mode = ApprovalMode(arena_config.plan_approval_mode)
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.warning("handle auto plan creation encountered an error: %s", e)
 
                 # Get budget limit from config
                 budget_limit = None

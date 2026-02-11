@@ -147,8 +147,8 @@ def recover_pending_approvals() -> int:
             if record.metadata_json:
                 try:
                     metadata = json.loads(record.metadata_json)
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
             # Reconstruct checklist from stored metadata
             checklist = []

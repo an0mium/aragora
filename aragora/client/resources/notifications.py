@@ -410,20 +410,20 @@ class NotificationsAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("sent_at"):
             try:
                 sent_at = datetime.fromisoformat(data["sent_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("read_at"):
             try:
                 read_at = datetime.fromisoformat(data["read_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return Notification(
             id=data.get("id", ""),

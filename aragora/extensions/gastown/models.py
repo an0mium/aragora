@@ -14,6 +14,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
+import logging
+logger = logging.getLogger(__name__)
+
 
 if TYPE_CHECKING:
     from aragora.nomic.stores import ConvoyStatus as NomicConvoyStatus
@@ -75,8 +78,8 @@ class ConvoyStatus(Enum):
         if gastown_status:
             try:
                 return cls(gastown_status)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from nomic encountered an error: %s", e)
         mapping = {
             NomicConvoyStatus.PENDING: cls.PENDING,
             NomicConvoyStatus.ACTIVE: cls.IN_PROGRESS,

@@ -649,8 +649,8 @@ class AuditInterceptor:
                     "_original_size": len(serialized),
                     "_preview": serialized[: self._config.max_body_size // 10],
                 }
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as e:
+            logger.debug("Failed to parse JSON data: %s", e)
 
         return body
 

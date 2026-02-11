@@ -260,8 +260,8 @@ class SandboxExecutor:
                 mem_bytes = limits.max_memory_mb * 1024 * 1024
                 try:
                     resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
-                except (ValueError, resource.error):
-                    pass
+                except (ValueError, resource.error) as e:
+                    logger.debug("Failed to set resource limit: %s", e)
 
                 # CPU time limit
                 try:
@@ -269,8 +269,8 @@ class SandboxExecutor:
                         resource.RLIMIT_CPU,
                         (limits.max_execution_seconds, limits.max_execution_seconds),
                     )
-                except (ValueError, resource.error):
-                    pass
+                except (ValueError, resource.error) as e:
+                    logger.debug("Failed to set resource limit: %s", e)
 
             preexec = set_limits
 

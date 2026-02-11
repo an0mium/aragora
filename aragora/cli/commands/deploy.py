@@ -495,8 +495,8 @@ def _get_compose_command() -> list[str] | None:
         )
         if result.returncode == 0:
             return ["docker", "compose"]
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        logger.debug("Subprocess execution failed: %s", e)
 
     # Try docker-compose (v1)
     if shutil.which("docker-compose"):

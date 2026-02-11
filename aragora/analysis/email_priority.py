@@ -486,8 +486,8 @@ class EmailPriorityAnalyzer:
                             rlm_score = max(0.0, min(1.0, rlm_score))  # Clamp
                             # Blend with keyword-based score
                             score = (score + rlm_score) / 2
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("email_priority operation failed: %s", e)
 
             except (RuntimeError, OSError, ValueError, AttributeError) as e:
                 logger.debug(f"[EmailPriority] AragoraRLM analysis failed: {e}")

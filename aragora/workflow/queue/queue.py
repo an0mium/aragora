@@ -372,8 +372,8 @@ class TaskQueue:
 
         try:
             await asyncio.wait_for(event.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            pass
+        except asyncio.TimeoutError as e:
+            logger.debug("wait for workflow encountered an error: %s", e)
 
         # Collect results
         task_ids = self._workflows.get(workflow_id, set())

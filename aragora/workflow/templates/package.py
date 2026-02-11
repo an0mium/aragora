@@ -435,8 +435,8 @@ def list_packages(
             if isinstance(category, str):
                 try:
                     category = TemplateCategory(category)
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("list packages encountered an error: %s", e)
             if isinstance(category, TemplateCategory) and pkg.metadata.category != category:
                 continue
             elif isinstance(category, str) and pkg.metadata.category.value != category:

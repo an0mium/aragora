@@ -421,8 +421,8 @@ class AnomalyStorage:
             try:
                 ts = datetime.fromisoformat(row["timestamp"])
                 hours.append(ts.hour)
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return hours
 

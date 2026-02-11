@@ -518,8 +518,8 @@ Confidence: {understanding.confidence}
             if json_match:
                 try:
                     return json.loads(json_match.group())
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
             raise ValueError(f"Could not parse JSON from response: {response[:200]}...")
 
 

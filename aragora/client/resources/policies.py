@@ -596,14 +596,14 @@ class PoliciesAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("updated_at"):
             try:
                 updated_at = datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         rules = [self._parse_rule(r) for r in data.get("rules", [])]
 
@@ -642,14 +642,14 @@ class PoliciesAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("resolved_at"):
             try:
                 resolved_at = datetime.fromisoformat(data["resolved_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return PolicyViolation(
             id=data.get("id", ""),
@@ -676,8 +676,8 @@ class PoliciesAPI:
         if data.get("checked_at"):
             try:
                 checked_at = datetime.fromisoformat(data["checked_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         result_data = data.get("result", data)
         return ComplianceCheckResult(

@@ -7,6 +7,9 @@ and coordinate merges.
 Usage:
     from aragora.workflow.engine import WorkflowEngine
     from aragora.workflow.templates.self_development import (
+import logging
+logger = logging.getLogger(__name__)
+
         create_self_development_workflow,
     )
 
@@ -297,8 +300,8 @@ def _register_self_dev_handlers():
             for t in tracks:
                 try:
                     available_tracks.append(Track(t.lower()))
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("self dev extract goals encountered an error: %s", e)
 
             # Parse goals from debate
             goals = planner._parse_goals_from_debate(

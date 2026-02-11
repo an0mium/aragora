@@ -103,16 +103,16 @@ class ResourceMonitor:
             try:
                 io_counters = process.io_counters()
                 disk_mb = (io_counters.read_bytes + io_counters.write_bytes) / (1024 * 1024)
-            except (psutil.AccessDenied, AttributeError):
-                pass
+            except (psutil.AccessDenied, AttributeError) as e:
+                logger.debug("Metric collection failed: %s", e)
 
             # Get network usage
             network_bytes = None
             try:
                 net_io = psutil.net_io_counters()
                 network_bytes = net_io.bytes_sent + net_io.bytes_recv
-            except (psutil.AccessDenied, AttributeError):
-                pass
+            except (psutil.AccessDenied, AttributeError) as e:
+                logger.debug("Metric collection failed: %s", e)
 
             usage = ResourceUsage(
                 agent_id=agent_id,

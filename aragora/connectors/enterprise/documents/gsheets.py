@@ -247,13 +247,13 @@ class GoogleSheetsConnector(EnterpriseConnector):
         if metadata.get("createdTime"):
             try:
                 created = datetime.fromisoformat(metadata["createdTime"].replace("Z", "+00:00"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
         if metadata.get("modifiedTime"):
             try:
                 modified = datetime.fromisoformat(metadata["modifiedTime"].replace("Z", "+00:00"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         # Get spreadsheet structure
         params: dict[str, Any] = {
@@ -454,8 +454,8 @@ class GoogleSheetsConnector(EnterpriseConnector):
         if state.cursor:
             try:
                 last_sync = datetime.fromisoformat(state.cursor)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         # Process explicit spreadsheet IDs
         for spreadsheet_id in self.spreadsheet_ids:
@@ -520,8 +520,8 @@ class GoogleSheetsConnector(EnterpriseConnector):
                             )
                             if modified <= last_sync:
                                 continue
-                        except ValueError:
-                            pass
+                        except ValueError as e:
+                            logger.debug("Failed to parse datetime value: %s", e)
 
                     try:
                         spreadsheet = await self._get_spreadsheet(spreadsheet_id)

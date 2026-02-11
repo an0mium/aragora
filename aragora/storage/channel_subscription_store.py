@@ -119,8 +119,8 @@ class ChannelSubscription:
         if row["config"]:
             try:
                 config = json.loads(row["config"])
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse JSON data: %s", e)
 
         return cls(
             id=row["id"],

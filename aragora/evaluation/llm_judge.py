@@ -786,8 +786,8 @@ Provide your comparison:"""
                 feedback["strengths"] = data.get("strengths", [])
                 feedback["weaknesses"] = data.get("weaknesses", [])
                 feedback["suggestions"] = data.get("suggestions", [])
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug("Failed to parse JSON data: %s", e)
 
         return feedback
 
@@ -814,8 +814,8 @@ Provide your comparison:"""
                 result["confidence"] = float(data.get("confidence", 0.5))
                 result["dimension_preferences"] = data.get("dimension_preferences", {})
                 result["explanation"] = data.get("explanation", "")
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug("Failed to parse JSON data: %s", e)
 
         return result
 

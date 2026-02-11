@@ -497,8 +497,8 @@ def extract_involved_files(failure: TestFailure, repo_path: Path) -> list[str]:
         try:
             rel_path = Path(filepath).relative_to(repo_path)
             files.add(str(rel_path))
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.debug("extract involved files encountered an error: %s", e)
 
     # Also capture pytest-style paths like "pkg/module.py:123: in ..."
     inline_pattern = re.compile(r"^([^\s].*?\.py):\d+:", re.MULTILINE)

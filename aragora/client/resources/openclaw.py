@@ -498,15 +498,15 @@ class OpenClawAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(str(data["created_at"]))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         last_activity = None
         if data.get("last_activity"):
             try:
                 last_activity = datetime.fromisoformat(str(data["last_activity"]))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return OpenClawSession(
             session_id=data.get("session_id", ""),
@@ -556,15 +556,15 @@ class OpenClawAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(str(data["created_at"]))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         expires_at = None
         if data.get("expires_at"):
             try:
                 expires_at = datetime.fromisoformat(str(data["expires_at"]))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return PendingApproval(
             approval_id=data.get("approval_id", ""),

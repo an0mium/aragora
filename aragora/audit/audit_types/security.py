@@ -340,8 +340,8 @@ If no issues found, respond with empty array: []"""
                             found_by="security_analyst",
                         )
                         findings.append(finding)
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
         except Exception as e:
             logger.debug(f"LLM security analysis skipped: {e}")

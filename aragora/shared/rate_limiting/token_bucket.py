@@ -305,24 +305,24 @@ class TokenBucket:
                     try:
                         self._api_limit = int(headers[h])
                         break
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
 
             for h in remaining_headers:
                 if h in headers:
                     try:
                         self._api_remaining = int(headers[h])
                         break
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
 
             for h in reset_headers:
                 if h in headers:
                     try:
                         self._api_reset = float(headers[h])
                         break
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
 
     @property
     def available_tokens(self) -> float:

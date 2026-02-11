@@ -141,8 +141,8 @@ class Frontmatter:
         elif isinstance(date_val, str):
             try:
                 date = datetime.fromisoformat(date_val.replace("Z", "+00:00"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.warning("Failed to parse datetime value: %s", e)
 
         # Extract known fields
         tags = data.get("tags", [])

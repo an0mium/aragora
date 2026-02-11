@@ -153,8 +153,8 @@ class TeamsChannelsMixin:
                             latest_dt = datetime.fromisoformat(latest.replace("Z", "+00:00"))
                             if timestamp > latest_dt:
                                 continue
-                        except (ValueError, AttributeError):
-                            pass
+                        except (ValueError, AttributeError) as e:
+                            logger.debug("Failed to parse datetime value: %s", e)
 
                     # Parse author
                     from_data = msg_data.get("from", {}) or {}

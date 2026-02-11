@@ -384,14 +384,14 @@ class DecisionsAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("completed_at"):
             try:
                 completed_at = datetime.fromisoformat(data["completed_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return DecisionResult(
             request_id=data.get("request_id", data.get("id", "")),

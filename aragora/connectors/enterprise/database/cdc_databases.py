@@ -256,8 +256,8 @@ class BaseCDCHandler(ABC):
             self._task.cancel()
             try:
                 await asyncio.wait_for(self._task, timeout=5.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
-                pass
+            except (asyncio.CancelledError, asyncio.TimeoutError) as e:
+                logger.debug("stop encountered an error: %s", e)
             self._task = None
 
         await self._disconnect()
@@ -378,8 +378,8 @@ class PostgresCDCHandler(BaseCDCHandler):
             for channel in self.channels:
                 try:
                     await self._conn.remove_listener(channel, lambda *_: None)
-                except (OSError, RuntimeError):
-                    pass
+                except (OSError, RuntimeError) as e:
+                    logger.debug("disconnect encountered an error: %s", e)
             await self._conn.close()
             self._conn = None
 
@@ -517,8 +517,8 @@ class MySQLCDCHandler(BaseCDCHandler):
                 log_file = token_data.get("log_file")
                 log_pos = token_data.get("log_pos")
                 logger.info(f"[MySQLCDC] Resuming from {log_file}:{log_pos}")
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug("Failed to parse JSON data: %s", e)
 
         stream_kwargs: dict[str, Any] = {
             "connection_settings": mysql_settings,

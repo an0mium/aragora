@@ -621,14 +621,14 @@ class InboxSLAMonitor:
         try:
             # Try as unix timestamp
             return datetime.fromtimestamp(float(value), tz=timezone.utc)
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.debug("Failed to parse datetime value: %s", e)
 
         try:
             # Try as ISO date
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except (ValueError, AttributeError):
-            pass
+        except (ValueError, AttributeError) as e:
+            logger.debug("Failed to parse datetime value: %s", e)
 
         return None
 

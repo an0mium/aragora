@@ -1052,8 +1052,8 @@ class QueryOperationsMixin(_QueryMixinBase):
                 try:
                     if datetime.fromisoformat(expires_at.replace("Z", "+00:00")) < datetime.now():
                         continue
-                except (ValueError, TypeError):
-                    pass
+                except (ValueError, TypeError) as e:
+                    logger.warning("Failed to parse datetime value: %s", e)
 
             grantee_type = grant.get("grantee_type", "")
             grantee_id = grant.get("grantee_id", "")

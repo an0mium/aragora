@@ -480,8 +480,8 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
         if field in field_mappings:
             try:
                 return field_mappings[field](receipt)
-            except (AttributeError, KeyError, TypeError):
-                pass
+            except (AttributeError, KeyError, TypeError) as e:
+                logger.warning("receipt_adapter operation failed: %s", e)
 
         return default
 

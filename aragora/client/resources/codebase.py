@@ -510,8 +510,8 @@ class CodebaseAPI:
                 last_synced_at = datetime.fromisoformat(
                     data["last_synced_at"].replace("Z", "+00:00")
                 )
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return Repository(
             id=data.get("id", ""),
@@ -531,8 +531,8 @@ class CodebaseAPI:
         if data.get("last_modified"):
             try:
                 last_modified = datetime.fromisoformat(data["last_modified"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return CodeFile(
             path=data.get("path", ""),
@@ -578,14 +578,14 @@ class CodebaseAPI:
         if data.get("started_at"):
             try:
                 started_at = datetime.fromisoformat(data["started_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("completed_at"):
             try:
                 completed_at = datetime.fromisoformat(data["completed_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return AnalysisResult(
             repository_id=data.get("repository_id", ""),

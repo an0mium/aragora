@@ -417,8 +417,8 @@ class MilvusVectorStore(BaseVectorStore):
                     if hit.entity.get("metadata_json"):
                         try:
                             metadata = json.loads(hit.entity.get("metadata_json", "{}"))
-                        except json.JSONDecodeError:
-                            pass
+                        except json.JSONDecodeError as e:
+                            logger.warning("Failed to parse JSON data: %s", e)
 
                     search_results.append(
                         VectorSearchResult(
@@ -478,8 +478,8 @@ class MilvusVectorStore(BaseVectorStore):
         if hit.get("metadata_json"):
             try:
                 metadata = json.loads(hit.get("metadata_json", "{}"))
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse JSON data: %s", e)
 
         return VectorSearchResult(
             id=hit.get("id", id),
@@ -517,8 +517,8 @@ class MilvusVectorStore(BaseVectorStore):
             if hit.get("metadata_json"):
                 try:
                     metadata = json.loads(hit.get("metadata_json", "{}"))
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.warning("Failed to parse JSON data: %s", e)
 
             search_results.append(
                 VectorSearchResult(

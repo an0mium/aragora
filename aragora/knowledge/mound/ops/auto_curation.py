@@ -446,8 +446,8 @@ class AutoCurationMixin(_AutoCurationOpsProtocol):
             idx = tier_values.index(current_tier)
             if idx > 0:
                 return tier_values[idx - 1]
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("get higher tier encountered an error: %s", e)
         return None
 
     def _get_lower_tier(self, current_tier: str) -> str | None:
@@ -457,8 +457,8 @@ class AutoCurationMixin(_AutoCurationOpsProtocol):
             idx = tier_values.index(current_tier)
             if idx < len(tier_values) - 1:
                 return tier_values[idx + 1]
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("get lower tier encountered an error: %s", e)
         return None
 
     async def run_curation(

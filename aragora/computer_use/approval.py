@@ -386,8 +386,8 @@ class ApprovalWorkflow:
 
             timeout = max(0.1, timeout)
             await asyncio.wait_for(event.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            pass
+        except asyncio.TimeoutError as e:
+            logger.debug("Failed to retrieve value: %s", e)
 
         request = self._requests.get(request_id)
         return request.status if request else ApprovalStatus.EXPIRED

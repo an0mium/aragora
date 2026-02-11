@@ -400,8 +400,8 @@ class OutcomeMemoryBridge:
             idx = tier_order.index(current_tier)
             if idx < len(tier_order) - 1:
                 return tier_order[idx + 1]
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("get faster tier encountered an error: %s", e)
         return current_tier
 
     def _get_slower_tier(self, current_tier: "MemoryTier") -> "MemoryTier":
@@ -420,8 +420,8 @@ class OutcomeMemoryBridge:
             idx = tier_order.index(current_tier)
             if idx > 0:
                 return tier_order[idx - 1]
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("get slower tier encountered an error: %s", e)
         return current_tier
 
     def get_memory_stats(self, memory_id: str) -> dict[str, Any]:

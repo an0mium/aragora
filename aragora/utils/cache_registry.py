@@ -144,8 +144,8 @@ def get_total_cache_entries() -> int:
             if hasattr(func, "cache_info"):
                 try:
                     total += func.cache_info().currsize
-                except (TypeError, AttributeError):
-                    pass
+                except (TypeError, AttributeError) as e:
+                    logger.debug("get total cache entries encountered an error: %s", e)
     return total
 
 

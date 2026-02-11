@@ -14,6 +14,9 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 from uuid import uuid4
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 # ============================================================================
@@ -314,8 +317,8 @@ class OpenClawSession:
         channel = data.get("channel", "web")
         try:
             channel = OpenClawChannel(channel)
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.debug("from dict encountered an error: %s", e)
 
         state = data.get("state", "created")
         try:

@@ -114,8 +114,8 @@ def classify_http_error(
         if retry_header:
             try:
                 retry_after = float(retry_header)
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse numeric value: %s", e)
 
     # Build error message
     if isinstance(body, dict):
@@ -399,8 +399,8 @@ def _extract_retry_after(e: Exception) -> float | None:
         if retry_after is not None:
             try:
                 return float(retry_after)
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse numeric value: %s", e)
 
     if hasattr(e, "response"):
         resp = getattr(e, "response")
@@ -411,8 +411,8 @@ def _extract_retry_after(e: Exception) -> float | None:
                 if retry_header:
                     try:
                         return float(retry_header)
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
 
     return None
 

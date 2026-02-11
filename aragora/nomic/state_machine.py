@@ -377,8 +377,8 @@ class NomicStateMachine:
                     supports_metrics = self._callback_supports_metrics(callback)
                     try:
                         self._transition_callback_supports_metrics[callback] = supports_metrics
-                    except TypeError:
-                        pass
+                    except TypeError as e:
+                        logger.debug("Metric collection failed: %s", e)
 
                 if asyncio.iscoroutinefunction(callback):
                     if supports_metrics:

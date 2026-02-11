@@ -525,8 +525,8 @@ def start_span(
                         if isinstance(value, (list, dict)):
                             value = str(value)
                         span.set_attribute(key, value)
-                    except (TypeError, ValueError):
-                        pass
+                    except (TypeError, ValueError) as e:
+                        logger.debug("start span encountered an error: %s", e)
         yield span
 
 
@@ -817,8 +817,8 @@ def export_debate_span_to_otel(span: Any) -> None:
                         if isinstance(value, (list, dict)):
                             value = str(value)
                         otel_span.set_attribute(key, value)
-                    except (TypeError, ValueError):
-                        pass
+                    except (TypeError, ValueError) as e:
+                        logger.debug("export debate span to otel encountered an error: %s", e)
 
             # Copy trace context
             if hasattr(span, "trace_id"):

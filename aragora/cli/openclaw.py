@@ -21,6 +21,9 @@ import argparse
 import os
 from pathlib import Path
 from typing import Any
+import logging
+logger = logging.getLogger(__name__)
+
 
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
@@ -283,8 +286,8 @@ def cmd_status(args: argparse.Namespace) -> int:
             print(f"  Actions denied:  {data.get('actions_denied', 0)}")
             print(f"  Pending approvals: {data.get('pending_approvals', 0)}")
             print(f"  Policy rules:  {data.get('policy_rules', 0)}")
-    except (httpx.HTTPError, OSError):
-        pass
+    except (httpx.HTTPError, OSError) as e:
+        logger.debug("Failed to retrieve value: %s", e)
 
     return 0
 

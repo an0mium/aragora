@@ -357,24 +357,24 @@ class JiraConnector(EnterpriseConnector):
                         created_at = datetime.fromisoformat(
                             fields["created"].replace("Z", "+00:00")
                         )
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
 
                 if fields.get("updated"):
                     try:
                         updated_at = datetime.fromisoformat(
                             fields["updated"].replace("Z", "+00:00")
                         )
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
 
                 if fields.get("resolutiondate"):
                     try:
                         resolved_at = datetime.fromisoformat(
                             fields["resolutiondate"].replace("Z", "+00:00")
                         )
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
 
                 # Extract description (handle ADF format in Cloud)
                 description = ""
@@ -458,8 +458,8 @@ class JiraConnector(EnterpriseConnector):
                             created_at = datetime.fromisoformat(
                                 item["created"].replace("Z", "+00:00")
                             )
-                        except ValueError:
-                            pass
+                        except ValueError as e:
+                            logger.debug("Failed to parse datetime value: %s", e)
 
                     updated_at = None
                     if item.get("updated"):
@@ -467,8 +467,8 @@ class JiraConnector(EnterpriseConnector):
                             updated_at = datetime.fromisoformat(
                                 item["updated"].replace("Z", "+00:00")
                             )
-                        except ValueError:
-                            pass
+                        except ValueError as e:
+                            logger.debug("Failed to parse datetime value: %s", e)
 
                     comments.append(
                         JiraComment(

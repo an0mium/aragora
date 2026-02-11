@@ -346,8 +346,8 @@ class MemoryPrefetchManager:
                     logger.debug(
                         "Cascade prefetched %s from %s", len(cache_entries), next_tier.value
                     )
-        except (ValueError, IndexError):
-            pass
+        except (ValueError, IndexError) as e:
+            logger.warning("prefetch tier cascade encountered an error: %s", e)
         except Exception as e:
             logger.debug("Cascade prefetch failed: %s", e)
 

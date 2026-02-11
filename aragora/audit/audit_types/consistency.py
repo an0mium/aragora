@@ -552,8 +552,8 @@ If no issues found, respond with empty array: []"""
                             found_by="consistency_analyst",
                         )
                         findings.append(finding)
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
         except (ImportError, AttributeError) as e:
             logger.warning(f"LLM consistency analysis unavailable: {e}")

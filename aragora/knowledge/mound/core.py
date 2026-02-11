@@ -684,8 +684,8 @@ class KnowledgeMoundCore:
             try:
                 results = await self._semantic_store.search(query, limit=top_k)
                 return [r for r in results if getattr(r, "score", 1.0) >= min_score]
-            except (AttributeError, TypeError):
-                pass
+            except (AttributeError, TypeError) as e:
+                logger.warning("search similar encountered an error: %s", e)
         # Fallback: simple content-based similarity using query_local
         if query:
             items = await self._query_local(query, None, top_k, workspace_id)

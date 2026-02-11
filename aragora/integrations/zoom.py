@@ -118,8 +118,8 @@ class ZoomMeetingInfo:
         if data.get("start_time"):
             try:
                 start_time = datetime.fromisoformat(data["start_time"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return cls(
             meeting_id=str(data.get("id", "")),

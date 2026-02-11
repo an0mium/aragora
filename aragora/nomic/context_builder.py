@@ -630,8 +630,8 @@ class NomicContextBuilder:
                     if len(content) > 50000:
                         content = content[:50000] + "\n... (truncated)"
                     parts.append(content)
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.debug("build structured content encountered an error: %s", e)
 
         return "\n".join(parts)
 

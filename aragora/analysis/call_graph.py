@@ -13,6 +13,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
+import logging
+logger = logging.getLogger(__name__)
+
 
 try:
     import networkx as nx
@@ -315,8 +318,8 @@ class CallGraph:
                             locations=[],  # Would need edge location tracking
                         )
                     )
-        except nx.NetworkXError:
-            pass
+        except nx.NetworkXError as e:
+            logger.debug("find circular dependencies encountered an error: %s", e)
 
         return cycles
 

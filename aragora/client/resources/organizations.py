@@ -413,8 +413,8 @@ class OrganizationsAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return Organization(
             id=data.get("id", ""),
@@ -437,14 +437,14 @@ class OrganizationsAPI:
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("last_login_at"):
             try:
                 last_login_at = datetime.fromisoformat(data["last_login_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return OrganizationMember(
             id=data.get("id", ""),
@@ -465,20 +465,20 @@ class OrganizationsAPI:
         if data.get("expires_at"):
             try:
                 expires_at = datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("created_at"):
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("accepted_at"):
             try:
                 accepted_at = datetime.fromisoformat(data["accepted_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return OrganizationInvitation(
             id=data.get("id", ""),
@@ -498,8 +498,8 @@ class OrganizationsAPI:
         if data.get("joined_at"):
             try:
                 joined_at = datetime.fromisoformat(data["joined_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         org_data = data.get("organization", {})
 

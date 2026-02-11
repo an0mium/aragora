@@ -210,16 +210,16 @@ class StandaloneGatewayServer:
         except asyncio.TimeoutError:
             try:
                 await self._send_response(writer, 408, {"error": "Request timeout"})
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to send response: %s", e)
         except Exception as e:
             logger.error("Connection error: %s", e, exc_info=True)
         finally:
             try:
                 writer.close()
                 await writer.wait_closed()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error during connection cleanup: %s", e)
 
     async def _send_response(
         self,

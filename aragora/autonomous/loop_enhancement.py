@@ -749,13 +749,13 @@ class CodeVerifier:
                         if part == "passed" and i > 0:
                             try:
                                 passed = int(parts[i - 1])
-                            except ValueError:
-                                pass
+                            except ValueError as e:
+                                logger.debug("Failed to parse numeric value: %s", e)
                         elif part == "failed" and i > 0:
                             try:
                                 failed = int(parts[i - 1])
-                            except ValueError:
-                                pass
+                            except ValueError as e:
+                                logger.debug("Failed to parse numeric value: %s", e)
 
             total = passed + failed
 

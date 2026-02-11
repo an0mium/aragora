@@ -397,8 +397,8 @@ class SecurityScanRepository(BaseRepository[dict[str, Any]]):
             if field in result and result[field]:
                 try:
                     result[field] = json.loads(result[field])
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
         return result
 
     def _from_entity(self, entity: dict[str, Any]) -> dict[str, Any]:
@@ -640,8 +640,8 @@ class PRReviewRepository(BaseRepository[dict[str, Any]]):
         if "metrics" in result and result["metrics"]:
             try:
                 result["metrics"] = json.loads(result["metrics"])
-            except (json.JSONDecodeError, TypeError):
-                pass
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.debug("Failed to parse JSON data: %s", e)
         return result
 
     def _from_entity(self, entity: dict[str, Any]) -> dict[str, Any]:

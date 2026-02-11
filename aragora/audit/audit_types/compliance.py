@@ -373,8 +373,8 @@ Format as JSON array. If no issues found, respond with empty array: []"""
                             tags=[item.get("framework", "")],
                         )
                         findings.append(finding)
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
         except Exception as e:
             logger.debug(f"LLM compliance analysis skipped: {e}")

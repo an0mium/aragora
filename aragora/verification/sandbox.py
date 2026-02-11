@@ -288,8 +288,8 @@ class ProofSandbox:
             # Kill the process group
             try:
                 os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
+            except (ProcessLookupError, PermissionError) as e:
+                logger.debug("Process cleanup failed: %s", e)
 
             return SandboxResult(
                 status=SandboxStatus.TIMEOUT,
@@ -301,8 +301,8 @@ class ProofSandbox:
             # Kill if still running
             try:
                 process.kill()
-            except ProcessLookupError:
-                pass
+            except ProcessLookupError as exc:
+                logger.debug("Process cleanup failed: %s", exc)
 
             logger.warning(f"Subprocess execution error: {type(e).__name__}: {e}")
             return SandboxResult(

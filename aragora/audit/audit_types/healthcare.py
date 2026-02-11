@@ -372,8 +372,8 @@ If no issues, respond with: []"""
                             tags=["hipaa", "clinical"],
                         )
                         findings.append(finding)
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.debug("Failed to parse JSON data: %s", e)
 
         except Exception as e:
             logger.debug(f"Clinical documentation analysis skipped: {e}")

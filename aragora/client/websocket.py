@@ -404,8 +404,8 @@ class DebateStream:
         if event_type in self._event_callbacks:
             try:
                 self._event_callbacks[event_type].remove(callback)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("off encountered an error: %s", e)
         return self
 
     async def once(

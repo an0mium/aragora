@@ -417,8 +417,8 @@ class PostgresBlacklist(BlacklistBackend):
             if result and result.startswith("DELETE "):
                 try:
                     removed = int(result.split()[1])
-                except (IndexError, ValueError):
-                    pass
+                except (IndexError, ValueError) as e:
+                    logger.warning("Failed to parse numeric value: %s", e)
             self._last_cleanup = time.time()
             if removed > 0:
                 logger.debug(f"PostgresBlacklist cleanup: removed {removed}")

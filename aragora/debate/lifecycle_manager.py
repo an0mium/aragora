@@ -72,8 +72,8 @@ class LifecycleManager:
         task.cancel()
         try:
             await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            pass
+        except (asyncio.CancelledError, asyncio.TimeoutError) as e:
+            logger.debug("Task cancellation completed: %s", e)
 
     async def cancel_arena_tasks(self) -> None:
         """Cancel all pending arena-related asyncio tasks."""

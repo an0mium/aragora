@@ -765,8 +765,8 @@ class ServiceNowConnector(EnterpriseConnector):
                     if abs(time.time() - request_time) > 300:
                         logger.warning(f"[{self.name}] Webhook timestamp too old")
                         return False
-                except (ValueError, TypeError):
-                    pass
+                except (ValueError, TypeError) as e:
+                    logger.debug("handle webhook encountered an error: %s", e)
 
         table = payload.get("table_name", "")
         sys_id = payload.get("sys_id", "")

@@ -155,8 +155,8 @@ class PluginPricing:
         model = PluginPricingModel.FREE
         try:
             model = PluginPricingModel(data.get("model", "free"))
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.debug("Failed to retrieve value: %s", e)
         return cls(
             model=model,
             price_cents=data.get("price_cents", 0),

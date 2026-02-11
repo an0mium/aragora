@@ -287,8 +287,8 @@ def migrate_table(
                             # Validate it's JSON
                             json.loads(value)
                             # Keep as string, PostgreSQL will cast
-                        except json.JSONDecodeError:
-                            pass
+                        except json.JSONDecodeError as e:
+                            logger.debug("Failed to parse JSON data: %s", e)
                 converted_row.append(value)
             converted_rows.append(tuple(converted_row))
 

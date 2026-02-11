@@ -701,8 +701,8 @@ class SessionContainerManager:
             try:
                 session = await self.get_session(session_id)
                 sessions.append(session)
-            except SessionNotFoundError:
-                pass
+            except SessionNotFoundError as e:
+                logger.debug("get tenant sessions encountered an error: %s", e)
 
         return sessions
 

@@ -960,8 +960,8 @@ class GDPRDeletionScheduler:
                     try:
                         loop = asyncio.get_running_loop()
                         loop.create_task(result)
-                    except RuntimeError:
-                        pass
+                    except RuntimeError as e:
+                        logger.debug("fire verification callbacks encountered an error: %s", e)
             except Exception as e:
                 logger.warning("Verification callback failed: %s", e)
 

@@ -97,16 +97,16 @@ class SlackWorkspace:
         token_expires_at = None
         try:
             signing_secret = row["signing_secret"]
-        except (IndexError, KeyError):
-            pass
+        except (IndexError, KeyError) as e:
+            logger.warning("from row encountered an error: %s", e)
         try:
             refresh_token = row["refresh_token"]
-        except (IndexError, KeyError):
-            pass
+        except (IndexError, KeyError) as e:
+            logger.warning("from row encountered an error: %s", e)
         try:
             token_expires_at = row["token_expires_at"]
-        except (IndexError, KeyError):
-            pass
+        except (IndexError, KeyError) as e:
+            logger.warning("from row encountered an error: %s", e)
 
         return cls(
             workspace_id=row["workspace_id"],

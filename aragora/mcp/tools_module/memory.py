@@ -44,8 +44,8 @@ async def query_memory_tool(
         if tier != "all":
             try:
                 tiers = [MemoryTier[tier.upper()]]
-            except KeyError:
-                pass
+            except KeyError as e:
+                logger.debug("query memory tool encountered an error: %s", e)
 
         results = continuum.retrieve(
             query=query,

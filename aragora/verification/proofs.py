@@ -56,6 +56,10 @@ from typing import Any
 
 from aragora.exceptions import VerificationError
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Timeout for code execution (seconds) - prevents infinite loops/CPU exhaustion
 EXEC_TIMEOUT_SECONDS = 5.0
 
@@ -443,8 +447,8 @@ except Exception as e:
 
             try:
                 os.unlink(temp_path)
-            except OSError:
-                pass
+            except OSError as e:
+                logger.debug("proofs operation failed: %s", e)
 
     except subprocess.TimeoutExpired:
         raise TimeoutError(f"Code execution exceeded {timeout}s timeout")
@@ -741,8 +745,6 @@ class ProofExecutor:
             KeyError,
             AttributeError,
         ) as e:
-            import logging
-
             logging.getLogger(__name__).exception(f"Proof execution failed for {proof.id}")
             result = VerificationResult(
                 proof_id=proof.id,

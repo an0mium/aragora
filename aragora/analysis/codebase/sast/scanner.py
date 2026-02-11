@@ -908,8 +908,8 @@ def check_semgrep_installation() -> dict[str, Any]:
                 "version": result.stdout.strip().split("\n")[0],
                 "message": "Semgrep is installed and available",
             }
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        logger.debug("Subprocess execution failed: %s", e)
 
     return {
         "installed": False,

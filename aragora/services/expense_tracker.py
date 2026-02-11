@@ -636,8 +636,8 @@ class ExpenseTracker:
                 try:
                     result["amount"] = float(amount_str)
                     break
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse numeric value: %s", e)
 
         # Find tax
         tax_patterns = [
@@ -650,8 +650,8 @@ class ExpenseTracker:
                 try:
                     result["tax"] = float(match.group(1).replace(",", ""))
                     break
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse numeric value: %s", e)
 
         # Find tip
         tip_patterns = [
@@ -663,8 +663,8 @@ class ExpenseTracker:
                 try:
                     result["tip"] = float(match.group(1).replace(",", ""))
                     break
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse numeric value: %s", e)
 
         # Find date
         date_patterns = [
@@ -681,8 +681,8 @@ class ExpenseTracker:
                     try:
                         result["date"] = datetime.strptime(date_str, fmt)
                         break
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
                 break
 
         # Extract line items (lines with price pattern)
@@ -697,8 +697,8 @@ class ExpenseTracker:
                     try:
                         price = float(match.group(2).replace(",", ""))
                         result["line_items"].append({"description": desc, "amount": price})
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse numeric value: %s", e)
 
         return result
 

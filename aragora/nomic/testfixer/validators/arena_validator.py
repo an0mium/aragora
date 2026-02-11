@@ -248,8 +248,8 @@ IMPROVEMENTS: [Suggestions]
         if conf_match:
             try:
                 result["confidence"] = max(0.0, min(1.0, float(conf_match.group(1))))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse numeric value: %s", e)
 
         # Parse reasoning
         if "REASONING:" in response.upper():

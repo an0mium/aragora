@@ -445,8 +445,8 @@ class FileBackend(AuditPersistenceBackend):
                 try:
                     d = datetime.strptime(f.stem.replace("audit_", ""), "%Y-%m-%d")
                     dates.append(d)
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse datetime value: %s", e)
             if dates:
                 oldest = min(dates).isoformat()
                 newest = max(dates).isoformat()

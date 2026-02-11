@@ -122,8 +122,8 @@ class ConvoyTracker:
         if isinstance(stored, str):
             try:
                 status = ConvoyStatus(stored)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("from workspace convoy encountered an error: %s", e)
         created_at = (
             datetime.utcfromtimestamp(convoy.created_at) if convoy.created_at else datetime.utcnow()
         )
@@ -598,8 +598,8 @@ class ConvoyTracker:
                 if isinstance(created_at, str):
                     try:
                         item["created_at"] = datetime.fromisoformat(created_at)
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
                 artifacts.append(ConvoyArtifact(**item))
         return artifacts
 

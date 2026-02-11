@@ -412,20 +412,20 @@ class OnboardingAPI:
         if data.get("started_at"):
             try:
                 started_at = datetime.fromisoformat(data["started_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("updated_at"):
             try:
                 updated_at = datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         if data.get("completed_at"):
             try:
                 completed_at = datetime.fromisoformat(data["completed_at"].replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         return OnboardingFlow(
             id=data.get("id", data.get("flow_id", "")),

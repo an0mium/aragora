@@ -472,13 +472,13 @@ class ConversationIngestorConnector(BaseConnector):
         if "created_at" in data:
             try:
                 created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
+            except (ValueError, AttributeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
         if "updated_at" in data:
             try:
                 updated_at = datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
+            except (ValueError, AttributeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         # Extract messages
         messages = []
@@ -514,8 +514,8 @@ class ConversationIngestorConnector(BaseConnector):
             if "created_at" in msg_data:
                 try:
                     timestamp = datetime.fromisoformat(msg_data["created_at"].replace("Z", "+00:00"))
-                except (ValueError, AttributeError):
-                    pass
+                except (ValueError, AttributeError) as e:
+                    logger.debug("Failed to parse datetime value: %s", e)
 
             messages.append(
                 ConversationMessage(

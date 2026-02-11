@@ -564,8 +564,8 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         if state.cursor:
             try:
                 last_sync = datetime.fromisoformat(state.cursor)
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Failed to parse datetime value: %s", e)
 
         async for team in self._list_teams():
             logger.info(f"[{self.name}] Syncing team: {team.display_name}")

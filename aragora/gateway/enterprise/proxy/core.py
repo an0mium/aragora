@@ -834,8 +834,8 @@ class EnterpriseProxy:
                     self._shutdown_event.wait(),
                     timeout=10.0,
                 )
-            except asyncio.TimeoutError:
-                pass
+            except asyncio.TimeoutError as e:
+                logger.debug("health check loop encountered an error: %s", e)
 
     # =========================================================================
     # Monitoring and Statistics

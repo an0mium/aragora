@@ -43,8 +43,8 @@ def _parse_datetime(val: Any) -> datetime:
     if isinstance(val, str):
         try:
             return datetime.fromisoformat(val)
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("Failed to parse datetime value: %s", e)
     return datetime.now()
 
 

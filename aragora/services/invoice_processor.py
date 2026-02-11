@@ -640,8 +640,8 @@ class InvoiceProcessor:
                     try:
                         result[date_field] = datetime.strptime(date_str, fmt)
                         break
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
 
         # Find amounts
         amount_patterns = [
@@ -657,8 +657,8 @@ class InvoiceProcessor:
             if match:
                 try:
                     result[amount_field] = float(match.group(1).replace(",", ""))
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse numeric value: %s", e)
 
         # Find payment terms
         terms_patterns = [
@@ -778,8 +778,8 @@ class InvoiceProcessor:
                             "amount": float(match.group(4).replace(",", "")),
                         }
                     )
-                except (ValueError, AttributeError):
-                    pass
+                except (ValueError, AttributeError) as e:
+                    logger.debug("extract line items from text encountered an error: %s", e)
 
         return items
 

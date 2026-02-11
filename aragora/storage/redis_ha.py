@@ -872,8 +872,8 @@ def check_redis_health(config: RedisHAConfig | None = None) -> dict:
                     cluster_info = client.cluster_info()
                     result["info"]["cluster_state"] = cluster_info.get("cluster_state", "unknown")
                     result["info"]["cluster_slots_ok"] = cluster_info.get("cluster_slots_ok", 0)
-                except (ConnectionError, TimeoutError, OSError, AttributeError, KeyError):
-                    pass
+                except (ConnectionError, TimeoutError, OSError, AttributeError, KeyError) as e:
+                    logger.warning("redis_ha operation failed: %s", e)
 
             # Add sentinel-specific info (check connected slaves)
             if config.mode == RedisMode.SENTINEL:

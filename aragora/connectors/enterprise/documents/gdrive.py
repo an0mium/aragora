@@ -300,13 +300,13 @@ class GoogleDriveConnector(EnterpriseConnector):
             if item.get("createdTime"):
                 try:
                     created = datetime.fromisoformat(item["createdTime"].replace("Z", "+00:00"))
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse datetime value: %s", e)
             if item.get("modifiedTime"):
                 try:
                     modified = datetime.fromisoformat(item["modifiedTime"].replace("Z", "+00:00"))
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug("Failed to parse datetime value: %s", e)
 
             files.append(
                 DriveFile(
@@ -389,15 +389,15 @@ class GoogleDriveConnector(EnterpriseConnector):
                         created = datetime.fromisoformat(
                             file_data["createdTime"].replace("Z", "+00:00")
                         )
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
                 if file_data.get("modifiedTime"):
                     try:
                         modified = datetime.fromisoformat(
                             file_data["modifiedTime"].replace("Z", "+00:00")
                         )
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("Failed to parse datetime value: %s", e)
 
                 files.append(
                     DriveFile(
