@@ -227,7 +227,7 @@ class TestGetDatabaseBackend:
         from aragora.config import legacy as legacy
 
         reset_database_backend()
-        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        monkeypatch.setattr(legacy, "get_default_data_dir", lambda: tmp_path)
 
         backend = get_database_backend(force_sqlite=True, db_path="aragora.db")
         try:

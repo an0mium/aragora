@@ -342,7 +342,7 @@ class TestResolveDbPath:
         """Bare filenames should be rooted under DATA_DIR."""
         from aragora.config import legacy as legacy
 
-        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        monkeypatch.setattr(legacy, "get_default_data_dir", lambda: tmp_path)
         resolved = Path(legacy.resolve_db_path("example.db"))
         assert resolved.resolve() == (tmp_path / "example.db").resolve()
 
@@ -350,7 +350,7 @@ class TestResolveDbPath:
         """Relative subpaths should stay under DATA_DIR."""
         from aragora.config import legacy as legacy
 
-        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        monkeypatch.setattr(legacy, "get_default_data_dir", lambda: tmp_path)
         resolved = Path(legacy.resolve_db_path("data/example.db"))
         assert resolved.resolve() == (tmp_path / "data" / "example.db").resolve()
 
