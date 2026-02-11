@@ -548,6 +548,19 @@ async def validate_backend_connectivity(
     """
     import os
 
+    # Skip connectivity checks in offline mode
+    from aragora.utils.env import is_offline_mode
+
+    if is_offline_mode():
+        logger.info("[BACKEND CHECK] Offline mode — skipping connectivity checks")
+        return {
+            "valid": True,
+            "redis": {"connected": False, "message": "Skipped (offline mode)"},
+            "database": {"connected": False, "message": "Skipped (offline mode)"},
+            "errors": [],
+            "retries_enabled": False,
+        }
+
     errors: list[str] = []
 
     # Determine if retries should be enabled

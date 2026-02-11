@@ -88,6 +88,11 @@ Production deployment with multiple workers:
         default=1,
         help="Number of worker processes (default: 1). For production, use 2-4x CPU cores.",
     )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Run in offline mode (SQLite + in-memory stores, demo data for unavailable services)",
+    )
 
     args = parser.parse_args()
     if args.ws_port is not None:
@@ -99,6 +104,17 @@ Production deployment with multiple workers:
 
     # Configure logging before starting server
     _configure_logging()
+
+    # Apply offline mode before starting any workers
+    if args.offline:
+        import os
+
+        os.environ.setdefault("ARAGORA_OFFLINE", "true")
+        os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
+        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
+        logger.info(
+            "[server] OFFLINE mode: SQLite backend, demo data for unavailable services"
+        )
 
     if workers == 1:
         # Single worker mode - run directly

@@ -115,6 +115,20 @@ DECOMPOSITION_CONCEPTS = [
     "documentation",
     "configuration",
     "deployment",
+    "authentication",
+    "compliance",
+    "templates",
+    "agents",
+    "workflow",
+    "connectors",
+    "storage",
+    "memory",
+    "debate",
+    "analytics",
+    "vertical",
+    "audit",
+    "cli",
+    "sdk",
 ]
 
 
