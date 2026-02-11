@@ -107,7 +107,7 @@ class TestEncryptionGracefulDegradation:
         """Settings pass through when crypto unavailable."""
         settings = {"api_key": "secret", "username": "test"}
 
-        with patch("aragora.storage.integration_store.CRYPTO_AVAILABLE", False):
+        with patch("aragora.storage.integration_models.CRYPTO_AVAILABLE", False):
             result = _encrypt_settings(settings)
             assert result == settings
 
@@ -115,7 +115,7 @@ class TestEncryptionGracefulDegradation:
         """Settings pass through when crypto unavailable."""
         settings = {"api_key": "secret", "username": "test"}
 
-        with patch("aragora.storage.integration_store.CRYPTO_AVAILABLE", False):
+        with patch("aragora.storage.integration_models.CRYPTO_AVAILABLE", False):
             result = _decrypt_settings(settings)
             assert result == settings
 
