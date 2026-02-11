@@ -1028,11 +1028,11 @@ class TestBuildSubtaskWorkflow:
         assert "implement" in step_ids
         assert "verify" in step_ids
 
-    def test_workflow_uses_correct_agent(self):
-        """Should use assigned agent for implementation."""
+    def test_workflow_uses_implementation_step(self):
+        """Should use 'implementation' step type for implement phase (gold path)."""
         orchestrator = AutonomousOrchestrator()
 
-        subtask = SubTask(id="test", title="Test", description="Test")
+        subtask = SubTask(id="test", title="Test", description="Test task")
         assignment = AgentAssignment(
             subtask=subtask,
             track=Track.DEVELOPER,
@@ -1041,12 +1041,14 @@ class TestBuildSubtaskWorkflow:
 
         workflow = orchestrator._build_subtask_workflow(assignment)
 
-        # Find implement step
+        # Find implement step - now uses implementation step type
         impl_step = next(s for s in workflow.steps if s.id == "implement")
-        assert impl_step.config["agent_type"] == "codex"
+        assert impl_step.step_type == "implementation"
+        assert impl_step.config["task_id"] == "test"
+        assert impl_step.config["description"] == "Test task"
 
-    def test_workflow_verify_always_uses_claude(self):
-        """Verify step should always use Claude."""
+    def test_workflow_uses_verification_step(self):
+        """Verify step should use 'verification' step type (runs pytest)."""
         orchestrator = AutonomousOrchestrator()
 
         subtask = SubTask(id="test", title="Test", description="Test")
@@ -1059,7 +1061,8 @@ class TestBuildSubtaskWorkflow:
         workflow = orchestrator._build_subtask_workflow(assignment)
 
         verify_step = next(s for s in workflow.steps if s.id == "verify")
-        assert verify_step.config["agent_type"] == "claude"
+        assert verify_step.step_type == "verification"
+        assert verify_step.config["run_tests"] is True
 
 
 class TestGenerateSummary:

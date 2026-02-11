@@ -808,7 +808,14 @@ class AutonomousOrchestrator:
         return None
 
     def _build_subtask_workflow(self, assignment: AgentAssignment) -> WorkflowDefinition:
-        """Build a workflow definition for a subtask."""
+        """Build a workflow definition for a subtask.
+
+        Uses the gold path: agent(design) -> implementation -> verification.
+
+        The "implementation" step type bridges to HybridExecutor which spawns
+        Claude/Codex subprocesses to write code. The "verification" step type
+        runs pytest against the changed files.
+        """
         subtask = assignment.subtask
 
         # Check if agent needs a coding harness (e.g., KiloCode for Gemini)
@@ -817,11 +824,13 @@ class AutonomousOrchestrator:
             assignment.track,
         )
 
-        # Build implementation step config
+        # Build implementation step config matching ImplementationStep's expected format
         implement_config: dict[str, Any] = {
-            "agent_type": assignment.agent_type,
-            "prompt_template": "implement",
+            "task_id": subtask.id,
+            "description": subtask.description,
             "files": subtask.file_scope,
+            "complexity": subtask.estimated_complexity,
+            "repo_path": str(self.aragora_path),
         }
 
         # If agent needs a coding harness, add it to the config
@@ -833,7 +842,10 @@ class AutonomousOrchestrator:
                 f"track={assignment.track.value}"
             )
 
-        # Create workflow with phases aligned to nomic loop
+        # Derive test paths from file scope for verification
+        test_paths = self._infer_test_paths(subtask.file_scope)
+
+        # Create workflow with phases aligned to nomic loop gold path
         steps = [
             StepDefinition(
                 id="design",
@@ -849,18 +861,18 @@ class AutonomousOrchestrator:
             StepDefinition(
                 id="implement",
                 name="Implement Changes",
-                step_type="agent",
+                step_type="implementation",
                 config=implement_config,
                 next_steps=["verify"],
             ),
             StepDefinition(
                 id="verify",
                 name="Verify Changes",
-                step_type="agent",
+                step_type="verification",
                 config={
-                    "agent_type": "claude",  # Always use Claude for verification
-                    "prompt_template": "verify",
                     "run_tests": True,
+                    "test_paths": test_paths,
+                    "test_count": len(test_paths),
                 },
                 next_steps=[],
             ),
@@ -873,6 +885,29 @@ class AutonomousOrchestrator:
             steps=steps,
             entry_step="design",
         )
+
+    @staticmethod
+    def _infer_test_paths(file_scope: list[str]) -> list[str]:
+        """Infer test file paths from source file paths.
+
+        Maps source files like ``aragora/foo/bar.py`` to
+        ``tests/foo/test_bar.py`` if no explicit test paths are provided.
+        """
+        test_paths: list[str] = []
+        for path in file_scope:
+            if path.startswith("tests/"):
+                test_paths.append(path)
+                continue
+            # aragora/foo/bar.py -> tests/foo/test_bar.py
+            if path.startswith("aragora/"):
+                rel = path[len("aragora/"):]
+                parts = rel.rsplit("/", 1)
+                if len(parts) == 2:
+                    directory, filename = parts
+                    if filename.endswith(".py"):
+                        test_file = f"tests/{directory}/test_{filename}"
+                        test_paths.append(test_file)
+        return test_paths
 
     def _checkpoint(self, phase: str, data: dict[str, Any]) -> None:
         """Create a checkpoint for the orchestration."""
