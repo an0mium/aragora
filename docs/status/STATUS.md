@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: February 10, 2026*
+*Last updated: February 11, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
 
@@ -13,10 +13,10 @@ Priorities are tracked here to avoid drift across multiple NEXT_STEPS docs.
 - **SDK and package alignment**: keep Python, TypeScript SDK, live UI, and IDE extension versions aligned to `v2.6.3`.
 - **External penetration test**: requires third-party vendor engagement.
 
-## Phase 8: GA Final Polish (February 9-10, 2026)
+## Phase 8: GA Final Polish (February 9-11, 2026)
 
 ### Exception Handler Sweep
-- **0 bare `except Exception: pass` remaining** (175+ fixed across 88+ files)
+- **0 bare `except Exception: pass` remaining** (220 handlers fixed across 125 files)
 - All replaced with `logger.debug/warning("message", exc_info=True)`
 
 ### Pydantic v2 Migration
@@ -24,7 +24,36 @@ Priorities are tracked here to avoid drift across multiple NEXT_STEPS docs.
 
 ### SDK Consolidation
 - `aragora-client` deprecated (DeprecationWarning, classifier `7 - Inactive`)
-- `aragora-sdk` confirmed canonical; 12 doc references migrated
+- `aragora-sdk` confirmed canonical; docs updated throughout
+
+### File Decomposition
+- 14 large files split into focused submodules
+  - `sdk_missing.py` (2,522 → 78 LOC, 3 submodules)
+  - `receipt.py` (1,694 → 29 LOC, 2 submodules)
+  - `debate_rounds.py` (1,590 → 1,159 + 673 helper module)
+  - `coordinator.py` (1,627 → 623 LOC, 2 mixins)
+  - `qbo.py` (1,617 → 595 LOC, 3 submodules)
+  - `analytics_metrics` (1,588 → 234 LOC, 4 submodules)
+  - `checkpoint.py` (1,587 → 737 LOC, backends extracted)
+  - `postgres_store.py` (1,581 → 237 LOC, 3 submodules)
+- Files >1,500 LOC: 23 → 15 (target met)
+
+### OpenClaw Security
+- Skill scanner for pre-execution validation
+- Publisher enforcement for marketplace integrity
+- Standalone gateway deployment support
+
+### Nomic Loop Improvements
+- Depth limits to prevent unbounded recursion
+- Anti-fragile task reassignment on agent failure
+
+### Connector Reliability
+- Pagination guards added to all `while True` loops across connectors
+
+### NotImplementedError Audit
+- All `NotImplementedError` in server handlers verified as legitimate mixin/ABC patterns
+- Control plane handlers (`agents.py`, `health.py`, `tasks.py`) use mixin pattern with 5 interface stubs each, all properly implemented by `ControlPlaneHandler` in `__init__.py`
+- 0 HTTP endpoint stubs remain -- all are base class contract declarations
 
 ### Database Reliability
 - Migration version locking with TOCTOU protection (advisory locks)
@@ -39,11 +68,17 @@ Priorities are tracked here to avoid drift across multiple NEXT_STEPS docs.
 - `/usage` page with CostBreakdown and UsageTrend components
 - IntegrationSelector onboarding component
 
+### Documentation Reorganization
+- 288 docs reorganized from flat `docs/` into 16 topic subdirectories
+  - `docs/api/`, `docs/architecture/`, `docs/debate/`, `docs/deployment/`
+  - `docs/enterprise/`, `docs/guides/`, `docs/integrations/`, `docs/knowledge/`
+  - `docs/observability/`, `docs/reference/`, `docs/resilience/`, `docs/status/`
+  - `docs/streaming/`, `docs/testing/`, `docs/workflow/`
+
 ### SDK Routes & Tests
 - 57 new SDK routes (audit, debates, auth, gateway)
 - 282 new handler tests (audit_sessions, template_marketplace, finding_workflow)
 - 770 ruff type violations fixed
-- 8 large files split; files >1500 LOC: 23 → 15
 
 ### Test Health
 - 4 known_bug skips → xfail
