@@ -1,0 +1,579 @@
+"""
+Notification providers.
+
+Contains the abstract NotificationProvider base class and concrete
+implementations for Slack, Email, and Webhook delivery channels.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import hmac
+import json
+import logging
+import smtplib
+import time
+from abc import ABC, abstractmethod
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Any
+
+from aragora.exceptions import SlackNotificationError, WebhookDeliveryError
+
+from .models import (
+    EmailConfig,
+    Notification,
+    NotificationChannel,
+    NotificationResult,
+    SlackConfig,
+    WebhookEndpoint,
+)
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "NotificationProvider",
+    "SlackProvider",
+    "EmailProvider",
+    "WebhookProvider",
+]
+
+
+def _record_notification_metric(
+    channel: str,
+    severity: str,
+    priority: str,
+    success: bool,
+    latency_seconds: float,
+    error_type: str | None = None,
+) -> None:
+    """Record notification metrics (imported lazily to avoid circular imports)."""
+    try:
+        from aragora.observability.metrics import (
+            record_notification_sent,
+            record_notification_error,
+        )
+
+        record_notification_sent(channel, severity, priority, success, latency_seconds)
+        if not success and error_type:
+            record_notification_error(channel, error_type)
+    except ImportError:
+        pass  # Metrics not available
+
+
+class NotificationProvider(ABC):
+    """Abstract base class for notification providers."""
+
+    @property
+    @abstractmethod
+    def channel(self) -> NotificationChannel:
+        """Get the channel this provider handles."""
+        ...
+
+    @abstractmethod
+    async def send(
+        self,
+        notification: Notification,
+        recipient: str,
+    ) -> NotificationResult:
+        """Send a notification to a recipient."""
+        ...
+
+    @abstractmethod
+    def is_configured(self) -> bool:
+        """Check if the provider is properly configured."""
+        ...
+
+
+class SlackProvider(NotificationProvider):
+    """Slack notification provider."""
+
+    def __init__(self, config: SlackConfig):
+        self.config = config
+
+    @property
+    def channel(self) -> NotificationChannel:
+        return NotificationChannel.SLACK
+
+    def is_configured(self) -> bool:
+        return bool(self.config.webhook_url or self.config.bot_token)
+
+    async def send(
+        self,
+        notification: Notification,
+        recipient: str,
+    ) -> NotificationResult:
+        """Send notification to Slack."""
+        start_time = time.perf_counter()
+
+        if not self.is_configured():
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "slack",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "not_configured",
+            )
+            return NotificationResult(
+                success=False,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+                error="Slack not configured",
+            )
+
+        try:
+            # Build Slack message
+            message = self._build_message(notification)
+
+            if self.config.webhook_url:
+                await self._send_webhook(message, recipient)
+            elif self.config.bot_token:
+                await self._send_api(message, recipient)
+
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "slack", notification.severity, notification.priority.value, True, latency
+            )
+            return NotificationResult(
+                success=True,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send Slack notification: {e}")
+            latency = time.perf_counter() - start_time
+            error_type = "rate_limited" if "rate" in str(e).lower() else "delivery_error"
+            _record_notification_metric(
+                "slack",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                error_type,
+            )
+            return NotificationResult(
+                success=False,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+                error=str(e),
+            )
+
+    def _build_message(self, notification: Notification) -> dict:
+        """Build Slack message payload."""
+        # Map severity to color
+        colors = {
+            "info": "#2196F3",
+            "warning": "#FF9800",
+            "error": "#F44336",
+            "critical": "#B71C1C",
+        }
+        color = colors.get(notification.severity, "#9E9E9E")
+
+        # Build attachment
+        attachment = {
+            "color": color,
+            "title": notification.title,
+            "text": notification.message,
+            "ts": int(notification.created_at.timestamp()),
+        }
+
+        # Add fields
+        fields = []
+        if notification.severity:
+            fields.append(
+                {
+                    "title": "Severity",
+                    "value": notification.severity.upper(),
+                    "short": True,
+                }
+            )
+        if notification.resource_type:
+            fields.append(
+                {
+                    "title": "Resource",
+                    "value": f"{notification.resource_type}/{notification.resource_id}",
+                    "short": True,
+                }
+            )
+
+        if fields:
+            attachment["fields"] = fields
+
+        # Add action button
+        if notification.action_url:
+            attachment["actions"] = [
+                {
+                    "type": "button",
+                    "text": notification.action_label or "View Details",
+                    "url": notification.action_url,
+                }
+            ]
+
+        return {
+            "username": self.config.username,
+            "icon_emoji": self.config.icon_emoji,
+            "attachments": [attachment],
+        }
+
+    async def _send_webhook(self, message: dict, channel: str) -> None:
+        """Send via webhook URL."""
+        import aiohttp
+
+        from aragora.http_client import WEBHOOK_TIMEOUT
+
+        # Add channel to message
+        if channel.startswith("#") or channel.startswith("@"):
+            message["channel"] = channel
+
+        async with aiohttp.ClientSession(timeout=WEBHOOK_TIMEOUT) as session:
+            async with session.post(
+                self.config.webhook_url,
+                json=message,
+            ) as response:
+                if response.status != 200:
+                    text = await response.text()
+                    raise SlackNotificationError(
+                        f"Slack webhook failed: {text}",
+                        status_code=response.status,
+                    )
+
+    async def _send_api(self, message: dict, channel: str) -> None:
+        """Send via Slack API."""
+        import aiohttp
+
+        from aragora.http_client import DEFAULT_TIMEOUT
+
+        message["channel"] = channel
+
+        async with aiohttp.ClientSession(timeout=DEFAULT_TIMEOUT) as session:
+            async with session.post(
+                "https://slack.com/api/chat.postMessage",
+                json=message,
+                headers={"Authorization": f"Bearer {self.config.bot_token}"},
+            ) as response:
+                data = await response.json()
+                if not data.get("ok"):
+                    raise SlackNotificationError(
+                        f"Slack API error: {data.get('error')}",
+                        error_code=data.get("error"),
+                    )
+
+
+class EmailProvider(NotificationProvider):
+    """Email notification provider."""
+
+    def __init__(self, config: EmailConfig):
+        self.config = config
+
+    @property
+    def channel(self) -> NotificationChannel:
+        return NotificationChannel.EMAIL
+
+    def is_configured(self) -> bool:
+        return bool(self.config.smtp_host)
+
+    async def send(
+        self,
+        notification: Notification,
+        recipient: str,
+    ) -> NotificationResult:
+        """Send email notification."""
+        start_time = time.perf_counter()
+
+        if not self.is_configured():
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "email",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "not_configured",
+            )
+            return NotificationResult(
+                success=False,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+                error="Email not configured",
+            )
+
+        try:
+            # Run SMTP in thread pool (it's blocking)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                self._send_email,
+                notification,
+                recipient,
+            )
+
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "email", notification.severity, notification.priority.value, True, latency
+            )
+            return NotificationResult(
+                success=True,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send email notification: {e}")
+            latency = time.perf_counter() - start_time
+            error_type = "connection_error" if "connection" in str(e).lower() else "delivery_error"
+            _record_notification_metric(
+                "email",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                error_type,
+            )
+            return NotificationResult(
+                success=False,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+                error=str(e),
+            )
+
+    def _send_email(self, notification: Notification, recipient: str) -> None:
+        """Send email via SMTP."""
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"[{notification.severity.upper()}] {notification.title}"
+        msg["From"] = f"{self.config.from_name} <{self.config.from_address}>"
+        msg["To"] = recipient
+
+        # Plain text version
+        text = f"{notification.title}\n\n{notification.message}"
+        if notification.action_url:
+            text += f"\n\nView details: {notification.action_url}"
+
+        # HTML version
+        html = self._build_html(notification)
+
+        msg.attach(MIMEText(text, "plain"))
+        msg.attach(MIMEText(html, "html"))
+
+        # Send
+        with smtplib.SMTP(self.config.smtp_host, self.config.smtp_port) as server:
+            if self.config.use_tls:
+                server.starttls()
+            if self.config.smtp_user and self.config.smtp_password:
+                server.login(self.config.smtp_user, self.config.smtp_password)
+            server.send_message(msg)
+
+    def _build_html(self, notification: Notification) -> str:
+        """Build HTML email content."""
+        colors = {
+            "info": "#2196F3",
+            "warning": "#FF9800",
+            "error": "#F44336",
+            "critical": "#B71C1C",
+        }
+        color = colors.get(notification.severity, "#9E9E9E")
+
+        action_html = ""
+        if notification.action_url:
+            action_html = f"""
+            <p style="margin-top: 20px;">
+                <a href="{notification.action_url}"
+                   style="background-color: {color}; color: white; padding: 10px 20px;
+                          text-decoration: none; border-radius: 4px;">
+                    {notification.action_label or "View Details"}
+                </a>
+            </p>
+            """
+
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: {
+            color
+        }; color: white; padding: 15px; border-radius: 4px 4px 0 0; }}
+                .content {{ background-color: #f5f5f5; padding: 20px; border-radius: 0 0 4px 4px; }}
+                .meta {{ color: #666; font-size: 0.9em; margin-top: 15px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2 style="margin: 0;">{notification.title}</h2>
+                </div>
+                <div class="content">
+                    <p>{notification.message}</p>
+                    {action_html}
+                    <div class="meta">
+                        <p>Severity: {notification.severity.upper()}</p>
+                        {
+            f"<p>Resource: {notification.resource_type}/{notification.resource_id}</p>"
+            if notification.resource_type
+            else ""
+        }
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+
+class WebhookProvider(NotificationProvider):
+    """Webhook notification provider."""
+
+    def __init__(self):
+        self.endpoints: dict[str, WebhookEndpoint] = {}
+
+    @property
+    def channel(self) -> NotificationChannel:
+        return NotificationChannel.WEBHOOK
+
+    def is_configured(self) -> bool:
+        return len(self.endpoints) > 0
+
+    def add_endpoint(self, endpoint: WebhookEndpoint) -> None:
+        """Register a webhook endpoint."""
+        self.endpoints[endpoint.id] = endpoint
+
+    def remove_endpoint(self, endpoint_id: str) -> bool:
+        """Remove a webhook endpoint."""
+        if endpoint_id in self.endpoints:
+            del self.endpoints[endpoint_id]
+            return True
+        return False
+
+    async def send(
+        self,
+        notification: Notification,
+        recipient: str,  # endpoint_id
+    ) -> NotificationResult:
+        """Send notification to webhook endpoint."""
+        start_time = time.perf_counter()
+
+        endpoint = self.endpoints.get(recipient)
+        if not endpoint:
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "webhook",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "endpoint_not_found",
+            )
+            return NotificationResult(
+                success=False,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+                error=f"Webhook endpoint not found: {recipient}",
+            )
+
+        if not endpoint.enabled:
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "webhook",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "endpoint_disabled",
+            )
+            return NotificationResult(
+                success=False,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+                error="Webhook endpoint is disabled",
+            )
+
+        try:
+            import aiohttp
+
+            payload = notification.to_dict()
+            body = json.dumps(payload)
+
+            headers = {
+                "Content-Type": "application/json",
+                **endpoint.headers,
+            }
+
+            # Add signature if secret is configured
+            if endpoint.secret:
+                signature = hmac.new(
+                    endpoint.secret.encode(),
+                    body.encode(),
+                    hashlib.sha256,
+                ).hexdigest()
+                headers["X-Aragora-Signature"] = f"sha256={signature}"
+
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                async with session.post(
+                    endpoint.url,
+                    data=body,
+                    headers=headers,
+                ) as response:
+                    if response.status >= 400:
+                        text = await response.text()
+                        raise WebhookDeliveryError(
+                            webhook_url=endpoint.url,
+                            status_code=response.status,
+                            message=text,
+                        )
+
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "webhook", notification.severity, notification.priority.value, True, latency
+            )
+            return NotificationResult(
+                success=True,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send webhook notification: {e}")
+            latency = time.perf_counter() - start_time
+            error_type = "timeout" if "timeout" in str(e).lower() else "delivery_error"
+            _record_notification_metric(
+                "webhook",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                error_type,
+            )
+            return NotificationResult(
+                success=False,
+                channel=self.channel,
+                recipient=recipient,
+                notification_id=notification.id,
+                error=str(e),
+            )
+
+    async def send_to_matching(
+        self,
+        notification: Notification,
+        event_type: str,
+    ) -> list[NotificationResult]:
+        """Send to all endpoints matching the event type."""
+        results = []
+        for endpoint in self.endpoints.values():
+            if endpoint.matches_event(event_type):
+                result = await self.send(notification, endpoint.id)
+                results.append(result)
+        return results
