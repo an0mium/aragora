@@ -22,7 +22,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import pytest_benchmark
+pytest.importorskip("pytest_benchmark")
 
 
 class TestHealthEndpointBenchmarks:

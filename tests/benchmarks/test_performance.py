@@ -19,6 +19,8 @@ from unittest.mock import patch, AsyncMock
 
 import pytest
 
+pytest.importorskip("pytest_benchmark")
+
 from aragora.core import Environment, Critique, Vote
 from aragora.debate.orchestrator import Arena, DebateProtocol
 

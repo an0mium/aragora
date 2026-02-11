@@ -271,7 +271,7 @@ class TestListPresets:
         mock_registry.list_presets.return_value = [MockPreset()]
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await list_presets(presets_args)
+            result = await list_presets(presets_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -287,7 +287,7 @@ class TestListPresets:
         mock_registry.list_presets.return_value = [MockPreset()]
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await list_presets(presets_args)
+            result = await list_presets(presets_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -302,7 +302,7 @@ class TestListPresets:
         mock_registry.list_presets.return_value = []
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await list_presets(presets_args)
+            result = await list_presets(presets_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()

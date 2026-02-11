@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytest.importorskip("pytest_benchmark")
+
 from aragora.queue.base import Job, JobQueue, JobStatus
 from aragora.queue.batch_worker import (
     BatchExplainabilityWorker,
