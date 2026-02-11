@@ -96,10 +96,10 @@ def cmd_list(args: argparse.Namespace) -> int:
         print("-" * 70)
 
         for tenant in tenants:
-            tid = tenant.get("id", "")[:24]
-            name = tenant.get("name", "")[:19]
-            tier = tenant.get("tier", "unknown")[:11]
-            status = tenant.get("status", "unknown")[:9]
+            tid = tenant.get("id", "")[:25]
+            name = tenant.get("name", "")[:20]
+            tier = tenant.get("tier", "unknown")[:12]
+            status = tenant.get("status", "unknown")[:10]
             print(f"{tid:<25} {name:<20} {tier:<12} {status:<10}")
 
         print("-" * 70)
