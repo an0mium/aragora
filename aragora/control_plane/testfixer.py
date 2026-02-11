@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.control_plane.scheduler import TaskPriority
-from aragora.control_plane.integration import ControlPlaneIntegration
 from aragora.nomic.testfixer.http_api import TestFixerRunConfig, run_fix_loop
+
+if TYPE_CHECKING:
+    from aragora.control_plane.integration import ControlPlaneIntegration
 
 TESTFIXER_TASK_TYPE = "testfixer"
 
