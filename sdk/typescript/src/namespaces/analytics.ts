@@ -245,36 +245,6 @@ export class AnalyticsAPI {
   }
 
   /**
-   * Get aggregate performance metrics for all agents.
-   */
-  async getAgentsPerformanceSummary(options?: {
-    time_range?: string;
-    org_id?: string;
-    limit?: number;
-  }): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/analytics/agents/performance', { params: options });
-  }
-
-  /**
-   * Get summary statistics for debates.
-   */
-  async getDebatesSummary(options?: {
-    time_range?: string;
-    org_id?: string;
-  }): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/analytics/debates/summary', { params: options });
-  }
-
-  /**
-   * Get workspace-level usage metrics.
-   */
-  async getWorkspaceUsage(workspaceId: string, options?: {
-    time_range?: string;
-  }): Promise<unknown> {
-    return this.client.request('GET', `/api/v1/analytics/workspace/${workspaceId}/usage`, { params: options });
-  }
-
-  /**
    * Get agent performance trends over time.
    */
   async getAgentTrends(options?: {

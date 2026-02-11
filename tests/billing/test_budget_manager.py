@@ -40,9 +40,10 @@ class TestBudgetManagerDefaults:
 
     def test_default_db_path_uses_data_dir(self, tmp_path, monkeypatch):
         """Default db_path should resolve under DATA_DIR."""
-        from aragora.config import legacy as legacy
-
-        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        monkeypatch.setattr(
+            "aragora.config.legacy.get_default_data_dir",
+            lambda: tmp_path,
+        )
         manager = BudgetManager()
         assert Path(manager._db_path).resolve() == (tmp_path / "budgets.db").resolve()
 

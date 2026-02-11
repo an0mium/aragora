@@ -23,16 +23,25 @@ import pytest
 
 pytest.importorskip("pytest_benchmark")
 
-# Check if aragora_sdk is installed
+# Check if aragora_sdk is installed with models module
 try:
     import aragora_sdk
+    from aragora_sdk import models as _sdk_models  # noqa: F401
 
-    HAS_SDK = True
-except ImportError:
-    HAS_SDK = False
+    HAS_SDK_MODELS = True
+except (ImportError, ModuleNotFoundError):
+    HAS_SDK_MODELS = False
 
-# Skip all SDK tests if aragora_sdk is not installed
-pytestmark = pytest.mark.skipif(not HAS_SDK, reason="aragora_sdk not installed")
+# Check if aragora_sdk exceptions are available
+try:
+    from aragora_sdk import exceptions as _sdk_exceptions  # noqa: F401
+
+    HAS_SDK_EXCEPTIONS = True
+except (ImportError, ModuleNotFoundError):
+    HAS_SDK_EXCEPTIONS = False
+
+# Skip model-dependent tests if aragora_sdk.models is not available
+pytestmark = pytest.mark.skipif(not HAS_SDK_MODELS, reason="aragora_sdk.models not available")
 
 
 class TestSDKClientBenchmarks:
@@ -174,6 +183,7 @@ class TestModelsBenchmarks:
         assert result["agent"] == "pci_dss"
 
 
+@pytest.mark.skipif(not HAS_SDK_EXCEPTIONS, reason="aragora_sdk.exceptions not available")
 class TestExceptionBenchmarks:
     """Benchmark exception handling."""
 
