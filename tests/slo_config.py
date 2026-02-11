@@ -77,6 +77,14 @@ class SLO:
         "concurrent_min_per_sec": 0.15,  # Minimum debates per second (relaxed from 0.3 for CI/system load variability)
     }
 
+    # Context budgeter targets (ops/sec)
+    CONTEXT_BUDGET: dict[str, dict[str, float]] = {
+        "token_estimation": {"min_ops_per_sec": 1_000_000, "target_latency_ms": 0.001},
+        "section_truncation": {"min_ops_per_sec": 100_000, "target_latency_ms": 0.01},
+        "budget_apply_12_sections": {"min_ops_per_sec": 10_000, "target_latency_ms": 0.1},
+        "budget_apply_50_sections": {"min_ops_per_sec": 2_500, "target_latency_ms": 0.4},
+    }
+
     # Import time targets
     STARTUP: dict[str, float] = {
         "import_max_sec": 3.0,
