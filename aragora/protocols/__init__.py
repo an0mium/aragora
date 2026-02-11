@@ -90,65 +90,69 @@ from aragora.core_protocols import (
 
 # =============================================================================
 # Domain Protocols (async, full-featured interfaces)
+# Split into focused submodules for maintainability.
 # =============================================================================
-from aragora.type_protocols import (
-    # Agent protocols
+from aragora.protocols.agent_protocols import (
     AgentProtocol,
     StreamingAgentProtocol,
     ToolUsingAgentProtocol,
-    # Memory protocols
+)
+from aragora.protocols.memory_protocols import (
+    ContinuumMemoryProtocol,
+    CritiqueStoreProtocol,
     MemoryProtocol,
     TieredMemoryProtocol,
-    CritiqueStoreProtocol,
-    ContinuumMemoryProtocol,
-    # Event protocols
-    EventEmitterProtocol,
+)
+from aragora.protocols.event_protocols import (
     AsyncEventEmitterProtocol,
-    # Handler protocols
-    HandlerProtocol,
     BaseHandlerProtocol,
-    # Debate protocols
-    DebateResultProtocol,
+    EventEmitterProtocol,
+    HandlerProtocol,
+)
+from aragora.protocols.debate_protocols import (
     ConsensusDetectorProtocol,
-    # Ranking protocols
+    ConsensusMemoryProtocol,
+    DebateEmbeddingsProtocol,
+    DebateResultProtocol,
+    FlipDetectorProtocol,
     RankingSystemProtocol,
-    EloSystemProtocol,
-    # Tracker protocols
+)
+from aragora.protocols.tracker_protocols import (
     CalibrationTrackerProtocol,
-    PositionLedgerProtocol,
-    RelationshipTrackerProtocol,
+    DissentRetrieverProtocol,
+    EloSystemProtocol,
     MomentDetectorProtocol,
     PersonaManagerProtocol,
-    DissentRetrieverProtocol,
+    PositionLedgerProtocol,
     PositionTrackerProtocol,
-    # Infrastructure
-    RedisClientProtocol,
-    # Storage protocols (domain-level)
+    RelationshipTrackerProtocol,
+)
+from aragora.protocols.storage_protocols import (
     DebateStorageProtocol,
+    RedisClientProtocol,
     UserStoreProtocol,
-    # Verification
-    VerificationBackendProtocol,
-    # Feedback phase
-    DebateEmbeddingsProtocol,
-    FlipDetectorProtocol,
-    ConsensusMemoryProtocol,
-    PopulationManagerProtocol,
-    PulseManagerProtocol,
-    PromptEvolverProtocol,
-    InsightStoreProtocol,
+)
+from aragora.protocols.feature_protocols import (
     BroadcastPipelineProtocol,
     EvidenceCollectorProtocol,
-    # Cross-cutting protocols (break circular imports)
     EvidenceProtocol,
+    InsightStoreProtocol,
+    PopulationManagerProtocol,
+    PromptEvolverProtocol,
+    PulseManagerProtocol,
     StreamEventProtocol,
+    VerificationBackendProtocol,
     WebhookConfigProtocol,
-    # Callback types
-    EventCallback,
+)
+from aragora.protocols.callback_types import (
+    AgentT,
     AsyncEventCallback,
+    EventCallback,
+    MemoryT,
     ResponseFilter,
-    VoteCallback,
-    # Result types
     Result,
+    T,
+    VoteCallback,
 )
 
 # =============================================================================
@@ -237,6 +241,10 @@ __all__ = [
     "EvidenceProtocol",
     "StreamEventProtocol",
     "WebhookConfigProtocol",
+    # Type variables
+    "T",
+    "AgentT",
+    "MemoryT",
     # Callback types
     "EventCallback",
     "AsyncEventCallback",
