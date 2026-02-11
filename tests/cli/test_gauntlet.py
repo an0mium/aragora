@@ -349,7 +349,7 @@ class TestCmdGauntlet:
         mock_agents.create_agent.side_effect = Exception("No API key")
 
         mock_spec = MagicMock()
-        mock_spec.parse_list.return_value = [MockAgentSpec()]
+        mock_spec.coerce_list.return_value = [MockAgentSpec()]
 
         with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
             with patch.dict("sys.modules", {"aragora.agents.base": mock_agents}):
@@ -390,7 +390,7 @@ class TestCmdGauntlet:
         mock_agents_base.create_agent.return_value = mock_agent
 
         mock_spec = MagicMock()
-        mock_spec.parse_list.return_value = [MockAgentSpec()]
+        mock_spec.coerce_list.return_value = [MockAgentSpec()]
 
         with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
             with patch.dict("sys.modules", {"aragora.agents.base": mock_agents_base}):
@@ -449,7 +449,7 @@ class TestCmdGauntlet:
         mock_agents_base.create_agent.return_value = mock_agent
 
         mock_spec = MagicMock()
-        mock_spec.parse_list.return_value = [MockAgentSpec()]
+        mock_spec.coerce_list.return_value = [MockAgentSpec()]
 
         with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
             with patch.dict("sys.modules", {"aragora.agents.base": mock_agents_base}):
@@ -488,7 +488,7 @@ class TestCmdGauntlet:
         mock_agents_base.create_agent.return_value = mock_agent
 
         mock_spec = MagicMock()
-        mock_spec.parse_list.return_value = [MockAgentSpec()]
+        mock_spec.coerce_list.return_value = [MockAgentSpec()]
 
         with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
             with patch.dict("sys.modules", {"aragora.agents.base": mock_agents_base}):
