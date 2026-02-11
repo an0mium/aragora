@@ -1,9 +1,10 @@
-name: Release Notes
+name: Release Notes (DEPRECATED)
+
+# DEPRECATED: use release.yml instead (canonical release workflow that includes GitHub Release creation).
+# Both workflows triggered on v* tags and both created GitHub Releases, causing conflicts.
+# Kept as workflow_dispatch only for generating standalone release notes if needed.
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:

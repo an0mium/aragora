@@ -1,11 +1,10 @@
-name: Deploy Documentation
+name: Deploy Documentation to Vercel (DEPRECATED)
+
+# DEPRECATED: use deploy-docs.yml instead (canonical docs deployment to GitHub Pages).
+# This workflow deployed to Vercel but is redundant with the GitHub Pages deployment.
+# Kept as workflow_dispatch only for manual use if Vercel deployment is ever needed.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/**'
-      - 'docs-site/**'
   workflow_dispatch:
 
 env:

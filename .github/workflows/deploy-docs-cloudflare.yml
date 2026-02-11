@@ -1,11 +1,10 @@
-name: Deploy Docs to Cloudflare Pages
+name: Deploy Docs to Cloudflare Pages (DEPRECATED)
+
+# DEPRECATED: use deploy-docs.yml instead (canonical docs deployment to GitHub Pages).
+# This workflow deployed to Cloudflare Pages but is redundant with the GitHub Pages deployment.
+# Kept as workflow_dispatch only for manual use if Cloudflare deployment is ever needed.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/**'
-      - 'docs-site/**'
   workflow_dispatch:
 
 jobs:

@@ -1,7 +1,7 @@
 name: Publish Python SDK to PyPI
 
 # CANONICAL: Publishes `aragora-sdk` from sdk/python/.
-# The legacy `aragora-client` package (aragora-py/) is deprecated.
+# The legacy `aragora-client` package (aragora-py/) is deprecated -- see publish-aragora-client.yml.
 # Manual dispatch only to prevent accidental publishes.
 
 on:
@@ -11,8 +11,8 @@ on:
         description: 'Version to publish (e.g., 2.6.3)'
         required: true
         type: string
-      confirm_deprecated:
-        description: 'Type DEPRECATED to confirm publishing legacy package'
+      confirm:
+        description: 'Type PUBLISH to confirm'
         required: true
         type: string
 
@@ -22,7 +22,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    if: github.event.inputs.confirm_deprecated == 'DEPRECATED'
+    if: github.event.inputs.confirm == 'PUBLISH'
     defaults:
       run:
         working-directory: sdk/python

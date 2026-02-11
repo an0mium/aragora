@@ -1,14 +1,17 @@
-# LEGACY: publishes deprecated aragora-client package (replaced by aragora-sdk)
-name: Publish Aragora Client to PyPI
+# DEPRECATED: use publish-python-sdk.yml instead (canonical Python SDK).
+# This workflow publishes the legacy aragora-client package (replaced by aragora-sdk).
+# Kept as workflow_dispatch only to prevent accidental auto-triggers.
+name: Publish Aragora Client to PyPI (DEPRECATED)
 
 on:
-  push:
-    tags:
-      - 'pyclient-v*'
   workflow_dispatch:
     inputs:
       version:
         description: 'Version to publish (e.g., 2.6.3)'
+        required: true
+        type: string
+      confirm_deprecated:
+        description: 'Type DEPRECATED to confirm publishing legacy package'
         required: true
         type: string
 
@@ -18,6 +21,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_deprecated == 'DEPRECATED'
     defaults:
       run:
         working-directory: aragora-py
