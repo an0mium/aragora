@@ -20,27 +20,33 @@ import threading
 from unittest.mock import patch, MagicMock
 from io import StringIO
 
-from aragora.observability.logging import (
-    set_correlation_id,
-    get_correlation_id,
-    generate_correlation_id,
-    correlation_context,
-    SENSITIVE_FIELDS,
-    _is_sensitive_value,
-    _redact_sensitive,
-    LogConfig,
-    JSONFormatter,
-    HumanFormatter,
-    StructuredLogger,
-    configure_logging,
-    get_logger,
-)
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    from aragora.observability.logging import (
+        set_correlation_id,
+        get_correlation_id,
+        generate_correlation_id,
+        correlation_context,
+        SENSITIVE_FIELDS,
+        _is_sensitive_value,
+        _redact_sensitive,
+        LogConfig,
+        JSONFormatter,
+        HumanFormatter,
+        StructuredLogger,
+        configure_logging,
+        get_logger,
+    )
 
 
 @pytest.fixture(autouse=True)
 def reset_correlation_id():
     """Reset correlation ID between tests."""
-    from aragora.observability import logging as log_module
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        from aragora.observability import logging as log_module
 
     log_module._correlation_id.value = None
     yield
@@ -50,7 +56,9 @@ def reset_correlation_id():
 @pytest.fixture
 def reset_logging():
     """Reset global logging state."""
-    from aragora.observability import logging as log_module
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        from aragora.observability import logging as log_module
 
     old_config = log_module._log_config
     old_loggers = log_module._loggers.copy()

@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock
 from datetime import datetime
 
-from aragora.knowledge.mound.adapters.elo_adapter import (
+from aragora.knowledge.mound.adapters.performance_adapter import (
     EloAdapter,
     RatingSearchResult,
 )

@@ -16,7 +16,13 @@ See settings.py for the full validated configuration schema.
 
 # Re-export Pydantic settings for convenient access
 # Re-export legacy constants for backward compatibility
-from .legacy import (  # noqa: F401
+# Suppress deprecation warning for this internal re-export; the warning should
+# only fire when external code imports aragora.config.legacy directly.
+import warnings as _warnings
+
+with _warnings.catch_warnings():
+    _warnings.simplefilter("ignore", DeprecationWarning)
+    from .legacy import (  # noqa: F401
     AGENT_TIMEOUT_SECONDS,
     BELIEF_CONVERGENCE_THRESHOLD,
     # Belief Network

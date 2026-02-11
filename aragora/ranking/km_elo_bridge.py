@@ -188,7 +188,7 @@ def _update_total_syncs(count: int) -> None:
 
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.adapters.elo_adapter import (
+    from aragora.knowledge.mound.adapters.performance_adapter import (
         EloAdapter,
         EloAdjustmentRecommendation,
         KMEloPattern,

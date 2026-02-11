@@ -106,7 +106,7 @@ class TestEloKMFlow:
     def test_elo_system_queries_km_for_skill_history(self):
         """ELO system can query KM for agent skill history."""
         from aragora.ranking.elo import EloSystem
-        from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
+        from aragora.knowledge.mound.adapters.performance_adapter import EloAdapter
 
         mock_adapter = Mock(spec=EloAdapter)
         mock_adapter.get_agent_skill_history.return_value = [
@@ -128,7 +128,7 @@ class TestEloKMFlow:
     def test_elo_system_queries_km_for_domain_expertise(self):
         """ELO system can query KM for domain expertise."""
         from aragora.ranking.elo import EloSystem
-        from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
+        from aragora.knowledge.mound.adapters.performance_adapter import EloAdapter
 
         mock_adapter = Mock(spec=EloAdapter)
         mock_adapter.get_domain_expertise.return_value = [

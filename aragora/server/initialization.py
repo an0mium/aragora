@@ -292,7 +292,7 @@ def init_elo_system(nomic_dir: Path) -> Any | None:
 
         # Wire KM adapter for bidirectional sync (ratings -> KM, KM -> team selection)
         try:
-            from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
+            from aragora.knowledge.mound.adapters.performance_adapter import EloAdapter
 
             adapter = EloAdapter(elo_system=system, enable_dual_write=True)  # type: ignore[abstract]  # EloAdapter intentionally defers some abstract methods to mixin composition
             system.set_km_adapter(adapter)

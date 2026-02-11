@@ -14,7 +14,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
+    from aragora.knowledge.mound.adapters.performance_adapter import EloAdapter
 
 logger = logging.getLogger(__name__)
 

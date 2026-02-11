@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, patch
 
-from aragora.knowledge.mound.adapters.elo_adapter import (
+from aragora.knowledge.mound.adapters.performance_adapter import (
     EloAdapter,
     KMEloPattern,
     EloAdjustmentRecommendation,

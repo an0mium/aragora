@@ -53,7 +53,7 @@ class TestPhase10CoreComponents:
 
     def test_elo_adapter_bidirectional_import(self):
         """Test EloAdapter bidirectional methods exist."""
-        from aragora.knowledge.mound.adapters.elo_adapter import (
+        from aragora.knowledge.mound.adapters.performance_adapter import (
             EloAdapter,
             KMEloPattern,
             EloAdjustmentRecommendation,
@@ -446,7 +446,7 @@ class TestAdapterBidirectionalIntegration:
 
     def test_elo_adapter_bidirectional(self):
         """Test EloAdapter has bidirectional methods."""
-        from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
+        from aragora.knowledge.mound.adapters.performance_adapter import EloAdapter
 
         adapter = EloAdapter()
 
@@ -524,7 +524,7 @@ class TestPhase10EndToEnd:
     @pytest.mark.asyncio
     async def test_km_pattern_detection_flow(self):
         """Test KM pattern detection and ELO recommendation flow."""
-        from aragora.knowledge.mound.adapters.elo_adapter import (
+        from aragora.knowledge.mound.adapters.performance_adapter import (
             EloAdapter,
             KMEloPattern,
         )
