@@ -157,15 +157,12 @@ class TestPopulationManagement:
 
     def test_selection_by_fitness(self, mock_population):
         """Test selecting agents by fitness."""
-        try:
-            from aragora.genesis.breeding import select_by_fitness
+        from aragora.genesis.breeding import select_by_fitness
 
-            selected = select_by_fitness(mock_population, count=2)
+        selected = select_by_fitness(mock_population, count=2)
 
-            assert len(selected) == 2
-            # Higher rated agents should be more likely to be selected
-        except ImportError:
-            pytest.skip("Selection function not available (see #136)")
+        assert len(selected) == 2
+        # Higher rated agents should be more likely to be selected
 
     def test_evolve_population_preserves_genomes(self, tmp_path):
         """Test population evolution preserves and improves genomes."""

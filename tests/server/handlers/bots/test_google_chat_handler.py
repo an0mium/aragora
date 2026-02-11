@@ -514,7 +514,7 @@ class TestInputValidation:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_TOKEN_CACHE, reason="Token cache not implemented")
+@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestBearerTokenVerification:
     """Tests for the layered Bearer token verification system."""
 
@@ -694,7 +694,7 @@ class TestBearerTokenVerification:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_TOKEN_CACHE, reason="Token cache not implemented")
+@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestTokenCache:
     """Tests for the token verification cache."""
 
@@ -788,7 +788,7 @@ class TestTokenCache:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_TOKEN_CACHE, reason="Token cache not implemented")
+@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestJWTVerifierLayer:
     """Tests for _verify_token_via_jwt_verifier."""
 
@@ -816,7 +816,7 @@ class TestJWTVerifierLayer:
             assert result is None
 
 
-@pytest.mark.skipif(not HAS_TOKEN_CACHE, reason="Token cache not implemented")
+@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestGoogleAuthLayer:
     """Tests for _verify_token_via_google_auth."""
 
@@ -854,7 +854,7 @@ class TestGoogleAuthLayer:
                 assert result is False
 
 
-@pytest.mark.skipif(not HAS_TOKEN_CACHE, reason="Token cache not implemented")
+@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestTokeninfoLayer:
     """Tests for _verify_token_via_tokeninfo."""
 
@@ -980,7 +980,7 @@ class TestTokeninfoLayer:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_TOKEN_CACHE, reason="Token cache not implemented")
+@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestWebhookAuthIntegration:
     """Integration tests for webhook authentication flow."""
 

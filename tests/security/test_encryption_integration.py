@@ -420,9 +420,9 @@ class TestEncryptionEnforcement:
         settings = {"api_key": "secret-key", "name": "test"}
 
         # Mock crypto unavailable + encryption required
-        with patch("aragora.storage.integration_store.CRYPTO_AVAILABLE", False):
+        with patch("aragora.storage.integration_models.CRYPTO_AVAILABLE", False):
             with patch(
-                "aragora.storage.integration_store.is_encryption_required", return_value=True
+                "aragora.storage.integration_models.is_encryption_required", return_value=True
             ):
                 with pytest.raises(EncryptionError) as exc_info:
                     _encrypt_settings(settings, "user1", "slack")
@@ -438,10 +438,10 @@ class TestEncryptionEnforcement:
         settings = {"api_key": "secret-key", "name": "test"}
 
         # Mock encryption service failure + encryption required
-        with patch("aragora.storage.integration_store.get_encryption_service") as mock_svc:
+        with patch("aragora.storage.integration_models.get_encryption_service") as mock_svc:
             mock_svc.side_effect = RuntimeError("Key not found")
             with patch(
-                "aragora.storage.integration_store.is_encryption_required", return_value=True
+                "aragora.storage.integration_models.is_encryption_required", return_value=True
             ):
                 with pytest.raises(EncryptionError) as exc_info:
                     _encrypt_settings(settings, "user1", "slack")
@@ -455,10 +455,10 @@ class TestEncryptionEnforcement:
         settings = {"api_key": "secret-key", "name": "test"}
 
         # Mock encryption service failure + encryption NOT required (default)
-        with patch("aragora.storage.integration_store.get_encryption_service") as mock_svc:
+        with patch("aragora.storage.integration_models.get_encryption_service") as mock_svc:
             mock_svc.side_effect = RuntimeError("Key not found")
             with patch(
-                "aragora.storage.integration_store.is_encryption_required", return_value=False
+                "aragora.storage.integration_models.is_encryption_required", return_value=False
             ):
                 result = _encrypt_settings(settings, "user1", "slack")
 

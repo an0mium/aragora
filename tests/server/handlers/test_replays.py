@@ -1245,7 +1245,7 @@ class TestHandleMethod:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="ReplaysHandler is currently rate-limited only, no RBAC enforcement")
+@pytest.mark.xfail(reason="ReplaysHandler is currently rate-limited only, no RBAC enforcement", strict=False)
 class TestRBACPermissions:
     """Tests for RBAC permission enforcement on handle() method.
 
@@ -1253,7 +1253,7 @@ class TestRBACPermissions:
     that auto-injects admin auth context, so we can test actual RBAC behavior.
 
     NOTE: ReplaysHandler is currently a public endpoint (exempt from RBAC).
-    These tests are skipped until RBAC is added to the handler.
+    These tests are marked xfail until RBAC is added to the handler.
     """
 
     @pytest.mark.no_auto_auth
