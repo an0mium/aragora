@@ -2268,8 +2268,8 @@ requires_postgres = not HAS_POSTGRES_CONFIGURED
 # Track skip counts to warn when threshold is exceeded.
 # See tests/SKIP_AUDIT.md for skip marker inventory.
 
-SKIP_THRESHOLD = 300  # Maximum allowed skips (reduced from 550 to drive improvement)
-UNCONDITIONAL_SKIP_THRESHOLD = 1  # Maximum unconditional @pytest.mark.skip (reduced from 5)
+SKIP_THRESHOLD = 150  # Maximum allowed skips (reduced from 300; most missing_feature skips self-healed)
+UNCONDITIONAL_SKIP_THRESHOLD = 0  # No unconditional @pytest.mark.skip allowed (was 1, converted last one to xfail)
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
