@@ -335,7 +335,7 @@ class TestShowPreset:
         mock_registry.get_preset.return_value = mock_preset
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await show_preset(preset_args)
+            result = await show_preset(preset_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -352,7 +352,7 @@ class TestShowPreset:
         mock_registry.get_preset.return_value = mock_preset
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await show_preset(preset_args)
+            result = await show_preset(preset_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -369,7 +369,7 @@ class TestShowPreset:
         mock_registry.list_presets.return_value = [MockPreset()]
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await show_preset(preset_args)
+            result = await show_preset(preset_args, use_api=False, server_url="", api_key=None)
 
         assert result == 1
         captured = capsys.readouterr()
@@ -398,7 +398,7 @@ class TestListTypes:
         mock_registry.list_audit_types.return_value = [MockAuditType()]
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await list_types(types_args)
+            result = await list_types(types_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -414,7 +414,7 @@ class TestListTypes:
         mock_registry.list_audit_types.return_value = [MockAuditType()]
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await list_types(types_args)
+            result = await list_types(types_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -454,7 +454,7 @@ class TestCreateAudit:
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             with patch.dict("sys.modules", {"aragora.audit.registry": MagicMock()}):
-                result = await create_audit(create_args)
+                result = await create_audit(create_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -479,7 +479,7 @@ class TestCreateAudit:
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             with patch("aragora.audit.registry.audit_registry", mock_registry):
-                result = await create_audit(create_args)
+                result = await create_audit(create_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -495,7 +495,7 @@ class TestCreateAudit:
         mock_registry.get_preset.return_value = None
 
         with patch("aragora.audit.registry.audit_registry", mock_registry):
-            result = await create_audit(create_args)
+            result = await create_audit(create_args, use_api=False, server_url="", api_key=None)
 
         assert result == 1
         captured = capsys.readouterr()
@@ -528,7 +528,7 @@ class TestStartAudit:
         mock_audit_module.get_document_auditor.return_value = mock_auditor
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            result = await start_audit(start_args)
+            result = await start_audit(start_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -562,7 +562,7 @@ class TestAuditStatus:
         mock_audit_module.get_document_auditor.return_value = mock_auditor
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            result = await audit_status(status_args)
+            result = await audit_status(status_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -579,7 +579,7 @@ class TestAuditStatus:
         mock_audit_module.get_document_auditor.return_value = mock_auditor
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            result = await audit_status(status_args)
+            result = await audit_status(status_args, use_api=False, server_url="", api_key=None)
 
         assert result == 1
         captured = capsys.readouterr()
@@ -614,7 +614,7 @@ class TestAuditFindings:
         mock_audit_module.FindingSeverity = MagicMock()
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            result = await audit_findings(findings_args)
+            result = await audit_findings(findings_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -633,7 +633,7 @@ class TestAuditFindings:
         mock_audit_module.FindingSeverity = MagicMock()
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            result = await audit_findings(findings_args)
+            result = await audit_findings(findings_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -669,7 +669,7 @@ class TestExportAudit:
         mock_audit_module.get_document_auditor.return_value = mock_auditor
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            result = await export_audit(export_args)
+            result = await export_audit(export_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -689,7 +689,7 @@ class TestExportAudit:
         mock_audit_module.get_document_auditor.return_value = mock_auditor
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
-            result = await export_audit(export_args)
+            result = await export_audit(export_args, use_api=False, server_url="", api_key=None)
 
         assert result == 1
         captured = capsys.readouterr()
@@ -742,7 +742,7 @@ class TestGenerateReport:
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             with patch.dict("sys.modules", {"aragora.reports": mock_reports_module}):
-                result = await generate_report(report_args)
+                result = await generate_report(report_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
         captured = capsys.readouterr()
@@ -759,7 +759,7 @@ class TestGenerateReport:
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             with patch.dict("sys.modules", {"aragora.reports": MagicMock()}):
-                result = await generate_report(report_args)
+                result = await generate_report(report_args, use_api=False, server_url="", api_key=None)
 
         assert result == 1
         captured = capsys.readouterr()
