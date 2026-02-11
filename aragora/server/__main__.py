@@ -107,12 +107,12 @@ Production deployment with multiple workers:
 
     # Apply offline mode before starting any workers
     if args.offline:
-        import os
+        import logging
 
         os.environ.setdefault("ARAGORA_OFFLINE", "true")
         os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
         os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
-        logger.info(
+        logging.getLogger(__name__).info(
             "[server] OFFLINE mode: SQLite backend, demo data for unavailable services"
         )
 
