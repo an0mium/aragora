@@ -480,7 +480,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
             return content.decode("utf-8", errors="replace")[:10000]
 
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, UnicodeDecodeError, ValueError, KeyError) as e:
             logger.warning(f"[{self.name}] Failed to extract text from {file.name}: {e}")
             return ""
 
@@ -666,7 +666,7 @@ class GoogleDriveConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -717,7 +717,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

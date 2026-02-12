@@ -310,7 +310,7 @@ class ConversationIngestorConnector(BaseConnector):
             try:
                 export = self.load_export(path)
                 exports.append(export)
-            except Exception as e:
+            except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, ValueError, KeyError) as e:
                 logger.warning(f"Failed to load {path}: {e}")
 
         return exports
@@ -356,7 +356,7 @@ class ConversationIngestorConnector(BaseConnector):
                 conv = self._parse_chatgpt_conversation(conv_data)
                 if conv and conv.messages:  # Only include non-empty conversations
                     conversations.append(conv)
-            except Exception as e:
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
                 logger.debug(f"Failed to parse ChatGPT conversation: {e}")
 
         return ConversationExport(
@@ -451,7 +451,7 @@ class ConversationIngestorConnector(BaseConnector):
                 conv = self._parse_claude_conversation(conv_data)
                 if conv and conv.messages:
                     conversations.append(conv)
-            except Exception as e:
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
                 logger.debug(f"Failed to parse Claude conversation: {e}")
 
         return ConversationExport(

@@ -611,7 +611,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -644,7 +644,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

@@ -135,13 +135,13 @@ class CourtListenerConnector(BaseConnector):
                         )
                         response.raise_for_status()
                         data = response.json()
-                except Exception as inner:
+                except (httpx.HTTPError, ConnectionError, TimeoutError, ValueError) as inner:
                     logger.warning("CourtListener search failed after retry: %s", inner)
                     return []
             else:
                 logger.warning("CourtListener search failed: %s", e)
                 return []
-        except Exception as e:  # noqa: BLE001
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("CourtListener search error: %s", e)
             return []
 
@@ -217,7 +217,7 @@ class CourtListenerConnector(BaseConnector):
                     return None
                 response.raise_for_status()
                 data = response.json()
-        except Exception as e:  # noqa: BLE001
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("CourtListener fetch failed: %s", e)
             return None
 

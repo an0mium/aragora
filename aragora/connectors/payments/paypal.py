@@ -675,7 +675,7 @@ class PayPalClient:
                 params=params,
                 headers=request_headers,
             )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             # Record failure for network errors
             if self._circuit_breaker is not None:
                 self._circuit_breaker.record_failure()
@@ -1284,7 +1284,7 @@ class PayPalClient:
 
             return is_valid
 
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError, OverflowError) as e:
             logger.error(
                 f"SECURITY: PayPal webhook signature verification failed with error: {e}. "
                 f"Transmission ID: {transmission_id}"

@@ -187,7 +187,7 @@ class IdempotencyTracker:
                         fingerprint.hash[:16],
                     )
                     return True
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, AttributeError) as e:
                 logger.warning("Redis check failed, using memory fallback: %s", e)
 
         # Fallback to memory cache
@@ -238,7 +238,7 @@ class IdempotencyTracker:
                 )
                 await self._redis_setex(redis_key, self._ttl, value)
                 return True
-            except Exception as e:
+            except (TypeError, ConnectionError, TimeoutError, OSError, AttributeError) as e:
                 logger.warning("Redis mark failed, using memory fallback: %s", e)
 
         # Fallback to memory cache
@@ -291,7 +291,7 @@ class IdempotencyTracker:
                     )
                     return False
                 return True
-            except Exception as e:
+            except (TypeError, ConnectionError, TimeoutError, OSError, AttributeError) as e:
                 logger.warning("Redis atomic check failed: %s", e)
 
         # Fallback to non-atomic check (memory)

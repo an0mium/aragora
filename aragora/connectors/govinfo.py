@@ -123,7 +123,7 @@ class GovInfoConnector(BaseConnector):
         except httpx.HTTPError as e:
             logger.warning("GovInfo search failed: %s", e)
             return []
-        except Exception as e:  # noqa: BLE001
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("GovInfo search error: %s", e)
             return []
 
@@ -214,7 +214,7 @@ class GovInfoConnector(BaseConnector):
                     return None
                 response.raise_for_status()
                 data = response.json()
-        except Exception as e:  # noqa: BLE001
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("GovInfo fetch failed: %s", e)
             return None
 

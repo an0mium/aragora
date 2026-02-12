@@ -67,7 +67,7 @@ class _AwaitableValue:
     def __getitem__(self, key: str) -> Any:
         try:
             return self._value[key]
-        except Exception:
+        except (KeyError, TypeError, AttributeError):
             if hasattr(self._value, "to_dict"):
                 data = self._value.to_dict()
                 if key in data:
@@ -202,7 +202,7 @@ class ERC8004Connector(BaseConnector):
                         is_healthy = bool(provider_health)
                 else:
                     is_healthy = bool(provider.is_connected())
-        except Exception as exc:
+        except (ImportError, RuntimeError, AttributeError, TypeError, KeyError) as exc:
             error_msg = str(exc)
             is_healthy = False
 
@@ -302,7 +302,7 @@ class ERC8004Connector(BaseConnector):
         try:
             provider = self._get_provider()
             return provider.is_connected()
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ConnectionError) as e:
             logger.debug(f"Health check failed: {e}")
             return False
 
@@ -439,7 +439,7 @@ class ERC8004Connector(BaseConnector):
                         )
                     )
 
-        except Exception as e:
+        except (ValueError, IndexError, AttributeError, RuntimeError, KeyError, TypeError) as e:
             logger.error(f"Search error for query '{query}': {e}")
 
         return _AwaitableList(results[:max_results])
@@ -599,13 +599,12 @@ class ERC8004Connector(BaseConnector):
                 self._cache_set(evidence_id, evidence)
                 return _AwaitableValue(evidence)
 
-        except Exception as e:
-            if isinstance(e, OSError):
-                logger.error(f"Network error fetching '{evidence_id}': {e}")
-            elif isinstance(e, RuntimeError):
-                logger.error(f"Runtime error fetching '{evidence_id}': {e}")
-            else:
-                logger.error(f"Fetch error for '{evidence_id}': {e}")
+        except OSError as e:
+            logger.error(f"Network error fetching '{evidence_id}': {e}")
+        except RuntimeError as e:
+            logger.error(f"Runtime error fetching '{evidence_id}': {e}")
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            logger.error(f"Fetch error for '{evidence_id}': {e}")
 
         return _AwaitableValue(None)
 
@@ -632,7 +631,7 @@ class ERC8004Connector(BaseConnector):
                         },
                     )
                 )
-        except Exception as e:
+        except (AttributeError, RuntimeError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Search by owner error for '{owner}': {e}")
         return _AwaitableList(results[:limit])
 
@@ -689,7 +688,7 @@ class ERC8004Connector(BaseConnector):
                         metadata={"owner": identity.owner, "uri": identity.agent_uri},
                     )
                 )
-        except Exception as e:
+        except (ValueError, IndexError, AttributeError, RuntimeError, KeyError, TypeError) as e:
             logger.error(f"Search error for query '{query}': {e}")
         return results[:max_results]
 
@@ -748,7 +747,7 @@ class ERC8004Connector(BaseConnector):
                 evidence = self._to_evidence(blockchain_evidence)
                 self._cache_set(evidence_id, evidence)
                 return evidence
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, KeyError, OSError) as e:
             logger.error(f"Fetch error for ID '{evidence_id}': {e}")
         return None
 

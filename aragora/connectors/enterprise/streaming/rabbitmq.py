@@ -329,7 +329,7 @@ class RabbitMQConnector(EnterpriseConnector):
                 )
                 return False
 
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
                 if self._streaming_circuit_breaker:
                     await self._streaming_circuit_breaker.record_failure(e)
                 if self._health_monitor:
@@ -714,7 +714,7 @@ class RabbitMQConnector(EnterpriseConnector):
             logger.debug(f"[RabbitMQ] Published message to {routing_key or self.config.queue}")
             return True
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as e:
             if self._streaming_circuit_breaker:
                 await self._streaming_circuit_breaker.record_failure(e)
             if self._health_monitor:

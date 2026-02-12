@@ -210,7 +210,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                 try:
                     msg = await self.get_message(msg_id, format=format)
                     return msg, None
-                except Exception as e:
+                except (OSError, ValueError, KeyError, TypeError, RuntimeError, ConnectionError, TimeoutError) as e:
                     # Log with appropriate level based on error type
                     error_type = type(e).__name__
                     error_msg = str(e)
@@ -437,7 +437,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         try:
             data = await self._api_request("/history", params=params)
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError, ConnectionError, TimeoutError) as e:
             # History ID may be expired - need full sync
             if "404" in str(e) or "historyId" in str(e).lower():
                 logger.warning("[Gmail] History ID expired, need full sync")

@@ -773,7 +773,7 @@ class SalesforceConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError, ConnectionError, TimeoutError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -812,7 +812,7 @@ class SalesforceConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError, ConnectionError, TimeoutError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

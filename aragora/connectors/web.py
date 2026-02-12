@@ -188,7 +188,7 @@ class WebConnector(BaseConnector):
         if self._http_client:
             try:
                 await self._http_client.aclose()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning(f"Error closing HTTP client: {e}")
             finally:
                 self._http_client = None
@@ -494,7 +494,7 @@ class WebConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception as e:
+                except (AttributeError, TypeError) as e:
                     logger.debug("Mock side_effect normalization skipped: %s", e)
 
                 while redirect_count <= max_redirects:
