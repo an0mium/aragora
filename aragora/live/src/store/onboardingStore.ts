@@ -62,6 +62,7 @@ interface OnboardingState {
 
   // First debate
   firstDebateId: string | null;
+  firstReceiptId: string | null;
   firstDebateTopic: string;
   debateStatus: 'idle' | 'creating' | 'running' | 'completed' | 'error';
   debateError: string | null;
@@ -100,6 +101,7 @@ interface OnboardingActions {
 
   // First debate
   setFirstDebateId: (id: string | null) => void;
+  setFirstReceiptId: (id: string | null) => void;
   setFirstDebateTopic: (topic: string) => void;
   setDebateStatus: (status: OnboardingState['debateStatus']) => void;
   setDebateError: (error: string | null) => void;
@@ -157,6 +159,7 @@ const initialState: OnboardingState = {
   availableTemplates: [],
 
   firstDebateId: null,
+  firstReceiptId: null,
   firstDebateTopic: '',
   debateStatus: 'idle',
   debateError: null,
@@ -240,6 +243,7 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
 
         // First debate
         setFirstDebateId: (id) => set({ firstDebateId: id }),
+        setFirstReceiptId: (id) => set({ firstReceiptId: id }),
         setFirstDebateTopic: (topic) => set({ firstDebateTopic: topic }),
         setDebateStatus: (status) => set({ debateStatus: status }),
         setDebateError: (error) => set({ debateError: error }),
@@ -313,7 +317,7 @@ export const selectCanProceed = (state: OnboardingState): boolean => {
     case 'template-select':
       return state.selectedTemplate !== null;
     case 'first-debate':
-      return state.debateStatus === 'completed';
+      return state.debateStatus === 'completed' && state.progress.receiptViewed;
     case 'completion':
       return true;
     default:
