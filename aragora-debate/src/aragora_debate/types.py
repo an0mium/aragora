@@ -268,6 +268,12 @@ class DebateConfig:
     timeout_seconds: int = 0  # 0 = no timeout
     require_reasoning: bool = True
 
+    # Trickster & convergence
+    enable_trickster: bool = False
+    enable_convergence: bool = False
+    convergence_threshold: float = 0.85
+    trickster_sensitivity: float = 0.5
+
 
 # ---------------------------------------------------------------------------
 # Result
@@ -391,6 +397,11 @@ class DebateResult:
     # Evidence
     claims: list[Claim] = field(default_factory=list)
     evidence: list[Evidence] = field(default_factory=list)
+
+    # Trickster & convergence
+    trickster_interventions: int = 0
+    convergence_detected: bool = False
+    final_similarity: float = 0.0
 
     # Cost tracking
     total_tokens: int = 0

@@ -22,7 +22,10 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora_debate.convergence import ConvergenceDetector
+from aragora_debate.events import EventEmitter, EventType
 from aragora_debate.receipt import ReceiptBuilder
+from aragora_debate.trickster import EvidencePoweredTrickster, TricksterConfig
 from aragora_debate.types import (
     Agent,
     Claim,
@@ -64,6 +67,7 @@ class Arena:
     agents: list[Agent]
     config: DebateConfig | None = None
     context: str = ""
+    on_event: Any = None  # Callable[[DebateEvent], Any] | None
 
     # Internal state
     _messages: list[Message] = field(default_factory=list, init=False, repr=False)
@@ -73,11 +77,37 @@ class Arena:
     _claims: list[Claim] = field(default_factory=list, init=False, repr=False)
     _evidence: list[Evidence] = field(default_factory=list, init=False, repr=False)
 
+    # Feature components (created in __post_init__)
+    _emitter: EventEmitter = field(default=None, init=False, repr=False)  # type: ignore[assignment]
+    _convergence: ConvergenceDetector | None = field(default=None, init=False, repr=False)
+    _trickster: EvidencePoweredTrickster | None = field(default=None, init=False, repr=False)
+
     def __post_init__(self) -> None:
         if len(self.agents) < 2:
             raise ValueError("Arena requires at least 2 agents")
         if self.config is None:
             self.config = DebateConfig()
+
+        # Event emitter
+        self._emitter = EventEmitter()
+        if self.on_event is not None:
+            # Register for all event types
+            for et in EventType:
+                self._emitter.on(et)(self.on_event)
+
+        # Convergence detector
+        if self.config.enable_convergence:
+            self._convergence = ConvergenceDetector(
+                threshold=self.config.convergence_threshold,
+            )
+
+        # Trickster
+        if self.config.enable_trickster:
+            self._trickster = EvidencePoweredTrickster(
+                config=TricksterConfig(
+                    sensitivity=self.config.trickster_sensitivity,
+                ),
+            )
 
     async def run(self) -> DebateResult:
         """Execute the full debate and return the result with receipt."""

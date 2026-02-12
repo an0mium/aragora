@@ -349,7 +349,7 @@ class TestRateLimiting:
 class TestRBACPermissions:
     """Verify that the evolution:read permission is enforced."""
 
-    @pytest.mark.skip(reason="EvolutionHandler is rate-limited only, no RBAC enforcement yet")
+    @pytest.mark.xfail(reason="EvolutionHandler is rate-limited only, no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
     def test_missing_auth_context_raises(self, handler):
         """Without auth context, the require_permission decorator should raise."""

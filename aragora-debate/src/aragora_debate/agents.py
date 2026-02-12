@@ -350,3 +350,272 @@ class OpenAIAgent(Agent):
             confidence=float(data.get("confidence", 0.5)),
             reasoning=data.get("reasoning", text),
         )
+
+
+# ---------------------------------------------------------------------------
+# Mistral agent
+# ---------------------------------------------------------------------------
+
+class MistralAgent(Agent):
+    """Debate agent powered by Mistral AI models.
+
+    Requires ``mistralai`` package and ``MISTRAL_API_KEY`` env var.
+
+    Args:
+        name: Agent display name.
+        model: Mistral model ID.  Defaults to ``mistral-large-latest``.
+        api_key: Mistral API key.  Falls back to ``MISTRAL_API_KEY`` env var.
+        max_tokens: Maximum tokens per response.
+        temperature: Sampling temperature (0-1).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        model: str = "mistral-large-latest",
+        *,
+        api_key: str | None = None,
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(name=name, model=model, **kwargs)
+        try:
+            from mistralai import Mistral
+        except ImportError as exc:
+            raise ImportError(
+                "mistralai package required: pip install aragora-debate[mistral]"
+            ) from exc
+        self._client = Mistral(
+            api_key=api_key or os.environ.get("MISTRAL_API_KEY", ""),
+        )
+        self._max_tokens = max_tokens
+        self._temperature = temperature
+
+    async def generate(
+        self,
+        prompt: str,
+        context: list[Message] | None = None,
+    ) -> str:
+        history = _format_context(context)
+        full_prompt = prompt
+        if history:
+            full_prompt = f"## Debate history\n\n{history}\n\n## Your task\n\n{prompt}"
+        system = self.system_prompt or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        if self.stance != "neutral":
+            system += f"\n\nYou are arguing from a {self.stance} stance."
+        resp = self._client.chat.complete(
+            model=self.model,
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": full_prompt},
+            ],
+        )
+        return resp.choices[0].message.content or ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        history = _format_context(context)
+        prompt = f"## Task\n{task}\n\n## Proposal by {target_agent or 'another agent'}\n{proposal}"
+        if history:
+            prompt = f"## Debate history\n{history}\n\n{prompt}"
+        prompt += "\n\nProvide your critique as JSON."
+        resp = self._client.chat.complete(
+            model=self.model,
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            messages=[
+                {"role": "system", "content": _CRITIQUE_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        text = resp.choices[0].message.content or ""
+        data = _parse_json_from_text(text)
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal,
+            issues=data.get("issues", ["(could not parse critique)"]),
+            suggestions=data.get("suggestions", []),
+            severity=float(data.get("severity", 5.0)),
+            reasoning=data.get("reasoning", text),
+        )
+
+    async def vote(
+        self,
+        proposals: dict[str, str],
+        task: str,
+    ) -> Vote:
+        lines = [f"## Task\n{task}\n\n## Proposals\n"]
+        for agent_name, content in proposals.items():
+            lines.append(f"### {agent_name}\n{content}\n")
+        lines.append("Vote for the strongest proposal as JSON.")
+        resp = self._client.chat.complete(
+            model=self.model,
+            max_tokens=512,
+            temperature=0.3,
+            messages=[
+                {"role": "system", "content": _VOTE_SYSTEM},
+                {"role": "user", "content": "\n".join(lines)},
+            ],
+        )
+        text = resp.choices[0].message.content or ""
+        data = _parse_json_from_text(text)
+        choice = data.get("choice", "")
+        if choice not in proposals:
+            for name in proposals:
+                if name.lower() in choice.lower() or choice.lower() in name.lower():
+                    choice = name
+                    break
+            else:
+                choice = list(proposals.keys())[0]
+        return Vote(
+            agent=self.name,
+            choice=choice,
+            confidence=float(data.get("confidence", 0.5)),
+            reasoning=data.get("reasoning", text),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Gemini agent (Google)
+# ---------------------------------------------------------------------------
+
+class GeminiAgent(Agent):
+    """Debate agent powered by Google's Gemini models.
+
+    Requires ``google-genai`` package and ``GEMINI_API_KEY`` env var.
+
+    Args:
+        name: Agent display name.
+        model: Gemini model ID.  Defaults to ``gemini-2.0-flash``.
+        api_key: Gemini API key.  Falls back to ``GEMINI_API_KEY`` env var.
+        max_tokens: Maximum tokens per response.
+        temperature: Sampling temperature (0-2).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        model: str = "gemini-2.0-flash",
+        *,
+        api_key: str | None = None,
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(name=name, model=model, **kwargs)
+        try:
+            from google import genai
+        except ImportError as exc:
+            raise ImportError(
+                "google-genai package required: pip install aragora-debate[gemini]"
+            ) from exc
+        key = api_key or os.environ.get("GEMINI_API_KEY", "")
+        self._client = genai.Client(api_key=key)
+        self._max_tokens = max_tokens
+        self._temperature = temperature
+
+    async def generate(
+        self,
+        prompt: str,
+        context: list[Message] | None = None,
+    ) -> str:
+        from google.genai import types
+
+        history = _format_context(context)
+        full_prompt = prompt
+        if history:
+            full_prompt = f"## Debate history\n\n{history}\n\n## Your task\n\n{prompt}"
+        system = self.system_prompt or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        if self.stance != "neutral":
+            system += f"\n\nYou are arguing from a {self.stance} stance."
+        resp = self._client.models.generate_content(
+            model=self.model,
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                max_output_tokens=self._max_tokens,
+                temperature=self._temperature,
+            ),
+        )
+        return resp.text or ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        from google.genai import types
+
+        history = _format_context(context)
+        prompt = f"## Task\n{task}\n\n## Proposal by {target_agent or 'another agent'}\n{proposal}"
+        if history:
+            prompt = f"## Debate history\n{history}\n\n{prompt}"
+        prompt += "\n\nProvide your critique as JSON."
+        resp = self._client.models.generate_content(
+            model=self.model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=_CRITIQUE_SYSTEM,
+                max_output_tokens=self._max_tokens,
+                temperature=self._temperature,
+            ),
+        )
+        text = resp.text or ""
+        data = _parse_json_from_text(text)
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal,
+            issues=data.get("issues", ["(could not parse critique)"]),
+            suggestions=data.get("suggestions", []),
+            severity=float(data.get("severity", 5.0)),
+            reasoning=data.get("reasoning", text),
+        )
+
+    async def vote(
+        self,
+        proposals: dict[str, str],
+        task: str,
+    ) -> Vote:
+        from google.genai import types
+
+        lines = [f"## Task\n{task}\n\n## Proposals\n"]
+        for agent_name, content in proposals.items():
+            lines.append(f"### {agent_name}\n{content}\n")
+        lines.append("Vote for the strongest proposal as JSON.")
+        resp = self._client.models.generate_content(
+            model=self.model,
+            contents="\n".join(lines),
+            config=types.GenerateContentConfig(
+                system_instruction=_VOTE_SYSTEM,
+                max_output_tokens=512,
+                temperature=0.3,
+            ),
+        )
+        text = resp.text or ""
+        data = _parse_json_from_text(text)
+        choice = data.get("choice", "")
+        if choice not in proposals:
+            for name in proposals:
+                if name.lower() in choice.lower() or choice.lower() in name.lower():
+                    choice = name
+                    break
+            else:
+                choice = list(proposals.keys())[0]
+        return Vote(
+            agent=self.name,
+            choice=choice,
+            confidence=float(data.get("confidence", 0.5)),
+            reasoning=data.get("reasoning", text),
+        )
