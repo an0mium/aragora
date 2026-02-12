@@ -108,7 +108,7 @@ class TestHandlerRegistry:
         assert all(
             callable(cls)
             for cls in [
-                DebateHandler,
+                DebatesHandler,
                 MemoryHandler,
                 LeaderboardViewHandler,
                 DocumentHandler,

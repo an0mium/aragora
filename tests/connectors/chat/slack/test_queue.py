@@ -348,7 +348,7 @@ class TestSlackMessageQueue:
         msg_id = await queue.enqueue(workspace_id="T1", channel_id="C1", text="Will fail")
 
         with patch.object(queue, "_send_message", new_callable=AsyncMock) as mock_send:
-            mock_send.side_effect = Exception("API error")
+            mock_send.side_effect = ConnectionError("API error")
             stats = await queue.process_pending()
 
         assert stats["failed"] == 1
@@ -373,7 +373,7 @@ class TestSlackMessageQueue:
         conn.commit()
 
         with patch.object(queue, "_send_message", new_callable=AsyncMock) as mock_send:
-            mock_send.side_effect = Exception("Permanent failure")
+            mock_send.side_effect = ConnectionError("Permanent failure")
             stats = await queue.process_pending()
 
         assert stats["dead"] == 1

@@ -137,7 +137,7 @@ class TestSupermemoryClientAddMemory:
     @pytest.mark.asyncio
     async def test_add_memory_general_error(self, client_with_mock, mock_sdk):
         """Test handling general errors (non-retryable)."""
-        mock_sdk.memories.add.side_effect = Exception("Invalid request format")
+        mock_sdk.memories.add.side_effect = ValueError("Invalid request format")
 
         result = await client_with_mock.add_memory(
             content="Test content",
@@ -201,7 +201,7 @@ class TestSupermemoryClientHealthCheck:
     @pytest.mark.asyncio
     async def test_health_check_unhealthy(self, client_with_mock, mock_sdk):
         """Test health check when unhealthy."""
-        mock_sdk.search.execute.side_effect = Exception("Connection failed")
+        mock_sdk.search.execute.side_effect = ConnectionError("Connection failed")
 
         health = await client_with_mock.health_check()
 
