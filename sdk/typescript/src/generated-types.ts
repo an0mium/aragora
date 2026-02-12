@@ -2151,3 +2151,181 @@ export interface AnalyticsActiveUsers {
   message?: string;
   generated_at?: string;
 }
+
+export interface DebateJoinRequest {
+  /** Role in the debate */
+  role?: "observer" | "participant" | "moderator";
+  /** Display name shown to other participants */
+  display_name?: string;
+}
+
+export interface DebateVoteRequest {
+  /** The position being voted on */
+  position: string;
+  /** Vote intensity/conviction (1=weak, 10=strong) */
+  intensity?: number;
+  /** Optional reasoning for the vote */
+  reasoning?: string;
+}
+
+export interface DebateSuggestionRequest {
+  /** The suggestion or argument text */
+  content: string;
+  /** Type of suggestion */
+  type?: "argument" | "question" | "evidence" | "follow_up";
+  /** Optional: direct the suggestion at a specific agent */
+  target_agent?: string;
+}
+
+export interface DebateUpdateRequest {
+  /** Update max rounds */
+  rounds?: number;
+  /** Change consensus strategy */
+  consensus?: "majority" | "unanimous" | "supermajority" | "weighted" | "hybrid" | "judge" | "none";
+  /** Append additional context */
+  context?: string;
+  /** Update metadata (merged with existing) */
+  metadata?: Record<string, any>;
+}
+
+export interface DebateForkRequest {
+  /** Round number to branch from (1-indexed) */
+  branch_point: number;
+  /** New premise or constraint for the forked branch */
+  new_premise?: string;
+}
+
+export interface DebateBroadcastRequest {
+  /** Output format for the broadcast */
+  format?: "audio" | "video";
+  /** Voice mapping (agent_name -> voice_id) */
+  voices?: Record<string, any>;
+  /** Language code for TTS */
+  language?: string;
+}
+
+export interface DebateCloneRequest {
+  /** Keep the same agent lineup */
+  preserveAgents?: boolean;
+  /** Keep the original context and documents */
+  preserveContext?: boolean;
+}
+
+export interface DebateFollowupRequest {
+  /** ID of the crux claim to follow up on */
+  cruxId?: string;
+  /** Additional context for the follow-up */
+  context?: string;
+}
+
+export interface DebateEvidenceRequest {
+  /** The evidence text or URL */
+  evidence: string;
+  /** Source attribution */
+  source?: string;
+  /** Additional metadata about the evidence */
+  metadata?: Record<string, any>;
+}
+
+export interface DebateVerifyClaimRequest {
+  /** ID of the claim to verify */
+  claim_id: string;
+  /** Optional evidence to check the claim against */
+  evidence?: string;
+}
+
+export interface DebateUserInputRequest {
+  /** The user's input text */
+  input: string;
+  /** Type of user input */
+  type?: "suggestion" | "vote" | "question" | "context";
+}
+
+export interface DebateCounterfactualRequest {
+  /** The hypothetical condition to analyze */
+  condition: string;
+  /** Variables to adjust in the scenario */
+  variables?: Record<string, any>;
+}
+
+export interface DebateMessageRequest {
+  /** Message content */
+  content: string;
+  /** Message role */
+  role?: "user" | "system";
+}
+
+export interface DebateBatchRequest {
+  /** Array of debate creation requests */
+  requests: DebateCreateRequest[];
+}
+
+export interface DebateInjectArgumentRequest {
+  /** The argument or question to inject */
+  content: string;
+  /** Type of injection */
+  type?: "argument" | "follow_up";
+  /** Source identifier */
+  source?: string;
+  /** User ID for attribution */
+  user_id?: string;
+}
+
+export interface DebateUpdateWeightsRequest {
+  /** Agent name or ID */
+  agent: string;
+  /** Influence weight (0.0=muted, 1.0=normal, 2.0=double) */
+  weight: number;
+  /** User ID for audit trail */
+  user_id?: string;
+}
+
+export interface DebateUpdateThresholdRequest {
+  /** Consensus threshold (0.5=majority, 0.75=strong, 1.0=unanimous) */
+  threshold: number;
+  /** User ID for audit trail */
+  user_id?: string;
+}
+
+export interface DebateCostEstimateRequest {
+  /** Number of agents to participate */
+  num_agents?: number;
+  /** Number of debate rounds */
+  num_rounds?: number;
+  /** Model types to use */
+  model_types?: string[];
+}
+
+export interface DebateCostEstimateResponse {
+  /** Total estimated cost in USD */
+  total_estimated_cost_usd: number;
+  /** Cost breakdown per model */
+  breakdown_by_model: {
+    model?: string;
+    provider?: string;
+    estimated_input_tokens?: number;
+    estimated_output_tokens?: number;
+    input_cost_usd?: number;
+    output_cost_usd?: number;
+    subtotal_usd?: number;
+  }[];
+  /** Assumptions used for the estimate */
+  assumptions?: {
+    avg_input_tokens_per_round?: number;
+    avg_output_tokens_per_round?: number;
+    includes_system_prompt?: boolean;
+  };
+  num_agents?: number;
+  num_rounds?: number;
+}
+
+export interface WebSocketResumeToken {
+  /** Opaque token encoding the last received event position */
+  resume_token: string;
+  /** Debate this token belongs to */
+  debate_id: string;
+  /** Sequence number of last received event */
+  last_seq: number;
+  /** When this resume token expires */
+  expires_at?: string;
+}
