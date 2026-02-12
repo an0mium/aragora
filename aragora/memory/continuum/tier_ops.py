@@ -369,6 +369,7 @@ class TierOpsMixin:
         tier: MemoryTier | None = None,
         archive: bool = True,
         max_age_hours: float | None = None,
+        tenant_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Remove or archive expired memories based on tier retention policies.
@@ -380,11 +381,12 @@ class TierOpsMixin:
             tier: Specific tier to cleanup (None = all tiers)
             archive: If True, move to archive table; if False, delete permanently
             max_age_hours: Override default retention (uses tier half-life * multiplier if None)
+            tenant_id: Optional tenant ID for multi-tenant isolation
 
         Returns:
             Dict with counts: {"archived": N, "deleted": N, "by_tier": {...}}
         """
-        return _stats.cleanup_expired_memories(self, tier, archive, max_age_hours)
+        return _stats.cleanup_expired_memories(self, tier, archive, max_age_hours, tenant_id)
 
     def delete(
         self: "ContinuumMemory",
