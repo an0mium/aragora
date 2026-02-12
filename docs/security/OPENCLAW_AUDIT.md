@@ -69,7 +69,7 @@ library is unavailable. These represent the two most significant findings.
      refuse to start.
   3. Consider making the `cryptography` library a hard dependency of the gateway
      module.
-- **Status:** Open
+- **Status:** Mitigated (logger.critical + RuntimeError in production)
 
 ### [HIGH] F03: Standalone Server Unbounded Request Body Size
 
@@ -93,7 +93,7 @@ library is unavailable. These represent the two most significant findings.
       await self._send_response(writer, 413, {"error": "Request too large"})
       return
   ```
-- **Status:** Open
+- **Status:** Fixed (MAX_BODY_SIZE=1MB, HTTP 413)
 
 ### [HIGH] F04: Standalone Server Unbounded Header Count
 
@@ -108,7 +108,7 @@ library is unavailable. These represent the two most significant findings.
   headers, one connection can occupy the server for approximately 10,000 seconds.
 - **Recommendation:** Replace `while True` with `for _hdr_idx in range(MAX_HEADER_COUNT):`
   and add a `for/else` clause that returns HTTP 431 when exceeded.
-- **Status:** Open
+- **Status:** Fixed (MAX_HEADER_COUNT=100, HTTP 431)
 
 ### [MEDIUM] F05: CORS Wildcard in Standalone Server
 

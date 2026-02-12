@@ -393,14 +393,14 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/(v1/)?auth/oauth/unlink$", "DELETE", "authentication.update"),
     RoutePermission(r"^/api/(v1/)?user/oauth-providers$", "GET", "authentication.read"),
     # Social integration OAuth (authenticated for install, public for callback)
-    RoutePermission(r"^/api/integrations/slack/install$", "GET", "connector.create"),
+    RoutePermission(r"^/api/integrations/slack/install$", "GET", "connectors.create"),
     RoutePermission(r"^/api/integrations/slack/callback$", "*", "", allow_unauthenticated=True),
-    RoutePermission(r"^/api/integrations/slack/uninstall$", "POST", "connector.delete"),
-    RoutePermission(r"^/api/integrations/teams/install$", "GET", "connector.create"),
+    RoutePermission(r"^/api/integrations/slack/uninstall$", "POST", "connectors.delete"),
+    RoutePermission(r"^/api/integrations/teams/install$", "GET", "connectors.create"),
     RoutePermission(r"^/api/integrations/teams/callback$", "*", "", allow_unauthenticated=True),
-    RoutePermission(r"^/api/integrations/discord/install$", "GET", "connector.create"),
+    RoutePermission(r"^/api/integrations/discord/install$", "GET", "connectors.create"),
     RoutePermission(r"^/api/integrations/discord/callback$", "*", "", allow_unauthenticated=True),
-    RoutePermission(r"^/api/integrations/discord/uninstall$", "POST", "connector.delete"),
+    RoutePermission(r"^/api/integrations/discord/uninstall$", "POST", "connectors.delete"),
     # =========================================================================
     # External Webhooks - MUST be publicly accessible (called by external services)
     # =========================================================================

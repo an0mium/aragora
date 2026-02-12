@@ -52,6 +52,11 @@ from aragora.debate.orchestrator_checkpoints import (
 )
 from aragora.debate.orchestrator_config import merge_config_objects
 from aragora.debate.orchestrator_delegates import ArenaDelegatesMixin
+from aragora.debate.orchestrator_factory import (
+    create as _factory_create,
+    from_config as _factory_from_config,
+    from_configs as _factory_from_configs,
+)
 from aragora.debate.orchestrator_init import (
     apply_core_components as _init_apply_core_components,
     apply_tracker_components as _init_apply_tracker_components,
@@ -61,9 +66,11 @@ from aragora.debate.orchestrator_init import (
     init_event_bus as _participation_init_event_bus,
     init_prompt_context_builder as _context_init_prompt_context_builder,
     init_roles_and_stances as _roles_init_roles_and_stances,
+    init_skills_and_propulsion as _init_skills_and_propulsion,
     init_termination_checker as _termination_init_termination_checker,
     init_user_participation as _participation_init_user_participation,
     reinit_convergence_for_debate as _conv_reinit_convergence_for_debate,
+    resolve_knowledge_mound as _init_resolve_knowledge_mound,
     run_init_subsystems as _init_run_init_subsystems,
     store_post_tracker_config as _init_store_post_tracker_config,
 )
@@ -74,7 +81,6 @@ from aragora.debate.orchestrator_setup import (
     init_lifecycle_manager as _lifecycle_init_lifecycle_manager,
 )
 from aragora.debate.orchestrator_memory import (
-    auto_create_knowledge_mound as _mem_auto_create_knowledge_mound,
     init_checkpoint_bridge as _mem_init_checkpoint_bridge,
     init_cross_subscriber_bridge as _mem_init_cross_subscriber_bridge,
 )
@@ -645,32 +651,12 @@ class Arena(ArenaDelegatesMixin):
         # Channel integration (initialized per debate run)
         self._channel_integration = None
 
-        # Skills and propulsion
-        self.skill_registry = cfg.skill_registry
-        self.enable_skills = cfg.enable_skills
-        if self.skill_registry and self.enable_skills:
-            logger.info(
-                f"[skills] Skill registry attached with {self.skill_registry.count()} skills "
-                f"(debate evidence collection enabled)"
-            )
-        self.propulsion_engine = cfg.propulsion_engine
-        self.enable_propulsion = cfg.enable_propulsion
-        if self.propulsion_engine and self.enable_propulsion:
-            logger.info("[propulsion] PropulsionEngine attached (reactive debate flow enabled)")
+        # Skills and propulsion (delegates to orchestrator_init)
+        _init_skills_and_propulsion(self, cfg)
 
-        # Auto-create Knowledge Mound if not provided
-        km = cfg.knowledge_mound
-        km_auto = cfg.auto_create_knowledge_mound
-        if km is _KNOWLEDGE_MOUND_UNSET:
-            km = None
-        if knowledge_mound_param_provided and knowledge_mound_param_none and km is None:
-            km_auto = False
-        km = _mem_auto_create_knowledge_mound(
-            knowledge_mound=km,
-            auto_create=km_auto,
-            enable_retrieval=cfg.enable_knowledge_retrieval,
-            enable_ingestion=cfg.enable_knowledge_ingestion,
-            org_id=cfg.org_id,
+        # Auto-create Knowledge Mound if not provided (delegates to orchestrator_init)
+        km, km_auto = _init_resolve_knowledge_mound(
+            cfg, knowledge_mound_param_provided, knowledge_mound_param_none
         )
 
         # Initialize tracking subsystems
@@ -733,125 +719,23 @@ class Arena(ArenaDelegatesMixin):
         _init_run_init_subsystems(self)
 
     # =========================================================================
-    # Factory Methods
+    # Factory Methods (delegates to orchestrator_factory)
     # =========================================================================
 
     @classmethod
-    def from_config(
-        cls,
-        environment: Environment,
-        agents: list[Agent],
-        protocol: DebateProtocol = None,
-        config: ArenaConfig = None,
-    ) -> Arena:
+    def from_config(cls, environment, agents, protocol=None, config=None):
         """Create an Arena from an ArenaConfig for cleaner dependency injection."""
-        from aragora.debate.feature_validator import validate_and_warn
-
-        config = config or ArenaConfig()
-        validate_and_warn(config)
-        return cls(
-            environment=environment, agents=agents, protocol=protocol, **config.to_arena_kwargs()
-        )
+        return _factory_from_config(cls, environment, agents, protocol, config)
 
     @classmethod
-    def from_configs(
-        cls,
-        environment: Environment,
-        agents: list[Agent],
-        protocol: DebateProtocol | None = None,
-        *,
-        debate_config: DebateConfig | None = None,
-        agent_config: AgentConfig | None = None,
-        memory_config: MemoryConfig | None = None,
-        streaming_config: StreamingConfig | None = None,
-        observability_config: ObservabilityConfig | None = None,
-        knowledge_config: KnowledgeConfig | None = None,
-        supermemory_config: SupermemoryConfig | None = None,
-        evolution_config: EvolutionConfig | None = None,
-        ml_config: MLConfig | None = None,
-    ) -> Arena:
+    def from_configs(cls, environment, agents, protocol=None, **kwargs):
         """Create an Arena from grouped config objects."""
-        return cls(
-            environment=environment,
-            agents=agents,
-            protocol=protocol,
-            debate_config=debate_config,
-            agent_config=agent_config,
-            memory_config=memory_config,
-            streaming_config=streaming_config,
-            observability_config=observability_config,
-            knowledge_config=knowledge_config,
-            supermemory_config=supermemory_config,
-            evolution_config=evolution_config,
-            ml_config=ml_config,
-        )
+        return _factory_from_configs(cls, environment, agents, protocol, **kwargs)
 
     @classmethod
-    def create(
-        cls,
-        environment: Environment,
-        agents: list[Agent],
-        protocol: DebateProtocol | None = None,
-        *,
-        config: ArenaConfig | None = None,
-        debate_config: DebateConfig | None = None,
-        agent_config: AgentConfig | None = None,
-        memory_config: MemoryConfig | None = None,
-        streaming_config: StreamingConfig | None = None,
-        observability_config: ObservabilityConfig | None = None,
-    ) -> Arena:
-        """Create an Arena with a clean, consolidated interface.
-
-        This is the recommended entry point for new code. It accepts at most
-        10 parameters -- the three positional core args plus up to six optional
-        config objects -- and delegates to ``__init__`` after unpacking.
-
-        The ``config`` parameter (ArenaConfig) is a legacy catch-all.  When
-        provided alongside the typed config objects, the typed objects win for
-        any overlapping fields.
-
-        Example::
-
-            arena = Arena.create(
-                environment=env,
-                agents=agents,
-                debate_config=DebateConfig(rounds=5),
-                memory_config=MemoryConfig(enable_supermemory=True),
-            )
-
-        Args:
-            environment: The debate environment (task, context).
-            agents: List of participating agents.
-            protocol: Optional debate protocol override.
-            config: Legacy ArenaConfig (flat kwargs).  Fields are used as
-                defaults; typed config objects take precedence.
-            debate_config: Debate protocol settings.
-            agent_config: Agent pool, selection, and resilience settings.
-            memory_config: Memory stores, KM, supermemory, RLM settings.
-            streaming_config: Event hooks, spectator, skills settings.
-            observability_config: Telemetry, billing, ML, workflow settings.
-
-        Returns:
-            A fully initialized Arena instance.
-        """
-        # Start from ArenaConfig kwargs (if provided) as the base layer
-        base_kwargs: dict[str, Any] = {}
-        if config is not None:
-            base_kwargs = config.to_arena_kwargs()
-
-        # Typed config objects override the flat ArenaConfig values
-        base_kwargs["debate_config"] = debate_config
-        base_kwargs["agent_config"] = agent_config
-        base_kwargs["memory_config"] = memory_config
-        base_kwargs["streaming_config"] = streaming_config
-        base_kwargs["observability_config"] = observability_config
-
-        return cls(
-            environment=environment,
-            agents=agents,
-            protocol=protocol,
-            **base_kwargs,
-        )
+    def create(cls, environment, agents, protocol=None, **kwargs):
+        """Create an Arena with a clean, consolidated interface."""
+        return _factory_create(cls, environment, agents, protocol, **kwargs)
 
     # =========================================================================
     # Initialization Helpers (thin delegates to extracted modules)

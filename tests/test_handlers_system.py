@@ -369,7 +369,7 @@ class TestNomicEndpoints:
         with tempfile.TemporaryDirectory() as tmpdir:
             nomic_dir = Path(tmpdir)
             # Create state with old timestamp
-            old_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat() + "Z"
+            old_time = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
             state_file = nomic_dir / "nomic_state.json"
             state_file.write_text(
                 json.dumps(

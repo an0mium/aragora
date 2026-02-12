@@ -172,6 +172,61 @@ def store_post_tracker_config(
     arena.enable_cross_debate_memory = cfg.enable_cross_debate_memory
 
 
+def init_skills_and_propulsion(arena: Arena, cfg: Any) -> None:
+    """Initialize skills registry and propulsion engine on the Arena.
+
+    Args:
+        arena: Arena instance to populate.
+        cfg: MergedConfig from merge_config_objects.
+    """
+    arena.skill_registry = cfg.skill_registry
+    arena.enable_skills = cfg.enable_skills
+    if arena.skill_registry and arena.enable_skills:
+        logger.info(
+            f"[skills] Skill registry attached with {arena.skill_registry.count()} skills "
+            f"(debate evidence collection enabled)"
+        )
+    arena.propulsion_engine = cfg.propulsion_engine
+    arena.enable_propulsion = cfg.enable_propulsion
+    if arena.propulsion_engine and arena.enable_propulsion:
+        logger.info("[propulsion] PropulsionEngine attached (reactive debate flow enabled)")
+
+
+def resolve_knowledge_mound(
+    cfg: Any,
+    knowledge_mound_param_provided: bool,
+    knowledge_mound_param_none: bool,
+) -> tuple[Any, bool]:
+    """Resolve the knowledge mound from config, applying auto-creation logic.
+
+    Args:
+        cfg: MergedConfig from merge_config_objects.
+        knowledge_mound_param_provided: Whether knowledge_mound was explicitly passed.
+        knowledge_mound_param_none: Whether the explicit value was None.
+
+    Returns:
+        Tuple of (resolved knowledge_mound, auto_create flag).
+    """
+    from aragora.debate.orchestrator_memory import (
+        auto_create_knowledge_mound as _mem_auto_create_knowledge_mound,
+    )
+
+    km = cfg.knowledge_mound
+    km_auto = cfg.auto_create_knowledge_mound
+    if km is _KNOWLEDGE_MOUND_UNSET:
+        km = None
+    if knowledge_mound_param_provided and knowledge_mound_param_none and km is None:
+        km_auto = False
+    km = _mem_auto_create_knowledge_mound(
+        knowledge_mound=km,
+        auto_create=km_auto,
+        enable_retrieval=cfg.enable_knowledge_retrieval,
+        enable_ingestion=cfg.enable_knowledge_ingestion,
+        org_id=cfg.org_id,
+    )
+    return km, km_auto
+
+
 def run_init_subsystems(arena: Arena) -> None:
     """Run the sequence of subsystem initialization calls on Arena.
 
@@ -380,6 +435,8 @@ __all__ = [
     "store_post_tracker_config",
     "run_init_subsystems",
     "_KNOWLEDGE_MOUND_UNSET",
+    "init_skills_and_propulsion",
+    "resolve_knowledge_mound",
     # Roles
     "init_roles_and_stances",
     # Participation

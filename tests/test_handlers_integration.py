@@ -11,16 +11,19 @@ These tests use REAL storage and ELO systems (with temp databases),
 unlike unit tests which mock dependencies.
 """
 
+import asyncio
+import inspect
 import json
 import threading
 import tempfile
 import os
 from pathlib import Path
 from collections.abc import Generator
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers import (
     DebatesHandler,
     AgentsHandler,
@@ -32,6 +35,22 @@ from aragora.server.handlers.base import clear_cache
 from aragora.server.storage import DebateStorage
 from aragora.ranking.elo import EloSystem
 from aragora.server.stream import SyncEventEmitter, StreamEvent, StreamEventType
+
+
+def call_handler(handler, path, params, req):
+    """Call a handler's handle method, awaiting if async."""
+    result = handler.handle(path, params, req)
+    if inspect.isawaitable(result):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(asyncio.run, result).result()
+        return asyncio.run(result)
+    return result
 
 
 # ============================================================================
@@ -76,7 +95,6 @@ class StorageAdapter:
 
     def get_debate(self, slug_or_id: str) -> dict | None:
         """Get debate by slug or ID."""
-        # Try slug first, then ID
         result = self._storage.get_by_slug(slug_or_id)
         if result is None:
             result = self._storage.get_by_id(slug_or_id)
@@ -104,7 +122,6 @@ def integration_db() -> Generator[str, None, None]:
     yield path
     try:
         os.unlink(path)
-        # Clean up WAL files too
         for suffix in ["-wal", "-shm"]:
             try:
                 os.unlink(path + suffix)
@@ -150,7 +167,6 @@ def integration_nomic_dir() -> Generator[Path, None, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
         nomic_dir = Path(tmpdir)
 
-        # Create nomic state file
         state_file = nomic_dir / "nomic_state.json"
         state_file.write_text(
             json.dumps(
@@ -164,7 +180,6 @@ def integration_nomic_dir() -> Generator[Path, None, None]:
             )
         )
 
-        # Create nomic log file
         log_file = nomic_dir / "nomic_loop.log"
         log_file.write_text(
             "\n".join(
@@ -202,6 +217,60 @@ def handler_ensemble(integrated_storage, integrated_elo, integration_nomic_dir):
         "metrics": MetricsHandler(ctx),
         "ctx": ctx,
     }
+
+
+@pytest.fixture
+def admin_handler():
+    """Mock HTTP handler with admin auth context for RBAC-protected endpoints."""
+    handler = MagicMock()
+    handler._auth_context = AuthorizationContext(
+        user_id="test-admin",
+        permissions={
+            "debates:read", "debates:create", "debates:update", "debates:delete",
+            "agents:read", "agents:update",
+            "analytics:read", "metrics:read",
+            "system:read", "system:admin",
+        },
+        roles={"admin"},
+    )
+    return handler
+
+
+@pytest.fixture(autouse=True)
+def _bypass_auth(monkeypatch):
+    """Bypass RBAC and JWT auth for integration tests."""
+    mock_auth_ctx = AuthorizationContext(
+        user_id="test-admin",
+        permissions={"*"},
+        roles={"admin", "owner"},
+    )
+
+    async def mock_get_auth_context(request, require_auth=False):
+        return mock_auth_ctx
+
+    try:
+        from aragora.rbac import decorators
+        original = decorators._get_context_from_args
+
+        def patched(args, kwargs, context_param):
+            result = original(args, kwargs, context_param)
+            return result if result is not None else mock_auth_ctx
+
+        monkeypatch.setattr(decorators, "_get_context_from_args", patched)
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.server.handlers.utils import auth as utils_auth
+        monkeypatch.setattr(utils_auth, "get_auth_context", mock_get_auth_context)
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.server.handlers import secure
+        monkeypatch.setattr(secure, "get_auth_context", mock_get_auth_context)
+    except (ImportError, AttributeError):
+        pass
 
 
 @pytest.fixture
@@ -273,99 +342,93 @@ class TestDebateAgentCoordination:
     """Tests for data flow between Debates and Agents handlers."""
 
     def test_debate_agents_appear_in_leaderboard_after_match(
-        self, handler_ensemble, integrated_elo
+        self, handler_ensemble, integrated_elo, admin_handler
     ):
         """Agents from a recorded match should appear in the leaderboard."""
-        # Record a match to establish agent ratings
-        # Signature: record_match(debate_id, participants, scores)
         integrated_elo.record_match(
             "test-debate-1",
             ["claude", "gemini"],
-            {"claude": 1.0, "gemini": 0.0},  # claude wins
+            {"claude": 1.0, "gemini": 0.0},
         )
 
-        # Get leaderboard
-        result = handler_ensemble["agents"].handle("/api/leaderboard", {}, None)
+        result = call_handler(handler_ensemble["agents"], "/api/leaderboard", {}, admin_handler)
         assert result.status_code == 200
 
         data = json.loads(result.body)
         agent_names = [a.get("agent_name") or a.get("name") for a in data.get("rankings", [])]
 
-        # Both agents should appear
         assert "claude" in agent_names
         assert "gemini" in agent_names
 
     def test_debate_appears_in_agent_history(self, handler_ensemble, integrated_elo):
         """Completed matches should be reflected in ELO system records."""
-        # Record multiple matches
         integrated_elo.record_match(
             "debate-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
         )
         integrated_elo.record_match("debate-2", ["claude", "gpt4"], {"claude": 0.0, "gpt4": 1.0})
 
-        # Verify matches were recorded in ELO system directly
         rating = integrated_elo.get_rating("claude")
         assert rating is not None
         assert rating.debates_count >= 2 or rating.wins + rating.losses >= 2
 
     def test_agent_profile_reflects_elo_rating(self, handler_ensemble, integrated_elo):
         """Agent profile should show correct ELO rating."""
-        # Establish a rating through matches (claude wins both)
         integrated_elo.record_match("test-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0})
         integrated_elo.record_match("test-2", ["claude", "gpt4"], {"claude": 1.0, "gpt4": 0.0})
 
-        # Verify ELO directly from system (handler may return different format)
         rating = integrated_elo.get_rating("claude")
         assert rating is not None
-        # Claude won twice, should have elevated ELO
         assert rating.elo > 1500
 
-    def test_head_to_head_reflects_match_history(self, handler_ensemble, integrated_elo):
+    def test_head_to_head_reflects_match_history(
+        self, handler_ensemble, integrated_elo, admin_handler
+    ):
         """Head-to-head stats should reflect recorded matches."""
-        # Record several matches between claude and gemini
         integrated_elo.record_match("match-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0})
         integrated_elo.record_match("match-2", ["claude", "gemini"], {"claude": 0.0, "gemini": 1.0})
         integrated_elo.record_match("match-3", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0})
 
-        # Get head-to-head
-        result = handler_ensemble["agents"].handle(
-            "/api/agent/claude/head-to-head/gemini", {}, None
+        result = call_handler(
+            handler_ensemble["agents"],
+            "/api/agent/claude/head-to-head/gemini", {}, admin_handler,
         )
         assert result.status_code == 200
 
         data = json.loads(result.body)
-        # Claude won 2, gemini won 1
         assert data.get("claude_wins", 0) + data.get("wins", 0) >= 2
 
-    def test_recent_matches_includes_recorded_matches(self, handler_ensemble, integrated_elo):
+    def test_recent_matches_includes_recorded_matches(
+        self, handler_ensemble, integrated_elo, admin_handler
+    ):
         """Recent matches endpoint should include recorded matches."""
-        # Record matches
         integrated_elo.record_match(
             "recent-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
         )
         integrated_elo.record_match("recent-2", ["gpt4", "gemini"], {"gpt4": 1.0, "gemini": 0.0})
 
-        result = handler_ensemble["agents"].handle("/api/matches/recent", {"limit": "10"}, None)
+        result = call_handler(
+            handler_ensemble["agents"], "/api/matches/recent", {"limit": "10"}, admin_handler,
+        )
         assert result.status_code == 200
 
         data = json.loads(result.body)
         matches = data.get("matches", [])
         assert len(matches) >= 2
 
-    def test_leaderboard_ordering_reflects_elo(self, handler_ensemble, integrated_elo):
+    def test_leaderboard_ordering_reflects_elo(
+        self, handler_ensemble, integrated_elo, admin_handler
+    ):
         """Leaderboard should be ordered by ELO rating."""
-        # Create a clear winner (top_agent wins 5 times)
         for i in range(5):
             integrated_elo.record_match(
                 f"match-{i}", ["top_agent", "bottom_agent"], {"top_agent": 1.0, "bottom_agent": 0.0}
             )
 
-        result = handler_ensemble["agents"].handle("/api/leaderboard", {}, None)
+        result = call_handler(handler_ensemble["agents"], "/api/leaderboard", {}, admin_handler)
         data = json.loads(result.body)
         rankings = data.get("rankings", [])
 
         if len(rankings) >= 2:
-            # First agent should have higher ELO
             first_elo = rankings[0].get("elo") or rankings[0].get("rating", 0)
             second_elo = rankings[1].get("elo") or rankings[1].get("rating", 0)
             assert first_elo >= second_elo
@@ -374,34 +437,35 @@ class TestDebateAgentCoordination:
 class TestDataConsistency:
     """Tests for cross-handler data consistency."""
 
-    def test_debate_count_consistent(self, handler_ensemble, debate_factory):
+    def test_debate_count_consistent(self, handler_ensemble, debate_factory, admin_handler):
         """Debate counts should be consistent across handlers."""
-        # Create test debates
         for i in range(5):
             debate_factory(f"consistency-{i}", ["claude", "gemini"])
 
-        # Count via debates handler
-        result1 = handler_ensemble["debates"].handle("/api/debates", {"limit": "100"}, None)
+        result1 = call_handler(
+            handler_ensemble["debates"], "/api/debates", {"limit": "100"}, admin_handler,
+        )
         data1 = json.loads(result1.body)
         debates_count = data1.get("count", len(data1.get("debates", [])))
 
         assert debates_count == 5
 
-    def test_debate_retrieval_consistent(self, handler_ensemble, debate_factory):
+    def test_debate_retrieval_consistent(self, handler_ensemble, debate_factory, admin_handler):
         """Retrieving same debate should return consistent data."""
-        # Create a debate
         created = debate_factory("retrieval-test", ["claude", "gemini"], task="Test task")
 
-        # Retrieve via debates handler
-        result = handler_ensemble["debates"].handle("/api/debates/slug/retrieval-test", {}, None)
+        result = call_handler(
+            handler_ensemble["debates"], "/api/debates/slug/retrieval-test", {}, admin_handler,
+        )
 
         if result.status_code == 200:
             data = json.loads(result.body)
             assert data.get("task") == created["task"] or data.get("topic") == created["task"]
 
-    def test_storage_write_visible_to_handlers(self, handler_ensemble, integrated_storage):
+    def test_storage_write_visible_to_handlers(
+        self, handler_ensemble, integrated_storage, admin_handler
+    ):
         """Writes to storage should be immediately visible to handlers."""
-        # Save a debate directly
         integrated_storage.save_debate(
             {
                 "id": "direct-write",
@@ -414,28 +478,23 @@ class TestDataConsistency:
             }
         )
 
-        # Should be visible in list
-        result = handler_ensemble["debates"].handle("/api/debates", {}, None)
+        result = call_handler(handler_ensemble["debates"], "/api/debates", {}, admin_handler)
         data = json.loads(result.body)
 
         debates = data.get("debates", [])
         slugs = [d.get("slug", "") for d in debates]
         tasks = [d.get("task", "") or d.get("topic", "") for d in debates]
 
-        # Either slug contains our ID or task matches
         assert any("direct-write" in s for s in slugs) or "Direct write test" in tasks
 
     def test_elo_changes_reflect_immediately(self, handler_ensemble, integrated_elo):
         """ELO changes should be immediately visible."""
-        # Record a win
         integrated_elo.record_match(
             "elo-test", ["test-agent", "opponent"], {"test-agent": 1.0, "opponent": 0.0}
         )
 
-        # Verify directly from ELO system
         rating = integrated_elo.get_rating("test-agent")
         assert rating is not None
-        # Winner should have ELO > 1500
         assert rating.elo > 1500
 
 
@@ -447,14 +506,11 @@ class TestEventFlow:
         emitter = event_collector["emitter"]
         events = event_collector["events"]
 
-        # Emit a sequence
         for i in range(10):
             emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"index": i}))
 
-        # Drain events
         emitter.drain()
 
-        # Verify order
         indices = [e.data.get("index") for e in events]
         assert indices == list(range(10))
 
@@ -463,7 +519,6 @@ class TestEventFlow:
         emitter = event_collector["emitter"]
         events = event_collector["events"]
 
-        # Emit different types
         emitter.emit(StreamEvent(type=StreamEventType.DEBATE_START, data={"id": "test"}))
         emitter.emit(StreamEvent(type=StreamEventType.ROUND_START, data={"round": 1}))
         emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"agent": "claude"}))
@@ -494,14 +549,12 @@ class TestEventFlow:
         """Multiple subscribers should all receive events."""
         emitter = event_collector["emitter"]
 
-        # Add another subscriber
         second_events = []
         emitter.subscribe(lambda e: second_events.append(e))
 
         emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"test": True}))
         emitter.drain()
 
-        # Both should receive
         assert len(event_collector["events"]) == 1
         assert len(second_events) == 1
 
@@ -509,19 +562,23 @@ class TestEventFlow:
 class TestConcurrentAccess:
     """Tests for thread safety under concurrent access."""
 
-    def test_concurrent_reads_consistent(self, handler_ensemble, debate_factory):
+    def test_concurrent_reads_consistent(
+        self, handler_ensemble, debate_factory, admin_handler
+    ):
         """Concurrent reads should return consistent data."""
-        # Create test data
         for i in range(10):
             debate_factory(f"concurrent-{i}", ["claude", "gemini"])
 
         results = []
         errors = []
         lock = threading.Lock()
+        req = admin_handler
 
         def read_debates():
             try:
-                result = handler_ensemble["debates"].handle("/api/debates", {"limit": "100"}, None)
+                result = call_handler(
+                    handler_ensemble["debates"], "/api/debates", {"limit": "100"}, req,
+                )
                 data = json.loads(result.body)
                 count = data.get("count", len(data.get("debates", [])))
                 with lock:
@@ -530,42 +587,41 @@ class TestConcurrentAccess:
                 with lock:
                     errors.append(str(e))
 
-        # Spawn concurrent readers
         threads = [threading.Thread(target=read_debates) for _ in range(10)]
         for t in threads:
             t.start()
         for t in threads:
             t.join(timeout=10)
 
-        # All threads should complete
         assert all(not t.is_alive() for t in threads), "Some threads timed out"
         assert len(errors) == 0, f"Errors: {errors}"
-        # All should see same count
         assert all(r == results[0] for r in results), f"Inconsistent results: {results}"
 
-    def test_concurrent_handler_access_no_deadlock(self, handler_ensemble, debate_factory):
+    def test_concurrent_handler_access_no_deadlock(
+        self, handler_ensemble, debate_factory, admin_handler
+    ):
         """Multiple handlers accessing shared state should not deadlock."""
         debate_factory("deadlock-test", ["claude", "gemini"])
 
         results = []
         lock = threading.Lock()
+        req = admin_handler
 
         def access_debates():
-            handler_ensemble["debates"].handle("/api/debates", {}, None)
+            call_handler(handler_ensemble["debates"], "/api/debates", {}, req)
             with lock:
                 results.append("debates")
 
         def access_agents():
-            handler_ensemble["agents"].handle("/api/leaderboard", {}, None)
+            call_handler(handler_ensemble["agents"], "/api/leaderboard", {}, req)
             with lock:
                 results.append("agents")
 
         def access_system():
-            handler_ensemble["system"].handle("/api/health", {}, None)
+            call_handler(handler_ensemble["system"], "/api/health", {}, req)
             with lock:
                 results.append("system")
 
-        # Create threads properly (not reusing thread objects)
         threads = []
         for _ in range(3):
             threads.append(threading.Thread(target=access_debates))
@@ -575,20 +631,19 @@ class TestConcurrentAccess:
         for t in threads:
             t.start()
 
-        # Wait with timeout to detect deadlock
         for t in threads:
             t.join(timeout=10)
             assert not t.is_alive(), "Thread deadlocked"
 
         assert len(results) == 9
 
-    def test_write_read_consistency(self, handler_ensemble, integrated_storage):
+    def test_write_read_consistency(
+        self, handler_ensemble, integrated_storage, admin_handler
+    ):
         """Reads after writes should see updated data."""
-        # Initial state
-        result1 = handler_ensemble["debates"].handle("/api/debates", {}, None)
+        result1 = call_handler(handler_ensemble["debates"], "/api/debates", {}, admin_handler)
         initial_count = json.loads(result1.body).get("count", 0)
 
-        # Write new debate
         integrated_storage.save_debate(
             {
                 "id": "write-read-test",
@@ -600,11 +655,9 @@ class TestConcurrentAccess:
             }
         )
 
-        # Clear cache
         clear_cache()
 
-        # Read should see update
-        result2 = handler_ensemble["debates"].handle("/api/debates", {}, None)
+        result2 = call_handler(handler_ensemble["debates"], "/api/debates", {}, admin_handler)
         new_count = json.loads(result2.body).get("count", 0)
 
         assert new_count == initial_count + 1
@@ -631,20 +684,20 @@ class TestConcurrentAccess:
         for t in threads:
             t.join(timeout=30)
 
-        # Most should succeed (some may retry due to locks)
         assert len(errors) < 5, f"Too many errors: {errors}"
 
-    def test_cache_thread_safety(self, handler_ensemble, debate_factory):
+    def test_cache_thread_safety(self, handler_ensemble, debate_factory, admin_handler):
         """Cache should be thread-safe under concurrent access."""
         debate_factory("cache-test", ["claude", "gemini"])
 
         errors = []
         lock = threading.Lock()
+        req = admin_handler
 
         def access_cached_endpoint():
             try:
                 for _ in range(10):
-                    handler_ensemble["agents"].handle("/api/leaderboard", {}, None)
+                    call_handler(handler_ensemble["agents"], "/api/leaderboard", {}, req)
             except Exception as e:
                 with lock:
                     errors.append(str(e))
