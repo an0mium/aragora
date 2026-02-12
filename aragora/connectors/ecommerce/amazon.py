@@ -679,7 +679,7 @@ class AmazonConnector(EnterpriseConnector):
                         break
 
                 return products
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:
                 logger.warning(f"Catalog search failed: {e}")
                 return []
 

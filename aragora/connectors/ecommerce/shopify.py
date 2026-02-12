@@ -399,7 +399,7 @@ class ShopifyConnector(EnterpriseConnector):
         except OSError as e:
             logger.error(f"Failed to connect to Shopify: {e}")
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to connect to Shopify: {e}")
             return False
 
