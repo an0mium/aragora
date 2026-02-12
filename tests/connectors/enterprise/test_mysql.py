@@ -501,7 +501,7 @@ class TestHealthCheck:
         mysql_connector._pool = None
 
         # Mock _get_pool to raise an exception
-        with patch.object(mysql_connector, "_get_pool", side_effect=Exception("Connection failed")):
+        with patch.object(mysql_connector, "_get_pool", side_effect=OSError("Connection failed")):
             health = await mysql_connector.health_check()
 
         assert health["healthy"] is False

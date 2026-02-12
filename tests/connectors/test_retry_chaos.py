@@ -473,7 +473,7 @@ class TestRetryChaosScenarios:
         pytest.importorskip("httpx")
 
         async def parse_error():
-            raise Exception("json decode error")
+            raise RuntimeError("json decode error")
 
         with pytest.raises(ConnectorParseError):
             await connector._request_with_retry(parse_error, "test")

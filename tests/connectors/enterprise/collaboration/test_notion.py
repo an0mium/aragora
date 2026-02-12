@@ -246,7 +246,7 @@ class TestPageOperations:
     @pytest.mark.asyncio
     async def test_get_page_not_found(self, connector):
         """Should return None when page not found."""
-        with patch.object(connector, "_api_request", side_effect=Exception("Not found")):
+        with patch.object(connector, "_api_request", side_effect=ValueError("Not found")):
             page = await connector._get_page("nonexistent")
 
             assert page is None

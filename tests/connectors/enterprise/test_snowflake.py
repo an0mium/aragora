@@ -588,7 +588,7 @@ class TestSnowflakeTableStats:
         )
 
         # Mock _async_query to raise error
-        connector._async_query = AsyncMock(side_effect=Exception("Query failed"))
+        connector._async_query = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         stats = await connector.get_table_stats("NONEXISTENT")
 

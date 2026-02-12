@@ -295,7 +295,7 @@ class TestAWSSecretsManagerProvider:
     async def test_get_credential_error_returns_none(self):
         """Test errors during fetch return None."""
         provider = AWSSecretsManagerProvider(secret_name="test")
-        provider._fetch_secret = AsyncMock(side_effect=Exception("AWS error"))
+        provider._fetch_secret = AsyncMock(side_effect=OSError("AWS error"))
 
         result = await provider.get_credential("key")
         assert result is None

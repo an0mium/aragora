@@ -505,7 +505,7 @@ class TestKafkaErrorHandling:
         connector = KafkaConnector(config)
 
         mock_consumer = AsyncMock()
-        mock_consumer.start = AsyncMock(side_effect=Exception("Connection refused"))
+        mock_consumer.start = AsyncMock(side_effect=OSError("Connection refused"))
 
         with patch.dict("sys.modules", {"aiokafka": MagicMock()}):
             with patch(

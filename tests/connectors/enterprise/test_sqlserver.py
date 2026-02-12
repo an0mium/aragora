@@ -478,7 +478,7 @@ class TestHealthCheck:
     async def test_health_check_unhealthy(self, sqlserver_connector):
         """Test health check returns unhealthy on error."""
         with patch.object(
-            sqlserver_connector, "_get_pool", side_effect=Exception("Connection failed")
+            sqlserver_connector, "_get_pool", side_effect=OSError("Connection failed")
         ):
             health = await sqlserver_connector.health_check()
 

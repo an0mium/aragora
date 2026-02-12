@@ -56,7 +56,7 @@ class TestNotionWriteOperations:
             connector,
             "_api_request",
             new_callable=AsyncMock,
-            side_effect=Exception("API error"),
+            side_effect=OSError("API error"),
         ):
             result = await connector.create_page(
                 parent_id="parent-123",

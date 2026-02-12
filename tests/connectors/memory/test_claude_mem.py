@@ -222,7 +222,7 @@ class TestClaudeMemConnector:
     @pytest.mark.asyncio
     async def test_get_json_error(self, connector):
         """Test _get_json raises ConnectorAPIError on failure."""
-        with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
+        with patch("urllib.request.urlopen", side_effect=OSError("Network error")):
             with pytest.raises(ConnectorAPIError) as exc_info:
                 await connector._get_json("http://test/api")
 
