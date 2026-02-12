@@ -58,12 +58,6 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
   }, [apiWarnings, eventWarnings]);
 
   const fetchWarnings = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (tokens?.access_token) {
@@ -81,7 +75,7 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
     } finally {
       setLoading(false);
     }
-  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, tokens?.access_token]);
 
   useEffect(() => {
     fetchWarnings();

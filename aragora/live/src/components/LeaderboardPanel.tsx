@@ -177,19 +177,16 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
     }
 
     setLoading(false);
-  }, [apiBase, loopId, selectedDomain, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, loopId, selectedDomain, tokens?.access_token]);
 
   // Legacy fallback kept as separate function for testing
   const _fetchDataLegacy = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading || !tokens?.access_token) {
-      return;
-    }
-
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${tokens.access_token}`,
     };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
     const errors: Record<string, string> = {};
     const endpoints = [
       { key: 'rankings', url: `${apiBase}/api/leaderboard?limit=10${loopId ? `&loop_id=${loopId}` : ''}${selectedDomain ? `&domain=${selectedDomain}` : ''}` },
@@ -246,7 +243,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
     } else {
       setError(null);
     }
-  }, [apiBase, loopId, selectedDomain, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, loopId, selectedDomain, tokens?.access_token]);
 
   // Use ref to store latest fetchData to avoid interval recreation on dependency changes
   const fetchDataRef = useRef(fetchData);

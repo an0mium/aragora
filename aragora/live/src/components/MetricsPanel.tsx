@@ -74,12 +74,6 @@ export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) 
   }, [cache?.entries_by_prefix]);
 
   const fetchData = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -130,7 +124,7 @@ export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) 
       setError('Some metrics failed to load. Partial results shown.');
     }
     setLoading(false);
-  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, tokens?.access_token]);
 
   const fetchDataRef = useRef(fetchData);
   fetchDataRef.current = fetchData;
