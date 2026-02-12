@@ -78,16 +78,29 @@ class MemoryMixin:
 
             # 2. Also retrieve glacial tier insights for cross-session learning
             if include_glacial_insights:
-                from aragora.memory.tier_manager import MemoryTier
+                glacial_insights = []
+                # Backwards-compatible API path used by existing tests/mocks.
+                if hasattr(continuum_memory, "get_glacial_insights"):
+                    try:
+                        glacial_insights = continuum_memory.get_glacial_insights(
+                            query=task[:100],
+                            limit=3,
+                            tenant_id=tenant_id,
+                        )
+                    except TypeError:
+                        # Some implementations may not accept keyword args.
+                        glacial_insights = continuum_memory.get_glacial_insights(task[:100], 3)
+                else:
+                    from aragora.memory.tier_manager import MemoryTier
 
-                glacial_insights = continuum_memory.retrieve(
-                    query=task[:100],
-                    tiers=[MemoryTier.GLACIAL],
-                    limit=3,
-                    min_importance=0.4,  # Higher threshold for long-term patterns
-                    include_glacial=True,
-                    tenant_id=tenant_id,
-                )
+                    glacial_insights = continuum_memory.retrieve(
+                        query=task[:100],
+                        tiers=[MemoryTier.GLACIAL],
+                        limit=3,
+                        min_importance=0.4,  # Higher threshold for long-term patterns
+                        include_glacial=True,
+                        tenant_id=tenant_id,
+                    )
                 if glacial_insights:
                     logger.info(
                         "  [continuum] Retrieved %s glacial insights for cross-session learning",
