@@ -410,7 +410,7 @@ class CheckpointHandler(BaseHandler):
                 current_round=debate_state.current_round,
                 total_rounds=debate_state.total_rounds,
                 phase=phase,
-                messages=messages,
+                messages=messages,  # type: ignore[arg-type]
                 critiques=[],  # Not available from StateManager
                 votes=[],  # Not available from StateManager
                 agents=[],  # Agent objects not available, only names
@@ -419,8 +419,8 @@ class CheckpointHandler(BaseHandler):
 
             # Store note in metadata if provided
             if note:
-                checkpoint.metadata = checkpoint.metadata or {}
-                checkpoint.metadata["note"] = note
+                checkpoint.metadata = checkpoint.metadata or {}  # type: ignore[attr-defined]
+                checkpoint.metadata["note"] = note  # type: ignore[attr-defined]
                 await manager.store.save(checkpoint)
 
             logger.info(
@@ -520,7 +520,7 @@ class CheckpointHandler(BaseHandler):
                     current_round=debate_state.current_round,
                     total_rounds=debate_state.total_rounds,
                     phase="paused",
-                    messages=messages,
+                    messages=messages,  # type: ignore[arg-type]
                     critiques=[],
                     votes=[],
                     agents=[],
@@ -530,8 +530,8 @@ class CheckpointHandler(BaseHandler):
 
                 # Store note in metadata
                 if note:
-                    checkpoint.metadata = checkpoint.metadata or {}
-                    checkpoint.metadata["pause_note"] = note
+                    checkpoint.metadata = checkpoint.metadata or {}  # type: ignore[attr-defined]
+                    checkpoint.metadata["pause_note"] = note  # type: ignore[attr-defined]
                     await manager.store.save(checkpoint)
 
                 logger.info(f"Paused debate {debate_id} with checkpoint {checkpoint_id}")

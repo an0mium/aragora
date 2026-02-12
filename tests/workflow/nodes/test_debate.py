@@ -348,17 +348,18 @@ class TestDebateStepExecution:
             "aragora.agents.create_agent",
             side_effect=RuntimeError("Agent unavailable"),
         ):
-            with patch_environment():
-                with patch_debate_protocol():
-                    step = DebateStep(
-                        name="All Agents Fail",
-                        config={
-                            "topic": "Test topic",
-                            "agents": ["bad_agent_1", "bad_agent_2"],
-                        },
-                    )
-                    ctx = _make_context()
-                    result = await step.execute(ctx)
+            with patch_arena():
+                with patch_environment():
+                    with patch_debate_protocol():
+                        step = DebateStep(
+                            name="All Agents Fail",
+                            config={
+                                "topic": "Test topic",
+                                "agents": ["bad_agent_1", "bad_agent_2"],
+                            },
+                        )
+                        ctx = _make_context()
+                        result = await step.execute(ctx)
 
         assert result["success"] is False
         assert result["error"] == "No agents available"

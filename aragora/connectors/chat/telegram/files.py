@@ -35,7 +35,6 @@ class TelegramFilesMixin:
         _request_timeout: Any
         bot_token: Any
         _http_request: Any
-        download_file: Any
 
     async def upload_file(
         self,

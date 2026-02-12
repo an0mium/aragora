@@ -27,7 +27,6 @@ class TelegramMessagesMixin:
         _escape_markdown: Any
         parse_mode: Any
         _blocks_to_keyboard: Any
-        format_button: Any
 
     async def send_message(
         self,

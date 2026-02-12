@@ -31,7 +31,6 @@ class QBOOperationsMixin:
         _validate_numeric_id: Any
         _sanitize_query_value: Any
         _credentials: Any
-        _parse_transaction: Any
 
     # =========================================================================
     # Customer Operations

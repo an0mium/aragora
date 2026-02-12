@@ -262,7 +262,7 @@ class FallbackChain:
                         # Backwards compatibility for adapters with legacy signatures.
                         # Some test adapters only accept (task).
                         if "credentials" in str(exc) or "sandbox" in str(exc):
-                            result = await adapter.execute(task)
+                            result = await adapter.execute(task)  # type: ignore[call-arg]
                         else:
                             raise
                     last_result = result

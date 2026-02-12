@@ -39,7 +39,6 @@ class CoordinatorTierOpsMixin:
         hyperparams: Any
         _tier_lock: Any
         _tier_manager: Any
-        _emit_tier_event: Any
 
     def promote_entry(self, memory_id: str, new_tier: MemoryTier) -> bool:
         """Promote an entry to a specific tier.

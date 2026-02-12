@@ -571,7 +571,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
             from aragora.ranking.elo import EloSystem
 
             elo_system = EloSystem()
-            calibration_engine = CalibrationEngine(elo_system=elo_system)
+            calibration_engine = CalibrationEngine(db_path=":memory:", elo_system=elo_system)
         except Exception as e:
             return {
                 "analyzed": 0,

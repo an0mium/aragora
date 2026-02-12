@@ -97,6 +97,7 @@ class WebSocketHandlerMixin:
         _timeout_sender: Any
         _running: Any
         update_loop_state: Any
+        _voice_handler: Any
 
     def _validate_audience_payload(self, data: dict) -> tuple[dict | None, str | None]:
         """Validate audience message payload.

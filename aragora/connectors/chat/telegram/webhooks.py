@@ -37,7 +37,6 @@ class TelegramWebhooksMixin:
         _telegram_api_request: Any
         send_message: Any
         update_message: Any
-        answer_callback_query: Any
 
     async def handle_webhook(
         self,

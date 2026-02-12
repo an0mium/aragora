@@ -23,7 +23,7 @@ def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Pat
     level = getattr(logging, level_name, logging.INFO)
 
     if log_file == "-":
-        handlers = [logging.StreamHandler()]
+        handlers: list[logging.Handler] = [logging.StreamHandler()]
         log_path = None
     else:
         if log_file:
@@ -32,7 +32,7 @@ def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Pat
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             log_path = repo_path / ".testfixer" / "logs" / f"testfixer_{ts}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        handlers: list[logging.Handler] = [
+        handlers = [
             logging.StreamHandler(),
             logging.FileHandler(log_path, encoding="utf-8"),
         ]
