@@ -100,7 +100,7 @@ See [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) for details.
 | Document | Description |
 |----------|-------------|
 | [BILLING](./reference/BILLING.md) | Billing and subscriptions |
-| [COST_VISIBILITY](./reference/COST_VISIBILITY.md) | Cost tracking and budgets |
+| [COST_VISIBILITY](./observability/COST_VISIBILITY.md) | Cost tracking and budgets |
 
 ## API & SDK
 
@@ -136,7 +136,7 @@ See [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) for details.
 aragora ask "Question"          # Run a debate
 aragora gauntlet "Claim"        # Stress-test a claim
 aragora review path/to/code     # Review code
-aragora serve --port 8080       # Start server
+aragora serve --api-port 8080 --ws-port 8765  # Start full API + WS server
 aragora setup                   # Interactive setup wizard
 aragora doctor                  # Health check
 aragora backup create           # Create backup
@@ -189,9 +189,9 @@ See [CLI_REFERENCE](./reference/CLI_REFERENCE.md) for full documentation.
 | [CONTRIBUTING](../CONTRIBUTING.md) | Contribution guide |
 | [FRONTEND_DEVELOPMENT](./debate/FRONTEND_DEVELOPMENT.md) | Frontend contribution guide |
 | [FRONTEND_ROUTES](./guides/FRONTEND_ROUTES.md) | Frontend route and feature map |
-| [HANDLER_DEVELOPMENT](./reference/HANDLER_DEVELOPMENT.md) | Writing new server handlers |
+| [HANDLER_DEVELOPMENT](./debate/HANDLER_DEVELOPMENT.md) | Writing new server handlers |
 | [TESTING](./testing/TESTING.md) | Test suite documentation |
-| [CODING_ASSISTANCE](./reference/CODING_ASSISTANCE.md) | Code review and generation |
+| [CODING_ASSISTANCE](./architecture/CODING_ASSISTANCE.md) | Code review and generation |
 | [BREAKING_CHANGES](./reference/BREAKING_CHANGES.md) | Breaking changes by version |
 | [DEPRECATION_POLICY](./reference/DEPRECATION_POLICY.md) | Deprecation and migration policy |
 | [ERROR_CODES](./reference/ERROR_CODES.md) | Error code reference |
@@ -215,7 +215,7 @@ See [CLI_REFERENCE](./reference/CLI_REFERENCE.md) for full documentation.
 |----------|-------------|
 | [NOMIC_LOOP](./workflow/NOMIC_LOOP.md) | Self-improvement system |
 | [GENESIS](./workflow/GENESIS.md) | Fractal resolution and agent evolution |
-| [CROSS_POLLINATION](./workflow/CROSS_POLLINATION.md) | Cross-debate knowledge transfer |
+| [CROSS_POLLINATION](./integrations/CROSS_POLLINATION.md) | Cross-debate knowledge transfer |
 | [FORMAL_VERIFICATION](./workflow/FORMAL_VERIFICATION.md) | Z3/Lean verification |
 | [TRICKSTER](./debate/TRICKSTER.md) | Hollow consensus detection |
 | [ADR/README](./ADR/README.md) | Architecture Decision Records |
