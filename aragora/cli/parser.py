@@ -137,6 +137,7 @@ Examples:
     _add_rbac_parser(subparsers)
     _add_km_parser(subparsers)
     _add_costs_parser(subparsers)
+    _add_verify_parser(subparsers)
 
     return parser
 
@@ -1216,3 +1217,10 @@ def _add_costs_parser(subparsers) -> None:
     from aragora.cli.commands.billing_ops import add_billing_ops_parser
 
     add_billing_ops_parser(subparsers)
+
+
+def _add_verify_parser(subparsers) -> None:
+    """Add the 'verify' subcommand parser for receipt integrity verification."""
+    from aragora.cli.commands.verify import create_verify_parser
+
+    create_verify_parser(subparsers)

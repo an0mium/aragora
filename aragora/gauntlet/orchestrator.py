@@ -366,21 +366,30 @@ class GauntletOrchestrator:
 
     def __init__(
         self,
-        agents: list[Agent],
+        agents: list[Agent] | None = None,
         run_agent_fn: Callable | None = None,
         on_progress: ProgressCallback | None = None,
+        nomic_dir: Path | None = None,
+        on_phase_complete: Callable | None = None,
+        on_finding: Callable | None = None,
     ):
         """
         Initialize Gauntlet orchestrator.
 
         Args:
-            agents: Agents to participate in stress-testing
+            agents: Agents to participate in stress-testing (default: empty list)
             run_agent_fn: Optional function to run agents (async callable)
             on_progress: Optional callback for progress updates
+            nomic_dir: Directory for nomic state (default: .nomic)
+            on_phase_complete: Callback invoked when a phase completes
+            on_finding: Callback invoked when a finding is discovered
         """
-        self.agents = agents
+        self.agents = agents or []
         self.run_agent_fn = run_agent_fn or self._default_run_agent
         self.on_progress = on_progress
+        self.nomic_dir = nomic_dir or Path(".nomic")
+        self.on_phase_complete = on_phase_complete
+        self.on_finding = on_finding
 
         # Initialize sub-components
         self.redteam_mode = RedTeamMode()
@@ -392,6 +401,49 @@ class GauntletOrchestrator:
         self._finding_counter = 0
         self._start_time: datetime | None = None
         self._findings_count = 0
+
+    def _severity_float_to_enum(self, severity: float) -> Any:
+        """Convert severity float (0-1) to GauntletSeverity enum.
+
+        Used by the pipeline-style gauntlet interface.
+        """
+        from aragora.gauntlet.types import SeverityLevel
+
+        if severity >= 0.9:
+            return SeverityLevel.CRITICAL
+        elif severity >= 0.7:
+            return SeverityLevel.HIGH
+        elif severity >= 0.4:
+            return SeverityLevel.MEDIUM
+        elif severity > 0.0:
+            return SeverityLevel.LOW
+        return SeverityLevel.INFO
+
+    def _extract_claims(self, text: str) -> list[str]:
+        """Extract verifiable claims from text for formal verification.
+
+        Used by the pipeline-style gauntlet interface.
+        """
+        import re
+
+        claims: list[str] = []
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+
+        claim_patterns = [
+            r'\b(must|shall|always|never|guarantees?|ensures?)\b',
+            r'\b(implies|entails|requires?)\b',
+        ]
+
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) < 20:
+                continue
+            for pattern in claim_patterns:
+                if re.search(pattern, sentence, re.IGNORECASE):
+                    claims.append(sentence)
+                    break
+
+        return claims[:10]
 
     def _emit_progress(
         self,
@@ -423,9 +475,127 @@ class GauntletOrchestrator:
         with streaming_task_context(task_id):
             return await agent.generate(prompt, [])
 
-    async def run(self, config: GauntletConfig) -> GauntletResult:
+    async def run(
+        self,
+        config: GauntletConfig | Any | None = None,
+        *,
+        input_text: str | None = None,
+        template: Any | None = None,
+    ) -> Any:
         """
         Run a complete Gauntlet stress-test.
+
+        Supports two calling conventions:
+        1. Legacy: run(gauntlet_config)  -- uses the orchestrator's own GauntletConfig
+        2. Pipeline: run(input_text=..., config=..., template=...)  -- uses config.py GauntletConfig
+
+        Args:
+            config: Configuration for the stress-test
+            input_text: Text to validate (pipeline mode)
+            template: GauntletTemplate enum (pipeline mode)
+
+        Returns:
+            GauntletResult (from orchestrator or config module depending on mode)
+        """
+        # Pipeline-style invocation: run(input_text=..., config=...) or run(input_text=..., template=...)
+        if input_text is not None or template is not None:
+            return await self._run_pipeline(
+                input_text=input_text or "",
+                config=config,
+                template=template,
+            )
+
+        # Legacy invocation: run(config) where config is a GauntletConfig from this module
+        if config is None:
+            config = GauntletConfig()
+        return await self._run_stress_test(config)
+
+    async def _run_pipeline(
+        self,
+        input_text: str,
+        config: Any | None = None,
+        template: Any | None = None,
+    ) -> Any:
+        """Run the gauntlet in pipeline mode using config.py's interfaces."""
+        import time as _time
+
+        from aragora.gauntlet.config import (
+            GauntletConfig as PipelineConfig,
+            GauntletResult as PipelineResult,
+            GauntletFinding as PipelineFinding,
+            PhaseResult,
+        )
+        from aragora.gauntlet.types import GauntletPhase, SeverityLevel
+
+        start_ms = int(_time.time() * 1000)
+
+        # Resolve template to config
+        if template is not None and config is None:
+            from aragora.gauntlet.templates import _TEMPLATES
+            config = _TEMPLATES.get(template, PipelineConfig())
+
+        if config is None:
+            config = PipelineConfig()
+
+        result = PipelineResult(
+            config=config,
+            input_text=input_text,
+        )
+
+        # Select agents
+        available_agents = config.agents[: config.max_agents] if config.agents else []
+        result.agents_used = available_agents
+
+        try:
+            # Phase: Risk Assessment
+            result.current_phase = GauntletPhase.RISK_ASSESSMENT
+            risk_findings: list[Any] = []
+            risk_assessments = self.risk_assessor.assess_topic(input_text[:2000])
+            for ra in risk_assessments:
+                sev = self._severity_float_to_enum(self._risk_level_to_severity(ra.level))
+                finding = PipelineFinding(
+                    id=self._next_finding_id(),
+                    category="risk",
+                    severity=sev,
+                    title=f"Domain Risk: {ra.category}",
+                    description=ra.description,
+                    source="RiskAssessor",
+                )
+                risk_findings.append(finding)
+
+            phase_result = PhaseResult(
+                phase=GauntletPhase.RISK_ASSESSMENT,
+                status="completed",
+                findings=risk_findings,
+            )
+            result.phase_results.append(phase_result)
+            result.findings.extend(risk_findings)
+
+            if self.on_phase_complete:
+                try:
+                    self.on_phase_complete(GauntletPhase.RISK_ASSESSMENT, phase_result)
+                except Exception:
+                    pass  # Don't let callback errors break the run
+
+            # Extract and count claims
+            claims = self._extract_claims(input_text)
+            result.total_claims = len(claims)
+
+            # Evaluate pass/fail
+            result.current_phase = GauntletPhase.SYNTHESIS
+            result.evaluate_pass_fail()
+            result.current_phase = GauntletPhase.COMPLETE
+
+        except Exception as e:
+            logger.warning(f"Pipeline gauntlet failed: {e}")
+            result.current_phase = GauntletPhase.FAILED
+
+        result.total_duration_ms = int(_time.time() * 1000) - start_ms
+        return result
+
+    async def _run_stress_test(self, config: GauntletConfig) -> GauntletResult:
+        """
+        Run a complete Gauntlet stress-test (legacy mode).
 
         Args:
             config: Configuration for the stress-test
@@ -1202,17 +1372,24 @@ class GauntletOrchestrator:
 # Convenience function for quick stress-testing
 async def run_gauntlet(
     input_content: str,
-    agents: list[Agent],
+    agents: list[Agent] | None = None,
     input_type: InputType = InputType.SPEC,
+    *,
+    template: Any | None = None,
     **config_kwargs,
-) -> GauntletResult:
+) -> Any:
     """
     Run a Gauntlet stress-test.
 
+    Supports two calling conventions:
+    1. Legacy: run_gauntlet(content, agents, input_type, **kwargs) -- stress-test mode
+    2. Pipeline: run_gauntlet(content, template=...) -- pipeline mode
+
     Args:
         input_content: Content to stress-test
-        agents: Agents to participate
+        agents: Agents to participate (optional for pipeline mode)
         input_type: Type of input
+        template: GauntletTemplate enum for pipeline mode
         **config_kwargs: Additional GauntletConfig options
 
     Returns:
@@ -1226,12 +1403,18 @@ async def run_gauntlet(
         )
         print(result.verdict)  # APPROVED, NEEDS_REVIEW, or REJECTED
     """
+    orchestrator = GauntletOrchestrator(agents)
+
+    # Pipeline mode: use input_text and optional template
+    if template is not None or agents is None:
+        return await orchestrator.run(input_text=input_content, template=template)
+
+    # Legacy stress-test mode
     config = GauntletConfig(
         input_type=input_type,
         input_content=input_content,
         **config_kwargs,
     )
-    orchestrator = GauntletOrchestrator(agents)
     return await orchestrator.run(config)
 
 

@@ -104,6 +104,18 @@ class AuditRecord:
 
 
 @dataclass
+class Credential:
+    """A stored credential in the gateway."""
+
+    credential_id: str
+    name: str
+    credential_type: str = ""
+    created_at: datetime | None = None
+    rotated_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ProxyStats:
     """Gateway proxy statistics."""
 
@@ -295,6 +307,96 @@ class OpenClawAPI:
         """Execute a browser action through the proxy (async)."""
         return await self.execute_action_async(session_id, "browser", url=url, action=action)
 
+    def get_action(self, action_id: str) -> ActionResult:
+        """Get action details by ID."""
+        response = self._client._get(f"/api/v1/openclaw/actions/{action_id}")
+        return self._parse_action_result(response)
+
+    async def get_action_async(self, action_id: str) -> ActionResult:
+        """Get action details by ID (async)."""
+        response = await self._client._get_async(f"/api/v1/openclaw/actions/{action_id}")
+        return self._parse_action_result(response)
+
+    def cancel_action(self, action_id: str) -> bool:
+        """Cancel a pending or running action."""
+        response = self._client._post(f"/api/v1/openclaw/actions/{action_id}/cancel")
+        return response.get("success", False)
+
+    async def cancel_action_async(self, action_id: str) -> bool:
+        """Cancel a pending or running action (async)."""
+        response = await self._client._post_async(f"/api/v1/openclaw/actions/{action_id}/cancel")
+        return response.get("success", False)
+
+    # =========================================================================
+    # Credential Lifecycle
+    # =========================================================================
+
+    def list_credentials(self, limit: int = 50) -> builtins.list[Credential]:
+        """List stored credentials."""
+        response = self._client._get("/api/v1/openclaw/credentials", params={"limit": limit})
+        return [self._parse_credential(c) for c in response.get("credentials", [])]
+
+    async def list_credentials_async(self, limit: int = 50) -> builtins.list[Credential]:
+        """List stored credentials (async)."""
+        response = await self._client._get_async(
+            "/api/v1/openclaw/credentials", params={"limit": limit}
+        )
+        return [self._parse_credential(c) for c in response.get("credentials", [])]
+
+    def store_credential(
+        self, name: str, credential_type: str, value: str, metadata: dict[str, Any] | None = None
+    ) -> Credential:
+        """Store a new credential."""
+        payload: dict[str, Any] = {
+            "name": name,
+            "credential_type": credential_type,
+            "value": value,
+        }
+        if metadata:
+            payload["metadata"] = metadata
+        response = self._client._post("/api/v1/openclaw/credentials", json=payload)
+        return self._parse_credential(response)
+
+    async def store_credential_async(
+        self, name: str, credential_type: str, value: str, metadata: dict[str, Any] | None = None
+    ) -> Credential:
+        """Store a new credential (async)."""
+        payload: dict[str, Any] = {
+            "name": name,
+            "credential_type": credential_type,
+            "value": value,
+        }
+        if metadata:
+            payload["metadata"] = metadata
+        response = await self._client._post_async("/api/v1/openclaw/credentials", json=payload)
+        return self._parse_credential(response)
+
+    def delete_credential(self, credential_id: str) -> bool:
+        """Delete a credential by ID."""
+        response = self._client._delete(f"/api/v1/openclaw/credentials/{credential_id}")
+        return response.get("success", False)
+
+    async def delete_credential_async(self, credential_id: str) -> bool:
+        """Delete a credential by ID (async)."""
+        response = await self._client._delete_async(
+            f"/api/v1/openclaw/credentials/{credential_id}"
+        )
+        return response.get("success", False)
+
+    def rotate_credential(self, credential_id: str) -> Credential:
+        """Rotate a credential."""
+        response = self._client._post(
+            f"/api/v1/openclaw/credentials/{credential_id}/rotate"
+        )
+        return self._parse_credential(response)
+
+    async def rotate_credential_async(self, credential_id: str) -> Credential:
+        """Rotate a credential (async)."""
+        response = await self._client._post_async(
+            f"/api/v1/openclaw/credentials/{credential_id}/rotate"
+        )
+        return self._parse_credential(response)
+
     # =========================================================================
     # Policy Management
     # =========================================================================
@@ -462,6 +564,26 @@ class OpenClawAPI:
         return [self._parse_audit_record(r) for r in response.get("records", [])]
 
     # =========================================================================
+    # Service Introspection
+    # =========================================================================
+
+    def get_health(self) -> dict[str, Any]:
+        """Get gateway health status."""
+        return self._client._get("/api/v1/openclaw/health")
+
+    async def get_health_async(self) -> dict[str, Any]:
+        """Get gateway health status (async)."""
+        return await self._client._get_async("/api/v1/openclaw/health")
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get gateway metrics."""
+        return self._client._get("/api/v1/openclaw/metrics")
+
+    async def get_metrics_async(self) -> dict[str, Any]:
+        """Get gateway metrics (async)."""
+        return await self._client._get_async("/api/v1/openclaw/metrics")
+
+    # =========================================================================
     # Stats
     # =========================================================================
 
@@ -576,6 +698,32 @@ class OpenClawAPI:
             status=data.get("status", "pending"),
             created_at=created_at,
             expires_at=expires_at,
+        )
+
+    @staticmethod
+    def _parse_credential(data: dict[str, Any]) -> "Credential":
+        """Parse credential from API response."""
+        created_at = None
+        if data.get("created_at"):
+            try:
+                created_at = datetime.fromisoformat(str(data["created_at"]))
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
+
+        rotated_at = None
+        if data.get("rotated_at"):
+            try:
+                rotated_at = datetime.fromisoformat(str(data["rotated_at"]))
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse datetime value: %s", e)
+
+        return Credential(
+            credential_id=data.get("credential_id", ""),
+            name=data.get("name", ""),
+            credential_type=data.get("credential_type", ""),
+            created_at=created_at,
+            rotated_at=rotated_at,
+            metadata=data.get("metadata", {}),
         )
 
     @staticmethod

@@ -91,6 +91,31 @@ def _get_adapter():
     return _adapter
 
 
+def _serialize_identity(identity: Any) -> dict[str, Any]:
+    """Serialize an on-chain identity into a response-safe dict."""
+    return {
+        "token_id": identity.token_id,
+        "owner": identity.owner,
+        "agent_uri": identity.agent_uri,
+        "wallet_address": identity.wallet_address,
+        "chain_id": identity.chain_id,
+        "aragora_agent_id": identity.aragora_agent_id,
+        "registered_at": identity.registered_at.isoformat() if identity.registered_at else None,
+        "tx_hash": identity.tx_hash,
+    }
+
+
+def _coerce_metadata_value(value: Any) -> bytes:
+    """Normalize metadata values to bytes for on-chain storage."""
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    if isinstance(value, (int, float, bool)):
+        return str(value).encode("utf-8")
+    raise ValueError("metadata values must be bytes, str, int, float, or bool")
+
+
 @api_endpoint(
     method="GET",
     path="/api/v1/blockchain/config",
@@ -166,20 +191,7 @@ async def handle_get_agent(token_id: int) -> HandlerResult:
         contract = IdentityRegistryContract(provider)
         identity = contract.get_agent(token_id)
 
-        return json_response(
-            {
-                "token_id": identity.token_id,
-                "owner": identity.owner,
-                "agent_uri": identity.agent_uri,
-                "wallet_address": identity.wallet_address,
-                "chain_id": identity.chain_id,
-                "aragora_agent_id": identity.aragora_agent_id,
-                "registered_at": identity.registered_at.isoformat()
-                if identity.registered_at
-                else None,
-                "tx_hash": identity.tx_hash,
-            }
-        )
+        return json_response(_serialize_identity(identity))
     except ImportError as e:
         return error_response(str(e), status=501)
     except Exception as e:
@@ -383,9 +395,177 @@ async def handle_blockchain_health() -> HandlerResult:
         )
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/blockchain/agents",
+    summary="List on-chain agents",
+    description="Lists registered agents with pagination via the Identity Registry.",
+    tags=["Blockchain", "Agents"],
+    responses={
+        "200": {"description": "Agent list returned"},
+        "500": {"description": "Listing error"},
+        "501": {"description": "Blockchain dependencies not installed"},
+        "503": {"description": "Circuit breaker open"},
+    },
+)
+@require_permission("blockchain:read")
+@rate_limit(requests_per_minute=60)
+@with_timeout(30.0)
+async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
+    """List registered agents with pagination."""
+    try:
+        cb = _get_circuit_breaker()
+        if not cb.can_execute():
+            return error_response("Blockchain service temporarily unavailable", status=503)
+
+        skip = max(skip, 0)
+        limit = min(max(limit, 1), 500)
+
+        from aragora.blockchain.contracts.identity import IdentityRegistryContract
+
+        provider = _get_provider()
+        config = provider.get_config()
+        if not config.has_identity_registry:
+            return error_response(
+                "Identity registry is not configured for the current chain",
+                status=501,
+            )
+
+        contract = IdentityRegistryContract(provider)
+        total = int(contract.get_total_supply())
+
+        if total <= 0:
+            return json_response(
+                {
+                    "total": 0,
+                    "skip": skip,
+                    "limit": limit,
+                    "count": 0,
+                    "agents": [],
+                }
+            )
+
+        start_token_id = skip + 1
+        if start_token_id > total:
+            return json_response(
+                {
+                    "total": total,
+                    "skip": skip,
+                    "limit": limit,
+                    "count": 0,
+                    "agents": [],
+                }
+            )
+
+        end_token_id = min(total, start_token_id + limit - 1)
+
+        agents: list[dict[str, Any]] = []
+        for token_id in range(start_token_id, end_token_id + 1):
+            try:
+                identity = contract.get_agent(token_id)
+                agents.append(_serialize_identity(identity))
+            except Exception as e:
+                logger.debug(f"Could not fetch agent {token_id}: {e}")
+
+        return json_response(
+            {
+                "total": total,
+                "skip": skip,
+                "limit": limit,
+                "count": len(agents),
+                "agents": agents,
+            }
+        )
+    except ImportError as e:
+        return error_response(str(e), status=501)
+    except Exception as e:
+        logger.error(f"Error listing agents: {e}")
+        return error_response(f"Listing error: {str(e)}", status=500)
+
+
+@api_endpoint(
+    method="POST",
+    path="/api/v1/blockchain/agents",
+    summary="Register new agent on-chain",
+    description="Registers a new agent on the ERC-8004 Identity Registry.",
+    tags=["Blockchain", "Agents"],
+    responses={
+        "201": {"description": "Agent registered"},
+        "400": {"description": "Invalid request"},
+        "500": {"description": "Registration error"},
+        "501": {"description": "Blockchain dependencies not installed"},
+        "503": {"description": "Circuit breaker open"},
+    },
+)
+@require_permission("blockchain:write")
+@rate_limit(requests_per_minute=10)
+@with_timeout(120.0)
+async def handle_register_agent(
+    agent_uri: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> HandlerResult:
+    """Register a new agent on the Identity Registry."""
+    if not agent_uri:
+        return error_response("agent_uri is required", status=400)
+
+    try:
+        cb = _get_circuit_breaker()
+        if not cb.can_execute():
+            return error_response("Blockchain service temporarily unavailable", status=503)
+
+        from aragora.blockchain.contracts.identity import IdentityRegistryContract
+        from aragora.blockchain.models import MetadataEntry
+        from aragora.blockchain.wallet import WalletSigner
+
+        provider = _get_provider()
+        config = provider.get_config()
+        if not config.has_identity_registry:
+            return error_response(
+                "Identity registry is not configured for the current chain",
+                status=501,
+            )
+
+        try:
+            signer = WalletSigner.from_env()
+        except ValueError as e:
+            return error_response(str(e), status=400)
+
+        contract = IdentityRegistryContract(provider)
+
+        metadata_entries: list[MetadataEntry] = []
+        for key, value in (metadata or {}).items():
+            metadata_entries.append(
+                MetadataEntry(
+                    key=str(key),
+                    value=_coerce_metadata_value(value),
+                )
+            )
+
+        token_id = contract.register_agent(agent_uri, signer, metadata_entries)
+
+        return json_response(
+            {
+                "token_id": token_id,
+                "agent_uri": agent_uri,
+                "owner": signer.address,
+                "chain_id": config.chain_id,
+            },
+            status=201,
+        )
+    except ValueError as e:
+        return error_response(f"Invalid metadata: {str(e)}", status=400)
+    except ImportError as e:
+        return error_response(str(e), status=501)
+    except Exception as e:
+        logger.error(f"Error registering agent: {e}")
+        return error_response(f"Registration error: {str(e)}", status=500)
+
+
 # Handler registry for unified server
 BLOCKCHAIN_HANDLERS = {
     "blockchain_config": handle_blockchain_config,
+    "blockchain_list_agents": handle_list_agents,
+    "blockchain_register_agent": handle_register_agent,
     "blockchain_get_agent": handle_get_agent,
     "blockchain_get_reputation": handle_get_reputation,
     "blockchain_get_validations": handle_get_validations,
@@ -397,6 +577,8 @@ __all__ = [
     "BLOCKCHAIN_HANDLERS",
     "ERC8004Handler",
     "handle_blockchain_config",
+    "handle_list_agents",
+    "handle_register_agent",
     "handle_get_agent",
     "handle_get_reputation",
     "handle_get_validations",
@@ -410,6 +592,23 @@ def _get_query_param(query_params: dict[str, Any], name: str, default: str = "")
     if isinstance(value, list):
         return value[0] if value else default
     return value if value is not None else default
+
+
+def _get_int_query_param(
+    query_params: dict[str, Any],
+    name: str,
+    default: int,
+    *,
+    min_value: int = 0,
+) -> int:
+    raw = _get_query_param(query_params, name, str(default))
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if value < min_value:
+        raise ValueError(f"{name} must be >= {min_value}")
+    return value
 
 
 class ERC8004Handler(BaseHandler):
@@ -448,17 +647,19 @@ class ERC8004Handler(BaseHandler):
 
         if path == "/api/v1/blockchain/agents":
             if method == "GET":
-                return error_response(
-                    "Blockchain agent listing is not yet implemented. "
-                    "Use /api/v1/blockchain/agents/{token_id} to query individual agents.",
-                    status=501,
-                )
+                try:
+                    skip = _get_int_query_param(query_params, "skip", 0, min_value=0)
+                    limit = _get_int_query_param(query_params, "limit", 100, min_value=1)
+                except ValueError as e:
+                    return error_response(str(e), status=400)
+                return handle_list_agents(skip=skip, limit=limit)
             if method == "POST":
-                return error_response(
-                    "On-chain agent registration is not yet implemented. "
-                    "Agents are currently registered via the control plane at /api/v1/control-plane/agents.",
-                    status=501,
-                )
+                body = self.read_json_body(handler) or {}
+                agent_uri = body.get("agent_uri", "")
+                metadata = body.get("metadata")
+                if metadata is not None and not isinstance(metadata, dict):
+                    return error_response("metadata must be an object", status=400)
+                return handle_register_agent(agent_uri=agent_uri, metadata=metadata)
             return error_response(f"Method {method} not allowed", status=405)
 
         if path.startswith("/api/v1/blockchain/agents/"):
