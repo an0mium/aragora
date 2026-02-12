@@ -305,6 +305,9 @@ class ERC8004Connector(BaseConnector):
         except (ImportError, RuntimeError, OSError, ConnectionError) as e:
             logger.debug(f"Health check failed: {e}")
             return False
+        except Exception as e:
+            logger.debug(f"Unexpected health check failure: {e}")
+            return False
 
     def search(  # type: ignore[override]  # blockchain connector returns BlockchainSearchResult instead of Evidence
         self,
@@ -439,8 +442,10 @@ class ERC8004Connector(BaseConnector):
                         )
                     )
 
-        except (ValueError, IndexError, AttributeError, RuntimeError, KeyError, TypeError) as e:
+        except (ValueError, IndexError, AttributeError, RuntimeError, KeyError, TypeError, OSError, ConnectionError) as e:
             logger.error(f"Search error for query '{query}': {e}")
+        except Exception as e:
+            logger.error(f"Unexpected search error for query '{query}': {e}")
 
         return _AwaitableList(results[:max_results])
 
@@ -603,8 +608,10 @@ class ERC8004Connector(BaseConnector):
             logger.error(f"Network error fetching '{evidence_id}': {e}")
         except RuntimeError as e:
             logger.error(f"Runtime error fetching '{evidence_id}': {e}")
-        except (ValueError, TypeError, AttributeError, KeyError) as e:
+        except (ValueError, TypeError, AttributeError, KeyError, ConnectionError) as e:
             logger.error(f"Fetch error for '{evidence_id}': {e}")
+        except Exception as e:
+            logger.error(f"Unexpected fetch error for '{evidence_id}': {e}")
 
         return _AwaitableValue(None)
 

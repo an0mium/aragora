@@ -515,15 +515,57 @@ class LegalHandler:
     # =========================================================================
 
     async def _handle_list_templates(self, request: Any, tenant_id: str) -> HandlerResult:
-        """List available DocuSign templates."""
-        # Templates would require additional connector methods
-        # For now return a placeholder
-        return success_response(
-            {
-                "templates": [],
-                "message": "Template listing not yet implemented",
-            }
-        )
+        """List available DocuSign templates.
+
+        Queries the DocuSign Templates API to return templates available
+        for the authenticated account. Supports optional query parameter
+        ``search_text`` for filtering.
+        """
+        connector = await get_docusign_connector(tenant_id)
+        if not connector:
+            return error_response("DocuSign not configured for this tenant", 503)
+
+        try:
+            # Ensure authenticated
+            if not connector.is_authenticated:
+                await connector.authenticate_jwt()
+
+            # Build query params
+            search_text = None
+            if hasattr(request, "query") and request.query:
+                search_text = request.query.get("search_text") or request.query.get("q")
+
+            endpoint = "templates"
+            if search_text:
+                endpoint = f"templates?search_text={search_text}"
+
+            response = await connector._request("GET", endpoint)
+
+            templates = []
+            for tpl in response.get("envelopeTemplates", []):
+                templates.append(
+                    {
+                        "template_id": tpl.get("templateId", ""),
+                        "name": tpl.get("name", ""),
+                        "description": tpl.get("description", ""),
+                        "created": tpl.get("created", ""),
+                        "last_modified": tpl.get("lastModified", ""),
+                        "owner_name": tpl.get("owner", {}).get("userName", ""),
+                        "shared": tpl.get("shared", "false") == "true",
+                        "folder_name": tpl.get("folderName", ""),
+                    }
+                )
+
+            return success_response(
+                {
+                    "templates": templates,
+                    "total_count": response.get("resultSetSize", len(templates)),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to list DocuSign templates for tenant {tenant_id}: {e}")
+            return error_response(f"Failed to list templates: {e}", 500)
 
     # =========================================================================
     # Webhooks

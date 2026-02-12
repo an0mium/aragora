@@ -630,39 +630,94 @@ class DocumentAuditor:
         self,
         session: AuditSession,
     ) -> list[dict[str, Any]]:
-        """Load and chunk documents for analysis."""
-        chunks = []
+        """Load and chunk documents for analysis.
 
+        Fetches documents from DocumentStore and splits into chunks
+        suitable for LLM context windows. Falls back to single-chunk
+        per document if the chunking module is not available.
+        """
+        chunks: list[dict[str, Any]] = []
+
+        # Load documents from the document store
         try:
-            from aragora.documents.chunking import get_context_manager
+            from aragora.server.documents import DocumentStore
 
-            _context_manager = get_context_manager()  # Verify module is available
-
-            # For now, create placeholder chunks
-            # In production, this would load from document store
-            for doc_id in session.document_ids:
-                # Placeholder - real implementation would fetch from storage
-                chunks.append(
-                    {
-                        "id": f"{doc_id}_chunk_0",
-                        "document_id": doc_id,
-                        "content": f"Document {doc_id} content placeholder",
-                        "sequence": 0,
-                    }
-                )
-
+            store = DocumentStore()
         except ImportError:
-            logger.warning("Document chunking not available, using basic loading")
-            for doc_id in session.document_ids:
-                chunks.append(
-                    {
-                        "id": f"{doc_id}_chunk_0",
-                        "document_id": doc_id,
-                        "content": f"Document {doc_id} content placeholder",
-                        "sequence": 0,
-                    }
-                )
+            logger.warning("DocumentStore not available, cannot load documents")
+            return chunks
 
+        for doc_id in session.document_ids:
+            doc = store.get(doc_id)
+            if not doc:
+                logger.warning(f"Document not found in store: {doc_id}")
+                session.errors.append(f"Document not found: {doc_id}")
+                continue
+
+            text = doc.text if hasattr(doc, "text") else ""
+            if not text:
+                logger.warning(f"Document {doc_id} has no text content")
+                continue
+
+            # Try advanced chunking if available
+            try:
+                from aragora.documents.chunking import get_context_manager
+
+                context_manager = get_context_manager()
+                chunk_size = self.config.max_tokens_per_call
+                overlap = int(chunk_size * self.config.chunk_overlap) if self.config.enable_chunking else 0
+
+                doc_chunks = context_manager.chunk_text(
+                    text,
+                    chunk_size=chunk_size,
+                    overlap=overlap,
+                )
+                for seq, chunk_text in enumerate(doc_chunks):
+                    chunks.append(
+                        {
+                            "id": f"{doc_id}_chunk_{seq}",
+                            "document_id": doc_id,
+                            "filename": getattr(doc, "filename", doc_id),
+                            "content": chunk_text,
+                            "sequence": seq,
+                        }
+                    )
+            except (ImportError, AttributeError):
+                # Fall back to simple splitting by character limit
+                max_chars = self.config.max_tokens_per_call * 3  # ~3 chars per token
+                if len(text) <= max_chars:
+                    chunks.append(
+                        {
+                            "id": f"{doc_id}_chunk_0",
+                            "document_id": doc_id,
+                            "filename": getattr(doc, "filename", doc_id),
+                            "content": text,
+                            "sequence": 0,
+                        }
+                    )
+                else:
+                    # Split into overlapping chunks
+                    overlap_chars = int(max_chars * self.config.chunk_overlap) if self.config.enable_chunking else 0
+                    step = max_chars - overlap_chars
+                    seq = 0
+                    for start in range(0, len(text), step):
+                        chunk_text = text[start : start + max_chars]
+                        if not chunk_text.strip():
+                            continue
+                        chunks.append(
+                            {
+                                "id": f"{doc_id}_chunk_{seq}",
+                                "document_id": doc_id,
+                                "filename": getattr(doc, "filename", doc_id),
+                                "content": chunk_text,
+                                "sequence": seq,
+                            }
+                        )
+                        seq += 1
+
+        logger.info(
+            f"Loaded {len(chunks)} chunks from {len(session.document_ids)} documents"
+        )
         return chunks
 
     async def _initial_scan(

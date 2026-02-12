@@ -45,6 +45,7 @@ class SecurityDebateHandler(SecureHandler):
 
     ROUTES = [
         "/api/v1/audit/security/debate",
+        "/api/v1/audit/security/debate/:id",
     ]
 
     _PREFIX = "/api/v1/audit/security/debate"

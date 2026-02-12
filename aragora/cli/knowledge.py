@@ -328,8 +328,49 @@ def cmd_facts(args: "Namespace") -> int:
             print("Error: fact_id required for 'verify' action")
             return 1
 
-        print(f"Verification not yet implemented for fact: {args.fact_id}")
-        return 1
+        # Verify the fact exists first
+        fact = store.get_fact(args.fact_id)
+        if not fact:
+            print(f"Fact not found: {args.fact_id}")
+            return 1
+
+        print(f"\nVerifying fact: {fact.statement}")
+        print("=" * 60)
+
+        try:
+            from aragora.knowledge.query_engine import KnowledgeQueryEngine
+
+            async def run_verify():
+                engine = KnowledgeQueryEngine(fact_store=store)
+                verified = await engine.verify_fact(args.fact_id)
+                return verified
+
+            verified_fact = asyncio.run(run_verify())
+
+            if args.json:
+                verify_output = {
+                    "id": verified_fact.id,
+                    "statement": verified_fact.statement,
+                    "confidence": verified_fact.confidence,
+                    "status": verified_fact.validation_status.value,
+                    "verified": True,
+                }
+                print(json.dumps(verify_output, indent=2))
+            else:
+                status_label = verified_fact.validation_status.value.replace("_", " ").title()
+                print(f"Status: {status_label}")
+                print(f"Confidence: {verified_fact.confidence:.1%}")
+                print(
+                    "\nNote: Verification accuracy improves when agents are configured "
+                    "via ANTHROPIC_API_KEY or OPENAI_API_KEY."
+                )
+
+        except ImportError as e:
+            print(f"Error: Knowledge query engine not available: {e}")
+            return 1
+        except (ValueError, RuntimeError) as e:
+            print(f"Verification failed: {e}")
+            return 1
 
     return 0
 

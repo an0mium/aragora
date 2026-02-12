@@ -127,21 +127,29 @@ class PruningOperationsMixin:
 
     async def _archive_node_with_reason(
         self, node_id: str, workspace_id: str, reason: str
-    ) -> None: ...
+    ) -> None:
+        await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[misc]
 
-    async def _delete_node(self, node_id: str) -> None: ...
+    async def _delete_node(self, node_id: str) -> None:
+        await super()._delete_node(node_id)  # type: ignore[misc]
 
-    async def _get_node(self, node_id: str) -> Any: ...
+    async def _get_node(self, node_id: str) -> Any:
+        return await super()._get_node(node_id)  # type: ignore[misc]
 
-    async def _update_node(self, node_id: str, updates: dict[str, Any]) -> None: ...
+    async def _update_node(self, node_id: str, updates: dict[str, Any]) -> None:
+        await super()._update_node(node_id, updates)  # type: ignore[misc]
 
-    async def _get_prune_history(self, workspace_id: str, limit: int, since: Any) -> list[Any]: ...
+    async def _get_prune_history(self, workspace_id: str, limit: int, since: Any) -> list[Any]:
+        return await super()._get_prune_history(workspace_id, limit, since)  # type: ignore[misc]
 
-    async def _restore_archived_node(self, node_id: str, workspace_id: str) -> bool: ...
+    async def _restore_archived_node(self, node_id: str, workspace_id: str) -> bool:
+        return await super()._restore_archived_node(node_id, workspace_id)  # type: ignore[misc]
 
-    async def _get_nodes_for_workspace(self, workspace_id: str, limit: int) -> list[Any]: ...
+    async def _get_nodes_for_workspace(self, workspace_id: str, limit: int) -> list[Any]:
+        return await super()._get_nodes_for_workspace(workspace_id, limit)  # type: ignore[misc]
 
-    async def _save_prune_history(self, history: "PruneHistory") -> None: ...
+    async def _save_prune_history(self, history: "PruneHistory") -> None:
+        await super()._save_prune_history(history)  # type: ignore[misc]
 
     async def get_prunable_items(
         self,

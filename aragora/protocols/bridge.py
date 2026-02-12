@@ -166,16 +166,97 @@ class ProtocolBridge:
         context: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Invoke via MCP protocol."""
-        # MCP invocation would go here
-        # This requires the mcp package and a running MCP server
-        logger.info(f"MCP invocation to {target}")
+        """Invoke a tool via MCP protocol.
+
+        Connects to an MCP server and calls a named tool. The ``target``
+        parameter is treated as the tool name. If a ``server_url`` keyword
+        argument is provided, the bridge connects to that server via SSE;
+        otherwise it falls back to the local ``AragoraMCPServer`` instance.
+
+        Args:
+            target: MCP tool name (e.g. ``"debate"``). ``mcp://`` prefix
+                is stripped automatically.
+            task: Task description, passed as the ``"query"`` argument
+                to the tool.
+            context: Optional context items forwarded as a ``"context"``
+                tool argument.
+            **kwargs: ``server_url`` for remote MCP servers; any other
+                keyword arguments are forwarded to the tool call.
+        """
+        # Strip mcp:// prefix if present
+        tool_name = target.removeprefix("mcp://").strip("/")
+        logger.info(f"MCP invocation: tool={tool_name}")
+
+        tool_arguments: dict[str, Any] = {"query": task}
+        if context:
+            tool_arguments["context"] = context
+        # Forward extra kwargs as tool arguments (except internal ones)
+        for k, v in kwargs.items():
+            if k not in ("server_url",):
+                tool_arguments[k] = v
+
+        server_url = kwargs.get("server_url")
+
+        # Try remote MCP server via SSE transport if a URL is given
+        if server_url:
+            try:
+                from mcp import ClientSession
+                from mcp.client.sse import sse_client
+
+                async with sse_client(server_url) as (read_stream, write_stream):
+                    async with ClientSession(read_stream, write_stream) as session:
+                        await session.initialize()
+                        result = await session.call_tool(tool_name, tool_arguments)
+                        # Extract text content from MCP response
+                        output_parts = []
+                        for content_item in result.content:
+                            if hasattr(content_item, "text"):
+                                output_parts.append(content_item.text)
+                        return {
+                            "protocol": "mcp",
+                            "target": target,
+                            "status": "success",
+                            "result": "\n".join(output_parts) if output_parts else str(result),
+                        }
+            except ImportError:
+                logger.warning("mcp package not installed, cannot connect to remote MCP server")
+            except Exception as e:
+                logger.warning(f"Remote MCP invocation failed: {e}")
+                return {
+                    "protocol": "mcp",
+                    "target": target,
+                    "status": "error",
+                    "error": str(e),
+                }
+
+        # Fallback: invoke on the local AragoraMCPServer
+        try:
+            from aragora.mcp.server import AragoraMCPServer
+
+            server = AragoraMCPServer()
+            result = await server.call_tool(tool_name, tool_arguments)
+            return {
+                "protocol": "mcp",
+                "target": target,
+                "status": "success",
+                "result": result,
+            }
+        except ImportError:
+            logger.warning("AragoraMCPServer not available")
+        except Exception as e:
+            logger.warning(f"Local MCP invocation failed: {e}")
+            return {
+                "protocol": "mcp",
+                "target": target,
+                "status": "error",
+                "error": str(e),
+            }
 
         return {
             "protocol": "mcp",
             "target": target,
-            "status": "not_implemented",
-            "message": "MCP client invocation not yet implemented",
+            "status": "error",
+            "error": "No MCP server available (install mcp package or start local server)",
         }
 
     async def _invoke_a2a(

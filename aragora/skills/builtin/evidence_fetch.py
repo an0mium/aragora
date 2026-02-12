@@ -335,11 +335,80 @@ class EvidenceFetchSkill(Skill):
             return []
 
     async def _check_facts(self, claim: str) -> list[dict[str, Any]]:
-        """Check claim against fact-checking sources."""
-        # This is a placeholder for fact-checking integration
-        # Could integrate with ClaimBuster, Google Fact Check API, etc.
-        logger.debug("Fact checking not implemented yet")
-        return []
+        """Check claim against fact-checking sources.
+
+        Uses the Google Fact Check Tools API (free, no API key required for
+        the ClaimSearch endpoint) to find existing fact-checks for a claim.
+
+        Falls back to searching the Knowledge Mound fact store if the
+        external API is unavailable.
+        """
+        results: list[dict[str, Any]] = []
+
+        # 1. Try Google Fact Check Tools API (free ClaimSearch endpoint)
+        try:
+            from aragora.server.http_client_pool import get_http_pool
+
+            pool = get_http_pool()
+            async with pool.get_session("fact_check") as client:
+                response = await client.get(
+                    "https://factchecktools.googleapis.com/v1alpha1/claims:search",
+                    params={
+                        "query": claim,
+                        "languageCode": "en",
+                        "pageSize": 5,
+                    },
+                    timeout=15.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    for item in data.get("claims", []):
+                        claim_text = item.get("text", "")
+                        for review in item.get("claimReview", []):
+                            results.append(
+                                {
+                                    "claim": claim_text,
+                                    "claimant": item.get("claimant", "Unknown"),
+                                    "rating": review.get("textualRating", ""),
+                                    "publisher": review.get("publisher", {}).get("name", ""),
+                                    "url": review.get("url", ""),
+                                    "title": review.get("title", ""),
+                                    "review_date": review.get("reviewDate", ""),
+                                    "source_type": "fact_check",
+                                }
+                            )
+                    if results:
+                        logger.info(f"Found {len(results)} fact-checks for claim")
+                        return results
+        except ImportError:
+            logger.debug("http_client_pool not available for fact checking")
+        except Exception as e:
+            logger.debug(f"Google Fact Check API error: {e}")
+
+        # 2. Fallback: check local fact store if available
+        try:
+            from aragora.knowledge.fact_store import InMemoryFactStore
+
+            store = InMemoryFactStore()
+            facts = store.query_facts(claim, limit=5)
+            for fact in facts:
+                results.append(
+                    {
+                        "claim": getattr(fact, "statement", str(fact)),
+                        "confidence": getattr(fact, "confidence", 0.0),
+                        "status": getattr(fact, "validation_status", {}).value
+                        if hasattr(getattr(fact, "validation_status", None), "value")
+                        else "unknown",
+                        "source_type": "local_fact_store",
+                    }
+                )
+        except (ImportError, AttributeError):
+            logger.debug("Local fact store not available")
+        except Exception as e:
+            logger.debug(f"Local fact store query failed: {e}")
+
+        return results
 
 
 # Skill instance for registration

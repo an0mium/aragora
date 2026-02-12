@@ -188,7 +188,7 @@ class WebConnector(BaseConnector):
         if self._http_client:
             try:
                 await self._http_client.aclose()
-            except (OSError, RuntimeError) as e:
+            except (OSError, RuntimeError, TypeError, AttributeError) as e:
                 logger.warning(f"Error closing HTTP client: {e}")
             finally:
                 self._http_client = None

@@ -109,6 +109,60 @@ class DedupOperationsMixin(_MoundOpsProtocol):
     Uses adapter methods from KnowledgeMoundCore.
     """
 
+    async def _get_nodes_for_workspace(self, workspace_id: str, limit: int) -> list[Any]:
+        return await super()._get_nodes_for_workspace(workspace_id, limit)  # type: ignore[misc]
+
+    async def _search_similar(
+        self,
+        workspace_id: str,
+        embedding: Any,
+        query: str,
+        top_k: int,
+        min_score: float,
+    ) -> list[Any]:
+        return await super()._search_similar(  # type: ignore[misc]
+            workspace_id=workspace_id,
+            embedding=embedding,
+            query=query,
+            top_k=top_k,
+            min_score=min_score,
+        )
+
+    async def _count_nodes(self, workspace_id: str) -> int:
+        return await super()._count_nodes(workspace_id)  # type: ignore[misc]
+
+    async def _get_node_relationships_for_ops(
+        self, node_id: str, workspace_id: str
+    ) -> list[Any]:
+        return await super()._get_node_relationships_for_ops(  # type: ignore[misc]
+            node_id, workspace_id
+        )
+
+    async def _create_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relationship_type: str,
+        workspace_id: str,
+    ) -> None:
+        await super()._create_relationship(  # type: ignore[misc]
+            source_id, target_id, relationship_type, workspace_id
+        )
+
+    async def _archive_node_with_reason(
+        self, node_id: str, workspace_id: str, reason: str
+    ) -> None:
+        await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[misc]
+
+    async def _delete_node(self, node_id: str) -> None:
+        await super()._delete_node(node_id)  # type: ignore[misc]
+
+    async def _get_nodes_by_content_hash(self, workspace_id: str) -> dict[str, list[str]]:
+        return await super()._get_nodes_by_content_hash(workspace_id)  # type: ignore[misc]
+
+    async def _get_node(self, node_id: str) -> Any:
+        return await super()._get_node(node_id)  # type: ignore[misc]
+
     async def find_duplicates(
         self,
         workspace_id: str,
