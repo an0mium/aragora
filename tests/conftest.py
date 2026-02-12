@@ -340,6 +340,33 @@ def pytest_configure(config):
 # ============================================================================
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _suppress_auth_cleanup_threads():
+    """Prevent AuthConfig from spawning background cleanup threads.
+
+    AuthConfig.__init__ calls _start_cleanup_thread() which spawns a daemon
+    thread. Many AuthConfig instances are created across tests (mock_auth_config
+    fixture, direct instantiation, module-level singleton). Without this fix,
+    dozens of daemon threads accumulate and can cause pytest shutdown to hang.
+
+    This session-scoped autouse fixture patches _start_cleanup_thread to a
+    no-op and stops any already-running thread on the module-level singleton.
+    """
+    from aragora.server.auth import AuthConfig, auth_config
+
+    # Stop the thread on the module-level singleton (spawned at import time)
+    auth_config.stop_cleanup_thread()
+
+    # Patch the class method so future instances don't spawn threads
+    original = AuthConfig._start_cleanup_thread
+    AuthConfig._start_cleanup_thread = lambda self: None
+
+    yield
+
+    # Restore original method
+    AuthConfig._start_cleanup_thread = original
+
+
 @pytest.fixture
 def stop_auth_cleanup():
     """Fixture to stop auth cleanup threads after tests.
@@ -1358,10 +1385,11 @@ def mock_emitter() -> Mock:
 
 
 @pytest.fixture
-def mock_auth_config() -> Mock:
+def mock_auth_config():
     """Create a mock AuthConfig.
 
-    Returns a Mock configured for authentication testing.
+    Returns an AuthConfig configured for authentication testing.
+    Cleanup thread is suppressed by _suppress_auth_cleanup_threads.
     """
     from aragora.server.auth import AuthConfig
 
@@ -1370,7 +1398,8 @@ def mock_auth_config() -> Mock:
     config.enabled = True
     config.rate_limit_per_minute = 60
     config.ip_rate_limit_per_minute = 120
-    return config
+    yield config
+    config.stop_cleanup_thread()
 
 
 # ============================================================================

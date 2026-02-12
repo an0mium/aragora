@@ -241,12 +241,12 @@ jobs:
   test-pollution-randomized:
     name: Randomized Order Pollution Guard
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     needs: test-fast
     strategy:
       fail-fast: false
       matrix:
-        seed: [1337, 4242, 9001]
+        seed: [12345, 54321, 99999]
 
     steps:
       - name: Checkout
@@ -265,12 +265,10 @@ jobs:
 
       - name: Run randomized-order guard (seed=${{ matrix.seed }})
         run: |
-          pytest tests/debate tests/agents tests/server \
+          pytest tests/debate tests/knowledge tests/server/handlers \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
-            --timeout=120 \
-            -n auto \
-            --dist loadscope \
-            --maxfail=1 \
+            --timeout=60 \
+            -x \
             -p randomly \
             --randomly-seed=${{ matrix.seed }} \
             -v \

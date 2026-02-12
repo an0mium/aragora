@@ -166,7 +166,7 @@ class TestHealthReport:
         """Test HealthReport to_dict conversion."""
         now = datetime.now(timezone.utc)
         components = {
-            "service": HealthStatus(healthy=True, last_check=now),
+            "service": ComponentHealthStatus(healthy=True, last_check=now),
         }
         report = HealthReport(
             overall_healthy=True,
