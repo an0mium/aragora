@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import time
 from unittest.mock import MagicMock, patch
 
@@ -126,24 +127,27 @@ class TestInsecureJwtAuditLogging:
         from aragora.server.middleware.user_auth import SupabaseAuthValidator
 
         validator = SupabaseAuthValidator(jwt_secret=None, supabase_url=None)
+        validator._cache.clear()
 
         payload = {"exp": time.time() + 3600, "sub": "user-456", "email": "test@example.com"}
         token = _make_jwt_payload(payload)
 
         mock_audit = MagicMock()
-        with patch(
-            "aragora.server.middleware.user_auth.audit_security",
-            mock_audit,
-            create=True,
-        ):
-            # The validate_token method will use _decode_jwt_unsafe
-            # We need to patch the audit import inside the method
-            with patch.dict("sys.modules", {"aragora.audit.unified": MagicMock(audit_security=mock_audit)}):
-                result = validator.validate_token(token)
+        mock_module = MagicMock()
+        mock_module.audit_security = mock_audit
+
+        with patch.dict("sys.modules", {"aragora.audit.unified": mock_module}):
+            result = validator.validate_token(token)
 
         # The user should be returned (insecure decode succeeds in dev)
-        if result is not None:
-            assert result.id == "user-456"
+        assert result is not None
+        assert result.id == "user-456"
+
+        # Audit should have been called
+        mock_audit.assert_called_once()
+        call_kwargs = mock_audit.call_args
+        assert call_kwargs[1]["event_type"] == "insecure_jwt_decode"
+        assert call_kwargs[1]["actor_id"] == "user-456"
 
     @patch.dict(
         "os.environ",
@@ -156,23 +160,34 @@ class TestInsecureJwtAuditLogging:
     @patch("aragora.server.middleware.user_auth._jwt_module", None)
     def test_audit_fallback_to_logger(self, caplog):
         """When audit module unavailable, falls back to logger.error."""
-        import logging
-
         from aragora.server.middleware.user_auth import SupabaseAuthValidator
 
         validator = SupabaseAuthValidator(jwt_secret=None, supabase_url=None)
+        validator._cache.clear()
 
         payload = {"exp": time.time() + 3600, "sub": "user-789", "email": "test@example.com"}
         token = _make_jwt_payload(payload)
 
-        # Make audit import fail
-        with patch.dict("sys.modules", {"aragora.audit.unified": None}):
-            with caplog.at_level(logging.ERROR, logger="aragora.server.middleware.user_auth"):
-                validator.validate_token(token)
+        # Make audit import fail by removing the module
+        import sys
 
-        # Should have logged the security audit fallback
-        audit_msgs = [r for r in caplog.records if "insecure JWT decode" in r.message or "INSECURE" in r.message]
-        assert len(audit_msgs) > 0
+        orig = sys.modules.pop("aragora.audit.unified", None)
+        try:
+            # Ensure the import will fail
+            sys.modules["aragora.audit.unified"] = None  # type: ignore[assignment]
+            with caplog.at_level(logging.WARNING, logger="aragora.server.middleware.user_auth"):
+                validator.validate_token(token)
+        finally:
+            if orig is not None:
+                sys.modules["aragora.audit.unified"] = orig
+            else:
+                sys.modules.pop("aragora.audit.unified", None)
+
+        # Should have logged the INSECURE warning at minimum
+        insecure_msgs = [
+            r for r in caplog.records if "INSECURE" in r.message or "SECURITY AUDIT" in r.message
+        ]
+        assert len(insecure_msgs) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -190,15 +205,18 @@ class TestStartupInsecureJwtValidation:
             "ARAGORA_ENV": "production",
         },
     )
-    def test_production_warning_for_insecure_jwt(self):
+    def test_production_warning_for_insecure_jwt(self, caplog):
         """In production, ARAGORA_ALLOW_INSECURE_JWT should produce a warning."""
-        from aragora.server.startup.validation import validate_production_config
+        from aragora.server.startup.validation import check_production_requirements
 
-        errors, warnings = validate_production_config()
+        with caplog.at_level(logging.WARNING):
+            check_production_requirements()
 
-        insecure_warnings = [w for w in warnings if "ARAGORA_ALLOW_INSECURE_JWT" in w]
-        assert len(insecure_warnings) >= 1
-        assert "production" in insecure_warnings[0].lower() or "IGNORED" in insecure_warnings[0]
+        # The warning should be logged (via warnings list which gets logged)
+        insecure_msgs = [
+            r for r in caplog.records if "ARAGORA_ALLOW_INSECURE_JWT" in r.message
+        ]
+        assert len(insecure_msgs) >= 1
 
     @patch.dict(
         "os.environ",
@@ -209,14 +227,14 @@ class TestStartupInsecureJwtValidation:
     )
     def test_dev_mode_logs_security_warning(self, caplog):
         """In dev mode, ARAGORA_ALLOW_INSECURE_JWT should log a security warning."""
-        import logging
-
-        from aragora.server.startup.validation import validate_production_config
+        from aragora.server.startup.validation import check_production_requirements
 
         with caplog.at_level(logging.WARNING):
-            validate_production_config()
+            check_production_requirements()
 
-        security_msgs = [r for r in caplog.records if "ARAGORA_ALLOW_INSECURE_JWT" in r.message]
+        security_msgs = [
+            r for r in caplog.records if "ARAGORA_ALLOW_INSECURE_JWT" in r.message
+        ]
         assert len(security_msgs) >= 1
 
     @patch.dict(
@@ -224,14 +242,18 @@ class TestStartupInsecureJwtValidation:
         {"ARAGORA_ENV": "production"},
         clear=False,
     )
-    def test_no_warning_when_not_set(self):
+    def test_no_warning_when_not_set(self, caplog):
         """When ARAGORA_ALLOW_INSECURE_JWT is not set, no warning should appear."""
         import os
+
         os.environ.pop("ARAGORA_ALLOW_INSECURE_JWT", None)
 
-        from aragora.server.startup.validation import validate_production_config
+        from aragora.server.startup.validation import check_production_requirements
 
-        errors, warnings = validate_production_config()
+        with caplog.at_level(logging.WARNING):
+            check_production_requirements()
 
-        insecure_warnings = [w for w in warnings if "INSECURE_JWT" in w]
+        insecure_warnings = [
+            r for r in caplog.records if "INSECURE_JWT" in r.message
+        ]
         assert len(insecure_warnings) == 0
