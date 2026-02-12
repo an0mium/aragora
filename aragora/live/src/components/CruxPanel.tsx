@@ -76,12 +76,6 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       return;
     }
 
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setError('Please log in to analyze debates');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 

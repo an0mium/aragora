@@ -34,12 +34,6 @@ export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelP
   const apiBase = API_BASE_URL;
 
   const fetchDebates = useCallback(async (reset = false) => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       const currentOffset = reset ? 0 : offset;
@@ -74,7 +68,7 @@ export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelP
     } finally {
       setLoading(false);
     }
-  }, [apiBase, limit, offset, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, limit, offset, tokens?.access_token]);
 
   useEffect(() => {
     fetchDebates(true);

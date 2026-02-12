@@ -105,6 +105,92 @@ Examples:
     )
     health_parser.set_defaults(func=cmd_health)
 
+    # Rotate token command
+    rotate_token_parser = security_subparsers.add_parser(
+        "rotate-token",
+        help="Rotate a service token (PyPI, npm, GitHub PAT)",
+        description="""
+Rotate a service token by storing the new value in configured backends
+(AWS Secrets Manager, GitHub repository/org secrets).
+
+Note: Token creation/revocation happens via provider web UIs.
+This command handles storage and distribution of the new token.
+
+Examples:
+    aragora security rotate-token pypi --token "pypi-..."
+    aragora security rotate-token pypi --token "pypi-..." --stores aws
+    aragora security rotate-token npm --token "npm_..." --github-repo myorg/myrepo
+    aragora security rotate-token github_pat --token "ghp_..." --dry-run
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    rotate_token_parser.add_argument(
+        "token_type",
+        choices=["pypi", "npm", "github_pat", "custom"],
+        help="Type of token to rotate",
+    )
+    rotate_token_parser.add_argument(
+        "--token",
+        type=str,
+        default=None,
+        help="New token value (reads from stdin if not provided)",
+    )
+    rotate_token_parser.add_argument(
+        "--stores",
+        type=str,
+        default=None,
+        help="Comma-separated stores to write to (default: aws,github)",
+    )
+    rotate_token_parser.add_argument(
+        "--github-owner",
+        type=str,
+        default=None,
+        help="GitHub org/user for secret storage",
+    )
+    rotate_token_parser.add_argument(
+        "--github-repo",
+        type=str,
+        default=None,
+        help="GitHub repo (owner/repo format) for secret storage",
+    )
+    rotate_token_parser.add_argument(
+        "--aws-secret-name",
+        type=str,
+        default=None,
+        help="AWS Secrets Manager secret name override",
+    )
+    rotate_token_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview rotation without making changes",
+    )
+    rotate_token_parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Skip confirmation prompt",
+    )
+    rotate_token_parser.set_defaults(func=cmd_rotate_token)
+
+    # List tokens command
+    list_tokens_parser = security_subparsers.add_parser(
+        "list-tokens",
+        help="List managed service tokens",
+    )
+    list_tokens_parser.set_defaults(func=cmd_list_tokens)
+
+    # Verify token command
+    verify_token_parser = security_subparsers.add_parser(
+        "verify-token",
+        help="Verify a service token works",
+    )
+    verify_token_parser.add_argument(
+        "token_type",
+        choices=["pypi", "npm", "github_pat"],
+        help="Type of token to verify",
+    )
+    verify_token_parser.set_defaults(func=cmd_verify_token)
+
     security_parser.set_defaults(func=lambda args: security_parser.print_help())
 
 
