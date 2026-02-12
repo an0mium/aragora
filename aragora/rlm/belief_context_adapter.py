@@ -278,7 +278,7 @@ class BeliefContextAdapter:
         """
         # Check if provenance tracking is available
         try:
-            from aragora.reasoning.provenance import get_provenance_store
+            from aragora.reasoning.provenance import get_provenance_store  # type: ignore[attr-defined]
 
             store = get_provenance_store()
             if store:

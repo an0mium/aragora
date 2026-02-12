@@ -10,7 +10,7 @@ from aragora.control_plane.scheduler import TaskPriority
 from aragora.nomic.testfixer.http_api import TestFixerRunConfig, run_fix_loop
 
 if TYPE_CHECKING:
-    from aragora.control_plane.integration import ControlPlaneIntegration
+    from aragora.control_plane.integration import ControlPlaneIntegration  # type: ignore[attr-defined]
 
 TESTFIXER_TASK_TYPE = "testfixer"
 

@@ -118,7 +118,7 @@ def cmd_receipt_verify(args: argparse.Namespace) -> None:
 
         # Recompute hash
         try:
-            computed_hash = receipt.compute_artifact_hash()
+            computed_hash = receipt.compute_artifact_hash()  # type: ignore[attr-defined]
             if computed_hash == artifact_hash:
                 print("\u2713 Artifact hash verified")
             else:

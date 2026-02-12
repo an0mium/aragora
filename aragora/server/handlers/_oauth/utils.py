@@ -580,7 +580,7 @@ class OAuthPermissionHelper:
             from aragora.rbac.checker import get_permission_checker
 
             checker = get_permission_checker()
-            if checker.check(auth_context, permission, resource_id):
+            if checker.check_permission(auth_context, permission, resource_id).allowed:
                 return None
 
             # Build error response

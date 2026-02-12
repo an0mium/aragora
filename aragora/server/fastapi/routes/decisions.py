@@ -58,7 +58,7 @@ class StartDebateRequest(BaseModel):
             "examples": [
                 {
                     "task": "What is the best caching strategy for a high-traffic API?",
-                    "agents": get_settings().agent.default_agent_list[:3],  # type: ignore[dict-item]
+                    "agents": get_settings().agent.default_agent_list[:3],  # type: ignore[dict-item,list-item]
                     "rounds": DEFAULT_ROUNDS,
                     "consensus": DEFAULT_CONSENSUS,
                 }

@@ -579,7 +579,7 @@ async def tax_reference_search(
         return {"results": [], "error": f"{connector_label} connector not configured"}
 
     try:
-        results = await connector.search(query=query, limit=limit)
+        results = await connector.search(query=query, limit=limit)  # type: ignore[attr-defined]
     except Exception as e:
         logger.warning("Tax reference lookup failed: %s", e)
         return {"results": [], "error": f"tax lookup failed: {e}"}

@@ -283,7 +283,7 @@ class AgentIntelligenceMixin:
             try:
                 storage = self.get_storage()
                 if storage:
-                    debate = storage.get_debate(debate_id)
+                    debate = storage.get_debate(debate_id)  # type: ignore[attr-defined]
                     if debate:
                         # Find agent's messages in this debate
                         agent_msgs = [

@@ -587,7 +587,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
             try:
                 # Get calibration stats for this agent
-                stats = calibration_engine.get_domain_stats(agent_id)
+                stats = calibration_engine.get_domain_stats(agent_id)  # type: ignore[attr-defined]
 
                 total_predictions = stats.get("total", 0)
                 if total_predictions < 5:

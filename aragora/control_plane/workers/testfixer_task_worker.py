@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import Any
 
-from aragora.control_plane.integration import ControlPlaneIntegration
+from aragora.control_plane.integration import ControlPlaneIntegration  # type: ignore[attr-defined]
 from aragora.control_plane.testfixer import TESTFIXER_TASK_TYPE, TestFixerControlPlane
 
 logger = logging.getLogger(__name__)
