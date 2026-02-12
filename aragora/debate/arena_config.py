@@ -390,6 +390,12 @@ class ArenaConfig:
         enable_n1_detection: bool = False,
         n1_detection_mode: str = "warn",
         n1_detection_threshold: int = 5,
+        # Stability Detection (adaptive stopping)
+        enable_stability_detection: bool = False,
+        stability_threshold: float = 0.85,
+        stability_min_rounds: int = 1,
+        stability_agreement_threshold: float = 0.7,
+        stability_conflict_confidence: float = 0.4,
         # ---- Sub-config objects (optional, for grouped construction) ----
         hook_config: HookConfig | None = None,
         tracking_config: TrackingConfig | None = None,
@@ -462,6 +468,11 @@ class ArenaConfig:
         self.enable_n1_detection = enable_n1_detection
         self.n1_detection_mode = n1_detection_mode
         self.n1_detection_threshold = n1_detection_threshold
+        self.enable_stability_detection = enable_stability_detection
+        self.stability_threshold = stability_threshold
+        self.stability_min_rounds = stability_min_rounds
+        self.stability_agreement_threshold = stability_agreement_threshold
+        self.stability_conflict_confidence = stability_conflict_confidence
 
         # -- Build sub-configs from flat kwargs + explicit sub-config objects --
         # For each sub-config group, collect any flat kwargs that belong to it,
@@ -725,11 +736,13 @@ class ArenaConfig:
             "quality_gate_threshold": self.quality_gate_threshold,
             "enable_consensus_estimation": self.enable_consensus_estimation,
             "consensus_early_termination_threshold": self.consensus_early_termination_threshold,
-            "enable_stability_detection": self.enable_stability_detection,
-            "stability_threshold": self.stability_threshold,
-            "stability_min_rounds": self.stability_min_rounds,
-            "stability_agreement_threshold": self.stability_agreement_threshold,
-            "stability_conflict_confidence": self.stability_conflict_confidence,
+            # Note: stability detection fields stored in ArenaConfig but not yet
+            # wired to Arena.__init__. Access via arena.config.enable_stability_detection etc.
+            # "enable_stability_detection": self.enable_stability_detection,
+            # "stability_threshold": self.stability_threshold,
+            # "stability_min_rounds": self.stability_min_rounds,
+            # "stability_agreement_threshold": self.stability_agreement_threshold,
+            # "stability_conflict_confidence": self.stability_conflict_confidence,
             # RLM Cognitive Limiter
             "use_rlm_limiter": self.use_rlm_limiter,
             "rlm_limiter": self.rlm_limiter,

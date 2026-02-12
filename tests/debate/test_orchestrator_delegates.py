@@ -185,7 +185,7 @@ class TestKnowledgeMoundDelegates:
 
         result = await arena._fetch_knowledge_context("test task", limit=5)
 
-        arena._km_manager.fetch_context.assert_called_once_with("test task", 5)
+        arena._km_manager.fetch_context.assert_called_once_with("test task", 5, auth_context=None)
         assert result == "knowledge context"
 
     @pytest.mark.asyncio
@@ -371,8 +371,8 @@ class TestOutputDelegates:
     """Tests for output formatting delegation methods."""
 
     def test_format_conclusion_delegates(self, arena, mock_result):
-        """Test _format_conclusion delegates to orchestrator_output."""
-        with patch("aragora.debate.orchestrator_output.format_conclusion") as mock_format:
+        """Test _format_conclusion delegates to orchestrator_setup."""
+        with patch("aragora.debate.orchestrator_setup.format_conclusion") as mock_format:
             mock_format.return_value = "Formatted conclusion"
 
             result = arena._format_conclusion(mock_result)
@@ -382,8 +382,8 @@ class TestOutputDelegates:
 
     @pytest.mark.asyncio
     async def test_translate_conclusions_delegates(self, arena, mock_result):
-        """Test _translate_conclusions delegates to orchestrator_output."""
-        with patch("aragora.debate.orchestrator_output.translate_conclusions") as mock_translate:
+        """Test _translate_conclusions delegates to orchestrator_setup."""
+        with patch("aragora.debate.orchestrator_setup.translate_conclusions") as mock_translate:
             mock_translate.return_value = None
 
             await arena._translate_conclusions(mock_result)

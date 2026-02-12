@@ -146,6 +146,7 @@ def default_params() -> dict[str, Any]:
         "supermemory_outcome_container_tag": None,
         "supermemory_enable_privacy_filter": True,
         "supermemory_enable_resilience": True,
+        "supermemory_enable_km_adapter": True,
     }
 
 

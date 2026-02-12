@@ -328,7 +328,7 @@ SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise wr
             else:
                 # Sequential verification
                 for contribution in contributions:
-                    result = await self.verify_step(
+                    step_result = await self.verify_step(
                         step_content=contribution.get("content", ""),
                         round_number=round_number,
                         agent_id=contribution.get("agent_id", "unknown"),
@@ -336,7 +336,7 @@ SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise wr
                         dependencies=contribution.get("dependencies", []),
                         query_fn=query_fn,
                     )
-                    step_results.append(result)
+                    step_results.append(step_result)
 
             # Update prior context for next round
             prior_context += f"\n\nRound {round_number}:\n"

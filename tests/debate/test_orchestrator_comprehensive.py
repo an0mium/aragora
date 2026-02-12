@@ -247,9 +247,8 @@ class TestFabricIntegration:
             MockAgent(name="fabric-agent-2"),
         ]
 
-        with patch.object(
-            Arena,
-            "_get_fabric_agents_sync",
+        with patch(
+            "aragora.debate.orchestrator_agents.get_fabric_agents_sync",
             return_value=[
                 MockAgent(name="fabric-agent-1"),
                 MockAgent(name="fabric-agent-2"),

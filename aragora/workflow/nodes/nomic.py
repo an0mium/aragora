@@ -308,7 +308,7 @@ class NomicLoopStep(BaseStep):
                         NomicState.IMPLEMENT, create_implement_handler(implement_phase)
                     )
                 if "verify" in phases:
-                    machine.register_handler(NomicState.VERIFY, create_verify_handler(verify_phase))
+                    machine.register_handler(NomicState.VERIFY, create_verify_handler(verify_phase, repo_path=repo_path))
                 if "commit" in phases:
                     machine.register_handler(NomicState.COMMIT, create_commit_handler(commit_phase))
 

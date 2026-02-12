@@ -1258,7 +1258,8 @@ class TestUpdateRoleAssignments:
         arena.roles_manager.current_role_assignments = {"agent1": mock_assignment}
         arena.roles_manager.update_role_assignments = MagicMock()
 
-        with patch("aragora.debate.orchestrator.logger") as mock_logger:
+        mock_logger = MagicMock()
+        with patch("aragora.logging_config.get_logger", return_value=mock_logger):
             arena._update_role_assignments(round_num=1)
 
             # Verify debug logging was called
@@ -1389,24 +1390,14 @@ class TestCriticalMethodsIntegration:
         mock_result.participants = ["agent1", "agent2", "agent3"]
         mock_result.winner = "agent2"
 
-        # Mock the beads module that is imported inside the function
-        mock_bead_module = MagicMock()
-        mock_store = MagicMock()
-        mock_store.initialize = AsyncMock()
-        mock_store.create = AsyncMock(return_value="bead-xyz-789")
-        mock_bead_module.BeadStore.return_value = mock_store
+        # Mock the orchestrator_hooks function that creates debate beads
+        with patch("aragora.debate.orchestrator_hooks.create_debate_bead") as mock_create_bead:
+            mock_create_bead.return_value = "bead-xyz-789"
 
-        mock_bead = MagicMock()
-        mock_bead_module.Bead.create.return_value = mock_bead
-        mock_bead_module.BeadPriority.HIGH = "HIGH"
-        mock_bead_module.BeadPriority.NORMAL = "NORMAL"
-        mock_bead_module.BeadPriority.LOW = "LOW"
-        mock_bead_module.BeadType.DEBATE_DECISION = "DEBATE_DECISION"
-
-        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_bead_module}):
             bead_id = await arena._create_debate_bead(mock_result)
 
             assert bead_id == "bead-xyz-789"
+            mock_create_bead.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_full_context_gathering_pipeline(self, arena):

@@ -26,6 +26,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+def patch_arena(*args, **kwargs):
+    """Patch `aragora.Arena` even when it's lazily exported."""
+    kwargs.setdefault("create", True)
+    return patch("aragora.Arena", *args, **kwargs)
+
+
+def patch_environment(*args, **kwargs):
+    """Patch `aragora.Environment` even when it's lazily exported."""
+    kwargs.setdefault("create", True)
+    return patch("aragora.Environment", *args, **kwargs)
+
+
+def patch_debate_protocol(*args, **kwargs):
+    """Patch `aragora.DebateProtocol` even when it's lazily exported."""
+    kwargs.setdefault("create", True)
+    return patch("aragora.DebateProtocol", *args, **kwargs)
+
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -180,9 +198,9 @@ class TestDebateStepExecution:
             create=True,
         ):
             with patch("aragora.agents.create_agent", return_value=mock_agent) as mock_create:
-                with patch("aragora.Arena", return_value=mock_arena):
-                    with patch("aragora.Environment") as mock_env:
-                        with patch("aragora.DebateProtocol") as mock_protocol:
+                with patch_arena( return_value=mock_arena):
+                    with patch_environment() as mock_env:
+                        with patch_debate_protocol() as mock_protocol:
                             step = DebateStep(
                                 name="Test Debate",
                                 config={
@@ -229,9 +247,9 @@ class TestDebateStepExecution:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Debate With Responses",
                             config={
@@ -273,9 +291,9 @@ class TestDebateStepExecution:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Truncation Test",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -309,9 +327,9 @@ class TestDebateStepExecution:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Max Responses",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -330,8 +348,8 @@ class TestDebateStepExecution:
             "aragora.agents.create_agent",
             side_effect=RuntimeError("Agent unavailable"),
         ):
-            with patch("aragora.Environment"):
-                with patch("aragora.DebateProtocol"):
+            with patch_environment():
+                with patch_debate_protocol():
                     step = DebateStep(
                         name="All Agents Fail",
                         config={
@@ -376,9 +394,9 @@ class TestDebateStepExecution:
         mock_arena.run = AsyncMock(return_value=mock_result)
 
         with patch("aragora.agents.create_agent", side_effect=selective_create):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Partial Failure",
                             config={
@@ -426,9 +444,9 @@ class TestDebateStepExecution:
         mock_arena.run = AsyncMock(side_effect=RuntimeError("Arena crashed"))
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Exception Test",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -468,9 +486,9 @@ class TestDebateStepExecution:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         result = await step.execute(ctx)
 
         assert result["success"] is True
@@ -507,9 +525,9 @@ class TestDebateStepProtocolConfig:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol") as mock_proto_cls:
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol() as mock_proto_cls:
                         step = DebateStep(
                             name="Protocol Test",
                             config={
@@ -569,9 +587,9 @@ class TestDebateStepProtocolConfig:
         mock_field_3.name = "enable_knowledge_retrieval"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", mock_arena_cls):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( mock_arena_cls):
+                with patch_environment():
+                    with patch_debate_protocol():
                         with patch(
                             "aragora.debate.arena_config.ArenaConfig",
                             mock_arena_config_cls,
@@ -623,9 +641,9 @@ class TestDebateStepProtocolConfig:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena) as mock_arena_cls:
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena) as mock_arena_cls:
+                with patch_environment():
+                    with patch_debate_protocol():
                         with patch(
                             "aragora.debate.arena_config.ArenaConfig",
                             side_effect=Exception("Bad config"),
@@ -675,9 +693,9 @@ class TestDebateStepProtocolConfig:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", mock_arena_cls):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( mock_arena_cls):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Timeout Test",
                             config={
@@ -716,9 +734,9 @@ class TestDebateStepProtocolConfig:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", mock_arena_cls):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( mock_arena_cls):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Default Timeout",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -764,9 +782,9 @@ class TestDebateStepMemory:
         mock_km = MagicMock(name="KnowledgeMound")
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", mock_arena_cls):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( mock_arena_cls):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="KM Injection",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -803,9 +821,9 @@ class TestDebateStepMemory:
         mock_cm = MagicMock(name="ContinuumMemory")
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", mock_arena_cls):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( mock_arena_cls):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="CM Injection",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -840,9 +858,9 @@ class TestDebateStepMemory:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", mock_arena_cls):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( mock_arena_cls):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="No Memory",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -881,9 +899,9 @@ class TestDebateStepMemory:
         mock_cm = MagicMock(name="ContinuumMemory")
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", mock_arena_cls):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( mock_arena_cls):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Both Memory",
                             config={"topic": "Test", "agents": ["claude"]},
@@ -1626,9 +1644,9 @@ class TestExecutionInterpolation:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment") as mock_env:
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment() as mock_env:
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Topic Interp",
                             config={
@@ -1690,9 +1708,9 @@ class TestExecutionInterpolation:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="State Interp",
                             config={
@@ -1727,9 +1745,9 @@ class TestExecutionInterpolation:
         mock_agent.model = "model"
 
         with patch("aragora.agents.create_agent", return_value=mock_agent):
-            with patch("aragora.Arena", return_value=mock_arena):
-                with patch("aragora.Environment"):
-                    with patch("aragora.DebateProtocol"):
+            with patch_arena( return_value=mock_arena):
+                with patch_environment():
+                    with patch_debate_protocol():
                         step = DebateStep(
                             name="Step Output Interp",
                             config={

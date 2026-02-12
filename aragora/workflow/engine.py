@@ -269,13 +269,13 @@ class WorkflowEngine:
             try:
                 context.event_callback(event_name, payload)
             except Exception as exc:
-                logger.debug("Workflow event callback failed: %s", exc)
+                logger.debug(f"Workflow event callback failed: {exc}")
 
         if self._config.trace_callback:
             try:
                 self._config.trace_callback(event_name, payload)
             except Exception as exc:
-                logger.debug("Workflow trace callback failed: %s", exc)
+                logger.debug(f"Workflow trace callback failed: {exc}")
 
     # =========================================================================
     # Main Execution
