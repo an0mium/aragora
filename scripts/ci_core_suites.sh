@@ -16,8 +16,8 @@ pytest -q \
   tests/ranking/test_calibration_engine.py \
   tests/knowledge/test_mound_core.py \
   tests/knowledge/test_knowledge_pipeline.py::TestKnowledgePipelineIntegration::test_full_pipeline_text_input \
-  tests/pipeline/test_decision_integrity.py::TestBuildDecisionIntegrityPackage::test_sign_receipt_option_signs_and_verifies \
-  tests/server/test_decision_integrity_utils.py::test_build_payload_forwards_sign_receipt \
+  tests/pipeline/test_decision_integrity.py::TestBuildDecisionIntegrityPackage::test_defaults_include_receipt_and_plan \
+  tests/server/test_decision_integrity_utils.py::test_build_payload_executes_hybrid \
   tests/connectors/chat/test_chat_base.py \
   tests/connectors/chat/test_base.py \
   tests/connectors/chat/test_chat_base_defaults.py
