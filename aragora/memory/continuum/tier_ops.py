@@ -415,6 +415,7 @@ class TierOpsMixin:
         self: ContinuumMemory,
         tier: MemoryTier | None = None,
         archive: bool = True,
+        tenant_id: str | None = None,
     ) -> dict[str, int]:
         """
         Enforce max entries per tier by removing lowest importance entries.
@@ -425,11 +426,12 @@ class TierOpsMixin:
         Args:
             tier: Specific tier to enforce (None = all tiers)
             archive: If True, archive excess; if False, delete permanently
+            tenant_id: If provided, only enforce limits for this tenant
 
         Returns:
             Dict with counts of removed entries by tier
         """
-        return _stats.enforce_tier_limits(self, tier, archive)
+        return _stats.enforce_tier_limits(self, tier, archive, tenant_id)
 
     def get_archive_stats(self: ContinuumMemory) -> dict[str, Any]:
         """Get statistics about archived memories."""
