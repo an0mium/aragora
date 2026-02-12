@@ -494,6 +494,7 @@ class TestCapabilityProbe:
             role=role,
         )
 
+    @pytest.mark.no_auto_auth
     def test_capability_probe_requires_permission(self, auditing_handler):
         """Test capability probe requires admin:audit permission."""
         mock_handler = MockHandler(body={"agent_name": "test-agent"})
@@ -582,6 +583,7 @@ class TestDeepAudit:
             role=role,
         )
 
+    @pytest.mark.no_auto_auth
     def test_deep_audit_requires_permission(self, auditing_handler):
         """Test deep audit requires admin:audit permission."""
         mock_handler = MockHandler(body={"task": "Test task"})
@@ -639,6 +641,7 @@ class TestRedTeamAnalysis:
             role=role,
         )
 
+    @pytest.mark.no_auto_auth
     def test_red_team_requires_permission(self, auditing_handler):
         """Test red team analysis requires admin:audit permission."""
         mock_handler = MockHandler(body={})
@@ -790,6 +793,7 @@ class TestInvalidDebateId:
                 assert result.status_code == 400
 
 
+@pytest.mark.no_auto_auth
 class TestUnauthorized:
     """Tests for unauthenticated access."""
 

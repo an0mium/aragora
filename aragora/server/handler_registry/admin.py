@@ -286,6 +286,9 @@ SmartUploadHandler = _safe_import(
 )
 PartnerHandler = _safe_import("aragora.server.handlers.partner", "PartnerHandler")
 
+# Playground (public demo)
+PlaygroundHandler = _safe_import("aragora.server.handlers.playground", "PlaygroundHandler")
+
 # Autonomous handlers
 AlertHandler = _safe_import("aragora.server.handlers.autonomous.alerts", "AlertHandler")
 ApprovalHandler = _safe_import("aragora.server.handlers.autonomous.approvals", "ApprovalHandler")
@@ -464,6 +467,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_gastown_dashboard_handler", GasTownDashboardHandler),
     ("_connector_management_handler", ConnectorManagementHandler),
     ("_task_execution_handler", TaskExecutionHandler),
+    # Playground (public demo)
+    ("_playground_handler", PlaygroundHandler),
 ]
 
 __all__ = [
@@ -602,6 +607,8 @@ __all__ = [
     "GasTownDashboardHandler",
     "ConnectorManagementHandler",
     "TaskExecutionHandler",
+    # Playground
+    "PlaygroundHandler",
     # Handler result
     "HandlerResult",
     # Registry

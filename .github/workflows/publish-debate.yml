@@ -1,7 +1,8 @@
-name: Publish aragora-debate to PyPI
+name: "[DEPRECATED] Publish aragora-debate to PyPI"
 
-# Publishes `aragora-debate` from aragora-debate/.
-# Manual dispatch only to prevent accidental publishes.
+# DEPRECATED: Use publish-aragora-debate.yml instead, which supports both
+# tag-based triggers (aragora-debate-v*) and manual workflow_dispatch.
+# This workflow is retained for backwards compatibility.
 
 on:
   workflow_dispatch:
