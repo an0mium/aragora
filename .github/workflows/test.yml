@@ -238,6 +238,46 @@ jobs:
         env:
           PYTHONPATH: .
 
+  test-pollution-randomized:
+    name: Randomized Order Pollution Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: test-fast
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [1337, 4242, 9001]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research,test]"
+          pip install pytest-timeout pytest-xdist pytest-randomly
+
+      - name: Run randomized-order guard (seed=${{ matrix.seed }})
+        run: |
+          pytest tests/debate tests/agents tests/server \
+            -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
+            --timeout=120 \
+            -n auto \
+            --dist loadscope \
+            --maxfail=1 \
+            -p randomly \
+            --randomly-seed=${{ matrix.seed }} \
+            -v \
+            --tb=short
+        env:
+          PYTHONPATH: .
+
   golden-paths:
     name: Golden Path Smoke
     runs-on: ubuntu-latest

@@ -50,6 +50,45 @@ jobs:
         run: bash scripts/test_tiers.sh lint
         shell: bash
 
+  connector-exception-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: Connector Exception Hygiene
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run connector exception guard
+        run: python scripts/check_connector_exception_handling.py
+
+  agent-registry-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: Agent Registry Sync
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Check AGENTS registry sync
+        run: python scripts/check_agent_registry_sync.py
+
   typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
