@@ -43,7 +43,7 @@ class MessagingMixin:
     @abstractmethod
     def platform_name(self) -> str:
         """Return the platform identifier (e.g., 'slack', 'teams', 'discord')."""
-        raise NotImplementedError
+        ...
 
     # ==========================================================================
     # Message Operations

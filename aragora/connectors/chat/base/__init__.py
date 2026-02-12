@@ -112,13 +112,13 @@ class ChatPlatformConnector(
     @abstractmethod
     def platform_name(self) -> str:
         """Return the platform identifier (e.g., 'slack', 'teams', 'discord')."""
-        raise NotImplementedError
+        ...
 
     @property
     @abstractmethod
     def platform_display_name(self) -> str:
         """Return human-readable platform name (e.g., 'Microsoft Teams')."""
-        raise NotImplementedError
+        ...
 
     # ==========================================================================
     # Utility Methods

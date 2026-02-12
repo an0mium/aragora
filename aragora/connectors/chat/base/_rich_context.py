@@ -34,7 +34,7 @@ class RichContextMixin:
     @abstractmethod
     def platform_name(self) -> str:
         """Return the platform identifier."""
-        raise NotImplementedError
+        ...
 
     # ==========================================================================
     # Channel Context for Deliberation

@@ -32,7 +32,7 @@ class WebhookMixin:
     @abstractmethod
     def platform_name(self) -> str:
         """Return the platform identifier."""
-        raise NotImplementedError
+        ...
 
     # ==========================================================================
     # Webhook Handling
