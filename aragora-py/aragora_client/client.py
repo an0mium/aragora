@@ -59,7 +59,6 @@ from aragora_client.types import (
 )
 from aragora_client.workflows import WorkflowsAPI
 
-
 _DEPRECATION_WARNED = False
 
 
@@ -69,8 +68,8 @@ def _warn_deprecated_once() -> None:
         return
     _DEPRECATION_WARNED = True
     warnings.warn(
-        "aragora-client is deprecated. Use aragora-sdk instead (pip install aragora-sdk, "
-        "import aragora_sdk).",
+        "aragora-client is deprecated. Use aragora-sdk instead "
+        "(pip install aragora-sdk, import aragora_sdk).",
         FutureWarning,
         stacklevel=3,
     )
