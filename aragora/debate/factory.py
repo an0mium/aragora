@@ -248,6 +248,12 @@ class ArenaFactory:
         """
         # Import Arena here to avoid circular import
         from aragora.debate.orchestrator import Arena
+        from aragora.debate.arena_config import (
+            AgentConfig as _AgentConfig,
+            MemoryConfig as _MemoryConfig,
+            ObservabilityConfig as _ObservabilityConfig,
+            StreamingConfig as _StreamingConfig,
+        )
 
         # Auto-create components if requested and not provided
         if enable_position_tracking and position_tracker is None:
@@ -262,33 +268,47 @@ class ArenaFactory:
         if enable_critique_patterns and memory is None:
             memory = self.create_critique_store()
 
-        return Arena(
-            environment=environment,
-            agents=agents,
-            protocol=protocol,
-            memory=memory,
-            event_hooks=event_hooks,
-            event_emitter=event_emitter,
-            spectator=spectator,
-            debate_embeddings=debate_embeddings,
-            insight_store=insight_store,
-            recorder=recorder,
+        # Use config objects to avoid deprecation warnings on individual params
+        agent_cfg = _AgentConfig(
             agent_weights=agent_weights,
             position_tracker=position_tracker,
             position_ledger=position_ledger,
             elo_system=elo_system,
             persona_manager=persona_manager,
+            calibration_tracker=calibration_tracker,
+            relationship_tracker=relationship_tracker,
+            circuit_breaker=circuit_breaker,
+        )
+        memory_cfg = _MemoryConfig(
+            memory=memory,
+            continuum_memory=continuum_memory,
+            debate_embeddings=debate_embeddings,
+            insight_store=insight_store,
             dissent_retriever=dissent_retriever,
             flip_detector=flip_detector,
-            calibration_tracker=calibration_tracker,
-            continuum_memory=continuum_memory,
-            relationship_tracker=relationship_tracker,
             moment_detector=moment_detector,
+        )
+        streaming_cfg = _StreamingConfig(
+            event_hooks=event_hooks,
+            event_emitter=event_emitter,
+            spectator=spectator,
+            recorder=recorder,
             loop_id=loop_id,
             strict_loop_scoping=strict_loop_scoping,
-            circuit_breaker=circuit_breaker,
-            initial_messages=initial_messages,
+        )
+        observability_cfg = _ObservabilityConfig(
             trending_topic=trending_topic,
+            initial_messages=initial_messages,
+        )
+
+        return Arena.create(
+            environment=environment,
+            agents=agents,
+            protocol=protocol,
+            agent_config=agent_cfg,
+            memory_config=memory_cfg,
+            streaming_config=streaming_cfg,
+            observability_config=observability_cfg,
         )
 
 

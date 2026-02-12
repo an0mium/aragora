@@ -320,6 +320,19 @@ class MemoryConfig:
     rlm_summary_level: str = "SUMMARY"  # Abstraction level
     rlm_compression_round_threshold: int = 3  # Auto-compression after N rounds
 
+    # Supermemory (external cross-session memory)
+    enable_supermemory: bool = False  # Master switch (opt-in)
+    supermemory_adapter: Any | None = None  # Pre-configured adapter
+    supermemory_inject_on_start: bool = True  # Inject context at debate start
+    supermemory_max_context_items: int = 10  # Max items to inject
+    supermemory_context_container_tag: str | None = None  # Container tag for context
+    supermemory_sync_on_conclusion: bool = True  # Persist outcomes after debate
+    supermemory_min_confidence_for_sync: float = 0.7  # Min confidence for sync
+    supermemory_outcome_container_tag: str | None = None  # Container tag for outcomes
+    supermemory_enable_privacy_filter: bool = True  # Filter PII before sync
+    supermemory_enable_resilience: bool = True  # Retry on transient failures
+    supermemory_enable_km_adapter: bool = False  # Auto-enable KM adapter
+
     # Checkpointing
     checkpoint_manager: Any | None = None  # CheckpointManager for resume
     enable_checkpointing: bool = True  # Auto-create CheckpointManager

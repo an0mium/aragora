@@ -762,6 +762,73 @@ class Arena(ArenaDelegatesMixin):
             observability_config=observability_config,
         )
 
+    @classmethod
+    def create(
+        cls,
+        environment: Environment,
+        agents: list[Agent],
+        protocol: Optional[DebateProtocol] = None,
+        *,
+        config: Optional[ArenaConfig] = None,
+        debate_config: Optional["DebateConfig"] = None,
+        agent_config: Optional["AgentConfig"] = None,
+        memory_config: Optional["MemoryConfig"] = None,
+        streaming_config: Optional["StreamingConfig"] = None,
+        observability_config: Optional["ObservabilityConfig"] = None,
+    ) -> "Arena":
+        """Create an Arena with a clean, consolidated interface.
+
+        This is the recommended entry point for new code. It accepts at most
+        10 parameters -- the three positional core args plus up to six optional
+        config objects -- and delegates to ``__init__`` after unpacking.
+
+        The ``config`` parameter (ArenaConfig) is a legacy catch-all.  When
+        provided alongside the typed config objects, the typed objects win for
+        any overlapping fields.
+
+        Example::
+
+            arena = Arena.create(
+                environment=env,
+                agents=agents,
+                debate_config=DebateConfig(rounds=5),
+                memory_config=MemoryConfig(enable_supermemory=True),
+            )
+
+        Args:
+            environment: The debate environment (task, context).
+            agents: List of participating agents.
+            protocol: Optional debate protocol override.
+            config: Legacy ArenaConfig (flat kwargs).  Fields are used as
+                defaults; typed config objects take precedence.
+            debate_config: Debate protocol settings.
+            agent_config: Agent pool, selection, and resilience settings.
+            memory_config: Memory stores, KM, supermemory, RLM settings.
+            streaming_config: Event hooks, spectator, skills settings.
+            observability_config: Telemetry, billing, ML, workflow settings.
+
+        Returns:
+            A fully initialized Arena instance.
+        """
+        # Start from ArenaConfig kwargs (if provided) as the base layer
+        base_kwargs: dict[str, Any] = {}
+        if config is not None:
+            base_kwargs = config.to_arena_kwargs()
+
+        # Typed config objects override the flat ArenaConfig values
+        base_kwargs["debate_config"] = debate_config
+        base_kwargs["agent_config"] = agent_config
+        base_kwargs["memory_config"] = memory_config
+        base_kwargs["streaming_config"] = streaming_config
+        base_kwargs["observability_config"] = observability_config
+
+        return cls(
+            environment=environment,
+            agents=agents,
+            protocol=protocol,
+            **base_kwargs,
+        )
+
     # =========================================================================
     # Initialization Helpers (thin delegates to extracted modules)
     # =========================================================================

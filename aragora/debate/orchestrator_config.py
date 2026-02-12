@@ -7,6 +7,7 @@ function for readability.
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -436,6 +437,25 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         rlm_compression_round_threshold = memory_config.rlm_compression_round_threshold
         checkpoint_manager = memory_config.checkpoint_manager or checkpoint_manager
         enable_checkpointing = memory_config.enable_checkpointing
+        # Supermemory params from MemoryConfig
+        if hasattr(memory_config, "enable_supermemory"):
+            enable_supermemory = memory_config.enable_supermemory
+            supermemory_adapter = memory_config.supermemory_adapter or supermemory_adapter
+            supermemory_inject_on_start = memory_config.supermemory_inject_on_start
+            supermemory_max_context_items = memory_config.supermemory_max_context_items
+            supermemory_context_container_tag = (
+                memory_config.supermemory_context_container_tag
+                or supermemory_context_container_tag
+            )
+            supermemory_sync_on_conclusion = memory_config.supermemory_sync_on_conclusion
+            supermemory_min_confidence_for_sync = memory_config.supermemory_min_confidence_for_sync
+            supermemory_outcome_container_tag = (
+                memory_config.supermemory_outcome_container_tag
+                or supermemory_outcome_container_tag
+            )
+            supermemory_enable_privacy_filter = memory_config.supermemory_enable_privacy_filter
+            supermemory_enable_resilience = memory_config.supermemory_enable_resilience
+            supermemory_enable_km_adapter = memory_config.supermemory_enable_km_adapter
 
     # Merge StreamingConfig
     if streaming_config is not None:
@@ -490,6 +510,67 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         enable_post_debate_workflow = observability_config.enable_post_debate_workflow
         post_debate_workflow_threshold = observability_config.post_debate_workflow_threshold
         initial_messages = observability_config.initial_messages or initial_messages
+
+    # Emit deprecation warnings when individual params are used for groups
+    # that belong in config objects. Only warn when no config object was provided
+    # (if a config object IS provided, the merge above already handles precedence).
+    _SUPERMEMORY_PARAMS = (
+        "enable_supermemory", "supermemory_adapter", "supermemory_inject_on_start",
+        "supermemory_max_context_items", "supermemory_context_container_tag",
+        "supermemory_sync_on_conclusion", "supermemory_min_confidence_for_sync",
+        "supermemory_outcome_container_tag", "supermemory_enable_privacy_filter",
+        "supermemory_enable_resilience", "supermemory_enable_km_adapter",
+    )
+    _RLM_PARAMS = (
+        "use_rlm_limiter", "rlm_limiter", "rlm_compression_threshold",
+        "rlm_max_recent_messages", "rlm_summary_level", "rlm_compression_round_threshold",
+    )
+    _CROSS_DEBATE_PARAMS = ("cross_debate_memory", "enable_cross_debate_memory")
+
+    _SM_DEFAULTS = {
+        "enable_supermemory": False, "supermemory_adapter": None,
+        "supermemory_inject_on_start": True, "supermemory_max_context_items": 10,
+        "supermemory_context_container_tag": None, "supermemory_sync_on_conclusion": True,
+        "supermemory_min_confidence_for_sync": 0.7, "supermemory_outcome_container_tag": None,
+        "supermemory_enable_privacy_filter": True, "supermemory_enable_resilience": True,
+        "supermemory_enable_km_adapter": False,
+    }
+    _RLM_DEFAULTS = {
+        "use_rlm_limiter": True, "rlm_limiter": None, "rlm_compression_threshold": 3000,
+        "rlm_max_recent_messages": 5, "rlm_summary_level": "SUMMARY",
+        "rlm_compression_round_threshold": 3,
+    }
+    _CD_DEFAULTS = {"cross_debate_memory": None, "enable_cross_debate_memory": True}
+
+    local_vars = locals()
+    if memory_config is None:
+        for name in _SUPERMEMORY_PARAMS:
+            if local_vars.get(name) != _SM_DEFAULTS.get(name):
+                warnings.warn(
+                    "Pass supermemory_* params via MemoryConfig instead of individual kwargs. "
+                    "Individual supermemory params are deprecated.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                break
+        for name in _RLM_PARAMS:
+            if local_vars.get(name) != _RLM_DEFAULTS.get(name):
+                warnings.warn(
+                    "Pass rlm_* params via MemoryConfig instead of individual kwargs. "
+                    "Individual RLM params are deprecated.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                break
+        for name in _CROSS_DEBATE_PARAMS:
+            if local_vars.get(name) != _CD_DEFAULTS.get(name):
+                warnings.warn(
+                    "Pass cross_debate_memory params via MemoryConfig instead of individual kwargs. "
+                    "Individual cross-debate memory params are deprecated.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                break
 
     # Store all resolved values
     cfg.protocol = protocol

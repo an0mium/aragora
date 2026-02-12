@@ -198,6 +198,203 @@ class TestArenaFromConfig:
         assert arena.checkpoint_manager is not None
 
 
+class TestArenaCreate:
+    """Tests for Arena.create() factory classmethod."""
+
+    def test_create_minimal(self):
+        """Arena.create() works with minimal args."""
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1"), MockAgent(name="a2")]
+
+        arena = Arena.create(env, agents)
+
+        assert arena is not None
+        assert isinstance(arena, Arena)
+
+    def test_create_with_debate_config(self):
+        """Arena.create() applies DebateConfig to provided protocol."""
+        from aragora.debate.arena_config import DebateConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        protocol = DebateProtocol(rounds=3, consensus="majority")
+        dc = DebateConfig(rounds=7, consensus_threshold=0.9)
+
+        arena = Arena.create(env, agents, protocol=protocol, debate_config=dc)
+
+        assert arena.protocol.rounds == 7
+
+    def test_create_with_memory_config(self):
+        """Arena.create() applies MemoryConfig fields."""
+        from aragora.debate.arena_config import MemoryConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        mc = MemoryConfig(
+            enable_cross_debate_memory=False,
+            enable_knowledge_retrieval=False,
+            rlm_compression_threshold=9999,
+        )
+
+        arena = Arena.create(env, agents, memory_config=mc)
+
+        assert arena.enable_cross_debate_memory is False
+        assert arena.enable_knowledge_retrieval is False
+        assert arena.rlm_compression_threshold == 9999
+
+    def test_create_with_memory_config_supermemory(self):
+        """Arena.create() passes supermemory fields through MemoryConfig."""
+        from aragora.debate.arena_config import MemoryConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        mock_adapter = MagicMock()
+        mc = MemoryConfig(
+            enable_supermemory=True,
+            supermemory_adapter=mock_adapter,
+            supermemory_max_context_items=20,
+        )
+
+        arena = Arena.create(env, agents, memory_config=mc)
+
+        # With an adapter provided, the knowledge_manager won't disable supermemory
+        assert arena.enable_supermemory is True
+        assert arena.supermemory_max_context_items == 20
+
+    def test_create_with_agent_config(self):
+        """Arena.create() applies AgentConfig."""
+        from aragora.debate.arena_config import AgentConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        ac = AgentConfig(use_airlock=True)
+
+        arena = Arena.create(env, agents, agent_config=ac)
+
+        # use_airlock is consumed during init; check it was wired through
+        assert arena is not None
+
+    def test_create_with_streaming_config(self):
+        """Arena.create() applies StreamingConfig."""
+        from aragora.debate.arena_config import StreamingConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        sc = StreamingConfig(loop_id="loop-42", strict_loop_scoping=True)
+
+        arena = Arena.create(env, agents, streaming_config=sc)
+
+        assert arena.loop_id == "loop-42"
+        assert arena.strict_loop_scoping is True
+
+    def test_create_with_observability_config(self):
+        """Arena.create() applies ObservabilityConfig."""
+        from aragora.debate.arena_config import ObservabilityConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        oc = ObservabilityConfig(org_id="org-abc", user_id="user-xyz")
+
+        arena = Arena.create(env, agents, observability_config=oc)
+
+        assert arena.org_id == "org-abc"
+        assert arena.user_id == "user-xyz"
+
+    def test_create_with_arena_config_base(self):
+        """Arena.create() uses ArenaConfig as base layer."""
+        from aragora.debate.arena_config import ArenaConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        config = ArenaConfig(loop_id="base-loop", org_id="base-org")
+
+        arena = Arena.create(env, agents, config=config)
+
+        assert arena.loop_id == "base-loop"
+        assert arena.org_id == "base-org"
+
+    def test_create_typed_config_overrides_arena_config(self):
+        """Typed config objects override ArenaConfig base values."""
+        from aragora.debate.arena_config import ArenaConfig, StreamingConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        config = ArenaConfig(loop_id="base-loop")
+        sc = StreamingConfig(loop_id="override-loop")
+
+        arena = Arena.create(env, agents, config=config, streaming_config=sc)
+
+        assert arena.loop_id == "override-loop"
+
+    def test_create_with_protocol(self):
+        """Arena.create() passes protocol through."""
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        protocol = DebateProtocol(rounds=10, consensus="unanimous")
+
+        arena = Arena.create(env, agents, protocol=protocol)
+
+        assert arena.protocol.rounds == 10
+        assert arena.protocol.consensus == "unanimous"
+
+
+class TestDeprecationWarnings:
+    """Tests for deprecation warnings on individual param usage."""
+
+    def test_supermemory_individual_params_warn(self):
+        """Passing supermemory params individually emits DeprecationWarning."""
+        import warnings
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Arena(env, agents, enable_supermemory=True)
+
+        deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        supermemory_warnings = [
+            x for x in deprecation_warnings if "supermemory" in str(x.message).lower()
+        ]
+        assert len(supermemory_warnings) >= 1
+
+    def test_rlm_individual_params_warn(self):
+        """Passing RLM params individually emits DeprecationWarning."""
+        import warnings
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Arena(env, agents, rlm_compression_threshold=5000)
+
+        deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        rlm_warnings = [x for x in deprecation_warnings if "rlm" in str(x.message).lower()]
+        assert len(rlm_warnings) >= 1
+
+    def test_config_object_suppresses_warning(self):
+        """Using MemoryConfig suppresses deprecation warnings."""
+        import warnings
+        from aragora.debate.arena_config import MemoryConfig
+
+        env = Environment(task="Test task")
+        agents = [MockAgent(name="a1")]
+        mc = MemoryConfig(enable_supermemory=True, rlm_compression_threshold=5000)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Arena(env, agents, memory_config=mc)
+
+        deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        memory_group_warnings = [
+            x
+            for x in deprecation_warnings
+            if "supermemory" in str(x.message).lower() or "rlm" in str(x.message).lower()
+        ]
+        assert len(memory_group_warnings) == 0
+
+
 # =============================================================================
 # Fabric Integration Tests
 # =============================================================================
