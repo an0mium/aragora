@@ -650,11 +650,12 @@ async def run_gauntlet_on_diff(
     )
 
     # Merge gauntlet vulnerabilities into findings
-    gauntlet_findings = {
+    vuln_list: list[Any] = []
+    gauntlet_findings: dict[str, Any] = {
         "gauntlet_id": gauntlet_result.gauntlet_id,
         "gauntlet_verdict": gauntlet_result.verdict.value if hasattr(gauntlet_result.verdict, "value") else str(gauntlet_result.verdict),
         "gauntlet_robustness": gauntlet_result.attack_summary.robustness_score if gauntlet_result.attack_summary else 0.0,
-        "gauntlet_vulnerabilities": [],
+        "gauntlet_vulnerabilities": vuln_list,
     }
 
     for vuln in gauntlet_result.vulnerabilities:

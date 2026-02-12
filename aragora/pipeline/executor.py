@@ -287,8 +287,9 @@ class PlanExecutor:
                 channel_targets or meta.get("channel_targets") or meta.get("chat_targets")
             )
             if isinstance(channel_targets, str):
+                ct_str: str = channel_targets
                 channel_targets = [
-                    item.strip() for item in channel_targets.split(",") if item.strip()
+                    item.strip() for item in ct_str.split(",") if item.strip()
                 ]
             thread_id = thread_id or meta.get("thread_id") or meta.get("origin_thread_id")
             if isinstance(meta.get("thread_id_by_platform"), dict):

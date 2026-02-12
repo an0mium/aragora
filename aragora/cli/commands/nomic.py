@@ -407,8 +407,8 @@ def _cmd_history(args: argparse.Namespace) -> None:
                 print(f"      Tests: {cycle.tests_passed} passed, {cycle.tests_failed} failed")
 
             # Error if failed
-            if not cycle.success and cycle.error:
-                print(f"      Error: {cycle.error[:60]}...")
+            if not cycle.success and cycle.error_message:
+                print(f"      Error: {cycle.error_message[:60]}...")
 
             print()
 

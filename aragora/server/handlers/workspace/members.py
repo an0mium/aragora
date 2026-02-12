@@ -93,7 +93,7 @@ class WorkspaceMembersMixin:
                 )
 
             logger.info("workspace_members.list workspace=%s count=%d", workspace_id, len(members))
-            return {"members": members, "total": len(members)}
+            return {"members": members, "total": len(members)}  # type: ignore[return-value]
 
         except m.AccessDeniedException as e:
             return m.error_response(str(e), 403)

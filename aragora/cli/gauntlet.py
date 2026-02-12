@@ -13,7 +13,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from typing import Any
@@ -38,7 +38,7 @@ def _is_server_available(server_url: str) -> bool:
         return False
 
 
-def _build_api_client(server_url: str, api_key: str | None):
+def _build_api_client(server_url: str, api_key: str | None) -> Any:
     """Build an AragoraClient for API-backed runs."""
     from aragora.client import AragoraClient
 

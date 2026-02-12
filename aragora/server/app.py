@@ -12,7 +12,7 @@ Usage:
     uvicorn aragora.server.app:app --reload --port 8081
 
     # Run alongside legacy server (different ports)
-    # Legacy: python -m aragora.server.unified_server --port 8080
+    # Full API + WS: aragora serve --api-port 8080 --ws-port 8765
     # FastAPI: uvicorn aragora.server.app:app --port 8081
 
 The FastAPI server exposes:
