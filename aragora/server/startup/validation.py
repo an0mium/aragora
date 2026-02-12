@@ -269,6 +269,23 @@ def check_production_requirements() -> list[str]:
     agent_warnings = check_agent_credentials()
     warnings.extend(agent_warnings)
 
+    # Check insecure JWT mode (SECURITY: should never be in production)
+    allow_insecure_jwt = os.environ.get(
+        "ARAGORA_ALLOW_INSECURE_JWT", ""
+    ).lower() in ("true", "1", "yes")
+    if allow_insecure_jwt:
+        if is_production:
+            warnings.append(
+                "ARAGORA_ALLOW_INSECURE_JWT is set in production! "
+                "This flag is IGNORED in production but indicates a "
+                "configuration error. Remove it from your production environment."
+            )
+        else:
+            logger.warning(
+                "[SECURITY] ARAGORA_ALLOW_INSECURE_JWT=true - JWTs will be decoded "
+                "without signature verification. This is a security risk."
+            )
+
     # Check demo mode status
     demo_mode = os.environ.get("ARAGORA_DEMO_MODE", "").lower() in ("true", "1", "yes")
     if demo_mode:
