@@ -8,6 +8,8 @@ on:
       - 'tests/**'
       - 'pyproject.toml'
       - 'package*.json'
+      - 'scripts/check_pentest_findings.py'
+      - 'security/pentest/findings.json'
       - '.github/workflows/security.yml'
   pull_request:
     branches: [main]
@@ -16,6 +18,8 @@ on:
       - 'tests/**'
       - 'pyproject.toml'
       - 'package*.json'
+      - 'scripts/check_pentest_findings.py'
+      - 'security/pentest/findings.json'
   schedule:
     # Run weekly on Sundays at midnight UTC
     - cron: '0 0 * * 0'
@@ -204,6 +208,23 @@ jobs:
         if: steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure'
         run: |
           echo "::warning::NPM dependency vulnerabilities detected. Review npm audit results."
+
+  pentest-findings:
+    name: Pentest Findings Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check unresolved pentest findings
+        run: python scripts/check_pentest_findings.py --file security/pentest/findings.json
 
   rbac-coverage:
     name: RBAC Coverage Check

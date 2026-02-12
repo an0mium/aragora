@@ -91,7 +91,7 @@ def cmd_receipt_verify(args: argparse.Namespace) -> None:
         print(f"Algorithm: {algorithm}")
 
         # Verify
-        is_valid = verify_receipt_signature(receipt, signature, algorithm)
+        is_valid = verify_receipt_signature(receipt, signature, algorithm)  # type: ignore[call-arg,arg-type]
 
         if is_valid:
             print("\n\u2713 Signature VALID")
