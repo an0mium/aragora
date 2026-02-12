@@ -12,6 +12,20 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/docs',
+        destination: 'https://docs.aragora.ai',
+        permanent: false,
+      },
+      {
+        source: '/docs/:path*',
+        destination: 'https://docs.aragora.ai/docs/:path*',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
     return [

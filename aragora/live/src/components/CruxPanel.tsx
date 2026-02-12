@@ -128,7 +128,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
     } finally {
       setLoading(false);
     }
-  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, tokens?.access_token]);
 
   const handleExport = useCallback(async (format: 'json' | 'graphml' | 'csv') => {
     if (!debateId.trim() || !tokens?.access_token) return;

@@ -45,12 +45,6 @@ export function OperationalModesPanel({
   const [expandedMode, setExpandedMode] = useState<string | null>(null);
 
   const fetchModes = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -71,7 +65,7 @@ export function OperationalModesPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, tokens?.access_token]);
 
   useEffect(() => {
     fetchModes();
