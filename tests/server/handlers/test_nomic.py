@@ -923,28 +923,27 @@ class TestNomicRBACPermissions:
 
     @pytest.mark.asyncio
     async def test_handle_requires_nomic_read_permission(self, nomic_handler_forbidden):
-        """GET handle should require nomic:read permission."""
+        """GET handle is now public (no permission required for dashboard data)."""
         handler, tmp_path = nomic_handler_forbidden
         mock_request = MockHTTPHandler("GET")
 
         result = await handler.handle("/api/v1/nomic/state", {}, mock_request)
 
+        # Nomic endpoints are now public for dashboard access
         assert result is not None
-        assert result.status_code == 403
-        body = json.loads(result.body)
-        assert "error" in body
-        assert "Permission denied" in body["error"]
+        assert result.status_code != 403  # No longer permission-gated
 
     @pytest.mark.asyncio
     async def test_handle_returns_401_when_unauthorized(self, nomic_handler_unauthorized):
-        """GET handle should return 401 when not authenticated."""
+        """GET handle is now public (no auth required for dashboard data)."""
         handler, tmp_path = nomic_handler_unauthorized
         mock_request = MockHTTPHandler("GET")
 
         result = await handler.handle("/api/v1/nomic/state", {}, mock_request)
 
+        # Nomic endpoints are now public for dashboard access
         assert result is not None
-        assert result.status_code == 401
+        assert result.status_code != 401  # No longer auth-gated
 
     @pytest.mark.asyncio
     async def test_handle_post_requires_nomic_admin_permission(self, nomic_handler_forbidden):

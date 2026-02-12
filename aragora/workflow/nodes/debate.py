@@ -187,8 +187,8 @@ class DebateStep(BaseStep):
                         "rounds": protocol.rounds,
                     },
                 )
-            except Exception:
-                pass
+            except (ImportError, AttributeError, TypeError) as exc:
+                logger.debug("Failed to emit debate start event: %s", exc)
 
             result = await arena.run()
 
@@ -238,8 +238,8 @@ class DebateStep(BaseStep):
                         "execution_time_ms": output.get("execution_time_ms"),
                     },
                 )
-            except Exception:
-                pass
+            except (ImportError, AttributeError, TypeError) as exc:
+                logger.debug("Failed to emit debate complete event: %s", exc)
 
             logger.info(f"Debate '{self.name}' completed. Consensus: {output['consensus_reached']}")
             return output

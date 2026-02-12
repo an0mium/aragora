@@ -66,7 +66,7 @@ def _normalize_ip(ip_value: str) -> str:
 
         if type(builtins.isinstance) is not types.BuiltinFunctionType:
             return str(ip_value).strip()
-    except Exception:
+    except (ImportError, AttributeError, TypeError):
         return str(ip_value).strip()
 
     try:
@@ -177,7 +177,7 @@ def normalize_rate_limit_path(path: str) -> str:
             if not safe.startswith("/"):
                 safe = "/" + safe
             return safe.lower()
-    except Exception:
+    except (ImportError, AttributeError, TypeError):
         safe = str(path)
         if not safe.startswith("/"):
             safe = "/" + safe

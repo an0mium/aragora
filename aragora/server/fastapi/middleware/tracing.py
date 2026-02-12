@@ -48,7 +48,7 @@ class TracingMiddleware(BaseHTTPMiddleware):
             request.state.trace_id = ctx.trace_id
             request.state.request_id = ctx.request_id
             request.state.span_id = ctx.span_id
-        except Exception:
+        except ImportError:
             # Fall back to minimal timing-only behavior if correlation setup fails
             pass
 
@@ -71,7 +71,7 @@ class TracingMiddleware(BaseHTTPMiddleware):
                 response.headers[SPAN_ID_HEADER] = ctx.span_id
                 if ctx.parent_span_id:
                     response.headers[PARENT_SPAN_HEADER] = ctx.parent_span_id
-            except Exception:
-                logger.debug("Failed to set tracing headers", exc_info=True)
+            except (ImportError, AttributeError, KeyError) as exc:
+                logger.debug("Failed to set tracing headers: %s", exc)
 
         return response

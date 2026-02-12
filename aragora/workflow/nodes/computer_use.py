@@ -187,11 +187,11 @@ class ComputerUseTaskStep(BaseStep):
                             "policy_reason": getattr(step_result, "policy_reason", None),
                         },
                     )
-                except Exception:
-                    pass
+                except (ImportError, AttributeError, TypeError) as exc:
+                    logger.debug("Failed to emit computer_use step event: %s", exc)
 
             computer_config.on_step_complete = _on_step_complete
-        except Exception:
+        except ImportError:
             pass
 
         executor = PlaywrightActionExecutor(executor_config)

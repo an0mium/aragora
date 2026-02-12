@@ -95,7 +95,8 @@ class ImplementationStep(BaseStep):
                     from aragora.pipeline.decision_plan import ImplementationProfile
 
                     profile = ImplementationProfile.from_dict(profile_payload)
-                except Exception:
+                except (ImportError, ValueError, TypeError, KeyError) as exc:
+                    logger.debug("Failed to parse ImplementationProfile: %s", exc)
                     profile = None
 
             task = ImplementTask(

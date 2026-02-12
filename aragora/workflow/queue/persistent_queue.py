@@ -231,7 +231,7 @@ class PersistentTaskQueue(TaskQueue):
 
             # Then enqueue in memory
             return await super().enqueue(task)
-        except Exception:
+        except (sqlite3.Error, OSError, RuntimeError):
             success = False
             raise
         finally:

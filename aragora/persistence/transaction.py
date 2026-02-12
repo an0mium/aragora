@@ -285,7 +285,7 @@ class TransactionManager:
             # Check connection is open and responsive
             await conn.fetchval("SELECT 1")
             return True
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             logger.warning(f"Connection validation failed: {e}")
             return False
 
@@ -463,13 +463,13 @@ class TransactionManager:
             self._stats.savepoints_released += 1
             logger.debug(f"Savepoint '{name}' released")
 
-        except Exception:
+        except BaseException:
             # Rollback to savepoint on error
             try:
                 await conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
                 self._stats.savepoints_rolled_back += 1
                 logger.debug(f"Rolled back to savepoint '{name}'")
-            except Exception as rollback_error:
+            except (ConnectionError, OSError, RuntimeError) as rollback_error:
                 logger.error(f"Failed to rollback savepoint '{name}': {rollback_error}")
             raise
 

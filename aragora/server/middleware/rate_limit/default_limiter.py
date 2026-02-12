@@ -91,7 +91,7 @@ def determine_auth_tier(handler: Any) -> tuple[str, str]:
         if not getattr(auth_ctx, "is_authenticated", True):
             return "public", fallback_key
 
-    except Exception:
+    except (ImportError, AttributeError, ValueError, TypeError):
         pass
 
     return "public", fallback_key

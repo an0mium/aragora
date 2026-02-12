@@ -222,7 +222,7 @@ class TestActionExecution:
             json={
                 "session_id": "sess-1",
                 "action_type": "shell",
-                "params": {"command": "echo hello world"},
+                "input_data": {"command": "echo hello world"},
             },
         )
 
@@ -272,7 +272,7 @@ class TestActionExecution:
         assert result.success is True
         call_payload = mock_client._post.call_args[1]["json"]
         assert call_payload["action_type"] == "shell"
-        assert call_payload["params"] == {"command": "ls -la"}
+        assert call_payload["input_data"] == {"command": "ls -la"}
 
     def test_execute_file_read(self, api: OpenClawAPI, mock_client: MagicMock):
         """Test execute_file_read delegates with file_read action type."""
@@ -288,7 +288,7 @@ class TestActionExecution:
         assert result.success is True
         call_payload = mock_client._post.call_args[1]["json"]
         assert call_payload["action_type"] == "file_read"
-        assert call_payload["params"] == {"path": "/tmp/test.txt"}
+        assert call_payload["input_data"] == {"path": "/tmp/test.txt"}
 
     def test_execute_file_write(self, api: OpenClawAPI, mock_client: MagicMock):
         """Test execute_file_write delegates with file_write action type and content."""
@@ -303,7 +303,7 @@ class TestActionExecution:
         assert result.success is True
         call_payload = mock_client._post.call_args[1]["json"]
         assert call_payload["action_type"] == "file_write"
-        assert call_payload["params"] == {"path": "/tmp/out.txt", "content": "new content"}
+        assert call_payload["input_data"] == {"path": "/tmp/out.txt", "content": "new content"}
 
     def test_execute_browser(self, api: OpenClawAPI, mock_client: MagicMock):
         """Test execute_browser delegates with browser action type."""
@@ -319,7 +319,7 @@ class TestActionExecution:
         assert result.success is True
         call_payload = mock_client._post.call_args[1]["json"]
         assert call_payload["action_type"] == "browser"
-        assert call_payload["params"] == {"url": "https://example.com", "action": "navigate"}
+        assert call_payload["input_data"] == {"url": "https://example.com", "action": "navigate"}
 
     def test_execute_browser_default_action(self, api: OpenClawAPI, mock_client: MagicMock):
         """Test execute_browser uses navigate as default action."""
@@ -332,7 +332,7 @@ class TestActionExecution:
         api.execute_browser("sess-1", "https://example.com")
 
         call_payload = mock_client._post.call_args[1]["json"]
-        assert call_payload["params"]["action"] == "navigate"
+        assert call_payload["input_data"]["action"] == "navigate"
 
 
 # ============================================================================

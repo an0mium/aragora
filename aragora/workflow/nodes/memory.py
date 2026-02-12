@@ -70,8 +70,8 @@ class MemoryReadStep(BaseStep):
                     payload["error"] = error
                 payload.update(extra)
                 context.emit_event(StreamEventType.WORKFLOW_MEMORY_READ.value, payload)
-            except Exception:
-                pass
+            except (ImportError, AttributeError, TypeError) as exc:
+                logger.debug("Failed to emit memory read event: %s", exc)
 
         # Build query from template and context
         query_template = config.get("query", "")
@@ -215,8 +215,8 @@ class MemoryWriteStep(BaseStep):
                     payload["error"] = error
                 payload.update(extra)
                 context.emit_event(StreamEventType.WORKFLOW_MEMORY_WRITE.value, payload)
-            except Exception:
-                pass
+            except (ImportError, AttributeError, TypeError) as exc:
+                logger.debug("Failed to emit memory write event: %s", exc)
 
         # Build content from template and context
         content_template = config.get("content", "")

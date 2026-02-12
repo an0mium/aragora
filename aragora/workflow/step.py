@@ -258,7 +258,7 @@ class AgentStep(BaseStep):
             from aragora.reasoning.sampling.power_sampling import DefaultScorer
 
             return DefaultScorer()
-        except Exception:
+        except ImportError:
             return None
 
     async def _execute_with_power_sampling(
@@ -369,7 +369,7 @@ class AgentStep(BaseStep):
                 if scorer is not None:
                     try:
                         score = await scorer.score(response, prompt)
-                    except Exception:
+                    except (ValueError, TypeError, RuntimeError):
                         score = None
 
                 return {"agent_type": agent_type, "response": response, "score": score}
@@ -384,7 +384,7 @@ class AgentStep(BaseStep):
                 if candidate.get("score") is None and candidate.get("response"):
                     try:
                         candidate["score"] = await scorer.score(candidate["response"], prompt)
-                    except Exception:
+                    except (ValueError, TypeError, RuntimeError):
                         candidate["score"] = 0.0
 
         best = candidates[0]

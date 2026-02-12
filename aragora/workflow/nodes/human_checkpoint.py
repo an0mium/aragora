@@ -333,8 +333,8 @@ class HumanCheckpointStep(BaseStep):
                     "escalation_emails": request.escalation_emails,
                 },
             )
-        except Exception:
-            pass
+        except (ImportError, AttributeError, TypeError) as exc:
+            logger.debug("Failed to emit approval required event: %s", exc)
 
         # Store request ID in context for external resolution
         context.set_state(f"approval_request_{self.name}", request.id)
@@ -361,8 +361,8 @@ class HumanCheckpointStep(BaseStep):
                         "responded_at": result.get("responded_at"),
                     },
                 )
-            except Exception:
-                pass
+            except (ImportError, AttributeError, TypeError) as exc:
+                logger.debug("Failed to emit approval received event: %s", exc)
             return result
         except asyncio.TimeoutError:
             # Handle timeout
@@ -399,8 +399,8 @@ class HumanCheckpointStep(BaseStep):
                         "escalated_to": request.escalation_emails,
                     },
                 )
-            except Exception:
-                pass
+            except (ImportError, AttributeError, TypeError) as exc:
+                logger.debug("Failed to emit approval timeout event: %s", exc)
 
             return {
                 "status": "timeout",
