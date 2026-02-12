@@ -11,7 +11,7 @@ when further debate rounds are unlikely to change the outcome.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Iterable
 import logging
 
 import numpy as np
@@ -38,6 +38,16 @@ class StabilityResult:
     muse_gated: bool = False  # True if MUSE disagreement blocked stopping
     ascot_gated: bool = False  # True if ASCoT fragility blocked stopping
     beta_binomial_prob: float = 0.0  # Beta-Binomial stability probability
+
+
+@dataclass
+class AgreementStabilityResult:
+    """Backward-compatible agreement stability result shape."""
+
+    stability: float
+    agreement_score: float
+    successes: int
+    total: int
 
 
 @dataclass
@@ -86,16 +96,60 @@ class BetaBinomialStabilityDetector:
                 break
     """
 
-    def __init__(self, config: Optional[StabilityConfig] = None):
+    def __init__(
+        self,
+        config: Optional[StabilityConfig] = None,
+        agreement_threshold: Optional[float] = None,
+        alpha_prior: Optional[float] = None,
+        beta_prior: Optional[float] = None,
+    ):
         """Initialize the stability detector.
 
         Args:
             config: Configuration options. Uses defaults if not provided.
+            agreement_threshold: Optional threshold for agreement-score success.
+            alpha_prior: Optional alpha prior for compatibility calculations.
+            beta_prior: Optional beta prior for compatibility calculations.
         """
         self.config = config or StabilityConfig()
+        self.agreement_threshold = (
+            agreement_threshold if agreement_threshold is not None else 0.75
+        )
+        self.alpha_prior = alpha_prior if alpha_prior is not None else self.config.alpha_prior
+        self.beta_prior = beta_prior if beta_prior is not None else self.config.beta_prior
         self._vote_history: list[dict[str, float]] = []
         self._stable_since: Optional[int] = None
         self._stability_scores: list[float] = []
+
+    def calculate_stability(
+        self, agreement_scores: Iterable[float]
+    ) -> AgreementStabilityResult:
+        """
+        Compute a simple beta-binomial posterior over agreement scores.
+
+        This method is kept for compatibility with existing callers in
+        ConsensusEstimator and unit tests.
+        """
+        scores = list(agreement_scores)
+        if not scores:
+            return AgreementStabilityResult(
+                stability=0.0,
+                agreement_score=0.0,
+                successes=0,
+                total=0,
+            )
+
+        successes = sum(1 for score in scores if score >= self.agreement_threshold)
+        total = len(scores)
+        posterior_mean = (self.alpha_prior + successes) / (
+            self.alpha_prior + self.beta_prior + total
+        )
+        return AgreementStabilityResult(
+            stability=posterior_mean,
+            agreement_score=scores[-1],
+            successes=successes,
+            total=total,
+        )
 
     def update(
         self,

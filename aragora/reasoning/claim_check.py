@@ -10,6 +10,30 @@ from aragora.evidence.collector import EvidencePack, EvidenceSnippet
 
 _BULLET_RE = re.compile(r"^\s*[-*]\s+(.*)$")
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "to",
+    "was",
+    "were",
+    "with",
+}
 
 
 @dataclass
@@ -63,7 +87,7 @@ class ClaimCheck:
 
     def _tokenize(self, text: str) -> set[str]:
         tokens = re.findall(r"[A-Za-z0-9']+", text.lower())
-        return {t for t in tokens if len(t) > 1}
+        return {t for t in tokens if len(t) > 1 and t not in _STOPWORDS}
 
     def _extract_numbers(self, text: str) -> set[str]:
         return set(_NUMBER_RE.findall(text))
