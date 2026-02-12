@@ -230,6 +230,12 @@ NOMIC_AUTO_CONTINUE = os.environ.get("NOMIC_AUTO_CONTINUE", "1") == "1"
 # Cycle-level hard timeout in seconds (default 2 hours)
 NOMIC_MAX_CYCLE_SECONDS = int(os.environ.get("NOMIC_MAX_CYCLE_SECONDS", "7200"))
 
+# Total execution timeout across all cycles (default 1 hour; 0 = unlimited)
+NOMIC_MAX_TOTAL_SECONDS = int(os.environ.get("NOMIC_MAX_TOTAL_SECONDS", "3600"))
+
+# Maximum estimated cost in USD before aborting (default $100; 0 = unlimited)
+NOMIC_MAX_COST_USD = float(os.environ.get("NOMIC_MAX_COST_USD", "100.0"))
+
 # Stall detection threshold in seconds (default 30 minutes)
 NOMIC_STALL_THRESHOLD = int(os.environ.get("NOMIC_STALL_THRESHOLD", "1800"))
 
@@ -1704,6 +1710,7 @@ class NomicLoop:
         self.disable_rollback = disable_rollback
         self.max_cycle_seconds = max_cycle_seconds
         self.cycle_count = 0
+        self._estimated_cost_usd = 0.0  # Accumulated estimated API cost
         self.history = []
 
         # Circuit breaker for agent reliability
@@ -9924,14 +9931,26 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                 self.phase_recovery.record_success("verify")
             except PhaseError as e:
                 self._log(f"PHASE TIMEOUT: Verification phase exceeded timeout: {e}")
+                self._log("  [SAFETY] Verify timeout triggers immediate rollback — no more fix iterations.")
                 verify_result = {"all_passed": False, "checks": [], "error": str(e)}
                 cycle_result["phases"]["verify"] = verify_result
+                cycle_result["outcome"] = "verify_timeout"
                 self.phase_recovery.record_failure("verify", e)
+                if not self.disable_rollback and backup_path:
+                    self._log("  Restoring from backup...")
+                    self._restore_backup(backup_path)
+                return cycle_result
             except Exception as e:
                 self._log(f"PHASE CRASH: Verification phase failed: {e}")
-                # Treat as failed verification, continue to next fix iteration
+                self._log("  [SAFETY] Verify crash triggers immediate rollback — no more fix iterations.")
                 verify_result = {"all_passed": False, "checks": [], "error": str(e)}
                 cycle_result["phases"]["verify"] = verify_result
+                cycle_result["outcome"] = "verify_crash"
+                self.phase_recovery.record_failure("verify", e)
+                if not self.disable_rollback and backup_path:
+                    self._log("  Restoring from backup...")
+                    self._restore_backup(backup_path)
+                return cycle_result
                 self.phase_recovery.record_failure("verify", e)
 
             if verify_result.get("all_passed"):
@@ -10762,8 +10781,28 @@ Working directory: {self.aragora_path}
         except Exception as e:
             self._log(f"[maintenance] Startup maintenance failed (non-fatal): {e}")
 
+        _loop_start = datetime.now()
+
         try:
             while self.cycle_count < self.max_cycles:
+                # Total execution timeout check
+                if NOMIC_MAX_TOTAL_SECONDS > 0:
+                    elapsed = (datetime.now() - _loop_start).total_seconds()
+                    if elapsed > NOMIC_MAX_TOTAL_SECONDS:
+                        self._log(
+                            f"\n[SAFETY] Total timeout exceeded: {elapsed:.0f}s > {NOMIC_MAX_TOTAL_SECONDS}s"
+                        )
+                        self._log("  Aborting loop. Set NOMIC_MAX_TOTAL_SECONDS=0 to disable.")
+                        break
+
+                # Cost budget check
+                if NOMIC_MAX_COST_USD > 0 and self._estimated_cost_usd > NOMIC_MAX_COST_USD:
+                    self._log(
+                        f"\n[SAFETY] Cost budget exceeded: ${self._estimated_cost_usd:.2f} > ${NOMIC_MAX_COST_USD:.2f}"
+                    )
+                    self._log("  Aborting loop. Set NOMIC_MAX_COST_USD=0 to disable.")
+                    break
+
                 result = await self.run_cycle()
 
                 self._log(f"\nCycle {self.cycle_count} outcome: {result.get('outcome')}")

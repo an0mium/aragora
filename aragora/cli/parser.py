@@ -54,6 +54,7 @@ from aragora.cli.commands.decide import (
     cmd_plans_execute,
 )
 from aragora.cli.commands.testfixer import build_parser as build_testfixer_parser
+from aragora.cli.commands.quickstart import add_quickstart_parser
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
@@ -139,6 +140,7 @@ Examples:
     _add_costs_parser(subparsers)
     _add_verify_parser(subparsers)
     _add_healthcare_parser(subparsers)
+    add_quickstart_parser(subparsers)
 
     return parser
 
