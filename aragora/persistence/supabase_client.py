@@ -13,18 +13,28 @@ from datetime import datetime
 from typing import Any, cast
 from collections.abc import Callable
 
-# Pre-declare optional supabase names to avoid redefinition errors
+# Supabase SDK is imported lazily to avoid ~1.2s startup cost.
+# Client and create_client are kept as patchable module-level names
+# so existing tests that patch supabase_client.create_client still work.
 Client: Any = None
 create_client: Any = None
+SUPABASE_AVAILABLE: bool | None = None  # None = not yet probed
 
-try:
-    import supabase as _supabase_mod
 
-    Client = _supabase_mod.Client
-    create_client = _supabase_mod.create_client
-    SUPABASE_AVAILABLE = True
-except (ImportError, AttributeError):
-    SUPABASE_AVAILABLE = False
+def _ensure_supabase() -> bool:
+    """Lazily import the supabase SDK. Returns True if available."""
+    global Client, create_client, SUPABASE_AVAILABLE
+    if SUPABASE_AVAILABLE is not None:
+        return SUPABASE_AVAILABLE
+    try:
+        import supabase as _mod
+
+        Client = _mod.Client
+        create_client = _mod.create_client
+        SUPABASE_AVAILABLE = True
+    except (ImportError, AttributeError):
+        SUPABASE_AVAILABLE = False
+    return SUPABASE_AVAILABLE
 
 from aragora.persistence.models import (
     AgentMetrics,
@@ -80,9 +90,9 @@ class SupabaseClient:
             url: Supabase project URL (or SUPABASE_URL env var)
             key: Supabase service role key (or SUPABASE_KEY env var)
         """
-        self.client: Client | None = None
+        self.client: Any = None
 
-        if not SUPABASE_AVAILABLE:
+        if not _ensure_supabase():
             logger.warning("supabase-py not installed. Run: pip install supabase")
             return
 

@@ -114,7 +114,8 @@ class TricksterConfig:
         # sensitivity 0.5 -> threshold 0.5 (balanced)
         # sensitivity 1.0 -> threshold 0.2 (very sensitive)
         if self.sensitivity != 0.5:  # Only adjust if sensitivity was changed from default
-            self.hollow_detection_threshold = 0.8 - (self.sensitivity * 0.6)
+            # Round to stabilize exact-value expectations in config tests.
+            self.hollow_detection_threshold = round(0.8 - (self.sensitivity * 0.6), 10)
 
 
 @dataclass

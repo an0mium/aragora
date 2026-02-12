@@ -18,151 +18,123 @@ See settings.py for the full validated configuration schema.
 # Re-export legacy constants for backward compatibility
 # Suppress deprecation warning for this internal re-export; the warning should
 # only fire when external code imports aragora.config.legacy directly.
-import warnings as _warnings
-
-with _warnings.catch_warnings():
-    _warnings.simplefilter("ignore", DeprecationWarning)
-    from .legacy import (  # noqa: F401
-    AGENT_TIMEOUT_SECONDS,
-    BELIEF_CONVERGENCE_THRESHOLD,
-    # Belief Network
-    BELIEF_MAX_ITERATIONS,
-    CACHE_TTL_AGENT_FLIPS,
-    CACHE_TTL_AGENT_H2H,
-    # Cache TTLs - Agent Data
-    CACHE_TTL_AGENT_PROFILE,
-    CACHE_TTL_AGENT_REPUTATION,
-    CACHE_TTL_ALL_REPUTATIONS,
-    # Cache TTLs - Analytics
-    CACHE_TTL_ANALYTICS,
-    CACHE_TTL_ANALYTICS_DEBATES,
-    CACHE_TTL_ANALYTICS_MEMORY,
-    CACHE_TTL_ANALYTICS_RANKING,
-    # Cache TTLs - Analytics Dashboard
-    CACHE_TTL_ANALYTICS_OVERVIEW,
-    CACHE_TTL_ANALYTICS_SUMMARY,
-    CACHE_TTL_ANALYTICS_AGENTS,
-    CACHE_TTL_ANALYTICS_COSTS,
-    CACHE_TTL_ARCHIVE_STATS,
-    CACHE_TTL_CALIBRATION_LB,
-    # Cache TTLs - Consensus
-    CACHE_TTL_CONSENSUS,
-    CACHE_TTL_CONSENSUS_SETTLED,
-    CACHE_TTL_CONSENSUS_SIMILAR,
-    CACHE_TTL_CONSENSUS_STATS,
-    CACHE_TTL_CONTRARIAN_VIEWS,
-    CACHE_TTL_CRITIQUE_PATTERNS,
-    CACHE_TTL_CRITIQUE_STATS,
-    # Cache TTLs - Dashboard
-    CACHE_TTL_DASHBOARD_DEBATES,
-    # Cache TTLs - Embeddings
-    CACHE_TTL_EMBEDDINGS,
-    CACHE_TTL_FLIPS_RECENT,
-    CACHE_TTL_FLIPS_SUMMARY,
-    CACHE_TTL_LB_INTROSPECTION,
-    CACHE_TTL_LB_MATCHES,
-    CACHE_TTL_LB_RANKINGS,
-    CACHE_TTL_LB_REPUTATION,
-    CACHE_TTL_LB_STATS,
-    CACHE_TTL_LB_TEAMS,
-    # Cache TTLs - Leaderboard & Rankings
-    CACHE_TTL_LEADERBOARD,
-    CACHE_TTL_LEARNING_EVOLUTION,
-    CACHE_TTL_META_LEARNING,
-    # Cache TTLs - Generic
-    CACHE_TTL_METHOD,
-    CACHE_TTL_QUERY,
-    CACHE_TTL_RECENT_DISSENTS,
-    CACHE_TTL_RECENT_MATCHES,
-    # Cache TTLs - Memory & Learning
-    CACHE_TTL_REPLAYS_LIST,
-    CACHE_TTL_RISK_WARNINGS,
-    CROSS_EXAMINATION_DEPTH,
-    DB_CALIBRATION_PATH,
-    DB_CONSENSUS_PATH,
-    DB_CULTURE_PATH,
-    # Database Paths (legacy)
-    DB_ELO_PATH,
-    DB_GENESIS_PATH,
-    DB_INSIGHTS_PATH,
-    DB_KNOWLEDGE_PATH,
-    DB_LAB_PATH,
-    DB_MEMORY_PATH,
-    DB_MODE,
-    DB_PERSONAS_PATH,
-    DB_POSITIONS_PATH,
-    # Database
-    DB_TIMEOUT_SECONDS,
-    DEBATE_TIMEOUT_SECONDS,
-    # Deep Audit
-    DEEP_AUDIT_ROUNDS,
-    # Agents
-    DEFAULT_AGENTS,
-    DEFAULT_CONSENSUS,
-    DEFAULT_DEBATE_LANGUAGE,
-    DEFAULT_PAGINATION,
-    # Rate Limiting
-    DEFAULT_RATE_LIMIT,
-    # Debate Defaults
-    DEFAULT_ROUNDS,
-    # Storage
-    DEFAULT_STORAGE_DIR,
-    ELO_CALIBRATION_MIN_COUNT,
-    # ELO System
-    ELO_INITIAL_RATING,
-    ELO_K_FACTOR,
-    ENFORCE_RESPONSE_LANGUAGE,
-    HEARTBEAT_INTERVAL_SECONDS,
-    INTER_REQUEST_DELAY_SECONDS,
-    IP_RATE_LIMIT,
-    # State Management Limits
-    MAX_ACTIVE_DEBATES,
-    MAX_ACTIVE_LOOPS,
-    # Debate Limits
-    MAX_AGENTS_PER_DEBATE,
-    # API Limits
-    MAX_API_LIMIT,
-    MAX_CONCURRENT_BRANCHES,
-    MAX_CONCURRENT_CRITIQUES,
-    MAX_CONCURRENT_DEBATES,
-    MAX_CONCURRENT_PROPOSALS,
-    MAX_CONCURRENT_REVISIONS,
-    MAX_CONCURRENT_STREAMING,
-    MAX_CONTENT_LENGTH,
-    MAX_DEBATE_STATES,
-    MAX_EVENT_QUEUE_SIZE,
-    MAX_LOG_BYTES,
-    MAX_QUESTION_LENGTH,
-    MAX_REPLAY_QUEUE_SIZE,
-    MAX_ROUNDS,
-    # Evidence Collection
-    MAX_SNIPPETS_PER_CONNECTOR,
-    MAX_TOTAL_SNIPPETS,
-    NOMIC_DIR,
-    OPENROUTER_INTER_REQUEST_DELAY,
-    PROPOSAL_STAGGER_SECONDS,
-    RISK_THRESHOLD,
-    SHAREABLE_LINK_TTL,
-    SNIPPET_MAX_LENGTH,
-    SSL_CERT_PATH,
-    # SSL/TLS
-    SSL_ENABLED,
-    SSL_KEY_PATH,
-    STREAM_BATCH_SIZE,
-    STREAM_DRAIN_INTERVAL_MS,
-    STREAMING_CAPABLE_AGENTS,
-    # Authentication
-    TOKEN_TTL_SECONDS,
-    USER_EVENT_QUEUE_SIZE,
-    WS_HEARTBEAT_INTERVAL,
-    # WebSocket
-    WS_MAX_MESSAGE_SIZE,
-    ConfigurationError,
-    # Helper functions
-    get_api_key,
-    resolve_db_path,
-    validate_configuration,
-)
+# Legacy constants and helpers are lazily imported via __getattr__ below
+# to avoid pulling in heavy transitive dependencies at package import time.
+_LEGACY_NAMES: set[str] = {
+    "AGENT_TIMEOUT_SECONDS",
+    "BELIEF_CONVERGENCE_THRESHOLD",
+    "BELIEF_MAX_ITERATIONS",
+    "CACHE_TTL_AGENT_FLIPS",
+    "CACHE_TTL_AGENT_H2H",
+    "CACHE_TTL_AGENT_PROFILE",
+    "CACHE_TTL_AGENT_REPUTATION",
+    "CACHE_TTL_ALL_REPUTATIONS",
+    "CACHE_TTL_ANALYTICS",
+    "CACHE_TTL_ANALYTICS_AGENTS",
+    "CACHE_TTL_ANALYTICS_COSTS",
+    "CACHE_TTL_ANALYTICS_DEBATES",
+    "CACHE_TTL_ANALYTICS_MEMORY",
+    "CACHE_TTL_ANALYTICS_OVERVIEW",
+    "CACHE_TTL_ANALYTICS_RANKING",
+    "CACHE_TTL_ANALYTICS_SUMMARY",
+    "CACHE_TTL_ARCHIVE_STATS",
+    "CACHE_TTL_CALIBRATION_LB",
+    "CACHE_TTL_CONSENSUS",
+    "CACHE_TTL_CONSENSUS_SETTLED",
+    "CACHE_TTL_CONSENSUS_SIMILAR",
+    "CACHE_TTL_CONSENSUS_STATS",
+    "CACHE_TTL_CONTRARIAN_VIEWS",
+    "CACHE_TTL_CRITIQUE_PATTERNS",
+    "CACHE_TTL_CRITIQUE_STATS",
+    "CACHE_TTL_DASHBOARD_DEBATES",
+    "CACHE_TTL_EMBEDDINGS",
+    "CACHE_TTL_FLIPS_RECENT",
+    "CACHE_TTL_FLIPS_SUMMARY",
+    "CACHE_TTL_LB_INTROSPECTION",
+    "CACHE_TTL_LB_MATCHES",
+    "CACHE_TTL_LB_RANKINGS",
+    "CACHE_TTL_LB_REPUTATION",
+    "CACHE_TTL_LB_STATS",
+    "CACHE_TTL_LB_TEAMS",
+    "CACHE_TTL_LEADERBOARD",
+    "CACHE_TTL_LEARNING_EVOLUTION",
+    "CACHE_TTL_META_LEARNING",
+    "CACHE_TTL_METHOD",
+    "CACHE_TTL_QUERY",
+    "CACHE_TTL_RECENT_DISSENTS",
+    "CACHE_TTL_RECENT_MATCHES",
+    "CACHE_TTL_REPLAYS_LIST",
+    "CACHE_TTL_RISK_WARNINGS",
+    "CROSS_EXAMINATION_DEPTH",
+    "ConfigurationError",
+    "DB_CALIBRATION_PATH",
+    "DB_CONSENSUS_PATH",
+    "DB_CULTURE_PATH",
+    "DB_ELO_PATH",
+    "DB_GENESIS_PATH",
+    "DB_INSIGHTS_PATH",
+    "DB_KNOWLEDGE_PATH",
+    "DB_LAB_PATH",
+    "DB_MEMORY_PATH",
+    "DB_MODE",
+    "DB_PERSONAS_PATH",
+    "DB_POSITIONS_PATH",
+    "DB_TIMEOUT_SECONDS",
+    "DEBATE_TIMEOUT_SECONDS",
+    "DEEP_AUDIT_ROUNDS",
+    "DEFAULT_AGENTS",
+    "DEFAULT_CONSENSUS",
+    "DEFAULT_DEBATE_LANGUAGE",
+    "DEFAULT_PAGINATION",
+    "DEFAULT_RATE_LIMIT",
+    "DEFAULT_ROUNDS",
+    "DEFAULT_STORAGE_DIR",
+    "ELO_CALIBRATION_MIN_COUNT",
+    "ELO_INITIAL_RATING",
+    "ELO_K_FACTOR",
+    "ENFORCE_RESPONSE_LANGUAGE",
+    "HEARTBEAT_INTERVAL_SECONDS",
+    "INTER_REQUEST_DELAY_SECONDS",
+    "IP_RATE_LIMIT",
+    "MAX_ACTIVE_DEBATES",
+    "MAX_ACTIVE_LOOPS",
+    "MAX_AGENTS_PER_DEBATE",
+    "MAX_API_LIMIT",
+    "MAX_CONCURRENT_BRANCHES",
+    "MAX_CONCURRENT_CRITIQUES",
+    "MAX_CONCURRENT_DEBATES",
+    "MAX_CONCURRENT_PROPOSALS",
+    "MAX_CONCURRENT_REVISIONS",
+    "MAX_CONCURRENT_STREAMING",
+    "MAX_CONTENT_LENGTH",
+    "MAX_DEBATE_STATES",
+    "MAX_EVENT_QUEUE_SIZE",
+    "MAX_LOG_BYTES",
+    "MAX_QUESTION_LENGTH",
+    "MAX_REPLAY_QUEUE_SIZE",
+    "MAX_ROUNDS",
+    "MAX_SNIPPETS_PER_CONNECTOR",
+    "MAX_TOTAL_SNIPPETS",
+    "NOMIC_DIR",
+    "OPENROUTER_INTER_REQUEST_DELAY",
+    "PROPOSAL_STAGGER_SECONDS",
+    "RISK_THRESHOLD",
+    "SHAREABLE_LINK_TTL",
+    "SNIPPET_MAX_LENGTH",
+    "SSL_CERT_PATH",
+    "SSL_ENABLED",
+    "SSL_KEY_PATH",
+    "STREAMING_CAPABLE_AGENTS",
+    "STREAM_BATCH_SIZE",
+    "STREAM_DRAIN_INTERVAL_MS",
+    "TOKEN_TTL_SECONDS",
+    "USER_EVENT_QUEUE_SIZE",
+    "WS_HEARTBEAT_INTERVAL",
+    "WS_MAX_MESSAGE_SIZE",
+    "get_api_key",
+    "resolve_db_path",
+    "validate_configuration",
+}
 from .settings import (
     # Constants
     ALLOWED_AGENT_TYPES,
@@ -203,15 +175,16 @@ from .stability import (
 from .timeouts import Timeouts
 
 # Re-export performance SLO configuration
-from .performance_slos import (
-    SLOConfig,
-    get_slo_config,
-    reset_slo_config,
-    check_latency_slo,
-    LatencySLO,
-    ThroughputSLO,
-    AvailabilitySLO,
-)
+# Performance SLOs are lazily imported via __getattr__ below.
+_SLO_NAMES: set[str] = {
+    "SLOConfig",
+    "get_slo_config",
+    "reset_slo_config",
+    "check_latency_slo",
+    "LatencySLO",
+    "ThroughputSLO",
+    "AvailabilitySLO",
+}
 
 # Re-export configuration validator
 from .validator import (
@@ -227,8 +200,51 @@ def _default_agent_list_from_csv(value: str) -> list[str]:
     return [agent.strip() for agent in value.split(",") if agent.strip()]
 
 
-# Derived defaults (keep in sync with DEFAULT_AGENTS string)
-DEFAULT_AGENT_LIST = _default_agent_list_from_csv(DEFAULT_AGENTS)
+import importlib as _importlib
+from typing import Any as _Any
+
+_legacy_mod = None
+_slo_mod = None
+
+
+def _get_legacy_mod():
+    global _legacy_mod
+    if _legacy_mod is None:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            _legacy_mod = _importlib.import_module("aragora.config.legacy")
+    return _legacy_mod
+
+
+def _get_slo_mod():
+    global _slo_mod
+    if _slo_mod is None:
+        _slo_mod = _importlib.import_module("aragora.config.performance_slos")
+    return _slo_mod
+
+
+def __getattr__(name: str) -> _Any:
+    if name in _LEGACY_NAMES:
+        mod = _get_legacy_mod()
+        value = getattr(mod, name)
+        globals()[name] = value
+        return value
+    if name in _SLO_NAMES:
+        mod = _get_slo_mod()
+        value = getattr(mod, name)
+        globals()[name] = value
+        return value
+    if name == "DEFAULT_AGENT_LIST":
+        val = _default_agent_list_from_csv(__getattr__("DEFAULT_AGENTS"))
+        globals()["DEFAULT_AGENT_LIST"] = val
+        return val
+    raise AttributeError(f"module 'aragora.config' has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _LEGACY_NAMES | _SLO_NAMES | {"DEFAULT_AGENT_LIST"})
+
 
 __all__ = [
     # Main settings

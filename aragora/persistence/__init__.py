@@ -25,7 +25,7 @@ from aragora.persistence.models import (
     NomicCycle,
     StreamEvent,
 )
-from aragora.persistence.supabase_client import SupabaseClient
+# SupabaseClient is lazily imported via __getattr__ below.
 
 __all__ = [
     # Supabase client
@@ -49,3 +49,11 @@ __all__ = [
     "get_insights_db_path",
     "get_genesis_db_path",
 ]
+
+
+def __getattr__(name: str):
+    if name == "SupabaseClient":
+        from aragora.persistence.supabase_client import SupabaseClient
+        globals()["SupabaseClient"] = SupabaseClient
+        return SupabaseClient
+    raise AttributeError(f"module 'aragora.persistence' has no attribute {name!r}")
