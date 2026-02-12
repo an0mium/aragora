@@ -1097,11 +1097,20 @@ class SubsystemCoordinator:
                 },
             )
 
-        confidence = float(
-            getattr(result, "confidence", 0.0) or getattr(result, "consensus_confidence", 0.0)
-        )
-        success = bool(getattr(result, "consensus_reached", False))
-        feedback = getattr(result, "final_answer", "") or getattr(result, "consensus", "")
+        raw_conf = getattr(result, "confidence", None)
+        if not isinstance(raw_conf, (int, float)):
+            raw_conf = getattr(result, "consensus_confidence", None)
+        if not isinstance(raw_conf, (int, float)):
+            raw_conf = 0.0
+        confidence = float(raw_conf)
+        success = bool(getattr(result, "consensus_reached", False) or False)
+        raw_feedback = getattr(result, "final_answer", None)
+        if not isinstance(raw_feedback, str):
+            raw_feedback = None
+        raw_consensus = getattr(result, "consensus", None)
+        if not isinstance(raw_consensus, str):
+            raw_consensus = ""
+        feedback = raw_feedback or raw_consensus
 
         trajectory.set_outcome(
             success=success,

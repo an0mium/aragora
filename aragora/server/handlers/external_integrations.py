@@ -484,7 +484,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         workspace_id = body.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         zapier = self._get_zapier()
         app = zapier.create_app(workspace_id)
@@ -561,11 +561,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         webhook_url = body.get("webhook_url")
 
         if not app_id:
-            return error_response("app_id is required", 400)
+            return error_response("app_id is required", 400, code="MISSING_APP_ID")
         if not trigger_type:
-            return error_response("trigger_type is required", 400)
+            return error_response("trigger_type is required", 400, code="MISSING_TRIGGER_TYPE")
         if not webhook_url:
-            return error_response("webhook_url is required", 400)
+            return error_response("webhook_url is required", 400, code="MISSING_WEBHOOK_URL")
 
         is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
         if not is_valid:
@@ -614,7 +614,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not app_id:
-            return error_response("app_id query parameter is required", 400)
+            return error_response("app_id query parameter is required", 400, code="MISSING_APP_ID")
 
         zapier = self._get_zapier()
 
@@ -698,7 +698,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         workspace_id = body.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         make = self._get_make()
         connection = make.create_connection(workspace_id)
@@ -774,11 +774,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         webhook_url = body.get("webhook_url")
 
         if not conn_id:
-            return error_response("connection_id is required", 400)
+            return error_response("connection_id is required", 400, code="MISSING_CONNECTION_ID")
         if not module_type:
-            return error_response("module_type is required", 400)
+            return error_response("module_type is required", 400, code="MISSING_MODULE_TYPE")
         if not webhook_url:
-            return error_response("webhook_url is required", 400)
+            return error_response("webhook_url is required", 400, code="MISSING_WEBHOOK_URL")
 
         is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
         if not is_valid:
@@ -824,7 +824,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not conn_id:
-            return error_response("connection_id query parameter is required", 400)
+            return error_response("connection_id query parameter is required", 400, code="MISSING_CONNECTION_ID")
 
         make = self._get_make()
 
@@ -912,7 +912,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         workspace_id = body.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         api_url = body.get("api_url")
         if api_url:
@@ -997,9 +997,9 @@ class ExternalIntegrationsHandler(SecureHandler):
         events = body.get("events", [])
 
         if not cred_id:
-            return error_response("credential_id is required", 400)
+            return error_response("credential_id is required", 400, code="MISSING_CREDENTIAL_ID")
         if not events:
-            return error_response("events is required (list of event types)", 400)
+            return error_response("events is required (list of event types)", 400, code="MISSING_EVENTS")
 
         n8n = self._get_n8n()
         webhook = n8n.register_webhook(
@@ -1041,7 +1041,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not cred_id:
-            return error_response("credential_id query parameter is required", 400)
+            return error_response("credential_id query parameter is required", 400, code="MISSING_CREDENTIAL_ID")
 
         n8n = self._get_n8n()
 
@@ -1102,7 +1102,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             )
 
         else:
-            return error_response(f"Unknown platform: {platform}", 400)
+            return error_response(f"Unknown platform: {platform}", 400, code="UNKNOWN_PLATFORM")
 
 
 # =============================================================================

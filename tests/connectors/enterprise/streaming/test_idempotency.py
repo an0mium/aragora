@@ -378,7 +378,7 @@ class TestDuplicateDetectionRedis:
         )
 
         mock_redis = AsyncMock()
-        mock_redis.exists = AsyncMock(side_effect=Exception("Redis connection error"))
+        mock_redis.exists = AsyncMock(side_effect=ConnectionError("Redis connection error"))
 
         tracker = IdempotencyTracker(redis_client=mock_redis)
         fp = tracker.compute_fingerprint(key="key", body="body")
@@ -439,7 +439,7 @@ class TestDuplicateDetectionRedis:
         )
 
         mock_redis = AsyncMock()
-        mock_redis.setex = AsyncMock(side_effect=Exception("Redis error"))
+        mock_redis.setex = AsyncMock(side_effect=ConnectionError("Redis error"))
 
         tracker = IdempotencyTracker(redis_client=mock_redis)
         fp = tracker.compute_fingerprint(key="key", body="body")
@@ -527,9 +527,9 @@ class TestCheckAndMark:
 
         mock_redis = AsyncMock()
         # Both set and exists need to fail for full fallback
-        mock_redis.set = AsyncMock(side_effect=Exception("Redis error"))
-        mock_redis.exists = AsyncMock(side_effect=Exception("Redis error"))
-        mock_redis.setex = AsyncMock(side_effect=Exception("Redis error"))
+        mock_redis.set = AsyncMock(side_effect=ConnectionError("Redis error"))
+        mock_redis.exists = AsyncMock(side_effect=ConnectionError("Redis error"))
+        mock_redis.setex = AsyncMock(side_effect=ConnectionError("Redis error"))
 
         tracker = IdempotencyTracker(redis_client=mock_redis)
         fp = tracker.compute_fingerprint(key="key", body="body")
@@ -799,7 +799,7 @@ class TestErrorHandling:
         )
 
         mock_redis = AsyncMock()
-        mock_redis.set = AsyncMock(side_effect=Exception("Redis error"))
+        mock_redis.set = AsyncMock(side_effect=ConnectionError("Redis error"))
 
         # Redis fails, memory fallback disabled
         tracker = IdempotencyTracker(

@@ -422,7 +422,7 @@ class TestCachedHandlerMixin:
             generator_called.append(True)
             return {"data": "fresh"}
 
-        with patch("aragora.server.handlers.base.get_handler_cache") as mock_cache:
+        with patch("aragora.server.handlers.mixins.get_handler_cache") as mock_cache:
             cache_instance = MagicMock()
             cache_instance.get.return_value = (False, None)  # Cache miss
             mock_cache.return_value = cache_instance
@@ -442,7 +442,7 @@ class TestCachedHandlerMixin:
             generator_called.append(True)
             return {"data": "fresh"}
 
-        with patch("aragora.server.handlers.base.get_handler_cache") as mock_cache:
+        with patch("aragora.server.handlers.mixins.get_handler_cache") as mock_cache:
             cache_instance = MagicMock()
             cache_instance.get.return_value = (True, {"data": "cached"})  # Cache hit
             mock_cache.return_value = cache_instance

@@ -308,8 +308,8 @@ class TestSafeErrorResponse:
 
         parsed = json.loads(result.body)
 
-        # trace_id is inside the nested error object
-        assert "trace_id" in parsed.get("error", {})
+        # trace_id is a top-level field in the response
+        assert "trace_id" in parsed
 
     def test_extracts_trace_from_handler(self):
         """Test extracts trace ID from handler."""
@@ -320,8 +320,8 @@ class TestSafeErrorResponse:
         result = safe_error_response(exc, "test", handler=handler)
 
         parsed = json.loads(result.body)
-        # trace_id is inside the nested error object
-        assert parsed.get("error", {}).get("trace_id") == "test-trace-123"
+        # trace_id is a top-level field in the response
+        assert parsed.get("trace_id") == "test-trace-123"
 
     def test_custom_status(self):
         """Test custom status code."""
@@ -604,7 +604,7 @@ class TestCachedHandlerMixin:
         """Test generator is called on cache miss."""
         generator = MagicMock(return_value={"data": "test"})
 
-        with patch("aragora.server.handlers.base.get_handler_cache") as mock_cache:
+        with patch("aragora.server.handlers.mixins.get_handler_cache") as mock_cache:
             mock_cache.return_value.get.return_value = (False, None)
 
             result = mixin.cached_response("key1", 60, generator)
@@ -617,7 +617,7 @@ class TestCachedHandlerMixin:
         generator = MagicMock()
         cached_value = {"cached": True}
 
-        with patch("aragora.server.handlers.base.get_handler_cache") as mock_cache:
+        with patch("aragora.server.handlers.mixins.get_handler_cache") as mock_cache:
             mock_cache.return_value.get.return_value = (True, cached_value)
 
             result = mixin.cached_response("key1", 60, generator)
@@ -631,7 +631,7 @@ class TestCachedHandlerMixin:
         mock_cache_instance = MagicMock()
         mock_cache_instance.get.return_value = (False, None)
 
-        with patch("aragora.server.handlers.base.get_handler_cache") as mock_cache:
+        with patch("aragora.server.handlers.mixins.get_handler_cache") as mock_cache:
             mock_cache.return_value = mock_cache_instance
             mixin.cached_response("key2", 120, generator)
 
@@ -644,7 +644,7 @@ class TestCachedHandlerMixin:
         async def async_generator():
             return {"async_data": True}
 
-        with patch("aragora.server.handlers.base.get_handler_cache") as mock_cache:
+        with patch("aragora.server.handlers.mixins.get_handler_cache") as mock_cache:
             mock_cache.return_value.get.return_value = (False, None)
 
             result = await mixin.async_cached_response("key3", 60, async_generator)
@@ -757,8 +757,8 @@ class TestBaseHandler:
         params, err = handler.extract_path_params(
             "/api/agents/compare/claude/gpt4",
             [
-                (3, "agent_a", SAFE_AGENT_PATTERN),
-                (4, "agent_b", SAFE_AGENT_PATTERN),
+                (4, "agent_a", SAFE_AGENT_PATTERN),
+                (5, "agent_b", SAFE_AGENT_PATTERN),
             ],
         )
         assert err is None

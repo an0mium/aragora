@@ -205,8 +205,10 @@ class TestSubsystemCoordinatorKMProperties:
         )
         assert coord.has_km_bidirectional is True
 
-        # Only one
-        coord_partial = SubsystemCoordinator(knowledge_mound=Mock())
+        # Only one (disable auto-init of coordinator)
+        coord_partial = SubsystemCoordinator(
+            knowledge_mound=Mock(), enable_km_coordinator=False
+        )
         assert coord_partial.has_km_bidirectional is False
 
     def test_active_km_adapters_count(self):
@@ -311,6 +313,7 @@ class TestSubsystemCoordinatorLifecycle:
         ctx.env = Mock()
         ctx.env.task = "Design a cache system"
         ctx.agents = [Mock(name="claude"), Mock(name="gpt4")]
+        ctx.start_time = 1704067200.0
         return ctx
 
     def test_on_debate_start_resets_moment_detector(self):
@@ -378,8 +381,9 @@ class TestSubsystemCoordinatorLifecycle:
         result = Mock()
         result.consensus = "Use Redis for caching"
         result.consensus_confidence = 0.85
+        result.messages = []
 
-        with patch("aragora.debate.subsystem_coordinator.ConsensusStrength") as mock_strength:
+        with patch("aragora.memory.consensus.ConsensusStrength") as mock_strength:
             mock_strength.STRONG = "strong"
 
             coord.on_debate_complete(ctx, result)
@@ -394,6 +398,7 @@ class TestSubsystemCoordinatorLifecycle:
         ctx = self._create_mock_context()
         result = Mock()
         result.consensus = "Redis"
+        result.messages = []
         result.predictions = {
             "claude": {"prediction": "Redis", "confidence": 0.9},
             "gpt4": {"prediction": "Memcached", "confidence": 0.7},
@@ -412,6 +417,7 @@ class TestSubsystemCoordinatorLifecycle:
         result = Mock()
         result.consensus = "Use Redis"
         result.consensus_confidence = 0.8
+        result.messages = []
 
         with patch("aragora.memory.continuum.MemoryTier") as mock_tier:
             mock_tier.MEDIUM = "medium"
@@ -755,6 +761,7 @@ class TestSubsystemCoordinatorIntegration:
         ctx.env = Mock()
         ctx.env.task = "Design a cache system"
         ctx.agents = [Mock(name="claude"), Mock(name="gpt4")]
+        ctx.start_time = 1704067200.0
         return ctx
 
     def test_full_debate_lifecycle(self):
@@ -781,8 +788,9 @@ class TestSubsystemCoordinatorIntegration:
         result.consensus = "Final decision"
         result.consensus_confidence = 0.9
         result.predictions = {}
+        result.messages = []
 
-        with patch("aragora.debate.subsystem_coordinator.ConsensusStrength") as mock_strength:
+        with patch("aragora.memory.consensus.ConsensusStrength") as mock_strength:
             mock_strength.UNANIMOUS = "unanimous"
             coord.on_debate_complete(ctx, result)
 
@@ -804,6 +812,10 @@ class TestSubsystemCoordinatorIntegration:
         mock_moment_detector = Mock()
         mock_relationship = Mock()
         mock_tier_analytics = Mock()
+        mock_persona_manager = Mock()
+        mock_hook_manager = Mock()
+        mock_hook_handler_registry = Mock()
+        mock_hook_handler_registry.registered_count = 5
 
         coord = SubsystemCoordinator(
             position_tracker=mock_position_tracker,
@@ -817,6 +829,9 @@ class TestSubsystemCoordinatorIntegration:
             moment_detector=mock_moment_detector,
             relationship_tracker=mock_relationship,
             tier_analytics_tracker=mock_tier_analytics,
+            persona_manager=mock_persona_manager,
+            hook_manager=mock_hook_manager,
+            hook_handler_registry=mock_hook_handler_registry,
         )
 
         status = coord.get_status()
@@ -842,6 +857,7 @@ class TestSubsystemCoordinatorIntegration:
         ctx.env = Mock()
         ctx.env.task = "Test"
         ctx.agents = []
+        ctx.start_time = 1704067200.0
 
         # Should not raise
         coord.on_round_complete(ctx, 1, {"agent": "position"})
@@ -850,6 +866,7 @@ class TestSubsystemCoordinatorIntegration:
         result.consensus = "Test"
         result.consensus_confidence = 0.5
         result.predictions = {}
+        result.messages = []
 
         # Should not raise
         coord.on_debate_complete(ctx, result)
@@ -898,6 +915,7 @@ class TestSubsystemCoordinatorEdgeCases:
         ctx.env = Mock()
         ctx.env.task = "Test"
         ctx.agents = []
+        ctx.start_time = 1704067200.0
 
         result = Mock(spec=[])  # No consensus attribute
 
@@ -912,12 +930,14 @@ class TestSubsystemCoordinatorEdgeCases:
         ctx = Mock()
         ctx.debate_id = "debate-123"
         ctx.domain = "test"
+        ctx.start_time = 1704067200.0
 
         result = Mock()
         result.consensus = "Result"
         result.predictions = {
             "agent1": "string_prediction",  # Not a dict
         }
+        result.messages = []
 
         # Should handle gracefully
         coord.on_debate_complete(ctx, result)
@@ -1023,6 +1043,7 @@ class TestConsensusStrengthMapping:
         ctx.env = Mock()
         ctx.env.task = "Test task"
         ctx.agents = agents or [Mock(name="claude")]
+        ctx.start_time = 1704067200.0
         return ctx
 
     def test_unanimous_strength_at_090(self):
@@ -1035,6 +1056,7 @@ class TestConsensusStrengthMapping:
         result.consensus = "Unanimous decision"
         result.consensus_confidence = 0.95
         result.predictions = {}
+        result.messages = []
 
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
             MockStrength.UNANIMOUS = "unanimous"
@@ -1053,6 +1075,7 @@ class TestConsensusStrengthMapping:
         result.consensus = "Strong decision"
         result.consensus_confidence = 0.85
         result.predictions = {}
+        result.messages = []
 
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
             MockStrength.STRONG = "strong"
@@ -1071,6 +1094,7 @@ class TestConsensusStrengthMapping:
         result.consensus = "Moderate decision"
         result.consensus_confidence = 0.65
         result.predictions = {}
+        result.messages = []
 
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
             MockStrength.MODERATE = "moderate"
@@ -1089,6 +1113,7 @@ class TestConsensusStrengthMapping:
         result.consensus = "Weak decision"
         result.consensus_confidence = 0.55
         result.predictions = {}
+        result.messages = []
 
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
             MockStrength.WEAK = "weak"
@@ -1107,6 +1132,7 @@ class TestConsensusStrengthMapping:
         result.consensus = "Split decision"
         result.consensus_confidence = 0.35
         result.predictions = {}
+        result.messages = []
 
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
             MockStrength.SPLIT = "split"
@@ -1396,16 +1422,17 @@ class TestGetStatusDeep:
             km_insights_adapter=Mock(),
             km_critique_adapter=Mock(),
             km_pulse_adapter=Mock(),
+            km_obsidian_adapter=Mock(),
         )
 
         status = coord.get_status()
 
-        assert status["knowledge_mound"]["active_adapters_count"] == 6
+        assert status["knowledge_mound"]["active_adapters_count"] == 7
         assert all(status["knowledge_mound"]["adapters"].values())
 
     def test_get_status_subsystems_all_false_when_empty(self):
         """Test get_status subsystems are all False when coordinator is empty."""
-        coord = SubsystemCoordinator()
+        coord = SubsystemCoordinator(enable_sdpo=False)
 
         status = coord.get_status()
 
@@ -1433,11 +1460,13 @@ class TestOnDebateCompleteDeep:
         ctx.debate_id = "debate-123"
         ctx.env = None
         ctx.agents = []
+        ctx.start_time = 1704067200.0
 
         result = Mock()
         result.consensus = "Decision"
         result.consensus_confidence = 0.75
         result.predictions = {}
+        result.messages = []
 
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
             MockStrength.MODERATE = "moderate"
@@ -1458,11 +1487,13 @@ class TestOnDebateCompleteDeep:
         ctx.env = Mock()
         ctx.env.task = "Test"
         ctx.agents = []
+        ctx.start_time = 1704067200.0
 
         result = Mock()
         result.consensus = "Decision"
         result.consensus_confidence = 0.8
         result.predictions = {}
+        result.messages = []
 
         # Should not raise
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
@@ -1487,6 +1518,7 @@ class TestOnDebateCompleteDeep:
         ctx.env = Mock()
         ctx.env.task = "Design cache"
         ctx.agents = [Mock(name="claude"), Mock(name="gpt4")]
+        ctx.start_time = 1704067200.0
 
         result = Mock()
         result.consensus = "Use Redis"
@@ -1494,6 +1526,7 @@ class TestOnDebateCompleteDeep:
         result.predictions = {
             "claude": {"prediction": "Redis", "confidence": 0.9},
         }
+        result.messages = []
 
         with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
             MockStrength.UNANIMOUS = "unanimous"
@@ -1513,12 +1546,14 @@ class TestOnDebateCompleteDeep:
         ctx = Mock()
         ctx.debate_id = "debate-dict"
         ctx.domain = "tech"
+        ctx.start_time = 1704067200.0
 
         result = Mock()
         result.consensus = "Redis"
         result.predictions = {
             "claude": {"prediction": "Redis", "confidence": 0.9},
         }
+        result.messages = []
 
         coord.on_debate_complete(ctx, result)
 
@@ -1534,12 +1569,14 @@ class TestOnDebateCompleteDeep:
         ctx = Mock()
         ctx.debate_id = "debate-str"
         ctx.domain = "tech"
+        ctx.start_time = 1704067200.0
 
         result = Mock()
         result.consensus = "Memcached"
         result.predictions = {
             "gpt4": "Redis",  # String prediction (not dict)
         }
+        result.messages = []
 
         coord.on_debate_complete(ctx, result)
 

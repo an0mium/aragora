@@ -39,6 +39,18 @@ class MockHandler:
         return self._json_body
 
 
+def _unwrap_method(method):
+    """Walk the full __wrapped__ chain to get the original undecorated function.
+
+    Handlers are decorated with @rate_limit, @require_user_auth, and
+    @handle_errors.  Walking the chain lets tests call the innermost
+    validation logic directly, bypassing auth and rate-limit decorators.
+    """
+    while hasattr(method, "__wrapped__"):
+        method = method.__wrapped__
+    return method
+
+
 @pytest.fixture
 def rlm_handler():
     """Create RLM handler with mock context."""
@@ -217,7 +229,8 @@ class TestQueryDebateRLM:
     def test_returns_400_without_query(self, rlm_handler):
         """Returns 400 when query parameter is missing."""
         mock_handler = MockHandler(_json_body={"strategy": "auto"})
-        result = rlm_handler._query_debate_rlm.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._query_debate_rlm)
+        result = unwrapped(
             rlm_handler, "/api/v1/debates/test-123/query-rlm", mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -227,7 +240,8 @@ class TestQueryDebateRLM:
     def test_returns_400_for_invalid_debate_id(self, rlm_handler):
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler(_json_body={"query": "What was decided?"})
-        result = rlm_handler._query_debate_rlm.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._query_debate_rlm)
+        result = unwrapped(
             rlm_handler, "/api/invalid-path", mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -244,7 +258,8 @@ class TestCompressDebate:
     def test_returns_400_for_invalid_debate_id(self, rlm_handler):
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler(_json_body={})
-        result = rlm_handler._compress_debate.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._compress_debate)
+        result = unwrapped(
             rlm_handler, "/api/invalid-path", mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -285,7 +300,8 @@ class TestGetContextLevel:
     def test_returns_400_for_invalid_debate_id(self, rlm_handler):
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler()
-        result = rlm_handler._get_context_level.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._get_context_level)
+        result = unwrapped(
             rlm_handler, "/api/invalid-path", mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -293,7 +309,8 @@ class TestGetContextLevel:
     def test_returns_400_for_invalid_level(self, rlm_handler):
         """Returns 400 for invalid abstraction level."""
         mock_handler = MockHandler()
-        result = rlm_handler._get_context_level.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._get_context_level)
+        result = unwrapped(
             rlm_handler, "/api/v1/debates/test-123/query-rlm", mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -310,7 +327,8 @@ class TestRefinementStatus:
     def test_returns_400_for_invalid_debate_id(self, rlm_handler):
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler()
-        result = rlm_handler._get_refinement_status.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._get_refinement_status)
+        result = unwrapped(
             rlm_handler, "/api/invalid", mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -318,7 +336,8 @@ class TestRefinementStatus:
     def test_returns_status_for_valid_debate(self, rlm_handler):
         """Returns status for valid debate ID."""
         mock_handler = MockHandler()
-        result = rlm_handler._get_refinement_status.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._get_refinement_status)
+        result = unwrapped(
             rlm_handler, "/api/v1/debates/test-123/refinement-status", mock_handler, user="test"
         )
         assert result.status_code == 200
@@ -339,7 +358,8 @@ class TestKnowledgeQuery:
     def test_returns_400_without_body(self, rlm_handler):
         """Returns 400 when request body is missing."""
         mock_handler = MockHandler(_json_body=None)
-        result = rlm_handler._query_knowledge_rlm.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._query_knowledge_rlm)
+        result = unwrapped(
             rlm_handler, mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -347,7 +367,8 @@ class TestKnowledgeQuery:
     def test_returns_400_without_workspace_id(self, rlm_handler):
         """Returns 400 when workspace_id is missing."""
         mock_handler = MockHandler(_json_body={"query": "What are the requirements?"})
-        result = rlm_handler._query_knowledge_rlm.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._query_knowledge_rlm)
+        result = unwrapped(
             rlm_handler, mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -357,7 +378,8 @@ class TestKnowledgeQuery:
     def test_returns_400_without_query(self, rlm_handler):
         """Returns 400 when query is missing."""
         mock_handler = MockHandler(_json_body={"workspace_id": "ws_123"})
-        result = rlm_handler._query_knowledge_rlm.__wrapped__(
+        unwrapped = _unwrap_method(rlm_handler._query_knowledge_rlm)
+        result = unwrapped(
             rlm_handler, mock_handler, user="test"
         )
         assert result.status_code == 400
@@ -459,12 +481,16 @@ class TestErrorHandling:
 
     def test_status_handles_exception(self, rlm_handler):
         """_get_rlm_status handles exceptions gracefully."""
-        with patch("aragora.server.handlers.features.rlm.logger") as mock_logger:
-            # Force an exception in the status check
-            with patch("builtins.__import__", side_effect=RuntimeError("Test error")):
-                result = rlm_handler._get_rlm_status()
-                # Should still return a response (either success or degraded)
-                assert result.status_code == 200
+        # Force an exception inside _get_rlm_status by making
+        # get_rlm_circuit_breaker_status raise. The outer try/except
+        # catches it and returns a degraded 200 response.
+        with patch(
+            "aragora.server.handlers.features.rlm.get_rlm_circuit_breaker_status",
+            side_effect=RuntimeError("Test error"),
+        ):
+            result = rlm_handler._get_rlm_status()
+            # Should still return a response (degraded status)
+            assert result.status_code == 200
 
     def test_query_handles_not_found(self, rlm_handler):
         """Query returns error when debate not found."""
@@ -474,12 +500,13 @@ class TestErrorHandling:
 
         mock_handler = MockHandler(_json_body={"query": "What was decided?"})
 
+        unwrapped = _unwrap_method(rlm_handler._query_debate_rlm)
         with patch.object(rlm_handler, "_execute_rlm_query", side_effect=mock_query):
             with patch(
                 "aragora.server.handlers.features.rlm._run_async",
                 side_effect=ValueError("Debate test-123 not found"),
             ):
-                result = rlm_handler._query_debate_rlm.__wrapped__(
+                result = unwrapped(
                     rlm_handler,
                     "/api/v1/debates/test-123/query-rlm",
                     mock_handler,

@@ -223,7 +223,7 @@ class TestHandlePostSharedInbox:
     async def test_valid_create(self, handler):
         """Creates inbox with valid data."""
         with patch(
-            "aragora.server.handlers._shared_inbox_handler.handle_create_shared_inbox",
+            "aragora.server.handlers.shared_inbox.handler.handle_create_shared_inbox",
             new_callable=AsyncMock,
         ) as mock_create:
             mock_create.return_value = {
@@ -253,7 +253,7 @@ class TestHandleGetSharedInboxes:
     async def test_valid_list(self, handler):
         """Lists inboxes with valid workspace_id."""
         with patch(
-            "aragora.server.handlers._shared_inbox_handler.handle_list_shared_inboxes",
+            "aragora.server.handlers.shared_inbox.handler.handle_list_shared_inboxes",
             new_callable=AsyncMock,
         ) as mock_list:
             mock_list.return_value = {
@@ -276,7 +276,7 @@ class TestHandleGetSharedInbox:
     async def test_get_inbox_success(self, handler):
         """Gets inbox details successfully."""
         with patch(
-            "aragora.server.handlers._shared_inbox_handler.handle_get_shared_inbox",
+            "aragora.server.handlers.shared_inbox.handler.handle_get_shared_inbox",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = {
@@ -291,7 +291,7 @@ class TestHandleGetSharedInbox:
     async def test_get_inbox_not_found(self, handler):
         """Returns 404 when inbox not found."""
         with patch(
-            "aragora.server.handlers._shared_inbox_handler.handle_get_shared_inbox",
+            "aragora.server.handlers.shared_inbox.handler.handle_get_shared_inbox",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_get.return_value = {
