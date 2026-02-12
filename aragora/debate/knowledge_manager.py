@@ -435,6 +435,8 @@ class ArenaKnowledgeManager:
         """
         if self._knowledge_ops is None:
             return None
+        if auth_context is None:
+            return await self._knowledge_ops.fetch_knowledge_context(task, limit)
         return await self._knowledge_ops.fetch_knowledge_context(
             task, limit, auth_context=auth_context
         )

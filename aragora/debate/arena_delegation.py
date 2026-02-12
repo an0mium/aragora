@@ -206,6 +206,8 @@ class ArenaDelegation:
     ) -> str | None:
         """Fetch knowledge context. Delegates to KnowledgeMoundOperations."""
         if self._knowledge_ops:
+            if auth_context is None:
+                return await self._knowledge_ops.fetch_knowledge_context(task, limit=limit)
             return await self._knowledge_ops.fetch_knowledge_context(
                 task, limit=limit, auth_context=auth_context
             )

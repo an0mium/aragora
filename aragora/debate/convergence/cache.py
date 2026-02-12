@@ -11,6 +11,7 @@ from __future__ import annotations
 import atexit
 import hashlib
 import logging
+import sys
 import threading
 import time
 from collections import OrderedDict
@@ -205,11 +206,38 @@ _similarity_cache_timestamps: dict[str, float] = {}  # Track when each cache was
 _similarity_cache_lock = threading.Lock()
 
 # Cache manager limits
-MAX_SIMILARITY_CACHES = 100  # Maximum concurrent debate caches
+DEFAULT_MAX_SIMILARITY_CACHES = 100
+MAX_SIMILARITY_CACHES = DEFAULT_MAX_SIMILARITY_CACHES  # Maximum concurrent debate caches
 CACHE_MANAGER_TTL_SECONDS = 3600  # 1 hour - cleanup idle caches
 
 # Periodic cleanup configuration
 PERIODIC_CLEANUP_INTERVAL_SECONDS = 600  # 10 minutes
+
+
+def _effective_max_similarity_caches() -> int:
+    """
+    Resolve the active max-cache limit.
+
+    Tests and callers sometimes patch ``aragora.debate.convergence.MAX_SIMILARITY_CACHES``
+    (package re-export). This helper keeps cache-manager behavior aligned with that value.
+    """
+    module_value = MAX_SIMILARITY_CACHES
+
+    # If tests patch the package re-export, prefer that package override.
+    # If not, keep the module-level value (which may itself be patched).
+    try:
+        pkg = sys.modules.get("aragora.debate.convergence")
+        if pkg is not None:
+            patched = getattr(pkg, "MAX_SIMILARITY_CACHES", None)
+            if (
+                isinstance(patched, int)
+                and patched > 0
+                and patched != DEFAULT_MAX_SIMILARITY_CACHES
+            ):
+                return patched
+    except Exception:
+        pass
+    return module_value
 
 
 class _PeriodicCacheCleanup:
@@ -408,13 +436,14 @@ def get_pairwise_similarity_cache(
             return _similarity_cache_manager[session_id]
 
         # At capacity - run cleanup to remove stale caches
-        if len(_similarity_cache_manager) >= MAX_SIMILARITY_CACHES:
+        max_caches = _effective_max_similarity_caches()
+        if len(_similarity_cache_manager) >= max_caches:
             # Release lock temporarily for cleanup (avoid holding lock too long)
             # We'll re-acquire and re-check after cleanup
             pass
 
     # Run cleanup outside the lock to avoid blocking other threads
-    if len(_similarity_cache_manager) >= MAX_SIMILARITY_CACHES:
+    if len(_similarity_cache_manager) >= _effective_max_similarity_caches():
         cleanup_stale_similarity_caches()
 
     with _similarity_cache_lock:
@@ -424,7 +453,8 @@ def get_pairwise_similarity_cache(
             return _similarity_cache_manager[session_id]
 
         # Still at limit after cleanup? Remove oldest cache
-        if len(_similarity_cache_manager) >= MAX_SIMILARITY_CACHES:
+        max_caches = _effective_max_similarity_caches()
+        if len(_similarity_cache_manager) >= max_caches:
             if _similarity_cache_timestamps:
                 oldest_session = min(
                     _similarity_cache_timestamps.items(),
@@ -605,7 +635,7 @@ def get_cache_manager_stats() -> dict[str, Any]:
 
         return {
             "active_caches": len(_similarity_cache_manager),
-            "max_caches": MAX_SIMILARITY_CACHES,
+            "max_caches": _effective_max_similarity_caches(),
             "cache_ttl_seconds": CACHE_MANAGER_TTL_SECONDS,
             "cleanup_interval_seconds": PERIODIC_CLEANUP_INTERVAL_SECONDS,
             "periodic_cleanup": get_periodic_cleanup_stats(),

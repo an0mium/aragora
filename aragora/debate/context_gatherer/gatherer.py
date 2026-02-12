@@ -26,7 +26,7 @@ from .constants import (
     CONTEXT_GATHER_TIMEOUT,
     CODEBASE_CONTEXT_TIMEOUT,
     MAX_CONTEXT_CACHE_SIZE,
-    DISABLE_TRENDING,
+    is_trending_disabled,
     ARAGORA_KEYWORDS,
     get_use_codebase,
 )
@@ -141,8 +141,9 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
         self._max_evidence_context_items = max_evidence_context_items
         self._auth_context = auth_context
 
-        self._enable_trending_context = enable_trending_context and not DISABLE_TRENDING
-        if DISABLE_TRENDING:
+        trending_disabled = is_trending_disabled()
+        self._enable_trending_context = enable_trending_context and not trending_disabled
+        if trending_disabled:
             logger.info(
                 "[pulse] ContextGatherer: Trending context disabled via ARAGORA_DISABLE_TRENDING"
             )

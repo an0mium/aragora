@@ -229,6 +229,13 @@ _EXPORT_MAP = {
     "FragilityScore": ("aragora.debate.ascot_fragility", "FragilityScore"),
     "calculate_fragility": ("aragora.debate.ascot_fragility", "calculate_fragility"),
     "create_fragility_analyzer": ("aragora.debate.ascot_fragility", "create_fragility_analyzer"),
+    # Debate Forking (parallel branch exploration)
+    "ForkPoint": ("aragora.debate.forking", "ForkPoint"),
+    "ForkDecision": ("aragora.debate.forking", "ForkDecision"),
+    "ForkDetector": ("aragora.debate.forking", "ForkDetector"),
+    "DebateForker": ("aragora.debate.forking", "DebateForker"),
+    "DeadlockSignal": ("aragora.debate.forking", "DeadlockSignal"),
+    "DeadlockResolver": ("aragora.debate.forking", "DeadlockResolver"),
 }
 
 

@@ -141,6 +141,16 @@ DISABLE_TRENDING = os.getenv("ARAGORA_DISABLE_TRENDING", "").strip().lower() in 
 }
 
 
+def is_trending_disabled() -> bool:
+    """Check trending disable flag dynamically from environment."""
+    return os.getenv("ARAGORA_DISABLE_TRENDING", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 # Check if codebase context is enabled
 def get_use_codebase() -> bool:
     """Determine if codebase context should be used."""

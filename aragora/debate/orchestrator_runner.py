@@ -290,7 +290,9 @@ async def initialize_debate_context(
         try:
             from aragora.utils.env import is_offline_mode
 
-            use_llm = getattr(arena.protocol, "enable_llm_question_classification", True)
+            use_llm = bool(
+                getattr(arena.protocol, "enable_llm_question_classification", True)
+            )
             if is_offline_mode():
                 use_llm = False
 
