@@ -275,6 +275,11 @@ import {
   AudioAPI,
   // New namespaces (SDK Parity Sprint - Phase 6)
   HybridDebatesAPI,
+  // New namespaces (SDK Coverage Expansion)
+  ApprovalsAPI,
+  AuditTrailAPI,
+  VoiceNamespace,
+  OpenClawNamespace,
 } from './namespaces';
 
 interface RequestOptions {
@@ -853,6 +858,18 @@ export class AragoraClient {
   /** Hybrid Debates API - External + internal agent coordination for consensus-driven decisions. */
   readonly hybridDebates: HybridDebatesAPI;
 
+  /** Approvals API - Unified approvals inbox for human-in-the-loop workflows. */
+  readonly approvals: ApprovalsAPI;
+
+  /** Audit Trail API - Audit trail access, export, and integrity verification. */
+  readonly auditTrail: AuditTrailAPI;
+
+  /** Voice API - Text-to-speech synthesis and voice session management. */
+  readonly voice: VoiceNamespace;
+
+  /** OpenClaw API - Legal analysis gateway, sessions, and actions. */
+  readonly openclaw: OpenClawNamespace;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -998,6 +1015,12 @@ export class AragoraClient {
     this.uncertainty = new UncertaintyAPI(this);
     this.audio = new AudioAPI(this);
     this.hybridDebates = new HybridDebatesAPI(this);
+
+    // New namespaces (SDK Coverage Expansion)
+    this.approvals = new ApprovalsAPI(this);
+    this.auditTrail = new AuditTrailAPI(this);
+    this.voice = new VoiceNamespace(this);
+    this.openclaw = new OpenClawNamespace(this);
   }
 
   // ===========================================================================

@@ -89,8 +89,10 @@ class AragoraClient:
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
         from .namespaces.ap_automation import APAutomationAPI
+        from .namespaces.approvals import ApprovalsAPI
         from .namespaces.ar_automation import ARAutomationAPI
         from .namespaces.audio import AudioAPI
+        from .namespaces.audit_trail import AuditTrailAPI
         from .namespaces.audit import AuditAPI
         from .namespaces.auditing import AuditingAPI
         from .namespaces.auth import AuthAPI
@@ -156,6 +158,7 @@ class AragoraClient:
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.oauth_wizard import OAuthWizardAPI
         from .namespaces.onboarding import OnboardingAPI
+        from .namespaces.openclaw import OpenclawAPI
         from .namespaces.openapi import OpenApiAPI
         from .namespaces.orchestration import OrchestrationAPI
         from .namespaces.organizations import OrganizationsAPI
@@ -198,6 +201,7 @@ class AragoraClient:
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.verticals import VerticalsAPI
+        from .namespaces.voice import VoiceAPI
         from .namespaces.webhooks import WebhooksAPI
         from .namespaces.workflow_templates import WorkflowTemplatesAPI
         from .namespaces.workflows import WorkflowsAPI
@@ -212,9 +216,11 @@ class AragoraClient:
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
         self.ap_automation = APAutomationAPI(self)
+        self.approvals = ApprovalsAPI(self)
         self.ar_automation = ARAutomationAPI(self)
         self.audio = AudioAPI(self)
         self.audit = AuditAPI(self)
+        self.audit_trail = AuditTrailAPI(self)
         self.auditing = AuditingAPI(self)
         self.auth = AuthAPI(self)
         self.backups = BackupsAPI(self)
@@ -278,6 +284,7 @@ class AragoraClient:
         self.nomic = NomicAPI(self)
         self.notifications = NotificationsAPI(self)
         self.oauth_wizard = OAuthWizardAPI(self)
+        self.openclaw = OpenclawAPI(self)
         self.openapi = OpenApiAPI(self)
         self.orchestration = OrchestrationAPI(self)
         self.onboarding = OnboardingAPI(self)
@@ -321,6 +328,7 @@ class AragoraClient:
         self.usage = UsageAPI(self)
         self.verification = VerificationAPI(self)
         self.verticals = VerticalsAPI(self)
+        self.voice = VoiceAPI(self)
         self.webhooks = WebhooksAPI(self)
         self.workflow_templates = WorkflowTemplatesAPI(self)
         self.workflows = WorkflowsAPI(self)
@@ -555,9 +563,11 @@ class AragoraAsyncClient:
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.ap_automation import AsyncAPAutomationAPI
+        from .namespaces.approvals import AsyncApprovalsAPI
         from .namespaces.ar_automation import AsyncARAutomationAPI
         from .namespaces.audio import AsyncAudioAPI
         from .namespaces.audit import AsyncAuditAPI
+        from .namespaces.audit_trail import AsyncAuditTrailAPI
         from .namespaces.auditing import AsyncAuditingAPI
         from .namespaces.auth import AsyncAuthAPI
         from .namespaces.backups import AsyncBackupsAPI
@@ -622,6 +632,7 @@ class AragoraAsyncClient:
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.oauth_wizard import AsyncOAuthWizardAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
+        from .namespaces.openclaw import AsyncOpenclawAPI
         from .namespaces.openapi import AsyncOpenApiAPI
         from .namespaces.orchestration import AsyncOrchestrationAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
@@ -664,6 +675,7 @@ class AragoraAsyncClient:
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.verticals import AsyncVerticalsAPI
+        from .namespaces.voice import AsyncVoiceAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
         from .namespaces.workflow_templates import AsyncWorkflowTemplatesAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
@@ -678,9 +690,11 @@ class AragoraAsyncClient:
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
         self.ap_automation = AsyncAPAutomationAPI(self)
+        self.approvals = AsyncApprovalsAPI(self)
         self.ar_automation = AsyncARAutomationAPI(self)
         self.audio = AsyncAudioAPI(self)
         self.audit = AsyncAuditAPI(self)
+        self.audit_trail = AsyncAuditTrailAPI(self)
         self.auditing = AsyncAuditingAPI(self)
         self.auth = AsyncAuthAPI(self)
         self.backups = AsyncBackupsAPI(self)
@@ -744,6 +758,7 @@ class AragoraAsyncClient:
         self.nomic = AsyncNomicAPI(self)
         self.notifications = AsyncNotificationsAPI(self)
         self.oauth_wizard = AsyncOAuthWizardAPI(self)
+        self.openclaw = AsyncOpenclawAPI(self)
         self.openapi = AsyncOpenApiAPI(self)
         self.orchestration = AsyncOrchestrationAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
@@ -787,6 +802,7 @@ class AragoraAsyncClient:
         self.usage = AsyncUsageAPI(self)
         self.verification = AsyncVerificationAPI(self)
         self.verticals = AsyncVerticalsAPI(self)
+        self.voice = AsyncVoiceAPI(self)
         self.webhooks = AsyncWebhooksAPI(self)
         self.workflow_templates = AsyncWorkflowTemplatesAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)

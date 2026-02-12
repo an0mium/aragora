@@ -1558,6 +1558,20 @@ export {
   type AutonomousMetrics,
 } from './autonomous';
 
+// Approvals (Human-in-the-Loop)
+export {
+  ApprovalsAPI,
+  type ApprovalRequest,
+} from './approvals';
+
+// Audit Trail (Compliance)
+export {
+  AuditTrailAPI,
+  type AuditTrailSummary,
+  type AuditTrailVerification,
+  type AuditTrailExportFormat,
+} from './audit-trail';
+
 // OpenClaw (Legal Analysis)
 export {
   OpenClawNamespace,
