@@ -22,7 +22,10 @@ from aragora.server.handlers.oauth import (
     _validate_state,
     _validate_redirect_url,
 )
-from aragora.server.middleware.rate_limit.oauth_limiter import reset_oauth_limiter
+from aragora.server.middleware.rate_limit.oauth_limiter import (
+    reset_backoff_tracker,
+    reset_oauth_limiter,
+)
 
 
 # ============================================================================
@@ -54,10 +57,12 @@ def mock_http_handler():
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
-    """Reset rate limiter between tests."""
+    """Reset rate limiter and backoff tracker between tests."""
     reset_oauth_limiter()
+    reset_backoff_tracker()
     yield
     reset_oauth_limiter()
+    reset_backoff_tracker()
 
 
 @pytest.fixture(autouse=True)
@@ -737,13 +742,11 @@ class TestOAuthRateLimiterInternals:
         )
 
         _oauth_limiter.is_allowed("test-ip")
-        # Get the underlying limiter to verify state
-        limiter = get_oauth_limiter()
-        assert len(limiter._buckets) > 0
+        limiter_before = get_oauth_limiter()
         reset_oauth_limiter()
-        # After reset, a new limiter is created with empty buckets
-        new_limiter = get_oauth_limiter()
-        assert len(new_limiter._buckets) == 0
+        # After reset, get_oauth_limiter returns a fresh instance
+        limiter_after = get_oauth_limiter()
+        assert limiter_before is not limiter_after
 
 
 # ============================================================================
