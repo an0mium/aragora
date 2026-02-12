@@ -535,6 +535,7 @@ class ReceiptStore:
         signed_only: bool = False,
         sort_by: str = "created_at",
         order: str = "desc",
+        debate_id: str | None = None,
     ) -> builtins.list[StoredReceipt]:
         """
         List receipts with filtering and pagination.
@@ -565,6 +566,9 @@ class ReceiptStore:
         if risk_level:
             conditions.append("risk_level = ?")
             params.append(risk_level)
+        if debate_id:
+            conditions.append("debate_id = ?")
+            params.append(debate_id)
         if date_from:
             conditions.append("created_at >= ?")
             params.append(date_from)
@@ -607,6 +611,7 @@ class ReceiptStore:
         date_from: float | None = None,
         date_to: float | None = None,
         signed_only: bool = False,
+        debate_id: str | None = None,
     ) -> int:
         """Get total count of receipts matching filters."""
         if self._backend is None:
@@ -621,6 +626,9 @@ class ReceiptStore:
         if risk_level:
             conditions.append("risk_level = ?")
             params.append(risk_level)
+        if debate_id:
+            conditions.append("debate_id = ?")
+            params.append(debate_id)
         if date_from:
             conditions.append("created_at >= ?")
             params.append(date_from)

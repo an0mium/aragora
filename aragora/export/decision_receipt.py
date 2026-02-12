@@ -113,7 +113,7 @@ class DecisionReceipt:
     schema_version: str = "1.0"
 
     # Core verdict - uses Verdict enum values; accepts plain strings for backward compat
-    verdict: str = Verdict.NEEDS_REVIEW.value  # See aragora.core_types.Verdict
+    verdict: str = Verdict.NEEDS_REVIEW.value.upper()  # See aragora.core_types.Verdict
     confidence: float = 0.0
     risk_level: str = "MEDIUM"  # "LOW", "MEDIUM", "HIGH", "CRITICAL"
     risk_score: float = 0.0
@@ -990,6 +990,7 @@ class DecisionReceipt:
             verdict = Verdict.NEEDS_REVIEW.value
         else:
             verdict = Verdict.REJECTED.value
+        verdict = verdict.upper()
 
         # Map confidence to risk (inverse relationship)
         risk_score = 1.0 - result.confidence

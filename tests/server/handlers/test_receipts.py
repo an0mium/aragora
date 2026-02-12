@@ -118,9 +118,20 @@ class MockReceiptStore:
         self._gauntlet_map = {r.gauntlet_id: r for r in (receipts or [])}
 
     def list(self, **kwargs) -> list[MockReceipt]:
-        return list(self._receipts.values())
+        receipts = list(self._receipts.values())
+
+        debate_id = kwargs.get("debate_id")
+        if debate_id:
+            receipts = [r for r in receipts if r.debate_id == debate_id]
+
+        limit = int(kwargs.get("limit", len(receipts)))
+        offset = int(kwargs.get("offset", 0))
+        return receipts[offset : offset + limit]
 
     def count(self, **kwargs) -> int:
+        debate_id = kwargs.get("debate_id")
+        if debate_id:
+            return sum(1 for r in self._receipts.values() if r.debate_id == debate_id)
         return len(self._receipts)
 
     def get(self, receipt_id: str) -> MockReceipt | None:
@@ -336,6 +347,15 @@ class TestListReceipts:
         # date_from/date_to are converted to floats via _parse_timestamp
         assert data["filters"]["date_from"] is not None
         assert data["filters"]["date_to"] is not None
+
+    @pytest.mark.asyncio
+    async def test_list_receipts_with_debate_id_filter(self, handler):
+        result = await handler._list_receipts({"debate_id": "debate-001"})
+        assert result.status_code == 200
+        data = _parse_body(result)
+        assert data["filters"]["debate_id"] == "debate-001"
+        assert data["pagination"]["total"] == 1
+        assert len(data["receipts"]) == 1
 
 
 # ===========================================================================

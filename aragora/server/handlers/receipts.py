@@ -204,11 +204,12 @@ class ReceiptsHandler(BaseHandler):
         method="GET",
         path="/api/v2/receipts",
         summary="List receipts",
-        description="List receipts with filtering and pagination. Supports filtering by verdict, risk level, date range, and signed status.",
+        description="List receipts with filtering and pagination. Supports filtering by debate_id, verdict, risk level, date range, and signed status.",
         tags=["Receipts"],
         parameters=[
             {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
             {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "debate_id", "in": "query", "schema": {"type": "string"}},
             {"name": "verdict", "in": "query", "schema": {"type": "string"}},
             {"name": "risk_level", "in": "query", "schema": {"type": "string"}},
             {"name": "date_from", "in": "query", "schema": {"type": "string"}},
@@ -228,6 +229,7 @@ class ReceiptsHandler(BaseHandler):
         Query params:
             limit: Max results (default 20, max 100)
             offset: Pagination offset
+            debate_id: Filter by debate ID
             verdict: Filter by verdict (APPROVED, REJECTED, etc.)
             risk_level: Filter by risk (LOW, MEDIUM, HIGH, CRITICAL)
             date_from: ISO date/timestamp for start
@@ -243,6 +245,7 @@ class ReceiptsHandler(BaseHandler):
         offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
 
         # Parse filters
+        debate_id = (query_params.get("debate_id") or "").strip() or None
         verdict = query_params.get("verdict")
         risk_level = query_params.get("risk_level")
         signed_only = query_params.get("signed_only", "").lower() == "true"
@@ -259,6 +262,7 @@ class ReceiptsHandler(BaseHandler):
         receipts = store.list(
             limit=limit,
             offset=offset,
+            debate_id=debate_id,
             verdict=verdict,
             risk_level=risk_level,
             date_from=date_from,
@@ -269,6 +273,7 @@ class ReceiptsHandler(BaseHandler):
         )
 
         total = store.count(
+            debate_id=debate_id,
             verdict=verdict,
             risk_level=risk_level,
             date_from=date_from,
@@ -286,6 +291,7 @@ class ReceiptsHandler(BaseHandler):
                     "has_more": offset + len(receipts) < total,
                 },
                 "filters": {
+                    "debate_id": debate_id,
                     "verdict": verdict,
                     "risk_level": risk_level,
                     "date_from": date_from,
