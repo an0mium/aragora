@@ -1,5 +1,6 @@
 'use client';
 
+import { API_BASE_URL } from '@/config';
 import { useOnboardingStore } from '@/store';
 
 interface CompletionStepProps {
@@ -10,6 +11,7 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
   const {
     organizationName,
     firstDebateId,
+    firstReceiptId,
     teamMembers,
   } = useOnboardingStore();
 
@@ -64,7 +66,11 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
             icon="&#128196;"
             title="View Receipt"
             description="See your decision summary"
-            href={firstDebateId ? `/debates/${firstDebateId}` : '/debates'}
+            href={
+              firstReceiptId
+                ? `${API_BASE_URL}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html`
+                : (firstDebateId ? `/debate/${firstDebateId}` : '/debates')
+            }
           />
           <NextStepCard
             icon="&#9881;"

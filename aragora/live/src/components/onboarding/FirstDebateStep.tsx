@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { API_BASE_URL } from '@/config';
 import { useOnboardingStore } from '@/store';
 import { useDebateWebSocket } from '@/hooks/debate-websocket/useDebateWebSocket';
@@ -13,25 +12,44 @@ const EXAMPLE_TOPICS = [
   'Should we build a monolith or use microservices?',
 ];
 
+type ReceiptListItem = {
+  receipt_id?: string;
+  id?: string;
+  verdict?: string;
+  confidence?: number;
+  risk_level?: string;
+  created_at?: number;
+};
+
+type ReceiptFull = Record<string, unknown> & {
+  receipt_id?: string;
+  verdict?: string;
+  confidence?: number;
+  risk_level?: string;
+  risk_score?: number;
+};
+
 export function FirstDebateStep() {
-  const router = useRouter();
   const apiBase = API_BASE_URL;
   const {
     selectedTemplate,
     firstDebateTopic,
     firstDebateId,
+    firstReceiptId,
     debateStatus,
     debateError,
     setFirstDebateTopic,
     setFirstDebateId,
+    setFirstReceiptId,
     setDebateStatus,
     setDebateError,
     updateProgress,
   } = useOnboardingStore();
 
   const [localError, setLocalError] = useState<string | null>(null);
-  const [_receiptId, setReceiptId] = useState<string | null>(null);
-  const [autoNavigate, setAutoNavigate] = useState(true);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptFull | null>(null);
 
   // Use WebSocket for real-time debate progress
   const {
@@ -54,16 +72,145 @@ export function FirstDebateStep() {
     }
   }, [wsStatus, debateStatus, setDebateStatus, setDebateError, updateProgress]);
 
-  // Auto-navigate to receipt when debate completes
-  useEffect(() => {
-    if (debateStatus === 'completed' && firstDebateId && autoNavigate) {
-      // Wait 2 seconds to show completion message, then navigate
-      const timer = setTimeout(() => {
-        router.push(`/receipts?debate=${firstDebateId}`);
-      }, 2000);
-      return () => clearTimeout(timer);
+  const _pollReceiptIdForDebate = useCallback(async (debateId: string, signal: AbortSignal) => {
+    const maxAttempts = 12;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (signal.aborted) return null;
+
+      const response = await fetch(
+        `${apiBase}/api/v2/receipts?debate_id=${encodeURIComponent(debateId)}&limit=1&offset=0`,
+        { signal }
+      );
+
+      if (!response.ok) {
+        // Auth errors are actionable; others are usually transient.
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Not authorized to view receipts');
+        }
+        throw new Error(`Failed to list receipts (HTTP ${response.status})`);
+      }
+
+      const data = await response.json().catch(() => ({}));
+      const receipts: ReceiptListItem[] = Array.isArray(data?.receipts) ? data.receipts : [];
+      const first = receipts[0];
+      const receiptId = (first?.receipt_id || first?.id || '').trim();
+      if (receiptId) return receiptId;
+
+      // Backoff: 0.5s, 1s, 1.5s, ... capped at 4s
+      const waitMs = Math.min(4000, 500 * attempt);
+      await new Promise((r) => setTimeout(r, waitMs));
     }
-  }, [debateStatus, firstDebateId, autoNavigate, router]);
+
+    return null;
+  }, [apiBase]);
+
+  const _pollReceiptById = useCallback(async (receiptId: string, signal: AbortSignal) => {
+    const maxAttempts = 12;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (signal.aborted) return null;
+
+      const response = await fetch(`${apiBase}/api/v2/receipts/${encodeURIComponent(receiptId)}`, {
+        signal,
+      });
+
+      if (response.status === 404) {
+        const waitMs = Math.min(4000, 500 * attempt);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Not authorized to view receipts');
+        }
+        throw new Error(`Failed to fetch receipt (HTTP ${response.status})`);
+      }
+
+      return (await response.json().catch(() => ({}))) as ReceiptFull;
+    }
+
+    return null;
+  }, [apiBase]);
+
+  const fetchReceipt = useCallback(async () => {
+    if (!firstDebateId || debateStatus !== 'completed') return;
+
+    setReceiptLoading(true);
+    setReceiptError(null);
+
+    const controller = new AbortController();
+
+    try {
+      let receiptId = firstReceiptId;
+
+      // If debate creation didn't return a receipt_id, locate it by debate_id.
+      if (!receiptId) {
+        receiptId = await _pollReceiptIdForDebate(firstDebateId, controller.signal);
+        if (receiptId) setFirstReceiptId(receiptId);
+      }
+
+      if (!receiptId) {
+        throw new Error('Receipt is still generating. Try again in a moment.');
+      }
+
+      const full = await _pollReceiptById(receiptId, controller.signal);
+      if (!full) {
+        throw new Error('Receipt is still generating. Try again in a moment.');
+      }
+
+      setReceipt(full);
+      updateProgress({ receiptViewed: true });
+    } catch (err) {
+      setReceiptError(err instanceof Error ? err.message : 'Failed to load receipt');
+    } finally {
+      setReceiptLoading(false);
+    }
+  }, [
+    debateStatus,
+    firstDebateId,
+    firstReceiptId,
+    setFirstReceiptId,
+    updateProgress,
+    _pollReceiptById,
+    _pollReceiptIdForDebate,
+  ]);
+
+  // Auto-fetch receipt after debate completion (receipt generation can lag slightly).
+  useEffect(() => {
+    if (debateStatus !== 'completed' || !firstDebateId) return;
+    if (receiptLoading || receipt || receiptError) return;
+    fetchReceipt();
+  }, [debateStatus, firstDebateId, fetchReceipt, receipt, receiptError, receiptLoading]);
+
+  const downloadReceiptExport = useCallback(async (format: 'md' | 'pdf') => {
+    if (!firstReceiptId) {
+      setReceiptError('Receipt is not ready yet');
+      return;
+    }
+
+    setReceiptError(null);
+
+    const response = await fetch(
+      `${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=${format}`
+    );
+    if (!response.ok) {
+      throw new Error(`Export failed (HTTP ${response.status})`);
+    }
+
+    const blob = await response.blob();
+    const contentType = response.headers.get('content-type') || '';
+    const pdfFallback = format === 'pdf' && contentType.includes('text/html');
+    const ext = format === 'md' ? 'md' : (pdfFallback ? 'html' : 'pdf');
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `decision-receipt-${firstReceiptId}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [apiBase, firstReceiptId]);
 
   const handleStartDebate = useCallback(async () => {
     if (!firstDebateTopic.trim()) {
@@ -72,6 +219,11 @@ export function FirstDebateStep() {
     }
 
     setLocalError(null);
+    setReceipt(null);
+    setReceiptError(null);
+    setReceiptLoading(false);
+    setFirstReceiptId(null);
+    updateProgress({ receiptViewed: false, firstDebateCompleted: false, firstDebateStarted: false });
     setDebateStatus('creating');
     setDebateError(null);
 
@@ -97,7 +249,7 @@ export function FirstDebateStep() {
       const data = await response.json();
       setFirstDebateId(data.debate_id);
       if (data.receipt_id) {
-        setReceiptId(data.receipt_id);
+        setFirstReceiptId(data.receipt_id);
       }
       setDebateStatus('running');
       updateProgress({ firstDebateStarted: true });
@@ -106,7 +258,16 @@ export function FirstDebateStep() {
       setDebateError(err instanceof Error ? err.message : 'Failed to start debate');
       setDebateStatus('error');
     }
-  }, [apiBase, firstDebateTopic, selectedTemplate, setFirstDebateId, setDebateStatus, setDebateError, updateProgress]);
+  }, [
+    apiBase,
+    firstDebateTopic,
+    selectedTemplate,
+    setFirstDebateId,
+    setFirstReceiptId,
+    setDebateStatus,
+    setDebateError,
+    updateProgress,
+  ]);
 
   const handleUseExample = (topic: string) => {
     setFirstDebateTopic(topic);
@@ -197,32 +358,105 @@ export function FirstDebateStep() {
       {debateStatus === 'completed' && (
         <div className="p-4 border border-acid-green/30 rounded-lg bg-acid-green/5">
           <div className="text-sm font-mono text-acid-green mb-2">
-            Debate completed!
+            Debate completed
           </div>
           <div className="text-xs text-text-muted">
-            {autoNavigate ? (
-              <>Redirecting to your decision receipt...</>
-            ) : (
-              <>Your first debate has finished. Click Continue to see your decision receipt.</>
-            )}
+            {receiptLoading && <>Generating your decision receipt...</>}
+            {!receiptLoading && receipt && <>Decision receipt ready.</>}
+            {!receiptLoading && !receipt && !receiptError && <>Preparing receipt...</>}
+            {!receiptLoading && receiptError && <>Receipt not available yet.</>}
           </div>
-          {autoNavigate && (
-            <div className="mt-2 w-full h-1 bg-acid-green/20 rounded-full overflow-hidden">
-              <div className="h-full bg-acid-green animate-progress-fill" />
-            </div>
-          )}
-          <div className="flex items-center justify-between mt-3">
+
+          {/* Receipt panel */}
+          <div className="mt-3 space-y-3">
+            {receiptError && (
+              <div className="text-xs text-accent-red">
+                {receiptError}
+              </div>
+            )}
+
+            {receiptLoading && (
+              <div className="w-full h-1 bg-acid-green/20 rounded-full overflow-hidden">
+                <div className="h-full bg-acid-green animate-progress-indeterminate" />
+              </div>
+            )}
+
+            {receipt && (
+              <div className="border border-acid-green/20 rounded bg-surface/40 p-3">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="text-xs font-mono text-text-muted">DECISION RECEIPT</div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 text-[10px] font-mono rounded border border-acid-green/30 text-acid-green bg-acid-green/10">
+                      {(receipt.verdict || 'NEEDS_REVIEW').toString().toUpperCase()}
+                    </span>
+                    <span className="text-[10px] font-mono text-text-muted">
+                      {typeof receipt.confidence === 'number' ? `${Math.round(receipt.confidence * 100)}%` : '...'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-text">
+                  <div>
+                    <div className="text-[10px] text-text-muted font-mono">Receipt ID</div>
+                    <div className="font-mono break-all">{firstReceiptId || receipt.receipt_id || '...'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-text-muted font-mono">Risk</div>
+                    <div className="font-mono">
+                      {(receipt.risk_level || 'MEDIUM').toString().toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => downloadReceiptExport('md').catch((e) => setReceiptError(e instanceof Error ? e.message : 'Export failed'))}
+                    className="px-3 py-1.5 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                  >
+                    DOWNLOAD MD
+                  </button>
+                  <button
+                    onClick={() => downloadReceiptExport('pdf').catch((e) => setReceiptError(e instanceof Error ? e.message : 'Export failed'))}
+                    className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+                  >
+                    DOWNLOAD PDF
+                  </button>
+                  {firstReceiptId && (
+                    <a
+                      href={`${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 text-xs font-mono border border-border text-text-muted hover:border-acid-green/40 hover:text-text transition-colors"
+                    >
+                      OPEN HTML
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!receiptLoading && !receipt && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchReceipt().catch(() => {})}
+                  className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+                >
+                  RETRY RECEIPT
+                </button>
+                <button
+                  onClick={() => updateProgress({ receiptViewed: true })}
+                  className="px-3 py-1.5 text-xs font-mono border border-border text-text-muted hover:border-acid-cyan/40 hover:text-text transition-colors"
+                >
+                  CONTINUE WITHOUT RECEIPT
+                </button>
+              </div>
+            )}
+
             {firstDebateId && (
-              <div className="text-xs text-text-muted">
+              <div className="text-[10px] text-text-muted font-mono">
                 Debate ID: {firstDebateId}
               </div>
             )}
-            <button
-              onClick={() => setAutoNavigate(false)}
-              className="text-xs text-acid-cyan hover:underline"
-            >
-              Cancel redirect
-            </button>
           </div>
         </div>
       )}

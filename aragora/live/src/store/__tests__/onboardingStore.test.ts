@@ -246,6 +246,14 @@ describe('onboardingStore', () => {
       expect(useOnboardingStore.getState().firstDebateId).toBe('debate-123');
     });
 
+    it('setFirstReceiptId updates receipt ID', () => {
+      act(() => {
+        useOnboardingStore.getState().setFirstReceiptId('receipt-123');
+      });
+
+      expect(useOnboardingStore.getState().firstReceiptId).toBe('receipt-123');
+    });
+
     it('setFirstDebateTopic updates topic', () => {
       act(() => {
         useOnboardingStore.getState().setFirstDebateTopic('Should we use TypeScript?');
@@ -478,10 +486,20 @@ describe('onboardingStore', () => {
         expect(selectCanProceed(useOnboardingStore.getState())).toBe(false);
       });
 
-      it('returns true for first-debate step when completed', () => {
+      it('returns false for first-debate step when completed but receipt not viewed', () => {
         act(() => {
           useOnboardingStore.getState().setCurrentStep('first-debate');
           useOnboardingStore.getState().setDebateStatus('completed');
+        });
+
+        expect(selectCanProceed(useOnboardingStore.getState())).toBe(false);
+      });
+
+      it('returns true for first-debate step when completed and receipt viewed', () => {
+        act(() => {
+          useOnboardingStore.getState().setCurrentStep('first-debate');
+          useOnboardingStore.getState().setDebateStatus('completed');
+          useOnboardingStore.getState().updateProgress({ receiptViewed: true });
         });
 
         expect(selectCanProceed(useOnboardingStore.getState())).toBe(true);
