@@ -1,6 +1,5 @@
 # Aragora Capability Matrix
 
-> Generated: 2026-02-12 00:11:20Z
 > Source of truth: generated via `python scripts/generate_capability_matrix.py`
 > OpenAPI source: `openapi.json`
 
@@ -9,9 +8,9 @@
 | Surface | Inventory | Capability Coverage |
 |---------|-----------|---------------------|
 | **HTTP API** | 1635 paths / 1896 operations | 92.9% |
-| **CLI** | 56 commands | 78.6% |
-| **SDK (Python)** | 152 namespaces | 92.9% |
-| **SDK (TypeScript)** | 151 namespaces | 92.9% |
+| **CLI** | 29 commands | 78.6% |
+| **SDK (Python)** | 155 namespaces | 92.9% |
+| **SDK (TypeScript)** | 154 namespaces | 92.9% |
 | **UI** | tracked in capability surfaces | 14.3% |
 | **Capability Catalog** | 14/37 mapped | 37.8% |
 

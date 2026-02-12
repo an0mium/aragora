@@ -10,6 +10,21 @@
 
 Aragora orchestrates 30+ agent types in structured adversarial debates -- forcing models to challenge each other's reasoning, surface blind spots, and produce decisions with complete audit trails showing where they agreed, where they disagreed, and why.
 
+## Try It Now
+
+```bash
+# Review your current changes against main
+git diff main | aragora review --demo
+
+# Or review a GitHub PR
+aragora review --pr https://github.com/org/repo/pull/123 --demo
+```
+
+> **What just happened?** Three AI models independently analyzed your code,
+> debated the findings, and produced a signed [Decision Receipt](docs/QUICKSTART_DEVELOPER.md)
+> with unanimous issues, split opinions, and a confidence score.
+> [Full quickstart →](docs/QUICKSTART_DEVELOPER.md)
+
 ```bash
 # Stress-test a specification
 aragora gauntlet spec.md --profile thorough --output receipt.html
@@ -68,24 +83,40 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 
 ## Quick Start
 
-```bash
-git clone https://github.com/an0mium/aragora.git && cd aragora
-pip install -e .
+### 1. Install and Review Code (30 seconds)
 
+```bash
+pip install aragora
+
+# Review your uncommitted changes -- no API keys needed in demo mode
+git diff main | aragora review --demo
+
+# Review a GitHub PR
+aragora review --pr https://github.com/org/repo/pull/123 --demo
+```
+
+See [docs/QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) for the full AI code review tutorial.
+
+### 2. Run Debates and Start the Server
+
+```bash
 # Set at least one API key
 export ANTHROPIC_API_KEY=your-key  # or OPENAI_API_KEY, GEMINI_API_KEY, XAI_API_KEY
 
-# Run a debate
+# Run a multi-agent debate
 aragora ask "Should we adopt microservices?" --agents anthropic-api,openai-api --rounds 3
+
+# Start the API server
+aragora serve
 ```
 
 See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete 5-minute setup.
 
-### SDK Packages
+### 3. Develop with the SDK
 
 | Package | Purpose | Install |
 |---|---|---|
-| `aragora` | Full control plane | `pip install aragora` |
+| `aragora` | CLI + full control plane | `pip install aragora` |
 | `aragora-sdk` | Python SDK client | `pip install aragora-sdk` |
 | `@aragora/sdk` | TypeScript/Node.js SDK | `npm install @aragora/sdk` |
 
@@ -284,6 +315,7 @@ See [docs/SECURITY.md](docs/SECURITY.md) and [docs/COMPLIANCE.md](docs/COMPLIANC
 
 | Need | Where |
 |---|---|
+| Developer quickstart | [QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) |
 | First-time setup | [GETTING_STARTED.md](docs/GETTING_STARTED.md) |
 | API reference | [API_REFERENCE.md](docs/API_REFERENCE.md) |
 | SDK guide | [SDK_GUIDE.md](docs/SDK_GUIDE.md) |

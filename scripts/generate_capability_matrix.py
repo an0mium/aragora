@@ -3,7 +3,7 @@
 
 Inputs:
 - openapi.json (or docs/api/openapi.json)
-- `python -m aragora --help` (CLI command inventory)
+- aragora/cli/parser.py (CLI command inventory)
 - sdk/python/aragora_sdk/namespaces/
 - sdk/typescript/src/namespaces/
 - aragora/capabilities.yaml + aragora/capability_surfaces.yaml (via capability_gap_report)
@@ -14,9 +14,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 from capability_gap_report import build_report
@@ -47,28 +44,11 @@ def _count_openapi(openapi_path: Path) -> tuple[int, int]:
 
 
 def _count_cli_commands(repo_root: Path) -> int:
-    """Count top-level CLI commands from runtime help output.
+    """Count top-level CLI commands from parser declarations.
 
-    Falls back to parser-source counting if subprocess execution fails.
+    This uses static source scanning to keep generation deterministic and fast
+    in CI (avoids heavy runtime imports).
     """
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "aragora", "--help"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=20,
-        )
-        # argparse prints the command set like {ask,stats,status,...}
-        match = re.search(r"\{([^}]*)\}", result.stdout)
-        if match:
-            entries = [entry.strip() for entry in match.group(1).split(",") if entry.strip()]
-            if entries:
-                return len(entries)
-    except (OSError, subprocess.SubprocessError, ValueError):
-        pass
-
     parser_path = repo_root / "aragora" / "cli" / "parser.py"
     text = parser_path.read_text(encoding="utf-8")
     return len(re.findall(r"\bsubparsers\.add_parser\(", text))
@@ -98,7 +78,6 @@ def _coverage(mapped: int, missing: int) -> str:
 
 def _render_markdown(
     *,
-    generated_at: str,
     openapi_path: Path,
     path_count: int,
     operation_count: int,
@@ -120,7 +99,6 @@ def _render_markdown(
     lines: list[str] = []
     lines.append("# Aragora Capability Matrix")
     lines.append("")
-    lines.append(f"> Generated: {generated_at}")
     lines.append("> Source of truth: generated via `python scripts/generate_capability_matrix.py`")
     lines.append(f"> OpenAPI source: `{openapi_path.name}`")
     lines.append("")
@@ -133,7 +111,9 @@ def _render_markdown(
     lines.append(f"| **SDK (Python)** | {py_namespaces} namespaces | {sdk_cov} |")
     lines.append(f"| **SDK (TypeScript)** | {ts_namespaces} namespaces | {sdk_cov} |")
     lines.append(f"| **UI** | tracked in capability surfaces | {ui_cov} |")
-    lines.append(f"| **Capability Catalog** | {mapped_caps}/{total_caps} mapped | {(mapped_caps / total_caps * 100 if total_caps else 0):.1f}% |")
+    lines.append(
+        f"| **Capability Catalog** | {mapped_caps}/{total_caps} mapped | {(mapped_caps / total_caps * 100 if total_caps else 0):.1f}% |"
+    )
     lines.append("")
     lines.append("## Surface Gaps")
     lines.append("")
@@ -188,9 +168,7 @@ def main() -> None:
     ts_namespaces = _count_typescript_sdk_namespaces(repo_root)
     report = build_report(repo_root)
 
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     markdown = _render_markdown(
-        generated_at=generated_at,
         openapi_path=openapi_path,
         path_count=path_count,
         operation_count=operation_count,
