@@ -461,9 +461,9 @@ class TestSpeechHandlerImports:
         from aragora.server.handlers.features.speech import SpeechHandler
 
         # Check class-level ROUTES without instantiation
-        assert "/api/speech/transcribe" in SpeechHandler.ROUTES
-        assert "/api/speech/transcribe-url" in SpeechHandler.ROUTES
-        assert "/api/speech/providers" in SpeechHandler.ROUTES
+        assert "/api/v1/speech/transcribe" in SpeechHandler.ROUTES
+        assert "/api/v1/speech/transcribe-url" in SpeechHandler.ROUTES
+        assert "/api/v1/speech/providers" in SpeechHandler.ROUTES
 
     def test_can_handle(self):
         """Test can_handle method."""

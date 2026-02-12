@@ -81,6 +81,9 @@ class TestAuthManifestIntegrity:
                 "/api/modes",
                 "/api/metrics",
                 "/api/nomic/health",
+                "/api/nomic/state",
+                "/api/leaderboard",
+                "/api/breakpoints",
             ]
             is_allowed_public = any(
                 req.path.startswith(prefix) for prefix in allowed_public_prefixes
