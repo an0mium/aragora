@@ -431,8 +431,8 @@ async def _init_all_components(
         from aragora.billing.cost_tracker import get_cost_tracker
 
         tracker = get_cost_tracker()
-        status["cost_tracker"] = tracker.km_adapter is not None
-        if tracker.km_adapter:
+        status["cost_tracker"] = getattr(tracker, "_km_adapter", None) is not None
+        if getattr(tracker, "_km_adapter", None):
             logger.info("CostTracker initialized with KM adapter")
         else:
             logger.info("CostTracker initialized (without KM adapter)")

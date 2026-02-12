@@ -44,8 +44,6 @@ class CoordinatorSearchMixin:
         get: Any
         connection: Any
         event_emitter: Any
-        _hybrid_search: Any
-        retrieve: Any
 
     def query_km_for_similar(
         self,

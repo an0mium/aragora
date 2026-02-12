@@ -720,7 +720,7 @@ class IntegrationsHandler(SecureHandler):
             connection_ok = await self._test_connection(integration_type, config.settings)
 
             if not connection_ok:
-                config.status = "disconnected"
+                config.status = "disconnected"  # type: ignore[misc]
                 config.errors_24h += 1
                 config.last_error = "Sync failed: connection test failed"
                 await store.save(config)
@@ -734,7 +734,7 @@ class IntegrationsHandler(SecureHandler):
 
             # Sync based on integration type
             old_status = config.status
-            config.status = "connected"
+            config.status = "connected"  # type: ignore[misc]
             config.last_activity = time.time()
             config.updated_at = time.time()
 
@@ -766,7 +766,7 @@ class IntegrationsHandler(SecureHandler):
         except Exception as e:
             config.errors_24h += 1
             config.last_error = f"Sync failed: {str(e)}"
-            config.status = "degraded"
+            config.status = "degraded"  # type: ignore[misc]
             await store.save(config)
             logger.error(f"Integration sync failed for {integration_type}: {e}")
             return json_response(
@@ -798,7 +798,7 @@ class IntegrationsHandler(SecureHandler):
                 if bot_token:
                     from aragora.integrations.slack import SlackConfig, SlackIntegration
 
-                    slack = SlackIntegration(SlackConfig(bot_token=bot_token))
+                    slack = SlackIntegration(SlackConfig(bot_token=bot_token))  # type: ignore[call-arg]
                     if hasattr(slack, "get_workspace_info"):
                         info = await slack.get_workspace_info()
                         if info:

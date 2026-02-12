@@ -11,6 +11,7 @@ Provides access to vertical specialist configuration and utilities:
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ class VerticalsAPI:
         response = self._client._get("/api/v1/verticals", params)
         return response.get("verticals", [])
 
-    async def list_async(self, keyword: str | None = None) -> list[dict[str, Any]]:
+    async def list_async(self, keyword: str | None = None) -> builtins.list[dict[str, Any]]:
         """Async version of list()."""
         params: dict[str, Any] = {}
         if keyword:

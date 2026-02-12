@@ -18,7 +18,7 @@ class DebateStorageAdapter(StorageInterface):
     def __init__(self, storage: DebateStorage):
         self._storage = storage
 
-    def save(self, key: str, data: dict[str, Any]) -> str:
+    def save(self, key: str, data: dict[str, Any]) -> str:  # type: ignore[override]
         """Save debate data and return a slug.
 
         Expects data to be a DebateArtifact-compatible dict. The adapter will

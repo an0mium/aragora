@@ -69,7 +69,7 @@ class FileOperationsMixin:
             FileAttachment with file ID and URL
 
         Raises:
-            NotImplementedError: If no webhook_url is configured and
+            RuntimeError: If no webhook_url is configured and
                 the subclass does not override this method
         """
         from ..models import FileAttachment
@@ -98,9 +98,13 @@ class FileOperationsMixin:
 
             raise RuntimeError(error or "File upload failed")
 
-        raise NotImplementedError(
-            f"{self.platform_name} upload_file requires a platform-specific override "
-            f"or a configured webhook_url"
+        logger.warning(
+            f"{self.platform_name} upload_file: no webhook_url configured "
+            f"and no platform-specific override provided"
+        )
+        raise RuntimeError(
+            f"{self.platform_name} file upload not available: "
+            f"configure webhook_url or use a platform-specific connector"
         )
 
     async def download_file(
@@ -124,7 +128,7 @@ class FileOperationsMixin:
             FileAttachment with content populated
 
         Raises:
-            NotImplementedError: If no ``url`` is provided and the
+            RuntimeError: If no ``url`` is provided and the
                 subclass does not override this method
         """
         from ..models import FileAttachment
@@ -151,9 +155,13 @@ class FileOperationsMixin:
 
             raise RuntimeError(error or "File download failed")
 
-        raise NotImplementedError(
-            f"{self.platform_name} download_file requires a platform-specific override "
-            f"or a 'url' keyword argument"
+        logger.warning(
+            f"{self.platform_name} download_file: no url provided "
+            f"and no platform-specific override available"
+        )
+        raise RuntimeError(
+            f"{self.platform_name} file download not available: "
+            f"provide a 'url' keyword argument or use a platform-specific connector"
         )
 
     async def send_voice_message(

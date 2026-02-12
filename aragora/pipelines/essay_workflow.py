@@ -150,7 +150,7 @@ class SeedEssay:
         title = title_match.group(1) if title_match else path.stem
 
         # Extract sections
-        sections = []
+        sections: list[dict[str, Any]] = []
         section_pattern = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
         matches = list(section_pattern.finditer(content))
 
@@ -179,7 +179,7 @@ class SeedEssay:
                 key_claims.append(match.group(1).strip())
 
         # Extract themes from headings
-        themes = [s["heading"] for s in sections if s["level"] <= 2]
+        themes = [str(s["heading"]) for s in sections if int(s["level"]) <= 2]
 
         # Extract keywords for claim scoring
         keywords = cls._extract_keywords(content)
