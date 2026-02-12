@@ -220,19 +220,31 @@ class MockRedis:
 
 
 @pytest.fixture(autouse=True)
-def _reset_leader_singleton():
-    """Reset the module-level singleton before and after each test.
+def _reset_leader_singleton(mock_redis):
+    """Reset the module-level singleton and mock redis state before and after each test.
 
     The leader.py module has a global ``_regional_leader_election`` singleton
     that persists across tests when running in the full suite.  Without this
     fixture, a test that calls ``init_regional_leader_election`` (or any code
     path that sets the singleton) will pollute subsequent tests.
+
+    Also clears mock redis state to prevent stale lock data from leaking
+    between tests, which can cause flaky leader election outcomes.
     """
     import aragora.control_plane.leader as _leader_mod
 
     original = _leader_mod._regional_leader_election
     _leader_mod._regional_leader_election = None
+
+    # Clear any stale redis state from previous tests
+    if mock_redis is not None:
+        mock_redis._data.clear()
+        mock_redis._hashes.clear()
+        mock_redis._expiries.clear()
+        mock_redis._operation_log.clear()
+
     yield
+
     _leader_mod._regional_leader_election = original
 
 

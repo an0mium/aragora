@@ -37,6 +37,20 @@
 - `pytest tests/sdk/test_sdk_coverage_expansion.py tests/sdk/test_endpoint_parity.py tests/sdk/test_sdk_parity.py`
 - `pytest tests/client/test_openclaw_api.py tests/server/handlers/test_erc8004.py tests/blockchain tests/connectors/blockchain`
 
+### Completed in this run (continued, Feb 12, 2026)
+
+- ERC-8004 handler endpoints are now implemented end-to-end for both list and register:
+  - `GET /api/v1/blockchain/agents`
+  - `POST /api/v1/blockchain/agents`
+  - with pagination validation, identity-registry configuration checks, and wallet credential error clarity.
+- Contract parity hardening expanded:
+  - `tests/sdk/test_contract_parity.py` now enforces OpenClaw + Blockchain endpoint parity with no xfail fallback for Python client coverage.
+- Python client OpenClaw parity gaps closed in `aragora/client/resources/openclaw.py`:
+  - action status/cancel, credential lifecycle, and health/metrics coverage are all represented in client resource calls.
+- Parity documentation regenerated using current sources:
+  - `docs/guides/SDK_PARITY.md`
+  - `docs/api/SDK_ENDPOINT_AUDIT.md`
+
 ---
 
 ## Days 1–30: Contract Unification & Parity Tests
