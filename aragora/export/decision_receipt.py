@@ -1,4 +1,9 @@
 """
+Legacy Decision Receipt model for export/backward compatibility.
+
+Canonical contract for new integrations: ``aragora.receipts.DecisionReceipt``
+(implemented by ``aragora.gauntlet.receipt.DecisionReceipt``).
+
 Decision Receipt - Audit-ready compliance artifacts.
 
 Generates structured receipts from Gauntlet stress-tests:

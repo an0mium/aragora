@@ -1,12 +1,14 @@
 # Aragora Project Status
 
-*Last updated: February 11, 2026*
+*Last updated: February 12, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
 
 ## Next Steps (Canonical)
 
 Priorities are tracked here to avoid drift across multiple NEXT_STEPS docs.
+
+Detailed execution plan: `docs/status/NEXT_STEPS_CANONICAL.md`.
 
 - **Offline/dev golden path**: keep `--demo` and explicit `--local` runs quiet and network-free (no outbound provider calls, no KM/RLM/background enrichments).
 - **Docs alignment**: keep agent catalog and file path references synced to runtime (`list_available_agents()`) and current module layout.

@@ -1,6 +1,6 @@
 # Aragora Capability Matrix
 
-> Generated: 2026-02-12 00:10:00Z
+> Generated: 2026-02-12 00:11:17Z
 > Source of truth: generated via `python scripts/generate_capability_matrix.py`
 > OpenAPI source: `openapi.json`
 

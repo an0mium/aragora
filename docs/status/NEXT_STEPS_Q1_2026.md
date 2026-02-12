@@ -1,5 +1,7 @@
 # Next Steps - Q1 2026
 
+> Legacy planning snapshot. Canonical priorities live in `docs/status/NEXT_STEPS_CANONICAL.md`.
+
 Strategic roadmap to reach 100% enterprise readiness.
 
 **Current Status:** 85% production ready | 6-8 weeks to enterprise GA
