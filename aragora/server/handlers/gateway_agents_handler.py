@@ -60,7 +60,7 @@ def get_gateway_agents_circuit_breaker() -> CircuitBreaker:
     return _gateway_agents_circuit_breaker
 
 
-def get_gateway_agents_circuit_breaker_status() -> dict:
+def get_gateway_agents_circuit_breaker_status() -> dict[str, Any]:
     """Get current status of the gateway agents circuit breaker."""
     return _gateway_agents_circuit_breaker.to_dict()
 

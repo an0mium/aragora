@@ -172,13 +172,13 @@ class BoundedTTLCache:
         with self._lock:
             return key in self._cache
 
-    def items(self) -> list:
+    def items(self) -> list[tuple[str, Any]]:
         """Return a copy of cache items (thread-safe snapshot)."""
         with self._lock:
             return list(self._cache.items())
 
     @property
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics (thread-safe)."""
         with self._lock:
             total = self._hits + self._misses
@@ -387,7 +387,7 @@ def _invalidate_events(events: tuple[str, ...], func_name: str) -> int:
     return total_cleared
 
 
-def get_cache_stats() -> dict:
+def get_cache_stats() -> dict[str, Any]:
     """Get cache statistics for monitoring."""
     return _cache.stats
 

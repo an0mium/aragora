@@ -66,7 +66,7 @@ def get_openclaw_circuit_breaker() -> CircuitBreaker:
     return _openclaw_circuit_breaker
 
 
-def get_openclaw_circuit_breaker_status() -> dict:
+def get_openclaw_circuit_breaker_status() -> dict[str, Any]:
     """Get current status of the OpenClaw gateway circuit breaker."""
     return _openclaw_circuit_breaker.to_dict()
 

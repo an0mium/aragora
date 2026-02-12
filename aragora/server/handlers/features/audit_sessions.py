@@ -57,7 +57,7 @@ def get_audit_sessions_circuit_breaker() -> CircuitBreaker:
     return _audit_sessions_circuit_breaker
 
 
-def get_audit_sessions_circuit_breaker_status() -> dict:
+def get_audit_sessions_circuit_breaker_status() -> dict[str, Any]:
     """Get current status of the audit sessions circuit breaker."""
     return _audit_sessions_circuit_breaker.to_dict()
 

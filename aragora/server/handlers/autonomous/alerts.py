@@ -6,6 +6,7 @@ Stability: STABLE
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from aiohttp import web
 
@@ -39,7 +40,7 @@ def get_alert_circuit_breaker() -> CircuitBreaker:
     return _alert_circuit_breaker
 
 
-def get_alert_circuit_breaker_status() -> dict:
+def get_alert_circuit_breaker_status() -> dict[str, Any]:
     """Get current status of the alert circuit breaker."""
     status = _alert_circuit_breaker.to_dict()
     status.setdefault("name", _alert_circuit_breaker.name)

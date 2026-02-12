@@ -55,7 +55,7 @@ def get_evidence_circuit_breaker() -> CircuitBreaker:
     return _evidence_circuit_breaker
 
 
-def get_evidence_circuit_breaker_status() -> dict:
+def get_evidence_circuit_breaker_status() -> dict[str, Any]:
     """Get current status of the evidence enrichment circuit breaker."""
     return _evidence_circuit_breaker.to_dict()
 

@@ -66,7 +66,7 @@ def get_ar_circuit_breaker() -> CircuitBreaker:
     return _ar_circuit_breaker
 
 
-def get_ar_circuit_breaker_status() -> dict:
+def get_ar_circuit_breaker_status() -> dict[str, Any]:
     """Get current status of the AR automation circuit breaker."""
     return _ar_circuit_breaker.to_dict()
 
