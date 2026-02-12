@@ -217,6 +217,36 @@ class TestDissentRecord:
         restored = DissentRecord.from_dict(data)
         assert restored.metadata == {"priority": "medium"}
 
+    def test_from_dict_handles_missing_required_fields(self):
+        """Should safely deserialize partial payloads with defaults."""
+        restored = DissentRecord.from_dict({})
+
+        assert restored.id == ""
+        assert restored.debate_id == ""
+        assert restored.agent_id == "unknown"
+        assert restored.dissent_type == DissentType.MINOR_QUIBBLE
+        assert restored.content == ""
+        assert restored.reasoning == ""
+        assert restored.confidence == 0.0
+
+    def test_from_dict_handles_invalid_type_and_timestamp(self):
+        """Should fall back when dissent_type/timestamp are malformed."""
+        restored = DissentRecord.from_dict(
+            {
+                "id": "diss-123",
+                "debate_id": "cons-456",
+                "agent_id": "agent-x",
+                "dissent_type": "not-a-valid-type",
+                "content": "content",
+                "reasoning": "reasoning",
+                "timestamp": "bad timestamp",
+            }
+        )
+
+        assert restored.id == "diss-123"
+        assert restored.dissent_type == DissentType.MINOR_QUIBBLE
+        assert isinstance(restored.timestamp, datetime)
+
 
 # =============================================================================
 # Test ConsensusRecord
