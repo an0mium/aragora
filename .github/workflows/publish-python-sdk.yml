@@ -18,11 +18,13 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # Required for PyPI trusted publishing
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     if: github.event.inputs.confirm == 'PUBLISH'
+    environment: pypi
     defaults:
       run:
         working-directory: sdk/python
@@ -36,28 +38,22 @@ jobs:
           python-version: '3.11'
 
       - name: Install build tools
-        run: pip install build twine
+        run: pip install build
 
-      - name: Update version (if manual trigger)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Update version
         run: |
           sed -i 's/version = "[^"]*"/version = "${{ github.event.inputs.version }}"/' pyproject.toml
 
       - name: Build package
         run: python -m build
 
-      - name: Check package
-        run: twine check dist/*
-
-      - name: Publish to PyPI
-        run: twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdk/python/dist/
 
       - name: Create GitHub Release
-        if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Python SDK ${{ github.ref_name }}
           body: |
