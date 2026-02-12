@@ -1,10 +1,12 @@
-name: Security Scan
+name: "Security: Pentest Findings Gate"
 
 on:
   push:
     branches: [main]
     paths:
       - 'aragora/**'
+      - 'aragora/server/**'
+      - 'security/**'
       - 'tests/**'
       - 'pyproject.toml'
       - 'package*.json'
@@ -15,6 +17,8 @@ on:
     branches: [main]
     paths:
       - 'aragora/**'
+      - 'aragora/server/**'
+      - 'security/**'
       - 'tests/**'
       - 'pyproject.toml'
       - 'package*.json'
@@ -210,7 +214,7 @@ jobs:
           echo "::warning::NPM dependency vulnerabilities detected. Review npm audit results."
 
   pentest-findings:
-    name: Pentest Findings Gate
+    name: "Security: Pentest Findings Gate"
     runs-on: ubuntu-latest
     timeout-minutes: 5
 

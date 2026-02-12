@@ -232,12 +232,12 @@ def check_prerequisites(tier: TestTier) -> list[str]:
             if response.status_code != 200:
                 warnings.append(
                     "Aragora server not responding. Start with: "
-                    "python -m aragora.server.unified_server --port 8080"
+                    "aragora serve --api-port 8080 --ws-port 8765"
                 )
         except Exception:
             warnings.append(
                 "Aragora server not running. Start with: "
-                "python -m aragora.server.unified_server --port 8080"
+                "aragora serve --api-port 8080 --ws-port 8765"
             )
 
     return warnings

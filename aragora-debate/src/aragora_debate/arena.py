@@ -121,15 +121,70 @@ class Arena:
             debate_id, self.question, len(self.agents), self.config.rounds,
         )
 
+        await self._emitter.emit(
+            EventType.DEBATE_START,
+            data={"question": self.question, "agents": agent_names, "rounds": self.config.rounds},
+        )
+
         consensus: Consensus | None = None
         rounds_used = 0
+        trickster_interventions = 0
+        convergence_detected = False
+        final_similarity = 0.0
 
         for round_num in range(1, self.config.rounds + 1):
             rounds_used = round_num
             logger.info("Round %d/%d", round_num, self.config.rounds)
 
+            await self._emitter.emit(EventType.ROUND_START, round_num=round_num)
+
             # Phase 1: Propose
             await self._run_propose(round_num)
+
+            # Convergence check after proposals
+            if self._convergence is not None:
+                proposals_map = {name: p.content for name, p in self._proposals.items()}
+                conv_result = self._convergence.check(proposals_map, round_num)
+                final_similarity = conv_result.similarity
+
+                if conv_result.converged:
+                    convergence_detected = True
+                    await self._emitter.emit(
+                        EventType.CONVERGENCE_DETECTED,
+                        round_num=round_num,
+                        data={
+                            "similarity": conv_result.similarity,
+                            "pair_similarities": conv_result.pair_similarities,
+                        },
+                    )
+
+            # Trickster check after proposals
+            if self._trickster is not None:
+                proposals_map = {name: p.content for name, p in self._proposals.items()}
+                similarity = final_similarity if self._convergence else 0.0
+                intervention = self._trickster.check_and_intervene(
+                    responses=proposals_map,
+                    convergence_similarity=similarity,
+                    round_num=round_num,
+                )
+                if intervention is not None:
+                    trickster_interventions += 1
+                    await self._emitter.emit(
+                        EventType.TRICKSTER_INTERVENTION,
+                        round_num=round_num,
+                        data={
+                            "type": intervention.intervention_type.value,
+                            "targets": intervention.target_agents,
+                            "priority": intervention.priority,
+                        },
+                    )
+                    # Inject challenge as a trickster message
+                    self._messages.append(Message(
+                        role="trickster",
+                        agent="trickster",
+                        content=intervention.challenge_text,
+                        round=round_num,
+                    ))
 
             # Phase 2: Critique
             await self._run_critique(round_num)
@@ -137,6 +192,17 @@ class Arena:
             # Phase 3: Vote
             votes = await self._run_vote(round_num)
             consensus = self._evaluate_consensus(votes, agent_names)
+
+            await self._emitter.emit(
+                EventType.CONSENSUS_CHECK,
+                round_num=round_num,
+                data={
+                    "reached": consensus.reached,
+                    "confidence": consensus.confidence,
+                },
+            )
+
+            await self._emitter.emit(EventType.ROUND_END, round_num=round_num)
 
             if consensus.reached and self.config.early_stopping and round_num >= self.config.min_rounds:
                 logger.info("Consensus reached in round %d", round_num)
@@ -169,11 +235,25 @@ class Arena:
             ],
             claims=list(self._claims),
             evidence=list(self._evidence),
+            trickster_interventions=trickster_interventions,
+            convergence_detected=convergence_detected,
+            final_similarity=final_similarity,
         )
 
         # Attach decision receipt
         result.receipt = ReceiptBuilder.from_result(result)
         result.verdict = result.receipt.verdict
+
+        await self._emitter.emit(
+            EventType.DEBATE_END,
+            data={
+                "status": result.status,
+                "rounds_used": rounds_used,
+                "consensus_reached": result.consensus_reached,
+                "trickster_interventions": trickster_interventions,
+                "convergence_detected": convergence_detected,
+            },
+        )
 
         logger.info(
             "Debate %s complete: %s (%.1fs, %d rounds)",

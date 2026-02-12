@@ -27,4 +27,4 @@ echo "WebSocket: ws://localhost:8765/ws"
 echo ""
 
 # Start the server
-python -m aragora.server.unified_server --port 8080 --host 0.0.0.0
+python -m aragora serve --api-port 8080 --ws-port 8765 --host 0.0.0.0

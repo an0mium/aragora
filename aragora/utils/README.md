@@ -34,7 +34,6 @@ def expensive_query(key: str) -> dict:
 | `paths.py` | Path traversal protection |
 | `sql_helpers.py` | SQL escaping utilities |
 | `cache.py` | LRU cache with TTL expiry |
-| `singleflight.py` | Cache stampede prevention |
 | `redis_cache.py` | Distributed Redis caching |
 | `async_utils.py` | Async/await helpers |
 | `timeouts.py` | Timeout decorators |
@@ -54,7 +53,6 @@ utils/
 ├── paths.py               # Path traversal prevention
 ├── sql_helpers.py         # LIKE pattern escaping
 ├── cache.py               # LRU + TTL caching
-├── singleflight.py        # Thundering herd prevention
 ├── redis_cache.py         # Distributed cache layer
 ├── async_utils.py         # run_sync, gather_with_concurrency
 ├── timeouts.py            # @timeout decorator
@@ -127,22 +125,6 @@ class MyService:
     def config(self) -> dict:
         # Property cached for 10 minutes
         return load_config()
-```
-
-### Singleflight (Cache Stampede Prevention)
-
-```python
-from aragora.utils.singleflight import SingleFlight, singleflight_cached
-
-# Direct usage
-sf = SingleFlight()
-result = sf.do("key", lambda: expensive_operation())
-
-# Decorator usage
-@singleflight_cached(ttl_seconds=300)
-def get_leaderboard(limit: int) -> list:
-    # Only one concurrent computation per limit value
-    return compute_leaderboard(limit)
 ```
 
 ### Async Utilities

@@ -7,6 +7,12 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #5119 | 3:23 PM | 🔵 | Complete Docker Workflow Structure - Multi-Platform Builds with Security Gates | ~477 |
+| #5192 | 3:24 PM | 🔴 | Increased Smoke Tests Timeout from 5 to 10 Minutes | ~348 |
+| #5188 | " | 🔵 | Complete Smoke Tests Workflow - Three Jobs with Different Scopes | ~429 |
+| #5175 | " | 🔵 | Smoke Tests Workflow Configuration and Execution | ~349 |
+| #5151 | 3:23 PM | 🔴 | Completed Trivy Non-Blocking Configuration Across All Scans | ~380 |
+| #5138 | " | 🔴 | Added continue-on-error to Frontend Trivy Scan | ~302 |
+| #5132 | " | 🔴 | Added continue-on-error to Backend Trivy Scan | ~350 |
+| #5119 | " | 🔵 | Complete Docker Workflow Structure - Multi-Platform Builds with Security Gates | ~477 |
 | #5107 | 3:22 PM | 🔵 | Trivy Backend Scan Configured with CRITICAL,HIGH Severity Filter | ~389 |
 </claude-mem-context>
