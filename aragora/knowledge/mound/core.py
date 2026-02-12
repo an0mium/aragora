@@ -19,6 +19,7 @@ import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from collections.abc import AsyncIterator
 
@@ -194,7 +195,7 @@ class KnowledgeMoundCore:
         """Initialize SQLite backend."""
         from aragora.knowledge.mound import KnowledgeMoundMetaStore
 
-        db_path = self.config.sqlite_path or str(DB_KNOWLEDGE_PATH / "mound.db")
+        db_path = self.config.sqlite_path or str(Path(DB_KNOWLEDGE_PATH) / "mound.db")
         self._meta_store = KnowledgeMoundMetaStore(db_path)
         logger.debug(f"SQLite backend initialized at {db_path}")
 
@@ -313,7 +314,7 @@ class KnowledgeMoundCore:
             db_path = (
                 str(self.config.sqlite_path)
                 if self.config.sqlite_path
-                else str(DB_KNOWLEDGE_PATH / "mound.db")
+                else str(Path(DB_KNOWLEDGE_PATH) / "mound.db")
             )
             # Use a separate database for semantic index
             semantic_db_path = db_path.replace(".db", "_semantic.db")

@@ -338,10 +338,10 @@ def cmd_facts(args: Namespace) -> int:
         print("=" * 60)
 
         try:
-            from aragora.knowledge.query_engine import KnowledgeQueryEngine
+            from aragora.knowledge.query_engine import DatasetQueryEngine
 
             async def run_verify():
-                engine = KnowledgeQueryEngine(fact_store=store)
+                engine = DatasetQueryEngine(fact_store=store)
                 verified = await engine.verify_fact(args.fact_id)
                 return verified
 

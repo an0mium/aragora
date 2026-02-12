@@ -322,11 +322,11 @@ class DebateProtocol:
     # Uses ARAGORA_DEBATE_TIMEOUT env var (default 900s = 15 min)
     # Set to 0 for unlimited (not recommended for production)
     # Increased to 1200s (20 min) to allow 6+ min for 7-round debates
-    timeout_seconds: int = max(1200, DEBATE_TIMEOUT_SECONDS)  # Max time for entire debate
+    timeout_seconds: int = int(max(1200, DEBATE_TIMEOUT_SECONDS))  # Max time for entire debate
 
     # Round timeout should exceed agent timeout (AGENT_TIMEOUT_SECONDS)
     # to allow all parallel agents to complete. Minimum 90s per round for thorough analysis.
-    round_timeout_seconds: int = max(90, AGENT_TIMEOUT_SECONDS + 60)  # Per-round timeout
+    round_timeout_seconds: int = int(max(90, AGENT_TIMEOUT_SECONDS + 60))  # Per-round timeout
 
     # Debate rounds phase timeout - at least 6 minutes (360s) for all rounds
     debate_rounds_timeout_seconds: int = 420  # 7 minutes for debate_rounds phase

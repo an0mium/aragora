@@ -60,7 +60,7 @@ class OrganizationRepository:
 
     def __init__(
         self,
-        transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]],
+        transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]],
         row_to_user_fn: Callable[[sqlite3.Row], User] | None = None,
     ) -> None:
         """

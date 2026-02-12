@@ -18,7 +18,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -200,13 +200,14 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
     """Run a debate with mock agents (no API keys needed)."""
     from aragora_debate.arena import Arena
     from aragora_debate.styled_mock import StyledMockAgent
+    from aragora_debate.types import Agent as DebateAgent, DebateConfig
 
-    agents = [
+    agents: list[DebateAgent] = [
         StyledMockAgent("analyst", style="supportive"),
         StyledMockAgent("critic", style="critical"),
         StyledMockAgent("synthesizer", style="balanced"),
     ]
-    arena = Arena(question=question, agents=agents, rounds=rounds)
+    arena = Arena(question=question, agents=agents, config=DebateConfig(rounds=rounds))
     result = await arena.run()
 
     return {
@@ -227,8 +228,7 @@ async def _run_live_debate(
     rounds: int,
 ) -> dict[str, Any]:
     """Run a debate with live API agents."""
-    from aragora.agents.base import create_agent
-    from aragora.agents.spec import AgentSpec
+    from aragora.agents.base import AgentType, create_agent
     from aragora.core import Environment
     from aragora.debate.orchestrator import Arena, DebateProtocol
     from aragora.memory.store import CritiqueStore
@@ -240,12 +240,11 @@ async def _run_live_debate(
     agents = []
     agent_names = []
     for provider, model in agents_list[:4]:  # Cap at 4 agents for quickstart
-        spec = AgentSpec(provider=provider, model=model)
-        agent = create_agent(spec)
+        agent = create_agent(cast(AgentType, provider), model=model)
         agents.append(agent)
         agent_names.append(provider)
 
-    arena = Arena(env, agents, protocol, store=store)
+    arena = Arena(env, agents, protocol, insight_store=store)
     result = await arena.run()
 
     verdict = "consensus"
@@ -258,7 +257,8 @@ async def _run_live_debate(
     if hasattr(result, "confidence"):
         confidence = result.confidence
     if hasattr(result, "summary"):
-        summary = result.summary
+        _summary_attr = result.summary
+        summary = _summary_attr() if callable(_summary_attr) else _summary_attr
     elif hasattr(result, "final_summary"):
         summary = result.final_summary
 

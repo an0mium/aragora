@@ -560,7 +560,8 @@ class GauntletOrchestrator:
                     severity=sev,
                     title=f"Domain Risk: {ra.category}",
                     description=ra.description,
-                    source="RiskAssessor",
+                    source_phase=GauntletPhase.RISK_ASSESSMENT,
+                    metadata={"source": "RiskAssessor"},
                 )
                 risk_findings.append(finding)
 

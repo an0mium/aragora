@@ -35,6 +35,8 @@ class AgentFlipsMixin:
     This is provided by BaseHandler.
     """
 
+    def get_nomic_dir(self) -> Path | None: ...
+
     @api_endpoint(
         method="GET",
         path="/api/v1/agent/{name}/flips",

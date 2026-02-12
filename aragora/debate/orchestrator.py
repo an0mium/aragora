@@ -21,6 +21,12 @@ from aragora.debate.arena_config import (
     ObservabilityConfig,
     StreamingConfig,
 )
+from aragora.debate.arena_primary_configs import (
+    EvolutionConfig,
+    KnowledgeConfig,
+    MLConfig,
+    SupermemoryConfig,
+)
 from aragora.debate.arena_initializer import ArenaInitializer
 from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.batch_loaders import debate_loader_context

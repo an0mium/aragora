@@ -428,13 +428,13 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
     return decorator
 
 
-def trace_round(round_num: int) -> ContextManager[Span]:
+def trace_round(round_num: int) -> AbstractContextManager[Span]:
     """Context manager for tracing a debate round."""
     tracer = get_tracer()
     return tracer.span("debate.round", round_number=round_num)
 
 
-def trace_phase(phase: str, round_num: int) -> ContextManager[Span]:
+def trace_phase(phase: str, round_num: int) -> AbstractContextManager[Span]:
     """Context manager for tracing a debate phase (proposal, critique, etc.)."""
     tracer = get_tracer()
     return tracer.span(f"debate.phase.{phase}", round_number=round_num, phase=phase)

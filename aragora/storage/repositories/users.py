@@ -104,7 +104,7 @@ class UserRepository:
 
     def __init__(
         self,
-        transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]],
+        transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]],
         get_connection_fn: Callable[[], sqlite3.Connection] | None = None,
     ) -> None:
         """
@@ -523,7 +523,7 @@ def get_user_repository(
     if repo is None:
         # UserRepository requires a SQLite-style _transaction method
         # PostgresUserStore uses async operations and doesn't have this method
-        transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]] | None = getattr(
+        transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]] | None = getattr(
             store, "_transaction", None
         )
         if transaction_fn is None:

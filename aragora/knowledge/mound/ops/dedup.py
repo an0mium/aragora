@@ -114,7 +114,7 @@ class DedupOperationsMixin(_DedupMixinBase):
     """
 
     async def _get_nodes_for_workspace(self, workspace_id: str, limit: int) -> list[Any]:
-        return await super()._get_nodes_for_workspace(workspace_id, limit)  # type: ignore[misc]
+        return await super()._get_nodes_for_workspace(workspace_id, limit)  # type: ignore[safe-super]
 
     async def _search_similar(
         self,
@@ -124,7 +124,7 @@ class DedupOperationsMixin(_DedupMixinBase):
         top_k: int,
         min_score: float,
     ) -> list[Any]:
-        return await super()._search_similar(  # type: ignore[misc]
+        return await super()._search_similar(  # type: ignore[safe-super]
             workspace_id=workspace_id,
             embedding=embedding,
             query=query,
@@ -133,12 +133,12 @@ class DedupOperationsMixin(_DedupMixinBase):
         )
 
     async def _count_nodes(self, workspace_id: str) -> int:
-        return await super()._count_nodes(workspace_id)  # type: ignore[misc]
+        return await super()._count_nodes(workspace_id)  # type: ignore[safe-super]
 
     async def _get_node_relationships_for_ops(
         self, node_id: str, workspace_id: str
     ) -> list[Any]:
-        return await super()._get_node_relationships_for_ops(  # type: ignore[misc]
+        return await super()._get_node_relationships_for_ops(  # type: ignore[safe-super]
             node_id, workspace_id
         )
 
@@ -149,23 +149,23 @@ class DedupOperationsMixin(_DedupMixinBase):
         relationship_type: str,
         workspace_id: str,
     ) -> None:
-        await super()._create_relationship(  # type: ignore[misc]
+        await super()._create_relationship(  # type: ignore[safe-super]
             source_id, target_id, relationship_type, workspace_id
         )
 
     async def _archive_node_with_reason(
         self, node_id: str, workspace_id: str, reason: str
     ) -> None:
-        await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[misc]
+        await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[safe-super]
 
     async def _delete_node(self, node_id: str) -> bool:
-        return await super()._delete_node(node_id)  # type: ignore[misc]
+        return await super()._delete_node(node_id)  # type: ignore[safe-super]
 
     async def _get_nodes_by_content_hash(self, workspace_id: str) -> dict[str, list[str]]:
-        return await super()._get_nodes_by_content_hash(workspace_id)  # type: ignore[misc]
+        return await super()._get_nodes_by_content_hash(workspace_id)  # type: ignore[safe-super]
 
     async def _get_node(self, node_id: str) -> Any:
-        return await super()._get_node(node_id)  # type: ignore[misc]
+        return await super()._get_node(node_id)  # type: ignore[safe-super]
 
     async def find_duplicates(
         self,

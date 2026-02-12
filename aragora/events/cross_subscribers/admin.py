@@ -9,7 +9,7 @@ sampling, filtering, retry configuration, and performance reporting.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 from collections.abc import Callable
 
 from aragora.events.subscribers.config import RetryConfig, SubscriberStats
@@ -45,6 +45,13 @@ class AdminMixin:
     - self._circuit_breaker: CircuitBreaker
     - self._default_retry_config: RetryConfig
     """
+
+    # Mixin attribute declarations (provided by the composed class)
+    _subscribers: dict
+    _stats: dict[str, SubscriberStats]
+    _filters: dict[str, Callable[[StreamEvent], bool]]
+    _circuit_breaker: Any
+    _default_retry_config: RetryConfig
 
     def get_stats(self) -> dict[str, dict]:
         """Get statistics for all subscribers including latency, sampling, retry, and circuit breaker metrics."""

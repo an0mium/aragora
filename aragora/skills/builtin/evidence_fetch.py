@@ -391,15 +391,19 @@ class EvidenceFetchSkill(Skill):
             from aragora.knowledge.fact_store import InMemoryFactStore
 
             store = InMemoryFactStore()
-            facts = store.query_facts(claim, limit=5)
+            facts = store.query_facts(claim)[:5]
             for fact in facts:
+                validation_status = getattr(fact, "validation_status", None)
+                status_value = (
+                    validation_status.value
+                    if hasattr(validation_status, "value")
+                    else "unknown"
+                )
                 results.append(
                     {
                         "claim": getattr(fact, "statement", str(fact)),
                         "confidence": getattr(fact, "confidence", 0.0),
-                        "status": getattr(fact, "validation_status", {}).value
-                        if hasattr(getattr(fact, "validation_status", None), "value")
-                        else "unknown",
+                        "status": status_value,
                         "source_type": "local_fact_store",
                     }
                 )

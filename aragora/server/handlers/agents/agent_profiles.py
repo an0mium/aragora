@@ -40,6 +40,9 @@ class AgentProfilesMixin:
     These are provided by BaseHandler.
     """
 
+    def get_elo_system(self) -> EloSystem | None: ...
+    def get_nomic_dir(self) -> Path | None: ...
+
     @api_endpoint(
         method="GET",
         path="/api/v1/agent/{name}/profile",

@@ -33,7 +33,7 @@ class OnboardingRepository:
     def __init__(
         self,
         db_path: Path | None = None,
-        transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]] | None = None,
+        transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]] | None = None,
     ) -> None:
         """
         Initialize the onboarding repository.

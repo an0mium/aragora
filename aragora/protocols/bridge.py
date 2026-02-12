@@ -235,12 +235,12 @@ class ProtocolBridge:
             from aragora.mcp.server import AragoraMCPServer
 
             server = AragoraMCPServer()
-            result = await server.call_tool(tool_name, tool_arguments)
+            local_result = await server.call_tool(tool_name, tool_arguments)
             return {
                 "protocol": "mcp",
                 "target": target,
                 "status": "success",
-                "result": result,
+                "result": local_result,
             }
         except ImportError:
             logger.warning("AragoraMCPServer not available")

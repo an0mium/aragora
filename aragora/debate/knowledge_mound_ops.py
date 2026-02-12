@@ -98,13 +98,13 @@ class KnowledgeMoundOperations:
                         )
                     else:
                         results = await self.knowledge_mound.query_semantic(
-                            query=task,
+                            text=task,
                             limit=limit,
                             min_confidence=0.5,
                         )
                 else:
                     results = await self.knowledge_mound.query_semantic(
-                        query=task,
+                        text=task,
                         limit=limit,
                         min_confidence=0.5,
                     )
@@ -127,13 +127,13 @@ class KnowledgeMoundOperations:
                             )
                         else:
                             results = await self.knowledge_mound.query_semantic(
-                                query=task,
+                                text=task,
                                 limit=limit,
                                 min_confidence=0.5,
                             )
                     else:
                         results = await self.knowledge_mound.query_semantic(
-                            query=task,
+                            text=task,
                             limit=limit,
                             min_confidence=0.5,
                         )

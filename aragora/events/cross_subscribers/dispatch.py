@@ -109,6 +109,16 @@ class DispatchMixin:
     - self._batch_last_flush: float
     """
 
+    # Mixin attribute declarations (provided by the composed class)
+    _subscribers: dict[StreamEventType, list[tuple[str, Callable[..., Any]]]]
+    _stats: dict[str, SubscriberStats]
+    _filters: dict[str, Callable[..., Any]]
+    _circuit_breaker: CircuitBreaker
+    _default_retry_config: RetryConfig
+    _async_config: AsyncDispatchConfig
+    _event_batch: dict[StreamEventType, list[StreamEvent]]
+    _batch_last_flush: float
+
     def _dispatch_event(self, event: StreamEvent) -> None:
         """Dispatch event to registered subscribers with sampling and circuit breaker support."""
         # Record event dispatch metric

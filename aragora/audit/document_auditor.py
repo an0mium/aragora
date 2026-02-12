@@ -664,7 +664,7 @@ class DocumentAuditor:
             try:
                 from aragora.documents.chunking import get_context_manager
 
-                context_manager = get_context_manager()
+                context_manager: Any = get_context_manager()
                 chunk_size = self.config.max_tokens_per_call
                 overlap = int(chunk_size * self.config.chunk_overlap) if self.config.enable_chunking else 0
 

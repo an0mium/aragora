@@ -286,7 +286,7 @@ class SemanticSearchMixin:
                 from aragora.knowledge.mound.semantic_store import SemanticStore
 
                 # Get or create semantic store with default path
-                semantic_db_path: str | Path = DB_KNOWLEDGE_PATH / "mound_semantic.db"
+                semantic_db_path: str | Path = Path(DB_KNOWLEDGE_PATH) / "mound_semantic.db"
                 store = SemanticStore(db_path=semantic_db_path)
 
                 # Search using embeddings

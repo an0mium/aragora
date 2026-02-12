@@ -201,13 +201,135 @@ def _default_agent_list_from_csv(value: str) -> list[str]:
 
 
 import importlib as _importlib
-from typing import Any as _Any
+import types as _types
+from typing import Any as _Any, TYPE_CHECKING
 
-_legacy_mod = None
-_slo_mod = None
+if TYPE_CHECKING:
+    from pathlib import Path as _Path
+
+    # Explicit type declarations for lazily-loaded legacy names.
+    # These allow mypy to resolve types without triggering runtime imports.
+    def resolve_db_path(path_str: str | _Path) -> str: ...
+    def get_api_key(*env_vars: str, required: bool = True) -> str | None: ...
+    def validate_configuration() -> dict[str, _Any]: ...
+    DB_TIMEOUT_SECONDS: float
+    NOMIC_DIR: str
+    DB_MEMORY_PATH: str
+    DB_ELO_PATH: str
+    DB_CONSENSUS_PATH: str
+    DB_INSIGHTS_PATH: str
+    DB_KNOWLEDGE_PATH: str
+    DB_GENESIS_PATH: str
+    DB_CULTURE_PATH: str
+    DB_CALIBRATION_PATH: str
+    DB_LAB_PATH: str
+    DB_PERSONAS_PATH: str
+    DB_POSITIONS_PATH: str
+    DB_MODE: str
+    DEFAULT_STORAGE_DIR: str
+    AGENT_TIMEOUT_SECONDS: float
+    DEBATE_TIMEOUT_SECONDS: float
+    DEFAULT_AGENTS: str
+    DEFAULT_AGENT_LIST: list[str]
+    DEFAULT_CONSENSUS: str
+    DEFAULT_DEBATE_LANGUAGE: str
+    DEFAULT_ROUNDS: int
+    DEFAULT_PAGINATION: int
+    DEFAULT_RATE_LIMIT: int
+    MAX_ROUNDS: int
+    MAX_AGENTS_PER_DEBATE: int
+    MAX_ACTIVE_DEBATES: int
+    MAX_ACTIVE_LOOPS: int
+    MAX_CONCURRENT_BRANCHES: int
+    MAX_CONCURRENT_CRITIQUES: int
+    MAX_CONCURRENT_DEBATES: int
+    MAX_CONCURRENT_PROPOSALS: int
+    MAX_CONCURRENT_REVISIONS: int
+    MAX_CONCURRENT_STREAMING: int
+    MAX_CONTENT_LENGTH: int
+    MAX_DEBATE_STATES: int
+    MAX_EVENT_QUEUE_SIZE: int
+    MAX_LOG_BYTES: int
+    MAX_QUESTION_LENGTH: int
+    MAX_REPLAY_QUEUE_SIZE: int
+    MAX_API_LIMIT: int
+    MAX_SNIPPETS_PER_CONNECTOR: int
+    MAX_TOTAL_SNIPPETS: int
+    SNIPPET_MAX_LENGTH: int
+    ELO_K_FACTOR: float
+    ELO_INITIAL_RATING: float
+    ELO_CALIBRATION_MIN_COUNT: int
+    BELIEF_CONVERGENCE_THRESHOLD: float
+    BELIEF_MAX_ITERATIONS: int
+    CROSS_EXAMINATION_DEPTH: int
+    DEEP_AUDIT_ROUNDS: int
+    RISK_THRESHOLD: float
+    ENFORCE_RESPONSE_LANGUAGE: bool
+    HEARTBEAT_INTERVAL_SECONDS: float
+    INTER_REQUEST_DELAY_SECONDS: float
+    OPENROUTER_INTER_REQUEST_DELAY: float
+    PROPOSAL_STAGGER_SECONDS: float
+    IP_RATE_LIMIT: int
+    SHAREABLE_LINK_TTL: int
+    SSL_CERT_PATH: str
+    SSL_ENABLED: bool
+    SSL_KEY_PATH: str
+    STREAMING_CAPABLE_AGENTS: list[str]
+    STREAM_BATCH_SIZE: int
+    STREAM_DRAIN_INTERVAL_MS: int
+    TOKEN_TTL_SECONDS: int
+    USER_EVENT_QUEUE_SIZE: int
+    WS_HEARTBEAT_INTERVAL: int
+    WS_MAX_MESSAGE_SIZE: int
+    CACHE_TTL_AGENT_FLIPS: int
+    CACHE_TTL_AGENT_H2H: int
+    CACHE_TTL_AGENT_PROFILE: int
+    CACHE_TTL_AGENT_REPUTATION: int
+    CACHE_TTL_ALL_REPUTATIONS: int
+    CACHE_TTL_ANALYTICS: int
+    CACHE_TTL_ANALYTICS_AGENTS: int
+    CACHE_TTL_ANALYTICS_COSTS: int
+    CACHE_TTL_ANALYTICS_DEBATES: int
+    CACHE_TTL_ANALYTICS_MEMORY: int
+    CACHE_TTL_ANALYTICS_OVERVIEW: int
+    CACHE_TTL_ANALYTICS_RANKING: int
+    CACHE_TTL_ANALYTICS_SUMMARY: int
+    CACHE_TTL_ARCHIVE_STATS: int
+    CACHE_TTL_CALIBRATION_LB: int
+    CACHE_TTL_CONSENSUS: int
+    CACHE_TTL_CONSENSUS_SETTLED: int
+    CACHE_TTL_CONSENSUS_SIMILAR: int
+    CACHE_TTL_CONSENSUS_STATS: int
+    CACHE_TTL_CONTRARIAN_VIEWS: int
+    CACHE_TTL_CRITIQUE_PATTERNS: int
+    CACHE_TTL_CRITIQUE_STATS: int
+    CACHE_TTL_DASHBOARD_DEBATES: int
+    CACHE_TTL_EMBEDDINGS: int
+    CACHE_TTL_FLIPS_RECENT: int
+    CACHE_TTL_FLIPS_SUMMARY: int
+    CACHE_TTL_LB_INTROSPECTION: int
+    CACHE_TTL_LB_MATCHES: int
+    CACHE_TTL_LB_RANKINGS: int
+    CACHE_TTL_LB_REPUTATION: int
+    CACHE_TTL_LB_STATS: int
+    CACHE_TTL_LB_TEAMS: int
+    CACHE_TTL_LEADERBOARD: int
+    CACHE_TTL_LEARNING_EVOLUTION: int
+    CACHE_TTL_META_LEARNING: int
+    CACHE_TTL_METHOD: int
+    CACHE_TTL_QUERY: int
+    CACHE_TTL_RECENT_DISSENTS: int
+    CACHE_TTL_RECENT_MATCHES: int
+    CACHE_TTL_REPLAYS_LIST: int
+    CACHE_TTL_RISK_WARNINGS: int
+
+    class ConfigurationError(Exception): ...
+
+_legacy_mod: _types.ModuleType | None = None
+_slo_mod: _types.ModuleType | None = None
 
 
-def _get_legacy_mod():
+def _get_legacy_mod() -> _types.ModuleType:
     global _legacy_mod
     if _legacy_mod is None:
         import warnings
@@ -217,7 +339,7 @@ def _get_legacy_mod():
     return _legacy_mod
 
 
-def _get_slo_mod():
+def _get_slo_mod() -> _types.ModuleType:
     global _slo_mod
     if _slo_mod is None:
         _slo_mod = _importlib.import_module("aragora.config.performance_slos")

@@ -289,7 +289,7 @@ def validate_sort_param(
     query: Any,
     key: str = "sort",
     default: str = "created_at",
-    allowed_columns: AbstractSet[str] | None = None,
+    allowed_columns: Set[str] | None = None,
 ) -> str:
     """Validate and parse a sort column parameter.
 

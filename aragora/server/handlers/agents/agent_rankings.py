@@ -44,6 +44,9 @@ class AgentRankingsMixin:
     These are provided by BaseHandler.
     """
 
+    def get_nomic_dir(self) -> Path | None: ...
+    def get_elo_system(self) -> EloSystem | None: ...
+
     @api_endpoint(
         method="GET",
         path="/api/v1/leaderboard",

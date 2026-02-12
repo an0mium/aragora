@@ -29,7 +29,7 @@ class OAuthRepository:
 
     def __init__(
         self,
-        transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]],
+        transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]],
     ) -> None:
         """
         Initialize the OAuth repository.

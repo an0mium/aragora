@@ -63,7 +63,7 @@ class DatabaseBackend(ABC):
     """
 
     @abstractmethod
-    def connection(self) -> ContextManager[Any]:
+    def connection(self) -> AbstractContextManager[Any]:
         """Context manager for database operations with automatic commit/rollback."""
         ...
 
