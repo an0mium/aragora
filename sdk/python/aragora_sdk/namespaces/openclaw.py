@@ -223,6 +223,104 @@ class OpenclawAPI:
         """Get OpenClaw aggregate stats."""
         return self._client.request("GET", "/api/v1/openclaw/stats")
 
+    # Gateway task execution
+    def gateway_execute(
+        self,
+        content: str,
+        request_type: str = "task",
+        capabilities: list[str] | None = None,
+        plugins: list[str] | None = None,
+        priority: str = "normal",
+        timeout_seconds: int = 300,
+        context: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute a task through the OpenClaw gateway."""
+        payload: dict[str, Any] = {
+            "content": content,
+            "request_type": request_type,
+            "priority": priority,
+            "timeout_seconds": timeout_seconds,
+        }
+        if capabilities is not None:
+            payload["capabilities"] = capabilities
+        if plugins is not None:
+            payload["plugins"] = plugins
+        if context is not None:
+            payload["context"] = context
+        if metadata is not None:
+            payload["metadata"] = metadata
+        return self._client.request(
+            "POST", "/api/v1/gateway/openclaw/execute", json=payload
+        )
+
+    def gateway_status(self, task_id: str) -> dict[str, Any]:
+        """Get gateway task execution status."""
+        return self._client.request(
+            "GET", f"/api/v1/gateway/openclaw/status/{task_id}"
+        )
+
+    def register_device(
+        self,
+        device_id: str,
+        device_name: str,
+        device_type: str,
+        capabilities: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Register a device with the OpenClaw gateway."""
+        payload: dict[str, Any] = {
+            "device_id": device_id,
+            "device_name": device_name,
+            "device_type": device_type,
+        }
+        if capabilities is not None:
+            payload["capabilities"] = capabilities
+        if metadata is not None:
+            payload["metadata"] = metadata
+        return self._client.request(
+            "POST", "/api/v1/gateway/openclaw/devices/register", json=payload
+        )
+
+    def unregister_device(self, device_id: str) -> dict[str, Any]:
+        """Unregister a device from the OpenClaw gateway."""
+        return self._client.request(
+            "POST",
+            "/api/v1/gateway/openclaw/devices/unregister",
+            json={"device_id": device_id},
+        )
+
+    def install_plugin(
+        self,
+        plugin_id: str,
+        plugin_name: str,
+        version: str,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Install a plugin on the OpenClaw gateway."""
+        payload: dict[str, Any] = {
+            "plugin_id": plugin_id,
+            "plugin_name": plugin_name,
+            "version": version,
+        }
+        if config is not None:
+            payload["config"] = config
+        return self._client.request(
+            "POST", "/api/v1/gateway/openclaw/plugins/install", json=payload
+        )
+
+    def uninstall_plugin(self, plugin_id: str) -> dict[str, Any]:
+        """Uninstall a plugin from the OpenClaw gateway."""
+        return self._client.request(
+            "POST",
+            "/api/v1/gateway/openclaw/plugins/uninstall",
+            json={"plugin_id": plugin_id},
+        )
+
+    def gateway_config(self) -> dict[str, Any]:
+        """Get OpenClaw gateway configuration."""
+        return self._client.request("GET", "/api/v1/gateway/openclaw/config")
+
 
 class AsyncOpenclawAPI:
     """Asynchronous OpenClaw Gateway API."""
@@ -432,3 +530,101 @@ class AsyncOpenclawAPI:
     async def stats(self) -> dict[str, Any]:
         """Get OpenClaw aggregate stats."""
         return await self._client.request("GET", "/api/v1/openclaw/stats")
+    # Gateway task execution
+    async def gateway_execute(
+        self,
+        content: str,
+        request_type: str = "task",
+        capabilities: list[str] | None = None,
+        plugins: list[str] | None = None,
+        priority: str = "normal",
+        timeout_seconds: int = 300,
+        context: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute a task through the OpenClaw gateway."""
+        payload: dict[str, Any] = {
+            "content": content,
+            "request_type": request_type,
+            "priority": priority,
+            "timeout_seconds": timeout_seconds,
+        }
+        if capabilities is not None:
+            payload["capabilities"] = capabilities
+        if plugins is not None:
+            payload["plugins"] = plugins
+        if context is not None:
+            payload["context"] = context
+        if metadata is not None:
+            payload["metadata"] = metadata
+        return await self._client.request(
+            "POST", "/api/v1/gateway/openclaw/execute", json=payload
+        )
+
+    async def gateway_status(self, task_id: str) -> dict[str, Any]:
+        """Get gateway task execution status."""
+        return await self._client.request(
+            "GET", f"/api/v1/gateway/openclaw/status/{task_id}"
+        )
+
+    async def register_device(
+        self,
+        device_id: str,
+        device_name: str,
+        device_type: str,
+        capabilities: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Register a device with the OpenClaw gateway."""
+        payload: dict[str, Any] = {
+            "device_id": device_id,
+            "device_name": device_name,
+            "device_type": device_type,
+        }
+        if capabilities is not None:
+            payload["capabilities"] = capabilities
+        if metadata is not None:
+            payload["metadata"] = metadata
+        return await self._client.request(
+            "POST", "/api/v1/gateway/openclaw/devices/register", json=payload
+        )
+
+    async def unregister_device(self, device_id: str) -> dict[str, Any]:
+        """Unregister a device from the OpenClaw gateway."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/gateway/openclaw/devices/unregister",
+            json={"device_id": device_id},
+        )
+
+    async def install_plugin(
+        self,
+        plugin_id: str,
+        plugin_name: str,
+        version: str,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Install a plugin on the OpenClaw gateway."""
+        payload: dict[str, Any] = {
+            "plugin_id": plugin_id,
+            "plugin_name": plugin_name,
+            "version": version,
+        }
+        if config is not None:
+            payload["config"] = config
+        return await self._client.request(
+            "POST", "/api/v1/gateway/openclaw/plugins/install", json=payload
+        )
+
+    async def uninstall_plugin(self, plugin_id: str) -> dict[str, Any]:
+        """Uninstall a plugin from the OpenClaw gateway."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/gateway/openclaw/plugins/uninstall",
+            json={"plugin_id": plugin_id},
+        )
+
+    async def gateway_config(self) -> dict[str, Any]:
+        """Get OpenClaw gateway configuration."""
+        return await self._client.request("GET", "/api/v1/gateway/openclaw/config")
+
