@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from aragora.control_plane.integration import ControlPlaneIntegration
 from aragora.control_plane.testfixer import TESTFIXER_TASK_TYPE, TestFixerControlPlane
@@ -45,7 +46,7 @@ class TestFixerTaskWorker:
     async def stop(self) -> None:
         self._running = False
 
-    async def _handle_task(self, task) -> None:
+    async def _handle_task(self, task: Any) -> None:
         handler = TestFixerControlPlane(self._integration)
         try:
             result = await handler.execute(task.payload)

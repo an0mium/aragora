@@ -53,12 +53,12 @@ class StartDebateRequest(BaseModel):
     enable_checkpointing: bool = Field(True, description="Enable debate checkpointing")
     enable_memory: bool = Field(True, description="Enable memory system")
 
-    model_config = {  # type: ignore[assignment]
+    model_config = {  # type: ignore[assignment,dict-item]
         "json_schema_extra": {
             "examples": [
                 {
                     "task": "What is the best caching strategy for a high-traffic API?",
-                    "agents": get_settings().agent.default_agent_list[:3],
+                    "agents": get_settings().agent.default_agent_list[:3],  # type: ignore[dict-item]
                     "rounds": DEFAULT_ROUNDS,
                     "consensus": DEFAULT_CONSENSUS,
                 }

@@ -118,7 +118,7 @@ def _missing_required_env_vars(env_vars: str | None) -> list[str]:
     return candidates
 
 
-class AgentsHandler(
+class AgentsHandler(  # type: ignore[misc]
     AgentRankingsMixin,
     AgentProfilesMixin,
     AgentIntelligenceMixin,
