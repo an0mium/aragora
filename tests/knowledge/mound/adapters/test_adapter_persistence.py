@@ -295,16 +295,18 @@ class TestAsyncDispatchConfig:
         from aragora.events.cross_subscribers import CrossSubscriberManager
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        # Avoid built-in side effects (webhook/config store init) in this unit test.
+        with patch.object(CrossSubscriberManager, "_register_builtin_subscribers", lambda self: None):
+            manager = CrossSubscriberManager()
 
-        # Create a high-volume event
-        event = StreamEvent(
-            type=StreamEventType.MEMORY_STORED,
-            data={"test": True},
-        )
+            # Create a high-volume event
+            event = StreamEvent(
+                type=StreamEventType.MEMORY_STORED,
+                data={"test": True},
+            )
 
-        # dispatch should not raise
-        manager.dispatch(event)
+            # dispatch should not raise
+            manager.dispatch(event)
 
     def test_batch_stats_returns_config(self):
         """get_batch_stats returns batch configuration."""
