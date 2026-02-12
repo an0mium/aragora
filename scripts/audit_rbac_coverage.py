@@ -115,6 +115,9 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                     "/login.py",
                     "/auth_flow.py",
                     "/callback.py",
+                    "/oauth_providers/",
+                    "/signup_handlers.py",
+                    "/password.py",
                 )
             )
 
@@ -221,6 +224,11 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                         "_helper",
                         "_utils",
                         "_checker",
+                        "_handlers",
+                        "_routes",
+                        "_endpoints",
+                        "_circuit_breaker",
+                        "_circuit_breaker_status",
                     )
                     utility_prefixes = (
                         "get_store",
@@ -236,14 +244,14 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                         "get_tenant",
                         "get_workspace_store",
                         "get_authorization",
-                        # Additional factory/getter patterns
+                        # Factory/getter patterns
                         "get_connector",
                         "get_client",
                         "get_server",
                         "get_handler",
                         "get_manager",
                         "get_service",
-                        "get_circuit_breaker",
+                        "get_circuit",
                         "get_from_",
                         "get_oauth_",
                         "get_token_",
@@ -254,13 +262,27 @@ def find_handlers(handler_dir: Path) -> list[HandlerInfo]:
                         "get_slack_",
                         "get_teams_",
                         "get_webhook_",
-                        # Slack/Teams utility getters
+                        # Internal utility getters
                         "get_org_",
                         "get_user_roles_",
                         "get_active_",
                         "get_user_votes",
                         "get_debate_",
                         "get_status",
+                        "get_registered_",
+                        "get_elo_",
+                        "get_nomic_",
+                        "get_host_",
+                        "get_request_id",
+                        "get_content_",
+                        "get_media_type",
+                        "get_query_",
+                        "get_json_",
+                        "get_pagination",
+                        "get_scheduler",
+                        "get_ap_",
+                        "get_budget_",
+                        "get_code_review_",
                     )
                     is_utility = (
                         func_name.startswith("_")
