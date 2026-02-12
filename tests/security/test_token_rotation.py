@@ -143,7 +143,7 @@ class TestTokenRotationResult:
         )
         assert manager._mask_token("pypi-abcdef123456") == "pypi-abc..."
         assert manager._mask_token("short") == "shor..."
-        assert manager._mask_token("exactly8") == "exactly8..."
+        assert manager._mask_token("exactly8") == "exac..."
 
 
 class TestManagedTokenInfo:

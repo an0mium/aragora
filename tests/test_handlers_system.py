@@ -28,12 +28,25 @@ from aragora.server.handlers.admin import HealthHandler
 from aragora.server.handlers.nomic import NomicHandler
 from aragora.server.handlers.docs import DocsHandler
 from aragora.server.handlers.base import HandlerResult
+import asyncio
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
 
+
+
+
+def _run(coro):
+    """Run an async coroutine synchronously for tests."""
+    if asyncio.iscoroutine(coro):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+    return coro
 
 @pytest.fixture
 def system_handler(handler_context):
@@ -148,7 +161,7 @@ class TestKubernetesProbes:
 
     def test_liveness_probe_returns_ok(self, health_handler, mock_http_handler):
         """Test that /healthz returns 200 OK."""
-        result = health_handler.handle("/healthz", {}, mock_http_handler)
+        result = _run(health_handler.handle("/healthz", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -166,7 +179,7 @@ class TestKubernetesProbes:
         }
         handler = HealthHandler(ctx)
 
-        result = handler.handle("/readyz", {}, mock_http_handler)
+        result = _run(handler.handle("/readyz", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -188,7 +201,7 @@ class TestKubernetesProbes:
         }
         handler = HealthHandler(ctx)
 
-        result = handler.handle("/readyz", {}, mock_http_handler)
+        result = _run(handler.handle("/readyz", {}, mock_http_handler))
 
         assert result is not None
         # Storage not configured is still considered ready
@@ -218,7 +231,7 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = handler.handle("/api/health", {}, mock_http_handler)
+        result = _run(handler.handle("/api/health", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -241,7 +254,7 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = handler.handle("/api/health", {}, mock_http_handler)
+        result = _run(handler.handle("/api/health", {}, mock_http_handler))
 
         body = json.loads(result.body)
         assert "database" in body["checks"]
@@ -258,7 +271,7 @@ class TestHealthEndpoints:
         }
         handler = HealthHandler(ctx)
 
-        result = handler.handle("/api/health/detailed", {}, mock_http_handler)
+        result = _run(handler.handle("/api/health/detailed", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -280,7 +293,7 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = handler.handle("/api/health/deep", {}, mock_http_handler)
+        result = _run(handler.handle("/api/health/deep", {}, mock_http_handler))
 
         assert result is not None
         # Deep health can return 200 or 503 depending on env
@@ -304,7 +317,7 @@ class TestNomicEndpoints:
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
         handler = NomicHandler(ctx)
 
-        result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/state", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -318,7 +331,7 @@ class TestNomicEndpoints:
             ctx = {"nomic_dir": Path(tmpdir)}
             handler = NomicHandler(ctx)
 
-            result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+            result = _run(handler.handle("/api/nomic/state", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -330,7 +343,7 @@ class TestNomicEndpoints:
         ctx = {"nomic_dir": None}
         handler = NomicHandler(ctx)
 
-        result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/state", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 503
@@ -342,7 +355,7 @@ class TestNomicEndpoints:
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
         handler = NomicHandler(ctx)
 
-        result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/health", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -383,7 +396,7 @@ class TestNomicEndpoints:
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
         handler = NomicHandler(ctx)
 
-        result = handler.handle("/api/nomic/log", {"lines": "10"}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/log", {"lines": "10"}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -397,7 +410,7 @@ class TestNomicEndpoints:
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
         handler = NomicHandler(ctx)
 
-        result = handler.handle("/api/nomic/log", {"lines": "2"}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/log", {"lines": "2"}, mock_http_handler))
 
         body = json.loads(result.body)
         assert body["showing"] == 2
@@ -407,7 +420,7 @@ class TestNomicEndpoints:
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
         handler = NomicHandler(ctx)
 
-        result = handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/risk-register", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -437,7 +450,7 @@ class TestHistoryEndpoints:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/history/cycles", {}, mock_http_handler)
+            result = _run(handler.handle("/api/history/cycles", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -457,7 +470,7 @@ class TestHistoryEndpoints:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/history/cycles", {"loop_id": "loop_1"}, mock_http_handler)
+            result = _run(handler.handle("/api/history/cycles", {"loop_id": "loop_1"}, mock_http_handler))
 
             body = json.loads(result.body)
             assert len(body["cycles"]) == 2
@@ -474,7 +487,7 @@ class TestHistoryEndpoints:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/history/events", {}, mock_http_handler)
+            result = _run(handler.handle("/api/history/events", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -503,7 +516,7 @@ class TestHistoryEndpoints:
             }
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/history/debates", {}, mock_http_handler)
+            result = _run(handler.handle("/api/history/debates", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -528,7 +541,7 @@ class TestHistoryEndpoints:
             mock_storage.list_recent.return_value = [Mock(), Mock()]
             mock_elo_system.get_leaderboard.return_value = [Mock(), Mock(), Mock()]
 
-            result = handler.handle("/api/history/summary", {}, mock_http_handler)
+            result = _run(handler.handle("/api/history/summary", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -551,7 +564,7 @@ class TestHistoryEndpoints:
                 ctx = {"nomic_dir": temp_nomic_dir_with_files}
                 handler = SystemHandler(ctx)
 
-                result = handler.handle("/api/history/cycles", {}, mock_http_handler)
+                result = _run(handler.handle("/api/history/cycles", {}, mock_http_handler))
 
                 assert result is not None
                 assert result.status_code == 401
@@ -575,9 +588,9 @@ class TestSystemMaintenance:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle(
+            result = _run(handler.handle(
                 "/api/system/maintenance", {"task": "status"}, mock_http_handler
-            )
+            ))
 
             assert result is not None
             assert result.status_code == 200
@@ -590,7 +603,7 @@ class TestSystemMaintenance:
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
         handler = SystemHandler(ctx)
 
-        result = handler.handle("/api/system/maintenance", {"task": "invalid"}, mock_http_handler)
+        result = _run(handler.handle("/api/system/maintenance", {"task": "invalid"}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 400
@@ -618,7 +631,7 @@ class TestAuthStats:
             ctx = {}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/auth/stats", {}, mock_http_handler)
+            result = _run(handler.handle("/api/auth/stats", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -681,7 +694,7 @@ class TestOpenAPI:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = handler.handle("/api/openapi", {}, mock_http_handler)
+            result = _run(handler.handle("/api/openapi", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -695,7 +708,7 @@ class TestOpenAPI:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = handler.handle("/api/openapi.yaml", {}, mock_http_handler)
+            result = _run(handler.handle("/api/openapi.yaml", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -706,7 +719,7 @@ class TestOpenAPI:
         ctx = {}
         handler = DocsHandler(ctx)
 
-        result = handler.handle("/api/docs", {}, mock_http_handler)
+        result = _run(handler.handle("/api/docs", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -734,7 +747,7 @@ class TestCircuitBreakers:
             ctx = {}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/circuit-breakers", {}, mock_http_handler)
+            result = _run(handler.handle("/api/circuit-breakers", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -759,7 +772,7 @@ class TestPrometheusMetrics:
             ctx = {}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/metrics", {}, mock_http_handler)
+            result = _run(handler.handle("/metrics", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -780,7 +793,7 @@ class TestModes:
         ctx = {"nomic_dir": None}
         handler = NomicHandler(ctx)
 
-        result = handler.handle("/api/modes", {}, mock_http_handler)
+        result = _run(handler.handle("/api/modes", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -850,7 +863,7 @@ class TestErrorHandling:
             ctx = {"nomic_dir": nomic_dir}
             handler = NomicHandler(ctx)
 
-            result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+            result = _run(handler.handle("/api/nomic/state", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 500
@@ -869,7 +882,7 @@ class TestErrorHandling:
                 ctx = {"nomic_dir": nomic_dir}
                 handler = NomicHandler(ctx)
 
-                result = handler.handle("/api/nomic/log", {}, mock_http_handler)
+                result = _run(handler.handle("/api/nomic/log", {}, mock_http_handler))
 
                 assert result is not None
                 assert result.status_code == 500
@@ -888,7 +901,7 @@ class TestDebugEndpoint:
         ctx = {}
         handler = SystemHandler(ctx)
 
-        result = handler.handle("/api/debug/test", {}, mock_http_handler)
+        result = _run(handler.handle("/api/debug/test", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -902,7 +915,7 @@ class TestDebugEndpoint:
         ctx = {}
         handler = SystemHandler(ctx)
 
-        result = handler.handle("/api/debug/test", {}, mock_http_handler)
+        result = _run(handler.handle("/api/debug/test", {}, mock_http_handler))
 
         body = json.loads(result.body)
         assert body["method"] == "POST"
@@ -1123,9 +1136,9 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle(
+            result = _run(handler.handle(
                 "/api/system/maintenance", {"task": "vacuum"}, mock_http_handler
-            )
+            ))
 
             assert result is not None
             assert result.status_code == 200
@@ -1145,9 +1158,9 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle(
+            result = _run(handler.handle(
                 "/api/system/maintenance", {"task": "analyze"}, mock_http_handler
-            )
+            ))
 
             assert result is not None
             assert result.status_code == 200
@@ -1167,9 +1180,9 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle(
+            result = _run(handler.handle(
                 "/api/system/maintenance", {"task": "checkpoint"}, mock_http_handler
-            )
+            ))
 
             assert result is not None
             assert result.status_code == 200
@@ -1191,7 +1204,7 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/system/maintenance", {"task": "full"}, mock_http_handler)
+            result = _run(handler.handle("/api/system/maintenance", {"task": "full"}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -1210,7 +1223,7 @@ class TestMaintenanceTasks:
         ctx = {"nomic_dir": None}
         handler = SystemHandler(ctx)
 
-        result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http_handler)
+        result = _run(handler.handle("/api/system/maintenance", {"task": "status"}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 503
@@ -1237,9 +1250,9 @@ class TestValidation:
             handler = SystemHandler(ctx)
 
             # Try with path traversal attempt
-            result = handler.handle(
+            result = _run(handler.handle(
                 "/api/history/cycles", {"loop_id": "../etc/passwd"}, mock_http_handler
-            )
+            ))
 
             assert result is not None
             assert result.status_code == 400
@@ -1257,9 +1270,9 @@ class TestValidation:
             handler = SystemHandler(ctx)
 
             # Try with special characters
-            result = handler.handle(
+            result = _run(handler.handle(
                 "/api/history/events", {"loop_id": "loop<script>"}, mock_http_handler
-            )
+            ))
 
             assert result is not None
             assert result.status_code == 400
@@ -1270,7 +1283,7 @@ class TestValidation:
         handler = NomicHandler(ctx)
 
         # Request more than max
-        result = handler.handle("/api/nomic/log", {"lines": "9999"}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/log", {"lines": "9999"}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -1282,7 +1295,7 @@ class TestValidation:
         handler = NomicHandler(ctx)
 
         # Request more than max
-        result = handler.handle("/api/nomic/risk-register", {"limit": "9999"}, mock_http_handler)
+        result = _run(handler.handle("/api/nomic/risk-register", {"limit": "9999"}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -1312,7 +1325,7 @@ class TestHealthDegradation:
         handler = HealthHandler(ctx)
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = handler.handle("/api/health", {}, mock_http_handler)
+        result = _run(handler.handle("/api/health", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 503
@@ -1332,7 +1345,7 @@ class TestHealthDegradation:
         handler = HealthHandler(ctx)
         mock_storage.list_recent.return_value = []
 
-        result = handler.handle("/api/health", {}, mock_http_handler)
+        result = _run(handler.handle("/api/health", {}, mock_http_handler))
 
         assert result is not None
         # ELO is non-critical, so health remains healthy with warning
@@ -1357,7 +1370,7 @@ class TestCircuitBreakerEdgeCases:
             ctx = {}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/circuit-breakers", {}, mock_http_handler)
+            result = _run(handler.handle("/api/circuit-breakers", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 503
@@ -1370,7 +1383,7 @@ class TestCircuitBreakerEdgeCases:
             ctx = {}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/api/circuit-breakers", {}, mock_http_handler)
+            result = _run(handler.handle("/api/circuit-breakers", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 500
@@ -1390,7 +1403,7 @@ class TestPrometheusEdgeCases:
             ctx = {}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/metrics", {}, mock_http_handler)
+            result = _run(handler.handle("/metrics", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 503
@@ -1403,7 +1416,7 @@ class TestPrometheusEdgeCases:
             ctx = {}
             handler = SystemHandler(ctx)
 
-            result = handler.handle("/metrics", {}, mock_http_handler)
+            result = _run(handler.handle("/metrics", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 500
@@ -1425,7 +1438,7 @@ class TestOpenAPIEdgeCases:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = handler.handle("/api/openapi.json", {}, mock_http_handler)
+            result = _run(handler.handle("/api/openapi.json", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -1437,7 +1450,7 @@ class TestOpenAPIEdgeCases:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = handler.handle("/api/openapi", {}, mock_http_handler)
+            result = _run(handler.handle("/api/openapi", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 503
@@ -1447,7 +1460,7 @@ class TestOpenAPIEdgeCases:
         ctx = {}
         handler = DocsHandler(ctx)
 
-        result = handler.handle("/api/docs/", {}, mock_http_handler)
+        result = _run(handler.handle("/api/docs/", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -1469,7 +1482,7 @@ class TestRiskRegisterEdgeCases:
             ctx = {"nomic_dir": nomic_dir}
             handler = NomicHandler(ctx)
 
-            result = handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
+            result = _run(handler.handle("/api/nomic/risk-register", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -1490,7 +1503,7 @@ class TestRiskRegisterEdgeCases:
             ctx = {"nomic_dir": nomic_dir}
             handler = NomicHandler(ctx)
 
-            result = handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
+            result = _run(handler.handle("/api/nomic/risk-register", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -1525,7 +1538,7 @@ class TestNomicHealthEdgeCases:
             ctx = {"nomic_dir": nomic_dir}
             handler = NomicHandler(ctx)
 
-            result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+            result = _run(handler.handle("/api/nomic/health", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -1543,7 +1556,7 @@ class TestNomicHealthEdgeCases:
             ctx = {"nomic_dir": nomic_dir}
             handler = NomicHandler(ctx)
 
-            result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+            result = _run(handler.handle("/api/nomic/health", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200

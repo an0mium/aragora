@@ -31,7 +31,7 @@ interface LeaderboardPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_API_BASE }: LeaderboardPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [agents, setAgents] = useState<AgentRanking[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [reputations, setReputations] = useState<AgentReputation[]>([]);

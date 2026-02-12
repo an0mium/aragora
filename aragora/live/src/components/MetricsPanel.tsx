@@ -57,7 +57,7 @@ interface MetricsPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [cache, setCache] = useState<CacheData | null>(null);

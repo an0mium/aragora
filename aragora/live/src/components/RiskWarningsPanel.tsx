@@ -26,7 +26,7 @@ const severityColors: Record<string, string> = {
 };
 
 export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [apiWarnings, setApiWarnings] = useState<RiskWarning[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

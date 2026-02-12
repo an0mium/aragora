@@ -257,7 +257,7 @@ class TokenRotationManager:
         Returns:
             TokenRotationResult with per-store success/failure.
         """
-        stores = stores_override or self._config.stores
+        stores = stores_override if stores_override is not None else self._config.stores
         aws_secret_name = secret_name_override or self._config.aws_secret_name
 
         result = TokenRotationResult(
