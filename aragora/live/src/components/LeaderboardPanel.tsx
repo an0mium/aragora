@@ -48,12 +48,6 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
 
     // Build query params for consolidated endpoint
@@ -143,14 +137,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
       }
 
       // Fallback: consolidated endpoint failed, try legacy endpoints
-      // But only if we have auth - otherwise don't make more unauthenticated requests
       logger.warn('Consolidated endpoint failed:', err);
-      if (!tokens?.access_token) {
-        logger.warn('Skipping legacy fallback - no auth token');
-        setError('Authentication required');
-        setLoading(false);
-        return;
-      }
       logger.warn('Attempting legacy endpoints fallback');
       const errors: Record<string, string> = {};
       const endpoints = [

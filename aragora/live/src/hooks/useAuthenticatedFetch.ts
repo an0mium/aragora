@@ -88,18 +88,20 @@ export function useAuthenticatedFetch<T>(
 
     setState(prev => ({ ...prev, loading: true, error: null, skipped: false }));
 
-    const makeRequest = async (token: string): Promise<Response> => {
+    const makeRequest = async (token?: string): Promise<Response> => {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
       };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
       const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
       return fetch(url, { headers });
     };
 
     try {
-      let response = await makeRequest(tokens!.access_token);
+      let response = await makeRequest(tokens?.access_token);
 
       // 401 Interceptor: Try to refresh token and retry once
       if (response.status === 401 && requireAuth && !isRefreshingRef.current) {
