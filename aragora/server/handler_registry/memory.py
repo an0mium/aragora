@@ -47,6 +47,11 @@ EvidenceHandler = _safe_import("aragora.server.handlers", "EvidenceHandler")
 # Learning handler
 LearningHandler = _safe_import("aragora.server.handlers", "LearningHandler")
 
+# Autonomous learning handler
+AutonomousLearningHandler = _safe_import(
+    "aragora.server.handlers.autonomous_learning", "AutonomousLearningHandler"
+)
+
 # Evidence enrichment
 EvidenceEnrichmentHandler = _safe_import(
     "aragora.server.handlers.features.evidence_enrichment", "EvidenceEnrichmentHandler"
@@ -146,6 +151,8 @@ MEMORY_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Knowledge sharing
     ("_sharing_handler", SharingHandler),
     ("_sharing_notifications_handler", SharingNotificationsHandler),
+    # Autonomous learning
+    ("_autonomous_learning_handler", AutonomousLearningHandler),
 ]
 
 __all__ = [
@@ -183,6 +190,8 @@ __all__ = [
     # Sharing handlers
     "SharingHandler",
     "SharingNotificationsHandler",
+    # Autonomous learning
+    "AutonomousLearningHandler",
     # Registry
     "MEMORY_HANDLER_REGISTRY",
 ]
