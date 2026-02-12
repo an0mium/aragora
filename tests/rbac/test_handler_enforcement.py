@@ -71,7 +71,7 @@ ALLOWED_WITHOUT_RBAC = {
     "utilities",
     "openapi_decorator",
     "explainability_store",
-    "workflow_builtin_templates",
+    # workflow_builtin_templates removed (module deleted)
     # Utility subdirectories (non-handler helpers)
     "utils/__init__",
     "utils/auth",

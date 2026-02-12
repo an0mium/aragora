@@ -1103,8 +1103,7 @@ async def init_postgres_stores() -> dict[str, bool]:
         ("token_blacklist", "aragora.storage.token_blacklist_store", "PostgresBlacklist"),
         ("users", "aragora.storage.user_store", "PostgresUserStore"),
         ("webhooks", "aragora.storage.webhook_store", "PostgresWebhookStore"),
-        # Phase 2 migration stores
-        ("facts", "aragora.knowledge.postgres_fact_store", "PostgresFactStore"),
+        # Phase 2 migration stores (facts handled by KnowledgeMound postgres_store)
         ("insights", "aragora.insights.postgres_store", "PostgresInsightStore"),
         ("debates", "aragora.server.postgres_storage", "PostgresDebateStorage"),
         (
