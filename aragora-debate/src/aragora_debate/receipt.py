@@ -102,6 +102,9 @@ class ReceiptBuilder:
         """
         if isinstance(key, str):
             key = key.encode()
+        # Clear signature fields before computing so sign + verify are symmetric
+        receipt.signature = None
+        receipt.signature_algorithm = None
         payload = json.dumps(receipt.to_dict(), sort_keys=True, default=str).encode()
         sig = hmac.new(key, payload, hashlib.sha256).hexdigest()
         receipt.signature = sig
