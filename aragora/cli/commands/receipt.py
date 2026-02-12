@@ -81,7 +81,7 @@ def cmd_receipt_verify(args: argparse.Namespace) -> None:
     # Verify signature
     try:
         from aragora.gauntlet.receipt import DecisionReceipt
-        from aragora.gauntlet.signing import verify_receipt_signature
+        from aragora.gauntlet.signing import verify_receipt as verify_receipt_signature  # noqa: F811
 
         # Reconstruct receipt for verification
         receipt = DecisionReceipt.from_dict(receipt_data)
