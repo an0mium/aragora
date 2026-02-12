@@ -78,6 +78,16 @@ from aragora.reasoning.reliability import (
     compute_claim_reliability,
 )
 
+# Position Tracking (stance evolution across debate rounds)
+from aragora.reasoning.position_tracker import (
+    PositionTracker,
+    PositionEvolution,
+    PositionRecord,
+    PositionPivot,
+    PositionStance,
+    get_position_tracker,
+)
+
 # Evidence-Provenance Bridge - lazy loaded to avoid circular imports
 # Use: from aragora.reasoning.evidence_bridge import EvidenceProvenanceBridge
 
@@ -142,6 +152,13 @@ __all__ = [
     "PowerSamplingConfig",
     "SamplingResult",
     "sample_with_power_law",
+    # Position Tracking
+    "PositionTracker",
+    "PositionEvolution",
+    "PositionRecord",
+    "PositionPivot",
+    "PositionStance",
+    "get_position_tracker",
 ]
 
 

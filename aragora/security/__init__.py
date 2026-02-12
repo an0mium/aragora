@@ -108,6 +108,16 @@ from .ssrf_protection import (
     BLOCKED_PROTOCOLS,
 )
 
+# Anomaly Detection
+from .anomaly_detection import (
+    AnomalyDetector,
+    AnomalyDetectorConfig,
+    AnomalyResult,
+    AnomalyType,
+    AnomalySeverity,
+    get_anomaly_detector,
+)
+
 __all__ = [
     # Encryption
     "EncryptionService",
@@ -165,4 +175,11 @@ __all__ = [
     "get_ssrf_config",
     "ALLOWED_PROTOCOLS",
     "BLOCKED_PROTOCOLS",
+    # Anomaly Detection
+    "AnomalyDetector",
+    "AnomalyDetectorConfig",
+    "AnomalyResult",
+    "AnomalyType",
+    "AnomalySeverity",
+    "get_anomaly_detector",
 ]
