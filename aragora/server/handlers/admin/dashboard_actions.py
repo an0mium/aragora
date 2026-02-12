@@ -38,10 +38,12 @@ class DashboardActionsMixin:
     - _get_consensus_insights(domain) -> dict
     """
 
-    # Stub attributes/methods expected from the composing class
+    if TYPE_CHECKING:
+
+        def get_storage(self) -> Any: ...
+
     ctx: dict[str, Any]
 
-    def get_storage(self) -> Any: ...  # Returns storage with connection() method
     def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]: ...
     def _get_agent_performance(self, limit: int) -> dict[str, Any]: ...
     def _get_consensus_insights(self, domain: str | None) -> dict[str, Any]: ...

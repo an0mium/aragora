@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from aragora.config import (
     CACHE_TTL_AGENT_FLIPS,
@@ -35,7 +36,9 @@ class AgentFlipsMixin:
     This is provided by BaseHandler.
     """
 
-    def get_nomic_dir(self) -> Path | None: ...
+    if TYPE_CHECKING:
+
+        def get_nomic_dir(self) -> Path | None: ...
 
     @api_endpoint(
         method="GET",
