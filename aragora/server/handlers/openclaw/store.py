@@ -25,6 +25,8 @@ from aragora.server.handlers.openclaw.models import (
     SessionStatus,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class OpenClawGatewayStore:
     """In-memory store for OpenClaw gateway data.

@@ -514,16 +514,8 @@ class TestInputValidation:
 # =============================================================================
 
 
-@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
-class TestBearerTokenVerification:
-    """Tests for the layered Bearer token verification system."""
-
-    def setup_method(self):
-        """Clear token cache before each test."""
-        if clear_token_cache:
-            clear_token_cache()
-
-    # ---- Header parsing ----
+class TestBearerTokenHeaderParsing:
+    """Tests for Bearer token header parsing (always available)."""
 
     def test_missing_auth_header(self):
         """Should reject when Authorization header is missing."""
@@ -544,6 +536,16 @@ class TestBearerTokenVerification:
     def test_none_auth_header(self):
         """Should reject None auth header."""
         assert _verify_google_chat_token(None) is False
+
+
+@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
+class TestBearerTokenLayeredVerification:
+    """Tests for the layered Bearer token verification system (requires token cache)."""
+
+    def setup_method(self):
+        """Clear token cache before each test."""
+        if clear_token_cache:
+            clear_token_cache()
 
     # ---- JWT Verifier layer ----
 
@@ -980,14 +982,8 @@ class TestTokeninfoLayer:
 # =============================================================================
 
 
-@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestWebhookAuthIntegration:
     """Integration tests for webhook authentication flow."""
-
-    def setup_method(self):
-        """Clear token cache before each test."""
-        if clear_token_cache:
-            clear_token_cache()
 
     def test_webhook_returns_401_on_invalid_token(self):
         """Should return 401 when token verification fails."""

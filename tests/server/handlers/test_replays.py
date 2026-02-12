@@ -1245,7 +1245,6 @@ class TestHandleMethod:
 # =============================================================================
 
 
-@pytest.mark.xfail(reason="ReplaysHandler is currently rate-limited only, no RBAC enforcement", strict=False)
 class TestRBACPermissions:
     """Tests for RBAC permission enforcement on handle() method.
 
@@ -1253,7 +1252,7 @@ class TestRBACPermissions:
     that auto-injects admin auth context, so we can test actual RBAC behavior.
 
     NOTE: ReplaysHandler is currently a public endpoint (exempt from RBAC).
-    These tests are marked xfail until RBAC is added to the handler.
+    Tests verifying actual enforcement are marked xfail individually.
     """
 
     @pytest.mark.no_auto_auth
@@ -1276,6 +1275,7 @@ class TestRBACPermissions:
             assert result is not None
             assert result.status_code == 200
 
+    @pytest.mark.xfail(reason="ReplaysHandler has no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
     def test_handle_without_permission_raises(self, mock_limiter, handler, temp_nomic_dir):
@@ -1296,6 +1296,7 @@ class TestRBACPermissions:
             with pytest.raises(PermissionDeniedError):
                 handler.handle("/api/replays", {}, mock_http)
 
+    @pytest.mark.xfail(reason="ReplaysHandler has no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
     def test_handle_no_auth_context_raises(self, mock_limiter, handler, temp_nomic_dir):
@@ -1347,6 +1348,7 @@ class TestRBACPermissions:
             assert result is not None
             assert result.status_code == 200
 
+    @pytest.mark.xfail(reason="ReplaysHandler has no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
     def test_permission_checker_called_with_correct_key(

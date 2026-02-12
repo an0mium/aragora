@@ -99,10 +99,12 @@ class TestImpersonationManager:
     @pytest.fixture
     def manager(self):
         """Create a fresh manager for each test."""
-        return ImpersonationManager(
+        mgr = ImpersonationManager(
             require_2fa_for_admin_targets=True,
             max_concurrent_sessions=3,
         )
+        mgr._use_persistence = False
+        return mgr
 
     def test_start_impersonation_success(self, manager):
         """Should successfully start impersonation with valid inputs."""

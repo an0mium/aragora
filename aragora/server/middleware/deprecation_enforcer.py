@@ -458,7 +458,7 @@ def register_default_deprecations() -> None:
 
     Called at server startup to register known deprecated v1 endpoints.
     All v1 endpoints have a sunset date of 2026-06-01. See
-    docs/MIGRATION_V1_TO_V2.md for the full migration guide.
+    docs/migration/V1_TO_V2_MIGRATION.md for the full migration guide.
 
     The wildcard pattern /api/v1/** covers all v1 endpoints. Individual
     entries below provide specific replacement URLs for key endpoints.
@@ -470,41 +470,116 @@ def register_default_deprecations() -> None:
 
     all_methods = ["GET", "POST", "PUT", "DELETE", "PATCH"]
 
-    # Blanket deprecation for all v1 endpoints
-    register_deprecated_endpoint(
-        path="/api/v1/**",
-        methods=all_methods,
-        sunset_date=V1_SUNSET_DATE,
-        replacement="/api/v2/",
-        message=(
-            "API v1 is deprecated and will be removed on 2026-06-01. Please migrate to API v2."
-        ),
-        migration_guide_url=MIGRATION_DOCS_URL,
-        version="v1",
-    )
-
-    # Key endpoint-specific deprecations with precise v2 replacements
-    _v1_endpoint_replacements = [
+    # Key endpoint-specific deprecations with precise v2 replacements.
+    # IMPORTANT: Specific patterns are registered BEFORE the blanket /api/v1/**
+    # pattern so that check_request() returns the most specific match first.
+    # Grouped by domain for maintainability.  See docs/migration/V1_TO_V2_MIGRATION.md
+    # for the full migration guide shown to API consumers.
+    _v1_endpoint_replacements: list[tuple[str, str, list[str]]] = [
+        # --- Core: debates & agents ---
         ("/api/v1/debates", "/api/v2/debates", ["GET", "POST"]),
         ("/api/v1/debates/*", "/api/v2/debates/*", ["GET", "PUT", "DELETE"]),
         ("/api/v1/debate", "/api/v2/debates", ["POST"]),
         ("/api/v1/debate/*", "/api/v2/debates/*", ["GET"]),
         ("/api/v1/agents", "/api/v2/agents", ["GET"]),
         ("/api/v1/agents/*", "/api/v2/agents/*", ["GET"]),
-        ("/api/v1/auth/login", "/api/v2/auth/token", ["POST"]),
-        ("/api/v1/auth/register", "/api/v2/auth/register", ["POST"]),
-        ("/api/v1/user", "/api/v2/users/me", ["GET"]),
         ("/api/v1/consensus/*", "/api/v2/debates/*/consensus", ["GET"]),
         ("/api/v1/leaderboard", "/api/v2/agents/leaderboard", ["GET"]),
         ("/api/v1/rankings", "/api/v2/agents/rankings", ["GET"]),
+        ("/api/v1/team-selection", "/api/v2/agents/team-selection", all_methods),
+        ("/api/v1/explain/**", "/api/v2/debates/explain/", ["GET"]),
+        # --- Auth & users ---
+        ("/api/v1/auth/login", "/api/v2/auth/token", ["POST"]),
+        ("/api/v1/auth/register", "/api/v2/auth/register", ["POST"]),
+        ("/api/v1/auth/**", "/api/v2/auth/", all_methods),
+        ("/api/v1/user", "/api/v2/users/me", ["GET"]),
+        ("/api/v1/rbac/**", "/api/v2/rbac/", all_methods),
+        # --- System & health ---
         ("/api/v1/metrics", "/api/v2/system/metrics", ["GET"]),
         ("/api/v1/health", "/api/v2/system/health", ["GET"]),
+        ("/api/v1/health/**", "/api/v2/system/health", ["GET"]),
         ("/api/v1/status", "/api/v2/health", ["GET"]),
+        # --- Analytics & insights ---
         ("/api/v1/analytics/**", "/api/v2/analytics/", ["GET"]),
+        ("/api/v1/insights/**", "/api/v2/analytics/insights/", ["GET"]),
+        ("/api/v1/flips/**", "/api/v2/analytics/flips/", ["GET"]),
+        ("/api/v1/moments/**", "/api/v2/analytics/moments/", ["GET"]),
+        # --- Knowledge & memory ---
+        ("/api/v1/knowledge/**", "/api/v2/knowledge/", all_methods),
+        ("/api/v1/memory/**", "/api/v2/memory/", ["GET"]),
+        ("/api/v1/facts/**", "/api/v2/knowledge/facts/", all_methods),
+        ("/api/v1/evidence/**", "/api/v2/knowledge/evidence/", all_methods),
+        # --- Gauntlet & verification ---
         ("/api/v1/gauntlet/**", "/api/v2/gauntlet/", ["GET", "POST"]),
-        ("/api/v1/inbox/**", "/api/v2/inbox/", ["GET", "POST"]),
-        ("/api/v1/knowledge/**", "/api/v2/knowledge/", ["GET", "POST", "PUT", "DELETE"]),
+        ("/api/v1/evaluate", "/api/v2/gauntlet/evaluate", ["POST"]),
+        ("/api/v1/verify/**", "/api/v2/verification/", ["POST"]),
+        # --- Workflow & automation ---
+        ("/api/v1/workflows", "/api/v2/workflows", all_methods),
+        ("/api/v1/workflow-templates", "/api/v2/workflows/templates", all_methods),
+        ("/api/v1/workflow-executions", "/api/v2/workflows/executions", all_methods),
+        ("/api/v1/approvals", "/api/v2/workflows/approvals", all_methods),
+        ("/api/v1/webhooks", "/api/v2/webhooks", all_methods),
+        ("/api/v1/webhooks/**", "/api/v2/webhooks/", all_methods),
+        # --- Billing & usage ---
+        ("/api/v1/billing/**", "/api/v2/billing/", all_methods),
+        ("/api/v1/budgets", "/api/v2/billing/budgets", all_methods),
+        ("/api/v1/costs", "/api/v2/billing/costs", ["GET"]),
+        ("/api/v1/quotas", "/api/v2/billing/quotas", ["GET"]),
+        ("/api/v1/usage/**", "/api/v2/billing/usage/", ["GET"]),
+        ("/api/v1/accounting/**", "/api/v2/billing/accounting/", all_methods),
+        # --- Integrations & connectors ---
+        ("/api/v1/integrations/**", "/api/v2/integrations/", all_methods),
+        ("/api/v1/connectors/**", "/api/v2/connectors/", all_methods),
+        ("/api/v1/bots/**", "/api/v2/bots/", all_methods),
+        # --- Blockchain & ERC-8004 ---
+        ("/api/v1/blockchain/**", "/api/v2/blockchain/", all_methods),
+        ("/api/v1/openclaw/**", "/api/v2/openclaw/", all_methods),
+        # --- Nomic loop & self-improvement ---
+        ("/api/v1/nomic/**", "/api/v2/nomic/", all_methods),
+        ("/api/v1/genesis/**", "/api/v2/genesis/", all_methods),
+        ("/api/v1/evolution/**", "/api/v2/evolution/", ["GET"]),
+        # --- Gateway & routing ---
+        ("/api/v1/gateway/**", "/api/v2/gateway/", all_methods),
+        ("/api/v1/routing/**", "/api/v2/routing/", all_methods),
+        # --- Security & compliance ---
+        ("/api/v1/privacy/**", "/api/v2/users/me/", ["GET", "DELETE"]),
+        ("/api/v1/audit/**", "/api/v2/audit/", all_methods),
+        ("/api/v1/threat/**", "/api/v2/security/threat/", all_methods),
+        ("/api/v1/compliance/**", "/api/v2/compliance/", all_methods),
+        # --- Marketplace & skills ---
+        ("/api/v1/marketplace", "/api/v2/marketplace", all_methods),
+        ("/api/v1/marketplace/**", "/api/v2/marketplace/", all_methods),
+        ("/api/v1/skills/**", "/api/v2/skills/", all_methods),
+        ("/api/v1/plugins/**", "/api/v2/plugins/", all_methods),
+        # --- Miscellaneous ---
+        ("/api/v1/canvas/**", "/api/v2/canvas/", all_methods),
+        ("/api/v1/computer-use/**", "/api/v2/computer-use/", all_methods),
+        ("/api/v1/slos", "/api/v2/slo/status", ["GET"]),
+        ("/api/v1/replays", "/api/v2/replays", ["GET"]),
+        ("/api/v1/replays/**", "/api/v2/replays/", ["GET"]),
+        ("/api/v1/tournaments", "/api/v2/tournaments", ["GET"]),
+        ("/api/v1/tournaments/**", "/api/v2/tournaments/", ["GET"]),
+        ("/api/v1/reviews", "/api/v2/reviews", ["GET"]),
+        ("/api/v1/reviews/**", "/api/v2/reviews/", ["GET"]),
+        ("/api/v1/verticals", "/api/v2/verticals", ["GET"]),
+        ("/api/v1/features", "/api/v2/features", ["GET"]),
+        ("/api/v1/features/**", "/api/v2/features/", ["GET"]),
+        ("/api/v1/checkpoints", "/api/v2/checkpoints", all_methods),
+        ("/api/v1/dashboard/**", "/api/v2/dashboard/", ["GET"]),
         ("/api/v1/cross-pollination/**", "/api/v2/cross-pollination/", ["GET"]),
+        ("/api/v1/inbox/**", "/api/v2/inbox/", ["GET", "POST"]),
+        ("/api/v1/onboarding/**", "/api/v2/onboarding/", all_methods),
+        ("/api/v1/graphql", "/api/v2/graphql", ["POST"]),
+        ("/api/v1/docs", "/api/v2/docs", ["GET"]),
+        ("/api/v1/openapi", "/api/v2/openapi.json", ["GET"]),
+        ("/api/v1/devices/**", "/api/v2/devices/", all_methods),
+        ("/api/v1/advertising/**", "/api/v2/advertising/", all_methods),
+        ("/api/v1/analytics-platforms/**", "/api/v2/analytics-platforms/", all_methods),
+        ("/api/v1/crm/**", "/api/v2/crm/", all_methods),
+        ("/api/v1/support/**", "/api/v2/support/", all_methods),
+        ("/api/v1/ecommerce/**", "/api/v2/ecommerce/", all_methods),
+        ("/api/v1/codebase/**", "/api/v2/codebase/", all_methods),
+        ("/api/v1/admin/**", "/api/v2/admin/", all_methods),
     ]
 
     for v1_path, v2_replacement, methods in _v1_endpoint_replacements:
@@ -516,6 +591,22 @@ def register_default_deprecations() -> None:
             migration_guide_url=MIGRATION_DOCS_URL,
             version="v1",
         )
+
+    # Blanket deprecation for all v1 endpoints (registered LAST so specific
+    # patterns above take priority in check_request pattern matching).
+    register_deprecated_endpoint(
+        path="/api/v1/**",
+        methods=all_methods,
+        sunset_date=V1_SUNSET_DATE,
+        replacement="/api/v2/",
+        message=(
+            "API v1 is deprecated and will be removed on 2026-06-01. "
+            "Please migrate to API v2. "
+            "See docs/migration/V1_TO_V2_MIGRATION.md for details."
+        ),
+        migration_guide_url=MIGRATION_DOCS_URL,
+        version="v1",
+    )
 
     # Update Prometheus gauge for days until sunset
     try:
