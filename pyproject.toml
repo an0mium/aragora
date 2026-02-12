@@ -336,7 +336,8 @@ Issues = "https://github.com/an0mium/aragora/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["aragora*"]
+include = ["aragora", "aragora.*"]
+exclude = ["aragora-debate*", "aragora-py*"]
 
 [tool.setuptools.package-data]
 "aragora" = ["py.typed"]

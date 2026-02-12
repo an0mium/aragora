@@ -37,8 +37,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install build tools
-        run: pip install build
+      - name: Install build tools and dependencies
+        run: pip install build hatchling httpx pydantic pytest pytest-asyncio
+
+      - name: Run tests
+        run: python -m pytest tests/ -x -q
 
       - name: Update version
         run: |
@@ -61,7 +64,7 @@ jobs:
 
             Install with:
             ```bash
-            pip install aragora
+            pip install aragora-sdk
             ```
 
             See [documentation](https://docs.aragora.ai/sdk/python) for usage.

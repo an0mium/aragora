@@ -57,10 +57,16 @@ def run_benchmark(iterations: int, votes_per_round: int) -> StabilityBenchmarkRe
     for _ in range(iterations):
         votes = [rng.choice(["yes", "no", "abstain"]) for _ in range(votes_per_round)]
         start = time.perf_counter()
+        agreement = _fallback_stability(votes)
         if detector and hasattr(detector, "calculate_stability"):
-            stability = detector.calculate_stability(votes)
+            stability_raw = detector.calculate_stability([agreement])
+            stability = (
+                float(stability_raw.stability)
+                if hasattr(stability_raw, "stability")
+                else float(stability_raw)
+            )
         else:
-            stability = _fallback_stability(votes)
+            stability = agreement
         elapsed = (time.perf_counter() - start) * 1000
         result.times_ms.append(elapsed)
         result.stability_scores.append(stability)

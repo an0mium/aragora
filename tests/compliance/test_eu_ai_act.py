@@ -738,3 +738,223 @@ class TestComplianceArtifactGenerator:
         tech = bundle.article_12.technical_documentation
         assert tech["annex_iv_sec1_general"]["system_name"] == "AcmeDecider"
         assert tech["annex_iv_sec1_general"]["version"] == "3.0.0"
+
+
+# =============================================================================
+# Test CLI eu-ai-act generate command
+# =============================================================================
+
+
+class TestEuAiActGenerateCLI:
+    """Tests for the aragora compliance eu-ai-act generate command."""
+
+    def test_generate_with_receipt_file(self, sample_receipt, tmp_path):
+        from aragora.cli.commands.compliance import _cmd_eu_ai_act_generate
+        import argparse
+
+        receipt_file = tmp_path / "receipt.json"
+        receipt_file.write_text(json.dumps(sample_receipt))
+        output_dir = tmp_path / "bundle-out"
+
+        args = argparse.Namespace(
+            receipt_file=str(receipt_file),
+            output=str(output_dir),
+            provider_name="Test Corp",
+            provider_contact="test@example.com",
+            eu_representative="Test EU GmbH",
+            system_name="Test Platform",
+            system_version="1.0.0",
+            output_format="all",
+        )
+        _cmd_eu_ai_act_generate(args)
+
+        # Verify all expected files exist
+        assert (output_dir / "compliance_bundle.json").exists()
+        assert (output_dir / "article_12_record_keeping.json").exists()
+        assert (output_dir / "article_13_transparency.json").exists()
+        assert (output_dir / "article_14_human_oversight.json").exists()
+        assert (output_dir / "conformity_report.md").exists()
+        assert (output_dir / "conformity_report.json").exists()
+
+    def test_generate_bundle_json_valid(self, sample_receipt, tmp_path):
+        from aragora.cli.commands.compliance import _cmd_eu_ai_act_generate
+        import argparse
+
+        receipt_file = tmp_path / "receipt.json"
+        receipt_file.write_text(json.dumps(sample_receipt))
+        output_dir = tmp_path / "bundle-json"
+
+        args = argparse.Namespace(
+            receipt_file=str(receipt_file),
+            output=str(output_dir),
+            provider_name="",
+            provider_contact="",
+            eu_representative="",
+            system_name="",
+            system_version="",
+            output_format="json",
+        )
+        _cmd_eu_ai_act_generate(args)
+
+        bundle_path = output_dir / "compliance_bundle.json"
+        assert bundle_path.exists()
+        bundle = json.loads(bundle_path.read_text())
+        assert bundle["regulation"] == "EU AI Act (Regulation 2024/1689)"
+        assert bundle["compliance_deadline"] == "2026-08-02"
+        assert "integrity_hash" in bundle
+        assert len(bundle["integrity_hash"]) == 64
+
+    def test_generate_json_only_no_article_files(self, sample_receipt, tmp_path):
+        from aragora.cli.commands.compliance import _cmd_eu_ai_act_generate
+        import argparse
+
+        receipt_file = tmp_path / "receipt.json"
+        receipt_file.write_text(json.dumps(sample_receipt))
+        output_dir = tmp_path / "bundle-json-only"
+
+        args = argparse.Namespace(
+            receipt_file=str(receipt_file),
+            output=str(output_dir),
+            provider_name="",
+            provider_contact="",
+            eu_representative="",
+            system_name="",
+            system_version="",
+            output_format="json",
+        )
+        _cmd_eu_ai_act_generate(args)
+
+        # Only bundle JSON, no individual article files
+        assert (output_dir / "compliance_bundle.json").exists()
+        assert not (output_dir / "article_12_record_keeping.json").exists()
+        assert not (output_dir / "conformity_report.md").exists()
+
+    def test_generate_without_receipt_uses_synthetic(self, tmp_path):
+        from aragora.cli.commands.compliance import _cmd_eu_ai_act_generate
+        import argparse
+
+        output_dir = tmp_path / "demo-bundle"
+
+        args = argparse.Namespace(
+            receipt_file=None,
+            output=str(output_dir),
+            provider_name="Demo Corp",
+            provider_contact="demo@example.com",
+            eu_representative="",
+            system_name="Demo System",
+            system_version="0.1.0",
+            output_format="all",
+        )
+        _cmd_eu_ai_act_generate(args)
+
+        bundle_path = output_dir / "compliance_bundle.json"
+        assert bundle_path.exists()
+        bundle = json.loads(bundle_path.read_text())
+        assert bundle["receipt_id"] == "DEMO-RCP-001"
+        assert bundle["risk_classification"]["risk_level"] == "high"
+
+    def test_generate_missing_receipt_file(self, tmp_path):
+        from aragora.cli.commands.compliance import _cmd_eu_ai_act_generate
+        import argparse
+
+        args = argparse.Namespace(
+            receipt_file=str(tmp_path / "nonexistent.json"),
+            output=str(tmp_path / "out"),
+            provider_name="",
+            provider_contact="",
+            eu_representative="",
+            system_name="",
+            system_version="",
+            output_format="all",
+        )
+        with pytest.raises(SystemExit):
+            _cmd_eu_ai_act_generate(args)
+
+    def test_generate_conformity_report_md_content(self, sample_receipt, tmp_path):
+        from aragora.cli.commands.compliance import _cmd_eu_ai_act_generate
+        import argparse
+
+        receipt_file = tmp_path / "receipt.json"
+        receipt_file.write_text(json.dumps(sample_receipt))
+        output_dir = tmp_path / "md-check"
+
+        args = argparse.Namespace(
+            receipt_file=str(receipt_file),
+            output=str(output_dir),
+            provider_name="",
+            provider_contact="",
+            eu_representative="",
+            system_name="",
+            system_version="",
+            output_format="all",
+        )
+        _cmd_eu_ai_act_generate(args)
+
+        md_content = (output_dir / "conformity_report.md").read_text()
+        assert "# EU AI Act Conformity Report" in md_content
+        assert "Article 9" in md_content
+        assert "Article 14" in md_content
+
+    def test_generate_article_12_content(self, sample_receipt, tmp_path):
+        from aragora.cli.commands.compliance import _cmd_eu_ai_act_generate
+        import argparse
+
+        receipt_file = tmp_path / "receipt.json"
+        receipt_file.write_text(json.dumps(sample_receipt))
+        output_dir = tmp_path / "art12-check"
+
+        args = argparse.Namespace(
+            receipt_file=str(receipt_file),
+            output=str(output_dir),
+            provider_name="",
+            provider_contact="",
+            eu_representative="",
+            system_name="",
+            system_version="",
+            output_format="all",
+        )
+        _cmd_eu_ai_act_generate(args)
+
+        art12 = json.loads((output_dir / "article_12_record_keeping.json").read_text())
+        assert art12["article"] == "Article 12"
+        assert art12["title"] == "Record-Keeping"
+        assert "event_log" in art12
+        assert "retention_policy" in art12
+        assert art12["retention_policy"]["minimum_months"] == 6
+
+    def test_synthetic_receipt_function(self):
+        from aragora.cli.commands.compliance import _synthetic_receipt
+
+        receipt = _synthetic_receipt()
+        assert receipt["receipt_id"] == "DEMO-RCP-001"
+        assert receipt["confidence"] == 0.78
+        assert receipt["robustness_score"] == 0.72
+        assert len(receipt["provenance_chain"]) == 10
+        assert receipt["config_used"]["require_approval"] is True
+
+    def test_cmd_compliance_dispatch_eu_ai_act(self, sample_receipt, tmp_path, capsys):
+        """Test that cmd_compliance dispatches eu-ai-act generate correctly."""
+        from aragora.cli.commands.compliance import cmd_compliance
+        import argparse
+
+        receipt_file = tmp_path / "receipt.json"
+        receipt_file.write_text(json.dumps(sample_receipt))
+        output_dir = tmp_path / "dispatch-test"
+
+        args = argparse.Namespace(
+            compliance_command="eu-ai-act",
+            eu_ai_act_command="generate",
+            receipt_file=str(receipt_file),
+            output=str(output_dir),
+            provider_name="",
+            provider_contact="",
+            eu_representative="",
+            system_name="",
+            system_version="",
+            output_format="all",
+        )
+        cmd_compliance(args)
+
+        assert (output_dir / "compliance_bundle.json").exists()
+        captured = capsys.readouterr()
+        assert "EU AI Act Compliance Artifact Bundle Generated" in captured.out
