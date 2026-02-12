@@ -214,6 +214,14 @@ from .ownership import (
     check_owner_permission,
 )
 
+# Break-Glass Emergency Access
+from .emergency import (
+    BreakGlassAccess,
+    EmergencyAccessRecord,
+    EmergencyAccessStatus,
+    get_break_glass_access,
+)
+
 __all__ = [
     # Legacy Types (backward compatible)
     "ResourceType",
@@ -357,4 +365,9 @@ __all__ = [
     "get_resource_owner",
     "is_resource_owner",
     "check_owner_permission",
+    # Break-Glass Emergency Access
+    "BreakGlassAccess",
+    "EmergencyAccessRecord",
+    "EmergencyAccessStatus",
+    "get_break_glass_access",
 ]
