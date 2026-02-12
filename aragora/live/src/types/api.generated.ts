@@ -754,15 +754,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Number of cycles */
-                        cycles?: number;
-                        goals?: string[];
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Loop started */
                 200: {
@@ -836,14 +828,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @default false */
-                        force?: boolean;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Loop stopped */
                 200: {
@@ -917,13 +902,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        reason?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Loop paused */
                 200: {
@@ -997,13 +976,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        skip_current?: boolean;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Loop resumed */
                 200: {
@@ -1077,13 +1050,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        reason?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Phase skipped */
                 200: {
@@ -3023,18 +2990,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        /** @description Agent persona description */
-                        description?: string;
-                        /** @description Personality traits */
-                        traits?: string[];
-                        /** @description Domain expertise scores (0-1) */
-                        expertise?: {
-                            [key: string]: number;
-                        };
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -3824,20 +3782,9 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        /** @description Unique agent identifier */
-                        agent_name: string;
-                        /** @description Agent persona description */
-                        description?: string;
-                        /** @description Personality traits */
-                        traits?: string[];
-                        /** @description Domain expertise scores (0-1) */
-                        expertise?: {
-                            [key: string]: number;
-                        };
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -4591,16 +4538,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Message content */
-                        content: string;
-                        /** @enum {string} */
-                        role?: "user" | "system";
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -5393,15 +5331,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        summary?: string;
-                        /** @default true */
-                        include_verdict?: boolean;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Published to Twitter */
                 200: {
@@ -5471,16 +5401,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        title?: string;
-                        description?: string;
-                        /** @enum {string} */
-                        visibility?: "public" | "unlisted" | "private";
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Published to YouTube */
                 200: {
@@ -5584,8 +5505,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get red-team results */
-        get: operations["getDebateRedTeamV1"];
+        /**
+         * Get red team results
+         * @description Get adversarial analysis results from red team review.
+         */
+        get: operations["getDebateRedTeamResults"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6150,8 +6074,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit followup */
-        post: operations["postDebateFollowupV1"];
+        /**
+         * Create follow-up debate
+         * @description Create a follow-up debate from an existing one.
+         */
+        post: operations["createDebateFollowupV1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9680,13 +9607,18 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        /** Format: binary */
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description Document file to upload
+                         */
                         file: string;
-                        folder?: string;
-                        tags?: string[];
+                        /** @description Override filename */
+                        filename?: string;
+                        /** @description MIME type */
+                        content_type?: string;
                     };
                 };
             };
@@ -11460,25 +11392,18 @@ export interface paths {
         /**
          * List replays
          * @deprecated
-         * @description List all available debate replays
+         * @description Get list of available debate replays.
          */
         get: {
             parameters: {
-                query?: {
-                    /** @description Page number */
-                    page?: number;
-                    /** @description Items per page */
-                    page_size?: number;
-                    /** @description Filter by public status */
-                    is_public?: boolean;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description List of replays */
+                /** @description Replay list */
                 200: {
                     headers: {
                         /** @description Unique request identifier for tracing and debugging */
@@ -11492,16 +11417,11 @@ export interface paths {
                             replays?: {
                                 id?: string;
                                 debate_id?: string;
-                                title?: string;
-                                duration_ms?: number;
+                                duration_seconds?: number;
                                 /** Format: date-time */
                                 created_at?: string;
-                                view_count?: number;
-                                is_public?: boolean;
                             }[];
                             total?: number;
-                            page?: number;
-                            page_size?: number;
                         };
                     };
                 };
@@ -11524,9 +11444,9 @@ export interface paths {
         };
         /**
          * List replays
-         * @description List all available debate replays
+         * @description Get list of available debate replays.
          */
-        get: operations["getReplays"];
+        get: operations["listReplays"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11545,6 +11465,7 @@ export interface paths {
         /**
          * Get replay
          * @deprecated
+         * @description Get detailed replay data for a specific debate.
          */
         get: {
             parameters: {
@@ -11557,7 +11478,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Success */
+                /** @description Replay data */
                 200: {
                     headers: {
                         /** @description Unique request identifier for tracing and debugging */
@@ -11568,7 +11489,10 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            success?: boolean;
+                            id?: string;
+                            debate_id?: string;
+                            events?: Record<string, never>[];
+                            metadata?: Record<string, never>;
                         };
                     };
                 };
@@ -11576,38 +11500,7 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        /**
-         * Delete replay
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -11620,39 +11513,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get replay */
-        get: operations["getReplayV1"];
+        /**
+         * Get replay
+         * @description Get detailed replay data for a specific debate.
+         */
+        get: operations["getReplay"];
         put?: never;
         post?: never;
-        /** Delete replay */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -14437,13 +14305,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        dry_run?: boolean;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Execution result with affected items count */
                 200: {
@@ -16551,13 +16413,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        workspace_id?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Statistics reset confirmation with handler count */
                 200: {
@@ -16695,13 +16551,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        adapters?: string[];
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Sync triggered with job ID */
                 200: {
@@ -22153,13 +22003,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        workspace_id?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Uninstall acknowledged */
                 200: {
@@ -22417,132 +22261,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Install Discord integration
+         * Start Discord OAuth installation
          * @deprecated
-         * @description Initiate Discord bot installation via OAuth.
+         * @description Redirects to Discord OAuth authorization page to add the bot to a server.
          */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Target workspace */
-                        workspace_id?: string;
-                        /** @description Requested OAuth scopes */
-                        scopes?: string[];
-                        /** @description OAuth redirect URI */
-                        redirect_uri?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description Install URL generated */
-                200: {
+                /** @description Redirect to Discord OAuth */
+                302: {
                     headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": {
-                            /** @description OAuth authorization URL */
-                            install_url?: string;
-                            /** @description OAuth state parameter */
-                            state?: string;
-                            /** @description URL expiry in seconds */
-                            expires_in?: number;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations/discord/install": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Install Discord integration
-         * @description Initiate Discord bot installation via OAuth.
-         */
-        post: operations["postDiscordInstall"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations/discord/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Discord OAuth callback
-         * @deprecated
-         * @description Handle OAuth callback from Discord authorization.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description OAuth authorization code */
-                        code: string;
-                        /** @description OAuth state parameter */
-                        state: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description OAuth completed */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Whether OAuth completed */
-                            success?: boolean;
-                            /** @description Created/updated integration ID */
-                            integration_id?: string;
-                            /** @description Status message */
-                            message?: string;
-                        };
-                    };
+                    content?: never;
                 };
                 /** @description Bad request - Invalid input or malformed JSON */
                 400: {
@@ -22557,8 +22295,125 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/discord/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Discord OAuth installation
+         * @description Redirects to Discord OAuth authorization page to add the bot to a server.
+         */
+        get: operations["installDiscordIntegration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/discord/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Discord OAuth callback
+         * @deprecated
+         * @description Handles the OAuth callback from Discord after user authorization.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description OAuth authorization code */
+                    code: string;
+                    /** @description OAuth state parameter */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to success page */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -22572,13 +22427,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Discord OAuth callback
-         * @description Handle OAuth callback from Discord authorization.
+         * Handle Discord OAuth callback
+         * @description Handles the OAuth callback from Discord after user authorization.
          */
-        post: operations["postDiscordCallback"];
+        get: operations["discordOAuthCallback"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -22606,13 +22461,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        guild_id?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Uninstall acknowledged */
                 200: {
@@ -22675,8 +22524,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Teams install link
+         * Start Microsoft Teams installation
          * @deprecated
+         * @description Redirects to Microsoft OAuth authorization page to install the Teams app.
          */
         get: {
             parameters: {
@@ -22687,149 +22537,12 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Success */
-                200: {
+                /** @description Redirect to Microsoft OAuth */
+                302: {
                     headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Install Teams integration
-         * @deprecated
-         * @description Initiate Microsoft Teams app installation via OAuth.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Target workspace */
-                        workspace_id?: string;
-                        /** @description Requested OAuth scopes */
-                        scopes?: string[];
-                        /** @description OAuth redirect URI */
-                        redirect_uri?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Install URL generated */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description OAuth authorization URL */
-                            install_url?: string;
-                            /** @description OAuth state parameter */
-                            state?: string;
-                            /** @description URL expiry in seconds */
-                            expires_in?: number;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations/teams/install": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Teams install link */
-        get: operations["getTeamsInstall"];
-        put?: never;
-        /**
-         * Install Teams integration
-         * @description Initiate Microsoft Teams app installation via OAuth.
-         */
-        post: operations["postTeamsInstall"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations/teams/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Teams OAuth callback
-         * @deprecated
-         * @description Handle OAuth callback from Microsoft Teams authorization.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description OAuth authorization code */
-                        code: string;
-                        /** @description OAuth state parameter */
-                        state: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description OAuth completed */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Whether OAuth completed */
-                            success?: boolean;
-                            /** @description Created/updated integration ID */
-                            integration_id?: string;
-                            /** @description Status message */
-                            message?: string;
-                        };
-                    };
+                    content?: never;
                 };
                 /** @description Bad request - Invalid input or malformed JSON */
                 400: {
@@ -22844,8 +22557,125 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/teams/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Microsoft Teams installation
+         * @description Redirects to Microsoft OAuth authorization page to install the Teams app.
+         */
+        get: operations["installTeamsIntegration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/teams/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Teams OAuth callback
+         * @deprecated
+         * @description Handles the OAuth callback from Microsoft after user authorization.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description OAuth authorization code */
+                    code: string;
+                    /** @description OAuth state parameter */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to success page */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -22859,13 +22689,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Teams OAuth callback
-         * @description Handle OAuth callback from Microsoft Teams authorization.
+         * Handle Teams OAuth callback
+         * @description Handles the OAuth callback from Microsoft after user authorization.
          */
-        post: operations["postTeamsCallback"];
+        get: operations["teamsOAuthCallback"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -22893,13 +22723,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        tenant_id?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Token refreshed */
                 200: {
@@ -22989,11 +22813,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -23037,11 +22857,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -23396,11 +23212,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Logged out successfully */
                 200: {
@@ -23469,11 +23281,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description All sessions invalidated */
                 200: {
@@ -24108,15 +23916,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        method?: "totp" | "sms" | "email";
-                        phone?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description MFA setup initialized */
                 200: {
@@ -25256,11 +25056,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -25317,11 +25113,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -25374,17 +25166,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name?: string;
-                        /** @enum {string} */
-                        type?: "api_key" | "signing_key" | "encryption_key";
-                        /** Format: date-time */
-                        expires_at?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -26495,11 +26277,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Job re-queued */
                 200: {
@@ -28422,1364 +28200,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/policies": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all policies
-         * @deprecated
-         * @description Retrieve a paginated list of all configured policies.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    per_page?: number;
-                    type?: string;
-                    enabled?: boolean;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Policy list */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            policies?: Record<string, never>[];
-                            total?: number;
-                            page?: number;
-                            per_page?: number;
-                        };
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Create policy
-         * @deprecated
-         * @description Create a new policy with specified conditions and actions.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name: string;
-                        description?: string;
-                        type: string;
-                        /** @default true */
-                        enabled?: boolean;
-                        /** @default 100 */
-                        priority?: number;
-                        conditions?: Record<string, never>;
-                        actions?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Created policy */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique policy identifier */
-                            id?: string;
-                            /** @description Policy name */
-                            name?: string;
-                            description?: string;
-                            /** @enum {string} */
-                            type?: "access_control" | "data_retention" | "encryption" | "audit" | "rate_limit" | "custom";
-                            enabled?: boolean;
-                            /** @description Policy evaluation priority */
-                            priority?: number;
-                            /** @description Policy conditions as JSON */
-                            conditions?: Record<string, never>;
-                            actions?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all policies
-         * @description Retrieve a paginated list of all configured policies.
-         */
-        get: operations["getPolicies"];
-        put?: never;
-        /**
-         * Create policy
-         * @description Create a new policy with specified conditions and actions.
-         */
-        post: operations["postPolicies"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/policies/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate policy configuration
-         * @deprecated
-         * @description Validate a policy configuration without creating it.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name: string;
-                        type: string;
-                        conditions?: Record<string, never>;
-                    };
-                };
-            };
-            responses: {
-                /** @description Validation result */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Whether the policy is valid */
-                            valid?: boolean;
-                            /** @description Validation errors */
-                            errors?: string[];
-                            /** @description Validation warnings */
-                            warnings?: string[];
-                            /** @description Conflicting policies */
-                            conflicts?: Record<string, never>[];
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate policy configuration
-         * @description Validate a policy configuration without creating it.
-         */
-        post: operations["postPoliciesValidate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/policies/violations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all policy violations
-         * @deprecated
-         * @description Retrieve all active policy violations across the system.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    severity?: string;
-                    status?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Violation list */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            violations?: Record<string, never>[];
-                            total?: number;
-                            /** @description Count by severity level */
-                            by_severity?: Record<string, never>;
-                        };
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies/violations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all policy violations
-         * @description Retrieve all active policy violations across the system.
-         */
-        get: operations["getPoliciesViolations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/policies/violations/{id}/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resolve policy violation
-         * @deprecated
-         * @description Mark a policy violation as resolved.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        resolution_notes?: string;
-                        resolution_type?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Resolved violation */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Violation identifier */
-                            id?: string;
-                            /** @description Associated policy ID */
-                            policy_id?: string;
-                            policy_name?: string;
-                            /** @enum {string} */
-                            severity?: "critical" | "high" | "medium" | "low" | "info";
-                            /** @enum {string} */
-                            status?: "open" | "acknowledged" | "resolved" | "ignored";
-                            resource_type?: string;
-                            resource_id?: string;
-                            description?: string;
-                            /** Format: date-time */
-                            detected_at?: string;
-                            /** Format: date-time */
-                            resolved_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies/violations/{id}/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resolve policy violation
-         * @description Mark a policy violation as resolved.
-         */
-        post: operations["postViolationsResolve"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/policies/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get policy by ID
-         * @deprecated
-         * @description Retrieve a specific policy by its identifier.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Policy details */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique policy identifier */
-                            id?: string;
-                            /** @description Policy name */
-                            name?: string;
-                            description?: string;
-                            /** @enum {string} */
-                            type?: "access_control" | "data_retention" | "encryption" | "audit" | "rate_limit" | "custom";
-                            enabled?: boolean;
-                            /** @description Policy evaluation priority */
-                            priority?: number;
-                            /** @description Policy conditions as JSON */
-                            conditions?: Record<string, never>;
-                            actions?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        /**
-         * Delete policy
-         * @deprecated
-         * @description Delete a policy by ID.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Policy deleted */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                            resource_id?: string;
-                            /** Format: date-time */
-                            deleted_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /**
-         * Update policy
-         * @deprecated
-         * @description Partially update a policy configuration.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        name?: string;
-                        description?: string;
-                        enabled?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Updated policy */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique policy identifier */
-                            id?: string;
-                            /** @description Policy name */
-                            name?: string;
-                            description?: string;
-                            /** @enum {string} */
-                            type?: "access_control" | "data_retention" | "encryption" | "audit" | "rate_limit" | "custom";
-                            enabled?: boolean;
-                            /** @description Policy evaluation priority */
-                            priority?: number;
-                            /** @description Policy conditions as JSON */
-                            conditions?: Record<string, never>;
-                            actions?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/policies/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get policy by ID
-         * @description Retrieve a specific policy by its identifier.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Policy details */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique policy identifier */
-                            id?: string;
-                            /** @description Policy name */
-                            name?: string;
-                            description?: string;
-                            /** @enum {string} */
-                            type?: "access_control" | "data_retention" | "encryption" | "audit" | "rate_limit" | "custom";
-                            enabled?: boolean;
-                            /** @description Policy evaluation priority */
-                            priority?: number;
-                            /** @description Policy conditions as JSON */
-                            conditions?: Record<string, never>;
-                            actions?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        /**
-         * Delete policy
-         * @description Delete a policy by ID.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Policy deleted */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                            resource_id?: string;
-                            /** Format: date-time */
-                            deleted_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /**
-         * Update policy
-         * @description Partially update a policy configuration.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        name?: string;
-                        description?: string;
-                        enabled?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Updated policy */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique policy identifier */
-                            id?: string;
-                            /** @description Policy name */
-                            name?: string;
-                            description?: string;
-                            /** @enum {string} */
-                            type?: "access_control" | "data_retention" | "encryption" | "audit" | "rate_limit" | "custom";
-                            enabled?: boolean;
-                            /** @description Policy evaluation priority */
-                            priority?: number;
-                            /** @description Policy conditions as JSON */
-                            conditions?: Record<string, never>;
-                            actions?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/policies/{id}/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Disable policy
-         * @deprecated
-         * @description Disable a policy without deleting it.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        reason?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Policy disabled */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            policy_id?: string;
-                            enabled?: boolean;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies/{id}/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Disable policy
-         * @description Disable a policy without deleting it.
-         */
-        post: operations["postPoliciesDisable"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/policies/{id}/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Enable policy
-         * @deprecated
-         * @description Enable a previously disabled policy.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Policy enabled */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            policy_id?: string;
-                            enabled?: boolean;
-                            /** Format: date-time */
-                            updated_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies/{id}/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Enable policy
-         * @description Enable a previously disabled policy.
-         */
-        post: operations["postPoliciesEnable"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/policies/{id}/toggle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: id */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Toggle policy
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Enable/disable policy */
-                        enabled?: boolean;
-                        /** @description Reason for toggle */
-                        reason?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies/{id}/toggle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get policy toggle state */
-        get: operations["getPolicyToggleV1"];
-        put?: never;
-        /** Toggle policy */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Enable/disable policy */
-                        enabled?: boolean;
-                        /** @description Reason for toggle */
-                        reason?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/policies/{id}/violations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get violations for policy
-         * @deprecated
-         * @description Retrieve all violations associated with a specific policy.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    status?: string;
-                };
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Violations for policy */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            violations?: Record<string, never>[];
-                            total?: number;
-                            /** @description Count by severity level */
-                            by_severity?: Record<string, never>;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/policies/{id}/violations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get violations for policy
-         * @description Retrieve all violations associated with a specific policy.
-         */
-        get: operations["getPolicyViolationsById"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit/denied": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update denied audit configuration
-         * @description Update configuration for denied access audit logging.
-         */
-        put: operations["putAuditDenied"];
-        /**
-         * Record denied access
-         * @description Record a denied access attempt in the audit log.
-         */
-        post: operations["postAuditDenied"];
-        /**
-         * Clear denied audit logs
-         * @description Clear audit logs of denied access attempts.
-         */
-        delete: operations["deleteAuditDenied"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit/resource/{resource_type}/{resource_id}/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get resource audit history
-         * @description Retrieve complete audit history for a specific resource.
-         */
-        get: operations["getResourceHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/privacy/account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get account privacy settings */
-        get: operations["getPrivacyAccountV1"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete account data (GDPR)
-         * @description Delete all personal data associated with the user's account.
-         */
-        delete: operations["deletePrivacyAccount"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/privacy/preferences": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get privacy preferences */
-        get: operations["getPrivacyPreferencesV1"];
-        put?: never;
-        /**
-         * Update privacy preferences
-         * @description Update user's privacy preferences including consent settings.
-         */
-        post: operations["postPrivacyPreferences"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/analytics/agents/{id}/performance": {
         parameters: {
             query?: never;
@@ -29952,8 +28372,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get analytics connection */
-        get: operations["getAnalyticsConnectV1"];
+        get?: never;
         put?: never;
         /**
          * Connect analytics provider
@@ -29973,8 +28392,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Query analytics */
-        get: operations["getAnalyticsQueryV1"];
+        get?: never;
         put?: never;
         /**
          * Execute analytics query
@@ -29994,8 +28412,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Generate analytics report */
-        get: operations["getAnalyticsReportsGenerateV1"];
+        get?: never;
         put?: never;
         /**
          * Generate analytics report
@@ -30015,8 +28432,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get analytics by ID */
-        get: operations["getAnalyticsByIdV1"];
+        get?: never;
         put?: never;
         post?: never;
         /**
@@ -30024,1935 +28440,6 @@ export interface paths {
          * @description Delete analytics data for a specific resource or time period.
          */
         delete: operations["deleteAnalytics"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all integrations
-         * @deprecated
-         * @description Get all configured integrations for the workspace.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by type */
-                    type?: string;
-                    /** @description Filter by status */
-                    status?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integrations list */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description List of integrations */
-                            integrations?: {
-                                /** @description Unique integration identifier */
-                                id?: string;
-                                /** @description Integration display name */
-                                name?: string;
-                                /**
-                                 * @description Integration type
-                                 * @enum {string}
-                                 */
-                                type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                                /**
-                                 * @description Current integration status
-                                 * @enum {string}
-                                 */
-                                status?: "active" | "inactive" | "error" | "pending";
-                                /** @description Integration-specific configuration */
-                                config?: Record<string, never>;
-                                /** @description Associated workspace */
-                                workspace_id?: string;
-                                /** Format: date-time */
-                                created_at?: string;
-                                /** Format: date-time */
-                                updated_at?: string;
-                                /**
-                                 * Format: date-time
-                                 * @description Last successful sync
-                                 */
-                                last_sync?: string;
-                            }[];
-                            /** @description Total number of integrations */
-                            total?: number;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Create integration
-         * @deprecated
-         * @description Create a new integration configuration.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /**
-                         * @description Integration type
-                         * @enum {string}
-                         */
-                        type: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                        /** @description Display name */
-                        name: string;
-                        /** @description Integration configuration */
-                        config?: Record<string, never>;
-                    };
-                };
-            };
-            responses: {
-                /** @description Created integration */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique integration identifier */
-                            id?: string;
-                            /** @description Integration display name */
-                            name?: string;
-                            /**
-                             * @description Integration type
-                             * @enum {string}
-                             */
-                            type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                            /**
-                             * @description Current integration status
-                             * @enum {string}
-                             */
-                            status?: "active" | "inactive" | "error" | "pending";
-                            /** @description Integration-specific configuration */
-                            config?: Record<string, never>;
-                            /** @description Associated workspace */
-                            workspace_id?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /**
-                             * Format: date-time
-                             * @description Last successful sync
-                             */
-                            last_sync?: string;
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all integrations
-         * @description Get all configured integrations for the workspace.
-         */
-        get: operations["getIntegrations"];
-        put?: never;
-        /**
-         * Create integration
-         * @description Create a new integration configuration.
-         */
-        post: operations["postIntegrations"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations/available": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List available integrations
-         * @deprecated
-         * @description Get all available integration types that can be configured.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Available integrations */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Available integration types */
-                            integrations?: {
-                                /** @description Integration type identifier */
-                                type?: string;
-                                /** @description Display name */
-                                name?: string;
-                                /** @description Integration description */
-                                description?: string;
-                                /** @description Icon URL */
-                                icon_url?: string;
-                                /** @description Documentation URL */
-                                docs_url?: string;
-                                /** @description Required OAuth scopes */
-                                required_scopes?: string[];
-                                /** @description Supported features */
-                                features?: string[];
-                            }[];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations/available": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List available integrations
-         * @description Get all available integration types that can be configured.
-         */
-        get: operations["getIntegrationsAvailable"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations/config/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get integration configuration
-         * @deprecated
-         * @description Get detailed configuration for a specific integration.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integration configuration */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Integration ID */
-                            id?: string;
-                            /** @description Integration type */
-                            type?: string;
-                            /** @description Integration-specific settings */
-                            settings?: Record<string, never>;
-                            /** @description Credential information (sensitive data masked) */
-                            credentials?: {
-                                /** @description Whether OAuth token exists */
-                                has_token?: boolean;
-                                /**
-                                 * Format: date-time
-                                 * @description Token expiry
-                                 */
-                                expires_at?: string;
-                                /** @description Granted scopes */
-                                scopes?: string[];
-                            };
-                            /** @description Configured webhooks */
-                            webhooks?: {
-                                url?: string;
-                                events?: string[];
-                            }[];
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations/config/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get integration configuration
-         * @description Get detailed configuration for a specific integration.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integration configuration */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Integration ID */
-                            id?: string;
-                            /** @description Integration type */
-                            type?: string;
-                            /** @description Integration-specific settings */
-                            settings?: Record<string, never>;
-                            /** @description Credential information (sensitive data masked) */
-                            credentials?: {
-                                /** @description Whether OAuth token exists */
-                                has_token?: boolean;
-                                /**
-                                 * Format: date-time
-                                 * @description Token expiry
-                                 */
-                                expires_at?: string;
-                                /** @description Granted scopes */
-                                scopes?: string[];
-                            };
-                            /** @description Configured webhooks */
-                            webhooks?: {
-                                url?: string;
-                                events?: string[];
-                            }[];
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get integration by ID
-         * @deprecated
-         * @description Retrieve a specific integration.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integration details */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique integration identifier */
-                            id?: string;
-                            /** @description Integration display name */
-                            name?: string;
-                            /**
-                             * @description Integration type
-                             * @enum {string}
-                             */
-                            type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                            /**
-                             * @description Current integration status
-                             * @enum {string}
-                             */
-                            status?: "active" | "inactive" | "error" | "pending";
-                            /** @description Integration-specific configuration */
-                            config?: Record<string, never>;
-                            /** @description Associated workspace */
-                            workspace_id?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /**
-                             * Format: date-time
-                             * @description Last successful sync
-                             */
-                            last_sync?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        /**
-         * Update integration
-         * @deprecated
-         * @description Update an existing integration configuration.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Display name */
-                        name?: string;
-                        /** @description Configuration updates */
-                        config?: Record<string, never>;
-                        /**
-                         * @description Integration status
-                         * @enum {string}
-                         */
-                        status?: "active" | "inactive";
-                    };
-                };
-            };
-            responses: {
-                /** @description Updated integration */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique integration identifier */
-                            id?: string;
-                            /** @description Integration display name */
-                            name?: string;
-                            /**
-                             * @description Integration type
-                             * @enum {string}
-                             */
-                            type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                            /**
-                             * @description Current integration status
-                             * @enum {string}
-                             */
-                            status?: "active" | "inactive" | "error" | "pending";
-                            /** @description Integration-specific configuration */
-                            config?: Record<string, never>;
-                            /** @description Associated workspace */
-                            workspace_id?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /**
-                             * Format: date-time
-                             * @description Last successful sync
-                             */
-                            last_sync?: string;
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        /**
-         * Delete integration
-         * @deprecated
-         * @description Remove an integration and its configuration.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integration deleted */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Whether action succeeded */
-                            success?: boolean;
-                            /** @description Result message */
-                            message?: string;
-                            /** @description Number of items affected */
-                            affected_count?: number;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get integration by ID
-         * @description Retrieve a specific integration.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integration details */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique integration identifier */
-                            id?: string;
-                            /** @description Integration display name */
-                            name?: string;
-                            /**
-                             * @description Integration type
-                             * @enum {string}
-                             */
-                            type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                            /**
-                             * @description Current integration status
-                             * @enum {string}
-                             */
-                            status?: "active" | "inactive" | "error" | "pending";
-                            /** @description Integration-specific configuration */
-                            config?: Record<string, never>;
-                            /** @description Associated workspace */
-                            workspace_id?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /**
-                             * Format: date-time
-                             * @description Last successful sync
-                             */
-                            last_sync?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        /**
-         * Update integration
-         * @description Update an existing integration configuration.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Display name */
-                        name?: string;
-                        /** @description Configuration updates */
-                        config?: Record<string, never>;
-                        /**
-                         * @description Integration status
-                         * @enum {string}
-                         */
-                        status?: "active" | "inactive";
-                    };
-                };
-            };
-            responses: {
-                /** @description Updated integration */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique integration identifier */
-                            id?: string;
-                            /** @description Integration display name */
-                            name?: string;
-                            /**
-                             * @description Integration type
-                             * @enum {string}
-                             */
-                            type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                            /**
-                             * @description Current integration status
-                             * @enum {string}
-                             */
-                            status?: "active" | "inactive" | "error" | "pending";
-                            /** @description Integration-specific configuration */
-                            config?: Record<string, never>;
-                            /** @description Associated workspace */
-                            workspace_id?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /**
-                             * Format: date-time
-                             * @description Last successful sync
-                             */
-                            last_sync?: string;
-                        };
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        /**
-         * Delete integration
-         * @description Remove an integration and its configuration.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integration deleted */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Whether action succeeded */
-                            success?: boolean;
-                            /** @description Result message */
-                            message?: string;
-                            /** @description Number of items affected */
-                            affected_count?: number;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations/{id}/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get sync status
-         * @deprecated
-         * @description Get the current sync status for an integration.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Sync status */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Integration ID */
-                            integration_id?: string;
-                            /**
-                             * @description Current sync status
-                             * @enum {string}
-                             */
-                            status?: "idle" | "syncing" | "completed" | "failed";
-                            /**
-                             * Format: date-time
-                             * @description Last sync timestamp
-                             */
-                            last_sync?: string;
-                            /**
-                             * Format: date-time
-                             * @description Next scheduled sync
-                             */
-                            next_sync?: string;
-                            /** @description Items synced in last run */
-                            items_synced?: number;
-                            /** @description Sync errors if any */
-                            errors?: string[];
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Trigger sync
-         * @deprecated
-         * @description Trigger a manual sync for an integration.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Perform full sync */
-                        full_sync?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Sync triggered */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Integration ID */
-                            integration_id?: string;
-                            /**
-                             * @description Current sync status
-                             * @enum {string}
-                             */
-                            status?: "idle" | "syncing" | "completed" | "failed";
-                            /**
-                             * Format: date-time
-                             * @description Last sync timestamp
-                             */
-                            last_sync?: string;
-                            /**
-                             * Format: date-time
-                             * @description Next scheduled sync
-                             */
-                            next_sync?: string;
-                            /** @description Items synced in last run */
-                            items_synced?: number;
-                            /** @description Sync errors if any */
-                            errors?: string[];
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations/{id}/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get sync status
-         * @description Get the current sync status for an integration.
-         */
-        get: operations["getIntegrationSyncStatus"];
-        put?: never;
-        /**
-         * Trigger sync
-         * @description Trigger a manual sync for an integration.
-         */
-        post: operations["postIntegrationSync"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/integrations/{id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test integration
-         * @deprecated
-         * @description Test connectivity and configuration for an integration.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Test timeout */
-                        timeout_ms?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Test results */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Whether test passed */
-                            success?: boolean;
-                            /** @description Response latency in milliseconds */
-                            latency_ms?: number;
-                            /** @description Test result message */
-                            message?: string;
-                            /** @description Additional test details */
-                            details?: Record<string, never>;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/integrations/{id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test integration
-         * @description Test connectivity and configuration for an integration.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Integration ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Test timeout */
-                        timeout_ms?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Test results */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Whether test passed */
-                            success?: boolean;
-                            /** @description Response latency in milliseconds */
-                            latency_ms?: number;
-                            /** @description Test result message */
-                            message?: string;
-                            /** @description Additional test details */
-                            details?: Record<string, never>;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/connectors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List connectors */
-        get: operations["listConnectorsV1"];
-        put?: never;
-        /**
-         * Create connector
-         * @description Create a new data connector.
-         */
-        post: operations["postConnector"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/connectors/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get connector */
-        get: operations["getConnectorV1"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete connector
-         * @description Remove a data connector.
-         */
-        delete: operations["deleteConnector"];
-        options?: never;
-        head?: never;
-        /**
-         * Update connector
-         * @description Update connector configuration.
-         */
-        patch: operations["patchConnector"];
-        trace?: never;
-    };
-    "/api/v1/connectors/{id}/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get connector health
-         * @description Check health status of a connector.
-         */
-        get: operations["getConnectorHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/connectors/{id}/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get connector sync status */
-        get: operations["getConnectorSyncV1"];
-        put?: never;
-        /**
-         * Trigger connector sync
-         * @description Start a data sync operation for a connector.
-         */
-        post: operations["postConnectorSync"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/connectors/{id}/syncs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List connector syncs
-         * @description Get sync history for a connector.
-         */
-        get: operations["getConnectorSyncs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/connectors/{id}/syncs/{sync_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get sync by ID
-         * @description Get details of a specific sync operation.
-         */
-        get: operations["getConnectorSyncById"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/connectors/{id}/syncs/{sync_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel sync
-         * @description Cancel a running sync operation.
-         */
-        post: operations["postConnectorSyncCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/connectors/{id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test connector
-         * @description Test connectivity for a connector.
-         */
-        post: operations["postConnectorTest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/bulk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Bulk delete webhooks
-         * @description Delete multiple webhooks at once.
-         */
-        delete: operations["deleteWebhooksBulk"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/events/categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List event categories
-         * @description Get all available webhook event categories and types.
-         */
-        get: operations["getWebhookEventCategories"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/pause-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pause all webhooks
-         * @description Pause all webhooks for the workspace.
-         */
-        post: operations["postWebhooksPauseAll"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/resume-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resume all webhooks
-         * @description Resume all paused webhooks for the workspace.
-         */
-        post: operations["postWebhooksResumeAll"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/deliveries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List webhook deliveries
-         * @description Get delivery history for a webhook.
-         */
-        get: operations["getWebhookDeliveries"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/deliveries/{delivery_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get delivery by ID
-         * @description Get details of a specific delivery attempt.
-         */
-        get: operations["getWebhookDeliveryById"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/deliveries/{delivery_id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry delivery
-         * @description Manually retry a failed delivery.
-         */
-        post: operations["postWebhookDeliveryRetry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Subscribe to events
-         * @description Add event subscriptions to a webhook.
-         */
-        post: operations["postWebhookEvents"];
-        /**
-         * Unsubscribe from events
-         * @description Remove event subscriptions from a webhook.
-         */
-        delete: operations["deleteWebhookEvents"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/retry-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get retry policy
-         * @description Get the retry policy configuration for a webhook.
-         */
-        get: operations["getWebhookRetryPolicy"];
-        /**
-         * Update retry policy
-         * @description Update the retry policy for a webhook.
-         */
-        put: operations["putWebhookRetryPolicy"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/rotate-secret": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rotate signing secret
-         * @description Generate a new signing secret for a webhook.
-         */
-        post: operations["postWebhookRotateSecret"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/signing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get signing configuration
-         * @description Get the signature configuration for a webhook.
-         */
-        get: operations["getWebhookSigning"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get webhook statistics
-         * @description Get delivery statistics for a webhook.
-         */
-        get: operations["getWebhookStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/debates/{id}/replay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get debate replay
-         * @deprecated
-         * @description Retrieve replay data for a completed debate including all events and timing
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Debate ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Debate replay data */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Unique replay identifier */
-                            replay_id?: string;
-                            /** @description Source debate identifier */
-                            debate_id?: string;
-                            /** @description Ordered list of debate events */
-                            events?: {
-                                event_id?: string;
-                                /** @enum {string} */
-                                type?: "debate_start" | "round_start" | "agent_message" | "critique" | "vote" | "consensus" | "debate_end";
-                                /** Format: date-time */
-                                timestamp?: string;
-                                agent_id?: string;
-                                content?: string;
-                                metadata?: Record<string, never>;
-                            }[];
-                            /** @description Total replay duration in milliseconds */
-                            duration_ms?: number;
-                            /** @description Number of debate rounds */
-                            total_rounds?: number;
-                            /** @description List of participating agent IDs */
-                            participants?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** @enum {string} */
-                            status?: "ready" | "processing" | "error";
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/debates/{id}/replay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get debate replay
-         * @description Retrieve replay data for a completed debate including all events and timing
-         */
-        get: operations["getDebatesReplay"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/keys": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List API keys
-         * @deprecated
-         * @description List all API keys for the current user or workspace
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of API keys */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            keys?: {
-                                /** @description Key identifier */
-                                id?: string;
-                                /** @description Human-readable key name */
-                                name?: string;
-                                /** @description Key prefix (e.g., 'sk_live_') */
-                                prefix?: string;
-                                /** Format: date-time */
-                                created_at?: string;
-                                /** Format: date-time */
-                                expires_at?: string;
-                                /** Format: date-time */
-                                last_used_at?: string;
-                                /** @description Authorized permission scopes */
-                                scopes?: string[];
-                                /** @enum {string} */
-                                status?: "active" | "expired" | "revoked";
-                            }[];
-                            total?: number;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/keys": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List API keys
-         * @description List all API keys for the current user or workspace
-         */
-        get: operations["getKeys"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/keys/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete API key
-         * @deprecated
-         * @description Revoke and delete an API key
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Key ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Key deleted */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                            id?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/keys/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete API key
-         * @description Revoke and delete an API key
-         */
-        delete: operations["deleteKeys"];
         options?: never;
         head?: never;
         patch?: never;
@@ -32148,534 +28635,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leaderboard/agent/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get agent statistics
-         * @deprecated
-         * @description Retrieve detailed statistics for a specific agent
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent statistics */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            agent_id?: string;
-                            name?: string;
-                            elo_rating?: number;
-                            total_debates?: number;
-                            wins?: number;
-                            losses?: number;
-                            draws?: number;
-                            win_rate?: number;
-                            average_score?: number;
-                            /** @description Expertise domains */
-                            domains?: string[];
-                            rank?: number;
-                            /** @enum {string} */
-                            tier?: "bronze" | "silver" | "gold" | "platinum" | "diamond";
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/leaderboard/agent/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get agent statistics
-         * @description Retrieve detailed statistics for a specific agent
-         */
-        get: operations["getLeaderboardAgent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/leaderboard/agent/{id}/elo-history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get agent ELO history
-         * @deprecated
-         * @description Retrieve historical ELO rating changes for an agent
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Agent ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description ELO rating history */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            agent_id?: string;
-                            history?: {
-                                /** Format: date-time */
-                                timestamp?: string;
-                                rating?: number;
-                                change?: number;
-                                debate_id?: string;
-                                opponent_id?: string;
-                                /** @enum {string} */
-                                result?: "win" | "loss" | "draw";
-                            }[];
-                            current_rating?: number;
-                            peak_rating?: number;
-                            lowest_rating?: number;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/leaderboard/agent/{id}/elo-history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get agent ELO history
-         * @description Retrieve historical ELO rating changes for an agent
-         */
-        get: operations["getAgentEloHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/leaderboard/compare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Compare agents
-         * @deprecated
-         * @description Compare statistics between multiple agents including head-to-head records
-         */
-        get: {
-            parameters: {
-                query: {
-                    /** @description Agent IDs to compare */
-                    agent_ids: string[];
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Agent comparison */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            agents?: {
-                                agent_id?: string;
-                                name?: string;
-                                elo_rating?: number;
-                                total_debates?: number;
-                                wins?: number;
-                                losses?: number;
-                                draws?: number;
-                                win_rate?: number;
-                                average_score?: number;
-                                /** @description Expertise domains */
-                                domains?: string[];
-                                rank?: number;
-                                /** @enum {string} */
-                                tier?: "bronze" | "silver" | "gold" | "platinum" | "diamond";
-                            }[];
-                            head_to_head?: {
-                                agent_a?: string;
-                                agent_b?: string;
-                                a_wins?: number;
-                                b_wins?: number;
-                                draws?: number;
-                            }[];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/leaderboard/compare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Compare agents
-         * @description Compare statistics between multiple agents including head-to-head records
-         */
-        get: operations["getLeaderboardCompare"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/leaderboard/domain/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get domain leaderboard
-         * @deprecated
-         * @description Retrieve the leaderboard for a specific expertise domain
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Domain ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Domain leaderboard */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            domain?: string;
-                            agents?: {
-                                agent_id?: string;
-                                name?: string;
-                                domain_elo?: number;
-                                domain_debates?: number;
-                                domain_win_rate?: number;
-                                rank?: number;
-                            }[];
-                            total_agents?: number;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/leaderboard/domain/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get domain leaderboard
-         * @description Retrieve the leaderboard for a specific expertise domain
-         */
-        get: operations["getLeaderboardDomain"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/leaderboard/domains": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List domains
-         * @deprecated
-         * @description List all available expertise domains with statistics
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of domains */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            domains?: {
-                                id?: string;
-                                name?: string;
-                                description?: string;
-                                total_debates?: number;
-                                active_agents?: number;
-                            }[];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/leaderboard/domains": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List domains
-         * @description List all available expertise domains with statistics
-         */
-        get: operations["getLeaderboardDomains"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/leaderboard/movers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get top movers
-         * @deprecated
-         * @description Get agents with the biggest rating changes in a period
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Time period */
-                    period?: "day" | "week" | "month";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Top movers */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @enum {string} */
-                            period?: "day" | "week" | "month";
-                            gainers?: {
-                                agent_id?: string;
-                                name?: string;
-                                rating_change?: number;
-                                new_rating?: number;
-                                debates_in_period?: number;
-                            }[];
-                            losers?: {
-                                agent_id?: string;
-                                name?: string;
-                                rating_change?: number;
-                                new_rating?: number;
-                                debates_in_period?: number;
-                            }[];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/leaderboard/movers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get top movers
-         * @description Get agents with the biggest rating changes in a period
-         */
-        get: operations["getLeaderboardMovers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/personas/options": {
         parameters: {
             query?: never;
@@ -32724,11 +28683,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -32750,11 +28705,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -32832,1901 +28783,6 @@ export interface paths {
         post: operations["postPersonaOptionsV1"];
         /** Delete persona options */
         delete: operations["deletePersonaOptionsV1"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/pulse/analytics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get pulse analytics
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        source?: string;
-                        data?: Record<string, never>;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        enabled?: boolean;
-                        retention_days?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/analytics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get pulse analytics */
-        get: operations["getPulseAnalyticsV1"];
-        put?: never;
-        /** Submit pulse analytics */
-        post: operations["postPulseAnalyticsV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update pulse analytics */
-        patch: operations["patchPulseAnalyticsV1"];
-        trace?: never;
-    };
-    "/api/pulse/debate-topic": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Set debate topic
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        topic?: string;
-                        sources?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        active?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/debate-topic": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Set debate topic */
-        post: operations["postPulseDebateTopicV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update debate topic */
-        patch: operations["patchPulseDebateTopicV1"];
-        trace?: never;
-    };
-    "/api/pulse/scheduler/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        interval_minutes?: number;
-                        enabled?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update scheduler config
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        interval_minutes?: number;
-                        enabled?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/scheduler/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Configure scheduler */
-        post: operations["postPulseSchedulerConfigV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update scheduler config */
-        patch: operations["patchPulseSchedulerConfigV1"];
-        trace?: never;
-    };
-    "/api/pulse/scheduler/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get scheduler history
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/scheduler/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get scheduler history */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /** Record scheduler history */
-        post: operations["postPulseSchedulerHistoryV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update scheduler history */
-        patch: operations["patchPulseSchedulerHistoryV1"];
-        trace?: never;
-    };
-    "/api/pulse/scheduler/pause": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pause scheduler
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/scheduler/pause": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pause scheduler */
-        post: operations["postPulseSchedulerPauseV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Pause scheduler */
-        patch: operations["patchPulseSchedulerPauseV1"];
-        trace?: never;
-    };
-    "/api/pulse/scheduler/resume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resume scheduler
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/scheduler/resume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Resume scheduler */
-        post: operations["postPulseSchedulerResumeV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Resume scheduler */
-        patch: operations["patchPulseSchedulerResumeV1"];
-        trace?: never;
-    };
-    "/api/pulse/scheduler/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start scheduler
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/scheduler/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start scheduler */
-        post: operations["postPulseSchedulerStartV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Start scheduler */
-        patch: operations["patchPulseSchedulerStartV1"];
-        trace?: never;
-    };
-    "/api/pulse/scheduler/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get scheduler status
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/scheduler/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get scheduler status */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /** Set scheduler status */
-        post: operations["postPulseSchedulerStatusV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update scheduler status */
-        patch: operations["patchPulseSchedulerStatusV1"];
-        trace?: never;
-    };
-    "/api/pulse/scheduler/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop scheduler
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/pulse/scheduler/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Stop scheduler */
-        post: operations["postPulseSchedulerStopV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Stop scheduler */
-        patch: operations["patchPulseSchedulerStopV1"];
-        trace?: never;
-    };
-    "/api/replays/create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create replay
-         * @deprecated
-         * @description Create a new replay from a completed debate
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        debate_id: string;
-                        title?: string;
-                        description?: string;
-                        is_public?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Replay creation started */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            replay_id?: string;
-                            debate_id?: string;
-                            /** @enum {string} */
-                            status?: "processing" | "ready" | "error";
-                            /** Format: date-time */
-                            estimated_ready_at?: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create replay
-         * @description Create a new replay from a completed debate
-         */
-        post: operations["postReplaysCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/replays/share/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get shared replay
-         * @deprecated
-         * @description Access a replay via share link
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Share ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Shared replay data */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id?: string;
-                            debate_id?: string;
-                            title?: string;
-                            description?: string;
-                            events?: Record<string, never>[];
-                            duration_ms?: number;
-                            total_rounds?: number;
-                            participants?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                            view_count?: number;
-                            is_public?: boolean;
-                            bookmarked?: boolean;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/share/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get shared replay
-         * @description Access a replay via share link
-         */
-        get: operations["getReplaysShare"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/replays/{id}/bookmark": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add bookmark
-         * @deprecated
-         * @description Bookmark a replay for easy access
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        note?: string;
-                        tags?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Bookmark added */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            replay_id?: string;
-                            bookmarked?: boolean;
-                            /** Format: date-time */
-                            bookmarked_at?: string;
-                        };
-                    };
-                };
-            };
-        };
-        /**
-         * Remove bookmark
-         * @deprecated
-         * @description Remove a bookmark from a replay
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Bookmark removed */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            replay_id?: string;
-                            bookmarked?: boolean;
-                            /** Format: date-time */
-                            bookmarked_at?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/{id}/bookmark": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add bookmark
-         * @description Bookmark a replay for easy access
-         */
-        post: operations["postReplaysBookmark"];
-        /**
-         * Remove bookmark
-         * @description Remove a bookmark from a replay
-         */
-        delete: operations["deleteReplaysBookmark"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/replays/{id}/comments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get comments
-         * @deprecated
-         * @description Get all comments on a replay
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Replay comments */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            comments?: {
-                                id?: string;
-                                user_id?: string;
-                                user_name?: string;
-                                content?: string;
-                                /** @description Position in replay */
-                                timestamp_ms?: number;
-                                /** Format: date-time */
-                                created_at?: string;
-                                edited?: boolean;
-                            }[];
-                            total?: number;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Add comment
-         * @deprecated
-         * @description Add a comment to a replay at a specific timestamp
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        content: string;
-                        timestamp_ms?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Comment added */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            comment_id?: string;
-                            replay_id?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/{id}/comments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get comments
-         * @description Get all comments on a replay
-         */
-        get: operations["getReplaysComments"];
-        put?: never;
-        /**
-         * Add comment
-         * @description Add a comment to a replay at a specific timestamp
-         */
-        post: operations["postReplaysComments"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/replays/{id}/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Export replay
-         * @deprecated
-         * @description Export replay in various formats (JSON, Markdown, PDF)
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Export format */
-                    format?: "json" | "markdown" | "pdf" | "html";
-                };
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Export details */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            export_id?: string;
-                            replay_id?: string;
-                            /** @enum {string} */
-                            format?: "json" | "markdown" | "pdf" | "html";
-                            /** Format: uri */
-                            download_url?: string;
-                            /** Format: date-time */
-                            expires_at?: string;
-                            size_bytes?: number;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/{id}/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Export replay
-         * @description Export replay in various formats (JSON, Markdown, PDF)
-         */
-        get: operations["getReplaysExport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/replays/{id}/share": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create share link
-         * @deprecated
-         * @description Create a shareable link for a replay
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        expires_in_hours?: number;
-                        max_accesses?: number;
-                        password?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Share link created */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            share_id?: string;
-                            replay_id?: string;
-                            /** Format: uri */
-                            url?: string;
-                            /** Format: date-time */
-                            expires_at?: string;
-                            access_count?: number;
-                            max_accesses?: number;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/{id}/share": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create share link
-         * @description Create a shareable link for a replay
-         */
-        post: operations["postReplaysShare"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/replays/{id}/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get replay summary
-         * @deprecated
-         * @description Get an AI-generated summary of the replay
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Replay summary */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            replay_id?: string;
-                            title?: string;
-                            summary?: string;
-                            key_points?: string[];
-                            outcome?: string;
-                            consensus_reached?: boolean;
-                            winning_agent?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/{id}/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get replay summary
-         * @description Get an AI-generated summary of the replay
-         */
-        get: operations["getReplaysSummary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/replays/{id}/transcript": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get replay transcript
-         * @deprecated
-         * @description Get full text transcript of the replay
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Transcript format */
-                    format?: "plain" | "markdown" | "annotated";
-                };
-                header?: never;
-                path: {
-                    /** @description Replay ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Replay transcript */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            replay_id?: string;
-                            /** @enum {string} */
-                            format?: "plain" | "markdown" | "annotated";
-                            transcript?: string;
-                            word_count?: number;
-                            sections?: {
-                                round?: number;
-                                speaker?: string;
-                                content?: string;
-                                timestamp_ms?: number;
-                            }[];
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/replays/{id}/transcript": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get replay transcript
-         * @description Get full text transcript of the replay
-         */
-        get: operations["getReplaysTranscript"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/routing/domain-leaderboard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get domain leaderboard
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routing/domain-leaderboard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get domain leaderboard */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /** Submit domain leaderboard */
-        post: operations["postRoutingDomainLeaderboardV1"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -35214,59 +29270,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/scim/v2/Groups": {
+    "/api/v1/connectors": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List SCIM groups
-         * @description List groups according to SCIM 2.0 protocol
-         */
-        get: operations["getV2Groups"];
+        /** List connectors */
+        get: operations["listConnectorsV1"];
         put?: never;
-        /** Create group */
-        post: operations["postScimGroups"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/scim/v2/Users": {
+    "/api/v1/connectors/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List SCIM users
-         * @description List users according to SCIM 2.0 protocol
-         */
-        get: operations["getV2Users"];
+        /** Get connector */
+        get: operations["getConnectorV1"];
         put?: never;
-        /** Create user */
-        post: operations["postScimUsers"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/debates/hybrid": {
+    "/api/v1/connectors/{id}/sync": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get connector sync status */
+        get: operations["getConnectorSyncV1"];
         put?: never;
-        /** Start hybrid debate */
-        post: operations["postDebatesHybridV1"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -35635,15 +29683,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/routing-rules": {
+    "/api/v1/policies/{id}/toggle": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List routing rules */
-        get: operations["listRoutingRulesV1"];
+        /** Get policy toggle state */
+        get: operations["getPolicyToggleV1"];
+        put?: never;
+        /** Toggle policy */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get account privacy settings */
+        get: operations["getPrivacyAccountV1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -35652,100 +29749,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/routing-rules/evaluate": {
+    "/api/v1/privacy/preferences": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Evaluate routing rules */
-        get: operations["evaluateRoutingRulesV1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routing-rules/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get routing rule */
-        get: operations["getRoutingRuleV1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routing-rules/{id}/toggle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get routing rule toggle state */
-        get: operations["getRoutingRuleToggleV1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/training/export/dpo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Export DPO data */
-        get: operations["getTrainingExportDpoV1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/training/export/gauntlet": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Export gauntlet data */
-        get: operations["getTrainingExportGauntletV1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/training/export/sft": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Export SFT data */
-        get: operations["getTrainingExportSftV1"];
+        /** Get privacy preferences */
+        get: operations["getPrivacyPreferencesV1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -35774,11 +29786,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -35824,11 +29834,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -35876,11 +29884,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -35958,23 +29964,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/transcription/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Configure transcription */
-        post: operations["postTranscriptionConfigV1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/uncertainty/estimate": {
         parameters: {
             query?: never;
@@ -36009,7 +29998,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/workspaces/{id}": {
+    "/api/policies/{id}/toggle": {
         parameters: {
             query?: never;
             header?: never;
@@ -36017,7 +30006,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get workspace
+         * Autogenerated placeholder (spec pending)
          * @deprecated
          */
         get: {
@@ -36025,97 +30014,25 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description Path parameter: id */
                     id: string;
                 };
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Success */
+                /** @description OK */
                 200: {
                     headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
+                    content?: never;
                 };
             };
         };
-        put?: never;
-        post?: never;
-        /**
-         * Delete workspace
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspaces/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get workspace */
-        get: operations["getWorkspaceById"];
-        put?: never;
-        post?: never;
-        /** Delete workspace */
-        delete: operations["deleteWorkspaceById"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workspaces/{id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
         put?: never;
         /**
-         * Add workspace member
+         * Toggle policy
          * @deprecated
          */
         post: {
@@ -36127,11 +30044,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -36152,95 +30067,6 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspaces/{id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add workspace member */
-        post: operations["postWorkspaceMembers"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workspaces/{id}/members/{member_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update workspace member
-         * @deprecated
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                    /** @description Path parameter: member_id */
-                    member_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description Success */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspaces/{id}/members/{member_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update workspace member */
-        put: operations["putWorkspaceMember"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -36293,11 +30119,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -36370,11 +30194,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -36446,11 +30268,9 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
+            requestBody?: {
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -36471,6 +30291,781 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join debate
+         * @description Join an active debate as an observer, participant, or moderator.
+         */
+        post: operations["joinDebateV1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit vote
+         * @description Submit a vote on the current debate position. Votes influence consensus detection.
+         */
+        post: operations["submitDebateVoteV1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit suggestion
+         * @description Submit a suggestion or argument to be considered by debate agents in the next round.
+         */
+        post: operations["submitDebateSuggestionV1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update debate configuration
+         * @description Update a debate's configuration. Can modify rounds, consensus strategy, and context.
+         */
+        put: operations["updateDebateV1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debates/{debate_id}/intervention/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause debate
+         * @deprecated
+         * @description Pause an active debate. Stops agent responses but preserves state.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    debate_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Debate paused */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            debate_id?: string;
+                            is_paused?: boolean;
+                            /** Format: date-time */
+                            paused_at?: string;
+                        };
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{debate_id}/intervention/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause debate
+         * @description Pause an active debate. Stops agent responses but preserves state.
+         */
+        post: operations["pauseDebateIntervention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debates/{debate_id}/intervention/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume debate
+         * @deprecated
+         * @description Resume a paused debate from where it left off.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    debate_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Debate resumed */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            debate_id?: string;
+                            is_paused?: boolean;
+                            /** Format: date-time */
+                            resumed_at?: string;
+                            pause_duration_seconds?: number | null;
+                        };
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{debate_id}/intervention/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume debate
+         * @description Resume a paused debate from where it left off.
+         */
+        post: operations["resumeDebateIntervention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debates/{debate_id}/intervention/inject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inject argument
+         * @deprecated
+         * @description Inject a user argument or follow-up into the debate. Included in next round's context.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    debate_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DebateInjectArgumentRequest"];
+                };
+            };
+            responses: {
+                /** @description Argument injected */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            debate_id?: string;
+                            injection_id?: string;
+                            type?: string;
+                            will_appear_in?: string;
+                        };
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{debate_id}/intervention/inject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inject argument
+         * @description Inject a user argument or follow-up into the debate. Included in next round's context.
+         */
+        post: operations["injectDebateArgument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debates/{debate_id}/intervention/weights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update agent weight
+         * @deprecated
+         * @description Update an agent's influence weight. Affects consensus voting.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    debate_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DebateUpdateWeightsRequest"];
+                };
+            };
+            responses: {
+                /** @description Weight updated */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            debate_id?: string;
+                            agent?: string;
+                            old_weight?: number;
+                            new_weight?: number;
+                        };
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{debate_id}/intervention/weights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update agent weight
+         * @description Update an agent's influence weight. Affects consensus voting.
+         */
+        post: operations["updateDebateAgentWeight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debates/{debate_id}/intervention/threshold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update consensus threshold
+         * @deprecated
+         * @description Update the consensus threshold (0.5=majority, 0.75=strong, 1.0=unanimous).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    debate_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DebateUpdateThresholdRequest"];
+                };
+            };
+            responses: {
+                /** @description Threshold updated */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            debate_id?: string;
+                            old_threshold?: number;
+                            new_threshold?: number;
+                        };
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{debate_id}/intervention/threshold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update consensus threshold
+         * @description Update the consensus threshold (0.5=majority, 0.75=strong, 1.0=unanimous).
+         */
+        post: operations["updateDebateThreshold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debates/{debate_id}/intervention/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get intervention state
+         * @deprecated
+         * @description Get current intervention state: pause status, weights, pending injections.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    debate_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Intervention state */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            debate_id?: string;
+                            is_paused?: boolean;
+                            /** Format: date-time */
+                            paused_at?: string | null;
+                            consensus_threshold?: number;
+                            agent_weights?: Record<string, never>;
+                            pending_injections?: number;
+                            pending_follow_ups?: number;
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{debate_id}/intervention/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get intervention state
+         * @description Get current intervention state: pause status, weights, pending injections.
+         */
+        get: operations["getDebateInterventionState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debates/{debate_id}/intervention/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get intervention log
+         * @deprecated
+         * @description Get audit log of all interventions for a debate.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    debate_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Intervention log */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            debate_id?: string;
+                            total_interventions?: number;
+                            interventions?: Record<string, never>[];
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{debate_id}/intervention/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get intervention log
+         * @description Get audit log of all interventions for a debate.
+         */
+        get: operations["getDebateInterventionLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/estimate-cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Estimate debate cost
+         * @description Estimate cost of running a debate before creating it. Returns per-model breakdown.
+         */
+        get: operations["estimateDebateCost"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -36926,804 +31521,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/compliance/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get compliance summary
-         * @deprecated
-         * @description Retrieve overall compliance status including SOC2, GDPR, and HIPAA scores.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Compliance summary */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Overall compliance score (0-100) */
-                            overall_score?: number;
-                            /** @enum {string} */
-                            soc2_status?: "compliant" | "non_compliant" | "partial" | "not_applicable";
-                            /** @enum {string} */
-                            gdpr_status?: "compliant" | "non_compliant" | "partial" | "not_applicable";
-                            /** @enum {string} */
-                            hipaa_status?: "compliant" | "non_compliant" | "partial" | "not_applicable";
-                            /** @description Count of active policy violations */
-                            active_violations?: number;
-                            /** @description Count of pending compliance reviews */
-                            pending_reviews?: number;
-                            /** Format: date-time */
-                            last_audit?: string;
-                            /** Format: date-time */
-                            next_audit_due?: string;
-                        };
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/compliance/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get compliance summary
-         * @description Retrieve overall compliance status including SOC2, GDPR, and HIPAA scores.
-         */
-        get: operations["getComplianceSummary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/email/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Configure email notifications
-         * @deprecated
-         * @description Set up email notification settings including SMTP configuration
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        enabled?: boolean;
-                        smtp_host?: string;
-                        smtp_port?: number;
-                        smtp_user?: string;
-                        smtp_password?: string;
-                        /** Format: email */
-                        from_address?: string;
-                        use_tls?: boolean;
-                        events?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Email configuration saved */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            enabled?: boolean;
-                            smtp_host?: string;
-                            smtp_port?: number;
-                            /** Format: email */
-                            from_address?: string;
-                            use_tls?: boolean;
-                            /** @description Event types to notify on */
-                            events?: string[];
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/email/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Configure email notifications
-         * @description Set up email notification settings including SMTP configuration
-         */
-        post: operations["postEmailConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/email/recipient": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add email recipient
-         * @deprecated
-         * @description Add a new email recipient for notifications
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** Format: email */
-                        email: string;
-                        name?: string;
-                        subscribed_events?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Recipient added */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id?: string;
-                            /** Format: email */
-                            email?: string;
-                            name?: string;
-                            verified?: boolean;
-                            subscribed_events?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                        };
-                    };
-                };
-            };
-        };
-        /**
-         * Remove email recipient
-         * @deprecated
-         * @description Remove an email recipient from notifications
-         */
-        delete: {
-            parameters: {
-                query: {
-                    /** @description Email to remove */
-                    email: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Recipient removed */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                            email?: string;
-                        };
-                    };
-                };
-                /** @description Not found - The requested resource does not exist */
-                404: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/email/recipient": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add email recipient
-         * @description Add a new email recipient for notifications
-         */
-        post: operations["postEmailRecipient"];
-        /**
-         * Remove email recipient
-         * @description Remove an email recipient from notifications
-         */
-        delete: operations["deleteEmailRecipient"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/email/recipients": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List email recipients
-         * @deprecated
-         * @description List all configured email notification recipients
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Email recipients list */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            recipients?: {
-                                id?: string;
-                                /** Format: email */
-                                email?: string;
-                                name?: string;
-                                verified?: boolean;
-                                subscribed_events?: string[];
-                                /** Format: date-time */
-                                created_at?: string;
-                            }[];
-                            total?: number;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/email/recipients": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List email recipients
-         * @description List all configured email notification recipients
-         */
-        get: operations["getEmailRecipients"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get notification history
-         * @deprecated
-         * @description Retrieve history of sent notifications across all channels
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by channel */
-                    channel?: "email" | "telegram" | "slack" | "webhook";
-                    /** @description Page number */
-                    page?: number;
-                    /** @description Items per page */
-                    page_size?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Notification history */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            notifications?: {
-                                id?: string;
-                                /** @enum {string} */
-                                channel?: "email" | "telegram" | "slack" | "webhook";
-                                event_type?: string;
-                                recipient?: string;
-                                /** @enum {string} */
-                                status?: "sent" | "delivered" | "failed" | "pending";
-                                /** Format: date-time */
-                                sent_at?: string;
-                                /** Format: date-time */
-                                delivered_at?: string;
-                                error?: string;
-                            }[];
-                            total?: number;
-                            page?: number;
-                            page_size?: number;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get notification history
-         * @description Retrieve history of sent notifications across all channels
-         */
-        get: operations["getNotificationsHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/send": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send notification
-         * @deprecated
-         * @description Send a notification through a specified channel
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        channel: "email" | "telegram" | "slack" | "webhook";
-                        recipients?: string[];
-                        subject?: string;
-                        message: string;
-                        template_id?: string;
-                        data?: Record<string, never>;
-                    };
-                };
-            };
-            responses: {
-                /** @description Notification sent */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            notification_id?: string;
-                            /** @enum {string} */
-                            status?: "queued" | "sent" | "failed";
-                            recipients_count?: number;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/send": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send notification
-         * @description Send a notification through a specified channel
-         */
-        post: operations["postNotificationsSend"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get notification status
-         * @deprecated
-         * @description Get the current status of all notification channels
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Notification channels status */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            channels?: {
-                                email?: {
-                                    enabled?: boolean;
-                                    configured?: boolean;
-                                };
-                                telegram?: {
-                                    enabled?: boolean;
-                                    configured?: boolean;
-                                };
-                                slack?: {
-                                    enabled?: boolean;
-                                    configured?: boolean;
-                                };
-                            };
-                            queue_depth?: number;
-                            /** Format: date-time */
-                            last_sent_at?: string;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get notification status
-         * @description Get the current status of all notification channels
-         */
-        get: operations["getNotificationsStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/telegram/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Configure Telegram notifications
-         * @deprecated
-         * @description Set up Telegram bot configuration for notifications
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        enabled?: boolean;
-                        bot_token?: string;
-                        chat_ids?: string[];
-                        events?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Telegram configuration saved */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            enabled?: boolean;
-                            bot_token_set?: boolean;
-                            chat_ids?: string[];
-                            events?: string[];
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/telegram/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Configure Telegram notifications
-         * @description Set up Telegram bot configuration for notifications
-         */
-        post: operations["postTelegramConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notifications/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test notification
-         * @deprecated
-         * @description Send a test notification to verify channel configuration
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        channel: "email" | "telegram" | "slack";
-                        recipient?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Test notification result */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            channel?: string;
-                            message?: string;
-                            /** Format: date-time */
-                            delivered_at?: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notifications/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test notification
-         * @description Send a test notification to verify channel configuration
-         */
-        post: operations["postNotificationsTest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/debates/graph": {
         parameters: {
             query?: never;
@@ -37765,13 +31562,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -37835,13 +31626,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -37905,13 +31690,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -37975,13 +31754,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38150,13 +31923,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38206,13 +31973,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38249,13 +32010,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38311,13 +32066,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38354,13 +32103,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38416,13 +32159,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38459,13 +32196,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38521,13 +32252,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38561,13 +32286,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38617,13 +32336,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38660,13 +32373,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38722,13 +32429,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38765,13 +32466,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38827,13 +32522,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38870,13 +32559,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38932,13 +32615,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -38975,95 +32652,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /**
-                         * @description Include decision receipt in response
-                         * @default true
-                         */
-                        include_receipt?: boolean;
-                        /**
-                         * @description Include implementation plan in response
-                         * @default true
-                         */
-                        include_plan?: boolean;
-                        /**
-                         * @description Capture and include context snapshot (memory + knowledge)
-                         * @default false
-                         */
-                        include_context?: boolean;
-                        /**
-                         * @description Implementation plan strategy
-                         * @default single_task
-                         */
-                        plan_strategy?: string;
-                        /** @description Execution mode (plan_only, request_approval, execute, workflow) */
-                        execution_mode?: string;
-                        /** @description Execution engine override (hybrid, fabric, computer_use, workflow) */
-                        execution_engine?: string;
-                        /** @description Execute independent tasks in parallel */
-                        parallel_execution?: boolean;
-                        /** @description Max parallel tasks for execution */
-                        max_parallel?: number;
-                        /** @description Send progress and completion to originating channel */
-                        notify_origin?: boolean;
-                        /**
-                         * @description Risk level for approval requests
-                         * @default medium
-                         */
-                        risk_level?: string;
-                        /** @description Approval timeout in seconds */
-                        approval_timeout_seconds?: number;
-                        /** @description Approval mode (risk_based, always, never) */
-                        approval_mode?: string;
-                        /** @description Max risk level allowed for auto-approval */
-                        max_auto_risk?: string;
-                        /** @description Budget cap for implementation execution */
-                        budget_limit_usd?: number;
-                        /** @description OpenClaw action overrides */
-                        openclaw_actions?: Record<string, never>[];
-                        /** @description Computer-use action overrides */
-                        computer_use_actions?: Record<string, never>[];
-                        /** @description OpenClaw session configuration */
-                        openclaw_session?: Record<string, never>;
-                        /** @description Implementation profile overrides */
-                        implementation_profile?: Record<string, never>;
-                        /** @description Preferred implementer agents */
-                        implementers?: string[];
-                        /** @description Critic agent override */
-                        critic?: string;
-                        /** @description Reviser agent override */
-                        reviser?: string;
-                        /** @description Implementation strategy */
-                        strategy?: string;
-                        /** @description Max revision passes */
-                        max_revisions?: number;
-                        /** @description Route by task complexity */
-                        complexity_router?: Record<string, never>;
-                        /** @description Route by task type */
-                        task_type_router?: Record<string, never>;
-                        /** @description Route by capability */
-                        capability_router?: Record<string, never>;
-                        /** @description Fabric model pool */
-                        fabric_models?: string[];
-                        /** @description Fabric pool ID */
-                        fabric_pool_id?: string;
-                        /** @description Fabric min agents */
-                        fabric_min_agents?: number;
-                        /** @description Fabric max agents */
-                        fabric_max_agents?: number;
-                        /** @description Fabric run timeout */
-                        fabric_timeout_seconds?: number;
-                        /** @description Explicit channel targets */
-                        channel_targets?: string[];
-                        /** @description Thread ID override */
-                        thread_id?: string;
-                        /** @description Thread IDs keyed by platform */
-                        thread_id_by_platform?: Record<string, never>;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -39119,95 +32708,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /**
-                         * @description Include decision receipt in response
-                         * @default true
-                         */
-                        include_receipt?: boolean;
-                        /**
-                         * @description Include implementation plan in response
-                         * @default true
-                         */
-                        include_plan?: boolean;
-                        /**
-                         * @description Capture and include context snapshot (memory + knowledge)
-                         * @default false
-                         */
-                        include_context?: boolean;
-                        /**
-                         * @description Implementation plan strategy
-                         * @default single_task
-                         */
-                        plan_strategy?: string;
-                        /** @description Execution mode (plan_only, request_approval, execute, workflow) */
-                        execution_mode?: string;
-                        /** @description Execution engine override (hybrid, fabric, computer_use, workflow) */
-                        execution_engine?: string;
-                        /** @description Execute independent tasks in parallel */
-                        parallel_execution?: boolean;
-                        /** @description Max parallel tasks for execution */
-                        max_parallel?: number;
-                        /** @description Send progress and completion to originating channel */
-                        notify_origin?: boolean;
-                        /**
-                         * @description Risk level for approval requests
-                         * @default medium
-                         */
-                        risk_level?: string;
-                        /** @description Approval timeout in seconds */
-                        approval_timeout_seconds?: number;
-                        /** @description Approval mode (risk_based, always, never) */
-                        approval_mode?: string;
-                        /** @description Max risk level allowed for auto-approval */
-                        max_auto_risk?: string;
-                        /** @description Budget cap for implementation execution */
-                        budget_limit_usd?: number;
-                        /** @description OpenClaw action overrides */
-                        openclaw_actions?: Record<string, never>[];
-                        /** @description Computer-use action overrides */
-                        computer_use_actions?: Record<string, never>[];
-                        /** @description OpenClaw session configuration */
-                        openclaw_session?: Record<string, never>;
-                        /** @description Implementation profile overrides */
-                        implementation_profile?: Record<string, never>;
-                        /** @description Preferred implementer agents */
-                        implementers?: string[];
-                        /** @description Critic agent override */
-                        critic?: string;
-                        /** @description Reviser agent override */
-                        reviser?: string;
-                        /** @description Implementation strategy */
-                        strategy?: string;
-                        /** @description Max revision passes */
-                        max_revisions?: number;
-                        /** @description Route by task complexity */
-                        complexity_router?: Record<string, never>;
-                        /** @description Route by task type */
-                        task_type_router?: Record<string, never>;
-                        /** @description Route by capability */
-                        capability_router?: Record<string, never>;
-                        /** @description Fabric model pool */
-                        fabric_models?: string[];
-                        /** @description Fabric pool ID */
-                        fabric_pool_id?: string;
-                        /** @description Fabric min agents */
-                        fabric_min_agents?: number;
-                        /** @description Fabric max agents */
-                        fabric_max_agents?: number;
-                        /** @description Fabric run timeout */
-                        fabric_timeout_seconds?: number;
-                        /** @description Explicit channel targets */
-                        channel_targets?: string[];
-                        /** @description Thread ID override */
-                        thread_id?: string;
-                        /** @description Thread IDs keyed by platform */
-                        thread_id_by_platform?: Record<string, never>;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -41595,11 +35096,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -41663,11 +35160,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -41710,13 +35203,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -41759,13 +35246,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42008,13 +35489,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42054,13 +35529,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42103,13 +35572,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42149,13 +35612,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42198,13 +35655,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42244,13 +35695,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42290,13 +35735,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -42317,6 +35756,564 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pulse/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/debate-topic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/scheduler/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/scheduler/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/scheduler/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/scheduler/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/scheduler/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/scheduler/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/pulse/scheduler/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/analytics/consensus-quality": {
@@ -47119,13 +41116,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47189,13 +41180,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47265,13 +41250,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47335,13 +41314,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47417,13 +41390,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47493,13 +41460,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47569,13 +41530,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47664,13 +41619,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47762,13 +41711,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47857,13 +41800,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -47955,13 +41892,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48050,13 +41981,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48622,13 +42547,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48671,13 +42590,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48723,13 +42636,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48772,13 +42679,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48824,13 +42725,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48873,13 +42768,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48927,13 +42816,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -48978,13 +42861,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49230,16 +43107,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        query: string;
-                        filters?: Record<string, never>;
-                        /** @default 10 */
-                        limit?: number;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49279,14 +43147,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        document_id: string;
-                        max_length?: number;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49326,13 +43187,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        document_ids: string[];
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49372,13 +43227,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49418,13 +43267,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49486,13 +43329,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49554,13 +43391,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49622,13 +43453,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49690,13 +43515,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49758,13 +43577,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49826,13 +43639,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49872,13 +43679,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49918,13 +43719,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -49964,13 +43759,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50010,13 +43799,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50056,13 +43839,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50102,13 +43879,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50148,13 +43919,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50194,13 +43959,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50240,13 +43999,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50286,13 +44039,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50332,13 +44079,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -50378,13 +44119,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51051,13 +44786,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51127,8 +44856,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        get: {
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -51144,16 +44875,14 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
+                            /** @description Created resource ID */
+                            id?: string;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -51167,8 +44896,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        get: {
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -51184,16 +44915,14 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
+                            /** @description Created resource ID */
+                            id?: string;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -51217,13 +44946,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51263,13 +44986,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51309,13 +45026,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51355,13 +45066,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51401,13 +45106,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51447,13 +45146,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51493,13 +45186,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51539,13 +45226,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51585,13 +45266,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51631,13 +45306,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51677,13 +45346,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51723,13 +45386,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51769,13 +45426,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51815,13 +45466,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51861,13 +45506,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -51910,13 +45549,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52205,13 +45838,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52251,13 +45878,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52300,13 +45921,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52346,13 +45961,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52369,6 +45978,255 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/routing/domain-leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routing/domain-leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routing-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routing-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: rule_id */
+                    rule_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routing-rules/{rule_id}/toggle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: rule_id */
+                    rule_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routing-rules/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -52432,13 +46290,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52478,13 +46330,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52524,13 +46370,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52570,13 +46410,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52616,13 +46450,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52662,13 +46490,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52708,13 +46530,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52754,13 +46570,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52822,13 +46632,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52890,13 +46694,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -52958,13 +46756,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53029,13 +46821,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53078,13 +46864,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53129,13 +46909,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53178,13 +46952,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53224,13 +46992,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53270,13 +47032,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53316,13 +47072,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53362,13 +47112,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53408,13 +47152,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53454,13 +47192,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53500,13 +47232,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53546,13 +47272,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53592,13 +47312,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53638,13 +47352,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53684,13 +47392,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53730,13 +47432,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53776,13 +47472,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53822,13 +47512,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53868,13 +47552,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53914,13 +47592,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -53960,13 +47632,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54006,13 +47672,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54052,13 +47712,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54101,13 +47755,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54467,13 +48115,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54513,13 +48155,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54559,13 +48195,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54605,13 +48235,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54651,13 +48275,47 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
                     };
                 };
             };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transcription/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54697,13 +48355,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54743,13 +48395,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54792,13 +48438,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -54838,13 +48478,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -56453,13 +50087,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -56582,13 +50210,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -58060,6 +51682,89 @@ export interface paths {
         trace?: never;
     };
     "/api/v1/auth/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/keys": {
         parameters: {
             query?: never;
             header?: never;
@@ -61259,7 +54964,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/integrations/config": {
+    "/api/v1/integrations": {
         parameters: {
             query?: never;
             header?: never;
@@ -61275,13 +54980,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61304,13 +55003,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61360,13 +55053,337 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
                     };
                 };
             };
+        };
+        trace?: never;
+    };
+    "/api/v1/integrations/available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/integrations/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/integrations/{param}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61400,13 +55417,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61468,13 +55479,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61536,13 +55541,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61604,13 +55603,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61672,13 +55665,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61740,13 +55727,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61808,13 +55789,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61876,13 +55851,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61944,13 +55913,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -61990,13 +55953,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62036,13 +55993,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62082,13 +56033,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62128,13 +56073,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62174,13 +56113,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62220,13 +56153,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62266,13 +56193,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62312,13 +56233,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62358,13 +56273,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62404,13 +56313,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62450,13 +56353,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62496,13 +56393,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -62542,13 +56433,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -63314,13 +57199,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -63360,13 +57239,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64466,13 +58339,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64512,13 +58379,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64558,13 +58419,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64604,13 +58459,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64650,13 +58499,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64718,13 +58561,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64786,13 +58623,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -64854,16 +58685,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        debate_id: string;
-                        sources?: string[];
-                        /** @enum {string} */
-                        depth?: "shallow" | "standard" | "deep";
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -65518,11 +59340,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -65565,13 +59383,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -65635,11 +59447,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -65703,17 +59511,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        name?: string;
-                        /** @enum {string} */
-                        type?: "api_key" | "signing_key" | "encryption_key";
-                        /** Format: date-time */
-                        expires_at?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -65730,6 +59528,89 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/policies/{param}/violations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -66109,13 +59990,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66185,13 +60060,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66231,13 +60100,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66299,13 +60162,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66367,13 +60224,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66438,13 +60289,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66512,13 +60357,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66586,13 +60425,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66657,13 +60490,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66725,13 +60552,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -66771,13 +60592,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67160,13 +60975,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67189,13 +60998,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67256,13 +61059,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67285,13 +61082,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67352,13 +61143,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67381,13 +61166,91 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
                     };
                 };
             };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/denied": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67448,13 +61311,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67477,13 +61334,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67533,13 +61384,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67572,13 +61417,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67601,13 +61440,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -67657,13 +61490,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -68293,6 +62120,126 @@ export interface paths {
         trace?: never;
     };
     "/api/v1/marketplace/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/training/export/sft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/training/export/dpo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/training/export/gauntlet": {
         parameters: {
             query?: never;
             header?: never;
@@ -69096,13 +63043,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69188,13 +63129,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69280,13 +63215,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69372,13 +63301,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69464,13 +63387,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69556,13 +63473,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69648,13 +63559,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69740,13 +63645,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69838,13 +63737,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -69939,13 +63832,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -70654,6 +64541,218 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/approvals": {
         parameters: {
             query?: never;
@@ -70951,15 +65050,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        topic: string;
-                        mode?: string;
-                        config?: Record<string, never>;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -70999,13 +65090,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71045,13 +65130,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71091,13 +65170,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71137,13 +65210,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71183,13 +65250,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71229,13 +65290,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71275,13 +65330,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71384,13 +65433,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71413,15 +65456,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** Format: binary */
-                        file: string;
-                        category?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71506,13 +65541,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71535,13 +65564,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71626,13 +65649,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71655,13 +65672,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71746,13 +65757,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71775,13 +65780,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71866,13 +65865,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71895,13 +65888,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -71986,13 +65973,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72015,13 +65996,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72106,13 +66081,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72135,13 +66104,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72227,13 +66190,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72297,17 +66254,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        customer_id: string;
-                        amount: number;
-                        description?: string;
-                        /** Format: date */
-                        due_date?: string;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72371,13 +66318,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72441,13 +66382,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72511,13 +66446,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72581,13 +66510,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72651,13 +66574,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -72721,13 +66638,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -75958,13 +69869,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76029,13 +69934,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76100,13 +69999,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76171,13 +70064,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76242,13 +70129,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76313,13 +70194,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76464,13 +70339,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76532,13 +70401,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76578,6 +70441,46 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/hybrid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -76790,13 +70693,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76903,13 +70800,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -76973,13 +70864,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -77043,13 +70928,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -77129,13 +71008,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -77191,13 +71064,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -79730,6 +73597,375 @@ export interface components {
             /** Format: date-time */
             generated_at?: string;
         };
+        /**
+         * @description Request to join an active debate as a participant or observer
+         * @example {
+         *       "role": "observer",
+         *       "display_name": "Alice"
+         *     }
+         */
+        DebateJoinRequest: {
+            /**
+             * @description Role in the debate
+             * @default observer
+             * @enum {string}
+             */
+            role: "observer" | "participant" | "moderator";
+            /** @description Display name shown to other participants */
+            display_name?: string;
+        };
+        /**
+         * @description Submit a vote on the current debate position or agent response
+         * @example {
+         *       "position": "for",
+         *       "intensity": 8,
+         *       "reasoning": "The evidence strongly supports this approach."
+         *     }
+         */
+        DebateVoteRequest: {
+            /** @description The position being voted on */
+            position: string;
+            /**
+             * @description Vote intensity/conviction (1=weak, 10=strong)
+             * @default 5
+             */
+            intensity: number;
+            /** @description Optional reasoning for the vote */
+            reasoning?: string;
+        };
+        /**
+         * @description Submit a suggestion or argument to inject into the debate
+         * @example {
+         *       "content": "Consider the impact on legacy system compatibility.",
+         *       "type": "argument"
+         *     }
+         */
+        DebateSuggestionRequest: {
+            /** @description The suggestion or argument text */
+            content: string;
+            /**
+             * @description Type of suggestion
+             * @default argument
+             * @enum {string}
+             */
+            type: "argument" | "question" | "evidence" | "follow_up";
+            /** @description Optional: direct the suggestion at a specific agent */
+            target_agent?: string;
+        };
+        /**
+         * @description Update a debate's configuration (before or during execution)
+         * @example {
+         *       "rounds": 12,
+         *       "context": "New constraint: budget is limited to $50k."
+         *     }
+         */
+        DebateUpdateRequest: {
+            /** @description Update max rounds */
+            rounds?: number;
+            /**
+             * @description Change consensus strategy
+             * @enum {string}
+             */
+            consensus?: "majority" | "unanimous" | "supermajority" | "weighted" | "hybrid" | "judge" | "none";
+            /** @description Append additional context */
+            context?: string;
+            /** @description Update metadata (merged with existing) */
+            metadata?: Record<string, never>;
+        };
+        /**
+         * @description Fork a debate from a specific round to explore alternatives
+         * @example {
+         *       "branch_point": 3,
+         *       "new_premise": "What if we had unlimited budget?"
+         *     }
+         */
+        DebateForkRequest: {
+            /** @description Round number to branch from (1-indexed) */
+            branch_point: number;
+            /** @description New premise or constraint for the forked branch */
+            new_premise?: string;
+        };
+        /**
+         * @description Generate an audio or video broadcast of a debate
+         * @example {
+         *       "format": "audio",
+         *       "voices": {
+         *         "claude": "alloy",
+         *         "gpt-4": "echo"
+         *       }
+         *     }
+         */
+        DebateBroadcastRequest: {
+            /**
+             * @description Output format for the broadcast
+             * @default audio
+             * @enum {string}
+             */
+            format: "audio" | "video";
+            /** @description Voice mapping (agent_name -> voice_id) */
+            voices?: {
+                [key: string]: string;
+            };
+            /**
+             * @description Language code for TTS
+             * @default en-US
+             */
+            language: string;
+        };
+        /**
+         * @description Clone an existing debate with fresh state
+         * @example {
+         *       "preserveAgents": true,
+         *       "preserveContext": false
+         *     }
+         */
+        DebateCloneRequest: {
+            /**
+             * @description Keep the same agent lineup
+             * @default true
+             */
+            preserveAgents: boolean;
+            /**
+             * @description Keep the original context and documents
+             * @default true
+             */
+            preserveContext: boolean;
+        };
+        /**
+         * @description Create a follow-up debate from a crux or open question
+         * @example {
+         *       "cruxId": "crux_001",
+         *       "context": "The original debate was inconclusive on scalability."
+         *     }
+         */
+        DebateFollowupRequest: {
+            /** @description ID of the crux claim to follow up on */
+            cruxId?: string;
+            /** @description Additional context for the follow-up */
+            context?: string;
+        };
+        /**
+         * @description Add evidence to support or counter a debate position
+         * @example {
+         *       "evidence": "According to the 2025 State of DevOps Report...",
+         *       "source": "https://example.com/devops-report-2025"
+         *     }
+         */
+        DebateEvidenceRequest: {
+            /** @description The evidence text or URL */
+            evidence: string;
+            /** @description Source attribution */
+            source?: string;
+            /** @description Additional metadata about the evidence */
+            metadata?: Record<string, never>;
+        };
+        /**
+         * @description Verify a specific claim from the debate
+         * @example {
+         *       "claim_id": "claim_42",
+         *       "evidence": "Counter-evidence text here."
+         *     }
+         */
+        DebateVerifyClaimRequest: {
+            /** @description ID of the claim to verify */
+            claim_id: string;
+            /** @description Optional evidence to check the claim against */
+            evidence?: string;
+        };
+        /**
+         * @description Add user input to an active debate
+         * @example {
+         *       "input": "What about the maintenance costs?",
+         *       "type": "question"
+         *     }
+         */
+        DebateUserInputRequest: {
+            /** @description The user's input text */
+            input: string;
+            /**
+             * @description Type of user input
+             * @default suggestion
+             * @enum {string}
+             */
+            type: "suggestion" | "vote" | "question" | "context";
+        };
+        /**
+         * @description Create a counterfactual scenario for what-if analysis
+         * @example {
+         *       "condition": "What if the team size was doubled?",
+         *       "variables": {
+         *         "team_size": 20
+         *       }
+         *     }
+         */
+        DebateCounterfactualRequest: {
+            /** @description The hypothetical condition to analyze */
+            condition: string;
+            /** @description Variables to adjust in the scenario */
+            variables?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * @description Add a message to a debate thread
+         * @example {
+         *       "content": "Please also consider regulatory constraints.",
+         *       "role": "user"
+         *     }
+         */
+        DebateMessageRequest: {
+            /** @description Message content */
+            content: string;
+            /**
+             * @description Message role
+             * @default user
+             * @enum {string}
+             */
+            role: "user" | "system";
+        };
+        /**
+         * @description Submit multiple debates for batch processing
+         * @example {
+         *       "requests": [
+         *         {
+         *           "task": "Should we use TypeScript?",
+         *           "rounds": 5
+         *         },
+         *         {
+         *           "task": "Is GraphQL better than REST?",
+         *           "rounds": 5
+         *         }
+         *       ]
+         *     }
+         */
+        DebateBatchRequest: {
+            /** @description Array of debate creation requests */
+            requests: components["schemas"]["DebateCreateRequest"][];
+        };
+        /**
+         * @description Inject an argument or follow-up into an active debate
+         * @example {
+         *       "content": "Have you considered developer experience?",
+         *       "type": "argument"
+         *     }
+         */
+        DebateInjectArgumentRequest: {
+            /** @description The argument or question to inject */
+            content: string;
+            /**
+             * @description Type of injection
+             * @default argument
+             * @enum {string}
+             */
+            type: "argument" | "follow_up";
+            /**
+             * @description Source identifier
+             * @default user
+             */
+            source: string;
+            /** @description User ID for attribution */
+            user_id?: string;
+        };
+        /**
+         * @description Update an agent's influence weight in the debate
+         * @example {
+         *       "agent": "claude",
+         *       "weight": 1.5
+         *     }
+         */
+        DebateUpdateWeightsRequest: {
+            /** @description Agent name or ID */
+            agent: string;
+            /**
+             * @description Influence weight (0.0=muted, 1.0=normal, 2.0=double)
+             * @default 1
+             */
+            weight: number;
+            /** @description User ID for audit trail */
+            user_id?: string;
+        };
+        /**
+         * @description Update the consensus threshold for a debate
+         * @example {
+         *       "threshold": 0.8
+         *     }
+         */
+        DebateUpdateThresholdRequest: {
+            /** @description Consensus threshold (0.5=majority, 0.75=strong, 1.0=unanimous) */
+            threshold: number;
+            /** @description User ID for audit trail */
+            user_id?: string;
+        };
+        /**
+         * @description Parameters for estimating debate cost before execution
+         * @example {
+         *       "num_agents": 3,
+         *       "num_rounds": 9,
+         *       "model_types": [
+         *         "claude-sonnet-4",
+         *         "gpt-4o",
+         *         "gemini-pro"
+         *       ]
+         *     }
+         */
+        DebateCostEstimateRequest: {
+            /**
+             * @description Number of agents to participate
+             * @default 3
+             */
+            num_agents: number;
+            /**
+             * @description Number of debate rounds
+             * @default 9
+             */
+            num_rounds: number;
+            /**
+             * @description Model types to use
+             * @example [
+             *       "claude-sonnet-4",
+             *       "gpt-4o",
+             *       "gemini-pro"
+             *     ]
+             */
+            model_types?: string[];
+        };
+        /** @description Estimated cost breakdown for a debate */
+        DebateCostEstimateResponse: {
+            /** @description Total estimated cost in USD */
+            total_estimated_cost_usd: number;
+            /** @description Cost breakdown per model */
+            breakdown_by_model: {
+                model?: string;
+                provider?: string;
+                estimated_input_tokens?: number;
+                estimated_output_tokens?: number;
+                input_cost_usd?: number;
+                output_cost_usd?: number;
+                subtotal_usd?: number;
+            }[];
+            /** @description Assumptions used for the estimate */
+            assumptions?: {
+                avg_input_tokens_per_round?: number;
+                avg_output_tokens_per_round?: number;
+                includes_system_prompt?: boolean;
+            };
+            num_agents?: number;
+            num_rounds?: number;
+        };
+        /** @description Token for resuming a WebSocket connection after disconnect */
+        WebSocketResumeToken: {
+            /** @description Opaque token encoding the last received event position */
+            resume_token: string;
+            /** @description Debate this token belongs to */
+            debate_id: string;
+            /** @description Sequence number of last received event */
+            last_seq: number;
+            /**
+             * Format: date-time
+             * @description When this resume token expires
+             */
+            expires_at?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -80088,14 +74324,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    cycles?: number;
-                    goals?: string[];
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Loop started successfully */
             200: {
@@ -80139,14 +74368,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @default false */
-                    force?: boolean;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Loop stopped successfully */
             200: {
@@ -80183,13 +74405,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Loop paused successfully */
             200: {
@@ -80212,13 +74428,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    skip_current?: boolean;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Loop resumed successfully */
             200: {
@@ -80241,13 +74451,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Phase skipped successfully */
             200: {
@@ -81091,18 +75295,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    /** @description Agent persona description */
-                    description?: string;
-                    /** @description Personality traits */
-                    traits?: string[];
-                    /** @description Domain expertise scores (0-1) */
-                    expertise?: {
-                        [key: string]: number;
-                    };
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -81560,20 +75755,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    /** @description Unique agent identifier */
-                    agent_name: string;
-                    /** @description Agent persona description */
-                    description?: string;
-                    /** @description Personality traits */
-                    traits?: string[];
-                    /** @description Domain expertise scores (0-1) */
-                    expertise?: {
-                        [key: string]: number;
-                    };
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -82407,15 +76591,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    summary?: string;
-                    /** @default true */
-                    include_verdict?: boolean;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Published to Twitter */
             200: {
@@ -82445,16 +76621,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    title?: string;
-                    description?: string;
-                    /** @enum {string} */
-                    visibility?: "public" | "unlisted" | "private";
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Published to YouTube */
             200: {
@@ -82475,7 +76642,7 @@ export interface operations {
             };
         };
     };
-    getDebateRedTeamV1: {
+    getDebateRedTeamResults: {
         parameters: {
             query?: never;
             header?: never;
@@ -82486,7 +76653,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Red team results */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -82497,7 +76664,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
+                        vulnerabilities?: Record<string, never>[];
+                        risk_score?: number;
+                        recommendations?: string[];
                     };
                 };
             };
@@ -82931,13 +77100,10 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": {
-                    /** @description Alternative scenario to explore */
-                    hypothesis: string;
-                    /** @description Factors to vary in the counterfactual */
-                    factors?: string[];
+                    [key: string]: unknown;
                 };
             };
         };
@@ -83131,13 +77297,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Archive result */
             200: {
@@ -83226,13 +77386,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Pause result */
             200: {
@@ -83274,11 +77428,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Resume result */
             200: {
@@ -83320,11 +77470,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Start result */
             200: {
@@ -83366,13 +77512,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Stop result */
             200: {
@@ -83543,13 +77683,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Cancel result */
             200: {
@@ -83582,7 +77716,7 @@ export interface operations {
             };
         };
     };
-    postDebateFollowupV1: {
+    createDebateFollowupV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -83591,23 +77725,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": {
-                    /** @description Follow-up question */
-                    question: string;
-                    /**
-                     * @description Inherit context from parent debate
-                     * @default true
-                     */
-                    inherit_context?: boolean;
-                    /** @description Override agent list (defaults to parent agents) */
-                    agents?: string[];
+                    cruxId?: string;
+                    context?: string;
                 };
             };
         };
         responses: {
-            /** @description Success */
+            /** @description Follow-up created */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -83618,8 +77745,21 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
+                        debate_id?: string;
                     };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -84849,13 +78989,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    tier?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Consolidation completed */
             200: {
@@ -84879,13 +79013,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    max_age_days?: number;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Cleanup completed */
             200: {
@@ -85744,13 +79872,18 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    /** Format: binary */
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Document file to upload
+                     */
                     file: string;
-                    folder?: string;
-                    tags?: string[];
+                    /** @description Override filename */
+                    filename?: string;
+                    /** @description MIME type */
+                    content_type?: string;
                 };
             };
         };
@@ -86943,23 +81076,16 @@ export interface operations {
             };
         };
     };
-    getReplays: {
+    listReplays: {
         parameters: {
-            query?: {
-                /** @description Page number */
-                page?: number;
-                /** @description Items per page */
-                page_size?: number;
-                /** @description Filter by public status */
-                is_public?: boolean;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description List of replays */
+            /** @description Replay list */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -86973,22 +81099,17 @@ export interface operations {
                         replays?: {
                             id?: string;
                             debate_id?: string;
-                            title?: string;
-                            duration_ms?: number;
+                            duration_seconds?: number;
                             /** Format: date-time */
                             created_at?: string;
-                            view_count?: number;
-                            is_public?: boolean;
                         }[];
                         total?: number;
-                        page?: number;
-                        page_size?: number;
                     };
                 };
             };
         };
     };
-    getReplayV1: {
+    getReplay: {
         parameters: {
             query?: never;
             header?: never;
@@ -86999,7 +81120,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Replay data */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -87010,7 +81131,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
+                        id?: string;
+                        debate_id?: string;
+                        events?: Record<string, never>[];
+                        metadata?: Record<string, never>;
                     };
                 };
             };
@@ -88691,13 +82815,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    dry_run?: boolean;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Execution result with affected items count */
             200: {
@@ -90145,13 +84263,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    workspace_id?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Statistics reset confirmation with handler count */
             200: {
@@ -90209,13 +84321,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    adapters?: string[];
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Sync triggered with job ID */
             200: {
@@ -92765,13 +86871,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    scope?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Cache cleared */
             200: {
@@ -96143,11 +90243,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Message archived */
             200: {
@@ -96449,11 +90545,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Thread archived */
             200: {
@@ -96992,11 +91084,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Draft sent */
             200: {
@@ -97715,14 +91803,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    verdict?: boolean;
-                    evidence?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Fact verification started */
             200: {
@@ -98455,11 +92536,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Node revalidated */
             200: {
@@ -98524,13 +92601,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    force?: boolean;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Sync triggered */
             200: {
@@ -98801,11 +92872,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Audit started */
             200: {
@@ -98857,13 +92924,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Audit paused */
             200: {
@@ -98915,11 +92976,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Audit resumed */
             200: {
@@ -98971,13 +93028,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Audit cancelled */
             200: {
@@ -99915,13 +93966,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    note?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Alert acknowledged */
             200: {
@@ -100171,13 +94216,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    period?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Budget reset */
             200: {
@@ -100585,14 +94624,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    /** @description Teams conversation ID */
-                    conversation_id: string;
-                    /** @description Message content */
-                    message: string;
-                    /** @description Optional Adaptive Card payload */
-                    card?: Record<string, never>;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -101066,13 +95098,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    url?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Test delivery result */
             200: {
@@ -101209,11 +95235,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Delivery queued for retry */
             200: {
@@ -101817,13 +95839,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    config?: Record<string, never>;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Test results */
             200: {
@@ -102669,13 +96685,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    workspace_id?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Uninstall acknowledged */
             200: {
@@ -102820,28 +96830,24 @@ export interface operations {
             };
         };
     };
-    postDiscordInstall: {
+    installDiscordIntegration: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Target workspace */
-                    workspace_id?: string;
-                    /** @description Requested OAuth scopes */
-                    scopes?: string[];
-                    /** @description OAuth redirect URI */
-                    redirect_uri?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Install URL generated */
-            200: {
+            /** @description Redirect to Discord OAuth */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -102850,38 +96856,60 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @description OAuth authorization URL */
-                        install_url?: string;
-                        /** @description OAuth state parameter */
-                        state?: string;
-                        /** @description URL expiry in seconds */
-                        expires_in?: number;
-                    };
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    postDiscordCallback: {
+    discordOAuthCallback: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description OAuth authorization code */
+                code: string;
+                /** @description OAuth state parameter */
+                state: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description OAuth authorization code */
-                    code: string;
-                    /** @description OAuth state parameter */
-                    state: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description OAuth completed */
-            200: {
+            /** @description Redirect to success page */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -102890,18 +96918,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @description Whether OAuth completed */
-                        success?: boolean;
-                        /** @description Created/updated integration ID */
-                        integration_id?: string;
-                        /** @description Status message */
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -102922,13 +96943,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    guild_id?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Uninstall acknowledged */
             200: {
@@ -102957,7 +96972,7 @@ export interface operations {
             };
         };
     };
-    getTeamsInstall: {
+    installTeamsIntegration: {
         parameters: {
             query?: never;
             header?: never;
@@ -102966,105 +96981,90 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Success */
-            200: {
+            /** @description Redirect to Microsoft OAuth */
+            302: {
                 headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postTeamsInstall: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Target workspace */
-                    workspace_id?: string;
-                    /** @description Requested OAuth scopes */
-                    scopes?: string[];
-                    /** @description OAuth redirect URI */
-                    redirect_uri?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Install URL generated */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description OAuth authorization URL */
-                        install_url?: string;
-                        /** @description OAuth state parameter */
-                        state?: string;
-                        /** @description URL expiry in seconds */
-                        expires_in?: number;
-                    };
-                };
-            };
-        };
-    };
-    postTeamsCallback: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description OAuth authorization code */
-                    code: string;
-                    /** @description OAuth state parameter */
-                    state: string;
-                };
-            };
-        };
-        responses: {
-            /** @description OAuth completed */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Whether OAuth completed */
-                        success?: boolean;
-                        /** @description Created/updated integration ID */
-                        integration_id?: string;
-                        /** @description Status message */
-                        message?: string;
-                    };
-                };
+                content?: never;
             };
             /** @description Bad request - Invalid input or malformed JSON */
             400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    teamsOAuthCallback: {
+        parameters: {
+            query: {
+                /** @description OAuth authorization code */
+                code: string;
+                /** @description OAuth state parameter */
+                state: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to success page */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -103085,13 +97085,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    tenant_id?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Token refreshed */
             200: {
@@ -103653,11 +97647,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Logged out successfully */
             200: {
@@ -103686,11 +97676,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description All sessions invalidated */
             200: {
@@ -104127,15 +98113,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    method?: "totp" | "sms" | "email";
-                    phone?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description MFA setup initialized */
             200: {
@@ -104515,9 +98493,13 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
+                "application/scim+json": {
+                    schemas: string[];
                     displayName: string;
-                    members?: Record<string, never>[];
+                    members?: {
+                        value?: string;
+                        display?: string;
+                    }[];
                 };
             };
         };
@@ -104661,8 +98643,14 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    Operations: Record<string, never>[];
+                "application/scim+json": {
+                    schemas: string[];
+                    Operations: {
+                        /** @enum {string} */
+                        op: "add" | "remove" | "replace";
+                        path?: string;
+                        value?: unknown;
+                    }[];
                 };
             };
         };
@@ -104837,10 +98825,19 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
+                "application/scim+json": {
+                    schemas: string[];
                     userName: string;
-                    name?: Record<string, never>;
-                    emails?: Record<string, never>[];
+                    name?: {
+                        givenName?: string;
+                        familyName?: string;
+                    };
+                    emails?: {
+                        /** Format: email */
+                        value?: string;
+                        type?: string;
+                        primary?: boolean;
+                    }[];
                     active?: boolean;
                 };
             };
@@ -104986,8 +98983,14 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    Operations: Record<string, never>[];
+                "application/scim+json": {
+                    schemas: string[];
+                    Operations: {
+                        /** @enum {string} */
+                        op: "add" | "remove" | "replace";
+                        path?: string;
+                        value?: unknown;
+                    }[];
                 };
             };
         };
@@ -105303,13 +99306,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Impersonation token */
             200: {
@@ -105471,13 +99468,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    confirm?: boolean;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Nomic loop reset */
             200: {
@@ -105514,13 +99505,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Nomic loop paused */
             200: {
@@ -105564,11 +99549,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Nomic loop resumed */
             200: {
@@ -106081,11 +100062,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Unauthorized - Authentication required or token invalid */
             401: {
@@ -108768,11 +102745,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Job re-queued */
             200: {
@@ -113550,867 +107523,6 @@ export interface operations {
             };
         };
     };
-    getPolicies: {
-        parameters: {
-            query?: {
-                page?: number;
-                per_page?: number;
-                type?: string;
-                enabled?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Policy list */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        policies?: Record<string, never>[];
-                        total?: number;
-                        page?: number;
-                        per_page?: number;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postPolicies: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    description?: string;
-                    type: string;
-                    /** @default true */
-                    enabled?: boolean;
-                    /** @default 100 */
-                    priority?: number;
-                    conditions?: Record<string, never>;
-                    actions?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Created policy */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Unique policy identifier */
-                        id?: string;
-                        /** @description Policy name */
-                        name?: string;
-                        description?: string;
-                        /** @enum {string} */
-                        type?: "access_control" | "data_retention" | "encryption" | "audit" | "rate_limit" | "custom";
-                        enabled?: boolean;
-                        /** @description Policy evaluation priority */
-                        priority?: number;
-                        /** @description Policy conditions as JSON */
-                        conditions?: Record<string, never>;
-                        actions?: string[];
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postPoliciesValidate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    type: string;
-                    conditions?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Validation result */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Whether the policy is valid */
-                        valid?: boolean;
-                        /** @description Validation errors */
-                        errors?: string[];
-                        /** @description Validation warnings */
-                        warnings?: string[];
-                        /** @description Conflicting policies */
-                        conflicts?: Record<string, never>[];
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getPoliciesViolations: {
-        parameters: {
-            query?: {
-                severity?: string;
-                status?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Violation list */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        violations?: Record<string, never>[];
-                        total?: number;
-                        /** @description Count by severity level */
-                        by_severity?: Record<string, never>;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postViolationsResolve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    resolution_notes?: string;
-                    resolution_type?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Resolved violation */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Violation identifier */
-                        id?: string;
-                        /** @description Associated policy ID */
-                        policy_id?: string;
-                        policy_name?: string;
-                        /** @enum {string} */
-                        severity?: "critical" | "high" | "medium" | "low" | "info";
-                        /** @enum {string} */
-                        status?: "open" | "acknowledged" | "resolved" | "ignored";
-                        resource_type?: string;
-                        resource_id?: string;
-                        description?: string;
-                        /** Format: date-time */
-                        detected_at?: string;
-                        /** Format: date-time */
-                        resolved_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postPoliciesDisable: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Policy disabled */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        policy_id?: string;
-                        enabled?: boolean;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postPoliciesEnable: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
-        responses: {
-            /** @description Policy enabled */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        policy_id?: string;
-                        enabled?: boolean;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getPolicyToggleV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    getPolicyViolationsById: {
-        parameters: {
-            query?: {
-                status?: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Violations for policy */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        violations?: Record<string, never>[];
-                        total?: number;
-                        /** @description Count by severity level */
-                        by_severity?: Record<string, never>;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    putAuditDenied: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    retention_days?: number;
-                    alert_threshold?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Configuration updated */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postAuditDenied: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    action: string;
-                    resource_type: string;
-                    resource_id: string;
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Audit entry created */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        id?: string;
-                        /** @description Action performed */
-                        action?: string;
-                        resource_type?: string;
-                        resource_id?: string;
-                        actor_id?: string;
-                        /** @enum {string} */
-                        actor_type?: "user" | "service" | "system";
-                        ip_address?: string;
-                        user_agent?: string;
-                        /** @enum {string} */
-                        status?: "allowed" | "denied";
-                        metadata?: Record<string, never>;
-                        /** Format: date-time */
-                        timestamp?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteAuditDenied: {
-        parameters: {
-            query?: {
-                before?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Cleared audit logs */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        deleted_count?: number;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getResourceHistory: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                resource_type: string;
-                resource_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Audit history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        entries?: Record<string, never>[];
-                        total?: number;
-                        resource_type?: string;
-                        resource_id?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getPrivacyAccountV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    deletePrivacyAccount: {
-        parameters: {
-            query: {
-                confirmation: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Account data deleted */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        deleted?: boolean;
-                        /** Format: date-time */
-                        completion_date?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getPrivacyPreferencesV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPrivacyPreferences: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    marketing_consent?: boolean;
-                    analytics_consent?: boolean;
-                    third_party_sharing?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Preferences updated */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user_id?: string;
-                        data_retention_days?: number;
-                        marketing_consent?: boolean;
-                        analytics_consent?: boolean;
-                        third_party_sharing?: boolean;
-                        /** @enum {string} */
-                        data_export_format?: "json" | "csv" | "xml";
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getAnalyticsConnectV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
     postAnalyticsConnect: {
         parameters: {
             query?: never;
@@ -114477,32 +107589,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getAnalyticsQueryV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
                 };
             };
         };
@@ -114577,32 +107663,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getAnalyticsReportsGenerateV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
                 };
             };
         };
@@ -114691,34 +107751,6 @@ export interface operations {
             };
         };
     };
-    getAnalyticsByIdV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
     deleteAnalytics: {
         parameters: {
             query?: never;
@@ -114748,1987 +107780,6 @@ export interface operations {
                         resource_id?: string;
                         /** Format: date-time */
                         deleted_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getIntegrations: {
-        parameters: {
-            query?: {
-                /** @description Filter by type */
-                type?: string;
-                /** @description Filter by status */
-                status?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Integrations list */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description List of integrations */
-                        integrations?: {
-                            /** @description Unique integration identifier */
-                            id?: string;
-                            /** @description Integration display name */
-                            name?: string;
-                            /**
-                             * @description Integration type
-                             * @enum {string}
-                             */
-                            type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                            /**
-                             * @description Current integration status
-                             * @enum {string}
-                             */
-                            status?: "active" | "inactive" | "error" | "pending";
-                            /** @description Integration-specific configuration */
-                            config?: Record<string, never>;
-                            /** @description Associated workspace */
-                            workspace_id?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            updated_at?: string;
-                            /**
-                             * Format: date-time
-                             * @description Last successful sync
-                             */
-                            last_sync?: string;
-                        }[];
-                        /** @description Total number of integrations */
-                        total?: number;
-                    };
-                };
-            };
-        };
-    };
-    postIntegrations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /**
-                     * @description Integration type
-                     * @enum {string}
-                     */
-                    type: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                    /** @description Display name */
-                    name: string;
-                    /** @description Integration configuration */
-                    config?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Created integration */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Unique integration identifier */
-                        id?: string;
-                        /** @description Integration display name */
-                        name?: string;
-                        /**
-                         * @description Integration type
-                         * @enum {string}
-                         */
-                        type?: "slack" | "teams" | "discord" | "email" | "zapier" | "n8n" | "custom";
-                        /**
-                         * @description Current integration status
-                         * @enum {string}
-                         */
-                        status?: "active" | "inactive" | "error" | "pending";
-                        /** @description Integration-specific configuration */
-                        config?: Record<string, never>;
-                        /** @description Associated workspace */
-                        workspace_id?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        updated_at?: string;
-                        /**
-                         * Format: date-time
-                         * @description Last successful sync
-                         */
-                        last_sync?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getIntegrationsAvailable: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Available integrations */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Available integration types */
-                        integrations?: {
-                            /** @description Integration type identifier */
-                            type?: string;
-                            /** @description Display name */
-                            name?: string;
-                            /** @description Integration description */
-                            description?: string;
-                            /** @description Icon URL */
-                            icon_url?: string;
-                            /** @description Documentation URL */
-                            docs_url?: string;
-                            /** @description Required OAuth scopes */
-                            required_scopes?: string[];
-                            /** @description Supported features */
-                            features?: string[];
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    getIntegrationSyncStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Integration ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Sync status */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Integration ID */
-                        integration_id?: string;
-                        /**
-                         * @description Current sync status
-                         * @enum {string}
-                         */
-                        status?: "idle" | "syncing" | "completed" | "failed";
-                        /**
-                         * Format: date-time
-                         * @description Last sync timestamp
-                         */
-                        last_sync?: string;
-                        /**
-                         * Format: date-time
-                         * @description Next scheduled sync
-                         */
-                        next_sync?: string;
-                        /** @description Items synced in last run */
-                        items_synced?: number;
-                        /** @description Sync errors if any */
-                        errors?: string[];
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postIntegrationSync: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Integration ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Perform full sync */
-                    full_sync?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Sync triggered */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Integration ID */
-                        integration_id?: string;
-                        /**
-                         * @description Current sync status
-                         * @enum {string}
-                         */
-                        status?: "idle" | "syncing" | "completed" | "failed";
-                        /**
-                         * Format: date-time
-                         * @description Last sync timestamp
-                         */
-                        last_sync?: string;
-                        /**
-                         * Format: date-time
-                         * @description Next scheduled sync
-                         */
-                        next_sync?: string;
-                        /** @description Items synced in last run */
-                        items_synced?: number;
-                        /** @description Sync errors if any */
-                        errors?: string[];
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listConnectorsV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postConnector: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Connector name */
-                    name: string;
-                    /**
-                     * @description Connector type
-                     * @enum {string}
-                     */
-                    type: "database" | "api" | "file" | "stream";
-                    /** @description Data provider */
-                    provider: string;
-                    /** @description Connection configuration */
-                    config: {
-                        host?: string;
-                        port?: number;
-                        database?: string;
-                        username?: string;
-                        password?: string;
-                        ssl?: boolean;
-                    };
-                };
-            };
-        };
-        responses: {
-            /** @description Created connector */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Unique connector identifier */
-                        id?: string;
-                        /** @description Connector display name */
-                        name?: string;
-                        /**
-                         * @description Connector type
-                         * @enum {string}
-                         */
-                        type?: "database" | "api" | "file" | "stream" | "custom";
-                        /**
-                         * @description Data provider
-                         * @enum {string}
-                         */
-                        provider?: "postgres" | "mysql" | "mongodb" | "elasticsearch" | "s3" | "gcs" | "kafka" | "custom";
-                        /**
-                         * @description Connection status
-                         * @enum {string}
-                         */
-                        status?: "connected" | "disconnected" | "error" | "configuring";
-                        /** @description Connector configuration (credentials masked) */
-                        config?: Record<string, never>;
-                        /** @description Associated workspace */
-                        workspace_id?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getConnectorV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    deleteConnector: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Connector deleted */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Whether action succeeded */
-                        success?: boolean;
-                        /** @description Result message */
-                        message?: string;
-                        /** @description Number of items affected */
-                        affected_count?: number;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    patchConnector: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Connector name */
-                    name?: string;
-                    /** @description Configuration updates */
-                    config?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Updated connector */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Unique connector identifier */
-                        id?: string;
-                        /** @description Connector display name */
-                        name?: string;
-                        /**
-                         * @description Connector type
-                         * @enum {string}
-                         */
-                        type?: "database" | "api" | "file" | "stream" | "custom";
-                        /**
-                         * @description Data provider
-                         * @enum {string}
-                         */
-                        provider?: "postgres" | "mysql" | "mongodb" | "elasticsearch" | "s3" | "gcs" | "kafka" | "custom";
-                        /**
-                         * @description Connection status
-                         * @enum {string}
-                         */
-                        status?: "connected" | "disconnected" | "error" | "configuring";
-                        /** @description Connector configuration (credentials masked) */
-                        config?: Record<string, never>;
-                        /** @description Associated workspace */
-                        workspace_id?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getConnectorHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Health status */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Connector ID */
-                        connector_id?: string;
-                        /** @description Whether connector is healthy */
-                        healthy?: boolean;
-                        /** @description Connection latency */
-                        latency_ms?: number;
-                        /**
-                         * Format: date-time
-                         * @description Last health check
-                         */
-                        last_check?: string;
-                        /** @description Health check details */
-                        details?: {
-                            /** @description Remote system version */
-                            version?: string;
-                            /** @description Remote system uptime */
-                            uptime?: string;
-                            /** @description Available connections */
-                            connections_available?: number;
-                        };
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getConnectorSyncV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postConnectorSync: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Perform full sync vs incremental */
-                    full_sync?: boolean;
-                    /** @description Tables to sync (empty = all) */
-                    tables?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Sync started */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Sync operation ID */
-                        sync_id?: string;
-                        /** @description Connector ID */
-                        connector_id?: string;
-                        /**
-                         * @description Sync status
-                         * @enum {string}
-                         */
-                        status?: "pending" | "running" | "completed" | "failed" | "cancelled";
-                        /** Format: date-time */
-                        started_at?: string;
-                        /** Format: date-time */
-                        completed_at?: string;
-                        /** @description Records processed */
-                        records_processed?: number;
-                        /** @description Records that failed */
-                        records_failed?: number;
-                        /** @description Error messages */
-                        errors?: string[];
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getConnectorSyncs: {
-        parameters: {
-            query?: {
-                /** @description Filter by status */
-                status?: string;
-                /** @description Max results */
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Sync history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description List of sync operations */
-                        syncs?: {
-                            /** @description Sync operation ID */
-                            sync_id?: string;
-                            /** @description Connector ID */
-                            connector_id?: string;
-                            /**
-                             * @description Sync status
-                             * @enum {string}
-                             */
-                            status?: "pending" | "running" | "completed" | "failed" | "cancelled";
-                            /** Format: date-time */
-                            started_at?: string;
-                            /** Format: date-time */
-                            completed_at?: string;
-                            /** @description Records processed */
-                            records_processed?: number;
-                            /** @description Records that failed */
-                            records_failed?: number;
-                            /** @description Error messages */
-                            errors?: string[];
-                        }[];
-                        /** @description Total sync count */
-                        total?: number;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getConnectorSyncById: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-                /** @description Sync ID */
-                sync_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Sync details */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Sync operation ID */
-                        sync_id?: string;
-                        /** @description Connector ID */
-                        connector_id?: string;
-                        /**
-                         * @description Sync status
-                         * @enum {string}
-                         */
-                        status?: "pending" | "running" | "completed" | "failed" | "cancelled";
-                        /** Format: date-time */
-                        started_at?: string;
-                        /** Format: date-time */
-                        completed_at?: string;
-                        /** @description Records processed */
-                        records_processed?: number;
-                        /** @description Records that failed */
-                        records_failed?: number;
-                        /** @description Error messages */
-                        errors?: string[];
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postConnectorSyncCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-                /** @description Sync ID */
-                sync_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Cancellation reason */
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Sync cancelled */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Sync operation ID */
-                        sync_id?: string;
-                        /** @description Connector ID */
-                        connector_id?: string;
-                        /**
-                         * @description Sync status
-                         * @enum {string}
-                         */
-                        status?: "pending" | "running" | "completed" | "failed" | "cancelled";
-                        /** Format: date-time */
-                        started_at?: string;
-                        /** Format: date-time */
-                        completed_at?: string;
-                        /** @description Records processed */
-                        records_processed?: number;
-                        /** @description Records that failed */
-                        records_failed?: number;
-                        /** @description Error messages */
-                        errors?: string[];
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postConnectorTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Connector ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Test timeout */
-                    timeout_ms?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Test results */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Whether test passed */
-                        success?: boolean;
-                        /** @description Response latency in milliseconds */
-                        latency_ms?: number;
-                        /** @description Test result message */
-                        message?: string;
-                        /** @description Additional test details */
-                        details?: Record<string, never>;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteWebhooksBulk: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description IDs to delete */
-                    webhook_ids: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Webhooks deleted */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Whether action succeeded */
-                        success?: boolean;
-                        /** @description Result message */
-                        message?: string;
-                        /** @description Number of items affected */
-                        affected_count?: number;
-                    };
-                };
-            };
-        };
-    };
-    getWebhookEventCategories: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Event categories */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Available event categories */
-                        categories?: {
-                            /** @description Category name */
-                            category?: string;
-                            /** @description Category description */
-                            description?: string;
-                            /** @description Events in this category */
-                            events?: {
-                                /** @description Event type identifier */
-                                type?: string;
-                                /** @description Event description */
-                                description?: string;
-                                /** @description Example payload structure */
-                                payload_schema?: Record<string, never>;
-                            }[];
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    postWebhooksPauseAll: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Pause reason */
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Webhooks paused */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Whether action succeeded */
-                        success?: boolean;
-                        /** @description Result message */
-                        message?: string;
-                        /** @description Number of items affected */
-                        affected_count?: number;
-                    };
-                };
-            };
-        };
-    };
-    postWebhooksResumeAll: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Confirm resume */
-                    confirm?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Webhooks resumed */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Whether action succeeded */
-                        success?: boolean;
-                        /** @description Result message */
-                        message?: string;
-                        /** @description Number of items affected */
-                        affected_count?: number;
-                    };
-                };
-            };
-        };
-    };
-    getWebhookDeliveries: {
-        parameters: {
-            query?: {
-                /** @description Filter by status */
-                status?: string;
-                page?: number;
-                page_size?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Delivery history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description List of delivery attempts */
-                        deliveries?: {
-                            /** @description Delivery attempt ID */
-                            id?: string;
-                            /** @description Associated webhook */
-                            webhook_id?: string;
-                            /** @description Event that triggered delivery */
-                            event_type?: string;
-                            /**
-                             * @description Delivery status
-                             * @enum {string}
-                             */
-                            status?: "pending" | "success" | "failed" | "retrying";
-                            /** @description HTTP response code */
-                            status_code?: number;
-                            /** @description Response time */
-                            response_time_ms?: number;
-                            /** @description Number of attempts */
-                            attempt_count?: number;
-                            /** @description Delivered payload */
-                            payload?: Record<string, never>;
-                            /** @description Response body (truncated) */
-                            response_body?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            delivered_at?: string;
-                        }[];
-                        /** @description Total delivery count */
-                        total?: number;
-                        /** @description Current page */
-                        page?: number;
-                        /** @description Items per page */
-                        page_size?: number;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getWebhookDeliveryById: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-                /** @description Delivery ID */
-                delivery_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Delivery details */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Delivery attempt ID */
-                        id?: string;
-                        /** @description Associated webhook */
-                        webhook_id?: string;
-                        /** @description Event that triggered delivery */
-                        event_type?: string;
-                        /**
-                         * @description Delivery status
-                         * @enum {string}
-                         */
-                        status?: "pending" | "success" | "failed" | "retrying";
-                        /** @description HTTP response code */
-                        status_code?: number;
-                        /** @description Response time */
-                        response_time_ms?: number;
-                        /** @description Number of attempts */
-                        attempt_count?: number;
-                        /** @description Delivered payload */
-                        payload?: Record<string, never>;
-                        /** @description Response body (truncated) */
-                        response_body?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        delivered_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postWebhookDeliveryRetry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-                /** @description Delivery ID */
-                delivery_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Force retry even if succeeded */
-                    force?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Retry initiated */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Delivery attempt ID */
-                        id?: string;
-                        /** @description Associated webhook */
-                        webhook_id?: string;
-                        /** @description Event that triggered delivery */
-                        event_type?: string;
-                        /**
-                         * @description Delivery status
-                         * @enum {string}
-                         */
-                        status?: "pending" | "success" | "failed" | "retrying";
-                        /** @description HTTP response code */
-                        status_code?: number;
-                        /** @description Response time */
-                        response_time_ms?: number;
-                        /** @description Number of attempts */
-                        attempt_count?: number;
-                        /** @description Delivered payload */
-                        payload?: Record<string, never>;
-                        /** @description Response body (truncated) */
-                        response_body?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        delivered_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postWebhookEvents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Event types to subscribe */
-                    events: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Events subscribed */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Unique webhook identifier */
-                        id?: string;
-                        /** @description Webhook endpoint URL */
-                        url?: string;
-                        /** @description Subscribed event types */
-                        events?: string[];
-                        /**
-                         * @description Webhook status
-                         * @enum {string}
-                         */
-                        status?: "active" | "paused" | "failed";
-                        /** @description Webhook signing secret (masked) */
-                        secret?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteWebhookEvents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Event types to subscribe */
-                    events: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Events unsubscribed */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Unique webhook identifier */
-                        id?: string;
-                        /** @description Webhook endpoint URL */
-                        url?: string;
-                        /** @description Subscribed event types */
-                        events?: string[];
-                        /**
-                         * @description Webhook status
-                         * @enum {string}
-                         */
-                        status?: "active" | "paused" | "failed";
-                        /** @description Webhook signing secret (masked) */
-                        secret?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** Format: date-time */
-                        updated_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getWebhookRetryPolicy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Retry policy */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Maximum retry attempts */
-                        max_retries?: number;
-                        /** @description Initial retry delay */
-                        initial_delay_ms?: number;
-                        /** @description Maximum retry delay */
-                        max_delay_ms?: number;
-                        /** @description Exponential backoff multiplier */
-                        backoff_multiplier?: number;
-                        /** @description HTTP status codes to retry on */
-                        retry_on_status_codes?: number[];
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    putWebhookRetryPolicy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    max_retries?: number;
-                    initial_delay_ms?: number;
-                    max_delay_ms?: number;
-                    backoff_multiplier?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Updated retry policy */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Maximum retry attempts */
-                        max_retries?: number;
-                        /** @description Initial retry delay */
-                        initial_delay_ms?: number;
-                        /** @description Maximum retry delay */
-                        max_delay_ms?: number;
-                        /** @description Exponential backoff multiplier */
-                        backoff_multiplier?: number;
-                        /** @description HTTP status codes to retry on */
-                        retry_on_status_codes?: number[];
-                    };
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postWebhookRotateSecret: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /**
-                     * @description Hours to keep old secret valid
-                     * @default 24
-                     */
-                    grace_period_hours?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Secret rotated */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description New signing secret */
-                        new_secret?: string;
-                        /**
-                         * Format: date-time
-                         * @description When old secret expires
-                         */
-                        old_secret_valid_until?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getWebhookSigning: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Signing configuration */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /**
-                         * @description Signing algorithm
-                         * @enum {string}
-                         */
-                        algorithm?: "hmac-sha256" | "hmac-sha512" | "ed25519";
-                        /** @description Signature header name */
-                        header_name?: string;
-                        /** @description Timestamp header name */
-                        timestamp_header?: string;
-                        /** @description Timestamp tolerance */
-                        tolerance_seconds?: number;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getWebhookStats: {
-        parameters: {
-            query?: {
-                /** @description Statistics period */
-                period?: "day" | "week" | "month";
-            };
-            header?: never;
-            path: {
-                /** @description Webhook ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Webhook statistics */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Webhook ID */
-                        webhook_id?: string;
-                        /** @description Total delivery attempts */
-                        total_deliveries?: number;
-                        /** @description Successful deliveries */
-                        successful_deliveries?: number;
-                        /** @description Failed deliveries */
-                        failed_deliveries?: number;
-                        /** @description Average response time */
-                        average_response_time_ms?: number;
-                        /** @description Success rate (0-1) */
-                        success_rate?: number;
-                        /**
-                         * Format: date-time
-                         * @description Last delivery time
-                         */
-                        last_delivery?: string;
-                        /** Format: date-time */
-                        period_start?: string;
-                        /** Format: date-time */
-                        period_end?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getDebatesReplay: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Debate ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Debate replay data */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Unique replay identifier */
-                        replay_id?: string;
-                        /** @description Source debate identifier */
-                        debate_id?: string;
-                        /** @description Ordered list of debate events */
-                        events?: {
-                            event_id?: string;
-                            /** @enum {string} */
-                            type?: "debate_start" | "round_start" | "agent_message" | "critique" | "vote" | "consensus" | "debate_end";
-                            /** Format: date-time */
-                            timestamp?: string;
-                            agent_id?: string;
-                            content?: string;
-                            metadata?: Record<string, never>;
-                        }[];
-                        /** @description Total replay duration in milliseconds */
-                        duration_ms?: number;
-                        /** @description Number of debate rounds */
-                        total_rounds?: number;
-                        /** @description List of participating agent IDs */
-                        participants?: string[];
-                        /** Format: date-time */
-                        created_at?: string;
-                        /** @enum {string} */
-                        status?: "ready" | "processing" | "error";
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getKeys: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of API keys */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        keys?: {
-                            /** @description Key identifier */
-                            id?: string;
-                            /** @description Human-readable key name */
-                            name?: string;
-                            /** @description Key prefix (e.g., 'sk_live_') */
-                            prefix?: string;
-                            /** Format: date-time */
-                            created_at?: string;
-                            /** Format: date-time */
-                            expires_at?: string;
-                            /** Format: date-time */
-                            last_used_at?: string;
-                            /** @description Authorized permission scopes */
-                            scopes?: string[];
-                            /** @enum {string} */
-                            status?: "active" | "expired" | "revoked";
-                        }[];
-                        total?: number;
-                    };
-                };
-            };
-        };
-    };
-    deleteKeys: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Key ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Key deleted */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        deleted?: boolean;
-                        id?: string;
                     };
                 };
             };
@@ -116857,294 +107908,6 @@ export interface operations {
             };
         };
     };
-    getLeaderboardAgent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Agent ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Agent statistics */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        agent_id?: string;
-                        name?: string;
-                        elo_rating?: number;
-                        total_debates?: number;
-                        wins?: number;
-                        losses?: number;
-                        draws?: number;
-                        win_rate?: number;
-                        average_score?: number;
-                        /** @description Expertise domains */
-                        domains?: string[];
-                        rank?: number;
-                        /** @enum {string} */
-                        tier?: "bronze" | "silver" | "gold" | "platinum" | "diamond";
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getAgentEloHistory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Agent ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description ELO rating history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        agent_id?: string;
-                        history?: {
-                            /** Format: date-time */
-                            timestamp?: string;
-                            rating?: number;
-                            change?: number;
-                            debate_id?: string;
-                            opponent_id?: string;
-                            /** @enum {string} */
-                            result?: "win" | "loss" | "draw";
-                        }[];
-                        current_rating?: number;
-                        peak_rating?: number;
-                        lowest_rating?: number;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getLeaderboardCompare: {
-        parameters: {
-            query: {
-                /** @description Agent IDs to compare */
-                agent_ids: string[];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Agent comparison */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        agents?: {
-                            agent_id?: string;
-                            name?: string;
-                            elo_rating?: number;
-                            total_debates?: number;
-                            wins?: number;
-                            losses?: number;
-                            draws?: number;
-                            win_rate?: number;
-                            average_score?: number;
-                            /** @description Expertise domains */
-                            domains?: string[];
-                            rank?: number;
-                            /** @enum {string} */
-                            tier?: "bronze" | "silver" | "gold" | "platinum" | "diamond";
-                        }[];
-                        head_to_head?: {
-                            agent_a?: string;
-                            agent_b?: string;
-                            a_wins?: number;
-                            b_wins?: number;
-                            draws?: number;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    getLeaderboardDomain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Domain ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Domain leaderboard */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        domain?: string;
-                        agents?: {
-                            agent_id?: string;
-                            name?: string;
-                            domain_elo?: number;
-                            domain_debates?: number;
-                            domain_win_rate?: number;
-                            rank?: number;
-                        }[];
-                        total_agents?: number;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getLeaderboardDomains: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of domains */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        domains?: {
-                            id?: string;
-                            name?: string;
-                            description?: string;
-                            total_debates?: number;
-                            active_agents?: number;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    getLeaderboardMovers: {
-        parameters: {
-            query?: {
-                /** @description Time period */
-                period?: "day" | "week" | "month";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Top movers */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        period?: "day" | "week" | "month";
-                        gainers?: {
-                            agent_id?: string;
-                            name?: string;
-                            rating_change?: number;
-                            new_rating?: number;
-                            debates_in_period?: number;
-                        }[];
-                        losers?: {
-                            agent_id?: string;
-                            name?: string;
-                            rating_change?: number;
-                            new_rating?: number;
-                            debates_in_period?: number;
-                        }[];
-                    };
-                };
-            };
-        };
-    };
     putPersonaOptionsV1: {
         parameters: {
             query?: never;
@@ -117152,7 +107915,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": Record<string, never>;
             };
@@ -117182,7 +107945,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": Record<string, never>;
             };
@@ -117213,1104 +107976,6 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    getPulseAnalyticsV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseAnalyticsV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    source?: string;
-                    data?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseAnalyticsV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    enabled?: boolean;
-                    retention_days?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseDebateTopicV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    topic?: string;
-                    sources?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseDebateTopicV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    active?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseSchedulerConfigV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    interval_minutes?: number;
-                    enabled?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseSchedulerConfigV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    interval_minutes?: number;
-                    enabled?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseSchedulerHistoryV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseSchedulerHistoryV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseSchedulerPauseV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseSchedulerPauseV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseSchedulerResumeV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseSchedulerResumeV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseSchedulerStartV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseSchedulerStartV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseSchedulerStatusV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseSchedulerStatusV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postPulseSchedulerStopV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    patchPulseSchedulerStopV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postReplaysCreate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    debate_id: string;
-                    title?: string;
-                    description?: string;
-                    is_public?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Replay creation started */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        replay_id?: string;
-                        debate_id?: string;
-                        /** @enum {string} */
-                        status?: "processing" | "ready" | "error";
-                        /** Format: date-time */
-                        estimated_ready_at?: string;
-                    };
-                };
-            };
-        };
-    };
-    getReplaysShare: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Share ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Shared replay data */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        id?: string;
-                        debate_id?: string;
-                        title?: string;
-                        description?: string;
-                        events?: Record<string, never>[];
-                        duration_ms?: number;
-                        total_rounds?: number;
-                        participants?: string[];
-                        /** Format: date-time */
-                        created_at?: string;
-                        view_count?: number;
-                        is_public?: boolean;
-                        bookmarked?: boolean;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postReplaysBookmark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    note?: string;
-                    tags?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Bookmark added */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        replay_id?: string;
-                        bookmarked?: boolean;
-                        /** Format: date-time */
-                        bookmarked_at?: string;
-                    };
-                };
-            };
-        };
-    };
-    deleteReplaysBookmark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bookmark removed */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        replay_id?: string;
-                        bookmarked?: boolean;
-                        /** Format: date-time */
-                        bookmarked_at?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getReplaysComments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Replay comments */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        comments?: {
-                            id?: string;
-                            user_id?: string;
-                            user_name?: string;
-                            content?: string;
-                            /** @description Position in replay */
-                            timestamp_ms?: number;
-                            /** Format: date-time */
-                            created_at?: string;
-                            edited?: boolean;
-                        }[];
-                        total?: number;
-                    };
-                };
-            };
-        };
-    };
-    postReplaysComments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    content: string;
-                    timestamp_ms?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Comment added */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        comment_id?: string;
-                        replay_id?: string;
-                        /** Format: date-time */
-                        created_at?: string;
-                    };
-                };
-            };
-        };
-    };
-    getReplaysExport: {
-        parameters: {
-            query?: {
-                /** @description Export format */
-                format?: "json" | "markdown" | "pdf" | "html";
-            };
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Export details */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        export_id?: string;
-                        replay_id?: string;
-                        /** @enum {string} */
-                        format?: "json" | "markdown" | "pdf" | "html";
-                        /** Format: uri */
-                        download_url?: string;
-                        /** Format: date-time */
-                        expires_at?: string;
-                        size_bytes?: number;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postReplaysShare: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    expires_in_hours?: number;
-                    max_accesses?: number;
-                    password?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Share link created */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        share_id?: string;
-                        replay_id?: string;
-                        /** Format: uri */
-                        url?: string;
-                        /** Format: date-time */
-                        expires_at?: string;
-                        access_count?: number;
-                        max_accesses?: number;
-                    };
-                };
-            };
-        };
-    };
-    getReplaysSummary: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Replay summary */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        replay_id?: string;
-                        title?: string;
-                        summary?: string;
-                        key_points?: string[];
-                        outcome?: string;
-                        consensus_reached?: boolean;
-                        winning_agent?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getReplaysTranscript: {
-        parameters: {
-            query?: {
-                /** @description Transcript format */
-                format?: "plain" | "markdown" | "annotated";
-            };
-            header?: never;
-            path: {
-                /** @description Replay ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Replay transcript */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        replay_id?: string;
-                        /** @enum {string} */
-                        format?: "plain" | "markdown" | "annotated";
-                        transcript?: string;
-                        word_count?: number;
-                        sections?: {
-                            round?: number;
-                            speaker?: string;
-                            content?: string;
-                            timestamp_ms?: number;
-                        }[];
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postRoutingDomainLeaderboardV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
         responses: {
             /** @description Success */
             200: {
@@ -118603,74 +108268,14 @@ export interface operations {
             };
         };
     };
-    getV2Groups: {
-        parameters: {
-            query?: {
-                /** @description SCIM filter expression */
-                filter?: string;
-                /** @description Start index for pagination */
-                startIndex?: number;
-                /** @description Number of results */
-                count?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description SCIM groups list */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        schemas?: string[];
-                        totalResults?: number;
-                        startIndex?: number;
-                        itemsPerPage?: number;
-                        Resources?: {
-                            schemas?: string[];
-                            id?: string;
-                            displayName?: string;
-                            members?: {
-                                value?: string;
-                                display?: string;
-                            }[];
-                            meta?: {
-                                resourceType?: string;
-                                /** Format: date-time */
-                                created?: string;
-                                /** Format: date-time */
-                                lastModified?: string;
-                                /** Format: uri */
-                                location?: string;
-                            };
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    postScimGroups: {
+    listConnectorsV1: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Success */
             200: {
@@ -118689,82 +108294,16 @@ export interface operations {
             };
         };
     };
-    getV2Users: {
-        parameters: {
-            query?: {
-                /** @description SCIM filter expression */
-                filter?: string;
-                /** @description Start index for pagination */
-                startIndex?: number;
-                /** @description Number of results */
-                count?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description SCIM users list */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        schemas?: string[];
-                        totalResults?: number;
-                        startIndex?: number;
-                        itemsPerPage?: number;
-                        Resources?: {
-                            schemas?: string[];
-                            id?: string;
-                            userName?: string;
-                            name?: {
-                                givenName?: string;
-                                familyName?: string;
-                                formatted?: string;
-                            };
-                            emails?: {
-                                /** Format: email */
-                                value?: string;
-                                type?: string;
-                                primary?: boolean;
-                            }[];
-                            active?: boolean;
-                            meta?: {
-                                resourceType?: string;
-                                /** Format: date-time */
-                                created?: string;
-                                /** Format: date-time */
-                                lastModified?: string;
-                                /** Format: uri */
-                                location?: string;
-                            };
-                        }[];
-                    };
-                };
-            };
-        };
-    };
-    postScimUsers: {
+    getConnectorV1: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Success */
             200: {
@@ -118783,20 +108322,16 @@ export interface operations {
             };
         };
     };
-    postDebatesHybridV1: {
+    getConnectorSyncV1: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Success */
             200: {
@@ -118822,11 +108357,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119298,13 +108831,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    name: string;
-                    content?: string;
-                    max_tokens?: number;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119358,11 +108887,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119416,13 +108943,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    name: string;
-                    type: string;
-                    config?: Record<string, never>;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119476,11 +108999,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119527,59 +109048,7 @@ export interface operations {
             };
         };
     };
-    listRoutingRulesV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    evaluateRoutingRulesV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    getRoutingRuleV1: {
+    getPolicyToggleV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -119607,35 +109076,7 @@ export interface operations {
             };
         };
     };
-    getRoutingRuleToggleV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    getTrainingExportDpoV1: {
+    getPrivacyAccountV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -119661,33 +109102,7 @@ export interface operations {
             };
         };
     };
-    getTrainingExportGauntletV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    getTrainingExportSftV1: {
+    getPrivacyPreferencesV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -119804,11 +109219,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119836,11 +109249,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119868,43 +109279,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    postTranscriptionConfigV1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119932,11 +109309,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119964,11 +109339,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": Record<string, never>;
             };
         };
         responses: {
@@ -119989,18 +109362,247 @@ export interface operations {
             };
         };
     };
-    getWorkspaceById: {
+    joinDebateV1: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DebateJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Joined debate */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        participant_id?: string;
+                        role?: string;
+                        websocket_url?: string;
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    submitDebateVoteV1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebateVoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Vote recorded */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        vote_id?: string;
+                        position?: string;
+                        intensity?: number;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    submitDebateSuggestionV1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebateSuggestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Suggestion recorded */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        suggestion_id?: string;
+                        will_appear_in?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateDebateV1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebateUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Debate updated */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        debate_id?: string;
+                        updated_fields?: string[];
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pauseDebateIntervention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debate_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Debate paused */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -120012,23 +109614,53 @@ export interface operations {
                 content: {
                     "application/json": {
                         success?: boolean;
+                        debate_id?: string;
+                        is_paused?: boolean;
+                        /** Format: date-time */
+                        paused_at?: string;
                     };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    deleteWorkspaceById: {
+    resumeDebateIntervention: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                debate_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Debate resumed */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -120040,29 +109672,58 @@ export interface operations {
                 content: {
                     "application/json": {
                         success?: boolean;
+                        debate_id?: string;
+                        is_paused?: boolean;
+                        /** Format: date-time */
+                        resumed_at?: string;
+                        pause_duration_seconds?: number | null;
                     };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    postWorkspaceMembers: {
+    injectDebateArgument: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                debate_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DebateInjectArgumentRequest"];
             };
         };
         responses: {
-            /** @description Success */
+            /** @description Argument injected */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -120074,31 +109735,57 @@ export interface operations {
                 content: {
                     "application/json": {
                         success?: boolean;
+                        debate_id?: string;
+                        injection_id?: string;
+                        type?: string;
+                        will_appear_in?: string;
                     };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
     };
-    putWorkspaceMember: {
+    updateDebateAgentWeight: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
-                /** @description Path parameter: member_id */
-                member_id: string;
+                debate_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["DebateUpdateWeightsRequest"];
             };
         };
         responses: {
-            /** @description Success */
+            /** @description Weight updated */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -120110,7 +109797,238 @@ export interface operations {
                 content: {
                     "application/json": {
                         success?: boolean;
+                        debate_id?: string;
+                        agent?: string;
+                        old_weight?: number;
+                        new_weight?: number;
                     };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateDebateThreshold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebateUpdateThresholdRequest"];
+            };
+        };
+        responses: {
+            /** @description Threshold updated */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        debate_id?: string;
+                        old_threshold?: number;
+                        new_threshold?: number;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebateInterventionState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Intervention state */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        is_paused?: boolean;
+                        /** Format: date-time */
+                        paused_at?: string | null;
+                        consensus_threshold?: number;
+                        agent_weights?: Record<string, never>;
+                        pending_injections?: number;
+                        pending_follow_ups?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDebateInterventionLog: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                debate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Intervention log */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        total_interventions?: number;
+                        interventions?: Record<string, never>[];
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    estimateDebateCost: {
+        parameters: {
+            query?: {
+                /** @description Number of agents */
+                num_agents?: number;
+                /** @description Number of debate rounds */
+                num_rounds?: number;
+                /**
+                 * @description Comma-separated model types
+                 * @example claude-sonnet-4,gpt-4o,gemini-pro
+                 */
+                model_types?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cost estimate */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebateCostEstimateResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -121770,436 +111688,6 @@ export interface operations {
                         page?: number;
                         /** @description Items per page */
                         page_size?: number;
-                    };
-                };
-            };
-        };
-    };
-    getComplianceSummary: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Compliance summary */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Overall compliance score (0-100) */
-                        overall_score?: number;
-                        /** @enum {string} */
-                        soc2_status?: "compliant" | "non_compliant" | "partial" | "not_applicable";
-                        /** @enum {string} */
-                        gdpr_status?: "compliant" | "non_compliant" | "partial" | "not_applicable";
-                        /** @enum {string} */
-                        hipaa_status?: "compliant" | "non_compliant" | "partial" | "not_applicable";
-                        /** @description Count of active policy violations */
-                        active_violations?: number;
-                        /** @description Count of pending compliance reviews */
-                        pending_reviews?: number;
-                        /** Format: date-time */
-                        last_audit?: string;
-                        /** Format: date-time */
-                        next_audit_due?: string;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postEmailConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    enabled?: boolean;
-                    smtp_host?: string;
-                    smtp_port?: number;
-                    smtp_user?: string;
-                    smtp_password?: string;
-                    /** Format: email */
-                    from_address?: string;
-                    use_tls?: boolean;
-                    events?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Email configuration saved */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        enabled?: boolean;
-                        smtp_host?: string;
-                        smtp_port?: number;
-                        /** Format: email */
-                        from_address?: string;
-                        use_tls?: boolean;
-                        /** @description Event types to notify on */
-                        events?: string[];
-                    };
-                };
-            };
-        };
-    };
-    postEmailRecipient: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: email */
-                    email: string;
-                    name?: string;
-                    subscribed_events?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Recipient added */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        id?: string;
-                        /** Format: email */
-                        email?: string;
-                        name?: string;
-                        verified?: boolean;
-                        subscribed_events?: string[];
-                        /** Format: date-time */
-                        created_at?: string;
-                    };
-                };
-            };
-        };
-    };
-    deleteEmailRecipient: {
-        parameters: {
-            query: {
-                /** @description Email to remove */
-                email: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Recipient removed */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        deleted?: boolean;
-                        email?: string;
-                    };
-                };
-            };
-            /** @description Not found - The requested resource does not exist */
-            404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getEmailRecipients: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Email recipients list */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        recipients?: {
-                            id?: string;
-                            /** Format: email */
-                            email?: string;
-                            name?: string;
-                            verified?: boolean;
-                            subscribed_events?: string[];
-                            /** Format: date-time */
-                            created_at?: string;
-                        }[];
-                        total?: number;
-                    };
-                };
-            };
-        };
-    };
-    getNotificationsHistory: {
-        parameters: {
-            query?: {
-                /** @description Filter by channel */
-                channel?: "email" | "telegram" | "slack" | "webhook";
-                /** @description Page number */
-                page?: number;
-                /** @description Items per page */
-                page_size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Notification history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        notifications?: {
-                            id?: string;
-                            /** @enum {string} */
-                            channel?: "email" | "telegram" | "slack" | "webhook";
-                            event_type?: string;
-                            recipient?: string;
-                            /** @enum {string} */
-                            status?: "sent" | "delivered" | "failed" | "pending";
-                            /** Format: date-time */
-                            sent_at?: string;
-                            /** Format: date-time */
-                            delivered_at?: string;
-                            error?: string;
-                        }[];
-                        total?: number;
-                        page?: number;
-                        page_size?: number;
-                    };
-                };
-            };
-        };
-    };
-    postNotificationsSend: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    channel: "email" | "telegram" | "slack" | "webhook";
-                    recipients?: string[];
-                    subject?: string;
-                    message: string;
-                    template_id?: string;
-                    data?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Notification sent */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        notification_id?: string;
-                        /** @enum {string} */
-                        status?: "queued" | "sent" | "failed";
-                        recipients_count?: number;
-                    };
-                };
-            };
-        };
-    };
-    getNotificationsStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Notification channels status */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        channels?: {
-                            email?: {
-                                enabled?: boolean;
-                                configured?: boolean;
-                            };
-                            telegram?: {
-                                enabled?: boolean;
-                                configured?: boolean;
-                            };
-                            slack?: {
-                                enabled?: boolean;
-                                configured?: boolean;
-                            };
-                        };
-                        queue_depth?: number;
-                        /** Format: date-time */
-                        last_sent_at?: string;
-                    };
-                };
-            };
-        };
-    };
-    postTelegramConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    enabled?: boolean;
-                    bot_token?: string;
-                    chat_ids?: string[];
-                    events?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Telegram configuration saved */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        enabled?: boolean;
-                        bot_token_set?: boolean;
-                        chat_ids?: string[];
-                        events?: string[];
-                    };
-                };
-            };
-        };
-    };
-    postNotificationsTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    channel: "email" | "telegram" | "slack";
-                    recipient?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Test notification result */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        channel?: string;
-                        message?: string;
-                        /** Format: date-time */
-                        delivered_at?: string;
                     };
                 };
             };
