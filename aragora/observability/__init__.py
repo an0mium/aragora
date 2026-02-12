@@ -130,8 +130,11 @@ from aragora.observability.tracing import (
 )
 from aragora.observability.otel import (
     OTelConfig,
+    OTLPHealthStatus,
+    check_otlp_health,
     export_debate_span_to_otel,
     extract_context,
+    get_otel_status,
     get_tracer as otel_get_tracer,
     inject_context,
     is_initialized as is_otel_initialized,
@@ -310,6 +313,10 @@ __all__ = [
     "trace_agent_operation",
     "trace_consensus_evaluation",
     "export_debate_span_to_otel",
+    # OTLP Health Check
+    "OTLPHealthStatus",
+    "check_otlp_health",
+    "get_otel_status",
     # Metrics
     "start_metrics_server",
     "record_request",

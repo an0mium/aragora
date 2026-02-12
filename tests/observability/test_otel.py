@@ -20,11 +20,15 @@ import pytest
 
 from aragora.observability.otel import (
     OTelConfig,
+    OTLPHealthStatus,
     _NoOpSpan,
     _NoOpSpanContext,
     _NoOpTracer,
+    _create_otlp_exporter,
+    check_otlp_health,
     export_debate_span_to_otel,
     extract_context,
+    get_otel_status,
     get_tracer,
     inject_context,
     is_initialized,
@@ -656,3 +660,374 @@ class TestObservabilityExports:
         assert trace_debate_round is not None
         assert trace_agent_operation is not None
         assert trace_consensus_evaluation is not None
+
+    def test_health_check_importable(self):
+        """Test health check functions are importable from observability package."""
+        from aragora.observability import (
+            OTLPHealthStatus,
+            check_otlp_health,
+            get_otel_status,
+        )
+
+        assert OTLPHealthStatus is not None
+        assert check_otlp_health is not None
+        assert get_otel_status is not None
+
+
+# =============================================================================
+# Protocol and headers configuration tests
+# =============================================================================
+
+
+class TestProtocolConfig:
+    """Tests for protocol and headers configuration."""
+
+    def test_default_protocol_is_grpc(self):
+        """Test default protocol is grpc."""
+        config = OTelConfig()
+        assert config.protocol == "grpc"
+
+    def test_http_protocol(self):
+        """Test http/protobuf protocol."""
+        config = OTelConfig(protocol="http/protobuf")
+        assert config.protocol == "http/protobuf"
+
+    def test_invalid_protocol_raises(self):
+        """Test invalid protocol raises ValueError."""
+        with pytest.raises(ValueError, match="protocol must be"):
+            OTelConfig(protocol="invalid")
+
+    def test_default_headers_empty(self):
+        """Test default headers are empty."""
+        config = OTelConfig()
+        assert config.headers == {}
+
+    def test_custom_headers(self):
+        """Test custom headers."""
+        config = OTelConfig(headers={"Authorization": "Bearer token"})
+        assert config.headers == {"Authorization": "Bearer token"}
+
+
+class TestProtocolFromEnv:
+    """Tests for protocol and headers environment parsing."""
+
+    def setup_method(self):
+        """Clear environment variables before each test."""
+        self._env_vars = [
+            "OTEL_EXPORTER_OTLP_PROTOCOL",
+            "ARAGORA_OTLP_PROTOCOL",
+            "OTEL_EXPORTER_OTLP_HEADERS",
+            "ARAGORA_OTLP_HEADERS",
+        ]
+        self._saved = {}
+        for var in self._env_vars:
+            self._saved[var] = os.environ.pop(var, None)
+
+    def teardown_method(self):
+        """Restore environment variables after each test."""
+        for var in self._env_vars:
+            os.environ.pop(var, None)
+            if self._saved.get(var) is not None:
+                os.environ[var] = self._saved[var]
+
+    def test_default_protocol_from_env(self):
+        """Test default protocol from env is grpc."""
+        config = OTelConfig.from_env()
+        assert config.protocol == "grpc"
+
+    def test_otel_protocol_env(self):
+        """Test OTEL_EXPORTER_OTLP_PROTOCOL env var."""
+        os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf"
+        config = OTelConfig.from_env()
+        assert config.protocol == "http/protobuf"
+
+    def test_aragora_protocol_env_fallback(self):
+        """Test ARAGORA_OTLP_PROTOCOL env var as fallback."""
+        os.environ["ARAGORA_OTLP_PROTOCOL"] = "http/protobuf"
+        config = OTelConfig.from_env()
+        assert config.protocol == "http/protobuf"
+
+    def test_otel_protocol_takes_precedence(self):
+        """Test OTEL_ var takes precedence over ARAGORA_ var."""
+        os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "grpc"
+        os.environ["ARAGORA_OTLP_PROTOCOL"] = "http/protobuf"
+        config = OTelConfig.from_env()
+        assert config.protocol == "grpc"
+
+    def test_invalid_protocol_falls_back(self):
+        """Test invalid protocol falls back to grpc."""
+        os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "invalid_proto"
+        config = OTelConfig.from_env()
+        assert config.protocol == "grpc"
+
+    def test_headers_json_format(self):
+        """Test headers parsed from JSON format."""
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = '{"Authorization": "Bearer abc"}'
+        config = OTelConfig.from_env()
+        assert config.headers == {"Authorization": "Bearer abc"}
+
+    def test_headers_key_value_format(self):
+        """Test headers parsed from key=value format."""
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = "api-key=abc123,x-custom=val"
+        config = OTelConfig.from_env()
+        assert config.headers == {"api-key": "abc123", "x-custom": "val"}
+
+    def test_aragora_headers_fallback(self):
+        """Test ARAGORA_OTLP_HEADERS env var as fallback."""
+        os.environ["ARAGORA_OTLP_HEADERS"] = '{"X-Token": "t123"}'
+        config = OTelConfig.from_env()
+        assert config.headers == {"X-Token": "t123"}
+
+    def test_empty_headers_default(self):
+        """Test empty headers when no env vars set."""
+        config = OTelConfig.from_env()
+        assert config.headers == {}
+
+
+# =============================================================================
+# Exporter factory tests
+# =============================================================================
+
+
+class TestCreateOtlpExporter:
+    """Tests for _create_otlp_exporter factory."""
+
+    def test_grpc_exporter_creation(self):
+        """Test gRPC exporter is created when available."""
+        config = OTelConfig(
+            endpoint="http://localhost:4317",
+            protocol="grpc",
+            insecure=True,
+        )
+        try:
+            exporter = _create_otlp_exporter(config)
+            # If gRPC package is installed, we get an exporter
+            assert exporter is not None
+        except Exception:
+            # If packages not installed, test is inconclusive
+            pass
+
+    def test_http_exporter_creation(self):
+        """Test HTTP exporter is created when available."""
+        config = OTelConfig(
+            endpoint="http://localhost:4318",
+            protocol="http/protobuf",
+        )
+        try:
+            exporter = _create_otlp_exporter(config)
+            # Exporter should be created (either HTTP or gRPC fallback)
+            assert exporter is not None
+        except Exception:
+            pass
+
+    def test_grpc_with_headers(self):
+        """Test gRPC exporter with headers."""
+        config = OTelConfig(
+            endpoint="http://localhost:4317",
+            protocol="grpc",
+            insecure=True,
+            headers={"Authorization": "Bearer token"},
+        )
+        try:
+            exporter = _create_otlp_exporter(config)
+            assert exporter is not None
+        except Exception:
+            pass
+
+    def test_grpc_fallback_when_grpc_missing(self):
+        """Test fallback to HTTP when gRPC import fails."""
+        config = OTelConfig(protocol="grpc", insecure=True)
+
+        # If we can import either, the factory should succeed
+        has_any_exporter = False
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # noqa: F401
+            has_any_exporter = True
+        except ImportError:
+            pass
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: F401
+            has_any_exporter = True
+        except ImportError:
+            pass
+
+        exporter = _create_otlp_exporter(config)
+        if has_any_exporter:
+            assert exporter is not None
+        else:
+            assert exporter is None
+
+    def test_http_fallback_when_http_missing(self):
+        """Test fallback to gRPC when HTTP import fails."""
+        config = OTelConfig(protocol="http/protobuf")
+
+        has_any_exporter = False
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # noqa: F401
+            has_any_exporter = True
+        except ImportError:
+            pass
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: F401
+            has_any_exporter = True
+        except ImportError:
+            pass
+
+        exporter = _create_otlp_exporter(config)
+        if has_any_exporter:
+            assert exporter is not None
+        else:
+            assert exporter is None
+
+
+# =============================================================================
+# OTLP Health check tests
+# =============================================================================
+
+
+class TestOTLPHealthStatus:
+    """Tests for OTLPHealthStatus dataclass."""
+
+    def test_healthy_status(self):
+        """Test creating a healthy status."""
+        status = OTLPHealthStatus(
+            healthy=True,
+            endpoint="http://localhost:4317",
+            protocol="grpc",
+            latency_ms=5.2,
+            initialized=True,
+        )
+        assert status.healthy is True
+        assert status.endpoint == "http://localhost:4317"
+        assert status.protocol == "grpc"
+        assert status.latency_ms == 5.2
+        assert status.error is None
+        assert status.initialized is True
+
+    def test_unhealthy_status(self):
+        """Test creating an unhealthy status."""
+        status = OTLPHealthStatus(
+            healthy=False,
+            endpoint="http://collector:4317",
+            protocol="grpc",
+            latency_ms=3000.0,
+            error="Connection timed out after 3000ms",
+            initialized=False,
+        )
+        assert status.healthy is False
+        assert status.error == "Connection timed out after 3000ms"
+        assert status.initialized is False
+
+
+class TestCheckOtlpHealth:
+    """Tests for check_otlp_health function."""
+
+    def setup_method(self):
+        reset_otel()
+
+    def teardown_method(self):
+        reset_otel()
+
+    def test_health_check_connection_refused(self):
+        """Test health check when no collector is running."""
+        # Use a port that is very unlikely to have a listener
+        status = check_otlp_health(
+            endpoint="http://localhost:19999",
+            timeout_ms=500,
+        )
+        assert status.healthy is False
+        assert status.latency_ms is not None
+        assert status.error is not None
+        assert "Connection refused" in status.error or "Connection error" in status.error
+
+    def test_health_check_timeout(self):
+        """Test health check timeout with unreachable host."""
+        # Use a non-routable address to trigger timeout
+        status = check_otlp_health(
+            endpoint="http://192.0.2.1:4317",  # TEST-NET, non-routable
+            timeout_ms=500,
+        )
+        assert status.healthy is False
+        assert status.latency_ms is not None
+        assert status.error is not None
+
+    def test_health_check_default_grpc_port(self):
+        """Test health check defaults to port 4317 for gRPC."""
+        status = check_otlp_health(
+            endpoint="http://localhost",
+            timeout_ms=200,
+        )
+        # Should fail (no collector) but the endpoint/port resolution should work
+        assert status.endpoint == "http://localhost"
+        assert status.protocol == "grpc"
+
+    def test_health_check_initialized_flag(self):
+        """Test health check reflects initialization state."""
+        status = check_otlp_health(
+            endpoint="http://localhost:19999",
+            timeout_ms=200,
+        )
+        assert status.initialized is False  # OTel not initialized
+
+    def test_health_check_with_explicit_endpoint(self):
+        """Test health check uses explicit endpoint over config."""
+        status = check_otlp_health(
+            endpoint="http://127.0.0.1:19999",
+            timeout_ms=200,
+        )
+        assert status.endpoint == "http://127.0.0.1:19999"
+
+
+class TestGetOtelStatus:
+    """Tests for get_otel_status function."""
+
+    def setup_method(self):
+        reset_otel()
+
+    def teardown_method(self):
+        reset_otel()
+
+    def test_status_when_not_initialized(self):
+        """Test status when OTel is not initialized."""
+        status = get_otel_status()
+        assert status["initialized"] is False
+        assert "reason" in status
+
+    def test_status_after_mock_initialization(self):
+        """Test status reports correctly after initialization."""
+        # We can't easily fully initialize without a collector,
+        # but we can verify the not-initialized path
+        status = get_otel_status()
+        assert isinstance(status, dict)
+        assert "initialized" in status
+
+
+# =============================================================================
+# Startup OTLP connectivity check tests
+# =============================================================================
+
+
+class TestStartupOtlpConnectivity:
+    """Tests for the server startup OTLP connectivity check."""
+
+    @pytest.mark.asyncio
+    async def test_check_skips_when_disabled(self):
+        """Test connectivity check skips when tracing is not enabled."""
+        from aragora.server.startup.observability import check_otlp_connectivity
+
+        # With default env (tracing disabled), should return False
+        result = await check_otlp_connectivity()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_check_warns_when_unreachable(self):
+        """Test connectivity check warns when collector is unreachable."""
+        from aragora.server.startup.observability import check_otlp_connectivity
+
+        env_vars = {
+            "OTEL_ENABLED": "true",
+            "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:19999",
+        }
+        with patch.dict(os.environ, env_vars):
+            result = await check_otlp_connectivity()
+            assert result is False

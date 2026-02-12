@@ -190,6 +190,52 @@ async def init_otlp_exporter() -> bool:
     return False
 
 
+async def check_otlp_connectivity() -> bool:
+    """Check OTLP collector connectivity and log the result.
+
+    This is a non-blocking health check that verifies the OTLP collector
+    endpoint is reachable. It does NOT block startup if the collector is
+    unreachable -- it only logs a warning.
+
+    Returns:
+        True if the collector is reachable, False otherwise.
+    """
+    try:
+        from aragora.observability.otel import check_otlp_health, OTelConfig
+
+        config = OTelConfig.from_env()
+        if not config.enabled:
+            logger.debug("OTLP health check skipped (tracing not enabled)")
+            return False
+
+        status = check_otlp_health(timeout_ms=3000)
+
+        if status.healthy:
+            logger.info(
+                "OTLP collector reachable: endpoint=%s, protocol=%s, latency=%.1fms",
+                status.endpoint,
+                status.protocol,
+                status.latency_ms or 0,
+            )
+            return True
+        else:
+            logger.warning(
+                "OTLP collector unreachable: endpoint=%s, error=%s. "
+                "Traces will be buffered and may be lost if the collector "
+                "does not become available.",
+                status.endpoint,
+                status.error,
+            )
+            return False
+
+    except ImportError as e:
+        logger.debug("OTLP health check not available: %s", e)
+    except (ValueError, TypeError, OSError, RuntimeError) as e:
+        logger.warning("OTLP health check failed: %s", e)
+
+    return False
+
+
 async def init_prometheus_metrics() -> bool:
     """Initialize Prometheus metrics server.
 

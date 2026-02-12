@@ -97,6 +97,8 @@ class OTelConfig:
     batch_size: int = 512
     export_timeout_ms: int = 30000
     insecure: bool = False
+    protocol: str = "grpc"
+    headers: dict[str, str] = field(default_factory=dict)
     additional_resource_attrs: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -107,6 +109,10 @@ class OTelConfig:
             raise ValueError(f"batch_size must be positive, got {self.batch_size}")
         if self.export_timeout_ms < 1:
             raise ValueError(f"export_timeout_ms must be positive, got {self.export_timeout_ms}")
+        if self.protocol not in ("grpc", "http/protobuf"):
+            raise ValueError(
+                f"protocol must be 'grpc' or 'http/protobuf', got '{self.protocol}'"
+            )
 
     @classmethod
     def from_env(cls) -> OTelConfig:
@@ -177,6 +183,40 @@ class OTelConfig:
             "yes",
         )
 
+        # OTLP protocol (grpc or http/protobuf)
+        protocol = os.environ.get(
+            "OTEL_EXPORTER_OTLP_PROTOCOL",
+            os.environ.get("ARAGORA_OTLP_PROTOCOL", "grpc"),
+        ).lower()
+        if protocol not in ("grpc", "http/protobuf"):
+            logger.warning(
+                "Unknown OTLP protocol '%s', falling back to 'grpc'. "
+                "Valid options: grpc, http/protobuf",
+                protocol,
+            )
+            protocol = "grpc"
+
+        # Headers for authenticated endpoints
+        import json as _json
+
+        headers: dict[str, str] = {}
+        headers_env = os.environ.get(
+            "OTEL_EXPORTER_OTLP_HEADERS",
+            os.environ.get("ARAGORA_OTLP_HEADERS", ""),
+        )
+        if headers_env:
+            # Try JSON first, then key=value,key=value format
+            try:
+                parsed = _json.loads(headers_env)
+                if isinstance(parsed, dict):
+                    headers = {str(k): str(v) for k, v in parsed.items()}
+            except (_json.JSONDecodeError, ValueError):
+                # Try comma-separated key=value format (standard OTEL format)
+                for pair in headers_env.split(","):
+                    if "=" in pair:
+                        k, v = pair.split("=", 1)
+                        headers[k.strip()] = v.strip()
+
         # Additional resource attributes from OTEL_RESOURCE_ATTRIBUTES
         additional_attrs: dict[str, str] = {}
         otel_resource_attrs = os.environ.get("OTEL_RESOURCE_ATTRIBUTES", "")
@@ -199,6 +239,8 @@ class OTelConfig:
             batch_size=batch_size,
             export_timeout_ms=export_timeout_ms,
             insecure=insecure,
+            protocol=protocol,
+            headers=headers,
             additional_resource_attrs=additional_attrs,
         )
 
@@ -250,6 +292,84 @@ def _create_sampler(config: OTelConfig) -> Any:
 
 
 # =============================================================================
+# Exporter factory
+# =============================================================================
+
+
+def _create_otlp_exporter(config: OTelConfig) -> Any:
+    """Create an OTLP span exporter based on configured protocol.
+
+    Tries the configured protocol first (gRPC or HTTP), then falls back
+    to the other protocol if the preferred one is not installed.
+
+    Args:
+        config: OTel configuration with protocol, endpoint, headers, etc.
+
+    Returns:
+        An OTLP span exporter instance, or None if no exporter is available.
+    """
+    grpc_kwargs: dict[str, Any] = {
+        "endpoint": config.endpoint,
+        "insecure": config.insecure,
+    }
+    if config.headers:
+        grpc_kwargs["headers"] = list(config.headers.items())
+
+    http_kwargs: dict[str, Any] = {
+        "endpoint": config.endpoint,
+    }
+    if config.headers:
+        http_kwargs["headers"] = config.headers
+
+    if config.protocol == "grpc":
+        # Try gRPC first, fall back to HTTP
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                OTLPSpanExporter as GrpcExporter,
+            )
+            logger.debug("Using OTLP/gRPC exporter")
+            return GrpcExporter(**grpc_kwargs)
+        except ImportError:
+            logger.debug("OTLP/gRPC exporter not available, trying HTTP fallback")
+
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter as HttpExporter,
+            )
+            logger.info("Falling back to OTLP/HTTP exporter (gRPC not installed)")
+            return HttpExporter(**http_kwargs)
+        except ImportError:
+            logger.warning(
+                "Neither OTLP/gRPC nor OTLP/HTTP exporter is available. "
+                "Install: pip install opentelemetry-exporter-otlp-proto-grpc"
+            )
+            return None
+    else:
+        # HTTP protocol: try HTTP first, fall back to gRPC
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter as HttpExporter,
+            )
+            logger.debug("Using OTLP/HTTP exporter")
+            return HttpExporter(**http_kwargs)
+        except ImportError:
+            logger.debug("OTLP/HTTP exporter not available, trying gRPC fallback")
+
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                OTLPSpanExporter as GrpcExporter,
+            )
+            logger.info("Falling back to OTLP/gRPC exporter (HTTP not installed)")
+            return GrpcExporter(**grpc_kwargs)
+        except ImportError:
+            logger.warning(
+                "Neither OTLP/HTTP nor OTLP/gRPC exporter is available. "
+                "Install: pip install opentelemetry-exporter-otlp-proto-http"
+            )
+            return None
+
+
+# =============================================================================
 # Setup and shutdown
 # =============================================================================
 
@@ -288,7 +408,6 @@ def setup_otel(config: OTelConfig | None = None) -> bool:
 
     try:
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import (
@@ -298,8 +417,7 @@ def setup_otel(config: OTelConfig | None = None) -> bool:
     except ImportError as e:
         logger.warning(
             "OpenTelemetry SDK not installed, tracing disabled: %s. "
-            "Install with: pip install opentelemetry-api opentelemetry-sdk "
-            "opentelemetry-exporter-otlp-proto-grpc",
+            "Install with: pip install opentelemetry-api opentelemetry-sdk",
             e,
         )
         return False
@@ -322,11 +440,14 @@ def setup_otel(config: OTelConfig | None = None) -> bool:
         # Create TracerProvider
         provider = TracerProvider(resource=resource, sampler=sampler)
 
-        # Create exporter
-        exporter = OTLPSpanExporter(
-            endpoint=config.endpoint,
-            insecure=config.insecure,
-        )
+        # Create exporter based on configured protocol (with fallback)
+        exporter = _create_otlp_exporter(config)
+        if exporter is None:
+            logger.warning(
+                "No OTLP exporter available. Install opentelemetry-exporter-otlp-proto-grpc "
+                "or opentelemetry-exporter-otlp-proto-http"
+            )
+            return False
 
         # Choose processor based on mode
         processor: SimpleSpanProcessor | BatchSpanProcessor
@@ -355,7 +476,7 @@ def setup_otel(config: OTelConfig | None = None) -> bool:
 
         logger.info(
             "OpenTelemetry initialized: endpoint=%s, service=%s/%s, "
-            "environment=%s, sampler=%s(%.2f), processor=%s",
+            "environment=%s, sampler=%s(%.2f), processor=%s, protocol=%s",
             config.endpoint,
             config.service_name,
             config.service_version,
@@ -363,6 +484,7 @@ def setup_otel(config: OTelConfig | None = None) -> bool:
             config.sampler_type,
             config.sample_rate,
             processor_type,
+            config.protocol,
         )
         return True
 
@@ -911,6 +1033,149 @@ class _NoOpTracer:
 
 
 # =============================================================================
+# OTLP Health Check
+# =============================================================================
+
+
+@dataclass
+class OTLPHealthStatus:
+    """Result of an OTLP collector health check.
+
+    Attributes:
+        healthy: Whether the OTLP collector is reachable
+        endpoint: The endpoint that was checked
+        protocol: Protocol used for the check (grpc or http)
+        latency_ms: Round-trip latency in milliseconds (None if unhealthy)
+        error: Error message if unhealthy
+        initialized: Whether OTel is initialized
+    """
+
+    healthy: bool
+    endpoint: str
+    protocol: str
+    latency_ms: float | None = None
+    error: str | None = None
+    initialized: bool = False
+
+
+def check_otlp_health(
+    endpoint: str | None = None,
+    timeout_ms: int = 5000,
+) -> OTLPHealthStatus:
+    """Check OTLP collector connectivity.
+
+    Sends a lightweight TCP probe to the configured OTLP endpoint to verify
+    the collector is reachable. This does NOT send actual trace data.
+
+    Args:
+        endpoint: OTLP endpoint to check. If None, uses the configured
+            endpoint from environment or defaults.
+        timeout_ms: Connection timeout in milliseconds.
+
+    Returns:
+        OTLPHealthStatus with connectivity details.
+
+    Example:
+        status = check_otlp_health()
+        if status.healthy:
+            print(f"OTLP collector reachable at {status.endpoint} ({status.latency_ms:.0f}ms)")
+        else:
+            print(f"OTLP collector unreachable: {status.error}")
+    """
+    import socket
+    import time
+    from urllib.parse import urlparse
+
+    config = OTelConfig.from_env()
+    target = endpoint or config.endpoint
+    protocol = config.protocol
+    timeout_s = timeout_ms / 1000.0
+
+    parsed = urlparse(target)
+    host = parsed.hostname or "localhost"
+    port = parsed.port
+    if port is None:
+        port = 4318 if protocol == "http/protobuf" else 4317
+
+    start = time.monotonic()
+
+    try:
+        sock = socket.create_connection((host, port), timeout=timeout_s)
+        sock.close()
+        elapsed_ms = (time.monotonic() - start) * 1000
+        return OTLPHealthStatus(
+            healthy=True,
+            endpoint=target,
+            protocol=protocol,
+            latency_ms=round(elapsed_ms, 2),
+            initialized=_initialized,
+        )
+    except socket.timeout:
+        elapsed_ms = (time.monotonic() - start) * 1000
+        return OTLPHealthStatus(
+            healthy=False,
+            endpoint=target,
+            protocol=protocol,
+            latency_ms=round(elapsed_ms, 2),
+            error=f"Connection timed out after {timeout_ms}ms",
+            initialized=_initialized,
+        )
+    except ConnectionRefusedError:
+        elapsed_ms = (time.monotonic() - start) * 1000
+        return OTLPHealthStatus(
+            healthy=False,
+            endpoint=target,
+            protocol=protocol,
+            latency_ms=round(elapsed_ms, 2),
+            error=f"Connection refused at {host}:{port}",
+            initialized=_initialized,
+        )
+    except OSError as e:
+        elapsed_ms = (time.monotonic() - start) * 1000
+        return OTLPHealthStatus(
+            healthy=False,
+            endpoint=target,
+            protocol=protocol,
+            latency_ms=round(elapsed_ms, 2),
+            error=f"Connection error: {e}",
+            initialized=_initialized,
+        )
+
+
+def get_otel_status() -> dict[str, Any]:
+    """Get a summary of the current OTel tracing status.
+
+    Returns a dictionary suitable for inclusion in health check endpoints
+    or status pages.
+
+    Returns:
+        Dictionary with OTel status information.
+
+    Example:
+        status = get_otel_status()
+        # {"initialized": True, "endpoint": "http://localhost:4317", ...}
+    """
+    if not _initialized:
+        return {
+            "initialized": False,
+            "reason": "OTel not initialized (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)",
+        }
+
+    config = OTelConfig.from_env()
+    return {
+        "initialized": True,
+        "endpoint": config.endpoint,
+        "service_name": config.service_name,
+        "service_version": config.service_version,
+        "environment": config.environment,
+        "protocol": config.protocol,
+        "sample_rate": config.sample_rate,
+        "sampler_type": config.sampler_type,
+        "dev_mode": config.dev_mode,
+    }
+
+
+# =============================================================================
 # Reset (for testing)
 # =============================================================================
 
@@ -951,6 +1216,10 @@ __all__ = [
     "trace_consensus_evaluation",
     # Bridge
     "export_debate_span_to_otel",
+    # Health check
+    "check_otlp_health",
+    "get_otel_status",
+    "OTLPHealthStatus",
     # No-op implementations (for testing)
     "_NoOpTracer",
     "_NoOpSpan",
