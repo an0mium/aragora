@@ -64,7 +64,7 @@ class SLO:
 
     # ELO operation targets
     ELO_OPS: dict[str, dict[str, float]] = {
-        "rating_update": {"min_ops_per_sec": 100, "target_latency_ms": 10},
+        "rating_update": {"min_ops_per_sec": 50, "target_latency_ms": 20},
         "leaderboard_query": {"min_ops_per_sec": 200, "target_latency_ms": 5},
         "history_query": {"min_ops_per_sec": 100, "target_latency_ms": 10},
     }

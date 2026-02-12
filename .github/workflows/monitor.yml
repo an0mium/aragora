@@ -2,8 +2,8 @@ name: Uptime Monitor
 
 on:
   schedule:
-    # Run every 5 minutes
-    - cron: '*/5 * * * *'
+    # Run every 30 minutes (reduced from 5 min to save Actions minutes)
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:

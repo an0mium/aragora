@@ -314,7 +314,7 @@ git status && git diff --stat
 - `ARAGORA_API_TOKEN` - Auth token
 - `ARAGORA_ALLOWED_ORIGINS` - CORS origins
 
-See `docs/ENVIRONMENT.md` for full reference.
+See `docs/reference/ENVIRONMENT.md` for full reference.
 
 ## Safety Guidelines
 
@@ -384,7 +384,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 4,300+ tests passing)
-  - 28 adapters (Continuum, Consensus, Critique, Evidence, Belief, Insights, ELO, Performance, Pulse, Cost, Provenance, Fabric, Workspace, ComputerUse, Gateway, CalibrationFusion, ControlPlane, Culture, Receipt, DecisionPlan, Supermemory, RLM, Trickster, ERC8004, Obsidian, Debate, Workflow, Compliance)
+  - 33 adapters (Continuum, Consensus, Critique, Evidence, Belief, Insights, ELO, Performance, Pulse, Cost, Provenance, Fabric, Workspace, ComputerUse, Gateway, CalibrationFusion, ControlPlane, Culture, Receipt, DecisionPlan, Supermemory, RLM, Trickster, ERC8004, Obsidian, Debate, Workflow, Compliance, LangExtract, Extraction, NomicCycle, Ranking, OpenClaw)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics
@@ -407,4 +407,4 @@ See `docs/STATUS.md` for 74+ detailed feature statuses.
 | `docs/FEATURE_DISCOVERY.md` | Complete feature catalog (180+ features) |
 | `docs/STATUS.md` | Detailed feature implementation status |
 | `docs/API_REFERENCE.md` | REST API documentation |
-| `docs/RESILIENCE_PATTERNS.md` | Circuit breakers, retry, timeout, health monitoring |
+| `docs/resilience/RESILIENCE_PATTERNS.md` | Circuit breakers, retry, timeout, health monitoring |

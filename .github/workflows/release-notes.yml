@@ -23,6 +23,7 @@ permissions:
 
 jobs:
   generate-release-notes:
+    if: false  # Disabled: superseded by release.yml
     name: Generate Release Notes
     runs-on: ubuntu-latest
 

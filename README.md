@@ -110,7 +110,7 @@ aragora ask "Should we adopt microservices?" --agents anthropic-api,openai-api -
 aragora serve
 ```
 
-See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete 5-minute setup.
+See [docs/guides/GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) for the complete 5-minute setup.
 
 ### 3. Develop with the SDK
 
@@ -249,7 +249,7 @@ Aragora delivers debate results to wherever your team works:
 
 Results automatically route to the originating channel via bidirectional chat routing.
 
-See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for setup.
+See [docs/integrations/INTEGRATIONS.md](docs/integrations/INTEGRATIONS.md) for setup.
 
 ---
 
@@ -266,7 +266,7 @@ See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for setup.
 | **Backup** | Incremental backups, retention policies, disaster recovery |
 | **Control Plane** | Agent registry, task scheduler, health monitoring, policy governance |
 
-See [docs/ENTERPRISE_FEATURES.md](docs/ENTERPRISE_FEATURES.md) for details.
+See [docs/enterprise/ENTERPRISE_FEATURES.md](docs/enterprise/ENTERPRISE_FEATURES.md) for details.
 
 ---
 
@@ -307,7 +307,7 @@ aragora serve --api-port 8080 --ws-port 8765
 - Path traversal protection, upload validation with magic byte checking
 - WebSocket message limits (64KB), debate timeouts, backpressure control
 
-See [docs/SECURITY.md](docs/SECURITY.md) and [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
+See [docs/enterprise/SECURITY.md](docs/enterprise/SECURITY.md) and [docs/enterprise/COMPLIANCE.md](docs/enterprise/COMPLIANCE.md).
 
 ---
 
@@ -316,15 +316,15 @@ See [docs/SECURITY.md](docs/SECURITY.md) and [docs/COMPLIANCE.md](docs/COMPLIANC
 | Need | Where |
 |---|---|
 | Developer quickstart | [QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) |
-| First-time setup | [GETTING_STARTED.md](docs/GETTING_STARTED.md) |
-| API reference | [API_REFERENCE.md](docs/API_REFERENCE.md) |
+| First-time setup | [GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) |
+| API reference | [API_REFERENCE.md](docs/api/API_REFERENCE.md) |
 | SDK guide | [SDK_GUIDE.md](docs/SDK_GUIDE.md) |
-| Enterprise features | [ENTERPRISE_FEATURES.md](docs/ENTERPRISE_FEATURES.md) |
-| Gauntlet guide | [GAUNTLET.md](docs/GAUNTLET.md) |
-| Agent catalog | [AGENTS.md](docs/AGENTS.md) |
+| Enterprise features | [ENTERPRISE_FEATURES.md](docs/enterprise/ENTERPRISE_FEATURES.md) |
+| Gauntlet guide | [GAUNTLET.md](docs/debate/GAUNTLET.md) |
+| Agent catalog | [AGENTS.md](docs/debate/AGENTS.md) |
 | Feature discovery | [FEATURE_DISCOVERY.md](docs/FEATURE_DISCOVERY.md) |
 | Extended README | [EXTENDED_README.md](docs/EXTENDED_README.md) |
-| Full index | [INDEX.md](docs/INDEX.md) |
+| Full index | [INDEX.md](docs/reference/INDEX.md) |
 
 ---
 
@@ -340,7 +340,7 @@ Aragora synthesizes ideas from these open-source projects:
 - **[claude-flow](https://github.com/ruvnet/claude-flow)** -- Adaptive topology switching (MIT)
 - **[LLM Reasoning Failures](https://arxiv.org/abs/2602.06176)** -- Stanford taxonomy of systematic reasoning breakdowns (Song et al. 2026)
 
-See the full attribution table in [docs/CREDITS.md](docs/CREDITS.md).
+See the full attribution table in [docs/reference/CREDITS.md](docs/reference/CREDITS.md).
 
 ---
 
