@@ -4596,7 +4596,7 @@ After debate, reach consensus on the best approach to fix this issue.
                 tasks_total=len(files_modified) if files_modified else 1,
                 verification_passed=passed,
                 verification_total=total if total > 0 else 1,
-                total_cost_usd=0.0,  # Nomic loop doesn't track per-cycle costs
+                total_cost_usd=self._estimated_cost_usd,
                 lessons=[f"Nomic cycle {self.cycle_count}: {plan.task[:100]}"],
             )
 
@@ -9462,10 +9462,16 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         # Security: Verify protected files haven't been tampered with
         all_ok, modified = verify_protected_files_unchanged(self.aragora_path)
         if not all_ok:
-            self._log(f"  [SECURITY WARNING] Protected files modified since startup: {modified}")
-            # Log but continue - modifications might be legitimate (e.g., from previous cycle)
-            # Update checksums to current state
-            _init_protected_checksums(self.aragora_path)
+            self._log(f"  [SECURITY] Protected files modified since startup: {modified}")
+            self._log("  [SECURITY] Aborting cycle — protected file integrity violation.")
+            self._log("  If changes were intentional, restart the loop to re-baseline checksums.")
+            return {
+                "cycle": self.cycle_count,
+                "started": cycle_start.isoformat(),
+                "ended": datetime.now().isoformat(),
+                "outcome": "protected_files_violation",
+                "modified_files": modified,
+            }
 
         # Emit cycle start event
         self._stream_emit(
@@ -9505,21 +9511,27 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         self._cycle_backup_path = backup_path
 
         # === SAFETY: Verify Constitution signature (cryptographic safety) ===
-        if self.constitution_verifier and self.constitution_verifier.is_available():
-            if not self.constitution_verifier.verify_signature():
-                self._log("[CRITICAL] Constitution signature invalid - cycle aborted")
-                self._log("  The constitution.json file may have been tampered with.")
-                self._log("  Re-sign with: python scripts/sign_constitution.py sign")
-                return {
-                    "cycle": self.cycle_count,
-                    "started": cycle_start.isoformat(),
-                    "ended": datetime.now().isoformat(),
-                    "outcome": "constitution_violation",
-                    "error": "Constitution signature verification failed",
-                }
-            self._log(
-                f"  [constitution] Signature verified (v{self.constitution_verifier.constitution.version})"
-            )
+        if self.constitution_verifier:
+            if self.constitution_verifier.is_available():
+                if not self.constitution_verifier.verify_signature():
+                    self._log("[CRITICAL] Constitution signature invalid - cycle aborted")
+                    self._log("  The constitution.json file may have been tampered with.")
+                    self._log("  Re-sign with: python scripts/sign_constitution.py sign")
+                    return {
+                        "cycle": self.cycle_count,
+                        "started": cycle_start.isoformat(),
+                        "ended": datetime.now().isoformat(),
+                        "outcome": "constitution_violation",
+                        "error": "Constitution signature verification failed",
+                    }
+                self._log(
+                    f"  [constitution] Signature verified (v{self.constitution_verifier.constitution.version})"
+                )
+            else:
+                self._log("  [constitution] WARNING: Verifier not available — skipping signature check")
+                self._log("  [constitution] For autonomous runs, ensure constitution.json is signed")
+        else:
+            self._log("  [constitution] No verifier configured — running without constitution checks")
 
         cycle_result = {
             "cycle": self.cycle_count,
