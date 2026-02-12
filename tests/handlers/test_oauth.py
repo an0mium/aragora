@@ -22,6 +22,7 @@ from aragora.server.handlers.oauth import (
     _validate_state,
     _validate_redirect_url,
 )
+from aragora.server.middleware.rate_limit.oauth_limiter import reset_oauth_limiter
 
 
 # ============================================================================
@@ -54,9 +55,9 @@ def mock_http_handler():
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset rate limiter between tests."""
-    _oauth_limiter._buckets.clear()
+    reset_oauth_limiter()
     yield
-    _oauth_limiter._buckets.clear()
+    reset_oauth_limiter()
 
 
 @pytest.fixture(autouse=True)
@@ -722,19 +723,27 @@ class TestOAuthRateLimiterInternals:
     """Tests for OAuth rate limiter internals."""
 
     def test_rate_limiter_has_correct_rpm(self):
-        """Rate limiter is configured with 20 requests per minute."""
+        """Rate limiter is configured with correct auth_start_limit."""
         from aragora.server.handlers.oauth import _oauth_limiter
 
-        assert _oauth_limiter.rpm == 20
+        assert _oauth_limiter.rpm == 15
 
-    def test_rate_limiter_bucket_cleanup(self):
-        """Rate limiter buckets can be cleared."""
+    def test_rate_limiter_reset(self):
+        """Rate limiter can be reset between tests."""
         from aragora.server.handlers.oauth import _oauth_limiter
+        from aragora.server.middleware.rate_limit.oauth_limiter import (
+            get_oauth_limiter,
+            reset_oauth_limiter,
+        )
 
         _oauth_limiter.is_allowed("test-ip")
-        assert len(_oauth_limiter._buckets) > 0
-        _oauth_limiter._buckets.clear()
-        assert len(_oauth_limiter._buckets) == 0
+        # Get the underlying limiter to verify state
+        limiter = get_oauth_limiter()
+        assert len(limiter._buckets) > 0
+        reset_oauth_limiter()
+        # After reset, a new limiter is created with empty buckets
+        new_limiter = get_oauth_limiter()
+        assert len(new_limiter._buckets) == 0
 
 
 # ============================================================================

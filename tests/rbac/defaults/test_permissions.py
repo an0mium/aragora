@@ -426,6 +426,8 @@ class TestNoDuplicatePermissions:
         "analytics.update",  # PERM_ANALYTICS_EXPORT (different), PERM_PERFORMANCE_WRITE
         "billing.read",  # Multiple billing read variants
         "billing.update",  # Multiple billing update variants
+        "connectors.create",  # PERM_CONNECTOR_CREATE (integrations), PERM_CONNECTOR_CREATE_ALIAS (routes)
+        "connectors.delete",  # PERM_CONNECTOR_DELETE (integrations), PERM_CONNECTOR_DELETE_ALIAS (routes)
         "knowledge.read",  # PERM_KNOWLEDGE_READ, PERM_CULTURE_READ
         "knowledge.update",  # PERM_KNOWLEDGE_UPDATE, PERM_CULTURE_WRITE
         "organization.read",  # PERM_ORG_READ, PERM_ORG_USAGE_READ, PERM_ORG_MEMBERS

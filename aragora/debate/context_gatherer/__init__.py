@@ -42,6 +42,7 @@ from .constants import (
     MAX_TRENDING_CACHE_SIZE,
     # Feature flags
     HAS_RLM,
+    HAS_OFFICIAL_RLM,
     HAS_KNOWLEDGE_MOUND,
     HAS_THREAT_INTEL,
     DISABLE_TRENDING,
@@ -71,6 +72,7 @@ __all__ = [
     "MAX_TRENDING_CACHE_SIZE",
     # Feature flags
     "HAS_RLM",
+    "HAS_OFFICIAL_RLM",
     "HAS_KNOWLEDGE_MOUND",
     "HAS_THREAT_INTEL",
     "DISABLE_TRENDING",

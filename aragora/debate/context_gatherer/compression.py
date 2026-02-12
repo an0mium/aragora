@@ -7,6 +7,7 @@ and TRUE RLM (REPL-based) when available.
 
 import asyncio
 import logging
+import sys
 from typing import Any
 
 from .constants import (
@@ -15,6 +16,19 @@ from .constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _has_official_rlm() -> bool:
+    """
+    Resolve the official-RLM feature flag with package-level override support.
+
+    Tests patch ``aragora.debate.context_gatherer.HAS_OFFICIAL_RLM``; consult
+    that export first so patching the package behaves consistently.
+    """
+    package_mod = sys.modules.get("aragora.debate.context_gatherer")
+    if package_mod is not None and hasattr(package_mod, "HAS_OFFICIAL_RLM"):
+        return bool(getattr(package_mod, "HAS_OFFICIAL_RLM"))
+    return bool(HAS_OFFICIAL_RLM)
 
 
 class CompressionMixin:
@@ -193,7 +207,7 @@ class CompressionMixin:
 
         try:
             # Check if TRUE RLM is available (not just compression fallback)
-            if HAS_RLM and HAS_OFFICIAL_RLM:
+            if HAS_RLM and _has_official_rlm():
                 logger.debug(
                     "[rlm] Using TRUE RLM for query: '%s...' on %s chars of %s",
                     query[:50],
@@ -264,7 +278,7 @@ class CompressionMixin:
         if not self._enable_knowledge_grounding or not self._knowledge_mound:
             return None
 
-        if not (HAS_RLM and HAS_OFFICIAL_RLM):
+        if not (HAS_RLM and _has_official_rlm()):
             # TRUE RLM not available - use standard query
             return await self.gather_knowledge_mound_context(task)
 

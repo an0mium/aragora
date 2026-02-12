@@ -51,12 +51,13 @@ class TestSourceType:
         assert SourceType.COMPUTATION.value == "computation"
         assert SourceType.SYNTHESIS.value == "synthesis"
         assert SourceType.AUDIO_TRANSCRIPT.value == "audio_transcript"
+        assert SourceType.BLOCKCHAIN.value == "blockchain"
         assert SourceType.UNKNOWN.value == "unknown"
 
     def test_all_source_types_present(self):
         """Test all expected source types are defined."""
         types = [t.value for t in SourceType]
-        assert len(types) == 11
+        assert len(types) == 12
 
 
 # =============================================================================

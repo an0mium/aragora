@@ -28,6 +28,8 @@ from aragora.server.handlers.admin import HealthHandler
 from aragora.server.handlers.nomic import NomicHandler
 from aragora.server.handlers.docs import DocsHandler
 from aragora.server.handlers.base import HandlerResult
+from aragora.rbac.models import AuthorizationContext
+
 import asyncio
 
 
@@ -78,10 +80,20 @@ def docs_handler(handler_context):
 
 @pytest.fixture
 def mock_http_handler():
-    """Create a mock HTTP handler object."""
+    """Create a mock HTTP handler object with admin auth context."""
     handler = Mock()
     handler.headers = {}
     handler.command = "GET"
+    handler._auth_context = AuthorizationContext(
+        user_id="test-admin",
+        roles={"owner", "admin"},
+        permissions={
+            "admin:debug", "admin:maintenance", "admin:write",
+            "monitoring:metrics", "monitoring:resilience",
+            "docs:read", "nomic:read", "nomic:admin",
+            "health:read", "system:read", "auth:read", "auth:write",
+        },
+    )
     return handler
 
 
