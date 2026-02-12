@@ -382,7 +382,7 @@ pytest tests/path/to/test.py --asyncio-mode=auto -v
 curl http://localhost:8080/api/health | jq
 
 # View server logs
-ARAGORA_LOG_LEVEL=DEBUG python -m aragora.server.unified_server
+ARAGORA_LOG_LEVEL=DEBUG aragora serve --api-port 8080 --ws-port 8765
 
 # Check WebSocket connection
 websocat ws://localhost:8765/ws

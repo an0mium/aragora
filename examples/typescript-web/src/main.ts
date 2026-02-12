@@ -89,7 +89,7 @@ async function checkHealth(): Promise<void> {
   } catch {
     serverStatus.innerHTML = `
       <span class="status-error">Disconnected</span>
-      <p class="hint">Start the server: <code>python -m aragora.server.unified_server --port 8080</code></p>
+      <p class="hint">Start the server: <code>aragora serve --api-port 8080 --ws-port 8765</code></p>
     `;
   }
 }
