@@ -12,7 +12,7 @@ aragora ask "Design a rate limiter" --agents grok,anthropic-api,openai-api,gemin
 aragora status
 
 # Start the server
-aragora serve --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Key Components
@@ -106,13 +106,13 @@ aragora validate-env
 
 ```bash
 # Start server
-aragora serve --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
-# With hot reload
-aragora serve --reload
+# Bind to all interfaces
+aragora serve --host 0.0.0.0 --api-port 8080 --ws-port 8765
 
-# Production mode
-aragora serve --workers 4
+# Production mode (multi-worker)
+aragora serve --workers 4 --host 0.0.0.0 --api-port 8080 --ws-port 8765
 ```
 
 ### Self-Improvement (gt)

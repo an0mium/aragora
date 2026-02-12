@@ -217,7 +217,7 @@ on:
 Run the Aragora server locally or on your own infrastructure for full API access:
 
 ```bash
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 This gives you the REST API (2,000+ operations), WebSocket streaming, and programmatic access to debates, receipts, and analytics.

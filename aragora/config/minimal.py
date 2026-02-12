@@ -8,7 +8,7 @@ Provides configuration for running Aragora with minimal dependencies:
 
 Usage:
     # Set environment variable before starting
-    ARAGORA_MODE=minimal python -m aragora.server.unified_server
+    ARAGORA_MODE=minimal aragora serve --api-port 8080 --ws-port 8765
 
     # Or in code
     from aragora.config.minimal import apply_minimal_mode

@@ -564,7 +564,7 @@ aragora review src/auth.py
 aragora gauntlet "Our deployment is production-ready"
 
 # Start the server
-aragora serve --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # Health check
 aragora doctor

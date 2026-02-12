@@ -283,7 +283,7 @@ Permission check happens at API layer (middleware/route handler), not internal m
 
 ```bash
 # Start server
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # Run nomic loop with streaming
 python scripts/run_nomic_with_stream.py run --cycles 3

@@ -81,7 +81,7 @@ Clear domain boundaries now make future extraction straightforward.
 For the REST API and live dashboard:
 
 ```bash
-aragora serve --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 Then open `http://localhost:8080` for the web UI, or call the API:
