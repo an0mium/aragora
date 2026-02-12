@@ -120,6 +120,7 @@ def _make_mixin_instance(
     instance.end_headers = MagicMock()
     instance._add_cors_headers = MagicMock()
     instance._add_security_headers = MagicMock()
+    instance._add_trace_headers = MagicMock()
     instance._auth_context = None
 
     if handler:
