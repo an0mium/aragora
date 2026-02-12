@@ -18,10 +18,10 @@ from datetime import datetime, timezone
 import pytest
 
 from aragora.resilience.health import (
+    ComponentHealthStatus,
     HealthChecker,
     HealthRegistry,
     HealthReport,
-    HealthStatus,
     get_global_health_registry,
 )
 
@@ -32,12 +32,12 @@ from aragora.resilience.health import (
 
 
 class TestHealthStatus:
-    """Test HealthStatus dataclass."""
+    """Test ComponentHealthStatus dataclass."""
 
     def test_minimal_status(self):
-        """Test minimal HealthStatus creation."""
+        """Test minimal ComponentHealthStatus creation."""
         now = datetime.now(timezone.utc)
-        status = HealthStatus(healthy=True, last_check=now)
+        status = ComponentHealthStatus(healthy=True, last_check=now)
         assert status.healthy is True
         assert status.last_check == now
         assert status.consecutive_failures == 0
@@ -46,9 +46,9 @@ class TestHealthStatus:
         assert status.metadata == {}
 
     def test_full_status(self):
-        """Test full HealthStatus creation."""
+        """Test full ComponentHealthStatus creation."""
         now = datetime.now(timezone.utc)
-        status = HealthStatus(
+        status = ComponentHealthStatus(
             healthy=False,
             last_check=now,
             consecutive_failures=5,
@@ -63,9 +63,9 @@ class TestHealthStatus:
         assert status.metadata == {"region": "us-east-1"}
 
     def test_to_dict(self):
-        """Test HealthStatus to_dict conversion."""
+        """Test ComponentHealthStatus to_dict conversion."""
         now = datetime.now(timezone.utc)
-        status = HealthStatus(
+        status = ComponentHealthStatus(
             healthy=True,
             last_check=now,
             consecutive_failures=0,
@@ -78,7 +78,7 @@ class TestHealthStatus:
         assert data["latency_ms"] == 10.0
 
     def test_from_dict(self):
-        """Test HealthStatus from_dict creation."""
+        """Test ComponentHealthStatus from_dict creation."""
         now = datetime.now(timezone.utc)
         data = {
             "healthy": False,
@@ -88,7 +88,7 @@ class TestHealthStatus:
             "latency_ms": 50.0,
             "metadata": {"version": "1.0"},
         }
-        status = HealthStatus.from_dict(data)
+        status = ComponentHealthStatus.from_dict(data)
         assert status.healthy is False
         assert status.consecutive_failures == 3
         assert status.last_error == "Timeout"
@@ -102,13 +102,13 @@ class TestHealthStatus:
             "healthy": True,
             "last_check": now,  # datetime object, not string
         }
-        status = HealthStatus.from_dict(data)
+        status = ComponentHealthStatus.from_dict(data)
         assert status.last_check == now
 
     def test_roundtrip_serialization(self):
         """Test serialization roundtrip."""
         now = datetime.now(timezone.utc)
-        original = HealthStatus(
+        original = ComponentHealthStatus(
             healthy=True,
             last_check=now,
             consecutive_failures=2,
@@ -116,7 +116,7 @@ class TestHealthStatus:
             metadata={"key": "value"},
         )
         data = original.to_dict()
-        restored = HealthStatus.from_dict(data)
+        restored = ComponentHealthStatus.from_dict(data)
         assert restored.healthy == original.healthy
         assert restored.consecutive_failures == original.consecutive_failures
         assert restored.latency_ms == original.latency_ms
@@ -148,8 +148,8 @@ class TestHealthReport:
         """Test report with multiple components."""
         now = datetime.now(timezone.utc)
         components = {
-            "db": HealthStatus(healthy=True, last_check=now),
-            "cache": HealthStatus(healthy=False, last_check=now, last_error="Down"),
+            "db": ComponentHealthStatus(healthy=True, last_check=now),
+            "cache": ComponentHealthStatus(healthy=False, last_check=now, last_error="Down"),
         }
         report = HealthReport(
             overall_healthy=False,

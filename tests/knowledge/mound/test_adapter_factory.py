@@ -243,5 +243,5 @@ class TestAdapterSpecRegistry:
         # Continuum should be highest priority (100)
         assert specs[0].name == "continuum"
 
-        # Cost should be lowest (10)
-        assert specs[-1].name == "cost"
+        # Obsidian should be lowest (5)
+        assert specs[-1].name == "obsidian"

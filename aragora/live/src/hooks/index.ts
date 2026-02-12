@@ -93,7 +93,7 @@ export { useWorkflowWebSocket } from './useWorkflowWebSocket';
 // =============================================================================
 
 export { useCosts } from './useCosts';
-export { useUsageDashboard, useUsageTrend } from './useUsageDashboard';
+export { useUsageDashboard, useUsageTrend, useCostBreakdown } from './useUsageDashboard';
 export { useQueueMonitoring } from './useQueueMonitoring';
 
 // =============================================================================

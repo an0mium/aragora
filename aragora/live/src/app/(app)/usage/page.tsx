@@ -63,7 +63,7 @@ export default function UsagePage() {
                   {'>'} USAGE ANALYTICS
                 </h1>
                 <p className="text-xs text-[var(--text-muted)] font-mono">
-                  {getTimeRangeLabel(timeRange)} // Debates, costs, ROI, and budget tracking
+                  {getTimeRangeLabel(timeRange)} {/* Debates, costs, ROI, and budget tracking */}
                 </p>
               </div>
 
