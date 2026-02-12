@@ -32,7 +32,8 @@ import inspect
 import json
 import logging
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.server.handlers.utils.responses import error_response, json_response
 from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit

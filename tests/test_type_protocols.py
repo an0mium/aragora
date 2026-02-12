@@ -8,7 +8,8 @@ Tests runtime_checkable protocols with isinstance() checks, verifying that:
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 import pytest
 

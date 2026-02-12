@@ -32,7 +32,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Sequence
 
 from aragora.debate.delegation import DelegationStrategy
 

@@ -37,7 +37,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable
 
 from aragora.server.middleware.correlation import (
     CorrelationContext,

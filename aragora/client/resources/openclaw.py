@@ -261,7 +261,7 @@ class OpenClawAPI:
         payload: dict[str, Any] = {
             "session_id": session_id,
             "action_type": action_type,
-            "params": params,
+            "input_data": params,
         }
         response = self._client._post("/api/v1/openclaw/actions", json=payload)
         return self._parse_action_result(response)
@@ -276,7 +276,7 @@ class OpenClawAPI:
         payload: dict[str, Any] = {
             "session_id": session_id,
             "action_type": action_type,
-            "params": params,
+            "input_data": params,
         }
         response = await self._client._post_async("/api/v1/openclaw/actions", json=payload)
         return self._parse_action_result(response)

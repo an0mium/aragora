@@ -36,7 +36,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Literal, Optional
+from collections.abc import Callable
 
 from aragora.knowledge.types import ValidationStatus
 from aragora.memory.tier_manager import MemoryTier

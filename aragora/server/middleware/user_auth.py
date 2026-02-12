@@ -35,7 +35,8 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     pass

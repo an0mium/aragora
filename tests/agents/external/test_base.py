@@ -1,7 +1,7 @@
 """Tests for external agent adapter base class."""
 
 from datetime import datetime, timezone
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import pytest
 

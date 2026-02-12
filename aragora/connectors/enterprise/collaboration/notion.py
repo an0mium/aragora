@@ -17,7 +17,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 _MAX_PAGES = 1000  # Safety cap for pagination loops
 
@@ -1006,7 +1007,7 @@ class NotionConnector(EnterpriseConnector):
 
             return page
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
             logger.error(f"[{self.name}] Failed to create page: {e}")
             return None
 

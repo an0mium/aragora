@@ -36,7 +36,8 @@ import os
 import threading
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Callable
 
 from aragora.cache import TTLCache, make_cache_key
 from aragora.config import (

@@ -24,7 +24,6 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import (
     Any,
-    Callable,
     Generic,
     Optional,
     ParamSpec,
@@ -32,6 +31,7 @@ from typing import (
     cast,
     overload,
 )
+from collections.abc import Callable
 
 # Type variables for generic typing
 P = ParamSpec("P")

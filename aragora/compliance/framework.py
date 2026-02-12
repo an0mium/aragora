@@ -17,7 +17,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Pattern
+from typing import Any, Optional
+from re import Pattern
 
 
 class ComplianceSeverity(Enum):

@@ -12,7 +12,8 @@ import inspect
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Any, Coroutine, cast
+from typing import Any, cast
+from collections.abc import Coroutine
 from urllib.parse import urlencode
 
 from aragora.rbac import AuthorizationContext, check_permission

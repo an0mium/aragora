@@ -16,7 +16,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest

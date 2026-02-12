@@ -8,7 +8,8 @@ Handles organizational culture patterns and debate protocol hints:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent

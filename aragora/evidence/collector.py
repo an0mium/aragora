@@ -30,10 +30,10 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Optional,
     cast,
 )
+from collections.abc import Callable
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:

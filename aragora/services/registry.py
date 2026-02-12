@@ -32,7 +32,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional, TypeVar, overload
+from typing import Any, Optional, TypeVar, overload
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

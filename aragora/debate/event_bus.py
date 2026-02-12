@@ -29,7 +29,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine
+from typing import Any
+from collections.abc import Callable, Coroutine
 
 from aragora.server.middleware.tracing import get_span_id, get_trace_id
 

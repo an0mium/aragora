@@ -30,7 +30,8 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 # Context variables for automatic field injection
 _log_context: ContextVar[dict[str, Any]] = ContextVar("log_context", default={})

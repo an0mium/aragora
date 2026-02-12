@@ -11,7 +11,8 @@ import logging
 import time
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, TypeVar
+from typing import Any, TypeVar
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
 from aragora.resilience_config import CircuitBreakerConfig
 

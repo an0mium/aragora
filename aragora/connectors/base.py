@@ -805,8 +805,8 @@ class BaseConnector(ABC):
                     connector_name=self.name,
                 ) from e
 
-            except Exception as e:
-                # Generic error - treat JSON/decode as parse error, otherwise unexpected
+            except (UnicodeDecodeError, RuntimeError) as e:
+                # Remaining non-HTTP errors: decode failures or runtime issues
                 if "json" in str(e).lower() or "decode" in str(e).lower():
                     if metrics_available:
                         record_sync_error(connector_type, "parse")

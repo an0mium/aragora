@@ -49,7 +49,8 @@ import logging
 import os
 import re
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Awaitable, Optional, TypeAlias, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Optional, TypeAlias, TypedDict, cast
+from collections.abc import Awaitable
 
 from aragora.billing.auth.context import UserAuthContext
 from aragora.config import DB_TIMEOUT_SECONDS

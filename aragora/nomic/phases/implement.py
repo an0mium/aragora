@@ -16,7 +16,8 @@ import hashlib
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from . import ImplementResult
 from .scope_limiter import ScopeLimiter

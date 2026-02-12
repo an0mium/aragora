@@ -32,7 +32,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.debate.phases.consensus_storage import ConsensusStorage
 from aragora.debate.phases.feedback_elo import EloFeedback

@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES
 from aragora.debate.complexity_governor import get_complexity_governor

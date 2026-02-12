@@ -14,7 +14,8 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, List, Optional, TYPE_CHECKING
+from typing import Any, List, Optional, TYPE_CHECKING
+from collections.abc import Callable
 
 from . import VerifyResult
 

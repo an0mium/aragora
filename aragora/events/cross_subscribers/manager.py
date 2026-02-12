@@ -11,7 +11,8 @@ import logging
 import random
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.events.subscribers.config import (
     AsyncDispatchConfig,

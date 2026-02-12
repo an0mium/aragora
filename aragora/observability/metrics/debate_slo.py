@@ -47,7 +47,8 @@ import time
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 from aragora.observability.metrics.base import NoOpMetric, get_metrics_enabled
 

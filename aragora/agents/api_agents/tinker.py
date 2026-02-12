@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, AsyncIterator, Coroutine, TypeVar
+from typing import Any, TypeVar
+from collections.abc import AsyncIterator, Coroutine
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.registry import AgentRegistry

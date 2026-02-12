@@ -17,7 +17,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.persistence.models import (

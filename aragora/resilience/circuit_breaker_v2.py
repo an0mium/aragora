@@ -40,7 +40,8 @@ import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Awaitable, Callable, Optional, ParamSpec, TypeVar
+from typing import Any, Optional, ParamSpec, TypeVar
+from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,8 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.core import Vote

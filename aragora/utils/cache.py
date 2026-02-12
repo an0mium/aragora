@@ -26,7 +26,8 @@ import threading
 import time
 from collections import OrderedDict
 from functools import wraps
-from typing import Any, Awaitable, Callable, Generic, Optional, Protocol, TypeVar, cast
+from typing import Any, Generic, Optional, Protocol, TypeVar, cast
+from collections.abc import Awaitable, Callable
 
 from aragora.config import (
     CACHE_TTL_AGENT_FLIPS,

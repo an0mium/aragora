@@ -16,7 +16,8 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.core import TaskComplexity

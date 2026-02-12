@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+from collections.abc import Sequence
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 

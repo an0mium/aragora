@@ -12,7 +12,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.workflow.queue.task import (
     TaskPriority,

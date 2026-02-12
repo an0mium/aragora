@@ -34,7 +34,8 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, cast
+from typing import Any, Optional, TypeVar, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

@@ -43,7 +43,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.persistence.db_config import get_default_data_dir
 

@@ -9,7 +9,8 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING
+from collections.abc import Generator
 from unittest.mock import Mock, MagicMock, AsyncMock
 
 import pytest

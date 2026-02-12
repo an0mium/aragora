@@ -11,7 +11,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import AsyncIterator
 
 from aragora.protocols.a2a import (
     A2AClient,

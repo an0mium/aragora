@@ -18,7 +18,8 @@ import time
 import uuid
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Generator
+from typing import Any
+from collections.abc import Callable, Generator
 
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.utils.params import (

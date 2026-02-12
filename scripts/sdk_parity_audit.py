@@ -14,7 +14,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 

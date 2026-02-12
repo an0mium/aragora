@@ -18,7 +18,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any, Awaitable, Callable, Coroutine
+from typing import Any
+from collections.abc import Awaitable, Callable, Coroutine
 
 from aragora.config import MAX_CONTENT_LENGTH, MAX_QUESTION_LENGTH
 from aragora.mcp.tools import TOOLS_METADATA

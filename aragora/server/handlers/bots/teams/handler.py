@@ -15,7 +15,8 @@ import json
 import logging
 import os
 import re
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.server.handlers.base import (
     HandlerResult,

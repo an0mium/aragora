@@ -15,7 +15,8 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry, DeviceStatus
 from aragora.stores.canonical import get_canonical_gateway_stores

@@ -8,7 +8,7 @@ import asyncio
 import mimetypes
 import time
 from pathlib import Path
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from .config import (
     ExcludedFile,

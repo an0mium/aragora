@@ -32,13 +32,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
-    Awaitable,
-    Callable,
     Generic,
     Optional,
     TypeVar,
     cast,
 )
+from collections.abc import Awaitable, Callable
 
 from aragora.rlm.batch import llm_batch, BatchConfig
 

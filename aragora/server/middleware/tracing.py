@@ -38,7 +38,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Optional
+from collections.abc import Callable, Generator
 
 # Trace ID header names (W3C Trace Context compatible)
 TRACE_ID_HEADER = "X-Trace-ID"

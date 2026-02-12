@@ -14,7 +14,8 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 

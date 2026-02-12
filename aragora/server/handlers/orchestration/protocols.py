@@ -7,7 +7,8 @@ email, and Knowledge Mound connectors.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Optional, Protocol
+from collections.abc import Callable
 
 
 class ConfluenceConnectorProtocol(Protocol):

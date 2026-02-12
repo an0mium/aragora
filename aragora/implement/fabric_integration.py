@@ -12,7 +12,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Iterable
 from uuid import uuid4
 
 from aragora.fabric.models import (

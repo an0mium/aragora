@@ -610,8 +610,8 @@ class TestExplainabilityHandlerCaching:
         """Test cache expires after TTL."""
         from aragora.server.handlers.explainability import (
             _cache_decision,
+            _decision_cache,
             _get_cached_decision,
-            _cache_timestamps,
             CACHE_TTL_SECONDS,
         )
         import time
@@ -619,8 +619,10 @@ class TestExplainabilityHandlerCaching:
         mock_decision = MagicMock()
         _cache_decision("debate_old", mock_decision)
 
-        # Simulate expired cache
-        _cache_timestamps["debate_old"] = time.time() - CACHE_TTL_SECONDS - 1
+        # Simulate expired cache by backdating the stored timestamp
+        # _LRUTTLCache stores (value, cached_at) tuples
+        value, _ = _decision_cache._cache["debate_old"]
+        _decision_cache._cache["debate_old"] = (value, time.time() - CACHE_TTL_SECONDS - 1)
 
         result = _get_cached_decision("debate_old")
 

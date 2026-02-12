@@ -25,7 +25,8 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, cast
+from typing import Any, Optional, cast
+from collections.abc import Callable
 
 from aragora.documents.models import DocumentChunk
 

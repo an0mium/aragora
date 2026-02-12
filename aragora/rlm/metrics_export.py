@@ -31,7 +31,8 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from .factory import get_factory_metrics
 

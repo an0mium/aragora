@@ -13,7 +13,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.debate.complexity_governor import get_complexity_governor

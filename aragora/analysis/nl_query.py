@@ -26,7 +26,8 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncIterator
 from uuid import uuid4
 
 from aragora.utils.cache_registry import register_lru_cache

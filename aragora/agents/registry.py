@@ -21,7 +21,8 @@ __all__ = [
 ]
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
+from collections.abc import Callable
 
 from aragora.agents.types import T
 from aragora.config import ALLOWED_AGENT_TYPES

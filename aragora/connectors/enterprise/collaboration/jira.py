@@ -20,7 +20,8 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 _MAX_PAGES = 1000  # Safety cap for pagination loops
 
@@ -222,7 +223,7 @@ class JiraConnector(EnterpriseConnector):
             if content is None:
                 try:
                     return response.json()
-                except Exception:
+                except (ValueError, TypeError):
                     logger.debug(
                         "Jira response had no content attribute and JSON decode failed; returning {}",
                         exc_info=True,

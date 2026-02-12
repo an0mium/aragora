@@ -13,7 +13,8 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 from aragora.observability.config import get_metrics_config
 from aragora.observability.metrics.base import NoOpMetric

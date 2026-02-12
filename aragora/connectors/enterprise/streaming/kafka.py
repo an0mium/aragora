@@ -37,7 +37,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from collections.abc import AsyncGenerator
-from typing import Any, AsyncIterator, Awaitable, Callable
+from typing import Any
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import (
@@ -299,7 +300,7 @@ class KafkaConnector(EnterpriseConnector):
                 logger.error("[Kafka] aiokafka not installed. Install with: pip install aiokafka")
                 return False
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 if self._streaming_circuit_breaker:
                     await self._streaming_circuit_breaker.record_failure(e)
                 if self._health_monitor:

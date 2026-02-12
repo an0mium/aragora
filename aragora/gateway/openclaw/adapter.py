@@ -44,7 +44,8 @@ import asyncio
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 from uuid import uuid4
 
 from .audit import OpenClawAuditEvents, get_event_severity

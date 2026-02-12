@@ -27,7 +27,8 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+from collections.abc import Callable
 
 from aragora.core_types import AgentRole
 from aragora.observability.metrics.agent import (

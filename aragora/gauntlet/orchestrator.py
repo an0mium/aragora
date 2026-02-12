@@ -14,7 +14,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Coroutine, cast
+from typing import Any, cast
+from collections.abc import Callable, Coroutine
 
 from aragora.core import Agent
 from aragora.debate.consensus import (

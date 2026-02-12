@@ -31,7 +31,8 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+from collections.abc import Sequence
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 

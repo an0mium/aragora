@@ -15,7 +15,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 
 ROOT = Path(__file__).resolve().parents[1]

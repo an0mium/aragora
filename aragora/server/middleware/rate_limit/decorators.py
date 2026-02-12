@@ -13,7 +13,8 @@ import logging
 import os
 import time
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from .limiter import RateLimiter, RateLimitResult
 from .registry import get_rate_limiter, RedisRateLimiter

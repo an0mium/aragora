@@ -44,12 +44,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
-    Awaitable,
-    Callable,
     Generic,
     Optional,
     TypeVar,
 )
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     pass

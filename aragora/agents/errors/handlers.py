@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from aragora.agents.types import T
 

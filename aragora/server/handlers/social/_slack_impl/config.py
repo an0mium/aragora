@@ -10,7 +10,9 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, Callable, Pattern
+from typing import Any
+from re import Pattern
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +125,7 @@ def _validate_slack_url(url: str) -> bool:
 
 import asyncio
 import threading
-from typing import Coroutine
+from collections.abc import Coroutine
 
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:

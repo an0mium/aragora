@@ -15,7 +15,8 @@ import inspect
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Protocol, cast, runtime_checkable
+from typing import Any, Optional, Protocol, cast, runtime_checkable
+from collections.abc import Callable
 
 from aragora.agents.base import AgentType
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool

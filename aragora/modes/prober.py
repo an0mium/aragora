@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Callable, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from aragora.core import Agent, Message
 from aragora.ranking.elo import EloSystem

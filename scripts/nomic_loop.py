@@ -66,7 +66,8 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, List, Callable, Any
+from typing import TYPE_CHECKING, Optional, List, Any
+from collections.abc import Callable
 import traceback
 import logging
 from collections import defaultdict

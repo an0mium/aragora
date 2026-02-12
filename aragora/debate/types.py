@@ -24,12 +24,11 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Coroutine,
     Protocol,
     TypeVar,
     runtime_checkable,
 )
+from collections.abc import Callable, Coroutine
 
 # Generic type variables
 T = TypeVar("T")

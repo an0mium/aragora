@@ -11,7 +11,8 @@ Requirements:
 from __future__ import annotations
 
 import logging
-from typing import Any, Sequence, cast
+from typing import Any, cast
+from collections.abc import Sequence
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,

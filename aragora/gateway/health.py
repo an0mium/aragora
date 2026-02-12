@@ -40,7 +40,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Awaitable
+from typing import Any
+from collections.abc import Callable, Awaitable
 
 # Use canonical HealthLevel from core types (HealthStatus is an alias)
 from aragora.core.types import HealthLevel as HealthStatus

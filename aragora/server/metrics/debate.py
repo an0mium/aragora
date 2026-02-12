@@ -10,7 +10,8 @@ import asyncio
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 from .api import ACTIVE_DEBATES
 from .types import Counter, Gauge, Histogram

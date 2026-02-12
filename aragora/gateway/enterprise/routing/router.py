@@ -59,7 +59,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.tenancy.context import (
     get_current_tenant_id,

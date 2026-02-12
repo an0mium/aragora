@@ -794,40 +794,33 @@ class TestUnauthorized:
     """Tests for unauthenticated access."""
 
     def test_capability_probe_unauthenticated(self, auditing_handler):
-        """Test capability probe rejects unauthenticated requests."""
+        """Test capability probe rejects unauthenticated requests.
+
+        RBAC @require_permission raises PermissionDeniedError when no
+        AuthorizationContext is found, which handle() converts to 403.
+        """
         mock_handler = MockHandler(body={"agent_name": "test"})
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_extract.return_value = MockAuthContext("", is_authenticated=False)
+        result = auditing_handler.handle(
+            "/api/v1/debates/capability-probe", {}, mock_handler
+        )
 
-            with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
-                result = auditing_handler.handle(
-                    "/api/v1/debates/capability-probe", {}, mock_handler
-                )
-
-                assert result.status_code == 401
+        assert result.status_code == 403
 
     def test_deep_audit_unauthenticated(self, auditing_handler):
         """Test deep audit rejects unauthenticated requests."""
         mock_handler = MockHandler(body={"task": "Test"})
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_extract.return_value = MockAuthContext("", is_authenticated=False)
+        result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
-            result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
-
-            assert result.status_code == 401
+        assert result.status_code == 403
 
     def test_red_team_unauthenticated(self, auditing_handler):
         """Test red team rejects unauthenticated requests."""
         mock_handler = MockHandler(body={})
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_extract.return_value = MockAuthContext("", is_authenticated=False)
+        result = auditing_handler.handle(
+            "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
+        )
 
-            with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-                result = auditing_handler.handle(
-                    "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
-                )
-
-                assert result.status_code == 401
+        assert result.status_code == 403

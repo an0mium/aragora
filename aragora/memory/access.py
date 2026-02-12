@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 _logger = logging.getLogger(__name__)
 

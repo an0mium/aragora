@@ -18,7 +18,8 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 import pytest

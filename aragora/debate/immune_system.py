@@ -16,7 +16,8 @@ import logging
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     pass

@@ -19,7 +19,8 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable
 
 from .models import (
     BatchSendResult,

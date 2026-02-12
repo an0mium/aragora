@@ -17,7 +17,8 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

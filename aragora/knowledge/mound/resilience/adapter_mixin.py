@@ -6,7 +6,8 @@ import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 
 from aragora.knowledge.mound.resilience._common import asyncio_timeout
 from aragora.knowledge.mound.resilience.bulkhead import (

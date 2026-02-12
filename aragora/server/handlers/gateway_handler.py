@@ -27,7 +27,8 @@ from __future__ import annotations
 import inspect
 import logging
 import threading
-from typing import Any, cast, Callable, Coroutine
+from typing import Any, cast
+from collections.abc import Callable, Coroutine
 
 from aragora.resilience import CircuitBreaker
 from aragora.rbac.decorators import require_permission

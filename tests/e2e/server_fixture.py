@@ -20,7 +20,7 @@ import time
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import aiohttp
 import pytest

@@ -36,7 +36,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from aragora.connectors.base import Evidence
 

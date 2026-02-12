@@ -13,7 +13,8 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Literal, cast
+from typing import Any, Literal, cast
+from collections.abc import Callable
 
 from aragora.gateway.inbox import (
     InboxAggregator as GatewayInbox,

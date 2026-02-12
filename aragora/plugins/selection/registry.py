@@ -11,7 +11,8 @@ Provides:
 from __future__ import annotations
 
 import logging
-from typing import Callable, TypeVar
+from typing import TypeVar
+from collections.abc import Callable
 
 from aragora.plugins.selection.protocols import (
     RoleAssignerProtocol,

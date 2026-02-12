@@ -19,7 +19,8 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import AuditFinding, FindingSeverity

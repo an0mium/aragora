@@ -13,7 +13,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Generator, TypeVar, cast
+from typing import Any, TypeVar, cast
+from collections.abc import Callable, Generator
 import uuid
 
 logger = logging.getLogger(__name__)

@@ -13,7 +13,8 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from collections.abc import Callable
 
 from . import ContextResult, AuditFindingSummary
 

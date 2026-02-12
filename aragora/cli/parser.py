@@ -138,6 +138,7 @@ Examples:
     _add_km_parser(subparsers)
     _add_costs_parser(subparsers)
     _add_verify_parser(subparsers)
+    _add_healthcare_parser(subparsers)
 
     return parser
 
@@ -1224,3 +1225,10 @@ def _add_verify_parser(subparsers) -> None:
     from aragora.cli.commands.verify import create_verify_parser
 
     create_verify_parser(subparsers)
+
+
+def _add_healthcare_parser(subparsers) -> None:
+    """Add the 'healthcare' subcommand for clinical decision review."""
+    from aragora.cli.commands.healthcare import add_healthcare_parser
+
+    add_healthcare_parser(subparsers)

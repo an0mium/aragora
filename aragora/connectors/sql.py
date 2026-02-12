@@ -33,7 +33,8 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
+from collections.abc import Sequence
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType

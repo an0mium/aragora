@@ -28,7 +28,8 @@ from __future__ import annotations
 import json
 import logging
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Optional, Protocol, TypeVar, cast
+from collections.abc import Callable, Coroutine
 
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError

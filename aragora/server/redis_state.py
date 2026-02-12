@@ -30,7 +30,8 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, AsyncGenerator, Callable
+from typing import Any
+from collections.abc import AsyncGenerator, Callable
 
 logger = logging.getLogger(__name__)
 

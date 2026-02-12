@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     pass

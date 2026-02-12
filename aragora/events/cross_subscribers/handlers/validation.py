@@ -9,7 +9,8 @@ Handles consensus ingestion and validation feedback:
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent

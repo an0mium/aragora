@@ -107,7 +107,7 @@ def mock_http_client():
     return MagicMock(spec=httpx.Client)
 
 
-def create_mock_jwt(claims: dict[str, Any], header: Optional[dict[str, str]] = None) -> str:
+def create_mock_jwt(claims: dict[str, Any], header: dict[str, str] | None = None) -> str:
     """Create a mock JWT token for testing."""
     if header is None:
         header = {"alg": "RS256", "kid": "test_key_id"}

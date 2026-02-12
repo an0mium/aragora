@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Sequence
+from typing import Literal
+from collections.abc import Sequence
 
 
 RouteType = Literal["keyword", "semantic", "graph", "rlm", "long_context"]

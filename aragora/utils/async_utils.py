@@ -12,7 +12,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Coroutine, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Coroutine
 
 logger = logging.getLogger(__name__)
 

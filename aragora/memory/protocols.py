@@ -26,12 +26,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import (
     Any,
-    AsyncIterator,
-    Callable,
     Protocol,
     TypeVar,
     runtime_checkable,
 )
+from collections.abc import AsyncIterator, Callable
 
 # Generic type for memory entry payloads
 T = TypeVar("T")

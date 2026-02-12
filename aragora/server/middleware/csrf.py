@@ -54,7 +54,8 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult

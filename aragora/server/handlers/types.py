@@ -28,14 +28,13 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Protocol,
     TypedDict,
     TypeVar,
     Union,
     runtime_checkable,
 )
+from collections.abc import Awaitable, Callable
 
 from typing_extensions import NotRequired
 

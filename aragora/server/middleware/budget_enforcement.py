@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, Optional, TypeVar, cast
+from typing import Any, Optional, TypeVar, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

@@ -51,7 +51,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Sequence
+from typing import Any
+from collections.abc import Callable, Sequence
 
 from aragora.resilience.health import HealthStatus
 

@@ -20,7 +20,8 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Generator
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemoryEntry

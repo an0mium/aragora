@@ -29,7 +29,8 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, ClassVar, Iterator
+from typing import Any, ClassVar
+from collections.abc import Iterator
 
 from aragora.config import resolve_db_path
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User

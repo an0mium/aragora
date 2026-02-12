@@ -11,7 +11,8 @@ import inspect
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Coroutine
+from typing import Any
+from collections.abc import Coroutine
 from urllib.parse import urlencode
 from urllib.request import Request
 import urllib.request as urllib_request

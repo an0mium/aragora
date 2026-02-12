@@ -42,7 +42,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.config.settings import get_settings

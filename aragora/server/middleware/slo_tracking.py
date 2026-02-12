@@ -26,7 +26,8 @@ import logging
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
+from collections.abc import Callable
 
 from aragora.config.performance_slos import check_latency_slo
 from aragora.observability.slo import _record_measurement

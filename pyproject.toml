@@ -247,6 +247,10 @@ browser = [
     # Requires: playwright install chromium (or playwright install)
     "playwright>=1.40,<2.0",
 ]
+gateway = []
+enterprise = ["python3-saml>=1.15,<2.0", "prometheus-client>=0.19,<1.0", "sentry-sdk>=2.0,<3.0", "redis>=5.0.0,<8.0"]
+connectors = ["aiokafka>=0.9,<1.0", "aio-pika>=9.0,<10.0", "twilio>=8.0,<10.0", "langchain>=0.1,<2.0", "playwright>=1.40,<2.0"]
+experimental = ["playwright>=1.40,<2.0", "networkx>=3.0,<4.0"]
 all = [
     # Expanded inline to avoid self-referential extras during locking.
     "pytest>=7.0,<10.0",
@@ -315,6 +319,9 @@ all = [
     "tree-sitter-rust>=0.23.0,<1.0",
     "tree-sitter-java>=0.23.0,<1.0",
     "playwright>=1.40,<2.0",
+    "aiokafka>=0.9,<1.0",
+    "aio-pika>=9.0,<10.0",
+    "python3-saml>=1.15,<2.0",
 ]
 
 [project.scripts]
@@ -360,6 +367,8 @@ ignore = ["E402", "E501"]
 "tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004"]  # F821: SSO tests need refactor
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
+"deprecated/*" = ["UP"]  # Deprecated code, don't modernize
+"aragora-py/*" = ["UP"]  # Legacy package, don't modernize
 # BLE001: Now enforced on new code - Phase 12 (Feb 2026)
 # Only exempted in specific modules above (cli, migrations, scripts, tests)
 # G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)

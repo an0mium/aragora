@@ -9,7 +9,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, ClassVar, Literal, Optional
+from typing import Any, ClassVar, Literal, Optional
+from collections.abc import Callable
 
 # Type aliases for agent role and stance
 AgentRole = Literal[

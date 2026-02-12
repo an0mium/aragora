@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 

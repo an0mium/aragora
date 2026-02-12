@@ -14,7 +14,7 @@ import asyncio
 import tempfile
 import time
 from pathlib import Path
-from typing import Generator, Callable
+from collections.abc import Generator, Callable
 from unittest.mock import AsyncMock
 
 import pytest

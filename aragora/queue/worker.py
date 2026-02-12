@@ -14,7 +14,8 @@ import asyncio
 import logging
 import signal
 import time
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, cast
+from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Callable, Coroutine
 
 if TYPE_CHECKING:
     from aragora.agents.base import AgentType

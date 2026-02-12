@@ -20,7 +20,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.server.middleware.user_auth import User, get_current_user
 

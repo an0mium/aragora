@@ -11,7 +11,7 @@ import logging
 import sqlite3
 from contextlib import AbstractContextManager
 from datetime import datetime, timedelta
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

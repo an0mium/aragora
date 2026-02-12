@@ -10,7 +10,8 @@ import functools
 import hashlib
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from .constants import (
     HAS_RLM,

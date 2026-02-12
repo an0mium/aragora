@@ -14,7 +14,8 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 
 from aragora.agents.external.base import (
     ExternalAgentAdapter,

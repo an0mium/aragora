@@ -32,7 +32,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, Callable, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator, Callable
 
 logger = logging.getLogger(__name__)
 

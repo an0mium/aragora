@@ -39,7 +39,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Awaitable, Callable
+from typing import Any
+from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 

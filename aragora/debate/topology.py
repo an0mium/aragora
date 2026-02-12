@@ -31,7 +31,8 @@ __all__ = [
 import hashlib
 import random
 from abc import ABC, abstractmethod
-from typing import Protocol, Sequence
+from typing import Protocol
+from collections.abc import Sequence
 
 from aragora.core import Agent
 

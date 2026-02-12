@@ -30,7 +30,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Callable
+from typing import Any
+from collections.abc import AsyncGenerator, Callable
 import time
 
 logger = logging.getLogger(__name__)

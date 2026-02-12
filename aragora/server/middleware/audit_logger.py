@@ -65,7 +65,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Optional, Protocol
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

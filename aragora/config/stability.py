@@ -35,7 +35,8 @@ import functools
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

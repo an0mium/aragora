@@ -11,7 +11,8 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, cast
+from typing import cast
+from collections.abc import Iterable
 
 STABILITY_VALUES = {"stable", "beta", "experimental", "internal", "deprecated"}
 DEFAULT_STABILITY = "experimental"

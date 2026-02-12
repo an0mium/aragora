@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 

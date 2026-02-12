@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 import uuid
 from contextlib import contextmanager
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 

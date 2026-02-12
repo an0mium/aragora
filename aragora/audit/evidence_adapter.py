@@ -27,7 +27,8 @@ import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
 

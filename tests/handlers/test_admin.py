@@ -12,7 +12,8 @@ Tests the administrative API endpoints including:
 import json
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest

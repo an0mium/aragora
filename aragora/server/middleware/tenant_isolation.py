@@ -32,7 +32,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult

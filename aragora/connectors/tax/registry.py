@@ -4,7 +4,7 @@ Tax Connector Registry - Map jurisdictions to connector classes.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from aragora.connectors.accounting.irs import IRSConnector
 from aragora.connectors.tax.generic import GenericTaxConnector

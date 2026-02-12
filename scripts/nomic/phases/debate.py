@@ -11,7 +11,8 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable
 
 from . import DebateResult
 

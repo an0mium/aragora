@@ -25,7 +25,8 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, ContextManager, Generator, Optional
+from typing import Any, ContextManager, Optional
+from collections.abc import Callable, Generator
 
 # Use structured logging if available
 try:

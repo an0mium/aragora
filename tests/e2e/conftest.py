@@ -17,7 +17,8 @@ import tempfile
 import uuid
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Dict, Generator, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

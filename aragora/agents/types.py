@@ -7,7 +7,8 @@ the agents package to avoid duplication and ensure consistency.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar
+from collections.abc import Callable
 
 # Generic type variable for decorators and generic functions
 T = TypeVar("T")

@@ -41,7 +41,8 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

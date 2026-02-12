@@ -7,7 +7,7 @@ for handlers that need direct database access.
 
 import sqlite3
 from contextlib import contextmanager
-from typing import Generator
+from collections.abc import Generator
 
 from aragora.config import DB_TIMEOUT_SECONDS
 

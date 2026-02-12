@@ -15,7 +15,8 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, cast
+from typing import Any, Optional, cast
+from collections.abc import Callable
 
 from aragora.implement.executor import HybridExecutor
 from aragora.implement.types import ImplementTask, TaskResult

@@ -10,7 +10,8 @@ This reduces frontend latency by 80% (1 request instead of 6).
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.config import (
     CACHE_TTL_LB_INTROSPECTION,

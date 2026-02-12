@@ -27,7 +27,8 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

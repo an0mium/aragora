@@ -37,7 +37,8 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from typing import Any, BinaryIO, Callable, TypeVar, cast
+from typing import Any, BinaryIO, TypeVar, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

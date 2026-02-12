@@ -20,7 +20,8 @@ import logging
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.core import Vote

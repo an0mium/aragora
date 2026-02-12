@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Generator
+from collections.abc import Generator
 
 from .types import Counter, Gauge, Histogram
 

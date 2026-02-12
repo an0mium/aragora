@@ -20,7 +20,8 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Sequence
 
 from aragora.knowledge.unified.types import (
     ConfidenceLevel,

@@ -22,7 +22,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Optional, Protocol
+from collections.abc import Callable
 
 from aragora.observability.tracing import trace_debate_phase
 

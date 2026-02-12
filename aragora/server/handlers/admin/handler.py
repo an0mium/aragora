@@ -15,7 +15,8 @@ import functools
 import logging
 import os
 import time
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 # Pre-declare RBAC names for optional import fallback (avoids type: ignore on fallback definitions)
 require_permission: Any

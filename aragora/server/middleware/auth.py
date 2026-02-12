@@ -36,7 +36,8 @@ import logging
 import os
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.rbac.models import AuthorizationContext

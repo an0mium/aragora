@@ -22,7 +22,8 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional, cast
+from typing import Any, Optional, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

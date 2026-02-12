@@ -18,7 +18,8 @@ import json
 import logging
 import os
 import re
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.agents.base import MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS, CritiqueMixin
 from aragora.agents.errors import (

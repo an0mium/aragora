@@ -24,7 +24,8 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Optional
+from collections.abc import Callable, Coroutine
 
 from .events import Event
 from .recovery import RecoveryManager, recovery_handler as core_recovery_handler

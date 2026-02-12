@@ -8,7 +8,8 @@ import logging
 import random
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Awaitable, Callable, Optional, cast
+from typing import Any, Optional, cast
+from collections.abc import Awaitable, Callable
 
 from aragora.knowledge.mound.resilience._common import T, asyncio_timeout
 

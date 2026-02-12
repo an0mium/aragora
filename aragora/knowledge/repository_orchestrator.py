@@ -18,7 +18,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
+from collections.abc import Sequence
 
 from aragora.connectors.repository_crawler import (
     CrawlConfig,

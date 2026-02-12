@@ -35,7 +35,8 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING, cast
+from typing import Any, Optional, Protocol, TYPE_CHECKING, cast
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.semantic_store import SemanticSearchResult

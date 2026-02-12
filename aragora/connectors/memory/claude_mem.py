@@ -117,7 +117,7 @@ class ClaudeMemConnector(BaseConnector):
             with urllib.request.urlopen(url, timeout=self.config.timeout_seconds) as response:
                 raw = response.read()
             return json.loads(raw.decode("utf-8")) if raw else {}
-        except Exception as exc:
+        except (OSError, ValueError, UnicodeDecodeError) as exc:
             raise ConnectorAPIError(
                 f"Claude-Mem request failed: {exc}",
                 connector_name=self.name,

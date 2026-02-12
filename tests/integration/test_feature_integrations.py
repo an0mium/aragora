@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import AsyncIterator, Optional
+from typing import Optional
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, Mock, MagicMock, patch
 
 import pytest

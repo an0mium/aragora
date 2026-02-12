@@ -8,7 +8,8 @@ including body schemas, query parameters, and path segments.
 from __future__ import annotations
 
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from .schema import validate_against_schema
 

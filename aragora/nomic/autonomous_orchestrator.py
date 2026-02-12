@@ -32,7 +32,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.nomic.task_decomposer import (
     TaskDecomposer,

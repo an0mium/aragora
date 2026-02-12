@@ -20,7 +20,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+from collections.abc import Callable
 
 from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin

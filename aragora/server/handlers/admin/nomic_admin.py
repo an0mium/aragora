@@ -19,7 +19,8 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.audit.unified import audit_admin
 from aragora.rbac.decorators import require_permission

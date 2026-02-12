@@ -20,7 +20,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Callable, Awaitable, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+from collections.abc import Callable, Awaitable
 
 if TYPE_CHECKING:
     from aragora.gateway.external_agents.base import (

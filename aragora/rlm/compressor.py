@@ -19,7 +19,8 @@ import logging
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from .types import (
     AbstractionLevel,

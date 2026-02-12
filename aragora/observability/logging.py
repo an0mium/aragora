@@ -64,7 +64,8 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 # Emit deprecation warning on import
 warnings.warn(

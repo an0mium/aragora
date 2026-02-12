@@ -5,7 +5,8 @@ Command registry for managing slash commands.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Optional
+from collections.abc import Callable, Coroutine
 
 from .models import CommandDefinition, CommandContext, CommandResult, CommandPermission
 

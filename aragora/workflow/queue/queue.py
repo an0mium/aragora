@@ -10,7 +10,8 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.workflow.queue.executor import TaskExecutor, ExecutorPool

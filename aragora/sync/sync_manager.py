@@ -10,7 +10,8 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional
+from collections.abc import Callable
 
 from aragora.sync.models import (
     FileChange,

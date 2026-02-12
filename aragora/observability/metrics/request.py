@@ -11,7 +11,8 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
+from collections.abc import Callable
 
 from aragora.observability.metrics.base import (
     NoOpMetric,

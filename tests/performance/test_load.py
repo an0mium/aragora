@@ -26,7 +26,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from threading import Thread
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 from unittest.mock import MagicMock
 
 import pytest

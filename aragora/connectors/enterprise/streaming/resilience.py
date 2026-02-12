@@ -51,7 +51,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, Awaitable, Callable, Generic, TypeVar
+from typing import Any, Generic, TypeVar
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 

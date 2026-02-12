@@ -321,7 +321,7 @@ class TestShopifyConnectorParsing:
         from aragora.connectors.ecommerce.shopify import ShopifyConnector, ShopifyCredentials
         from aragora.connectors.base import Evidence
         from aragora.reasoning.provenance import SourceType
-        from typing import AsyncIterator
+        from collections.abc import AsyncIterator
 
         # Create a concrete subclass for testing
         class TestableShopifyConnector(ShopifyConnector):

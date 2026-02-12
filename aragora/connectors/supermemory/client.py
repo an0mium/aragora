@@ -16,7 +16,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Callable
 
 from .config import SupermemoryConfig
 from .privacy_filter import PrivacyFilter

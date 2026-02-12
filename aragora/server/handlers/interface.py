@@ -14,12 +14,12 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
     Optional,
     Protocol,
     TypedDict,
     runtime_checkable,
 )
+from collections.abc import Awaitable
 
 if TYPE_CHECKING:
     from aragora.billing.auth.context import UserAuthContext

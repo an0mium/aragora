@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from collections.abc import Callable
 
 from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
 from aragora.debate.chaos_theater import DramaLevel, get_chaos_director

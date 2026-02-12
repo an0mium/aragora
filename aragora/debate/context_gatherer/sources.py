@@ -13,7 +13,8 @@ Contains methods for gathering context from various sources:
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from .constants import (
     CLAUDE_SEARCH_TIMEOUT,

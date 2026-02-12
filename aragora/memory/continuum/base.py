@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Generator, TypedDict
+from typing import Any, TypedDict
+from collections.abc import Generator
 
 from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier, TierConfig
 from aragora.utils.cache import TTLCache

@@ -9,7 +9,8 @@ from __future__ import annotations
 import asyncio
 import threading
 from contextlib import contextmanager
-from typing import Awaitable, Generator, TypeVar
+from typing import TypeVar
+from collections.abc import Awaitable, Generator
 
 T = TypeVar("T")
 

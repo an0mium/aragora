@@ -19,7 +19,8 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.agents.base import create_agent
 from aragora.cli.main import run_debate

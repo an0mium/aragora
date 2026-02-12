@@ -24,7 +24,7 @@ All stores use this unified schema:
 """
 
 from pathlib import Path
-from typing import Sequence
+from collections.abc import Sequence
 
 from alembic import op
 

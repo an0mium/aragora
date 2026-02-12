@@ -32,12 +32,11 @@ import time
 from dataclasses import dataclass, field
 from typing import (
     Any,
-    Awaitable,
-    Callable,
     Generic,
     Optional,
     TypeVar,
 )
+from collections.abc import Awaitable, Callable
 from weakref import WeakValueDictionary
 
 logger = logging.getLogger(__name__)

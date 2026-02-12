@@ -8,7 +8,7 @@ import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 
 _CLASS_PATTERN = re.compile(r"^class\s+([A-Za-z_][A-Za-z0-9_]*)\s*(\(|:)", re.MULTILINE)

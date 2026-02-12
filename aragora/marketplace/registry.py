@@ -12,7 +12,8 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any, Optional
+from collections.abc import Generator
 
 from aragora.config import resolve_db_path
 

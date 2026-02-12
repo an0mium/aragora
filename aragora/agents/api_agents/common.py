@@ -14,7 +14,8 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, Optional
+from typing import Any, Optional
+from collections.abc import AsyncGenerator, Callable
 
 import aiohttp
 

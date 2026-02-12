@@ -15,7 +15,8 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -749,7 +750,7 @@ class SQLServerConnector(EnterpriseConnector):
                     "change_tracking_enabled": self.use_change_tracking,
                 },
             )
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             return ConnectorHealth(
                 name=self.name,
                 is_available=False,

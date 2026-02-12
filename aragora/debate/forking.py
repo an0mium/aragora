@@ -18,7 +18,7 @@ import uuid
 # dataclass fields are all immutable (str, datetime, int)
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

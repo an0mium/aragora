@@ -10,7 +10,8 @@ import asyncio
 import inspect
 import json
 import logging
-from typing import Any, Coroutine
+from typing import Any
+from collections.abc import Coroutine
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 

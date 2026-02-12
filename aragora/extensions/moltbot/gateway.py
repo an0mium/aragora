@@ -14,7 +14,8 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.gateway.device_registry import (
     DeviceNode as GatewayDeviceNode,

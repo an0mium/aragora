@@ -16,7 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Literal, Optional
+from collections.abc import Callable
 
 import yaml
 

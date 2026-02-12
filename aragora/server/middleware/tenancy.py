@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from .user_auth import User, Workspace, get_current_user
 

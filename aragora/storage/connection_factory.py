@@ -32,7 +32,8 @@ import os
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Sequence
 from urllib.parse import urlparse
 
 from aragora.persistence.db_config import get_default_data_dir

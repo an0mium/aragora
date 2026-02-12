@@ -12,7 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from . import DesignResult
 from ..task_decomposer import TaskDecomposer, TaskDecomposition, DecomposerConfig

@@ -15,7 +15,8 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Sequence, TypedDict
+from typing import Any, TypedDict
+from collections.abc import Sequence
 
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import (

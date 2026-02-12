@@ -30,7 +30,8 @@ import concurrent.futures
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Match, Optional, Pattern
+from typing import Any, Optional
+from re import Match, Pattern
 
 logger = logging.getLogger(__name__)
 

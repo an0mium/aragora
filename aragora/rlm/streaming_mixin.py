@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
+from collections.abc import AsyncIterator, Callable
 
 from .types import (
     AbstractionLevel,

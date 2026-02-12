@@ -12,9 +12,9 @@ import os
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Optional,
 )
+from collections.abc import Callable
 
 from aragora.observability import get_logger
 

@@ -18,7 +18,8 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 from urllib.parse import quote, urlparse
 
 from aragora.connectors.enterprise.base import (
@@ -131,7 +132,7 @@ def _is_safe_redirect_url(url: str) -> tuple[bool, str]:
     """
     try:
         parsed = urlparse(url)
-    except Exception as e:
+    except (ValueError, UnicodeError) as e:
         return False, f"Failed to parse URL: {e}"
 
     # Only allow HTTPS

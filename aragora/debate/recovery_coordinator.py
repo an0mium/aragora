@@ -17,7 +17,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.debate.deadlock_detector import Deadlock, DeadlockDetector, DeadlockType
 from aragora.debate.witness import DebateWitness, StallEvent, StallReason, ProgressStatus

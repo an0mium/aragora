@@ -19,7 +19,8 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.types.protocols import EventEmitterProtocol
 

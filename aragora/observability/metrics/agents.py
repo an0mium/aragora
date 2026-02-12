@@ -34,14 +34,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Generator,
     ParamSpec,
     TypeVar,
     cast,
 )
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
 from aragora.observability.metrics.base import NoOpMetric, get_metrics_enabled
 

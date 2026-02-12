@@ -47,7 +47,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+from collections.abc import Callable, Sequence
 
 from aragora.audit.document_auditor import AuditType
 

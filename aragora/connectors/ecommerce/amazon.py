@@ -30,7 +30,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.reasoning.provenance import SourceType

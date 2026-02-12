@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Pattern
+from typing import Any, Optional
+from re import Pattern
 
 logger = logging.getLogger(__name__)
 

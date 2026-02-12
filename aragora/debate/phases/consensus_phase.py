@@ -29,7 +29,8 @@ import math
 import time
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS

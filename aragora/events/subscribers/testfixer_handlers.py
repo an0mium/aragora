@@ -13,7 +13,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.events.types import StreamEvent, StreamEventType
 

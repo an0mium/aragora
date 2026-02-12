@@ -37,7 +37,8 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncGenerator
 
 if TYPE_CHECKING:
     from asyncpg import Connection, Pool

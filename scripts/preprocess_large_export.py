@@ -54,7 +54,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
+from collections.abc import Iterator
 
 # Add project root to path
 project_root = Path(__file__).parent.parent

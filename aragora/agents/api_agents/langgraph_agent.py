@@ -22,7 +22,8 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator
+from typing import Any
+from collections.abc import AsyncGenerator
 
 import aiohttp
 

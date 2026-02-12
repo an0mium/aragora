@@ -23,7 +23,8 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.debate.bias_mitigation import (
     SelfVoteConfig,

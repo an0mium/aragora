@@ -9,7 +9,8 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Optional, Protocol
+from collections.abc import Callable
 
 from aragora.observability import get_logger
 

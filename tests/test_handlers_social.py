@@ -308,13 +308,23 @@ class TestSocialMediaHandlerEndpoints:
         mock_ctx = MagicMock()
         return SocialMediaHandler(server_context=mock_ctx)
 
-    def test_youtube_auth_returns_result(self, handler):
+    @pytest.fixture
+    def auth_ctx(self):
+        """Auth context with social permissions."""
+        from aragora.rbac.models import AuthorizationContext
+
+        return AuthorizationContext(
+            user_id="test-user",
+            permissions={"social:read", "social:create"},
+        )
+
+    def test_youtube_auth_returns_result(self, handler, auth_ctx):
         """YouTube auth endpoint returns a result."""
-        result = handler.handle("/api/youtube/auth", {}, None)
+        result = handler.handle("/api/youtube/auth", {}, None, context=auth_ctx)
         # Should return something (success or error)
         assert result is not None or True  # Handler may return None if not configured
 
-    def test_youtube_callback_consumes_valid_state(self, handler):
+    def test_youtube_callback_consumes_valid_state(self, handler, auth_ctx):
         """OAuth state is consumed after callback attempt."""
         # Store a valid state
         _store_oauth_state("callback-state-test")
@@ -322,7 +332,8 @@ class TestSocialMediaHandlerEndpoints:
         # Try callback - state should be consumed regardless of success
         try:
             handler.handle(
-                "/api/youtube/callback", {"state": "callback-state-test", "code": "auth-code"}, None
+                "/api/youtube/callback", {"state": "callback-state-test", "code": "auth-code"},
+                None, context=auth_ctx,
             )
         except Exception:
             pass  # Handler may fail for other reasons
@@ -330,9 +341,9 @@ class TestSocialMediaHandlerEndpoints:
         # State should be consumed (tested via validate returning false)
         assert _validate_oauth_state("callback-state-test") is False
 
-    def test_youtube_status_returns_result(self, handler):
+    def test_youtube_status_returns_result(self, handler, auth_ctx):
         """YouTube status endpoint returns a result."""
-        result = handler.handle("/api/youtube/status", {}, None)
+        result = handler.handle("/api/youtube/status", {}, None, context=auth_ctx)
         assert result is not None
 
 

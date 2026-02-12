@@ -13,7 +13,8 @@ import asyncio
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from . import ContextResult
 

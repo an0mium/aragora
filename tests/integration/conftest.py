@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import tempfile
 from pathlib import Path
-from typing import Generator, AsyncGenerator
+from collections.abc import Generator, AsyncGenerator
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
 import pytest

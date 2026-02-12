@@ -7,7 +7,8 @@ Result type for operations that can fail.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Generic, TypeVar
+from collections.abc import Callable
 
 # =============================================================================
 # Type Variables

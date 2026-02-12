@@ -15,7 +15,8 @@ import hashlib
 import logging
 from datetime import timezone
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,

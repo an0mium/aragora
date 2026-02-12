@@ -88,7 +88,8 @@ import tracemalloc
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.core import Critique, Message, Vote

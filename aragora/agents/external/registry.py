@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from .base import ExternalAgentAdapter

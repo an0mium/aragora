@@ -9,7 +9,7 @@ Refactored to use category-based organization for improved maintainability.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from aragora.config import DEFAULT_ROUNDS
 

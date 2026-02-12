@@ -37,7 +37,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
@@ -260,7 +261,7 @@ class RecoveryStrategy:
 
                 return result
 
-            except Exception as e:
+            except Exception as e:  # Intentionally broad: wraps arbitrary async callables in recovery framework
                 last_error = e
                 self._consecutive_failures += 1
                 self._last_error_time = time.time()

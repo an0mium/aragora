@@ -8,7 +8,7 @@ Provides timing decorators for HTTP handlers, agent generation, and DB queries.
 import logging
 import time
 from functools import wraps
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

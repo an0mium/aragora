@@ -51,12 +51,12 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Literal,
     Protocol,
     cast,
     runtime_checkable,
 )
+from collections.abc import Callable
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.config.settings import get_settings

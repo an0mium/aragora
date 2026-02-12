@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.connectors.gmail import GmailConnector

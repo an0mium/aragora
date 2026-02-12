@@ -18,7 +18,8 @@ import threading
 import time
 from collections import OrderedDict
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.gauntlet.storage import GauntletStorage

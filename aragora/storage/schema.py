@@ -38,7 +38,8 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Generator, Optional
+from typing import Optional
+from collections.abc import Callable, Generator
 
 from aragora.exceptions import DatabaseError
 from aragora.utils.timeouts import timed_lock

@@ -24,7 +24,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 import numpy as np
 

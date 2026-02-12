@@ -25,7 +25,8 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.nomic.cycle_record import NomicCycleRecord
 from aragora.nomic.cycle_store import CycleLearningStore, get_cycle_store

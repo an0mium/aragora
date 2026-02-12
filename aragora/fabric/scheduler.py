@@ -12,7 +12,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from heapq import heappop, heappush
-from typing import Any, Callable, Coroutine
+from typing import Any
+from collections.abc import Callable, Coroutine
 
 from .models import (
     Priority,

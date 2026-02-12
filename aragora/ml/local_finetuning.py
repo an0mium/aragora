@@ -40,7 +40,8 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 import asyncio
 
 logger = logging.getLogger(__name__)

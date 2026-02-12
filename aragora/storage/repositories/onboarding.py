@@ -12,7 +12,8 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Optional
+from typing import Any, ContextManager, Optional
+from collections.abc import Callable
 
 from aragora.config import resolve_db_path
 from aragora.persistence.db_config import DatabaseType

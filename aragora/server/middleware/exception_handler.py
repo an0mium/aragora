@@ -38,7 +38,8 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
+from collections.abc import AsyncGenerator, Callable
 
 from aragora.server.errors import safe_error_message
 

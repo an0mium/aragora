@@ -43,7 +43,8 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.config import resolve_db_path
 

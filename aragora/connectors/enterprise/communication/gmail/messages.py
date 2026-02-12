@@ -13,7 +13,8 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from email.utils import parseaddr
-from typing import Any, AsyncIterator, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Optional, Protocol, TYPE_CHECKING
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import SyncItem, SyncState
 from aragora.reasoning.provenance import SourceType

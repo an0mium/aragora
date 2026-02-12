@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import Any, Awaitable, Callable, Optional, TypeVar
+from typing import Any, Optional, TypeVar
+from collections.abc import Awaitable, Callable
 
 T = TypeVar("T")
 
@@ -341,7 +342,7 @@ class HTTPResilienceMixin:
                 logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
                 # Don't retry on unexpected errors
                 break
-            except Exception as e:
+            except Exception as e:  # Intentionally broad: safety net after specific httpx/OS catches
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
                 logger.error(f"{self.platform_name} {operation} unexpected error: {e}")

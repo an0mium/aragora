@@ -10,7 +10,9 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Pattern
+from typing import Any
+from re import Pattern
+from collections.abc import Callable
 
 from .checker import PermissionChecker, get_permission_checker
 from .defaults import SYSTEM_PERMISSIONS

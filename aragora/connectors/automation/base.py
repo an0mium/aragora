@@ -374,7 +374,7 @@ class AutomationConnector(ABC):
                 validate_webhook_url(subscription.webhook_url)
             except ImportError:
                 pass  # Best-effort; primary check is in subscribe()
-            except Exception as ssrf_err:
+            except (ValueError, OSError) as ssrf_err:
                 duration_ms = (time.time() - start_time) * 1000
                 logger.warning(
                     f"[{self.PLATFORM_NAME}] Blocked SSRF attempt to "

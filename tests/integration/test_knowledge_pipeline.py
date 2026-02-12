@@ -14,7 +14,7 @@ import asyncio
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

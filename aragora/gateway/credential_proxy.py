@@ -15,7 +15,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from aragora.rbac.checker import PermissionChecker

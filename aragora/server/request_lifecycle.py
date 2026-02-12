@@ -17,7 +17,8 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 from urllib.parse import parse_qs, urlparse
 
 if TYPE_CHECKING:

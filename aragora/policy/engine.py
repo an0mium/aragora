@@ -41,7 +41,7 @@ import operator
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Callable
+from collections.abc import Callable
 
 from aragora.policy.risk import RiskBudget
 from aragora.policy.tools import ToolRegistry, get_tool_registry

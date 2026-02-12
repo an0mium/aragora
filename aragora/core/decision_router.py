@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Literal, cast
+from typing import Any, Literal, cast
+from collections.abc import Callable
 
 from .decision_types import (
     DecisionType,

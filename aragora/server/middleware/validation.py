@@ -17,7 +17,9 @@ import logging
 import re
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Pattern, cast
+from typing import Any, Optional, cast
+from re import Pattern
+from collections.abc import Callable
 
 from aragora.server.validation.schema import (
     AGENT_CONFIG_SCHEMA,

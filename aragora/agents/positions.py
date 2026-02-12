@@ -21,7 +21,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Literal
+from typing import Literal
+from collections.abc import Generator
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.insights.database import InsightsDatabase

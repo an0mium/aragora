@@ -17,7 +17,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,

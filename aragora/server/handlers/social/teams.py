@@ -23,7 +23,8 @@ import json
 import logging
 import os
 import re
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Optional
+from collections.abc import Callable, Coroutine
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 

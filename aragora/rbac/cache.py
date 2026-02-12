@@ -34,7 +34,8 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.config.env_helpers import env_int, env_bool
 from aragora.control_plane.leader import (

@@ -17,7 +17,8 @@ Tests cover:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest

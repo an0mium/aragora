@@ -54,14 +54,13 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Generic,
     Optional,
     TypeVar,
     cast,
     overload,
 )
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from prometheus_client import Counter, Histogram

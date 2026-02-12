@@ -27,7 +27,8 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Pattern
+from typing import Any, Optional
+from re import Pattern
 
 logger = logging.getLogger(__name__)
 

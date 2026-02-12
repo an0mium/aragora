@@ -27,7 +27,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Literal
+from typing import Any, Literal
+from collections.abc import Callable
 
 
 class ConditionOperator(str, Enum):

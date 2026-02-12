@@ -23,6 +23,7 @@ from .cost import COST_SCHEMAS
 from .inbox import INBOX_SCHEMAS
 from .memory import MEMORY_SCHEMAS
 from .analytics import ANALYTICS_SCHEMAS
+from .debate_requests import DEBATE_REQUEST_SCHEMAS
 
 # Import helpers
 from .helpers import (
@@ -46,6 +47,7 @@ COMMON_SCHEMAS: dict[str, Any] = {
     **INBOX_SCHEMAS,
     **MEMORY_SCHEMAS,
     **ANALYTICS_SCHEMAS,
+    **DEBATE_REQUEST_SCHEMAS,
 }
 
 
@@ -70,4 +72,5 @@ __all__ = [
     "INBOX_SCHEMAS",
     "MEMORY_SCHEMAS",
     "ANALYTICS_SCHEMAS",
+    "DEBATE_REQUEST_SCHEMAS",
 ]

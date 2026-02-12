@@ -258,4 +258,85 @@ export class OpenClawNamespace {
   async stats(): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>('GET', '/api/v1/openclaw/stats');
   }
+
+  /** Execute a task through the OpenClaw gateway. */
+  async gatewayExecute(body: {
+    content: string;
+    request_type?: string;
+    capabilities?: string[];
+    plugins?: string[];
+    priority?: string;
+    timeout_seconds?: number;
+    context?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/gateway/openclaw/execute',
+      { body }
+    );
+  }
+
+  /** Get gateway task execution status. */
+  async gatewayStatus(taskId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/gateway/openclaw/status/${encodeURIComponent(taskId)}`
+    );
+  }
+
+  /** Register a device with the OpenClaw gateway. */
+  async registerDevice(body: {
+    device_id: string;
+    device_name: string;
+    device_type: string;
+    capabilities?: string[];
+    metadata?: Record<string, unknown>;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/gateway/openclaw/devices/register',
+      { body }
+    );
+  }
+
+  /** Unregister a device from the OpenClaw gateway. */
+  async unregisterDevice(deviceId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/gateway/openclaw/devices/unregister',
+      { body: { device_id: deviceId } }
+    );
+  }
+
+  /** Install a plugin on the OpenClaw gateway. */
+  async installPlugin(body: {
+    plugin_id: string;
+    plugin_name: string;
+    version: string;
+    config?: Record<string, unknown>;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/gateway/openclaw/plugins/install',
+      { body }
+    );
+  }
+
+  /** Uninstall a plugin from the OpenClaw gateway. */
+  async uninstallPlugin(pluginId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/gateway/openclaw/plugins/uninstall',
+      { body: { plugin_id: pluginId } }
+    );
+  }
+
+  /** Get OpenClaw gateway configuration. */
+  async gatewayConfig(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/gateway/openclaw/config'
+    );
+  }
 }

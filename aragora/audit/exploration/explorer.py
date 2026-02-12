@@ -15,7 +15,8 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Optional, Protocol
+from collections.abc import Callable
 
 from aragora.audit.exploration.session import (
     ExplorationPhase,

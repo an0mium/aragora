@@ -29,7 +29,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, ParamSpec
+from typing import TYPE_CHECKING, Any, TypeVar, ParamSpec
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.rbac.checker import PermissionChecker

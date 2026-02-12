@@ -22,7 +22,8 @@ import asyncio
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import AsyncGenerator, Optional
+from typing import Optional
+from collections.abc import AsyncGenerator
 
 import pytest
 

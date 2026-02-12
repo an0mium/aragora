@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Awaitable, Optional, Callable, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     pass

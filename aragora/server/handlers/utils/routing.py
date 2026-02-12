@@ -4,7 +4,8 @@ URL routing utilities for handler dispatch.
 Provides pattern matching and dispatch for mapping URL paths to handler methods.
 """
 
-from typing import Any, Callable, TypeAlias
+from typing import Any, TypeAlias
+from collections.abc import Callable
 
 # Type aliases for clarity
 PathParams: TypeAlias = dict[str, str]

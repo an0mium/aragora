@@ -33,7 +33,8 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 if TYPE_CHECKING:
     from aragora.reasoning.provenance import SourceType

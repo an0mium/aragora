@@ -52,7 +52,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 # Add aragora to path
 sys.path.insert(0, str(Path(__file__).parent.parent))

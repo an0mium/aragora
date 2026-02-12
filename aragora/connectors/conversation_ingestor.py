@@ -34,7 +34,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, Literal
+from typing import Any, Literal
+from collections.abc import Iterator
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType

@@ -19,7 +19,8 @@ import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, AsyncIterator, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.config import DB_KNOWLEDGE_PATH
 from aragora.knowledge.mound.types import (

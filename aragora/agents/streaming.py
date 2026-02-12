@@ -13,7 +13,8 @@ __all__ = [
 
 import json
 import logging
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 
 from aragora.config.settings import get_settings
 from aragora.exceptions import StreamingError

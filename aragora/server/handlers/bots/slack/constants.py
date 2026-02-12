@@ -8,7 +8,8 @@ utilities used across the Slack integration.
 import logging
 import os
 import re
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

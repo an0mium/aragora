@@ -16,7 +16,8 @@ import heapq
 import logging
 import threading
 import time
-from typing import Any, Iterator, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,8 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
+from collections.abc import Callable
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.validation.query_params import safe_query_float, safe_query_int

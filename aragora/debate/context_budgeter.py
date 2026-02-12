@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import json
 import logging
 import os
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,8 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)

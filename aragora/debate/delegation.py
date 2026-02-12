@@ -45,7 +45,8 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING, Optional
+from collections.abc import Sequence
 
 if TYPE_CHECKING:
     from aragora.agents.config_loader import AgentConfig

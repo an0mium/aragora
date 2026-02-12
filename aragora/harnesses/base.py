@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 

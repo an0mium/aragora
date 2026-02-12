@@ -35,7 +35,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Pattern, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+from re import Pattern
 
 
 @runtime_checkable

@@ -13,7 +13,8 @@ import sqlite3
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator, Generic, TypeVar
+from typing import Any, Generic, TypeVar
+from collections.abc import Generator
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.storage.schema import DatabaseManager

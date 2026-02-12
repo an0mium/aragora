@@ -13,7 +13,8 @@ from __future__ import annotations
 import logging
 from functools import wraps
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, Callable, NamedTuple
+from typing import Any, TYPE_CHECKING, NamedTuple
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.agents.grounded import AgentRelationship as AgentRelationshipType

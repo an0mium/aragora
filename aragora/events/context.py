@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import contextvars
 from contextlib import contextmanager
-from typing import Generator
+from collections.abc import Generator
 
 # Context variable to track current task_id for streaming events
 # This allows concurrent generate() calls from the same agent to be distinguished

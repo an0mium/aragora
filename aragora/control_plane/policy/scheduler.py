@@ -10,7 +10,8 @@ import asyncio
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.observability import get_logger
 

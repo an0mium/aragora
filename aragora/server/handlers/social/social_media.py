@@ -16,7 +16,8 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
+from collections.abc import Awaitable
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.errors import safe_error_message as _safe_error_message

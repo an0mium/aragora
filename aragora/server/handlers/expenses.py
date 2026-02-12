@@ -34,7 +34,8 @@ import binascii
 import logging
 import threading
 from datetime import datetime
-from typing import Any, Awaitable
+from typing import Any
+from collections.abc import Awaitable
 
 from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (

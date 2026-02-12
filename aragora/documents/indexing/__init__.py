@@ -6,7 +6,8 @@ with BM25 + vector hybrid search.
 """
 
 # Weaviate store requires weaviate (optional dependency)
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.documents.indexing.weaviate_store import (

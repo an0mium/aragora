@@ -33,7 +33,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

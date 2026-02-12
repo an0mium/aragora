@@ -18,7 +18,8 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 from aragora.server.prometheus_control_plane import (

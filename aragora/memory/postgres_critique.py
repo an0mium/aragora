@@ -21,7 +21,8 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator
+from typing import Any
+from collections.abc import AsyncGenerator
 
 from aragora.memory.store import AgentReputation, Pattern
 

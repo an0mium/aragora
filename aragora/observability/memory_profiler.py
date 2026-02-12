@@ -35,7 +35,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Generator, TypeVar, cast
+from typing import Any, TypeVar, cast
+from collections.abc import Callable, Generator
 
 logger = logging.getLogger(__name__)
 

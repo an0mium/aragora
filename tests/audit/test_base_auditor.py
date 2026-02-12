@@ -11,7 +11,7 @@ Tests the base_auditor module that provides:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from collections.abc import Sequence
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 

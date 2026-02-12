@@ -10,7 +10,8 @@ Phase 2: Implementation design
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+from collections.abc import Callable
 
 from . import DesignResult
 

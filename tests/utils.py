@@ -6,7 +6,8 @@ Provides helper functions and context managers for test setup and teardown.
 
 import logging
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 
 logger = logging.getLogger(__name__)

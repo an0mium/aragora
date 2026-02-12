@@ -15,7 +15,8 @@ import json
 import logging
 from datetime import datetime, timezone
 import time
-from typing import TYPE_CHECKING, Any, AsyncIterator, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import AsyncIterator
 
 if TYPE_CHECKING:
     from aragora.connectors.base import ConnectorHealth
@@ -603,7 +604,7 @@ class MySQLConnector(EnterpriseConnector):
                     "binlog_cdc_enabled": self.enable_binlog_cdc,
                 },
             )
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             error_msg = str(e)
             latency_ms = (time.time() - start_time) * 1000
 

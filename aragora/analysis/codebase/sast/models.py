@@ -16,7 +16,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Coroutine
+from typing import Any
+from collections.abc import Callable, Coroutine
 
 # Type alias for progress callback
 ProgressCallback = Callable[[int, int, str], Coroutine[Any, Any, None]]

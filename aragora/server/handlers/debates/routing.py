@@ -11,7 +11,8 @@ Extracted from handler.py for modularity. Provides:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+from collections.abc import Callable
 
 from aragora.server.validation import validate_debate_id
 

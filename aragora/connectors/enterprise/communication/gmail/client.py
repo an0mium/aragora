@@ -283,7 +283,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         except (OSError, ValueError, KeyError) as e:
             logger.error(f"[Gmail] Authentication failed: {e}")
             return False
-        except Exception as e:
+        except (RuntimeError, TypeError) as e:
             logger.error(f"[Gmail] Authentication failed: {e}")
             return False
 

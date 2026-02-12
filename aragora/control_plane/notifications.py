@@ -23,7 +23,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import Callable
 
 from aragora.control_plane.channels import (
     ChannelConfig,

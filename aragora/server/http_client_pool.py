@@ -38,7 +38,8 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 

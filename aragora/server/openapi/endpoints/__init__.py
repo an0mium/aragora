@@ -68,6 +68,7 @@ from aragora.server.openapi.endpoints.computer_use import COMPUTER_USE_ENDPOINTS
 from aragora.server.openapi.endpoints.gateway import GATEWAY_ENDPOINTS
 from aragora.server.openapi.endpoints.openclaw import OPENCLAW_ENDPOINTS
 from aragora.server.openapi.endpoints.sdk_missing import SDK_MISSING_ENDPOINTS
+from aragora.server.openapi.endpoints.debate_hardening import DEBATE_HARDENING_ENDPOINTS
 
 
 import logging
@@ -154,6 +155,7 @@ ALL_ENDPOINTS = {
     **GATEWAY_ENDPOINTS,
     **OPENCLAW_ENDPOINTS,
     **SDK_MISSING_ENDPOINTS,
+    **DEBATE_HARDENING_ENDPOINTS,
 }
 
 # Deep merge decorator endpoints to preserve methods from manual definitions
@@ -226,5 +228,6 @@ __all__ = [
     "GATEWAY_ENDPOINTS",
     "OPENCLAW_ENDPOINTS",
     "SDK_MISSING_ENDPOINTS",
+    "DEBATE_HARDENING_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

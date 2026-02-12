@@ -22,7 +22,8 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, Awaitable, Optional, TypeVar, Any
+from typing import TYPE_CHECKING, Optional, TypeVar, Any
+from collections.abc import Awaitable
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.resilience import CircuitBreaker

@@ -24,7 +24,8 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+from collections.abc import Callable
 
 from aragora.server.metrics import (
     track_vector_index_batch,

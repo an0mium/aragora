@@ -24,7 +24,8 @@ import contextvars
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Generator, Optional
+from typing import Any, Optional
+from collections.abc import Generator
 
 from aragora.performance import DataLoader, BatchResolver
 

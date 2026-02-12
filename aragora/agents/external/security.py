@@ -13,7 +13,8 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from .config import ExternalAgentConfig, ToolConfig
 from .models import TaskRequest, TaskResult

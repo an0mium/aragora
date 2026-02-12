@@ -13,7 +13,8 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+from collections.abc import Callable, Coroutine
 
 # Type alias for event data
 EventData = dict[str, Any]

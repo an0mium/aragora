@@ -26,7 +26,8 @@ import logging
 import os
 import threading
 from functools import wraps
-from typing import Any, Callable, Literal, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

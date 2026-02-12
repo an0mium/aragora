@@ -16,7 +16,8 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult, Environment

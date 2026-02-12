@@ -41,7 +41,8 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Awaitable, Callable
+from typing import Any
+from collections.abc import Awaitable, Callable
 
 from aiohttp import web
 

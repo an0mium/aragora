@@ -20,7 +20,8 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Protocol, cast
+from typing import Any, Protocol, cast
+from collections.abc import Callable
 
 from aragora.computer_use.actions import (
     Action,

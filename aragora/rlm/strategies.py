@@ -16,7 +16,8 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 from .types import (
     AbstractionLevel,

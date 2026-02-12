@@ -26,7 +26,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Protocol, Callable, Awaitable
+from typing import Any, Protocol
+from collections.abc import Callable, Awaitable
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)

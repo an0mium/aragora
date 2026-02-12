@@ -32,7 +32,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator
+from collections.abc import Iterator
 
 from aragora.config import resolve_db_path
 

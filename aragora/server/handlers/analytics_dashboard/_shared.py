@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Coroutine, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Coroutine
 
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.analytics.cache import cached_analytics, cached_analytics_org

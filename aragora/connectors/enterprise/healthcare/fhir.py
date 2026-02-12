@@ -19,7 +19,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -823,7 +824,7 @@ class FHIRConnector(EnterpriseConnector):
 
                         if isinstance(client, AsyncMock):
                             use_context = False
-                    except Exception as e:
+                    except (ImportError, TypeError, AttributeError) as e:
                         logger.debug("Mock detection skipped: %s", e)
 
                     if use_context:

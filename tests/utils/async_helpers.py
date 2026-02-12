@@ -5,7 +5,8 @@ timeout handling and clear error messages.
 """
 
 import asyncio
-from typing import Any, Coroutine, Optional, TypeVar
+from typing import Any, Optional, TypeVar
+from collections.abc import Coroutine
 
 T = TypeVar("T")
 

@@ -11,7 +11,8 @@ Handles bidirectional event flow between Knowledge Mound and other subsystems:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.events.types import StreamEvent
 

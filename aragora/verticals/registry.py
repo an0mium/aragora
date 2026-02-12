@@ -7,7 +7,8 @@ Follows the same pattern as AgentRegistry for consistency.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.core_types import AgentRole
 from aragora.verticals.config import VerticalConfig

@@ -28,7 +28,8 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from .buffer import ExperienceBuffer, Step, Trajectory
 from .policy import PolicyState, RefinementPolicy, StrategyPolicy

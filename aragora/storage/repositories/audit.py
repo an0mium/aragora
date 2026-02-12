@@ -11,7 +11,8 @@ import json
 import sqlite3
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 
 class AuditRepository:

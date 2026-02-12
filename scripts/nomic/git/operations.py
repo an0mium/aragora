@@ -7,7 +7,8 @@ diff retrieval, and commit helpers.
 
 import subprocess
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import List, Optional
+from collections.abc import Callable
 
 
 def git_stash_create(repo_path: Path, log_func: Callable = print) -> str | None:

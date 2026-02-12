@@ -14,7 +14,8 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional
+from collections.abc import Callable
 
 from . import CommitResult
 

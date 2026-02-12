@@ -10,7 +10,8 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Any, Callable, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 # Pre-declare optional supabase names to avoid redefinition errors
 Client: Any = None

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import struct
-from typing import Callable
+from collections.abc import Callable
 
 from aragora.core.embeddings.types import CacheStats, EmbeddingConfig, EmbeddingResult
 from aragora.core.embeddings.cache import EmbeddingCache, get_global_cache, get_scoped_cache

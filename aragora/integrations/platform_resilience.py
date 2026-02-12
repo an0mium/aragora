@@ -22,7 +22,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable
 
 from aragora.config import resolve_db_path
 from aragora.resilience import CircuitBreaker, CircuitOpenError, get_circuit_breaker

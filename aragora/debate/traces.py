@@ -14,7 +14,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
+from collections.abc import Iterator
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult

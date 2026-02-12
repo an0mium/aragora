@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Callable
+from typing import Any
+from collections.abc import AsyncIterator, Callable
 
 from aragora.resilience.circuit_breaker_v2 import (
     BaseCircuitBreaker,

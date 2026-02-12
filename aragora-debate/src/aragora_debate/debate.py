@@ -73,7 +73,7 @@ class Debate:
             early_stopping=early_stopping,
         )
 
-    def add_agent(self, agent: Agent) -> "Debate":
+    def add_agent(self, agent: Agent) -> Debate:
         """Add an agent to the debate. Returns self for chaining."""
         self._agents.append(agent)
         return self

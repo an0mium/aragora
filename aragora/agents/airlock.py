@@ -26,7 +26,8 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote

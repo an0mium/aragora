@@ -26,7 +26,8 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.server.handlers.admin.cache import get_handler_cache
 from aragora.server.handlers.utils.params import get_int_param

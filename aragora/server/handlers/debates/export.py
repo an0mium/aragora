@@ -16,7 +16,8 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+from collections.abc import AsyncGenerator
 
 from aragora.rbac.decorators import require_permission
 from ..openapi_decorator import api_endpoint

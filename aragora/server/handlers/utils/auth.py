@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, overload, cast
+from typing import Any, Optional, TypeVar, overload, cast
+from collections.abc import Callable
 
 from aragora.rbac.models import AuthorizationContext
 

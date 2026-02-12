@@ -59,7 +59,8 @@ from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

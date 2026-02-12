@@ -16,7 +16,8 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.audit.unified import audit_admin

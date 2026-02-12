@@ -7,7 +7,8 @@ Defines the core data structure for memory entries in the Continuum Memory Syste
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 from aragora.memory.tier_manager import MemoryTier
 

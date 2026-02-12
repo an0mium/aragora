@@ -19,7 +19,8 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from aragora.gateway.openclaw_policy import (
     ActionRequest,

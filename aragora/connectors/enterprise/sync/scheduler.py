@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import Callable
 
 # Configuration constants for bounded history
 MAX_HISTORY_ENTRIES = 10_000  # Maximum sync history entries in memory

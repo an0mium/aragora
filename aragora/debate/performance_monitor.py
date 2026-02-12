@@ -31,7 +31,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 from contextlib import contextmanager
 

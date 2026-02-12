@@ -7,7 +7,7 @@ yielding SyncItem objects for orders, products, and customers.
 
 from __future__ import annotations
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import SyncItem, SyncState
 

@@ -33,7 +33,8 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+from collections.abc import AsyncGenerator, Callable
 from unittest.mock import AsyncMock, MagicMock
 
 # ============================================================================

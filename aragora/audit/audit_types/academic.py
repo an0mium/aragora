@@ -15,7 +15,8 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from aragora.audit.base_auditor import (
     AuditContext,

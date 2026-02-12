@@ -20,7 +20,8 @@ import statistics
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest

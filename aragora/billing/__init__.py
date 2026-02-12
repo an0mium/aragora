@@ -5,7 +5,8 @@ Provides user management, organization handling, subscription tiers,
 usage tracking, and Stripe integration for monetization.
 """
 
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.billing.jwt_auth import (
     JWTPayload,

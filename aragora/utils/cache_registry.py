@@ -20,7 +20,8 @@ Usage:
 
 import logging
 import threading
-from typing import Callable, TypeVar
+from typing import TypeVar
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

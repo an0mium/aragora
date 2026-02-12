@@ -11,7 +11,8 @@ import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import Any
+from collections.abc import AsyncGenerator
 
 from .config import BulkheadSettings, CircuitBreakerSettings
 from .exceptions import BulkheadFullError

@@ -14,7 +14,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Coroutine
+from typing import Any
+from collections.abc import Callable, Coroutine
 
 logger = logging.getLogger(__name__)
 

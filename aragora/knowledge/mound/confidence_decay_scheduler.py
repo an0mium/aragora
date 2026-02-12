@@ -31,7 +31,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound

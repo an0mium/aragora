@@ -8,7 +8,8 @@ Provides metrics for RLM compression, queries, caching, and refinement.
 import logging
 import time
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

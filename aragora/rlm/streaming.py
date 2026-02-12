@@ -26,11 +26,10 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncGenerator,
-    Callable,
     Optional,
     TypeVar,
 )
+from collections.abc import AsyncGenerator, Callable
 
 if TYPE_CHECKING:
     from aragora.rlm.types import RLMContext

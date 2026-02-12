@@ -18,7 +18,8 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Generator, Optional
+from typing import Any, Optional
+from collections.abc import Generator
 
 from aragora.config import resolve_db_path
 

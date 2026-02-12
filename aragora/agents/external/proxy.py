@@ -13,7 +13,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncIterator, Callable
 
 from .base import ExternalAgentAdapter
 from .models import (

@@ -13,7 +13,8 @@ import hashlib
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Set
+from typing import Any, List, Optional, Set
+from collections.abc import Callable
 
 from . import ImplementResult
 from .scope_limiter import ScopeLimiter, ScopeEvaluation

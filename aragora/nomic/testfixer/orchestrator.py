@@ -20,7 +20,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Awaitable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Awaitable
 
 if TYPE_CHECKING:
     from typing import TypeAlias

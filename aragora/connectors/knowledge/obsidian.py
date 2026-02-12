@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator
+from typing import Any
+from collections.abc import AsyncIterator, Iterator
 
 import yaml
 

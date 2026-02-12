@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import builtins
 import logging
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncIterator, Iterator
 
 from ..models import (
     ConsensusType,

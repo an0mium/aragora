@@ -35,7 +35,8 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, Coroutine, TypeVar, ParamSpec, cast
+from typing import Any, TypeVar, ParamSpec, cast
+from collections.abc import Callable, Coroutine
 
 from .checker import get_permission_checker, PermissionChecker
 from .models import AuthorizationContext, AuthorizationDecision

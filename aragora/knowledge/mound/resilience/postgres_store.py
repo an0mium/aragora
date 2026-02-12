@@ -6,7 +6,8 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 
 from aragora.knowledge.mound.resilience.cache_invalidation import get_invalidation_bus
 from aragora.knowledge.mound.resilience.health import ConnectionHealthMonitor

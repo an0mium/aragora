@@ -18,7 +18,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import (

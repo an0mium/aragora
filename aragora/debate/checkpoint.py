@@ -27,7 +27,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 # Git-safe ID pattern: alphanumeric, dash, underscore only (no path traversal or special chars)
 SAFE_CHECKPOINT_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$")

@@ -7,7 +7,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 # Type aliases for optional dependencies
 _RedisClientGetter = Callable[[], Any]
@@ -39,7 +40,7 @@ else:
         # Simple fallback that doesn't provide true timeout context manager
         # but allows the code to run - actual timeout handled by wait_for
         from contextlib import asynccontextmanager
-        from typing import AsyncIterator
+        from collections.abc import AsyncIterator
 
         @asynccontextmanager
         async def _asyncio_timeout(delay: float) -> AsyncIterator[None]:

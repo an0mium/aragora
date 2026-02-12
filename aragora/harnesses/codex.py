@@ -12,7 +12,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 from uuid import uuid4
 
 from aragora.harnesses.base import (

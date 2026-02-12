@@ -63,12 +63,11 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Optional,
     ParamSpec,
     TypeVar,
 )
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from aragora.resilience.circuit_breaker import CircuitBreaker

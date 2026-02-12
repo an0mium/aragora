@@ -20,7 +20,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from collections.abc import Awaitable
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
+from collections.abc import Callable
 
 from aragora.documents.indexing.weaviate_store import (
     WeaviateStore,

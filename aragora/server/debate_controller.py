@@ -13,7 +13,8 @@ import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.config import (
     DEBATE_TIMEOUT_SECONDS,

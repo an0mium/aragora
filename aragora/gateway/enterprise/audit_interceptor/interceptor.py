@@ -13,7 +13,8 @@ import json
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 from uuid import uuid4
 
 from .enums import AuditEventType

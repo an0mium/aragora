@@ -26,7 +26,8 @@ import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional
+from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,8 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Optional
+from collections.abc import Callable, Coroutine
 
 from .models import (
     Canvas,

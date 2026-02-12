@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from aragora.ranking.snapshot import (
     read_snapshot_leaderboard,

@@ -18,7 +18,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.connectors.exceptions import (

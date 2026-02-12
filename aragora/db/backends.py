@@ -22,7 +22,8 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generator, Protocol
+from typing import Any, Protocol
+from collections.abc import Generator
 
 from aragora.config import resolve_db_path
 from aragora.exceptions import ConfigurationError

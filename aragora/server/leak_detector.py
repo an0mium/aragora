@@ -30,7 +30,8 @@ import time
 import traceback
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Iterator
+from typing import Any
+from collections.abc import AsyncIterator, Iterator
 
 logger = logging.getLogger(__name__)
 

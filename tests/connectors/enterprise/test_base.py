@@ -19,7 +19,8 @@ import hmac
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

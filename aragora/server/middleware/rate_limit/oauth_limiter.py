@@ -48,7 +48,8 @@ import threading
 import time
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+from collections.abc import Callable
 
 from .limiter import RateLimitResult
 

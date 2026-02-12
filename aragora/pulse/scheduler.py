@@ -23,7 +23,8 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Coroutine, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import Callable, Coroutine
 
 from aragora.exceptions import ConfigurationError
 from aragora.pulse.ingestor import PulseManager, TrendingTopic

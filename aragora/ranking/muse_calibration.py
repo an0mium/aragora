@@ -11,7 +11,8 @@ estimates than full ensemble averaging or single-model confidence.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Any, Sequence
+from typing import Optional, Any
+from collections.abc import Sequence
 from itertools import combinations
 import logging
 

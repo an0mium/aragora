@@ -19,7 +19,8 @@ import hashlib
 import logging
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from .config import AttackCategory, GauntletConfig, ProbeCategory
 from .result import (

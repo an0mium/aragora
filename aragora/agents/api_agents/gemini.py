@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 import re
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import aiohttp
 

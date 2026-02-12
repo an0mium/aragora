@@ -15,7 +15,8 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
+from collections.abc import Iterator
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.persistence.db_config import DatabaseType, get_db_path

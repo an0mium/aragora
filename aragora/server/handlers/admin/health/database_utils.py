@@ -15,7 +15,8 @@ from __future__ import annotations
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

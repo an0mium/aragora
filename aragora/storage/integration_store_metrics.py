@@ -25,7 +25,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     pass

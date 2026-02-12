@@ -44,7 +44,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, AsyncIterator, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import AsyncIterator, Sequence
 
 from aragora.config import MAX_CONCURRENT_STREAMING
 

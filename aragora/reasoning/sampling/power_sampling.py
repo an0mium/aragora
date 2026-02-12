@@ -27,7 +27,8 @@ import asyncio
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
+from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 

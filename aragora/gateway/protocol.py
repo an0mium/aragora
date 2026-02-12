@@ -17,7 +17,8 @@ import logging
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.gateway.persistence import GatewayStore
 from aragora.gateway.server import GatewayConfig, LocalGateway

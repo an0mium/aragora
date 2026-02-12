@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.core import Critique

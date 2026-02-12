@@ -10,7 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Awaitable, Optional
+from typing import Any, Optional
+from collections.abc import Awaitable
 from urllib.parse import parse_qs
 
 

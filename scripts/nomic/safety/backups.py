@@ -10,7 +10,8 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import List, Optional
+from collections.abc import Callable
 
 from .checksums import PROTECTED_FILES
 

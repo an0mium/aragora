@@ -37,7 +37,8 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -434,7 +435,7 @@ def measure_sync(
 
     try:
         yield context
-    except BaseException as e:
+    except BaseException as e:  # Intentionally broad: records metrics for all failure types before re-raising
         context["status"] = "failure"
         error_type = type(e).__name__
         record_sync_error(connector_type, error_type)

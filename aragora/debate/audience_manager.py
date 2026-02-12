@@ -14,7 +14,8 @@ import logging
 import queue
 import threading
 from collections import deque
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional
+from collections.abc import Callable
 
 from aragora.config import USER_EVENT_QUEUE_SIZE
 

@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval
 from aragora.workflow.step import BaseStep, WorkflowContext

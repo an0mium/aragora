@@ -5,7 +5,7 @@ OpenRouter agent and provider-specific subclasses.
 import asyncio
 import logging
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import aiohttp
 

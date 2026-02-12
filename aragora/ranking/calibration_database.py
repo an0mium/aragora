@@ -11,7 +11,7 @@ import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.schema import DatabaseManager

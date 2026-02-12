@@ -19,7 +19,8 @@ __all__ = [
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 from aragora.config import (
     AGENT_TIMEOUT_SECONDS,

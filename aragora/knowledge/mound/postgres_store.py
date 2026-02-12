@@ -13,7 +13,8 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Optional, cast
+from typing import Any, Optional, cast
+from collections.abc import AsyncIterator
 
 from aragora.knowledge.mound.types import (
     AccessGrant,

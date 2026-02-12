@@ -13,7 +13,8 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Callable, NewType, TypeAlias, TypeVar
+from typing import Any, NewType, TypeAlias, TypeVar
+from collections.abc import Callable
 
 # === Semantic String Types ===
 # Use NewType for strings with specific meaning to catch type errors

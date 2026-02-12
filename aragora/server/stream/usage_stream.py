@@ -31,7 +31,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)

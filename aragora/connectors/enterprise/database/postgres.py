@@ -14,7 +14,8 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -357,7 +358,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                         # Update cursor
                         state.cursor = f"{table}:{pk_value}"
 
-            except Exception as e:
+            except Exception as e:  # Intentionally broad: must continue sync with remaining tables
                 # Catch all exceptions to ensure sync continues with remaining tables
                 # This handles connection errors, query failures, data conversion issues, etc.
                 logger.warning(f"Failed to sync table {table}: {e}")

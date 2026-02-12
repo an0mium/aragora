@@ -30,7 +30,8 @@ import threading
 import time
 from collections import OrderedDict
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

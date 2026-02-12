@@ -19,7 +19,8 @@ import json
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
+from collections.abc import Sequence
 
 # Observability
 from aragora.observability import (

@@ -8,7 +8,8 @@ system, enabling real-time WebSocket broadcasts of debate events.
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Callable, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from aragora.debate.hooks import HookManager
 from aragora.events.context import get_current_task_id, streaming_task_context

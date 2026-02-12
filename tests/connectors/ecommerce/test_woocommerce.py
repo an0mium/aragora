@@ -26,7 +26,8 @@ import hashlib
 import hmac
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

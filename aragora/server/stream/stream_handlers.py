@@ -22,7 +22,8 @@ import json
 import logging
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 import aiohttp.web as web
 

@@ -13,9 +13,9 @@ import time
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Optional,
 )
+from collections.abc import Callable
 
 from aragora.control_plane.health import HealthCheck, HealthStatus
 from aragora.control_plane.registry import (

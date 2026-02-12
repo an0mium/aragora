@@ -17,7 +17,8 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Optional
+from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -605,7 +606,7 @@ class SnowflakeConnector(EnterpriseConnector):
             rows = await self._async_query(query)
             if rows:
                 return rows[0]
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to get stats for {table}: {e}")
 
         return {"row_count": 0, "max_id": None}

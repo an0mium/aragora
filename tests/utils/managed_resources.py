@@ -6,7 +6,8 @@ are properly closed even when tests fail or hang.
 
 import logging
 from contextlib import contextmanager
-from typing import Any, Callable, Generator, Optional, TypeVar
+from typing import Any, Optional, TypeVar
+from collections.abc import Callable, Generator
 
 logger = logging.getLogger(__name__)
 

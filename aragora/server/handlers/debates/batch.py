@@ -8,7 +8,8 @@ status checking, and queue management.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+from collections.abc import Callable
 
 from aragora.exceptions import DebateStartError
 from aragora.server.validation.entities import SAFE_ID_PATTERN, validate_path_segment

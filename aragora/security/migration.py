@@ -17,7 +17,8 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional, cast
+from typing import Any, Optional, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

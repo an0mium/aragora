@@ -15,7 +15,8 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,

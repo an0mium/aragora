@@ -8,7 +8,8 @@ of sequential rounds. Agents form nodes connected by argument edges.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Callable, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     pass

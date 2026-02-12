@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Optional
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from aragora.debate.disagreement import DisagreementReport

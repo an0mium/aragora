@@ -25,7 +25,8 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from collections.abc import Awaitable, Callable
 
 from aragora.tenancy.context import (
     TenantNotSetError,

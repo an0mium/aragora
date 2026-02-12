@@ -22,7 +22,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, List, Optional, Set
+from typing import Any, List, Optional, Set
+from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 

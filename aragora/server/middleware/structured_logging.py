@@ -36,7 +36,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Generator, Optional
+from typing import Any, Optional
+from collections.abc import Generator
 
 # Context variables for log context propagation
 _log_context: ContextVar[dict[str, Any]] = ContextVar("log_context", default={})

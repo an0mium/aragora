@@ -16,7 +16,7 @@ across both legacy HTTP and FastAPI servers.
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware

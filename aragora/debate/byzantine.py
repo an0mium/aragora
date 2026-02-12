@@ -46,7 +46,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING, Optional
+from collections.abc import Sequence
 
 from aragora.debate.config.defaults import DEBATE_DEFAULTS
 

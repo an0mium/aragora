@@ -14,7 +14,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
+from collections.abc import Callable
 
 from aragora.knowledge.embeddings import (
     ChunkMatch,

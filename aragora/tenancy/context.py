@@ -22,14 +22,13 @@ from functools import wraps
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Optional,
     ParamSpec,
     TypeVar,
     cast,
     overload,
 )
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from aragora.tenancy.tenant import Tenant

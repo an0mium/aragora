@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from collections.abc import Callable
 
     _RecordFunc = Callable[[str, str], None]
 

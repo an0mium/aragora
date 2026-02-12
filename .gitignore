@@ -100,6 +100,10 @@ exports/
 aragora/**/CLAUDE.md
 scripts/CLAUDE.md
 
+# Generated Claude context files (avoid committing new ones)
+**/CLAUDE.md
+!CLAUDE.md
+
 # Environment files (security - never commit secrets)
 **/.env
 **/.env.local
@@ -136,6 +140,7 @@ aragora/live/playwright/.cache/
 .nomic/eval/
 .nomic/replays/
 .nomic/sessions/
+.nomic/sync_state/
 .nomic/visualizations/
 .nomic/*.db
 .nomic/*.db-journal

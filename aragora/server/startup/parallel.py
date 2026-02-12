@@ -28,7 +28,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Callable, Coroutine
 
 logger = logging.getLogger(__name__)
 

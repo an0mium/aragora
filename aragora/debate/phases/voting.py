@@ -21,7 +21,8 @@ __all__ = [
 import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.core import Vote

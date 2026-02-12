@@ -44,11 +44,10 @@ from enum import Enum, IntEnum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Coroutine,
     Optional,
     Protocol,
 )
+from collections.abc import Callable, Coroutine
 
 if TYPE_CHECKING:
     from aragora.audit.types import AuditFinding

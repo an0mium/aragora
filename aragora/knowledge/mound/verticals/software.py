@@ -18,7 +18,8 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from aragora.knowledge.mound.verticals.base import (
     BaseVerticalKnowledge,

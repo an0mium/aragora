@@ -34,7 +34,8 @@ import time
 from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Callable
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.config import resolve_db_path

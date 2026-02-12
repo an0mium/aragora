@@ -8,7 +8,7 @@ or web-related keywords are detected in the prompt.
 import asyncio
 import logging
 import re
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.core_types import AgentRole

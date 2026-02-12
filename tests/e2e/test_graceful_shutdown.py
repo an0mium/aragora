@@ -14,7 +14,8 @@ from __future__ import annotations
 import asyncio
 import signal
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
+from collections.abc import Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

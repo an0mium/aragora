@@ -28,7 +28,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import List, Optional
+from collections.abc import Callable
 
 logging.basicConfig(
     level=logging.WARNING,

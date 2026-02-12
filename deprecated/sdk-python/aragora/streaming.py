@@ -13,13 +13,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import (
     Any,
-    AsyncGenerator,
     Callable,
     Dict,
     List,
     Optional,
     TypeVar,
 )
+from collections.abc import AsyncGenerator
 
 logger = logging.getLogger(__name__)
 

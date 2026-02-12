@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 from aragora.core import Agent, DebateResult, Environment

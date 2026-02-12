@@ -368,25 +368,27 @@ class AuditingHandler(SecureHandler):
 
         Note: These endpoints require POST with request body, which handler provides.
         """
-        if path == "/api/v1/debates/capability-probe":
-            return self._run_capability_probe(handler)
+        from aragora.rbac.decorators import PermissionDeniedError
 
-        if path == "/api/v1/debates/deep-audit":
-            return self._run_deep_audit(handler)
+        try:
+            if path == "/api/v1/debates/capability-probe":
+                return self._run_capability_probe(handler)
 
-        if path == "/api/v1/redteam/attack-types":
-            return self._get_attack_types()
+            if path == "/api/v1/debates/deep-audit":
+                return self._run_deep_audit(handler)
 
-        if path.startswith("/api/v1/debates/") and path.endswith("/red-team"):
-            # Path: /api/v1/debates/{debate_id}/red-team
-            # Split: ["", "api", "v1", "debates", "{debate_id}", "red-team"]
-            # Index 4 contains the debate_id
-            debate_id, err = self.extract_path_param(path, 4, "debate_id", SAFE_SLUG_PATTERN)
-            if err:
-                return err
-            return self._run_red_team_analysis(debate_id, handler)
+            if path == "/api/v1/redteam/attack-types":
+                return self._get_attack_types()
 
-        return None
+            if path.startswith("/api/v1/debates/") and path.endswith("/red-team"):
+                debate_id, err = self.extract_path_param(path, 4, "debate_id", SAFE_SLUG_PATTERN)
+                if err:
+                    return err
+                return self._run_red_team_analysis(debate_id, handler)
+
+            return None
+        except PermissionDeniedError as exc:
+            return self.handle_security_error(exc, handler)
 
     def _get_attack_types(self) -> HandlerResult:
         """Get available red team attack types metadata.
