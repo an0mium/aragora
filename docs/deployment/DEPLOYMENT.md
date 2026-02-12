@@ -92,15 +92,15 @@ curl -H "Authorization: Bearer $TOKEN" https://your-domain/api/v1/agents
 First, create your secrets file from the template:
 
 ```bash
-cp deploy/k8s/secret.yaml deploy/k8s/secret-local.yaml
+cp deploy/kubernetes/secret.yaml deploy/kubernetes/secret-local.yaml
 # Edit with your actual values
-vim deploy/k8s/secret-local.yaml
+vim deploy/kubernetes/secret-local.yaml
 ```
 
 For production, use [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets):
 
 ```bash
-kubeseal --format yaml < deploy/k8s/secret-local.yaml > deploy/k8s/sealed-secret.yaml
+kubeseal --format yaml < deploy/kubernetes/secret-local.yaml > deploy/kubernetes/sealed-secret.yaml
 ```
 
 ### 2. Build and Push Docker Image
@@ -115,7 +115,7 @@ docker push your-registry/aragora:latest
 
 ### 3. Update Kustomization
 
-Edit `deploy/k8s/kustomization.yaml`:
+Edit `deploy/kubernetes/kustomization.yaml`:
 
 ```yaml
 images:
@@ -128,7 +128,7 @@ images:
 
 ```bash
 # Apply all resources
-kubectl apply -k deploy/k8s/
+kubectl apply -k deploy/kubernetes/
 
 # Watch rollout
 kubectl -n aragora rollout status deployment/aragora
@@ -139,7 +139,7 @@ kubectl -n aragora get pods
 
 ### 5. Configure Ingress
 
-Edit `deploy/k8s/ingress.yaml` with your domain:
+Edit `deploy/kubernetes/ingress.yaml` with your domain:
 
 ```yaml
 spec:
@@ -179,10 +179,10 @@ The `cert-manager.yaml` file includes three issuers:
 
 ```bash
 # Update email in cert-manager.yaml first
-vim deploy/k8s/cert-manager.yaml  # Change admin@aragora.ai to your email
+vim deploy/kubernetes/cert-manager.yaml  # Change admin@aragora.ai to your email
 
 # Apply ClusterIssuers
-kubectl apply -f deploy/k8s/cert-manager.yaml
+kubectl apply -f deploy/kubernetes/cert-manager.yaml
 ```
 
 #### Configure Ingress for TLS
@@ -190,7 +190,7 @@ kubectl apply -f deploy/k8s/cert-manager.yaml
 The ingress is already configured to use cert-manager. Update the domain:
 
 ```yaml
-# deploy/k8s/ingress.yaml
+# deploy/kubernetes/ingress.yaml
 metadata:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"  # or letsencrypt-staging for testing
@@ -246,7 +246,7 @@ For production multi-instance deployments, PostgreSQL is required instead of SQL
 
 ```bash
 # Apply PostgreSQL resources
-kubectl apply -f deploy/k8s/postgres-statefulset.yaml
+kubectl apply -f deploy/kubernetes/postgres-statefulset.yaml
 
 # Wait for PostgreSQL to be ready
 kubectl -n aragora wait --for=condition=ready pod postgres-0 --timeout=120s
@@ -283,7 +283,7 @@ For PostgreSQL deployments, run migrations before starting the application:
 
 ```bash
 # Option 1: Manual migration (before first deploy)
-kubectl apply -f deploy/k8s/migration-job.yaml
+kubectl apply -f deploy/kubernetes/migration-job.yaml
 kubectl -n aragora wait --for=condition=complete job/aragora-migrate --timeout=120s
 kubectl -n aragora logs job/aragora-migrate
 
@@ -291,7 +291,7 @@ kubectl -n aragora logs job/aragora-migrate
 # The migration job has PreSync hook annotations - runs automatically before each sync
 
 # Check migration status
-kubectl apply -f deploy/k8s/migration-job.yaml --dry-run=client -o yaml | \
+kubectl apply -f deploy/kubernetes/migration-job.yaml --dry-run=client -o yaml | \
   grep -A 100 'name: aragora-migrate-status' | kubectl apply -f -
 kubectl -n aragora logs job/aragora-migrate-status
 ```
@@ -600,8 +600,8 @@ The HA deployment uses Redis for:
 Deploy Redis:
 
 ```bash
-kubectl apply -f deploy/k8s/redis/statefulset.yaml
-kubectl apply -f deploy/k8s/redis/service.yaml
+kubectl apply -f deploy/kubernetes/redis/statefulset.yaml
+kubectl apply -f deploy/kubernetes/redis/service.yaml
 ```
 
 For Redis HA in production, consider:
@@ -713,7 +713,7 @@ Aragora enforces Kubernetes Pod Security Standards at the **restricted** level f
 
 ### Namespace Configuration
 
-The aragora namespace (`deploy/k8s/namespace.yaml`) enforces PSS with the following labels:
+The aragora namespace (`deploy/kubernetes/namespace.yaml`) enforces PSS with the following labels:
 
 ```yaml
 metadata:

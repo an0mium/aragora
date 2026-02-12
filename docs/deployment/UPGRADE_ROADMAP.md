@@ -292,7 +292,7 @@ kubectl rollout undo deployment/aragora -n aragora
 kubectl rollout status deployment/aragora -n aragora
 
 # Run migration rollback job if needed
-kubectl apply -f deploy/k8s/migration-job.yaml
+kubectl apply -f deploy/kubernetes/migration-job.yaml
 ```
 
 ### Database Migration Rollback

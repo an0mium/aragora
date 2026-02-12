@@ -20,7 +20,7 @@ This document covers PostgreSQL high availability configurations for Aragora pro
 
 ### Current State
 
-The default Kubernetes deployment (`deploy/k8s/postgres-statefulset.yaml`) uses a single-replica PostgreSQL StatefulSet. This is **for development/testing only** and is NOT suitable for production.
+The default Kubernetes deployment (`deploy/kubernetes/postgres-statefulset.yaml`) uses a single-replica PostgreSQL StatefulSet. This is **for development/testing only** and is NOT suitable for production.
 
 **Critical Issues with Single-Replica:**
 - Single point of failure - any Pod failure causes complete data unavailability
@@ -160,7 +160,7 @@ kubectl wait --for=condition=Available deployment/cnpg-controller-manager \
 
 ### Cluster Configuration
 
-Create `deploy/k8s/cnpg-cluster.yaml`:
+Create `deploy/kubernetes/cnpg-cluster.yaml`:
 
 ```yaml
 apiVersion: postgresql.cnpg.io/v1
@@ -265,7 +265,7 @@ kubectl create secret generic postgres-backup-creds \
   --from-literal=SECRET_ACCESS_KEY=<your-secret-key>
 
 # Apply cluster configuration
-kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+kubectl apply -f deploy/kubernetes/cnpg-cluster.yaml
 
 # Wait for cluster to be ready
 kubectl wait cluster/aragora-postgres \

@@ -69,7 +69,7 @@ Aragora implements controls for:
 
 | Control | Implementation | Evidence |
 |---------|----------------|----------|
-| CC7.1 - Infrastructure protection | `deploy/k8s/` | Kubernetes network policies |
+| CC7.1 - Infrastructure protection | `deploy/kubernetes/` | Kubernetes network policies |
 | CC7.2 - Change detection | Git version control | All changes tracked |
 | CC7.3 - Change management | `.github/workflows/test.yml` | CI/CD pipeline with tests |
 | CC7.4 - Incident response | `docs/ALERT_RUNBOOKS.md` | Documented incident procedures |
@@ -80,7 +80,7 @@ Aragora implements controls for:
 | Control | Implementation | Evidence |
 |---------|----------------|----------|
 | CC8.1 - Change authorization | GitHub PRs required | Branch protection rules |
-| CC8.2 - Configuration management | `deploy/k8s/configmap.yaml` | Versioned configurations |
+| CC8.2 - Configuration management | `deploy/kubernetes/configmap.yaml` | Versioned configurations |
 | CC8.3 - Emergency changes | Documented in ADR | Architecture Decision Records |
 
 ### CC9: Risk Mitigation
@@ -96,7 +96,7 @@ Aragora implements controls for:
 
 | Control | Implementation | Evidence |
 |---------|----------------|----------|
-| A1.1 - Capacity management | `deploy/k8s/hpa.yaml` | Horizontal pod autoscaling |
+| A1.1 - Capacity management | `deploy/kubernetes/hpa.yaml` | Horizontal pod autoscaling |
 | A1.2 - Environmental protection | Cloud infrastructure | AWS/GCP/Azure deployment |
 | A1.3 - Recovery operations | `aragora/backup/manager.py` | Incremental backups |
 

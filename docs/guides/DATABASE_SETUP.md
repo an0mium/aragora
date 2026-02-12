@@ -75,7 +75,7 @@ Simple deployment with PostgreSQL:
 For Kubernetes deployments, you can use the provided Redis StatefulSet as a template:
 
 ```yaml
-# deploy/k8s/postgres/statefulset.yaml (example)
+# deploy/kubernetes/postgres/statefulset.yaml (example)
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -191,7 +191,7 @@ psql $DATABASE_URL < dump.sql
 For managed PostgreSQL in Kubernetes, use External Secrets Operator:
 
 ```yaml
-# deploy/k8s/external-secrets/database-secret.yaml
+# deploy/kubernetes/external-secrets/database-secret.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
@@ -213,7 +213,7 @@ spec:
 ### ConfigMap for Non-Secret Settings
 
 ```yaml
-# deploy/k8s/configmap.yaml
+# deploy/kubernetes/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:

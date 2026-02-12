@@ -68,7 +68,7 @@ kubectl create secret generic aragora-secrets \
 Reference in deployment:
 
 ```yaml
-# deploy/k8s/deployment.yaml
+# deploy/kubernetes/deployment.yaml
 spec:
   containers:
     - name: aragora
@@ -89,7 +89,7 @@ brew install kubeseal
 kubectl create secret generic aragora-secrets \
   --from-literal=ANTHROPIC_API_KEY=sk-ant-... \
   --dry-run=client -o yaml | \
-  kubeseal --format=yaml > deploy/k8s/sealed-secrets.yaml
+  kubeseal --format=yaml > deploy/kubernetes/sealed-secrets.yaml
 ```
 
 The sealed secret can be safely committed to Git.
@@ -99,7 +99,7 @@ The sealed secret can be safely committed to Git.
 For pulling secrets from external providers:
 
 ```yaml
-# deploy/k8s/external-secret.yaml
+# deploy/kubernetes/external-secret.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
@@ -127,7 +127,7 @@ spec:
 Direct Vault integration:
 
 ```yaml
-# deploy/k8s/deployment.yaml
+# deploy/kubernetes/deployment.yaml
 spec:
   template:
     metadata:

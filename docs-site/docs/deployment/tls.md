@@ -113,7 +113,7 @@ kubectl apply -f cluster-issuer-staging.yaml
 The Aragora ingress already includes cert-manager annotations:
 
 ```yaml
-# deploy/k8s/ingress.yaml (excerpt)
+# deploy/kubernetes/ingress.yaml (excerpt)
 metadata:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
@@ -128,10 +128,10 @@ spec:
 
 ```bash
 # Update hostname
-sed -i 's/aragora.example.com/your-domain.com/g' deploy/k8s/ingress.yaml
+sed -i 's/aragora.example.com/your-domain.com/g' deploy/kubernetes/ingress.yaml
 
 # Apply
-kubectl apply -f deploy/k8s/ingress.yaml -n aragora
+kubectl apply -f deploy/kubernetes/ingress.yaml -n aragora
 
 # Check certificate status
 kubectl get certificate -n aragora

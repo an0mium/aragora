@@ -24,10 +24,10 @@ helm install external-secrets external-secrets/external-secrets \
   -n external-secrets --create-namespace
 
 # 2. Configure your secret backend (AWS, Vault, GCP, etc.)
-kubectl apply -f deploy/k8s/external-secrets/cluster-secret-store.yaml
+kubectl apply -f deploy/kubernetes/external-secrets/cluster-secret-store.yaml
 
 # 3. Create ExternalSecret to sync secrets
-kubectl apply -f deploy/k8s/external-secrets/aragora-secrets.yaml
+kubectl apply -f deploy/kubernetes/external-secrets/aragora-secrets.yaml
 ```
 
 ## Required Secrets
@@ -109,7 +109,7 @@ eksctl create iamserviceaccount \
 3. **Apply ClusterSecretStore**:
 
 ```yaml
-# deploy/k8s/external-secrets/cluster-secret-store.yaml
+# deploy/kubernetes/external-secrets/cluster-secret-store.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ClusterSecretStore
 metadata:

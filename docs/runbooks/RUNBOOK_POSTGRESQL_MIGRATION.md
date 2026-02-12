@@ -237,7 +237,7 @@ SELECT 'elo_ratings', COUNT(*) FROM elo_ratings;
 
 ```yaml
 # Kubernetes deployment strategy
-# deploy/k8s/postgres-migration.yaml
+# deploy/kubernetes/postgres-migration.yaml
 
 apiVersion: apps/v1
 kind: Deployment

@@ -108,7 +108,7 @@ helm install external-secrets external-secrets/external-secrets \
   -n external-secrets --create-namespace
 
 # Apply ClusterSecretStore
-kubectl apply -f deploy/k8s/external-secrets/cluster-secret-store.yaml
+kubectl apply -f deploy/kubernetes/external-secrets/cluster-secret-store.yaml
 ```
 
 #### Option B: Kubernetes Secrets (Development)

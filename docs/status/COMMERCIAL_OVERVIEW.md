@@ -123,7 +123,7 @@ Aragora is built on five architectural commitments that together produce somethi
 ### Deployment Readiness
 
 - Docker container with non-root user
-- Kubernetes manifests in `/deploy/k8s/`
+- Kubernetes manifests in `/deploy/kubernetes/`
 - Health checks and readiness probes
 - Prometheus metrics endpoint
 - Grafana dashboards included

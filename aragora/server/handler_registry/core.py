@@ -634,6 +634,7 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
         # ABCs and aliased handlers (registered under different names)
         "GauntletSecureHandler",
         "IntelligenceHandler",
+        "IntegrationsHandler",
     }
 
     handler_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "handlers")

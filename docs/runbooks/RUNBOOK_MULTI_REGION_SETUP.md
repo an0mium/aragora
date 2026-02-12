@@ -194,7 +194,7 @@ sentinel parallel-syncs aragora-redis 1
 ### 4.1 Kubernetes Deployment per Region
 
 ```yaml
-# deploy/k8s/multi-region/us-east-1.yaml
+# deploy/kubernetes/multi-region/us-east-1.yaml
 
 apiVersion: apps/v1
 kind: Deployment
