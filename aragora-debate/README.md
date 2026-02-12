@@ -1,10 +1,18 @@
+[![PyPI version](https://img.shields.io/pypi/v/aragora-debate)](https://pypi.org/project/aragora-debate/)
+[![Python 3.10+](https://img.shields.io/pypi/pyversions/aragora-debate)](https://pypi.org/project/aragora-debate/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/tests-235%20passing-brightgreen)]()
+
 # aragora-debate
 
-Adversarial multi-model debate engine with decision receipts.
+**Adversarial multi-model debate engine with decision receipts. Zero required dependencies.**
 
 One model's opinion isn't enough when the decision matters. `aragora-debate`
 orchestrates structured adversarial debates across multiple LLM providers,
 detects consensus, tracks dissent, and produces cryptographic decision receipts.
+
+> Part of the [Aragora Decision Integrity Platform](https://github.com/aragora/aragora).
+> This standalone package gives you the debate engine with no framework lock-in.
 
 ## Why adversarial debate?
 
@@ -354,6 +362,13 @@ Decision receipts help satisfy:
 See [EU_AI_ACT_COMPLIANCE.md](https://github.com/aragora/aragora/blob/main/docs/EU_AI_ACT_COMPLIANCE.md)
 for the full mapping.
 
+## Full platform
+
+`aragora-debate` is the standalone debate engine extracted from the
+[Aragora Decision Integrity Platform](https://github.com/aragora/aragora).
+The full platform adds 30+ agent types, knowledge management, enterprise auth,
+compliance frameworks, and the Nomic Loop for autonomous self-improvement.
+
 ## License
 
-MIT
+MIT -- see [LICENSE](LICENSE) for details.

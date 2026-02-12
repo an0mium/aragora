@@ -1,214 +1,297 @@
-# Aragora and the EU AI Act: Compliance Mapping
+# EU AI Act Compliance with Aragora
 
-> **TL;DR**: The EU AI Act (Regulation 2024/1689) requires audit trails, transparency,
-> human oversight, and risk management for high-risk AI systems. Enforcement begins
-> August 2, 2026. Aragora provides the open-source infrastructure to satisfy these
-> requirements — self-hosted, vendor-neutral, and auditable.
-
-## Regulatory Timeline
-
-| Date | Milestone |
-|------|-----------|
-| August 1, 2024 | EU AI Act entered into force |
-| February 2, 2025 | Prohibitions on unacceptable-risk AI apply |
-| August 2, 2025 | Governance rules and obligations for general-purpose AI apply |
-| **August 2, 2026** | **Full enforcement for high-risk AI systems** |
-| August 2, 2027 | Obligations for high-risk AI in Annex I apply |
-
-**The clock is ticking.** Organizations deploying AI for high-risk decisions have
-until August 2, 2026 to implement compliant audit trails, transparency mechanisms,
-and human oversight.
+> **Enforcement date: August 2, 2026.**
+> Organizations deploying high-risk AI systems in the EU must demonstrate
+> audit trails, transparency, human oversight, and risk management --
+> or face penalties of up to EUR 35 million or 7% of global annual revenue.
+>
+> Aragora generates the compliance artifacts you need. Today.
 
 ---
 
-## High-Risk AI Systems (Article 6 + Annex III)
+## 1. EU AI Act Overview
 
-The EU AI Act classifies the following as **high-risk**, requiring full compliance:
+The **EU AI Act** (Regulation 2024/1689) is the world's first comprehensive
+AI regulation. It applies to any organization that places AI systems on the
+EU market or deploys AI that affects people in the EU -- regardless of where
+the organization is headquartered.
 
-| Domain | Examples | Aragora Relevance |
-|--------|----------|------------------|
-| Employment & HR | AI-assisted hiring, promotion, termination decisions | Debate engine for hiring decisions with dissent tracking |
-| Credit & Finance | Creditworthiness assessment, risk scoring | Adversarial vetting of financial risk models |
-| Critical Infrastructure | Energy, water, transport management | Decision receipts for infrastructure changes |
-| Education | Student assessment, admission decisions | Transparent scoring with explainability |
-| Law Enforcement | Predictive policing, evidence evaluation | Full audit trail with provenance |
-| Migration & Border | Visa/asylum application processing | Human oversight with calibrated confidence |
-| Justice & Democracy | Judicial decision support | Adversarial debate with belief network analysis |
+### Who is affected
 
----
+- Any company deploying AI for decisions that impact EU citizens
+- AI providers selling into the EU market
+- Organizations using AI in any of the 8 Annex III high-risk categories
+- U.S., UK, and APAC companies with EU customers or employees
 
-## EU AI Act Requirements vs. Aragora Capabilities
+### What it requires for high-risk AI systems
 
-### Article 9: Risk Management System
+High-risk AI systems (Article 6 + Annex III) must implement:
 
-> *"A risk management system shall be established, implemented, documented and
-> maintained in relation to high-risk AI systems."*
+1. **Risk management** (Art. 9) -- continuous identification and mitigation of risks
+2. **Data governance** (Art. 10) -- quality controls on training and reference data
+3. **Technical documentation** (Art. 11) -- pre-market documentation, kept current
+4. **Record-keeping** (Art. 12) -- automatic event logging over the system lifetime
+5. **Transparency** (Art. 13) -- interpretable output with known limitations
+6. **Human oversight** (Art. 14) -- effective human control and intervention capability
+7. **Accuracy and robustness** (Art. 15) -- resilience to errors and adversarial attacks
+8. **Quality management** (Art. 17) -- documented quality assurance processes
 
-| Requirement | EU AI Act Reference | Aragora Implementation |
-|-------------|-------------------|----------------------|
-| Identify and analyze known/foreseeable risks | Art. 9(2)(a) | **Gauntlet runner**: 3-phase adversarial stress testing (red team attacks, capability probes, scenario matrix) identifies risks before deployment |
-| Estimate and evaluate risks from intended use | Art. 9(2)(b) | **Decision receipts**: Document risk assessment with confidence intervals and dissent tracking |
-| Evaluate risks from reasonably foreseeable misuse | Art. 9(2)(c) | **Red-team agents**: Devil's Advocate, Scaling Critic, and Compliance Auditor personas probe edge cases |
-| Adopt risk management measures | Art. 9(4) | **Calibrated trust**: ELO rankings + Brier scores track which agents are reliable on which domains, enabling risk-proportionate agent selection |
+### Penalties
 
-### Article 11: Technical Documentation
+| Violation | Maximum Fine |
+|-----------|-------------|
+| Prohibited AI practices (Art. 5) | EUR 35M or 7% of global annual revenue |
+| High-risk obligations (Art. 9-15) | EUR 15M or 3% of global annual revenue |
+| Incorrect information to authorities | EUR 7.5M or 1% of global annual revenue |
 
-> *"Technical documentation shall be drawn up before a high-risk AI system is
-> placed on the market and shall be kept up to date."*
-
-| Requirement | EU AI Act Reference | Aragora Implementation |
-|-------------|-------------------|----------------------|
-| General description of the AI system | Art. 11 + Annex IV | **Decision receipts** document the full system configuration: agents used, protocols, consensus thresholds |
-| Description of development process | Annex IV, Section 2 | **Knowledge Mound** maintains institutional memory of how decisions evolve over time |
-| Monitoring, functioning, and control | Annex IV, Section 3 | **Observability stack**: Prometheus metrics, OpenTelemetry tracing, SLO alerting |
-| Detailed description of validation and testing | Annex IV, Section 6 | **Gauntlet reports**: Comprehensive adversarial test results with pass/fail criteria |
-
-### Article 12: Record-Keeping (Logging)
-
-> *"High-risk AI systems shall technically allow for the automatic recording
-> of events ('logs') over the lifetime of the system."*
-
-| Requirement | EU AI Act Reference | Aragora Implementation |
-|-------------|-------------------|----------------------|
-| Automatic event logging | Art. 12(1) | **Audit module** (`aragora/audit/`): Comprehensive event logging with tamper detection |
-| Identify situations that may result in risk | Art. 12(2) | **Anomaly detection** (`aragora/security/anomaly_detection.py`): Identifies unusual patterns in agent behavior |
-| Facilitate post-market monitoring | Art. 12(3) | **Continuum memory**: 4-tier memory (fast/medium/slow/glacial) preserves decision history for retrospective analysis |
-| Traceability of system functioning | Art. 12(1) | **Decision receipts** with cryptographic signing (HMAC-SHA256, RSA-SHA256, Ed25519) provide tamper-evident audit trail |
-
-### Article 13: Transparency and Information
-
-> *"High-risk AI systems shall be designed and developed in such a way as to
-> ensure that their operation is sufficiently transparent to enable deployers
-> to interpret the system's output and use it appropriately."*
-
-| Requirement | EU AI Act Reference | Aragora Implementation |
-|-------------|-------------------|----------------------|
-| Understand and interpret output | Art. 13(1) | **Explainability module**: Evidence chains, vote pivots, belief network analysis, counterfactual explanations |
-| Appropriate level of accuracy | Art. 13(3)(b)(ii) | **Calibration tracking**: Brier scores measure actual accuracy vs. stated confidence. ELO rankings track domain-specific reliability |
-| Known limitations | Art. 13(3)(b)(iv) | **Dissent records**: Decision receipts explicitly document where agents disagreed and why, surfacing uncertainty rather than hiding it |
-| Foreseeable unintended outcomes | Art. 13(3)(b)(v) | **Gauntlet findings**: Red-team results document failure modes and edge cases discovered during adversarial testing |
-
-### Article 14: Human Oversight
-
-> *"High-risk AI systems shall be designed and developed in such a way [...]
-> as to be effectively overseen by natural persons."*
-
-| Requirement | EU AI Act Reference | Aragora Implementation |
-|-------------|-------------------|----------------------|
-| Humans can understand AI capabilities and limitations | Art. 14(4)(a) | **Calibrated confidence**: Every decision includes confidence intervals based on historical agent accuracy, not just model self-assessment |
-| Humans can correctly interpret output | Art. 14(4)(b) | **Adversarial debate transcript**: Full reasoning chain with critiques, showing why consensus was (or wasn't) reached |
-| Humans can decide not to use the system | Art. 14(4)(c) | **Approval gates**: Nomic Loop requires human approval for changes. Decision receipts are advisory, not autonomous |
-| Humans can intervene or stop the system | Art. 14(4)(d) | **Circuit breakers**: Automatic halt on repeated failures. RBAC controls who can initiate debates and approve results |
-
-### Article 15: Accuracy, Robustness, Cybersecurity
-
-> *"High-risk AI systems shall be designed and developed in such a way that
-> they achieve an appropriate level of accuracy, robustness and cybersecurity."*
-
-| Requirement | EU AI Act Reference | Aragora Implementation |
-|-------------|-------------------|----------------------|
-| Appropriate level of accuracy | Art. 15(1) | **Heterogeneous consensus**: Using multiple model providers (Claude, GPT, Gemini, local) surfaces disagreement that single-model systems hide |
-| Resilient to errors, faults, inconsistencies | Art. 15(4) | **Circuit breakers** + retry with exponential backoff + agent fallback (OpenRouter on quota errors) |
-| Resilient to adversarial manipulation | Art. 15(5) | **Trickster** (hollow consensus detector) + SecurityBarrier (telemetry redaction) + rate limiting + SSRF protection |
-| Cybersecurity measures | Art. 15(5) | AES-256-GCM encryption, key rotation, webhook signature verification, RBAC, MFA, API key management |
-
----
-
-## How Decision Receipts Satisfy Audit Requirements
-
-A decision receipt generated by Aragora contains:
+### Key dates
 
 ```
-Decision Receipt #DR-2026-0211-001
-===================================
-Question:    "Should we approve vendor X for SOC2 data processing?"
-Protocol:    Adversarial debate (3 rounds, supermajority consensus)
-Agents:      Claude-3.5, GPT-4o, Gemini-1.5, Mistral-Large
-Timestamp:   2026-02-11T14:23:00Z
-
-CONSENSUS: PARTIAL (3/4 agents agree)
-  Agreed:   Vendor X meets 18/20 SOC2 controls
-  Dissent:  Gemini-1.5 flagged gaps in access logging (control CC6.1)
-
-Confidence: 0.82 (calibrated via Brier score, historical accuracy 0.85)
-
-Evidence Chain:
-  1. [Proposal] Claude-3.5: "Vendor X satisfies controls..." (evidence: SOC2 report)
-  2. [Critique] GPT-4o: "Missing evidence for CC6.1 access logging"
-  3. [Revision] Claude-3.5: "CC6.1 gap acknowledged, mitigation: ..."
-  4. [Vote] 3/4 approve with condition on CC6.1 remediation
-
-Signature: HMAC-SHA256:a3f8c2d1... (tamper-evident)
+  Aug 2024          Feb 2025          Aug 2025          Aug 2026          Aug 2027
+    |                 |                 |                 |                 |
+    v                 v                 v                 v                 v
+  Entered          Prohibitions     GPAI rules       FULL HIGH-RISK    Annex I
+  into force       apply            apply            ENFORCEMENT       systems
+                                                         ^
+                                                         |
+                                              YOU ARE HERE (Feb 2026)
+                                              ~6 months remaining
 ```
 
-This receipt directly satisfies:
-- **Art. 12** (record-keeping): Automatic, structured logging
-- **Art. 13** (transparency): Interpretable reasoning chain
-- **Art. 14** (human oversight): Humans review before acting
-- **Art. 11** (documentation): Full system configuration captured
+---
+
+## 2. Aragora Compliance Matrix
+
+Aragora's multi-agent debate architecture produces compliance artifacts as a
+natural byproduct of its decision-vetting process. Every debate generates a
+cryptographically signed decision receipt that maps directly to EU AI Act
+obligations.
+
+| EU AI Act Requirement | Article | Aragora Feature | Module | Status |
+|---|---|---|---|---|
+| Risk management system | Art. 9 | Gauntlet adversarial stress-testing: 3-phase red team attacks, capability probes, scenario matrix. ELO + Brier score calibration tracks per-agent reliability. | `aragora/gauntlet/` | Ready |
+| Data governance | Art. 10 | Knowledge Mound with 33 adapters, provenance tracking, validation feedback, contradiction detection, and confidence decay. | `aragora/knowledge/mound/` | Ready |
+| Technical documentation | Art. 11 | Decision receipts capture full system configuration: agents, protocol, consensus thresholds, Annex IV sections auto-populated. | `aragora/export/decision_receipt.py` | Ready |
+| Record-keeping / logging | Art. 12 | `Article12Artifact`: provenance chain event log, Annex IV tech doc summary, reference databases, retention policy (6-month minimum per Art. 26(6)). | `aragora/compliance/eu_ai_act.py` | Ready |
+| Transparency | Art. 13 | `Article13Artifact`: provider identity, intended purpose, accuracy/robustness metrics, known risks (automation bias, hollow consensus, hallucination), output interpretation with confidence context. | `aragora/compliance/eu_ai_act.py` | Ready |
+| Human oversight | Art. 14 | `Article14Artifact`: HITL/HOTL oversight model, automation bias safeguards, override mechanisms (reject, override with reason, reverse), intervention capability (stop debate, cancel decision). | `aragora/compliance/eu_ai_act.py` | Ready |
+| Accuracy, robustness, cybersecurity | Art. 15 | Heterogeneous multi-model consensus (Claude, GPT, Gemini, Mistral), circuit breakers, Trickster hollow-consensus detection, AES-256-GCM encryption, key rotation, RBAC with MFA. | `aragora/resilience/`, `aragora/security/` | Ready |
+| Quality management | Art. 17 | Gauntlet receipts with SHA-256 integrity hashing, calibration tracking, 129,000+ automated tests, observability with Prometheus metrics and OpenTelemetry tracing. | `aragora/gauntlet/`, `aragora/observability/` | Ready |
+| Risk classification | Art. 6 | `RiskClassifier` auto-classifies use cases across all 4 risk tiers and all 8 Annex III high-risk categories using keyword and pattern matching. | `aragora/compliance/eu_ai_act.py` | Ready |
+| Conformity assessment | Art. 43 | `ConformityReportGenerator` maps receipt fields to article requirements, scores compliance per-article, generates markdown or JSON conformity reports. | `aragora/compliance/eu_ai_act.py` | Ready |
+| Explainability | Art. 13(1) | Factor decomposition, counterfactual analysis, evidence chains linking claims to sources, vote pivot analysis showing which arguments changed outcomes. | `aragora/explainability/` | Ready |
+| Privacy and data protection | Art. 10(5) | Anonymization, consent management, data retention policies, right-to-deletion, PII classifier. | `aragora/privacy/` | Ready |
 
 ---
 
-## Aragora vs. Proprietary Governance Tools
+## 3. Quick Start: Generate Compliance Artifacts
 
-| Capability | Fiddler AI | OneTrust | Azure AI | **Aragora** |
-|-----------|-----------|---------|---------|-------------|
-| Audit trails | Yes | Yes | Yes | **Yes** (cryptographic receipts) |
-| Bias detection | Yes | Yes | Yes | **Yes** (adversarial debate surfaces bias) |
-| Explainability | LIME/SHAP | Limited | Built-in | **Yes** (evidence chains, belief networks) |
-| Adversarial testing | No | No | Limited | **Yes** (Gauntlet: 3-phase red teaming) |
-| Multi-model consensus | No | No | No | **Yes** (heterogeneous provider debate) |
-| Confidence calibration | No | No | No | **Yes** (ELO + Brier scores) |
-| Self-hosted | No | No | No | **Yes** (full control of data) |
-| Open source | No | No | No | **Yes** (MIT license, auditable code) |
-| Vendor lock-in | AWS/GCP | SaaS | Azure | **None** (any LLM provider) |
-| Cost | $100K+/yr | $100K+/yr | Azure pricing | **Free** (self-hosted) |
+### Step 1: Classify a use case by risk level
+
+```python
+from aragora.compliance.eu_ai_act import RiskClassifier
+
+classifier = RiskClassifier()
+result = classifier.classify("AI system for recruitment and CV screening")
+
+result.risk_level          # RiskLevel.HIGH
+result.annex_iii_category  # "Employment and worker management"
+result.annex_iii_number    # 4
+result.applicable_articles # ["Article 6 (Classification)", "Article 9 (Risk management)", ...]
+result.obligations         # ["Establish and maintain a risk management system (Art. 9).", ...]
+```
+
+### Step 2: Generate a conformity report from a decision receipt
+
+```python
+from aragora.compliance.eu_ai_act import ConformityReportGenerator
+
+generator = ConformityReportGenerator()
+
+# receipt_dict is the output of DecisionReceipt.to_dict()
+receipt_dict = {
+    "receipt_id": "DR-2026-0212-001",
+    "input_summary": "Evaluate hiring algorithm for recruitment decisions",
+    "verdict": "CONDITIONAL",
+    "confidence": 0.78,
+    "robustness_score": 0.72,
+    "verdict_reasoning": "Recruitment system shows bias risk in CV screening",
+    "risk_summary": {"total": 3, "critical": 0, "high": 1, "medium": 2, "low": 0},
+    "consensus_proof": {
+        "method": "weighted_majority",
+        "supporting_agents": ["Claude-3.5", "GPT-4o"],
+        "dissenting_agents": ["Gemini-1.5"],
+    },
+    "dissenting_views": ["Gemini-1.5: potential gender bias not fully mitigated"],
+    "provenance_chain": [
+        {"event_type": "debate_started", "timestamp": "2026-02-12T10:00:00Z", "actor": "system"},
+        {"event_type": "human_approval", "timestamp": "2026-02-12T10:15:00Z", "actor": "admin@co.com"},
+    ],
+    "config_used": {"require_approval": True, "protocol": "adversarial", "rounds": 3},
+    "artifact_hash": "a3f8c2d1e5b7...",
+}
+
+report = generator.generate(receipt_dict)
+report.to_markdown()      # Human-readable conformity report
+report.to_json()          # Machine-readable for GRC platform import
+report.overall_status     # "conformant", "partial", or "non_conformant"
+```
+
+### Step 3: Generate a full Article 12/13/14 artifact bundle
+
+```python
+from aragora.compliance.eu_ai_act import ComplianceArtifactGenerator
+
+gen = ComplianceArtifactGenerator(
+    provider_name="Your Company Inc.",
+    provider_contact="compliance@yourcompany.com",
+    eu_representative="Your Company EU GmbH",
+    system_name="Your Decision Platform",
+    system_version="2.6.3",
+)
+
+bundle = gen.generate(receipt_dict)
+bundle.bundle_id           # "EUAIA-a1b2c3d4"
+bundle.integrity_hash      # SHA-256 hash of bundle contents
+bundle.article_12          # Record-keeping: event log, tech doc, retention policy
+bundle.article_13          # Transparency: provider identity, known risks, output guidance
+bundle.article_14          # Human oversight: oversight model, overrides, stop mechanisms
+bundle.to_json(indent=2)   # Export complete bundle
+```
+
+### CLI usage
+
+```bash
+aragora compliance classify "AI for credit scoring decisions"
+aragora compliance audit receipt.json --format markdown --output report.md
+aragora compliance audit receipt.json --format json --output report.json
+```
 
 ---
 
-## Implementation Checklist for Regulated Organizations
+## 4. Compliance Artifact Bundle
 
-### Phase 1: Immediate (0-3 months)
-- [ ] Deploy Aragora with decision receipt generation enabled
-- [ ] Configure RBAC roles for decision approvers
-- [ ] Enable audit logging with tamper-evident signatures
-- [ ] Set up Gauntlet adversarial testing for high-risk decision categories
+The `ComplianceArtifactBundle` packages all EU AI Act compliance evidence into a
+single auditable unit with cryptographic integrity verification.
 
-### Phase 2: Integration (3-6 months)
-- [ ] Integrate with existing GRC tools via API
-- [ ] Configure multi-model consensus (minimum 3 providers for high-risk)
-- [ ] Enable calibration tracking to monitor confidence accuracy over time
-- [ ] Set up Knowledge Mound for institutional memory
+### Bundle structure
 
-### Phase 3: Compliance Documentation (Before August 2, 2026)
-- [ ] Generate technical documentation from decision receipt archives
-- [ ] Compile Gauntlet test reports for risk management file
-- [ ] Document human oversight procedures (approval gates, override protocols)
-- [ ] Prepare calibration reports showing accuracy vs. confidence alignment
+| Component | Contents |
+|---|---|
+| **bundle_id** | `EUAIA-{uuid}` unique identifier |
+| **integrity_hash** | SHA-256 hash of bundle metadata (tamper detection) |
+| **risk_classification** | RiskLevel + Annex III category + obligations list |
+| **conformity_report** | Per-article status (satisfied/partial/not_satisfied), overall status, recommendations |
+| **article_12** (Record-Keeping) | Event log, reference databases, input record with SHA-256 hash, Annex IV technical documentation (3 sections), retention policy (6-month min per Art. 26(6)) |
+| **article_13** (Transparency) | Provider identity + EU representative, intended purpose, accuracy/robustness metrics, 3 known risks (automation bias, hollow consensus, hallucination), output interpretation with confidence context |
+| **article_14** (Human Oversight) | HITL/HOTL oversight model, automation bias safeguards (4 mechanisms), factor decomposition + counterfactuals, override capability (reject/override/reverse), intervention capability (stop/cancel with safe state) |
+
+### Integrity verification
+
+Every bundle includes a SHA-256 integrity hash computed over the bundle ID,
+receipt ID, risk level, and conformity status. This hash can be independently
+verified to detect tampering.
+
+```python
+import hashlib, json
+
+# Recompute the integrity hash
+content = json.dumps({
+    "bundle_id": bundle.bundle_id,
+    "receipt_id": bundle.receipt_id,
+    "risk_level": bundle.risk_classification.risk_level.value,
+    "conformity_status": bundle.conformity_report.overall_status,
+}, sort_keys=True)
+expected_hash = hashlib.sha256(content.encode()).hexdigest()
+
+assert bundle.integrity_hash == expected_hash  # Passes
+```
 
 ---
 
-## Relevant EU AI Act Articles (Quick Reference)
+## 5. Integration with Governance Platforms
 
-| Article | Topic | Key Obligation |
-|---------|-------|---------------|
-| Art. 6 | Classification rules | Defines what qualifies as high-risk |
-| Art. 9 | Risk management | Continuous risk identification and mitigation |
-| Art. 10 | Data governance | Training data quality, bias testing |
-| Art. 11 | Technical documentation | Pre-market documentation, kept up to date |
-| Art. 12 | Record-keeping | Automatic event logging over system lifetime |
-| Art. 13 | Transparency | Interpretable output, known limitations |
-| Art. 14 | Human oversight | Effective human control and intervention |
-| Art. 15 | Accuracy/robustness | Resilience to errors and adversarial attacks |
-| Art. 16 | Provider obligations | Overall compliance responsibility |
-| Art. 26 | Deployer obligations | Proper use, monitoring, record retention |
-| Art. 72 | Penalties | Up to 35M EUR or 7% of global turnover |
+Aragora compliance artifacts export as structured JSON, making them compatible
+with enterprise governance, risk, and compliance (GRC) platforms.
+
+| Platform | Integration Method | What to Export |
+|---|---|---|
+| **IBM watsonx.governance** | REST API ingest | `bundle.to_json()` as AI factsheet entries. Map `article_mappings` to watsonx governance controls. |
+| **OneTrust AI Governance** | CSV/JSON import | `conformity_report.to_dict()` maps to OneTrust assessment questionnaire responses. |
+| **Credo AI** | API integration | Export `risk_classification` and `article_mappings` as Credo AI policy evidence. |
+| **AuditBoard** | Document upload | `conformity_report.to_markdown()` as audit working papers. Bundle JSON as supporting evidence. |
+| **ServiceNow GRC** | REST API / CMDB | Push `article_mappings` as control assessment records with status and evidence fields. |
+| **Prometheus / Grafana** | Metrics endpoint | Aragora's built-in `/metrics` endpoint exposes SLO conformance, debate throughput, and calibration drift. |
+
+### Example: Push to a GRC platform
+
+```python
+import requests
+bundle = generator.generate(receipt_dict)
+
+requests.post("https://grc.yourcompany.com/api/v1/ai-assessments", json={
+    "assessment_type": "eu_ai_act",
+    "bundle": bundle.to_dict(),
+    "status": bundle.conformity_report.overall_status,
+    "risk_level": bundle.risk_classification.risk_level.value,
+}, headers={"Authorization": "Bearer <token>"})
+```
 
 ---
 
-## Contact and Resources
+## 6. Timeline: Start Now
 
-- **Documentation**: [docs/EXTENDED_README.md](EXTENDED_README.md)
-- **Decision Receipt API**: [docs/api/API_REFERENCE.md](api/API_REFERENCE.md)
-- **Gauntlet Testing Guide**: [aragora/gauntlet/README.md](../aragora/gauntlet/README.md)
-- **RBAC Configuration**: [docs/reference/CONFIGURATION.md](reference/CONFIGURATION.md)
+```
+                                    YOU ARE HERE
+                                         |
+  Feb 2026           Jun 2026           Aug 2, 2026
+    |                   |                   |
+    v                   v                   v
+  +-------------------+-------------------+------------------------+
+  | START GENERATING  | EU HARMONIZED     | FULL ENFORCEMENT       |
+  | COMPLIANCE        | STANDARDS         | BEGINS                 |
+  | ARTIFACTS         | PUBLISHED         |                        |
+  +-------------------+-------------------+------------------------+
+  |                   |                   |
+  | - Deploy Aragora  | - Map standards   | - Fines apply          |
+  | - Enable receipts |   to your bundles | - Market surveillance  |
+  | - Run Gauntlet    | - Gap analysis    |   authorities active   |
+  |   stress tests    | - Update tech     | - Conformity           |
+  | - Configure RBAC  |   documentation   |   assessments begin    |
+  | - Set up audit    | - Prepare for     |                        |
+  |   logging         |   conformity      |                        |
+  |                   |   assessment      |                        |
+  +-------------------+-------------------+------------------------+
+```
+
+**Start today. Compliance takes months to establish.** The EU AI Act does not
+have a grace period. On August 2, 2026, organizations deploying high-risk AI
+systems must already have conformity documentation in place.
+
+### Recommended implementation phases
+
+**Phase 1 (Now - April 2026): Foundation**
+- Deploy Aragora with decision receipt generation
+- Configure RBAC roles for decision approvers
+- Enable audit logging with tamper-evident signatures
+- Run Gauntlet adversarial testing on high-risk decision categories
+- Generate initial compliance artifact bundles
+
+**Phase 2 (April - June 2026): Integration**
+- Integrate compliance artifacts with your GRC platform
+- Configure multi-model consensus (minimum 3 providers for high-risk)
+- Enable calibration tracking to monitor confidence accuracy
+- Set up Knowledge Mound for institutional decision memory
+
+**Phase 3 (June - August 2026): Documentation**
+- Map against published EU harmonized standards
+- Compile Gauntlet test reports for the risk management file
+- Document human oversight procedures (approval gates, override protocols)
+- Prepare calibration reports showing accuracy vs. confidence alignment
+- Perform internal conformity assessment using generated bundles
+
+---
+
+## Further Reading
+
+- [EU AI Act full text](https://eur-lex.europa.eu/eli/reg/2024/1689) | [Extended README](EXTENDED_README.md) | [Decision Receipt API](api/API_REFERENCE.md) | [Gauntlet Guide](../aragora/gauntlet/README.md) | [RBAC Config](reference/CONFIGURATION.md) | [Source](../aragora/compliance/eu_ai_act.py)

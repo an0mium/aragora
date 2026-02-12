@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "aragora-debate"
 version = "0.2.0"
-description = "Adversarial multi-model debate engine with decision receipts"
+description = "Adversarial multi-model debate engine -- pit LLMs against each other, detect hollow consensus, and produce cryptographic decision receipts. Zero required dependencies."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -22,16 +22,23 @@ keywords = [
     "hollow-consensus",
     "evidence-quality",
     "convergence-detection",
+    "decision-receipt",
+    "multi-model",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
 ]
 dependencies = []
 
@@ -49,9 +56,11 @@ all = [
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 [project.urls]
-Homepage = "https://github.com/aragora/aragora-debate"
-Documentation = "https://aragora.dev/docs"
-Repository = "https://github.com/aragora/aragora-debate"
+Homepage = "https://github.com/aragora/aragora"
+Documentation = "https://aragora.dev/docs/debate"
+Repository = "https://github.com/aragora/aragora/tree/main/aragora-debate"
+Changelog = "https://github.com/aragora/aragora/blob/main/aragora-debate/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/aragora/aragora/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aragora_debate"]

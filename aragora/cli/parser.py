@@ -141,6 +141,7 @@ Examples:
     _add_verify_parser(subparsers)
     _add_healthcare_parser(subparsers)
     add_quickstart_parser(subparsers)
+    _add_compliance_parser(subparsers)
 
     return parser
 
@@ -622,6 +623,18 @@ def _add_init_parser(subparsers) -> None:
     init_parser.add_argument("directory", nargs="?", help="Target directory (default: current)")
     init_parser.add_argument("--force", "-f", action="store_true", help="Overwrite existing files")
     init_parser.add_argument("--no-git", action="store_true", help="Don't modify .gitignore")
+    init_parser.add_argument(
+        "--ci",
+        choices=["github"],
+        default=None,
+        help="Generate CI workflow (github = GitHub Actions)",
+    )
+    init_parser.add_argument(
+        "--preset",
+        choices=["review"],
+        default=None,
+        help="Configuration preset (review = optimized for code review)",
+    )
     init_parser.set_defaults(func=cmd_init)
 
 
@@ -1234,3 +1247,10 @@ def _add_healthcare_parser(subparsers) -> None:
     from aragora.cli.commands.healthcare import add_healthcare_parser
 
     add_healthcare_parser(subparsers)
+
+
+def _add_compliance_parser(subparsers) -> None:
+    """Add the 'compliance' subcommand for EU AI Act compliance tools."""
+    from aragora.cli.commands.compliance import add_compliance_parser
+
+    add_compliance_parser(subparsers)
