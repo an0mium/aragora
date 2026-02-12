@@ -154,7 +154,7 @@ asyncio.run(stream_debate("debate-abc123"))
 A cryptographic audit trail of the debate outcome.
 
 ```python
-from aragora.gauntlet.receipts import DecisionReceipt
+from aragora.receipts import DecisionReceipt
 
 # After running a debate
 receipt = DecisionReceipt.from_debate_result(result)

@@ -204,7 +204,7 @@ echo "=== Creating systemd services ==="
 # Main API Server
 cat > /etc/systemd/system/aragora.service << 'SERVICE_CONFIG'
 [Unit]
-Description=Aragora API Server
+Description=Aragora Unified API + WebSocket Server
 Documentation=https://github.com/aragora/aragora
 After=network.target
 Wants=network.target
@@ -216,44 +216,7 @@ Group=aragora
 WorkingDirectory=/opt/aragora
 Environment="PATH=/opt/aragora/venv/bin"
 EnvironmentFile=-/etc/aragora/env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.server.unified_server --port 8080
-ExecReload=/bin/kill -HUP $MAINPID
-Restart=always
-RestartSec=5
-StartLimitIntervalSec=60
-StartLimitBurst=3
-
-# Security hardening
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-ReadWritePaths=/var/log/aragora /opt/aragora
-PrivateTmp=yes
-
-# Resource limits
-LimitNOFILE=65535
-LimitNPROC=4096
-
-[Install]
-WantedBy=multi-user.target
-SERVICE_CONFIG
-
-# WebSocket Server
-cat > /etc/systemd/system/aragora-ws.service << 'SERVICE_CONFIG'
-[Unit]
-Description=Aragora WebSocket Server
-Documentation=https://github.com/aragora/aragora
-After=network.target aragora.service
-Wants=network.target
-
-[Service]
-Type=simple
-User=aragora
-Group=aragora
-WorkingDirectory=/opt/aragora
-Environment="PATH=/opt/aragora/venv/bin"
-EnvironmentFile=-/etc/aragora/env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.server.ws_server --port 8765
+ExecStart=/opt/aragora/venv/bin/aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
@@ -397,5 +360,5 @@ echo "Environment: ${environment}"
 echo ""
 echo "Next steps:"
 echo "1. Populate /etc/aragora/env with secrets"
-echo "2. Start services: systemctl start aragora aragora-ws"
+echo "2. Start service: systemctl start aragora"
 echo "3. Verify health: curl http://localhost/api/health"

@@ -222,7 +222,7 @@ echo "=== Phase 7: Systemd Services ==="
 
 cat > /etc/systemd/system/aragora.service << SERVICE
 [Unit]
-Description=Aragora API Server
+Description=Aragora Unified API + WebSocket Server
 After=network.target
 
 [Service]
@@ -232,31 +232,7 @@ Group=aragora
 WorkingDirectory=/opt/aragora
 Environment="PATH=/opt/aragora/venv/bin"
 EnvironmentFile=-/etc/aragora/env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.server.unified_server --port 8080
-Restart=always
-RestartSec=5
-NoNewPrivileges=yes
-ProtectSystem=strict
-ReadWritePaths=/var/log/aragora /opt/aragora
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-
-cat > /etc/systemd/system/aragora-ws.service << SERVICE
-[Unit]
-Description=Aragora WebSocket Server
-After=network.target aragora.service
-
-[Service]
-Type=simple
-User=aragora
-Group=aragora
-WorkingDirectory=/opt/aragora
-Environment="PATH=/opt/aragora/venv/bin"
-EnvironmentFile=-/etc/aragora/env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.server.ws_server --port 8765
+ExecStart=/opt/aragora/venv/bin/aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
 Restart=always
 RestartSec=5
 NoNewPrivileges=yes
@@ -347,10 +323,10 @@ echo "  1. Configure secrets:"
 echo "     sudo nano /etc/aragora/env"
 echo ""
 echo "  2. Start services:"
-echo "     sudo systemctl start aragora aragora-ws"
+echo "     sudo systemctl start aragora"
 echo ""
 echo "  3. Enable services on boot:"
-echo "     sudo systemctl enable aragora aragora-ws"
+echo "     sudo systemctl enable aragora"
 echo ""
 echo "  4. Verify health:"
 echo "     curl http://localhost/api/health"

@@ -1,11 +1,6 @@
 # Getting Started with Aragora
 
-Get from zero to a working debate in under 5 minutes.
-
-## Prerequisites
-
-- Python 3.10+
-- At least one LLM API key (Anthropic, OpenAI, Gemini, or xAI)
+Get from zero to a working debate in under 2 minutes.
 
 ## 1. Install
 
@@ -13,66 +8,74 @@ Get from zero to a working debate in under 5 minutes.
 pip install aragora-sdk
 ```
 
-Or install the full platform for self-hosting:
+## 2. Try it instantly (no server, no API keys)
 
-```bash
-pip install aragora
+```python
+from aragora_sdk import AragoraClient
+
+client = AragoraClient(demo=True)
+
+# Run a debate
+result = client.request("POST", "/api/v1/debates", json={
+    "task": "Should we use microservices or a monolith?"
+})
+print(f"Consensus: {result['consensus']['conclusion']}")
+
+# Check agent rankings
+rankings = client.request("GET", "/api/v1/rankings")
+for r in rankings["rankings"]:
+    print(f"  #{r['rank']} {r['agent']} (ELO {r['elo']})")
+
+# Discover available APIs
+print(f"Available namespaces: {client.namespaces[:10]}...")
 ```
 
-## 2. Set up your environment
+Demo mode returns realistic mock data — debates with consensus, agent rankings, gauntlet findings with cryptographic receipts — so you can explore the full API surface immediately.
 
-Create a `.env` file or export environment variables:
+## 3. Connect to a real server
+
+When you're ready to run real debates with LLM agents:
 
 ```bash
-# Required: at least one LLM provider
+# Set at least one LLM provider key
 export ANTHROPIC_API_KEY="sk-ant-..."
 # or
 export OPENAI_API_KEY="sk-..."
 
-# Optional: Aragora server URL (defaults to http://localhost:8080)
-export ARAGORA_API_URL="http://localhost:8080"
-
-# Optional: API key for authenticated endpoints
+# Optional: Aragora API key for authenticated endpoints
 export ARAGORA_API_KEY="ara_your_key_here"
 ```
 
-## 3. Start the server
+Start the server:
 
 ```bash
-# Quick start with demo mode (no database required)
-python -m aragora.server.unified_server --port 8080 --offline
+# Quick start (SQLite, no external dependencies)
+python -m aragora.server --http-port 8080 --ws-port 8765 --offline
 
 # Or use the CLI quickstart wizard
 aragora quickstart
 ```
 
-The `--offline` flag runs with SQLite and mock data, perfect for evaluation.
-
-## 4. Run your first debate
+Then use the SDK with auto-configuration:
 
 ```python
 from aragora_sdk import AragoraClient
 
-# Auto-configure from environment variables
+# Reads ARAGORA_API_URL, ARAGORA_API_KEY from environment
 client = AragoraClient.from_env()
 
-# Create a debate
 debate = client.debates.create(task="Should we use microservices or a monolith?")
 print(f"Debate ID: {debate['debate_id']}")
-print(f"Consensus: {debate.get('consensus', {}).get('conclusion', 'Pending...')}")
 ```
 
 Or use the CLI directly:
 
 ```bash
-# Interactive question
 aragora ask "What are the trade-offs of event-driven architecture?"
-
-# Full adversarial debate
 aragora decide "Should we migrate to Kubernetes?" --rounds 3
 ```
 
-## 5. Explore further
+## 4. Explore further
 
 ### CLI demo (no API keys needed)
 
@@ -112,7 +115,7 @@ python examples/python-debate/main.py debate --task "Evaluate our tech stack"
 The Aragora server isn't running. Start it with:
 
 ```bash
-python -m aragora.server.unified_server --port 8080 --offline
+python -m aragora.server --http-port 8080 --ws-port 8765 --offline
 ```
 
 ### "No ANTHROPIC_API_KEY configured"

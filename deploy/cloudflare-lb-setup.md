@@ -242,7 +242,7 @@ See `deploy/terraform/ec2-multiregion/README.md` for full instructions.
    sudo ./al2023-bootstrap.sh production <role> <region>
    ```
 3. Configure secrets: `sudo nano /etc/aragora/env`
-4. Start services: `sudo systemctl start aragora aragora-ws`
+4. Start service: `sudo systemctl start aragora`
 5. Add EC2 IP to security group for Cloudflare IPs
 6. Add origin to Cloudflare pool (Dashboard > Traffic > Load Balancing > Pools)
 7. Wait for health check to pass

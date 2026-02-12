@@ -9,6 +9,8 @@ on:
       - 'scripts/capability_gap_report.py'
       - 'scripts/generate_capability_matrix.py'
       - 'scripts/check_capability_matrix_sync.py'
+      - 'scripts/check_legacy_entrypoints.py'
+      - 'scripts/capability_matrix_delta.py'
       - 'docs/CAPABILITY_MATRIX.md'
       - 'docs-site/docs/contributing/capability-matrix.md'
       - '.github/workflows/capability-gap.yml'
@@ -20,6 +22,8 @@ on:
       - 'scripts/capability_gap_report.py'
       - 'scripts/generate_capability_matrix.py'
       - 'scripts/check_capability_matrix_sync.py'
+      - 'scripts/check_legacy_entrypoints.py'
+      - 'scripts/capability_matrix_delta.py'
       - 'docs/CAPABILITY_MATRIX.md'
       - 'docs-site/docs/contributing/capability-matrix.md'
       - '.github/workflows/capability-gap.yml'
@@ -62,6 +66,20 @@ jobs:
       - name: Verify capability matrix files are synced
         run: python scripts/check_capability_matrix_sync.py
 
+      - name: Check command guidance drift
+        run: python scripts/check_legacy_entrypoints.py
+
+      - name: Generate capability matrix summary artifact
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            python scripts/capability_matrix_delta.py \
+              --base-ref "origin/${{ github.base_ref }}" \
+              --out /tmp/capability-matrix-summary.md
+          else
+            python scripts/capability_matrix_delta.py --out /tmp/capability-matrix-summary.md
+          fi
+
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
@@ -69,4 +87,5 @@ jobs:
           path: |
             /tmp/capability-gap.md
             /tmp/capability-gap.json
+            /tmp/capability-matrix-summary.md
           retention-days: 14

@@ -120,7 +120,7 @@ cp terraform.tfvars.example terraform.tfvars
   - `control-plane` - Distributed coordination
 - nginx reverse proxy
 - CloudWatch agent for logs/metrics
-- systemd services (aragora, aragora-ws)
+- systemd service (aragora)
 
 ## Post-Deployment Setup
 
@@ -154,8 +154,8 @@ OPENAI_API_KEY=sk-...
 ### 2. Start Services
 
 ```bash
-sudo systemctl start aragora aragora-ws
-sudo systemctl enable aragora aragora-ws
+sudo systemctl start aragora
+sudo systemctl enable aragora
 ```
 
 ### 3. Verify Health
@@ -251,7 +251,7 @@ aws ssm start-session --target <instance-id>
 sudo -u aragora /opt/aragora/venv/bin/pip install --upgrade aragora[monitoring,observability,postgres,redis,documents,research,broadcast,control-plane]
 
 # Restart
-sudo systemctl restart aragora aragora-ws
+sudo systemctl restart aragora
 ```
 
 ### View Logs
@@ -259,9 +259,6 @@ sudo systemctl restart aragora aragora-ws
 ```bash
 # Application logs
 sudo journalctl -u aragora -f
-
-# WebSocket logs
-sudo journalctl -u aragora-ws -f
 
 # nginx logs
 sudo tail -f /var/log/nginx/access.log
@@ -294,7 +291,7 @@ If primary region fails:
 
 ```bash
 # Check services
-sudo systemctl status aragora aragora-ws nginx
+sudo systemctl status aragora nginx
 
 # Check logs
 sudo journalctl -u aragora --since "10 minutes ago"

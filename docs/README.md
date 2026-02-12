@@ -117,6 +117,7 @@ See [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) for details.
 | [SDK_TYPESCRIPT](./guides/SDK_TYPESCRIPT.md) | TypeScript SDK guide |
 | [SDK_CONSOLIDATION](./guides/SDK_CONSOLIDATION.md) | TypeScript SDK migration (v2 to v3) |
 | [SDK_GUIDE](./SDK_GUIDE.md) | Python SDK guide |
+| [PYTHON_SDK_MIGRATION](./guides/PYTHON_SDK_MIGRATION.md) | Canonical Python SDK migration (`aragora-client` -> `aragora-sdk`) |
 | [LIBRARY_USAGE](./reference/LIBRARY_USAGE.md) | Using Aragora as a library |
 
 ### API Quick Reference

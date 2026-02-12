@@ -47,7 +47,8 @@ def show_personas():
 def show_decision_receipt_demo():
     """Demonstrate Decision Receipt generation."""
 
-    from aragora.gauntlet.receipt import DecisionReceipt, ConsensusProof
+    from aragora.gauntlet.receipt import ConsensusProof
+    from aragora.receipts import DecisionReceipt
 
     # Create a sample receipt
     receipt = DecisionReceipt(

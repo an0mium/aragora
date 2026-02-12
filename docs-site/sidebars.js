@@ -36,6 +36,7 @@ const sidebars = {
       collapsed: false,
       items: [
         'guides/sdk',
+        'guides/python-sdk-migration',
         'guides/custom-agents',
         'guides/workflows',
         'guides/integrations',

@@ -65,7 +65,8 @@ from aragora.gauntlet import GauntletRunner, GauntletConfig
 3. Aggregation - Risk scoring
 
 ```python
-from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory, DecisionReceipt
+from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory
+from aragora.receipts import DecisionReceipt
 
 config = GauntletConfig(
     attack_categories=[AttackCategory.SECURITY, AttackCategory.COMPLIANCE],
@@ -146,7 +147,7 @@ from aragora.gauntlet import (
 Both Runner and Orchestrator produce compatible results that can be converted to receipts:
 
 ```python
-from aragora.gauntlet import DecisionReceipt
+from aragora.receipts import DecisionReceipt
 
 # From Runner result
 receipt = DecisionReceipt.from_result(result)

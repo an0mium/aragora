@@ -135,7 +135,8 @@ aragora gauntlet spec.md --persona security
 
 ```python
 import asyncio
-from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory, DecisionReceipt
+from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory
+from aragora.receipts import DecisionReceipt
 
 async def main():
     config = GauntletConfig(

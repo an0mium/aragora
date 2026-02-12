@@ -12,6 +12,7 @@ Prefer `/api/v1` endpoints for SDK usage; unversioned `/api` endpoints remain su
 - `aragora-client` - Deprecated; use `aragora-sdk` instead.
 
 TypeScript: use `@aragora/sdk` (official). `@aragora/client` is deprecated.
+Canonical migration path: [Python SDK migration](./guides/PYTHON_SDK_MIGRATION.md).
 
 ## Installation
 

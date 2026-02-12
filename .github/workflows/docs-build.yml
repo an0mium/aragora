@@ -13,6 +13,8 @@ on:
       - 'scripts/capability_gap_report.py'
       - 'scripts/generate_capability_matrix.py'
       - 'scripts/check_capability_matrix_sync.py'
+      - 'scripts/check_legacy_entrypoints.py'
+      - 'scripts/capability_matrix_delta.py'
       - 'aragora/capabilities.yaml'
       - 'aragora/capability_surfaces.yaml'
       - 'docs/CAPABILITY_MATRIX.md'
@@ -61,6 +63,9 @@ jobs:
       - name: Check capability matrix is synced
         run: python scripts/check_capability_matrix_sync.py
 
+      - name: Check command guidance drift
+        run: python scripts/check_legacy_entrypoints.py
+
       - name: Ensure docs are synced
         run: |
           if ! git diff --quiet; then
@@ -72,6 +77,25 @@ jobs:
             git diff --stat
             exit 1
           fi
+
+      - name: Fetch PR base branch for capability summary
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+
+      - name: Generate capability matrix summary artifact
+        if: github.event_name == 'pull_request'
+        run: |
+          python scripts/capability_matrix_delta.py \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --out /tmp/capability-matrix-summary.md
+
+      - name: Upload capability matrix summary artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: capability-matrix-summary
+          path: /tmp/capability-matrix-summary.md
+          retention-days: 14
 
       - name: Build documentation
         working-directory: docs-site

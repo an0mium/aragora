@@ -131,6 +131,17 @@ python scripts/init_postgres_db.py -v
 
 ## Deployment Options
 
+### Server Mode Decision
+
+Use a single unified service in production:
+
+```bash
+aragora serve --api-port 8080 --ws-port 8765
+```
+
+This starts both the HTTP API and WebSocket surfaces. Do not run a separate
+`aragora-ws.service` unless you are explicitly maintaining a legacy split-service deployment.
+
 ### Option 1: Docker
 
 ```dockerfile
