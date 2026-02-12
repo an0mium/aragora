@@ -7,5 +7,8 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #5639 | 3:43 PM | 🔵 | Connector handler imports verification completed | ~371 |
+| #6040 | 4:03 PM | 🔵 | Working directory shows uncommitted modifications and new files | ~248 |
+| #4683 | 2:17 PM | ✅ | 42 files modified across type fixes, mixin refactoring, and test updates | ~903 |
+| #4494 | 2:02 PM | 🔵 | OpenClaw gateway handler tests all pass independently | ~348 |
+| #4001 | 11:54 AM | 🔵 | Metrics handler has comprehensive test coverage with 33 passing tests | ~435 |
 </claude-mem-context>
