@@ -150,7 +150,7 @@ class TemplateRegistry:
         except ImportError:
             logger.warning("PyYAML not installed, cannot load YAML templates")
             return 0
-        except (OSError, IOError, ValueError) as e:
+        except (OSError, IOError, ValueError, Exception) as e:
             logger.error(f"Failed to load templates from {yaml_path}: {e}")
             return 0
 

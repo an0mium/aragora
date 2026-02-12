@@ -86,7 +86,7 @@ class CrossRefConnector(BaseConnector):
             return []
 
         limit = min(limit, 50)
-        params = {"query": query, "rows": limit}
+        params: dict[str, Any] = {"query": query, "rows": limit}
         if self.mailto:
             params["mailto"] = self.mailto
 

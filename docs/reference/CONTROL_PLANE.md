@@ -159,7 +159,7 @@ Features:
 All control plane components run in a single process.
 
 ```bash
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ### Multi-Instance (Production)
@@ -171,8 +171,8 @@ export ARAGORA_MULTI_INSTANCE=true
 export REDIS_URL=redis://redis:6379
 
 # Start multiple instances
-python -m aragora.server.unified_server --port 8080
-python -m aragora.server.unified_server --port 8081
+aragora serve --api-port 8080 --ws-port 8765
+aragora serve --api-port 8081 --ws-port 8766
 ```
 
 ### Multi-Region (Enterprise)

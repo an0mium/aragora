@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import CACHE_TTL_ANALYTICS
 from aragora.server.validation.query_params import safe_query_int
@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 class AgentAnalyticsMixin:
     """Mixin providing agent performance analytics endpoint methods."""
+
+    if TYPE_CHECKING:
+        get_elo_system: Any
 
     # =========================================================================
     # Agent Performance Endpoints

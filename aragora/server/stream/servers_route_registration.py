@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +188,39 @@ class RouteRegistrationMixin:
     - _handle_voice_websocket: handler method
     - _drain_loop: coroutine
     """
+
+    # Attributes provided by the host class (declared for type checking)
+    if TYPE_CHECKING:
+        _handle_options: Any
+        _handle_leaderboard: Any
+        _handle_matches_recent: Any
+        _handle_insights_recent: Any
+        _handle_flips_summary: Any
+        _handle_flips_recent: Any
+        _handle_tournaments: Any
+        _handle_tournament_details: Any
+        _handle_agent_consistency: Any
+        _handle_agent_network: Any
+        _handle_memory_tier_stats: Any
+        _handle_laboratory_emergent_traits: Any
+        _handle_laboratory_cross_pollinations: Any
+        _handle_health: Any
+        _handle_nomic_state: Any
+        _handle_graph_json: Any
+        _handle_graph_mermaid: Any
+        _handle_graph_stats: Any
+        _handle_audience_clusters: Any
+        _handle_replays: Any
+        _handle_replay_html: Any
+        _handle_start_debate: Any
+        _websocket_handler: Any
+        _handle_voice_websocket: Any
+        _handle_metrics: Any
+        _drain_loop: Any
+        _running: Any
+        _stop_event: Any
+        host: Any
+        port: Any
 
     def _add_versioned_routes(self, app: Any, routes: list) -> None:
         """Add both versioned (/api/v1/) and legacy (/api/) routes.

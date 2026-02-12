@@ -1,11 +1,13 @@
 # Aragora Python SDK
 
 The Aragora Python SDK provides a type-safe interface for interacting with the Aragora API.
+
+Single blessed Python SDK client: `aragora-sdk` (from `sdk/python/`).
 Prefer `/api/v1` endpoints for SDK usage; unversioned `/api` endpoints remain supported but are deprecated for SDK clients.
 
 ## Package Options
 
-- `aragora-sdk` - Recommended lightweight, async-only SDK for remote API use (`/api/v1`).
+- `aragora-sdk` - Blessed client for Python integrations and remote API use (`/api/v1`).
 - `aragora` - Full control plane package with server + CLI + sync/async SDK.
 - `aragora-client` - Deprecated; use `aragora-sdk` instead.
 

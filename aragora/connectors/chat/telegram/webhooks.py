@@ -12,7 +12,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     BotCommand,
@@ -32,6 +32,12 @@ logger = logging.getLogger(__name__)
 
 class TelegramWebhooksMixin:
     """Mixin providing webhook handling for TelegramConnector."""
+
+    if TYPE_CHECKING:
+        _telegram_api_request: Any
+        send_message: Any
+        update_message: Any
+        answer_callback_query: Any
 
     async def handle_webhook(
         self,

@@ -316,6 +316,25 @@ class HumanCheckpointStep(BaseStep):
         # Send notifications via notification service (Slack/Email)
         await self._send_approval_notification(request, config, context)
 
+        try:
+            from aragora.events.types import StreamEventType
+
+            context.emit_event(
+                StreamEventType.WORKFLOW_HUMAN_APPROVAL_REQUIRED.value,
+                {
+                    "workflow_id": context.workflow_id,
+                    "definition_id": context.definition_id,
+                    "step_id": request.step_id,
+                    "step_name": self.name,
+                    "request_id": request.id,
+                    "title": request.title,
+                    "timeout_seconds": request.timeout_seconds,
+                    "escalation_emails": request.escalation_emails,
+                },
+            )
+        except Exception:
+            pass
+
         # Store request ID in context for external resolution
         context.set_state(f"approval_request_{self.name}", request.id)
 
@@ -325,6 +344,24 @@ class HumanCheckpointStep(BaseStep):
                 self._wait_for_approval(request),
                 timeout=request.timeout_seconds,
             )
+            try:
+                from aragora.events.types import StreamEventType
+
+                context.emit_event(
+                    StreamEventType.WORKFLOW_HUMAN_APPROVAL_RECEIVED.value,
+                    {
+                        "workflow_id": context.workflow_id,
+                        "definition_id": context.definition_id,
+                        "step_id": request.step_id,
+                        "step_name": self.name,
+                        "request_id": request.id,
+                        "status": result.get("status"),
+                        "responder_id": result.get("responder_id"),
+                        "responded_at": result.get("responded_at"),
+                    },
+                )
+            except Exception:
+                pass
             return result
         except asyncio.TimeoutError:
             # Handle timeout
@@ -345,6 +382,24 @@ class HumanCheckpointStep(BaseStep):
 
             # Trigger escalation
             await self._handle_escalation(request)
+
+            try:
+                from aragora.events.types import StreamEventType
+
+                context.emit_event(
+                    StreamEventType.WORKFLOW_HUMAN_APPROVAL_TIMEOUT.value,
+                    {
+                        "workflow_id": context.workflow_id,
+                        "definition_id": context.definition_id,
+                        "step_id": request.step_id,
+                        "step_name": self.name,
+                        "request_id": request.id,
+                        "timeout_seconds": request.timeout_seconds,
+                        "escalated_to": request.escalation_emails,
+                    },
+                )
+            except Exception:
+                pass
 
             return {
                 "status": "timeout",

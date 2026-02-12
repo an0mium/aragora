@@ -11,7 +11,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from typing import Any
+from typing import Any, Literal, cast
 
 logger = logging.getLogger(__name__)
 
@@ -127,10 +127,12 @@ async def run_decide(
     if verbose:
         print("[decide] Executing plan...")
 
-    executor = PlanExecutor(execution_mode=execution_mode)
+    ExecutionMode = Literal["workflow", "hybrid", "fabric", "computer_use"]
+    _mode = cast(ExecutionMode | None, execution_mode)
+    executor = PlanExecutor(execution_mode=_mode)
 
     try:
-        outcome = await executor.execute(plan, execution_mode=execution_mode)
+        outcome = await executor.execute(plan, execution_mode=_mode)
         result["outcome"] = outcome
 
         if verbose:

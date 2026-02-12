@@ -93,7 +93,7 @@ export { useWorkflowWebSocket } from './useWorkflowWebSocket';
 // =============================================================================
 
 export { useCosts } from './useCosts';
-export { useUsageDashboard } from './useUsageDashboard';
+export { useUsageDashboard, useUsageTrend } from './useUsageDashboard';
 export { useQueueMonitoring } from './useQueueMonitoring';
 
 // =============================================================================
@@ -136,7 +136,7 @@ export { useCommandPaletteSearch } from './useCommandPaletteSearch';
 export { useDashboardPreferences } from './useDashboardPreferences';
 export { useErrorHandler } from './useErrorHandler';
 export { usePWA } from './usePWA';
-export { useTimers } from './useTimers';
+export { useTimeout, useTimeoutEffect, useInterval, useIntervalEffect, useDebounce, useThrottle } from './useTimers';
 
 // =============================================================================
 // Data Management

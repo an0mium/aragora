@@ -158,6 +158,8 @@ class WorkflowHandlers:
             workflow_id,
             inputs=data.get("inputs"),
             tenant_id=params.get("tenant_id", "default"),
+            user_id=params.get("user_id"),
+            org_id=params.get("org_id"),
         )
 
     @staticmethod
@@ -824,11 +826,21 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             tenant_id = self._get_tenant_id(handler, query_params)
+            auth_ctx = self._get_auth_context(handler) if self._rbac_enabled() else None
+            user_id = None
+            org_id = None
+            if auth_ctx and auth_ctx != "unauthenticated":
+                user_id = getattr(auth_ctx, "user_id", None)
+                org_id = getattr(auth_ctx, "org_id", None)
+            event_emitter = self.ctx.get("event_emitter") if isinstance(self.ctx, dict) else None
             result = self._run_async_fn()(
                 execute_workflow(
                     workflow_id,
                     inputs=body.get("inputs"),
                     tenant_id=tenant_id,
+                    user_id=user_id,
+                    org_id=org_id,
+                    event_emitter=event_emitter,
                 )
             )
             return json_response(result)

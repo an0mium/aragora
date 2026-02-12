@@ -675,7 +675,7 @@ grep -r "event_type=" aragora/ --include="*.py"
 
 | Purpose | Entry Point |
 |---------|-------------|
-| Start server | `python -m aragora.server.unified_server --port 8080` |
+| Start server | `aragora serve --api-port 8080 --ws-port 8765` |
 | Run debate | `from aragora import Arena, Environment` |
 | Access knowledge | `from aragora.knowledge.mound import KnowledgeMound` |
 | Run workflow | `from aragora.workflow.engine import WorkflowEngine` |

@@ -38,6 +38,15 @@ _MEMORY_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["memory"]
 class CoordinatorSearchMixin:
     """Mixin providing search and retrieval operations for ContinuumMemory coordinator."""
 
+    if TYPE_CHECKING:
+        _km_adapter: Any
+        _hybrid_search: Any
+        get: Any
+        connection: Any
+        event_emitter: Any
+        _hybrid_search: Any
+        retrieve: Any
+
     def query_km_for_similar(
         self,
         content: str,

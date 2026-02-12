@@ -1,4 +1,7 @@
-# Python SDK Consolidation Roadmap
+# Python SDK Consolidation Roadmap (Historical)
+
+> **Superseded guidance (February 2026):** The canonical Python SDK client is `aragora-sdk` in `sdk/python/`.
+> Use `aragora-client` only as a legacy compatibility package during migration.
 
 > **Status:** Phase 1 Complete (January 2026)
 > **Next Milestone:** v3.0.0 consolidation (Q2 2026)
@@ -214,20 +217,21 @@ async for event in async_client.stream.subscribe("debate-id"):
 
 ### Recommended Package
 
-**`aragora`** is the canonical Python SDK package.
+**`aragora-sdk`** is the canonical Python SDK package.
+
+Use `aragora-sdk` when you need:
+- The blessed remote API client for Python integrations
+- Current SDK feature work and versioned API compatibility
 
 Use `aragora` when you need:
-- Both sync and async clients
-- Full API coverage (125+ namespaces)
-- Type-safe development with 196+ Pydantic types
-- Pagination helpers
-- Typed WebSocket events
+- The full control plane package (server + CLI + embedded SDK)
 
 Use `aragora-client` only when you need:
-- Lightweight async-only integration
-- Specific enterprise APIs not yet in `aragora` (Replay, Threat Intel)
+- Legacy compatibility during migration to `aragora-sdk`
 
-### From `aragora-client` to `aragora` v3.0.0
+### From `aragora-client` to `aragora` v3.0.0 (Historical Plan)
+
+> Current migration target for external SDK consumers is `aragora-sdk`; this section is retained for roadmap history.
 
 ```python
 # Before (aragora-client)
@@ -307,7 +311,7 @@ async def main():
   ```python
   import warnings
   warnings.warn(
-      "aragora-client is deprecated. Please migrate to aragora. "
+      "aragora-client is deprecated. Please migrate to aragora-sdk. "
       "See https://docs.aragora.ai/python-migration",
       DeprecationWarning,
       stacklevel=2
@@ -505,7 +509,7 @@ import warnings
 from aragora import AragoraAsyncClient as SDKClient
 
 warnings.warn(
-    "aragora-client is deprecated. Please migrate to aragora. "
+    "aragora-client is deprecated. Please migrate to aragora-sdk. "
     "See https://docs.aragora.ai/python-migration",
     DeprecationWarning,
     stacklevel=2

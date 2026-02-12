@@ -321,10 +321,10 @@ SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise wr
                     batch = tasks[batch_start : batch_start + self.config.max_parallel]
                     results = await asyncio.gather(*batch, return_exceptions=True)
                     for r in results:
-                        if isinstance(r, Exception):
+                        if isinstance(r, BaseException):
                             logger.error("batch_verification_error: %s", r)
                         else:
-                            step_results.append(r)
+                            step_results.append(r)  # type: ignore[arg-type]
             else:
                 # Sequential verification
                 for contribution in contributions:
@@ -361,7 +361,7 @@ SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise wr
 
         debate_id = debate_rounds[0].get("debate_id", "unknown") if debate_rounds else "unknown"
 
-        result = ProcessVerificationResult(
+        result: ProcessVerificationResult = ProcessVerificationResult(
             debate_id=debate_id,
             total_steps=total,
             correct_steps=correct,

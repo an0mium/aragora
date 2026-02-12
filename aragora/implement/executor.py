@@ -213,7 +213,7 @@ Make only the changes specified. Follow existing code style."""
         if not agent_type:
             return None
         if agent_type == "claude":
-            agent = self.claude
+            agent: Any = self.claude
             if hasattr(agent, "timeout"):
                 agent.timeout = timeout
             if system_prompt and hasattr(agent, "system_prompt"):

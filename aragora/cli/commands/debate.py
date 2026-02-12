@@ -185,6 +185,35 @@ def _parse_auto_select_config(raw: str | None) -> dict[str, Any] | None:
     return parsed
 
 
+def _append_context_file(context: str, context_file: str) -> str:
+    """Read a file and append its content to the context string."""
+    from pathlib import Path
+
+    path = Path(context_file)
+    if not path.is_file():
+        raise ValueError(f"Context file not found: {context_file}")
+    content = path.read_text(encoding="utf-8")
+    if context:
+        return f"{context}\n\n--- Context from {path.name} ---\n{content}"
+    return content
+
+
+def _parse_document_ids(
+    document: str | None,
+    documents: str | None,
+) -> list[str]:
+    """Parse document ID arguments into a list of document IDs."""
+    result: list[str] = []
+    if document:
+        result.append(document.strip())
+    if documents:
+        for doc in documents.split(","):
+            doc = doc.strip()
+            if doc and doc not in result:
+                result.append(doc)
+    return result
+
+
 def _auto_select_agents_local(task: str, config: dict[str, Any] | None) -> str | None:
     """Run local auto-selection using server selection logic (best-effort)."""
     try:
@@ -603,6 +632,7 @@ async def run_debate(
     auto_select: bool = False,
     auto_select_config: dict[str, Any] | None = None,
     offline: bool = False,
+    **kwargs: Any,
 ):
     """Run a decision stress-test (debate engine)."""
     from aragora.utils.env import is_offline_mode

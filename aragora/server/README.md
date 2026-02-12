@@ -8,13 +8,19 @@ The server module provides a modular handler architecture with 122+ endpoint han
 
 ## Quick Start
 
-```bash
-# Start the server
-python -m aragora.server.unified_server --port 8080
+### Full API + WebSocket Surface (Recommended)
 
-# Or with uvicorn
-uvicorn aragora.server.unified_server:app --host 0.0.0.0 --port 8080
+```bash
+aragora serve --api-port 8080 --ws-port 8765
 ```
+
+### FastAPI Subset (Partial API Surface)
+
+```bash
+uvicorn aragora.server.app:app --host 0.0.0.0 --port 8081
+```
+
+`aragora serve` runs the full handler-registry API plus WebSocket stream server. `aragora.server.app:app` is a partial FastAPI surface used for incremental migration and targeted integrations.
 
 ### API Example
 

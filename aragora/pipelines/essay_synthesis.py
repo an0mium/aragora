@@ -362,8 +362,8 @@ class EssaySynthesisPipeline:
         # Find clusters around high-frequency keywords
         sorted_keywords = sorted(keyword_claims.items(), key=lambda x: -len(x[1]))
 
-        clusters = []
-        clustered_claims = set()
+        clusters: list[TopicCluster] = []
+        clustered_claims: set[str] = set()
 
         for keyword, keyword_claim_list in sorted_keywords[:self.config.max_clusters]:
             # Skip if most claims already clustered
@@ -438,7 +438,7 @@ class EssaySynthesisPipeline:
             return 0.0
 
         # Average pairwise keyword overlap
-        total_overlap = 0
+        total_overlap = 0.0
         pairs = 0
 
         for i, c1 in enumerate(claims):

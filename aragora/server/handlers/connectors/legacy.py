@@ -43,7 +43,7 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
     check_permission = None  # type: ignore[assignment]
-    PermissionDeniedError = Exception  # type: ignore[assignment]
+    PermissionDeniedError = Exception  # type: ignore[misc,assignment]
 
 
 def _record_rbac_check(*args: Any, **kwargs: Any) -> None:

@@ -97,7 +97,7 @@ class PubMedConnector(BaseConnector):
 
         limit = min(limit, 50)
 
-        params = {
+        params: dict[str, Any] = {
             "db": "pubmed",
             "term": query,
             "retmax": limit,

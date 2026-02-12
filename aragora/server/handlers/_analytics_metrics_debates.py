@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import CACHE_TTL_ANALYTICS
 
@@ -30,6 +30,10 @@ from aragora.server.validation.query_params import safe_query_int
 
 class DebateAnalyticsMixin:
     """Mixin providing debate analytics endpoint methods."""
+
+    if TYPE_CHECKING:
+        _validate_org_access: Any
+        get_storage: Any
 
     # =========================================================================
     # Debate Analytics Endpoints

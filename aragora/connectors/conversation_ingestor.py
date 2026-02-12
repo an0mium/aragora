@@ -561,7 +561,7 @@ class ConversationIngestorConnector(BaseConnector):
 
         return ConversationExport(
             conversations=conversations,
-            source="unknown",
+            source="mixed",  # type: ignore[arg-type]
             export_date=datetime.now(),
             metadata={"source_file": str(source_path)},
         )
@@ -850,7 +850,7 @@ class ConversationIngestorConnector(BaseConnector):
                                     context=context,
                                     conversation_id=conv.id,
                                     confidence=0.7,
-                                    claim_type=claim_type,
+                                    claim_type=claim_type,  # type: ignore[arg-type]
                                 )
                             )
 
@@ -872,7 +872,7 @@ class ConversationIngestorConnector(BaseConnector):
                                         context=context,
                                         conversation_id=conv.id,
                                         confidence=0.6,
-                                        claim_type=claim_type,
+                                        claim_type=claim_type,  # type: ignore[arg-type]
                                     )
                                 )
 

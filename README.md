@@ -256,7 +256,7 @@ Safety: automatic backups, protected file checksums, rollback on failure, human 
 
 ```bash
 # Local development
-aragora serve --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # Production (AWS Lightsail + Cloudflare Tunnel)
 ./deploy/lightsail-setup.sh

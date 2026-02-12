@@ -28,14 +28,18 @@ from aragora.memory.continuum.base import (
 from aragora.memory import continuum_consolidation as _consolidation
 from aragora.memory import continuum_stats as _stats
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
 class CoordinatorTierOpsMixin:
     """Mixin providing tier management operations for ContinuumMemory coordinator."""
+
+    if TYPE_CHECKING:
+        connection: Any
+        hyperparams: Any
+        _tier_lock: Any
+        _tier_manager: Any
+        _emit_tier_event: Any
 
     def promote_entry(self, memory_id: str, new_tier: MemoryTier) -> bool:
         """Promote an entry to a specific tier.

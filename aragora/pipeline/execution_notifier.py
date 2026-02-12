@@ -275,7 +275,8 @@ class ExecutionNotifier:
                 logger.debug("WebSocket completion broadcast failed: %s", exc)
 
         if self._channel_targets:
+            summary = summary_payload.get("summary", {})
             await self._dispatch_to_targets(
-                summary_payload.get("summary", {}),
+                summary if isinstance(summary, dict) else {},
                 is_complete=True,
             )

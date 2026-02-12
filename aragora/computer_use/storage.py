@@ -49,7 +49,7 @@ class ComputerUseTask:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        steps = []
+        steps: list[Any] = []
         try:
             steps = json.loads(self.steps_json) if self.steps_json else []
         except json.JSONDecodeError as e:
@@ -106,8 +106,8 @@ class ComputerUsePolicy:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        allowed_actions = []
-        blocked_domains = []
+        allowed_actions: list[str] = []
+        blocked_domains: list[str] = []
         try:
             allowed_actions = (
                 json.loads(self.allowed_actions_json) if self.allowed_actions_json else []

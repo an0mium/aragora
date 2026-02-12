@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
 
 class TelegramBotManagementMixin:
     """Mixin providing bot management operations for TelegramConnector."""
+
+    if TYPE_CHECKING:
+        _telegram_api_request: Any
 
     async def set_my_commands(
         self,

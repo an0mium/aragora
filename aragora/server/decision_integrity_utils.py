@@ -376,7 +376,7 @@ async def build_decision_integrity_payload(
                 from aragora.pipeline.executor import PlanExecutor
                 from aragora.pipeline.execution_notifier import ExecutionNotifier
 
-                engine = execution_engine or ("workflow" if workflow_mode else "hybrid")
+                engine: str = execution_engine or ("workflow" if workflow_mode else "hybrid")
                 parallel_execution = bool(cfg.get("parallel_execution", False))
 
                 notifier = None
@@ -396,12 +396,12 @@ async def build_decision_integrity_payload(
                     continuum_memory=getattr(arena, "continuum_memory", None),
                     knowledge_mound=getattr(arena, "knowledge_mound", None),
                     parallel_execution=parallel_execution,
-                    execution_mode=engine,
+                    execution_mode=engine,  # type: ignore[arg-type]
                 )
                 outcome = await executor.execute(
                     plan,
                     parallel_execution=parallel_execution,
-                    execution_mode=engine,
+                    execution_mode=engine,  # type: ignore[arg-type]
                     on_task_complete=on_task_complete,
                 )
                 if notifier and notify_origin:

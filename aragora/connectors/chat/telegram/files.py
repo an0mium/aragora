@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     FileAttachment,
@@ -29,6 +29,13 @@ except ImportError:
 
 class TelegramFilesMixin:
     """Mixin providing file operations for TelegramConnector."""
+
+    if TYPE_CHECKING:
+        _telegram_api_request: Any
+        _request_timeout: Any
+        bot_token: Any
+        _http_request: Any
+        download_file: Any
 
     async def upload_file(
         self,

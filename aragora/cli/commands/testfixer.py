@@ -9,6 +9,7 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from aragora.nomic.testfixer.analyzers import LLMAnalyzerConfig
 from aragora.nomic.testfixer.generators import AgentCodeGenerator, AgentGeneratorConfig
@@ -31,7 +32,7 @@ def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Pat
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             log_path = repo_path / ".testfixer" / "logs" / f"testfixer_{ts}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        handlers = [
+        handlers: list[logging.Handler] = [
             logging.StreamHandler(),
             logging.FileHandler(log_path, encoding="utf-8"),
         ]
@@ -46,7 +47,7 @@ def _setup_logging(repo_path: Path, log_file: str | None, log_level: str) -> Pat
     return log_path
 
 
-def _parse_agents(agents: str, timeout_seconds: float | None = None) -> list[AgentCodeGenerator]:
+def _parse_agents(agents: str, timeout_seconds: float | None = None) -> list[Any]:
     if not agents or agents.strip().lower() in ("none", "false", "off", "0"):
         return []
     generator_configs: list[AgentGeneratorConfig] = []

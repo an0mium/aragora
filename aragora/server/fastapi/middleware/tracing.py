@@ -6,11 +6,14 @@ Adds trace ID propagation and request timing for observability.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+
+logger = logging.getLogger(__name__)
 
 
 class TracingMiddleware(BaseHTTPMiddleware):

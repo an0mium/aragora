@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
 
 class TelegramInlineMixin:
     """Mixin providing inline query support for TelegramConnector."""
+
+    if TYPE_CHECKING:
+        parse_mode: Any
+        _telegram_api_request: Any
 
     async def answer_inline_query(
         self,

@@ -14,8 +14,8 @@ from typing import Any, Callable, Generic, TypeVar
 # =============================================================================
 
 T = TypeVar("T")
-AgentT = TypeVar("AgentT", bound="AgentProtocol")  # noqa: F821
-MemoryT = TypeVar("MemoryT", bound="MemoryProtocol")  # noqa: F821
+AgentT = TypeVar("AgentT")  # Bound to AgentProtocol at usage sites
+MemoryT = TypeVar("MemoryT")  # Bound to MemoryProtocol at usage sites
 
 # =============================================================================
 # Callback Types

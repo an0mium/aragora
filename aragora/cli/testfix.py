@@ -8,6 +8,7 @@ import argparse
 import asyncio
 import json
 import os
+from typing import Any
 import sys
 from pathlib import Path
 
@@ -23,7 +24,7 @@ def _parse_agents(raw: str | None) -> list[str]:
     return [agent.strip() for agent in raw.split(",") if agent.strip()]
 
 
-def _build_generators(agent_types: list[str]) -> list[AgentCodeGenerator] | None:
+def _build_generators(agent_types: list[str]) -> list[Any] | None:
     if not agent_types:
         return None
     generators: list[AgentCodeGenerator] = []

@@ -156,7 +156,7 @@ async def _run_think_prm_verification(
         result.debate_id = getattr(ctx, "debate_id", "unknown")
         return result
     except Exception as e:
-        logger.warning("think_prm_verification_failed: %s", e)
+        logger.warning(f"think_prm_verification_failed: {e}")
         return None
 
 

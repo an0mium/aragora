@@ -105,7 +105,7 @@ class SemanticScholarConnector(BaseConnector):
             "isOpenAccess",
         ]
 
-        params = {
+        params: dict[str, Any] = {
             "query": query,
             "limit": limit,
             "fields": ",".join(fields),

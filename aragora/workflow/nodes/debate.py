@@ -172,6 +172,24 @@ class DebateStep(BaseStep):
 
             # Execute debate
             logger.info(f"Starting debate '{self.name}' on topic: {topic[:100]}...")
+            try:
+                from aragora.events.types import StreamEventType
+
+                context.emit_event(
+                    StreamEventType.WORKFLOW_DEBATE_START.value,
+                    {
+                        "workflow_id": context.workflow_id,
+                        "definition_id": context.definition_id,
+                        "step_id": context.current_step_id,
+                        "step_name": self.name,
+                        "topic": topic,
+                        "agents": agent_types,
+                        "rounds": protocol.rounds,
+                    },
+                )
+            except Exception:
+                pass
+
             result = await arena.run()
 
             # Extract key information
@@ -203,6 +221,25 @@ class DebateStep(BaseStep):
                     }
                     for r in result.responses[:20]  # Limit to 20 responses
                 ]
+
+            try:
+                from aragora.events.types import StreamEventType
+
+                context.emit_event(
+                    StreamEventType.WORKFLOW_DEBATE_COMPLETE.value,
+                    {
+                        "workflow_id": context.workflow_id,
+                        "definition_id": context.definition_id,
+                        "step_id": context.current_step_id,
+                        "step_name": self.name,
+                        "debate_id": output.get("debate_id"),
+                        "consensus_reached": output.get("consensus_reached"),
+                        "rounds_completed": output.get("rounds_completed"),
+                        "execution_time_ms": output.get("execution_time_ms"),
+                    },
+                )
+            except Exception:
+                pass
 
             logger.info(f"Debate '{self.name}' completed. Consensus: {output['consensus_reached']}")
             return output

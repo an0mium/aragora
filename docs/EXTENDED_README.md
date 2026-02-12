@@ -663,7 +663,7 @@ Configuration:
 ### Local Development
 
 ```bash
-aragora serve --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ---

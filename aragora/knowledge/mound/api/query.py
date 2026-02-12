@@ -399,7 +399,7 @@ class QueryOperationsMixin(_QueryMixinBase):
             query,
             DocumentFeatures(total_nodes=total_nodes),
             supports_rlm=supports_rlm,
-            force_route=self.config.lara_force_route,
+            force_route=self.config.lara_force_route,  # type: ignore[arg-type]
         )
 
     async def get_recent_nodes(

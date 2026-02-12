@@ -10,7 +10,7 @@ This module is used as a mixin by BillingHandler in core.py.
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..base import HandlerResult, error_response, handle_errors, json_response
 from .core_helpers import _get_admin_billing_callable, _is_duplicate_webhook, _mark_webhook_processed
@@ -27,6 +27,11 @@ def _logger():
 
 class WebhookMixin:
     """Mixin providing Stripe webhook handling methods for BillingHandler."""
+
+    if TYPE_CHECKING:
+        _log_audit: Any
+        validate_content_length: Any
+        _get_user_store: Any
 
     @handle_errors("stripe webhook")
     def _handle_stripe_webhook(self, handler: Any) -> HandlerResult:

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.billing.models import Organization, OrganizationInvitation, User
 from aragora.utils.async_utils import run_async
@@ -21,6 +21,22 @@ logger = logging.getLogger(__name__)
 
 class SecurityOperationsMixin:
     """Mixin providing security, OAuth, audit, invitation, and admin operations."""
+
+    if TYPE_CHECKING:
+        _pool: Any
+        _AUDIT_LOG_COLUMNS: str
+        _INVITATION_COLUMNS: str
+        _ORG_COLUMNS: str
+        _USER_COLUMNS: str
+        _row_to_user: Any
+        _row_to_org: Any
+        get_user_by_id_async: Any
+        LOCKOUT_THRESHOLD_1: int
+        LOCKOUT_THRESHOLD_2: int
+        LOCKOUT_THRESHOLD_3: int
+        LOCKOUT_DURATION_1: Any
+        LOCKOUT_DURATION_2: Any
+        LOCKOUT_DURATION_3: Any
 
     # =========================================================================
     # OAuth Provider Operations

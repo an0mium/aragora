@@ -53,7 +53,7 @@ class StartDebateRequest(BaseModel):
     enable_checkpointing: bool = Field(True, description="Enable debate checkpointing")
     enable_memory: bool = Field(True, description="Enable memory system")
 
-    model_config = {
+    model_config: dict[str, Any] = {
         "json_schema_extra": {
             "examples": [
                 {

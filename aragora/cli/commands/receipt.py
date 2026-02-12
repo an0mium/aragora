@@ -261,6 +261,7 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
         receipt = DecisionReceipt.from_dict(receipt_data)
 
         # Export based on format
+        content: str | bytes
         if output_format == "json":
             content = receipt.to_json()
             extension = ".json"
@@ -271,7 +272,7 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
             content = receipt.to_markdown()
             extension = ".md"
         elif output_format == "sarif":
-            content = receipt.to_sarif()
+            content = str(receipt.to_sarif())
             extension = ".sarif"
         elif output_format == "pdf":
             content = receipt.to_pdf()
@@ -290,11 +291,11 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
 
         # Write output
         if output_format == "pdf":
-            with open(output_path, "wb") as f:
-                f.write(content)
+            with open(output_path, "wb") as fb:
+                fb.write(content if isinstance(content, bytes) else content.encode())
         else:
-            with open(output_path, "w") as f:
-                f.write(content)
+            with open(output_path, "w") as ft:
+                ft.write(content if isinstance(content, str) else content.decode())
 
         print(f"Receipt exported to: {output_path}")
 

@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from aragora.memory.store import CritiqueStore
     from aragora.pulse.types import TrendingTopic
     from aragora.ranking.elo import EloSystem
+    from aragora.server.question_classifier import QuestionClassification, QuestionClassifier
     from aragora.rlm.types import RLMContext
 
 # Check for RLM availability (use factory for consistent initialization)

@@ -133,7 +133,7 @@ class SeedEssay:
 
     title: str
     content: str
-    sections: list[dict[str, str]] = field(default_factory=list)
+    sections: list[dict[str, Any]] = field(default_factory=list)
     key_claims: list[str] = field(default_factory=list)
     themes: list[str] = field(default_factory=list)
     keywords: set[str] = field(default_factory=set)
@@ -542,7 +542,7 @@ class EssayWorkflow:
                 result = await arena.run()
 
                 # Extract counterarguments from critiques
-                counterarguments = []
+                counterarguments: list[str] = []
                 for critique in getattr(result, "critiques", []) or []:
                     counterarguments.extend(critique.issues or [])
                     if critique.reasoning:
@@ -979,8 +979,12 @@ class EssayWorkflow:
                 lines.append(f"- {claim.claim[:200]}...")
                 if claim.claim in self._steelman_claims:
                     lines.append(f"  - Steelman: {self._steelman_claims[claim.claim][:200]}...")
-                if claim.claim in self._attributed_claims:
-                    attr = self._attributed_claims[claim.claim]
+                # Find matching attributed claim by claim text
+                attr = next(
+                    (a for a in self._attributed_claims if a.claim.claim == claim.claim),
+                    None,
+                )
+                if attr is not None:
                     if attr.sources:
                         lines.append(f"  - Supported by: {attr.sources[0].title}")
 

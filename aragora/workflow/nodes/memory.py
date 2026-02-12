@@ -53,13 +53,35 @@ class MemoryReadStep(BaseStep):
         """Execute the memory read step."""
         config = {**self._config, **context.current_step_config}
 
+        def _emit(success: bool, total_count: int, query_value: str, error: str | None = None, **extra: Any) -> None:
+            try:
+                from aragora.events.types import StreamEventType
+
+                payload = {
+                    "workflow_id": context.workflow_id,
+                    "definition_id": context.definition_id,
+                    "step_id": context.current_step_id,
+                    "step_name": self.name,
+                    "query": query_value,
+                    "total_count": total_count,
+                    "success": success,
+                }
+                if error:
+                    payload["error"] = error
+                payload.update(extra)
+                context.emit_event(StreamEventType.WORKFLOW_MEMORY_READ.value, payload)
+            except Exception:
+                pass
+
         # Build query from template and context
         query_template = config.get("query", "")
         query = self._interpolate_query(query_template, context)
 
         if not query:
             logger.warning(f"Empty query for memory read step '{self.name}'")
-            return {"items": [], "total_count": 0, "query": query}
+            response = {"items": [], "total_count": 0, "query": query}
+            _emit(False, 0, query, "Empty query")
+            return response
 
         # Get Knowledge Mound instance
         try:
@@ -92,25 +114,31 @@ class MemoryReadStep(BaseStep):
 
             logger.info(f"Memory read '{self.name}': found {len(result.items)} items")
 
-            return {
+            response = {
                 "items": [item.to_dict() for item in result.items],
                 "total_count": result.total_count,
                 "query": query,
                 "execution_time_ms": result.execution_time_ms,
             }
+            _emit(True, result.total_count, query, execution_time_ms=result.execution_time_ms)
+            return response
 
         except ImportError:
             logger.warning("Knowledge Mound not available, returning empty result")
-            return {
+            response = {
                 "items": [],
                 "total_count": 0,
                 "query": query,
                 "error": "Knowledge Mound not available",
             }
+            _emit(False, 0, query, "Knowledge Mound not available")
+            return response
 
         except Exception as e:
             logger.error(f"Memory read failed: {e}")
-            return {"items": [], "total_count": 0, "query": query, "error": str(e)}
+            response = {"items": [], "total_count": 0, "query": query, "error": str(e)}
+            _emit(False, 0, query, str(e))
+            return response
 
     def _interpolate_query(self, template: str, context: WorkflowContext) -> str:
         """Interpolate query template with context values."""
@@ -172,13 +200,33 @@ class MemoryWriteStep(BaseStep):
         """Execute the memory write step."""
         config = {**self._config, **context.current_step_config}
 
+        def _emit(success: bool, error: str | None = None, **extra: Any) -> None:
+            try:
+                from aragora.events.types import StreamEventType
+
+                payload = {
+                    "workflow_id": context.workflow_id,
+                    "definition_id": context.definition_id,
+                    "step_id": context.current_step_id,
+                    "step_name": self.name,
+                    "success": success,
+                }
+                if error:
+                    payload["error"] = error
+                payload.update(extra)
+                context.emit_event(StreamEventType.WORKFLOW_MEMORY_WRITE.value, payload)
+            except Exception:
+                pass
+
         # Build content from template and context
         content_template = config.get("content", "")
         content = self._interpolate_content(content_template, context)
 
         if not content:
             logger.warning(f"Empty content for memory write step '{self.name}'")
-            return {"success": False, "error": "Empty content"}
+            response = {"success": False, "error": "Empty content"}
+            _emit(False, "Empty content")
+            return response
 
         try:
             from aragora.knowledge.mound import (
@@ -233,21 +281,32 @@ class MemoryWriteStep(BaseStep):
 
             logger.info(f"Memory write '{self.name}': stored as {result.node_id}")
 
-            return {
+            response = {
                 "success": result.success,
                 "node_id": result.node_id,
                 "deduplicated": result.deduplicated,
                 "existing_node_id": result.existing_node_id,
                 "relationships_created": result.relationships_created,
             }
+            _emit(
+                result.success,
+                None if result.success else "Memory write reported failure",
+                node_id=result.node_id,
+                deduplicated=result.deduplicated,
+            )
+            return response
 
         except ImportError:
             logger.warning("Knowledge Mound not available, write skipped")
-            return {"success": False, "error": "Knowledge Mound not available"}
+            response = {"success": False, "error": "Knowledge Mound not available"}
+            _emit(False, "Knowledge Mound not available")
+            return response
 
         except Exception as e:
             logger.error(f"Memory write failed: {e}")
-            return {"success": False, "error": str(e)}
+            response = {"success": False, "error": str(e)}
+            _emit(False, str(e))
+            return response
 
     def _interpolate_content(self, template: str, context: WorkflowContext) -> str:
         """Interpolate content template with context values."""

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..models import SendMessageResponse
 
@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 
 class TelegramMediaMixin:
     """Mixin providing rich media operations for TelegramConnector."""
+
+    if TYPE_CHECKING:
+        _escape_markdown: Any
+        parse_mode: Any
+        _blocks_to_keyboard: Any
+        _telegram_api_request: Any
 
     async def send_photo(
         self,

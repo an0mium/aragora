@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from aragora.core import Agent
     from aragora.evidence.collector import EvidencePack
     from aragora.knowledge.mound.adapters import SupermemoryAdapter, ContextInjectionResult
+    from aragora.pulse.types import TrendingTopic
     from aragora.ranking.elo import EloSystem
     from aragora.rlm.types import RLMContext
 

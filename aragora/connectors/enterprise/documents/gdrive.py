@@ -613,7 +613,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                 if not page_token:
                     break
             else:
-                logger.warning("Pagination limit reached (%d pages)", _max_pages)
+                logger.warning("Pagination limit reached (%d pages)", _MAX_PAGES)
 
     async def search(
         self,

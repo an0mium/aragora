@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import CACHE_TTL_ANALYTICS
 
@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 class UsageAnalyticsMixin:
     """Mixin providing usage analytics endpoint methods."""
+
+    if TYPE_CHECKING:
+        _validate_org_access: Any
+        ctx: Any
 
     # =========================================================================
     # Usage Analytics Endpoints

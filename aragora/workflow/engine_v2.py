@@ -46,6 +46,7 @@ from typing import Any, Callable, Optional
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
+from aragora.events.types import StreamEventType
 from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.types import (
     ExecutionPattern,
@@ -249,6 +250,8 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         definition: WorkflowDefinition,
         inputs: Optional[dict[str, Any]] = None,
         workflow_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ) -> EnhancedWorkflowResult:
         """
         Execute workflow with resource tracking and limits.
@@ -257,12 +260,16 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             definition: Workflow definition to execute
             inputs: Input parameters for the workflow
             workflow_id: Optional ID (generated if not provided)
+            metadata: Optional metadata injected into workflow context
+            event_callback: Optional callback for workflow progress events
 
         Returns:
             EnhancedWorkflowResult with metrics and resource usage
         """
         workflow_id = workflow_id or f"wf_{uuid.uuid4().hex[:12]}"
         inputs = inputs or {}
+        metadata = self._merge_metadata(definition, metadata)
+        metadata.setdefault("workflow_name", definition.name)
 
         logger.info(f"Starting enhanced workflow {workflow_id}: {definition.name}")
 
@@ -276,7 +283,17 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             workflow_id=workflow_id,
             definition_id=definition.id,
             inputs=inputs,
-            metadata=definition.metadata or {},
+            metadata=metadata,
+            event_callback=event_callback,
+        )
+
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_START,
+            {
+                **self._base_event_payload(context),
+                "step_count": len(definition.steps),
+            },
         )
 
         # Reset execution state
@@ -327,6 +344,20 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         # Update elapsed time
         self._usage.time_elapsed_seconds = time.time() - self._start_time
 
+        event_payload = {
+            **self._base_event_payload(context),
+            "success": success,
+            "duration_ms": (time.time() - self._start_time) * 1000,
+            "steps_executed": len(self._results),
+            "error": error,
+        }
+        if self._should_terminate:
+            self._emit_event(context, StreamEventType.WORKFLOW_TERMINATED, event_payload)
+        elif success:
+            self._emit_event(context, StreamEventType.WORKFLOW_COMPLETE, event_payload)
+        else:
+            self._emit_event(context, StreamEventType.WORKFLOW_FAILED, event_payload)
+
         return EnhancedWorkflowResult(
             workflow_id=workflow_id,
             definition_id=definition.id,
@@ -375,7 +406,18 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 break
 
             if current_step_id in completed_steps:
-                current_step_id = self._get_next_step(definition, current_step_id, context)
+                next_step = self._get_next_step(definition, current_step_id, context)
+                if next_step:
+                    self._emit_event(
+                        context,
+                        StreamEventType.WORKFLOW_TRANSITION,
+                        {
+                            **self._base_event_payload(context),
+                            "from_step": current_step_id,
+                            "to_step": next_step,
+                        },
+                    )
+                current_step_id = next_step
                 continue
 
             # Check for parallel execution pattern
@@ -414,7 +456,18 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                     context,
                 )
 
-            current_step_id = self._get_next_step(definition, current_step_id, context)
+            next_step = self._get_next_step(definition, current_step_id, context)
+            if next_step:
+                self._emit_event(
+                    context,
+                    StreamEventType.WORKFLOW_TRANSITION,
+                    {
+                        **self._base_event_payload(context),
+                        "from_step": current_step_id,
+                        "to_step": next_step,
+                    },
+                )
+            current_step_id = next_step
 
         return final_output
 
@@ -430,11 +483,36 @@ class EnhancedWorkflowEngine(WorkflowEngine):
 
         logger.debug(f"Executing step: {step_def.name} ({step_def.id})")
 
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_STEP_START,
+            {
+                **self._base_event_payload(context),
+                "step_id": step_def.id,
+                "step_name": step_def.name,
+                "step_type": step_def.step_type,
+                "optional": step_def.optional,
+                "retry_count": 0,
+            },
+        )
+
         context.current_step_id = step_def.id
         context.current_step_config = step_def.config
 
         step = self._get_step_instance(step_def)
         if step is None:
+            self._emit_event(
+                context,
+                StreamEventType.WORKFLOW_STEP_FAILED,
+                {
+                    **self._base_event_payload(context),
+                    "step_id": step_def.id,
+                    "step_name": step_def.name,
+                    "step_type": step_def.step_type,
+                    "status": StepStatus.FAILED.value,
+                    "error": f"Unknown step type: {step_def.step_type}",
+                },
+            )
             return StepResult(
                 step_id=step_def.id,
                 step_name=step_def.name,
@@ -463,6 +541,20 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 # Track token usage if available
                 self._track_step_tokens(step_def, output)
 
+                self._emit_event(
+                    context,
+                    StreamEventType.WORKFLOW_STEP_COMPLETE,
+                    {
+                        **self._base_event_payload(context),
+                        "step_id": step_def.id,
+                        "step_name": step_def.name,
+                        "step_type": step_def.step_type,
+                        "status": StepStatus.COMPLETED.value,
+                        "duration_ms": duration_ms,
+                        "retry_count": retry_count,
+                    },
+                )
+
                 return StepResult(
                     step_id=step_def.id,
                     step_name=step_def.name,
@@ -483,6 +575,20 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 retry_count += 1
 
         duration_ms = (time.time() - start_time) * 1000
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_STEP_FAILED,
+            {
+                **self._base_event_payload(context),
+                "step_id": step_def.id,
+                "step_name": step_def.name,
+                "step_type": step_def.step_type,
+                "status": StepStatus.FAILED.value,
+                "duration_ms": duration_ms,
+                "retry_count": retry_count,
+                "error": last_error,
+            },
+        )
         return StepResult(
             step_id=step_def.id,
             step_name=step_def.name,
@@ -503,6 +609,20 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         """Execute parallel steps (hive-mind pattern)."""
         started_at = datetime.now(timezone.utc)
         start_time = time.time()
+
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_STEP_START,
+            {
+                **self._base_event_payload(context),
+                "step_id": step_def.id,
+                "step_name": step_def.name,
+                "step_type": step_def.step_type,
+                "optional": step_def.optional,
+                "retry_count": 0,
+                "execution_pattern": ExecutionPattern.PARALLEL.value,
+            },
+        )
 
         # Get sub-steps from config or next_steps
         sub_step_ids = step_def.config.get("parallel_steps", step_def.next_steps)
@@ -551,6 +671,22 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                     all_success = False
 
         duration_ms = (time.time() - start_time) * 1000
+
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_STEP_COMPLETE if all_success else StreamEventType.WORKFLOW_STEP_FAILED,
+            {
+                **self._base_event_payload(context),
+                "step_id": step_def.id,
+                "step_name": step_def.name,
+                "step_type": step_def.step_type,
+                "status": StepStatus.COMPLETED.value
+                if all_success
+                else StepStatus.FAILED.value,
+                "duration_ms": duration_ms,
+                "parallel_steps": sub_step_ids,
+            },
+        )
 
         return StepResult(
             step_id=step_def.id,

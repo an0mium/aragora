@@ -109,7 +109,7 @@ class LLMFailureAnalyzer(AIAnalyzer):
                     model = self.config.models.get(agent_type)
 
                 agent = create_agent(
-                    model_type=agent_type,
+                    model_type=agent_type,  # type: ignore[arg-type]
                     name=f"analyzer_{agent_type}",
                     role="analyst",
                     model=model,

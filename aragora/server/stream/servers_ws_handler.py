@@ -70,6 +70,34 @@ class WebSocketHandlerMixin:
     - update_loop_state(loop_id, cycle, phase) -> None
     """
 
+    # Attributes provided by the host class (declared for type checking)
+    if TYPE_CHECKING:
+        is_ws_authenticated: Any
+        should_revalidate_ws_token: Any
+        get_ws_token: Any
+        revoke_ws_auth: Any
+        mark_ws_token_validated: Any
+        set_ws_auth_state: Any
+        remove_ws_auth_state: Any
+        _active_loops_lock: Any
+        active_loops: Any
+        _rate_limiters_lock: Any
+        _rate_limiter_last_access: Any
+        _rate_limiters: Any
+        audience_inbox: Any
+        _emitter: Any
+        clients: Any
+        _client_ids: Any
+        config: Any
+        _get_loops_data: Any
+        _client_subscriptions_lock: Any
+        _client_subscriptions: Any
+        _debate_states_lock: Any
+        debate_states: Any
+        _timeout_sender: Any
+        _running: Any
+        update_loop_state: Any
+
     def _validate_audience_payload(self, data: dict) -> tuple[dict | None, str | None]:
         """Validate audience message payload.
 

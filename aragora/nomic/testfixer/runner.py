@@ -217,7 +217,7 @@ def _run_command(command: list[str], cwd: Path | None = None) -> str | None:
             return None
         return result.stdout.strip()
     except Exception:
-        logger.debug("Command failed: %s", cmd, exc_info=True)
+        logger.debug("Command failed: %s", command, exc_info=True)
         return None
 
 

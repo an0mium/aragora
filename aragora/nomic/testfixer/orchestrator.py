@@ -556,10 +556,10 @@ class TestFixerOrchestrator:
                     )
 
                 # Check if fix worked
-                fix_worked = retest_result.success or (
+                fix_worked = bool(retest_result.success or (
                     retest_result.first_failure
                     and retest_result.first_failure.test_name != failure.test_name
-                )
+                ))
 
                 attempt = FixAttempt(
                     iteration=iteration,

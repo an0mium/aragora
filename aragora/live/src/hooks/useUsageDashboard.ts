@@ -104,6 +104,36 @@ export interface IndustryBenchmark {
 export type TimeRange = '24h' | '7d' | '30d' | '90d';
 
 // ============================================================================
+// Types - Cost Breakdown (used by CostBreakdown component)
+// ============================================================================
+
+export interface CostBreakdownItem {
+  name: string;
+  cost_usd: number;
+  percentage: number;
+  tokens: number;
+  requests: number;
+}
+
+export interface CostBreakdown {
+  total_cost_usd: number;
+  by_agent: CostBreakdownItem[];
+  by_model: CostBreakdownItem[];
+}
+
+// ============================================================================
+// Types - Usage Trend
+// ============================================================================
+
+export interface UsageTrendPoint {
+  date: string;
+  debates: number;
+  tokens: number;
+  cost_usd: number;
+  consensus_rate: number;
+}
+
+// ============================================================================
 // Individual Hooks
 // ============================================================================
 
@@ -206,6 +236,48 @@ export function useIndustryBenchmarks(
   return {
     ...result,
     benchmarks: result.data?.data?.benchmarks ?? [],
+  };
+}
+
+/**
+ * Hook for fetching usage trend data over time
+ */
+export function useUsageTrend(
+  timeRange: TimeRange = '30d',
+  options?: UseSWRFetchOptions<{ data: { points: UsageTrendPoint[] } }>
+) {
+  const result = useSWRFetch<{ data: { points: UsageTrendPoint[] } }>(
+    `/api/v1/usage/trend?range=${timeRange}`,
+    {
+      refreshInterval: 60000, // Refresh every minute
+      ...options,
+    }
+  );
+
+  return {
+    ...result,
+    trend: result.data?.data?.points ?? [],
+  };
+}
+
+/**
+ * Hook for fetching cost breakdown by agent/model
+ */
+export function useCostBreakdown(
+  timeRange: TimeRange = '30d',
+  options?: UseSWRFetchOptions<{ data: CostBreakdown }>
+) {
+  const result = useSWRFetch<{ data: CostBreakdown }>(
+    `/api/v1/usage/cost-breakdown?range=${timeRange}`,
+    {
+      refreshInterval: 60000, // Refresh every minute
+      ...options,
+    }
+  );
+
+  return {
+    ...result,
+    breakdown: result.data?.data ?? null,
   };
 }
 

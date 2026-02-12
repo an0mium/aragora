@@ -14,6 +14,7 @@ from aragora.nomic.testfixer.proposer import PatchProposal
 from aragora.nomic.testfixer.runner import TestFailure
 from aragora.nomic.testfixer.store import TestFixerAttemptStore
 from aragora.nomic.testfixer.generators import AgentCodeGenerator, AgentGeneratorConfig
+from aragora.nomic.testfixer.proposer import CodeGenerator
 from aragora.nomic.testfixer.validators import ArenaValidatorConfig, RedTeamValidatorConfig
 
 
@@ -111,8 +112,8 @@ def apply_proposal(repo_path: Path, proposal_id: str) -> dict[str, Any]:
     return {"status": "applied", "proposal_id": proposal_id}
 
 
-def _make_generators(agents: list[str]) -> list[AgentCodeGenerator]:
-    generators: list[AgentCodeGenerator] = []
+def _make_generators(agents: list[str]) -> list[CodeGenerator]:
+    generators: list[CodeGenerator] = []
     for agent_spec in agents:
         if ":" in agent_spec:
             agent_type, model = agent_spec.split(":", 1)

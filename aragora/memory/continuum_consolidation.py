@@ -210,8 +210,6 @@ def demote_batch(
                     ],
                 )
 
-        conn.commit()
-
     if demoted_count > 0:
         logger.info(
             f"[memory] Batch demoted {demoted_count}/{len(ids)} entries: "

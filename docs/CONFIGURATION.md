@@ -12,7 +12,7 @@ cp .env.example .env
 echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
 
 # Start the server
-python -m aragora.server.unified_server
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Production Checklist
@@ -30,7 +30,7 @@ Before deploying to production, ensure:
 
 Verify configuration:
 ```bash
-python -m aragora.cli doctor
+python -m aragora doctor
 ```
 
 ---
@@ -513,7 +513,7 @@ ARAGORA_DATA_DIR=/tmp/aragora-test
 Run the configuration doctor to validate your setup:
 
 ```bash
-python -m aragora.cli doctor
+python -m aragora doctor
 ```
 
 This checks:

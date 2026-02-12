@@ -80,7 +80,7 @@ class ClinicalTablesConnector(BaseConnector):
             return []
 
         limit = min(limit, 50)
-        params = {
+        params: dict[str, Any] = {
             "terms": query,
             "maxList": limit,
             "sf": "code,name",

@@ -11,7 +11,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.billing.models import Organization, SubscriptionTier, User
 from aragora.utils.async_utils import run_async
@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 class OrganizationOperationsMixin:
     """Mixin providing organization operations for PostgresUserStore."""
+
+    if TYPE_CHECKING:
+        _pool: Any
+        _row_to_user: Any
 
     # =========================================================================
     # Organization Operations

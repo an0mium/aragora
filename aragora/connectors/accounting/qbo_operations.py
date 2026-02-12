@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.connectors.accounting.qbo_models import (
     QBOAccount,
@@ -25,6 +25,13 @@ logger = logging.getLogger(__name__)
 
 class QBOOperationsMixin:
     """Mixin providing entity-specific operations for QuickBooksConnector."""
+
+    if TYPE_CHECKING:
+        _request: Any
+        _validate_numeric_id: Any
+        _sanitize_query_value: Any
+        _credentials: Any
+        _parse_transaction: Any
 
     # =========================================================================
     # Customer Operations

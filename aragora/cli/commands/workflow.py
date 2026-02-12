@@ -14,12 +14,22 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import inspect
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+
+async def _resolve(value: Any) -> Any:
+    """Await a value if it's a coroutine, otherwise return it directly."""
+    if inspect.isawaitable(value):
+        return await value
+    return value
 
 
 def cmd_workflow(args: argparse.Namespace) -> None:
@@ -64,7 +74,7 @@ async def _cmd_list(args: argparse.Namespace) -> None:
         from aragora.workflow.persistent_store import get_workflow_store
 
         store = get_workflow_store()
-        workflows = store.list_workflows(category=category, limit=limit)
+        workflows = await _resolve(store.list_workflows(category=category, limit=limit))
 
         if as_json:
             workflow_dicts = [w.to_dict() for w in workflows]
@@ -128,10 +138,10 @@ async def _cmd_run(args: argparse.Namespace) -> None:
         engine = get_workflow_engine()
 
         # Get workflow definition
-        workflow = store.get_workflow(workflow_id)
+        workflow = await _resolve(store.get_workflow(workflow_id))
         if not workflow:
             # Try as template
-            workflow = store.get_template(workflow_id)
+            workflow = await _resolve(store.get_template(workflow_id))
             if not workflow:
                 print(f"\nError: Workflow or template '{workflow_id}' not found.")
                 return
@@ -206,7 +216,7 @@ async def _cmd_status(args: argparse.Namespace) -> None:
         from aragora.workflow.persistent_store import get_workflow_store
 
         store = get_workflow_store()
-        execution = store.get_execution(execution_id)
+        execution = await _resolve(store.get_execution(execution_id))
 
         if not execution:
             print(f"\nError: Execution '{execution_id}' not found.")
@@ -271,7 +281,7 @@ async def _cmd_templates(args: argparse.Namespace) -> None:
         from aragora.workflow.persistent_store import get_workflow_store
 
         store = get_workflow_store()
-        templates = store.list_templates(category=category, limit=limit)
+        templates = await _resolve(store.list_templates(category=category, limit=limit))
 
         if as_json:
             template_dicts = [t.to_dict() for t in templates]

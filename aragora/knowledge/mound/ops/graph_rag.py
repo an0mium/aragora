@@ -339,7 +339,7 @@ class GraphRAGRetriever:
         """
         expanded: dict[str, dict[str, Any]] = {}
         edge_count = 0
-        frontier = [(node_id, 0, [node_id], []) for node_id in seed_node_ids]
+        frontier: list[tuple[str, int, list[str], list[str]]] = [(node_id, 0, [node_id], []) for node_id in seed_node_ids]
         visited: set[str] = set(seed_node_ids)
 
         # Initialize seeds

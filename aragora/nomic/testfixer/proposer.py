@@ -676,7 +676,7 @@ class AgentCodeGenerator:
         self.agent_type = agent_type
         self.max_file_chars = max_file_chars
         self.agent = create_agent(
-            model_type=agent_type,
+            model_type=agent_type,  # type: ignore[arg-type]
             name=name or f"testfix-{agent_type}",
             role=role,
             model=model,
@@ -1121,7 +1121,7 @@ class PatchProposer:
         """
         return ProposalDebate(
             proposal=proposal,
-            proposals=[(a, c, conf) for a, c, _, conf in proposals] if proposals else [],
+            proposals=[(a, c, conf) for a, c, conf in proposals] if proposals else [],
             critiques=critiques,
             synthesis=proposal.synthesis_notes,
             final_proposal=proposal,

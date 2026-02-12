@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.knowledge.mound.adapters.openclaw_adapter_models import (
     ActionPattern,
@@ -32,6 +32,13 @@ class OpenClawLearningMixin:
     - self.ID_PREFIX: str
     - self._emit_event(event_type, data): method
     """
+
+    if TYPE_CHECKING:
+        _actions: Any
+        ID_PREFIX: Any
+        _patterns: Any
+        _emit_event: Any
+        _km_validations: Any
 
     # =========================================================================
     # Bidirectional Learning Methods

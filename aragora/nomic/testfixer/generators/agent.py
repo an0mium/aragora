@@ -42,7 +42,7 @@ class AgentCodeGenerator(CodeGenerator):
     def __init__(self, config: AgentGeneratorConfig):
         self.config = config
         self.agent = create_agent(
-            model_type=config.agent_type,
+            model_type=config.agent_type,  # type: ignore[arg-type]
             name=config.name or f"testfixer_{config.agent_type}",
             role=config.role,
             model=config.model,

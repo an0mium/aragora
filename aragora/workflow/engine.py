@@ -19,8 +19,9 @@ import json
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
+from aragora.events.types import StreamEventType
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.types import (
     StepDefinition,
@@ -218,6 +219,64 @@ class WorkflowEngine:
         """Get statistics about the checkpoint cache."""
         return self._checkpoints_cache.stats
 
+    def _merge_metadata(
+        self,
+        definition: WorkflowDefinition,
+        override: Optional[dict[str, Any]] = None,
+        checkpoint_metadata: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """Merge workflow metadata from definition, checkpoint, and per-execution override."""
+        merged: dict[str, Any] = {}
+        if isinstance(definition.metadata, dict):
+            merged.update(definition.metadata)
+        if isinstance(checkpoint_metadata, dict):
+            merged.update(checkpoint_metadata)
+        if isinstance(override, dict):
+            merged.update(override)
+        return merged
+
+    def _base_event_payload(self, context: WorkflowContext) -> dict[str, Any]:
+        """Build a base payload for workflow lifecycle events."""
+        payload: dict[str, Any] = {
+            "workflow_id": context.workflow_id,
+            "definition_id": context.definition_id,
+        }
+        metadata = context.metadata if isinstance(context.metadata, dict) else {}
+        workflow_name = metadata.get("workflow_name")
+        if workflow_name:
+            payload["workflow_name"] = workflow_name
+        tenant_id = metadata.get("tenant_id") or metadata.get("workspace_id")
+        if tenant_id:
+            payload["tenant_id"] = tenant_id
+        org_id = metadata.get("org_id")
+        if org_id:
+            payload["org_id"] = org_id
+        user_id = metadata.get("user_id")
+        if user_id:
+            payload["user_id"] = user_id
+        return payload
+
+    def _emit_event(
+        self,
+        context: WorkflowContext,
+        event_type: StreamEventType | str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Emit workflow event to per-execution and configured callbacks."""
+        event_name = event_type.value if isinstance(event_type, StreamEventType) else str(event_type)
+
+        if context.event_callback:
+            try:
+                context.event_callback(event_name, payload)
+            except Exception as exc:
+                logger.debug("Workflow event callback failed: %s", exc)
+
+        if self._config.trace_callback:
+            try:
+                self._config.trace_callback(event_name, payload)
+            except Exception as exc:
+                logger.debug("Workflow trace callback failed: %s", exc)
+
     # =========================================================================
     # Main Execution
     # =========================================================================
@@ -227,6 +286,8 @@ class WorkflowEngine:
         definition: WorkflowDefinition,
         inputs: Optional[dict[str, Any]] = None,
         workflow_id: str | None = None,
+        metadata: Optional[dict[str, Any]] = None,
+        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ) -> WorkflowResult:
         """
         Execute a workflow from the beginning.
@@ -235,12 +296,16 @@ class WorkflowEngine:
             definition: Workflow definition to execute
             inputs: Input parameters for the workflow
             workflow_id: Optional ID (generated if not provided)
+            metadata: Optional metadata injected into workflow context
+            event_callback: Optional callback for workflow progress events
 
         Returns:
             WorkflowResult with step results and final output
         """
         workflow_id = workflow_id or f"wf_{uuid.uuid4().hex[:12]}"
         inputs = inputs or {}
+        metadata = self._merge_metadata(definition, metadata)
+        metadata.setdefault("workflow_name", definition.name)
 
         logger.info(
             "workflow_started",
@@ -254,7 +319,17 @@ class WorkflowEngine:
             workflow_id=workflow_id,
             definition_id=definition.id,
             inputs=inputs,
-            metadata=definition.metadata or {},
+            metadata=metadata,
+            event_callback=event_callback,
+        )
+
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_START,
+            {
+                **self._base_event_payload(context),
+                "step_count": len(definition.steps),
+            },
         )
 
         # Reset execution state
@@ -320,6 +395,20 @@ class WorkflowEngine:
                 steps_executed=len(self._results),
             )
 
+            event_payload = {
+                **self._base_event_payload(context),
+                "success": success,
+                "duration_ms": total_duration,
+                "steps_executed": len(self._results),
+                "error": error,
+            }
+            if self._should_terminate:
+                self._emit_event(context, StreamEventType.WORKFLOW_TERMINATED, event_payload)
+            elif success:
+                self._emit_event(context, StreamEventType.WORKFLOW_COMPLETE, event_payload)
+            else:
+                self._emit_event(context, StreamEventType.WORKFLOW_FAILED, event_payload)
+
             return WorkflowResult(
                 workflow_id=workflow_id,
                 definition_id=definition.id,
@@ -336,6 +425,8 @@ class WorkflowEngine:
         workflow_id: str,
         checkpoint: WorkflowCheckpoint,
         definition: WorkflowDefinition,
+        metadata: Optional[dict[str, Any]] = None,
+        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
     ) -> WorkflowResult:
         """
         Resume a workflow from a checkpoint.
@@ -344,11 +435,16 @@ class WorkflowEngine:
             workflow_id: ID of the workflow to resume
             checkpoint: Checkpoint to resume from
             definition: Workflow definition
+            metadata: Optional metadata injected into workflow context
+            event_callback: Optional callback for workflow progress events
 
         Returns:
             WorkflowResult from resumed execution
         """
         logger.info(f"Resuming workflow {workflow_id} from step {checkpoint.current_step}")
+
+        metadata = self._merge_metadata(definition, metadata, checkpoint.context_state.get("metadata"))
+        metadata.setdefault("workflow_name", definition.name)
 
         # Restore context from checkpoint
         context = WorkflowContext(
@@ -357,6 +453,18 @@ class WorkflowEngine:
             inputs=checkpoint.context_state.get("inputs", {}),
             step_outputs=checkpoint.step_outputs,
             state=checkpoint.context_state.get("state", {}),
+            metadata=metadata,
+            event_callback=event_callback,
+        )
+
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_RESUMED,
+            {
+                **self._base_event_payload(context),
+                "checkpoint_id": checkpoint.id,
+                "current_step": checkpoint.current_step,
+            },
         )
 
         # Reset execution state
@@ -391,6 +499,20 @@ class WorkflowEngine:
             final_output = None
 
         total_duration = (time.time() - start_time) * 1000
+
+        event_payload = {
+            **self._base_event_payload(context),
+            "success": success,
+            "duration_ms": total_duration,
+            "steps_executed": len(self._results),
+            "error": error,
+        }
+        if self._should_terminate:
+            self._emit_event(context, StreamEventType.WORKFLOW_TERMINATED, event_payload)
+        elif success:
+            self._emit_event(context, StreamEventType.WORKFLOW_COMPLETE, event_payload)
+        else:
+            self._emit_event(context, StreamEventType.WORKFLOW_FAILED, event_payload)
 
         return WorkflowResult(
             workflow_id=workflow_id,
@@ -447,7 +569,18 @@ class WorkflowEngine:
 
             # Skip already completed steps
             if current_step_id in completed_steps:
-                current_step_id = self._get_next_step(definition, current_step_id, context)
+                next_step = self._get_next_step(definition, current_step_id, context)
+                if next_step:
+                    self._emit_event(
+                        context,
+                        StreamEventType.WORKFLOW_TRANSITION,
+                        {
+                            **self._base_event_payload(context),
+                            "from_step": current_step_id,
+                            "to_step": next_step,
+                        },
+                    )
+                current_step_id = next_step
                 continue
 
             # Execute the step
@@ -482,7 +615,18 @@ class WorkflowEngine:
                 )
 
             # Determine next step
-            current_step_id = self._get_next_step(definition, current_step_id, context)
+            next_step = self._get_next_step(definition, current_step_id, context)
+            if next_step:
+                self._emit_event(
+                    context,
+                    StreamEventType.WORKFLOW_TRANSITION,
+                    {
+                        **self._base_event_payload(context),
+                        "from_step": current_step_id,
+                        "to_step": next_step,
+                    },
+                )
+            current_step_id = next_step
 
         return final_output
 
@@ -504,6 +648,19 @@ class WorkflowEngine:
             workflow_id=context.workflow_id,
         )
 
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_STEP_START,
+            {
+                **self._base_event_payload(context),
+                "step_id": step_def.id,
+                "step_name": step_def.name,
+                "step_type": step_def.step_type,
+                "optional": step_def.optional,
+                "retry_count": 0,
+            },
+        )
+
         with create_span(
             "workflow.step",
             {
@@ -521,6 +678,18 @@ class WorkflowEngine:
             step = self._get_step_instance(step_def)
             if step is None:
                 add_span_attributes(span, {"success": False, "error": "unknown_step_type"})
+                self._emit_event(
+                    context,
+                    StreamEventType.WORKFLOW_STEP_FAILED,
+                    {
+                        **self._base_event_payload(context),
+                        "step_id": step_def.id,
+                        "step_name": step_def.name,
+                        "step_type": step_def.step_type,
+                        "status": StepStatus.FAILED.value,
+                        "error": f"Unknown step type: {step_def.step_type}",
+                    },
+                )
                 return StepResult(
                     step_id=step_def.id,
                     step_name=step_def.name,
@@ -553,6 +722,20 @@ class WorkflowEngine:
                         step_id=step_def.id,
                         step_name=step_def.name,
                         duration_ms=duration_ms,
+                    )
+
+                    self._emit_event(
+                        context,
+                        StreamEventType.WORKFLOW_STEP_COMPLETE,
+                        {
+                            **self._base_event_payload(context),
+                            "step_id": step_def.id,
+                            "step_name": step_def.name,
+                            "step_type": step_def.step_type,
+                            "status": StepStatus.COMPLETED.value,
+                            "duration_ms": duration_ms,
+                            "retry_count": retry_count,
+                        },
                     )
 
                     return StepResult(
@@ -608,6 +791,20 @@ class WorkflowEngine:
                     step_name=step_def.name,
                     reason="optional_timeout",
                 )
+                self._emit_event(
+                    context,
+                    StreamEventType.WORKFLOW_STEP_SKIPPED,
+                    {
+                        **self._base_event_payload(context),
+                        "step_id": step_def.id,
+                        "step_name": step_def.name,
+                        "step_type": step_def.step_type,
+                        "status": StepStatus.SKIPPED.value,
+                        "duration_ms": duration_ms,
+                        "retry_count": retry_count,
+                        "error": last_error,
+                    },
+                )
                 return StepResult(
                     step_id=step_def.id,
                     step_name=step_def.name,
@@ -625,6 +822,20 @@ class WorkflowEngine:
                     step_name=step_def.name,
                     error=last_error,
                     retry_count=retry_count,
+                )
+                self._emit_event(
+                    context,
+                    StreamEventType.WORKFLOW_STEP_FAILED,
+                    {
+                        **self._base_event_payload(context),
+                        "step_id": step_def.id,
+                        "step_name": step_def.name,
+                        "step_type": step_def.step_type,
+                        "status": StepStatus.FAILED.value,
+                        "duration_ms": duration_ms,
+                        "retry_count": retry_count,
+                        "error": last_error,
+                    },
                 )
                 return StepResult(
                     step_id=step_def.id,
@@ -750,6 +961,17 @@ class WorkflowEngine:
 
         # Also cache in memory for fast access during execution
         self._checkpoints_cache.put(checkpoint_id, checkpoint)
+
+        self._emit_event(
+            context,
+            StreamEventType.WORKFLOW_CHECKPOINT,
+            {
+                **self._base_event_payload(context),
+                "checkpoint_id": checkpoint_id,
+                "current_step": current_step,
+                "completed_steps": list(completed_steps),
+            },
+        )
 
         return checkpoint
 

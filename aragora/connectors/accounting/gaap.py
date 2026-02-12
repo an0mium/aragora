@@ -143,7 +143,7 @@ class FASBConnector(BaseConnector):
 
         limit = min(limit, 50)
         query_key, limit_key = self._resolve_param_names()
-        params = {query_key: query, limit_key: limit}
+        params: dict[str, Any] = {query_key: query, limit_key: limit}
         method = self._resolve_method()
 
         await self._rate_limit()

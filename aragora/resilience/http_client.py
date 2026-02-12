@@ -399,8 +399,8 @@ def _extract_retry_after(e: Exception) -> float | None:
         if retry_after is not None:
             try:
                 return float(retry_after)
-            except (ValueError, TypeError) as e:
-                logger.debug("Failed to parse numeric value: %s", e)
+            except (ValueError, TypeError) as parse_err:
+                logger.debug("Failed to parse numeric value: %s", parse_err)
 
     if hasattr(e, "response"):
         resp = getattr(e, "response")
@@ -411,8 +411,8 @@ def _extract_retry_after(e: Exception) -> float | None:
                 if retry_header:
                     try:
                         return float(retry_header)
-                    except (ValueError, TypeError) as e:
-                        logger.debug("Failed to parse numeric value: %s", e)
+                    except (ValueError, TypeError) as parse_err:
+                        logger.debug("Failed to parse numeric value: %s", parse_err)
 
     return None
 

@@ -159,6 +159,21 @@ class ResourceType(str, Enum):
     # Security operations
     SECURITY = "security"  # CVE, SAST, SBOM, secrets, vulnerability scanning
 
+    # Route-level resource types
+    AUDITING = "auditing"  # Red team operations
+    BELIEF = "belief"  # Belief network data
+    CONSENSUS = "consensus"  # Consensus data
+    GALLERY = "gallery"  # Gallery items
+    GENESIS = "genesis"  # Genesis operations
+    INSIGHTS = "insights"  # System insights
+    LABORATORY = "laboratory"  # Laboratory experiments
+    LEARNING = "learning"  # Learning data
+    MOMENTS = "moments"  # Moments data
+    PERSONAS = "personas"  # Persona profiles
+    PODCAST = "podcast"  # Podcast content
+    RELATIONSHIPS = "relationships"  # Relationship data
+    TOURNAMENTS = "tournaments"  # Tournament events
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

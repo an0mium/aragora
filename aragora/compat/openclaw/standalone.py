@@ -56,7 +56,7 @@ class StandaloneGatewayServer:
         self.policy_file = policy_file
         self.default_policy = default_policy
         self.cors_origins = cors_origins or ["*"]
-        self._handler = None
+        self._handler: Any = None
         self._running = False
 
     def _init_handler(self) -> None:

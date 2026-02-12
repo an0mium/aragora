@@ -76,9 +76,8 @@ class AgentResponseError(DebateExecutionError):
             msg += f" during {phase}"
         if cause:
             msg += f": {cause}"
-        super().__init__(msg)
+        super().__init__(debate_id="", phase=phase, reason=msg)
         self.agent_name = agent_name
-        self.phase = phase
         self.__cause__ = cause
 
 

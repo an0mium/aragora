@@ -136,7 +136,7 @@ class WestlawConnector(BaseConnector):
             return []
 
         limit = min(limit, 50)
-        params = {"q": query, "limit": limit}
+        params: dict[str, Any] = {"q": query, "limit": limit}
 
         await self._rate_limit()
 

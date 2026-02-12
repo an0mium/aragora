@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 
 @dataclass
@@ -29,7 +29,7 @@ class ImplementTask:
     requires_approval: bool = False
 
     def to_dict(self) -> dict:
-        payload = {
+        payload: dict[str, Any] = {
             "id": self.id,
             "description": self.description,
             "files": self.files,

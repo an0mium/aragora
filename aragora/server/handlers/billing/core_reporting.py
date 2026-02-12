@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 import sys
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..base import (
     HandlerResult,
@@ -37,6 +37,10 @@ def _logger():
 
 class ReportingMixin:
     """Mixin providing reporting/analytics billing methods for BillingHandler."""
+
+    if TYPE_CHECKING:
+        _get_user_store: Any
+        _get_usage_tracker: Any
 
     @handle_errors("get audit log")
     @require_permission("admin:audit")

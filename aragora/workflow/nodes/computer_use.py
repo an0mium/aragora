@@ -163,6 +163,37 @@ class ComputerUseTaskStep(BaseStep):
         if cfg.get("max_steps") is not None:
             computer_config.max_steps = int(cfg["max_steps"])
 
+        try:
+            from aragora.events.types import StreamEventType
+
+            def _on_step_complete(step_result: Any) -> None:
+                try:
+                    context.emit_event(
+                        StreamEventType.WORKFLOW_STEP_PROGRESS.value,
+                        {
+                            "workflow_id": context.workflow_id,
+                            "definition_id": context.definition_id,
+                            "step_id": context.current_step_id,
+                            "step_name": self.name,
+                            "computer_use_step": True,
+                            "action_step": getattr(step_result, "step_number", None),
+                            "status": getattr(step_result, "status", None).value
+                            if getattr(step_result, "status", None)
+                            else None,
+                            "action": step_result.action.to_dict()
+                            if getattr(step_result, "action", None)
+                            else None,
+                            "policy_check_passed": getattr(step_result, "policy_check_passed", None),
+                            "policy_reason": getattr(step_result, "policy_reason", None),
+                        },
+                    )
+                except Exception:
+                    pass
+
+            computer_config.on_step_complete = _on_step_complete
+        except Exception:
+            pass
+
         executor = PlaywrightActionExecutor(executor_config)
         orchestrator = ComputerUseOrchestrator(
             executor=executor,
