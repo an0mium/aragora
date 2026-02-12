@@ -1196,6 +1196,472 @@ KNOWN_SCHEMAS: dict[str, dict] = {
         "type": "object",
         "properties": {"client_id": {"type": "string"}, "client_secret": {"type": "string"}},
     },
+    # ==========================================================================
+    # Email endpoints
+    # ==========================================================================
+    "POST /api/v1/email/send": {
+        "type": "object",
+        "required": ["to", "subject"],
+        "properties": {
+            "to": {"type": "string"},
+            "subject": {"type": "string"},
+            "body": {"type": "string"},
+            "html": {"type": "boolean", "default": False},
+        },
+    },
+    "POST /api/email/send": {
+        "type": "object",
+        "required": ["to", "subject"],
+        "properties": {
+            "to": {"type": "string"},
+            "subject": {"type": "string"},
+            "body": {"type": "string"},
+            "html": {"type": "boolean", "default": False},
+        },
+    },
+    "POST /api/v1/email/followup": {
+        "type": "object",
+        "required": ["thread_id", "message"],
+        "properties": {
+            "thread_id": {"type": "string"},
+            "message": {"type": "string"},
+        },
+    },
+    "POST /api/email/followup": {
+        "type": "object",
+        "required": ["thread_id", "message"],
+        "properties": {
+            "thread_id": {"type": "string"},
+            "message": {"type": "string"},
+        },
+    },
+    # ==========================================================================
+    # RLM endpoints
+    # ==========================================================================
+    "POST /api/v1/rlm/contexts": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+            "name": {"type": "string"},
+            "content": {"type": "string"},
+            "max_tokens": {"type": "integer"},
+        },
+    },
+    "POST /api/rlm/contexts": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+            "name": {"type": "string"},
+            "content": {"type": "string"},
+            "max_tokens": {"type": "integer"},
+        },
+    },
+    "POST /api/v1/rlm/strategies": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "config": {"type": "object"},
+        },
+    },
+    "POST /api/rlm/strategies": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "config": {"type": "object"},
+        },
+    },
+    # ==========================================================================
+    # Dashboard endpoints
+    # ==========================================================================
+    "POST /api/v1/dashboard/widgets": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+            "type": {"type": "string"},
+            "title": {"type": "string"},
+            "config": {"type": "object"},
+            "position": {"type": "object"},
+        },
+    },
+    "POST /api/dashboard/widgets": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+            "type": {"type": "string"},
+            "title": {"type": "string"},
+            "config": {"type": "object"},
+            "position": {"type": "object"},
+        },
+    },
+    "PATCH /api/v1/dashboard/layout": {
+        "type": "object",
+        "properties": {
+            "widgets": {"type": "array", "items": {"type": "object"}},
+            "columns": {"type": "integer"},
+        },
+    },
+    "PATCH /api/dashboard/layout": {
+        "type": "object",
+        "properties": {
+            "widgets": {"type": "array", "items": {"type": "object"}},
+            "columns": {"type": "integer"},
+        },
+    },
+    # ==========================================================================
+    # Repository endpoints
+    # ==========================================================================
+    "POST /api/v1/repository/scan": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+            "url": {"type": "string"},
+            "branch": {"type": "string", "default": "main"},
+            "depth": {"type": "integer"},
+        },
+    },
+    "POST /api/repository/scan": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+            "url": {"type": "string"},
+            "branch": {"type": "string", "default": "main"},
+            "depth": {"type": "integer"},
+        },
+    },
+    # ==========================================================================
+    # Document query endpoints
+    # ==========================================================================
+    "POST /api/v1/documents/query": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+            "query": {"type": "string"},
+            "filters": {"type": "object"},
+            "limit": {"type": "integer", "default": 10},
+        },
+    },
+    "POST /api/documents/query": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+            "query": {"type": "string"},
+            "filters": {"type": "object"},
+            "limit": {"type": "integer", "default": 10},
+        },
+    },
+    "POST /api/v1/documents/summarize": {
+        "type": "object",
+        "required": ["document_id"],
+        "properties": {
+            "document_id": {"type": "string"},
+            "max_length": {"type": "integer"},
+        },
+    },
+    "POST /api/documents/summarize": {
+        "type": "object",
+        "required": ["document_id"],
+        "properties": {
+            "document_id": {"type": "string"},
+            "max_length": {"type": "integer"},
+        },
+    },
+    "POST /api/v1/documents/compare": {
+        "type": "object",
+        "required": ["document_ids"],
+        "properties": {
+            "document_ids": {"type": "array", "items": {"type": "string"}, "minItems": 2},
+        },
+    },
+    "POST /api/documents/compare": {
+        "type": "object",
+        "required": ["document_ids"],
+        "properties": {
+            "document_ids": {"type": "array", "items": {"type": "string"}, "minItems": 2},
+        },
+    },
+    # ==========================================================================
+    # Cloud integration endpoints
+    # ==========================================================================
+    "POST /api/v1/cloud/storage/upload": {
+        "type": "object",
+        "required": ["file"],
+        "properties": {
+            "file": {"type": "string", "format": "binary"},
+            "bucket": {"type": "string"},
+            "path": {"type": "string"},
+        },
+    },
+    "POST /api/cloud/storage/upload": {
+        "type": "object",
+        "required": ["file"],
+        "properties": {
+            "file": {"type": "string", "format": "binary"},
+            "bucket": {"type": "string"},
+            "path": {"type": "string"},
+        },
+    },
+    # ==========================================================================
+    # ML pipeline endpoints
+    # ==========================================================================
+    "POST /api/v1/ml/pipelines": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+            "name": {"type": "string"},
+            "steps": {"type": "array", "items": {"type": "object"}},
+            "config": {"type": "object"},
+        },
+    },
+    "POST /api/ml/pipelines": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+            "name": {"type": "string"},
+            "steps": {"type": "array", "items": {"type": "object"}},
+            "config": {"type": "object"},
+        },
+    },
+    # ==========================================================================
+    # Evidence endpoints
+    # ==========================================================================
+    "POST /api/v1/evidence/collect": {
+        "type": "object",
+        "required": ["debate_id"],
+        "properties": {
+            "debate_id": {"type": "string"},
+            "sources": {"type": "array", "items": {"type": "string"}},
+            "depth": {"type": "string", "enum": ["shallow", "standard", "deep"]},
+        },
+    },
+    "POST /api/evidence/collect": {
+        "type": "object",
+        "required": ["debate_id"],
+        "properties": {
+            "debate_id": {"type": "string"},
+            "sources": {"type": "array", "items": {"type": "string"}},
+            "depth": {"type": "string", "enum": ["shallow", "standard", "deep"]},
+        },
+    },
+    # ==========================================================================
+    # Learning endpoints
+    # ==========================================================================
+    "POST /api/v2/learning/sessions": {
+        "type": "object",
+        "required": ["topic"],
+        "properties": {
+            "topic": {"type": "string"},
+            "mode": {"type": "string"},
+            "config": {"type": "object"},
+        },
+    },
+    "POST /api/v1/learning/sessions": {
+        "type": "object",
+        "required": ["topic"],
+        "properties": {
+            "topic": {"type": "string"},
+            "mode": {"type": "string"},
+            "config": {"type": "object"},
+        },
+    },
+    # ==========================================================================
+    # Agent selection endpoints
+    # ==========================================================================
+    "POST /api/v1/agent-selection/evaluate": {
+        "type": "object",
+        "required": ["task"],
+        "properties": {
+            "task": {"type": "string"},
+            "candidates": {"type": "array", "items": {"type": "string"}},
+            "criteria": {"type": "object"},
+        },
+    },
+    "POST /api/agent-selection/evaluate": {
+        "type": "object",
+        "required": ["task"],
+        "properties": {
+            "task": {"type": "string"},
+            "candidates": {"type": "array", "items": {"type": "string"}},
+            "criteria": {"type": "object"},
+        },
+    },
+    # ==========================================================================
+    # Export endpoints (common pattern)
+    # ==========================================================================
+    "POST /api/v1/debates/{id}/export": {
+        "type": "object",
+        "properties": {
+            "format": {"type": "string", "enum": ["json", "csv", "pdf", "markdown"], "default": "json"},
+            "include_metadata": {"type": "boolean", "default": True},
+        },
+    },
+    "POST /api/debates/{id}/export": {
+        "type": "object",
+        "properties": {
+            "format": {"type": "string", "enum": ["json", "csv", "pdf", "markdown"], "default": "json"},
+            "include_metadata": {"type": "boolean", "default": True},
+        },
+    },
+    # ==========================================================================
+    # Accounting endpoints
+    # ==========================================================================
+    "POST /api/v1/accounting/expenses/upload": {
+        "type": "object",
+        "required": ["file"],
+        "properties": {
+            "file": {"type": "string", "format": "binary"},
+            "category": {"type": "string"},
+        },
+    },
+    "POST /api/accounting/expenses/upload": {
+        "type": "object",
+        "required": ["file"],
+        "properties": {
+            "file": {"type": "string", "format": "binary"},
+            "category": {"type": "string"},
+        },
+    },
+    "POST /api/v1/accounting/invoices": {
+        "type": "object",
+        "required": ["customer_id", "amount"],
+        "properties": {
+            "customer_id": {"type": "string"},
+            "amount": {"type": "number"},
+            "description": {"type": "string"},
+            "due_date": {"type": "string", "format": "date"},
+        },
+    },
+    "POST /api/accounting/invoices": {
+        "type": "object",
+        "required": ["customer_id", "amount"],
+        "properties": {
+            "customer_id": {"type": "string"},
+            "amount": {"type": "number"},
+            "description": {"type": "string"},
+            "due_date": {"type": "string", "format": "date"},
+        },
+    },
+    # ==========================================================================
+    # Gmail message operations
+    # ==========================================================================
+    "POST /api/v1/gmail/messages/{message_id}/mark": {
+        "type": "object",
+        "properties": {
+            "read": {"type": "boolean"},
+            "starred": {"type": "boolean"},
+            "labels": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+    "POST /api/v1/gmail/messages/send": {
+        "type": "object",
+        "required": ["to", "subject", "body"],
+        "properties": {
+            "to": {"type": "string"},
+            "subject": {"type": "string"},
+            "body": {"type": "string"},
+            "cc": {"type": "string"},
+            "bcc": {"type": "string"},
+        },
+    },
+    "POST /api/v1/gmail/drafts": {
+        "type": "object",
+        "required": ["to", "subject"],
+        "properties": {
+            "to": {"type": "string"},
+            "subject": {"type": "string"},
+            "body": {"type": "string"},
+        },
+    },
+    # ==========================================================================
+    # Debate advanced operations
+    # ==========================================================================
+    "POST /api/v1/debates/{id}/fork": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "from_round": {"type": "integer"},
+            "modifications": {"type": "object"},
+        },
+    },
+    "POST /api/debates/{id}/fork": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "from_round": {"type": "integer"},
+            "modifications": {"type": "object"},
+        },
+    },
+    "POST /api/v1/debates/{id}/graph": {
+        "type": "object",
+        "properties": {
+            "layout": {"type": "string", "enum": ["force", "tree", "radial"]},
+            "include_evidence": {"type": "boolean", "default": True},
+        },
+    },
+    "POST /api/debates/{id}/graph": {
+        "type": "object",
+        "properties": {
+            "layout": {"type": "string", "enum": ["force", "tree", "radial"]},
+            "include_evidence": {"type": "boolean", "default": True},
+        },
+    },
+    "POST /api/v1/debates/{id}/hybrid": {
+        "type": "object",
+        "properties": {
+            "human_input": {"type": "string"},
+            "agent_override": {"type": "string"},
+        },
+    },
+    "POST /api/debates/{id}/hybrid": {
+        "type": "object",
+        "properties": {
+            "human_input": {"type": "string"},
+            "agent_override": {"type": "string"},
+        },
+    },
+    # ==========================================================================
+    # Audit export endpoints
+    # ==========================================================================
+    "POST /api/v1/audit/export": {
+        "type": "object",
+        "properties": {
+            "format": {"type": "string", "enum": ["json", "csv", "pdf"]},
+            "start_date": {"type": "string", "format": "date-time"},
+            "end_date": {"type": "string", "format": "date-time"},
+            "filters": {"type": "object"},
+        },
+    },
+    "POST /api/audit/export": {
+        "type": "object",
+        "properties": {
+            "format": {"type": "string", "enum": ["json", "csv", "pdf"]},
+            "start_date": {"type": "string", "format": "date-time"},
+            "end_date": {"type": "string", "format": "date-time"},
+            "filters": {"type": "object"},
+        },
+    },
+    # ==========================================================================
+    # Workflow execution endpoints
+    # ==========================================================================
+    "POST /api/v1/workflows/{id}/execute": {
+        "type": "object",
+        "properties": {
+            "inputs": {"type": "object"},
+            "async": {"type": "boolean", "default": False},
+        },
+    },
+    "POST /api/workflows/{id}/execute": {
+        "type": "object",
+        "properties": {
+            "inputs": {"type": "object"},
+            "async": {"type": "boolean", "default": False},
+        },
+    },
+    "POST /api/v1/workflows/{id}/cancel": {"type": "object", "properties": {"reason": {"type": "string"}}},
+    "POST /api/workflows/{id}/cancel": {"type": "object", "properties": {"reason": {"type": "string"}}},
 }
 
 # HTTP methods that can have request bodies
