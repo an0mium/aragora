@@ -723,10 +723,26 @@ class AuthHandler(SecureHandler):
             if org:
                 org_data = org.to_dict()
 
+        # Build organizations membership array for frontend compatibility
+        org_membership = []
+        if org_data:
+            joined_at = getattr(user, "created_at", None)
+            org_membership = [
+                {
+                    "user_id": user.id,
+                    "org_id": user.org_id,
+                    "organization": org_data,
+                    "role": user.role or "member",
+                    "is_default": True,
+                    "joined_at": joined_at.isoformat() if joined_at else None,
+                }
+            ]
+
         return json_response(
             {
                 "user": user.to_dict(),
                 "organization": org_data,
+                "organizations": org_membership,
             },
             headers=self.AUTH_NO_CACHE_HEADERS,
         )

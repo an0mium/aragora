@@ -167,10 +167,32 @@ def handle_register(handler_instance: AuthHandler, handler) -> HandlerResult:
         )
 
     emit_handler_event("auth", CREATED, {"action": "register"}, user_id=user.id)
+
+    # Include organization data so frontend doesn't need a second request
+    org_data = None
+    org_membership = []
+    if user.org_id:
+        org = user_store.get_organization_by_id(user.org_id)
+        if org:
+            org_data = org.to_dict()
+            joined_at = getattr(user, "created_at", None)
+            org_membership = [
+                {
+                    "user_id": user.id,
+                    "org_id": org.id,
+                    "organization": org_data,
+                    "role": user.role or "member",
+                    "is_default": True,
+                    "joined_at": joined_at.isoformat() if joined_at else None,
+                }
+            ]
+
     return json_response(
         {
             "user": user.to_dict(),
             "tokens": tokens.to_dict(),
+            "organization": org_data,
+            "organizations": org_membership,
         },
         status=201,
     )
@@ -348,10 +370,32 @@ def handle_login(handler_instance: AuthHandler, handler) -> HandlerResult:
         audit_login(user.id, success=True, ip_address=client_ip, method="password")
 
     emit_handler_event("auth", COMPLETED, {"action": "login"}, user_id=user.id)
+
+    # Include organization data so frontend doesn't need a second request
+    org_data = None
+    org_membership = []
+    if user.org_id:
+        org = user_store.get_organization_by_id(user.org_id)
+        if org:
+            org_data = org.to_dict()
+            joined_at = getattr(user, "created_at", None)
+            org_membership = [
+                {
+                    "user_id": user.id,
+                    "org_id": org.id,
+                    "organization": org_data,
+                    "role": user.role or "member",
+                    "is_default": True,
+                    "joined_at": joined_at.isoformat() if joined_at else None,
+                }
+            ]
+
     return json_response(
         {
             "user": user.to_dict(),
             "tokens": tokens.to_dict(),
+            "organization": org_data,
+            "organizations": org_membership,
         }
     )
 
