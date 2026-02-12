@@ -1780,18 +1780,36 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
-    # Reset event loop if closed (prevents "Event loop is closed" errors)
+    # Clear all registered @lru_cache instances
     try:
-        import asyncio
+        from aragora.utils.cache_registry import clear_all_lru_caches
 
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                asyncio.set_event_loop(asyncio.new_event_loop())
-        except RuntimeError:
-            # No event loop in current thread - create one
-            asyncio.set_event_loop(asyncio.new_event_loop())
-    except ImportError:
+        clear_all_lru_caches()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset deletion coordinator singleton
+    try:
+        import aragora.deletion_coordinator as _dc
+
+        _dc._coordinator_instance = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset global moderation singleton
+    try:
+        import aragora.moderation.spam_integration as _spam
+
+        _spam._global_moderation = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset whisper backend instances
+    try:
+        import aragora.transcription.whisper_backend as _wb
+
+        _wb._backend_instances = {}
+    except (ImportError, AttributeError):
         pass
 
 

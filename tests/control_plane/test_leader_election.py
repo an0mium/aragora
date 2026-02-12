@@ -73,7 +73,6 @@ class MockRedis:
         self._data: dict[str, str] = {}
         self._hashes: dict[str, dict[str, str]] = {}
         self._expiries: dict[str, float] = {}
-        self._locks: dict[str, asyncio.Lock] = {}
         self._fail_on_next: Optional[str] = None
         self._delay_seconds: float = 0.0
         self._operation_log: list[dict[str, Any]] = []
@@ -97,20 +96,18 @@ class MockRedis:
             self._fail_on_next = None
             raise ConnectionError("Redis connection failed")
 
-        lock = self._locks.setdefault(key, asyncio.Lock())
-        async with lock:
-            # Check expiry first
-            if key in self._expiries and time.time() > self._expiries[key]:
-                del self._data[key]
-                del self._expiries[key]
+        # Check expiry first
+        if key in self._expiries and time.time() > self._expiries[key]:
+            del self._data[key]
+            del self._expiries[key]
 
-            if nx and key in self._data:
-                return None
+        if nx and key in self._data:
+            return None
 
-            self._data[key] = value
-            if ex:
-                self._expiries[key] = time.time() + ex
-            return True
+        self._data[key] = value
+        if ex:
+            self._expiries[key] = time.time() + ex
+        return True
 
     async def get(self, key: str) -> Optional[str]:
         """GET command."""

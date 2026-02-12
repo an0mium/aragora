@@ -288,9 +288,20 @@ def sample_task() -> dict[str, Any]:
 # ============================================================================
 
 
-@pytest.fixture
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+@pytest.fixture(autouse=True)
+async def _cleanup_pending_tasks():
+    """Cancel leftover asyncio tasks (e.g. election loops) after each test.
+
+    Without this, background tasks from one test can leak into the next,
+    causing flaky failures under randomized ordering.
+    """
+    yield
+    loop = asyncio.get_event_loop()
+    pending = [
+        t for t in asyncio.all_tasks(loop)
+        if not t.done() and t is not asyncio.current_task()
+    ]
+    for task in pending:
+        task.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
