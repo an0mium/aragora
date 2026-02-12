@@ -66,7 +66,7 @@ const QUALITY_CONFIG: Record<CitationQuality, { icon: string; label: string; col
 };
 
 export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<CitationType | 'all'>('all');
   const [apiCitations, setApiCitations] = useState<Citation[]>([]);

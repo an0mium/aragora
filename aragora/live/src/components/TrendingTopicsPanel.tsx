@@ -25,7 +25,7 @@ export function TrendingTopicsPanel({
   refreshInterval = 60000,
   onStartDebate,
 }: TrendingTopicsPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [topics, setTopics] = useState<TrendingTopic[]>([]);
   const [loading, setLoading] = useState(false);

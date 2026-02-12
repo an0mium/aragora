@@ -31,7 +31,7 @@ interface TournamentPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: TournamentPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
   const [selectedTournament, setSelectedTournament] = useState<string | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);

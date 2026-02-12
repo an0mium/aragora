@@ -17,7 +17,7 @@ interface ContraryViewsPanelProps {
 }
 
 export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [views, setViews] = useState<ContraryView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

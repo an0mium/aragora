@@ -21,7 +21,7 @@ interface BreakpointsPanelProps {
 }
 
 export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved }: BreakpointsPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [breakpoints, setBreakpoints] = useState<Breakpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

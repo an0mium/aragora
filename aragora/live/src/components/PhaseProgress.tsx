@@ -25,7 +25,7 @@ const DEFAULT_API_BASE = API_BASE_URL;
 const PHASES = ['debate', 'design', 'implement', 'verify', 'commit'];
 
 export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE }: PhaseProgressProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [nomicState, setNomicState] = useState<NomicState | null>(null);
 
   const fetchNomicState = useCallback(async () => {
