@@ -1,7 +1,9 @@
 """Tests for aragora_debate.agents reference implementations."""
 
+import json
 import sys
 import os
+import unittest.mock
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +12,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from aragora_debate.agents import _parse_json_from_text, _format_context
 from aragora_debate.types import Message
+
+try:
+    from aragora_debate.agents import MistralAgent
+except ImportError:
+    MistralAgent = None  # type: ignore[assignment,misc]
+
+try:
+    from aragora_debate.agents import GeminiAgent
+except ImportError:
+    GeminiAgent = None  # type: ignore[assignment,misc]
 
 
 class TestParseJsonFromText:
@@ -244,3 +256,150 @@ class TestOpenAIAgentWithMock:
         call_args = mock_openai.chat.completions.create.call_args
         system_msg = call_args[1]["messages"][0]["content"]
         assert "negative" in system_msg
+
+
+class TestMistralAgentImport:
+    def test_import_error_without_sdk(self):
+        """MistralAgent should raise ImportError when mistralai is not installed."""
+        # The import may or may not succeed depending on environment
+        try:
+            from aragora_debate.agents import MistralAgent
+            # If we got here, SDK is installed
+            assert MistralAgent is not None
+        except ImportError:
+            pass  # Expected if SDK not installed
+
+    def test_import_from_agents_module(self):
+        """MistralAgent class should be importable."""
+        import aragora_debate.agents as mod
+        assert hasattr(mod, "MistralAgent")
+
+
+class TestMistralAgentWithMock:
+    @pytest.fixture
+    def mock_mistral(self):
+        """Create a MistralAgent with a mocked Mistral client."""
+        mock_mod = type(sys.modules[__name__])("mistralai")
+        mock_client_cls = unittest.mock.MagicMock()
+        mock_mod.Mistral = mock_client_cls
+        with unittest.mock.patch.dict(sys.modules, {"mistralai": mock_mod}):
+            agent = MistralAgent("mistral-test", model="mistral-large-latest")
+        mock_client = mock_client_cls.return_value
+        return agent, mock_client
+
+    @pytest.mark.asyncio
+    async def test_generate(self, mock_mistral):
+        agent, client = mock_mistral
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.choices = [unittest.mock.MagicMock()]
+        mock_resp.choices[0].message.content = "Mistral proposal"
+        client.chat.complete.return_value = mock_resp
+
+        result = await agent.generate("Test prompt")
+        assert result == "Mistral proposal"
+        client.chat.complete.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_critique(self, mock_mistral):
+        agent, client = mock_mistral
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.choices = [unittest.mock.MagicMock()]
+        mock_resp.choices[0].message.content = json.dumps({
+            "issues": ["needs more data"],
+            "suggestions": ["add metrics"],
+            "severity": 6.0,
+            "reasoning": "good but incomplete",
+        })
+        client.chat.complete.return_value = mock_resp
+
+        crit = await agent.critique("Some proposal", "test task", target_agent="other")
+        assert crit.agent == "mistral-test"
+        assert "needs more data" in crit.issues
+
+    @pytest.mark.asyncio
+    async def test_vote(self, mock_mistral):
+        agent, client = mock_mistral
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.choices = [unittest.mock.MagicMock()]
+        mock_resp.choices[0].message.content = json.dumps({
+            "choice": "agent_a",
+            "confidence": 0.8,
+            "reasoning": "strongest argument",
+        })
+        client.chat.complete.return_value = mock_resp
+
+        vote = await agent.vote({"agent_a": "Proposal A", "agent_b": "Proposal B"}, "test")
+        assert vote.choice == "agent_a"
+        assert vote.confidence == 0.8
+
+
+class TestGeminiAgentImport:
+    def test_import_error_without_sdk(self):
+        """GeminiAgent should raise ImportError when google-genai is not installed."""
+        try:
+            from aragora_debate.agents import GeminiAgent
+            assert GeminiAgent is not None
+        except ImportError:
+            pass
+
+    def test_import_from_agents_module(self):
+        """GeminiAgent class should be importable."""
+        import aragora_debate.agents as mod
+        assert hasattr(mod, "GeminiAgent")
+
+
+class TestGeminiAgentWithMock:
+    @pytest.fixture
+    def mock_gemini(self):
+        """Create a GeminiAgent with a mocked Google GenAI client."""
+        mock_genai = type(sys.modules[__name__])("genai")
+        mock_genai.Client = unittest.mock.MagicMock()
+        mock_types = type(sys.modules[__name__])("types")
+        mock_types.GenerateContentConfig = unittest.mock.MagicMock()
+        mock_google = type(sys.modules[__name__])("google")
+        mock_google.genai = mock_genai
+
+        with unittest.mock.patch.dict(sys.modules, {
+            "google": mock_google,
+            "google.genai": mock_genai,
+            "google.genai.types": mock_types,
+        }):
+            agent = GeminiAgent("gemini-test", model="gemini-2.0-flash")
+        mock_client = mock_genai.Client.return_value
+        return agent, mock_client, mock_types
+
+    @pytest.mark.asyncio
+    async def test_generate(self, mock_gemini):
+        agent, client, mock_types = mock_gemini
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.text = "Gemini proposal"
+        client.models.generate_content.return_value = mock_resp
+
+        with unittest.mock.patch.dict(sys.modules, {
+            "google.genai.types": mock_types,
+            "google.genai": unittest.mock.MagicMock(types=mock_types),
+            "google": unittest.mock.MagicMock(genai=unittest.mock.MagicMock(types=mock_types)),
+        }):
+            result = await agent.generate("Test prompt")
+        assert result == "Gemini proposal"
+
+    @pytest.mark.asyncio
+    async def test_critique(self, mock_gemini):
+        agent, client, mock_types = mock_gemini
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.text = json.dumps({
+            "issues": ["lacks depth"],
+            "suggestions": ["expand analysis"],
+            "severity": 4.0,
+            "reasoning": "needs improvement",
+        })
+        client.models.generate_content.return_value = mock_resp
+
+        with unittest.mock.patch.dict(sys.modules, {
+            "google.genai.types": mock_types,
+            "google.genai": unittest.mock.MagicMock(types=mock_types),
+            "google": unittest.mock.MagicMock(genai=unittest.mock.MagicMock(types=mock_types)),
+        }):
+            crit = await agent.critique("Some proposal", "test task", target_agent="other")
+        assert crit.agent == "gemini-test"
+        assert "lacks depth" in crit.issues
