@@ -236,7 +236,7 @@ class GitHubOAuthMixin:
                 logger.error(f"Invalid JSON from GitHub token endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
 
-        async def _exchange_async() -> dict:
+        async def _exchange_async() -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
                     impl.GITHUB_TOKEN_URL,

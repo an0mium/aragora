@@ -156,7 +156,7 @@ class OIDCOAuthMixin:
                 logger.error(f"OIDC discovery failed: {e}")
                 return {}
 
-        async def _discovery_async() -> dict:
+        async def _discovery_async() -> dict[str, Any]:
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     response = await client.get(discovery_url)
@@ -195,7 +195,7 @@ class OIDCOAuthMixin:
                 body = response.read()
             return json.loads(body.decode("utf-8")) if body else {}
 
-        async def _exchange_async() -> dict:
+        async def _exchange_async() -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
                     token_endpoint,
@@ -232,7 +232,7 @@ class OIDCOAuthMixin:
                 email_verified=user_data.get("email_verified", False),
             )
 
-        def _fallback_id_token(user_data: dict) -> dict:
+        def _fallback_id_token(user_data: dict[str, Any]) -> dict[str, Any]:
             if user_data or not id_token:
                 return user_data
             parts = id_token.split(".")

@@ -130,7 +130,7 @@ class AppleOAuthMixin:
 
         return self._maybe_await(self._complete_oauth_flow(user_info, state_data))
 
-    def _exchange_apple_code(self, code: str) -> dict:
+    def _exchange_apple_code(self, code: str) -> dict[str, Any]:
         """Exchange Apple authorization code for tokens."""
         impl = _impl()
         client_secret = self._generate_apple_client_secret()

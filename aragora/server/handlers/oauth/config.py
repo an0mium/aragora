@@ -270,7 +270,7 @@ def validate_oauth_config(log_warnings: bool = True) -> list[str]:
     return missing
 
 
-def get_oauth_config_status() -> dict:
+def get_oauth_config_status() -> dict[str, Any]:
     """
     Get detailed OAuth configuration status for diagnostics.
 

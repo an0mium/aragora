@@ -154,7 +154,7 @@ class MicrosoftOAuthMixin:
                 body = response.read()
             return json.loads(body.decode("utf-8")) if body else {}
 
-        async def _exchange_async() -> dict:
+        async def _exchange_async() -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
                     token_url,

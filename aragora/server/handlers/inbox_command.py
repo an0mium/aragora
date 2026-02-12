@@ -255,7 +255,7 @@ class IterableTTLCache(Generic[T]):
         return self._cache.invalidate(key)
 
     @property
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return self._cache.stats
 

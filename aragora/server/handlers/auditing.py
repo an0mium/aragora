@@ -595,7 +595,7 @@ class AuditingHandler(SecureHandler):
             logger.exception(f"Unexpected capability probe error: {e}")
             return error_response(_safe_error_message(e, "capability_probe"), 500)
 
-    def _transform_probe_results(self, by_type: dict) -> dict:
+    def _transform_probe_results(self, by_type: dict[str, Any]) -> dict[str, Any]:
         """Transform probe results for API response."""
         by_type_transformed = {}
         for probe_type_key, results in by_type.items():

@@ -331,7 +331,7 @@ class GoogleOAuthMixin:
                 logger.error(f"Invalid JSON from Google token endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
-        async def _exchange_async() -> dict:
+        async def _exchange_async() -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
                     impl.GOOGLE_TOKEN_URL,

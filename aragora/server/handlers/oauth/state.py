@@ -33,7 +33,7 @@ class _OAuthStatesView(MutableMapping[str, dict[str, Any]]):
     def _states(self) -> dict[str, OAuthState]:
         return self._store._memory_store._states
 
-    def __getitem__(self, key: str) -> dict:
+    def __getitem__(self, key: str) -> dict[str, Any]:
         value = self._states[key]
         if isinstance(value, OAuthState):
             return value.to_dict()

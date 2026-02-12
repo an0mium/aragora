@@ -151,7 +151,7 @@ class SSOHandler(SecureHandler):
                 flat[key] = error[key]
         return flat
 
-    def _to_legacy_result(self, result: HandlerResult | dict) -> dict:
+    def _to_legacy_result(self, result: HandlerResult | dict[str, Any]) -> dict[str, Any]:
         """Normalize HandlerResult to dict for legacy/tests."""
         if _safe_isinstance(result, dict):
             legacy = dict(result)
