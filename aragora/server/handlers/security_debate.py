@@ -16,7 +16,7 @@ __all__ = ["SecurityDebateHandler"]
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -45,8 +45,26 @@ class SecurityDebateHandler(SecureHandler):
 
     ROUTES = [
         "/api/v1/audit/security/debate",
-        "/api/v1/audit/security/debate/:id",
     ]
+
+    _PREFIX = "/api/v1/audit/security/debate"
+
+    def can_handle(self, path: str) -> bool:
+        return path.startswith(self._PREFIX)
+
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        """Handle GET requests for security debate status."""
+        parts = path.rstrip("/").split("/")
+        # GET /api/v1/audit/security/debate/<id>
+        if len(parts) == 7 and parts[-1]:
+            return self.get_api_v1_audit_security_debate_id(parts[-1])
+        return None
+
+    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        """Handle POST requests to trigger security debates."""
+        if path.rstrip("/") == self._PREFIX:
+            return self.post_api_v1_audit_security_debate()
+        return None
 
     @rate_limit(requests_per_minute=10, key_type="user")
     @require_permission("audit:write")
