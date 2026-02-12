@@ -312,8 +312,8 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
         return json_response(result)
 
     def _process_debates_single_pass(
-        self, debates: list, domain: str | None, hours: int
-    ) -> tuple[dict, dict, dict]:
+        self, debates: list[Any], domain: str | None, hours: int
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         """Process all debate metrics in a single pass through the data."""
         return _call_bypassing_decorators(process_debates_single_pass, debates, domain, hours)
 
@@ -325,18 +325,18 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
         """Get recent activity metrics using SQL aggregation."""
         return _call_bypassing_decorators(get_recent_activity_sql, storage, hours)
 
-    def _get_summary_metrics(self, domain: str | None, debates: list) -> dict:
+    def _get_summary_metrics(self, domain: str | None, debates: list[Any]) -> dict[str, Any]:
         """Get high-level summary metrics (legacy, kept for compatibility)."""
         return _call_bypassing_decorators(get_summary_metrics_legacy, domain, debates)
 
-    def _get_recent_activity(self, domain: str | None, hours: int, debates: list) -> dict:
+    def _get_recent_activity(self, domain: str | None, hours: int, debates: list[Any]) -> dict[str, Any]:
         """Get recent debate activity metrics."""
         return _call_bypassing_decorators(get_recent_activity_legacy, domain, hours, debates)
 
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="agent_performance", skip_first=True
     )
-    def _get_agent_performance(self, limit: int) -> dict:
+    def _get_agent_performance(self, limit: int) -> dict[str, Any]:
         """Get agent performance metrics."""
         performance = {
             "top_performers": [],
@@ -373,14 +373,14 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
 
         return performance
 
-    def _get_debate_patterns(self, debates: list) -> dict:
+    def _get_debate_patterns(self, debates: list[Any]) -> dict[str, Any]:
         """Get debate pattern statistics."""
         return _call_bypassing_decorators(get_debate_patterns, debates)
 
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="consensus_insights", skip_first=True
     )
-    def _get_consensus_insights(self, domain: str | None) -> dict:
+    def _get_consensus_insights(self, domain: str | None) -> dict[str, Any]:
         """Get consensus memory insights."""
         insights = {
             "total_consensus_topics": 0,
@@ -420,13 +420,13 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
 
         return insights
 
-    def _get_system_health(self) -> dict:
+    def _get_system_health(self) -> dict[str, Any]:
         """Get system health metrics."""
         health = get_system_health()
         health["connector_health"] = self._get_connector_health()
         return health
 
-    def _get_connector_health(self) -> dict:
+    def _get_connector_health(self) -> dict[str, Any]:
         """Get connector health metrics for dashboard."""
         return get_connector_health()
 
