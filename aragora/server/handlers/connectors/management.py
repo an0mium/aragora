@@ -49,6 +49,9 @@ class ConnectorManagementHandler(BaseHandler):
         super().__init__(server_context or {})
         self._registry: ConnectorRegistry | None = None
 
+    def can_handle(self, path: str) -> bool:
+        return path.startswith(_PREFIX)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

@@ -7,6 +7,8 @@ This module provides backwards compatibility for imports like:
 The implementation has been decomposed into the aragora.debate.context package.
 """
 
+import asyncio
+
 # Re-export everything from the new context package for backwards compatibility
 from aragora.debate.context import (
     # Main class
