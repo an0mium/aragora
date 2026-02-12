@@ -153,7 +153,7 @@ class TestMoundStats:
             analytics_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.knowledge.analytics.get_knowledge_mound",
+                "aragora.knowledge.mound.get_knowledge_mound",
                 return_value=mock_mound,
             ):
                 result = await analytics_handler.handle(
@@ -178,7 +178,7 @@ class TestMoundStats:
             analytics_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.knowledge.analytics.get_knowledge_mound",
+                "aragora.knowledge.mound.get_knowledge_mound",
                 side_effect=ImportError("No module"),
             ):
                 result = await analytics_handler._get_mound_stats("ws-123")
@@ -198,7 +198,7 @@ class TestMoundStats:
             analytics_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.knowledge.analytics.get_knowledge_mound",
+                "aragora.knowledge.mound.get_knowledge_mound",
                 side_effect=Exception("DB error"),
             ):
                 result = await analytics_handler._get_mound_stats("ws-123")
@@ -318,7 +318,7 @@ class TestAnalyticsSummary:
         mock_mound.get_stats = AsyncMock(return_value=mock_stats)
 
         with patch(
-            "aragora.server.handlers.knowledge.analytics.get_knowledge_mound",
+            "aragora.knowledge.mound.get_knowledge_mound",
             return_value=mock_mound,
         ):
             with patch(

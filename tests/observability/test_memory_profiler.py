@@ -273,7 +273,7 @@ class TestTrackMemoryDecorator:
 
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(async_func())
+        result = asyncio.run(async_func())
         assert len(result) == 1000
 
     def test_custom_operation_name(self):

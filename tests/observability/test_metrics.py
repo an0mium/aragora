@@ -221,7 +221,7 @@ class TestDecorators:
 
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(my_func(5))
+        result = asyncio.run(my_func(5))
         assert result == 10
 
 

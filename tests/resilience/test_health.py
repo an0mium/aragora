@@ -3,7 +3,7 @@ Tests for the health monitoring module.
 
 Tests cover:
 - HealthStatus creation, to_dict(), from_dict() round-trip
-- HealthStatus.from_dict with string datetime and datetime object
+- ComponentHealthStatus.from_dict with string datetime and datetime object
 - HealthReport creation, to_dict(), overall_healthy logic
 - HealthChecker initial state, record_success, record_failure
 - HealthChecker state transitions: healthy -> unhealthy -> healthy
@@ -23,10 +23,10 @@ from unittest.mock import patch
 import pytest
 
 from aragora.resilience.health import (
+    ComponentHealthStatus,
     HealthChecker,
     HealthRegistry,
     HealthReport,
-    HealthStatus,
     get_global_health_registry,
 )
 
@@ -37,12 +37,12 @@ from aragora.resilience.health import (
 
 
 class TestHealthStatus:
-    """Tests for the HealthStatus dataclass."""
+    """Tests for the ComponentHealthStatus dataclass."""
 
     def test_creation_minimal(self):
         """Test creating a HealthStatus with only required fields."""
         now = datetime.now(timezone.utc)
-        status = HealthStatus(healthy=True, last_check=now)
+        status = ComponentHealthStatus(healthy=True, last_check=now)
 
         assert status.healthy is True
         assert status.last_check == now
@@ -55,7 +55,7 @@ class TestHealthStatus:
         """Test creating a HealthStatus with all fields populated."""
         now = datetime.now(timezone.utc)
         meta = {"version": "1.2.3", "region": "us-east"}
-        status = HealthStatus(
+        status = ComponentHealthStatus(
             healthy=False,
             last_check=now,
             consecutive_failures=5,
@@ -74,7 +74,7 @@ class TestHealthStatus:
     def test_to_dict(self):
         """Test converting HealthStatus to a dictionary."""
         now = datetime.now(timezone.utc)
-        status = HealthStatus(
+        status = ComponentHealthStatus(
             healthy=True,
             last_check=now,
             consecutive_failures=2,
@@ -94,7 +94,7 @@ class TestHealthStatus:
     def test_to_dict_none_fields(self):
         """Test to_dict when optional fields are None."""
         now = datetime.now(timezone.utc)
-        status = HealthStatus(healthy=True, last_check=now)
+        status = ComponentHealthStatus(healthy=True, last_check=now)
         d = status.to_dict()
 
         assert d["last_error"] is None
@@ -112,7 +112,7 @@ class TestHealthStatus:
             "latency_ms": 100.0,
             "metadata": {"disk": "sda1"},
         }
-        status = HealthStatus.from_dict(data)
+        status = ComponentHealthStatus.from_dict(data)
 
         assert status.healthy is False
         assert status.last_check == now
@@ -129,7 +129,7 @@ class TestHealthStatus:
             "last_check": now,
             "consecutive_failures": 0,
         }
-        status = HealthStatus.from_dict(data)
+        status = ComponentHealthStatus.from_dict(data)
 
         assert status.last_check == now
         assert status.healthy is True
@@ -141,7 +141,7 @@ class TestHealthStatus:
             "healthy": True,
             "last_check": now.isoformat(),
         }
-        status = HealthStatus.from_dict(data)
+        status = ComponentHealthStatus.from_dict(data)
 
         assert status.consecutive_failures == 0
         assert status.last_error is None
@@ -151,7 +151,7 @@ class TestHealthStatus:
     def test_round_trip_to_dict_from_dict(self):
         """Test that to_dict and from_dict form a lossless round-trip."""
         now = datetime.now(timezone.utc)
-        original = HealthStatus(
+        original = ComponentHealthStatus(
             healthy=False,
             last_check=now,
             consecutive_failures=7,
@@ -160,7 +160,7 @@ class TestHealthStatus:
             metadata={"pid": 1234, "host": "node-3"},
         )
         d = original.to_dict()
-        restored = HealthStatus.from_dict(d)
+        restored = ComponentHealthStatus.from_dict(d)
 
         assert restored.healthy == original.healthy
         assert restored.last_check == original.last_check
@@ -171,8 +171,8 @@ class TestHealthStatus:
 
     def test_metadata_default_factory_independence(self):
         """Test that each HealthStatus gets its own metadata dict."""
-        s1 = HealthStatus(healthy=True, last_check=datetime.now(timezone.utc))
-        s2 = HealthStatus(healthy=True, last_check=datetime.now(timezone.utc))
+        s1 = ComponentHealthStatus(healthy=True, last_check=datetime.now(timezone.utc))
+        s2 = ComponentHealthStatus(healthy=True, last_check=datetime.now(timezone.utc))
         s1.metadata["key"] = "value"
 
         assert "key" not in s2.metadata
@@ -190,8 +190,8 @@ class TestHealthReport:
         """Test creating a HealthReport."""
         now = datetime.now(timezone.utc)
         components = {
-            "db": HealthStatus(healthy=True, last_check=now),
-            "cache": HealthStatus(healthy=False, last_check=now, last_error="down"),
+            "db": ComponentHealthStatus(healthy=True, last_check=now),
+            "cache": ComponentHealthStatus(healthy=False, last_check=now, last_error="down"),
         }
         report = HealthReport(
             overall_healthy=False,
@@ -219,7 +219,7 @@ class TestHealthReport:
         """Test converting HealthReport to a dictionary."""
         now = datetime.now(timezone.utc)
         components = {
-            "api": HealthStatus(healthy=True, last_check=now, latency_ms=5.0),
+            "api": ComponentHealthStatus(healthy=True, last_check=now, latency_ms=5.0),
         }
         report = HealthReport(
             overall_healthy=True,
@@ -254,9 +254,9 @@ class TestHealthReport:
         """Test to_dict serializes all component statuses."""
         now = datetime.now(timezone.utc)
         components = {
-            "db": HealthStatus(healthy=True, last_check=now),
-            "cache": HealthStatus(healthy=False, last_check=now, consecutive_failures=5),
-            "queue": HealthStatus(healthy=True, last_check=now, latency_ms=2.0),
+            "db": ComponentHealthStatus(healthy=True, last_check=now),
+            "cache": ComponentHealthStatus(healthy=False, last_check=now, consecutive_failures=5),
+            "queue": ComponentHealthStatus(healthy=True, last_check=now, latency_ms=2.0),
         }
         report = HealthReport(
             overall_healthy=False,
@@ -757,7 +757,7 @@ class TestHealthCheckerGetStatus:
         checker = HealthChecker("svc")
         status = checker.get_status()
 
-        assert isinstance(status, HealthStatus)
+        assert isinstance(status, ComponentHealthStatus)
 
     def test_get_status_reflects_current_state(self):
         """Test that get_status reflects all recorded events."""
@@ -1092,8 +1092,8 @@ class TestHealthRegistryGetAllStatuses:
         assert len(statuses) == 2
         assert "db" in statuses
         assert "cache" in statuses
-        assert isinstance(statuses["db"], HealthStatus)
-        assert isinstance(statuses["cache"], HealthStatus)
+        assert isinstance(statuses["db"], ComponentHealthStatus)
+        assert isinstance(statuses["cache"], ComponentHealthStatus)
 
     def test_get_all_statuses_reflects_state(self):
         """Test that returned statuses reflect the actual health state."""

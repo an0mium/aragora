@@ -114,8 +114,7 @@ class TestMetricsInitialization:
     def test_init_agent_provider_metrics(self) -> None:
         """Metrics should initialize without error."""
         # Should not raise even if called multiple times
-        # The fixture already called it once, but calling again should be safe
-        # because init checks _initialized flag
+        init_agent_provider_metrics()
         assert agents_module._initialized is True
 
     def test_metrics_are_defined_after_init(self) -> None:

@@ -177,7 +177,7 @@ class TestN1DetectorEdgeCases:
             assert detector is not None
             return "result"
 
-        result = asyncio.get_event_loop().run_until_complete(async_handler())
+        result = asyncio.run(async_handler())
         assert result == "result"
 
     def test_detect_n1_decorator_sync_function(self):

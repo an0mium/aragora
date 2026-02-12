@@ -48,9 +48,9 @@ def reset_correlation_id():
         warnings.simplefilter("ignore", DeprecationWarning)
         from aragora.observability import logging as log_module
 
-    log_module._correlation_id.value = None
+    log_module._correlation_id.set(None)
     yield
-    log_module._correlation_id.value = None
+    log_module._correlation_id.set(None)
 
 
 @pytest.fixture

@@ -65,6 +65,8 @@ EXEMPT_HANDLERS = frozenset(
         "EmailWebhookHandler",
         # CSP violation reports (browser-initiated, no auth)
         "CSPReportHandler",
+        # Metrics endpoint - must be public for Prometheus scraper
+        "MetricsHandler",
         # Example handlers (documentation/testing only)
         "ExampleResourceHandler",
         "ExampleAsyncHandler",

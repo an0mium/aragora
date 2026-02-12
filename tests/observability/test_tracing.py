@@ -351,7 +351,7 @@ class TestTracedDecorator:
         async def async_func(x: int, y: int) -> int:
             return x + y
 
-        result = asyncio.get_event_loop().run_until_complete(async_func(2, 3))
+        result = asyncio.run(async_func(2, 3))
         assert result == 5
 
     def test_traced_with_default_name(self):
@@ -420,7 +420,7 @@ class TestTracedDecorator:
             raise RuntimeError("async error")
 
         with pytest.raises(RuntimeError, match="async error"):
-            asyncio.get_event_loop().run_until_complete(async_func_that_raises())
+            asyncio.run(async_func_that_raises())
 
 
 class TestAutoInstrumentation:
