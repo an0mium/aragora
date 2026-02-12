@@ -409,7 +409,7 @@ class DashboardActionsMixin:
 
         return json_response(result)
 
-    def _get_calibration_metrics(self) -> dict:
+    def _get_calibration_metrics(self) -> dict[str, Any]:
         """Get comprehensive agent calibration metrics."""
         metrics: dict[str, Any] = {
             "agents": {},
@@ -495,7 +495,7 @@ class DashboardActionsMixin:
 
         return metrics
 
-    def _get_performance_metrics(self) -> dict:
+    def _get_performance_metrics(self) -> dict[str, Any]:
         """Get agent performance metrics."""
         metrics: dict[str, Any] = {
             "agents": {},
@@ -518,7 +518,7 @@ class DashboardActionsMixin:
 
         return metrics
 
-    def _get_evolution_metrics(self) -> dict:
+    def _get_evolution_metrics(self) -> dict[str, Any]:
         """Get prompt evolution progress."""
         metrics: dict[str, Any] = {
             "agents": {},
@@ -552,7 +552,7 @@ class DashboardActionsMixin:
 
         return metrics
 
-    def _get_debate_quality_metrics(self) -> dict:
+    def _get_debate_quality_metrics(self) -> dict[str, Any]:
         """Get debate quality scores."""
         metrics: dict[str, Any] = {
             "avg_confidence": 0.0,

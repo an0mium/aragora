@@ -316,6 +316,22 @@ class SupabaseAuthValidator:
                 payload = self._decode_jwt_unsafe(token)
                 if not payload:
                     return None
+                # Audit log the insecure decode event
+                try:
+                    from aragora.audit.unified import audit_security
+
+                    audit_security(
+                        event_type="insecure_jwt_decode",
+                        actor_id=payload.get("sub", "unknown"),
+                        reason="jwt_secret_or_pyjwt_unavailable",
+                        details={"sub": payload.get("sub"), "env": env},
+                    )
+                except ImportError:
+                    logger.error(
+                        "SECURITY AUDIT: insecure JWT decode for sub=%s "
+                        "(audit module unavailable)",
+                        payload.get("sub"),
+                    )
 
             # Extract user info
             user = self._payload_to_user(payload)
@@ -407,6 +423,11 @@ class SupabaseAuthValidator:
                 return None
             if payload["exp"] < time.time():
                 logger.debug("JWT expired")
+                return None
+
+            # Require subject claim to prevent empty/anonymous user creation
+            if "sub" not in payload or not payload["sub"]:
+                logger.warning("JWT missing required sub claim - rejecting")
                 return None
 
             return payload

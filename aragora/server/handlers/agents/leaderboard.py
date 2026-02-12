@@ -195,7 +195,7 @@ class LeaderboardViewHandler(SecureHandler):
         )
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_RANKINGS, key_prefix="lb_rankings", skip_first=True)
-    def _fetch_rankings(self, limit: int, domain: str | None) -> dict:
+    def _fetch_rankings(self, limit: int, domain: str | None) -> dict[str, Any]:
         """Fetch agent rankings with consistency scores."""
         elo = self.get_elo_system()
         if not elo:
@@ -256,7 +256,7 @@ class LeaderboardViewHandler(SecureHandler):
         return {"agents": enhanced, "count": len(enhanced)}
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_MATCHES, key_prefix="lb_matches", skip_first=True)
-    def _fetch_matches(self, limit: int, loop_id: str | None) -> dict:
+    def _fetch_matches(self, limit: int, loop_id: str | None) -> dict[str, Any]:
         """Fetch recent matches."""
         elo = self.get_elo_system()
         if not elo:
@@ -270,7 +270,7 @@ class LeaderboardViewHandler(SecureHandler):
         return {"matches": matches, "count": len(matches)}
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_REPUTATION, key_prefix="lb_reputation", skip_first=True)
-    def _fetch_reputations(self) -> dict:
+    def _fetch_reputations(self) -> dict[str, Any]:
         """Fetch all agent reputations."""
         nomic_dir = self.get_nomic_dir()
         store = get_critique_store(nomic_dir)
@@ -295,7 +295,7 @@ class LeaderboardViewHandler(SecureHandler):
         }
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_TEAMS, key_prefix="lb_teams", skip_first=True)
-    def _fetch_teams(self, min_debates: int, limit: int) -> dict:
+    def _fetch_teams(self, min_debates: int, limit: int) -> dict[str, Any]:
         """Fetch best team combinations."""
         try:
             from aragora.routing.selection import AgentSelector
@@ -309,7 +309,7 @@ class LeaderboardViewHandler(SecureHandler):
         return {"combinations": combinations, "count": len(combinations)}
 
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_STATS, key_prefix="lb_stats", skip_first=True)
-    def _fetch_stats(self) -> dict:
+    def _fetch_stats(self) -> dict[str, Any]:
         """Fetch ranking statistics."""
         elo = self.get_elo_system()
         if not elo:
@@ -338,7 +338,7 @@ class LeaderboardViewHandler(SecureHandler):
     @ttl_cache(
         ttl_seconds=CACHE_TTL_LB_INTROSPECTION, key_prefix="lb_introspection", skip_first=True
     )
-    def _fetch_introspection(self) -> dict:
+    def _fetch_introspection(self) -> dict[str, Any]:
         """Fetch agent introspection data."""
         try:
             from aragora.introspection import get_agent_introspection
