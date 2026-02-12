@@ -442,3 +442,154 @@ def cmd_health(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"❌ Health check error: {e}")
         return 1
+
+
+def cmd_rotate_token(args: argparse.Namespace) -> int:
+    """Rotate a service token."""
+    import sys
+
+    try:
+        from aragora.security.token_rotation import (
+            TokenRotationManager,
+            TokenRotationConfig,
+            TokenType,
+        )
+
+        token_type = TokenType(args.token_type)
+
+        # Get token value from --token flag or stdin
+        token_value = args.token
+        if not token_value:
+            if sys.stdin.isatty():
+                token_value = input("  Enter new token value: ").strip()
+            else:
+                token_value = sys.stdin.read().strip()
+
+        if not token_value:
+            print("No token value provided. Use --token or pipe via stdin.")
+            return 1
+
+        # Build config from args + env
+        config = TokenRotationConfig.from_env()
+        if args.stores:
+            config.stores = [s.strip() for s in args.stores.split(",")]
+        if args.github_owner:
+            config.github_owner = args.github_owner
+        if args.github_repo:
+            config.github_repo = args.github_repo
+
+        print(f"\n🔑 Token Rotation ({token_type.value})")
+        print("=" * 50)
+        print(f"  Token prefix: {token_value[:8]}...")
+        print(f"  Stores: {', '.join(config.stores)}")
+
+        if args.dry_run:
+            print("  Mode: DRY RUN (no changes will be made)")
+            print("\n✓ Dry run complete. No changes made.")
+            return 0
+
+        print("  Mode: LIVE ROTATION")
+        print()
+
+        if not args.force:
+            response = input("  Proceed with token rotation? [y/N] ")
+            if response.lower() != "y":
+                print("  Aborted.")
+                return 0
+
+        manager = TokenRotationManager(config=config)
+        result = manager.rotate(
+            token_type,
+            token_value,
+            secret_name_override=args.aws_secret_name,
+        )
+
+        if result.success:
+            print(f"\n✓ Token rotation completed successfully")
+            print(f"  Stores updated: {', '.join(result.stores_updated)}")
+            print(f"  Rotated at: {result.rotated_at.isoformat()}")
+        else:
+            print(f"\n⚠️  Token rotation completed with errors")
+            if result.stores_updated:
+                print(f"  Stores updated: {', '.join(result.stores_updated)}")
+            for store, error in result.errors.items():
+                print(f"  ❌ {store}: {error}")
+
+        return 0 if result.success else 1
+
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        return 1
+    except KeyboardInterrupt:
+        print("\n  Aborted.")
+        return 1
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_list_tokens(args: argparse.Namespace) -> int:
+    """List managed service tokens."""
+    try:
+        from aragora.security.token_rotation import (
+            TokenRotationManager,
+            TokenRotationConfig,
+        )
+
+        config = TokenRotationConfig.from_env()
+        manager = TokenRotationManager(config=config)
+
+        print("\n📋 Managed Service Tokens")
+        print("=" * 50)
+
+        tokens = manager.list_managed_tokens()
+
+        if not tokens:
+            print("  No tokens found in AWS Secrets Manager.")
+            print(f"  Secret name: {config.aws_secret_name}")
+            return 0
+
+        for token in tokens:
+            print(f"\n  Type: {token.token_type}")
+            print(f"  Prefix: {token.prefix}")
+            print(f"  Last rotated: {token.last_rotated}")
+            print(f"  Stores: {', '.join(token.stores)}")
+
+        print()
+        return 0
+
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+
+def cmd_verify_token(args: argparse.Namespace) -> int:
+    """Verify a service token works."""
+    try:
+        from aragora.security.token_rotation import (
+            TokenRotationManager,
+            TokenRotationConfig,
+            TokenType,
+        )
+
+        token_type = TokenType(args.token_type)
+        manager = TokenRotationManager(config=TokenRotationConfig(stores=[]))
+
+        print(f"\n🔍 Verifying {token_type.value} token...")
+
+        if manager.verify_token(token_type):
+            print(f"  ✓ {token_type.value} token verification passed")
+            return 0
+        else:
+            print(f"  ❌ {token_type.value} token verification failed")
+            return 1
+
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        return 1
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return 1
