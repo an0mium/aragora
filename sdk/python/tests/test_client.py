@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -230,3 +231,145 @@ class TestAragoraAsyncClientContextManager:
         """Async client can be used as async context manager."""
         async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
             assert isinstance(client, AragoraAsyncClient)
+
+
+class TestAragoraClientFromEnv:
+    """Tests for AragoraClient.from_env() factory method."""
+
+    def test_from_env_uses_defaults(self) -> None:
+        """from_env() uses default values when no env vars are set."""
+        env = {}
+        with patch.dict(os.environ, env, clear=True):
+            client = AragoraClient.from_env()
+            assert client.base_url == "http://localhost:8080"
+            assert client.api_key is None
+            assert client.timeout == 30.0
+            assert client.max_retries == 3
+            assert client.retry_delay == 1.0
+            client.close()
+
+    def test_from_env_reads_api_url(self) -> None:
+        """from_env() reads ARAGORA_API_URL."""
+        with patch.dict(os.environ, {"ARAGORA_API_URL": "https://custom.aragora.ai"}):
+            client = AragoraClient.from_env()
+            assert client.base_url == "https://custom.aragora.ai"
+            client.close()
+
+    def test_from_env_reads_api_key(self) -> None:
+        """from_env() reads ARAGORA_API_KEY."""
+        with patch.dict(os.environ, {"ARAGORA_API_KEY": "ara_test_key"}):
+            client = AragoraClient.from_env()
+            assert client.api_key == "ara_test_key"
+            client.close()
+
+    def test_from_env_reads_timeout(self) -> None:
+        """from_env() reads ARAGORA_TIMEOUT."""
+        with patch.dict(os.environ, {"ARAGORA_TIMEOUT": "60"}):
+            client = AragoraClient.from_env()
+            assert client.timeout == 60.0
+            client.close()
+
+    def test_from_env_reads_max_retries(self) -> None:
+        """from_env() reads ARAGORA_MAX_RETRIES."""
+        with patch.dict(os.environ, {"ARAGORA_MAX_RETRIES": "5"}):
+            client = AragoraClient.from_env()
+            assert client.max_retries == 5
+            client.close()
+
+    def test_from_env_reads_retry_delay(self) -> None:
+        """from_env() reads ARAGORA_RETRY_DELAY."""
+        with patch.dict(os.environ, {"ARAGORA_RETRY_DELAY": "2.5"}):
+            client = AragoraClient.from_env()
+            assert client.retry_delay == 2.5
+            client.close()
+
+    def test_from_env_kwargs_override_env(self) -> None:
+        """Explicit kwargs override environment variables."""
+        with patch.dict(os.environ, {
+            "ARAGORA_API_URL": "https://env.aragora.ai",
+            "ARAGORA_API_KEY": "ara_env_key",
+            "ARAGORA_TIMEOUT": "60",
+        }):
+            client = AragoraClient.from_env(
+                base_url="https://override.aragora.ai",
+                api_key="ara_override_key",
+                timeout=90.0,
+            )
+            assert client.base_url == "https://override.aragora.ai"
+            assert client.api_key == "ara_override_key"
+            assert client.timeout == 90.0
+            client.close()
+
+    def test_from_env_all_vars(self) -> None:
+        """from_env() reads all supported environment variables."""
+        env = {
+            "ARAGORA_API_URL": "https://full.aragora.ai",
+            "ARAGORA_API_KEY": "ara_full_key",
+            "ARAGORA_TIMEOUT": "45",
+            "ARAGORA_MAX_RETRIES": "7",
+            "ARAGORA_RETRY_DELAY": "0.5",
+        }
+        with patch.dict(os.environ, env):
+            client = AragoraClient.from_env()
+            assert client.base_url == "https://full.aragora.ai"
+            assert client.api_key == "ara_full_key"
+            assert client.timeout == 45.0
+            assert client.max_retries == 7
+            assert client.retry_delay == 0.5
+            client.close()
+
+    def test_from_env_returns_aragoraclient(self) -> None:
+        """from_env() returns an AragoraClient instance."""
+        client = AragoraClient.from_env()
+        assert isinstance(client, AragoraClient)
+        client.close()
+
+
+class TestAragoraAsyncClientFromEnv:
+    """Tests for AragoraAsyncClient.from_env() factory method."""
+
+    def test_async_from_env_uses_defaults(self) -> None:
+        """Async from_env() uses default values when no env vars are set."""
+        env = {}
+        with patch.dict(os.environ, env, clear=True):
+            client = AragoraAsyncClient.from_env()
+            assert client.base_url == "http://localhost:8080"
+            assert client.api_key is None
+            assert client.ws_url is None
+            assert client.timeout == 30.0
+
+    def test_async_from_env_reads_ws_url(self) -> None:
+        """Async from_env() reads ARAGORA_WS_URL."""
+        with patch.dict(os.environ, {"ARAGORA_WS_URL": "wss://ws.aragora.ai"}):
+            client = AragoraAsyncClient.from_env()
+            assert client.ws_url == "wss://ws.aragora.ai"
+
+    def test_async_from_env_reads_all_vars(self) -> None:
+        """Async from_env() reads all supported environment variables."""
+        env = {
+            "ARAGORA_API_URL": "https://async.aragora.ai",
+            "ARAGORA_API_KEY": "ara_async_key",
+            "ARAGORA_WS_URL": "wss://ws.async.aragora.ai",
+            "ARAGORA_TIMEOUT": "45",
+            "ARAGORA_MAX_RETRIES": "7",
+            "ARAGORA_RETRY_DELAY": "0.5",
+        }
+        with patch.dict(os.environ, env):
+            client = AragoraAsyncClient.from_env()
+            assert client.base_url == "https://async.aragora.ai"
+            assert client.api_key == "ara_async_key"
+            assert client.ws_url == "wss://ws.async.aragora.ai"
+            assert client.timeout == 45.0
+            assert client.max_retries == 7
+            assert client.retry_delay == 0.5
+
+    def test_async_from_env_kwargs_override_env(self) -> None:
+        """Explicit kwargs override environment variables for async client."""
+        with patch.dict(os.environ, {"ARAGORA_API_URL": "https://env.aragora.ai"}):
+            client = AragoraAsyncClient.from_env(base_url="https://override.aragora.ai")
+            assert client.base_url == "https://override.aragora.ai"
+
+    def test_async_from_env_returns_async_client(self) -> None:
+        """Async from_env() returns an AragoraAsyncClient instance."""
+        client = AragoraAsyncClient.from_env()
+        assert isinstance(client, AragoraAsyncClient)

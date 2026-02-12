@@ -218,7 +218,7 @@ class TestMaxCachesEnforced:
         from aragora.debate import convergence
 
         # Temporarily reduce max caches for testing
-        with patch.object(convergence, "MAX_SIMILARITY_CACHES", 5):
+        with patch("aragora.debate.convergence.cache.MAX_SIMILARITY_CACHES", 5):
             # Create max number of caches
             for i in range(5):
                 get_pairwise_similarity_cache(f"session_{i}")
@@ -241,7 +241,7 @@ class TestMaxCachesEnforced:
         """Test that oldest cache is removed when at capacity."""
         from aragora.debate import convergence
 
-        with patch.object(convergence, "MAX_SIMILARITY_CACHES", 3):
+        with patch("aragora.debate.convergence.cache.MAX_SIMILARITY_CACHES", 3):
             # Create 3 caches with explicit timestamps
             sessions = ["oldest", "middle", "newest"]
             base_time = time.time()
