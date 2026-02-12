@@ -1129,10 +1129,10 @@ class TestPermissionConstantOrganization:
 
         # Check for section headers
         expected_sections = [
-            "DEBATE PERMISSIONS",
-            "AGENT PERMISSIONS",
-            "USER MANAGEMENT PERMISSIONS",
-            "ADMIN PERMISSIONS",
+            "Debate permissions",
+            "Admin permissions",
+            "Organization permissions",
+            "Compliance permissions",
         ]
         for section in expected_sections:
             assert section in source, f"Missing section header: {section}"
@@ -1145,13 +1145,13 @@ class TestPermissionConstantOrganization:
 
         # Check for various resource sections
         resource_sections = [
-            "DEBATE",
-            "AGENT",
-            "USER",
-            "ORGANIZATION",
-            "ADMIN",
-            "CONTROL PLANE",
-            "COMPLIANCE",
+            "Debate",
+            "Admin",
+            "Organization",
+            "Compliance",
+            "Knowledge",
+            "Billing",
+            "Integration",
         ]
         for section in resource_sections:
             assert section in source, f"Missing documentation for {section}"
