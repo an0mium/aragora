@@ -181,8 +181,8 @@ def main() -> int:
             r"^(\*\*Current Version:\*\*\s*)(\d+\.\d+\.\d+)(.*)$",
         ),
         (
-            "docs/STATUS.md",
-            Path("docs/STATUS.md"),
+            "docs/status/STATUS.md",
+            Path("docs/status/STATUS.md"),
             r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
         ),
         (

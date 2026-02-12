@@ -431,6 +431,8 @@ class TestNoDuplicatePermissions:
         "organization.read",  # PERM_ORG_READ, PERM_ORG_USAGE_READ, PERM_ORG_MEMBERS
         "payments.create",  # Multiple payment create variants
         "payments.read",  # Multiple payment read variants
+        "security.read",  # PERM_CVE_READ, PERM_SAST_READ, PERM_SBOM_READ, PERM_SECRETS_READ, PERM_VULNERABILITY_READ
+        "security.execute",  # PERM_SAST_SCAN, PERM_SECRETS_SCAN, PERM_VULNERABILITY_SCAN
         "skills.update",  # PERM_SKILLS_INSTALL, PERM_SKILLS_RATE
     }
 

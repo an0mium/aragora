@@ -6,6 +6,9 @@ on:
     paths:
       - 'aragora/**'
       - 'tests/**'
+      - 'scripts/check_self_host_compose.py'
+      - 'docker-compose.production.yml'
+      - '.env.production.example'
       - '.github/workflows/integration.yml'
       - 'pyproject.toml'
       - 'setup.py'
@@ -14,6 +17,9 @@ on:
     paths:
       - 'aragora/**'
       - 'tests/**'
+      - 'scripts/check_self_host_compose.py'
+      - 'docker-compose.production.yml'
+      - '.env.production.example'
       - '.github/workflows/integration.yml'
       - 'pyproject.toml'
       - 'setup.py'
