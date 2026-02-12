@@ -1057,13 +1057,9 @@ class TestSingletonFunctions:
         pulse_module._shared_pulse_manager = None
 
         with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
-            with patch(
-                "aragora.pulse.ingestor.PulseManager",
-                side_effect=ImportError("Not found"),
-            ):
-                result = get_pulse_manager()
-                # Should return None on import error
-                assert result is None
+            result = get_pulse_manager()
+            # Should return None on import error
+            assert result is None
 
     def test_get_scheduled_debate_store_error(self):
         """Test get_scheduled_debate_store handles errors gracefully."""
