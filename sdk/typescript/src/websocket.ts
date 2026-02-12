@@ -125,8 +125,8 @@ export class AragoraWebSocket {
         if (typeof WebSocket !== 'undefined') {
           this.ws = new WebSocket(wsUrl);
         } else {
-          // Node.js environment - dynamically require ws
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          // Node.js environment - dynamically import ws
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const WS = require('ws');
           this.ws = new WS(wsUrl);
         }
@@ -296,7 +296,7 @@ export class AragoraWebSocket {
         // Cast to unknown is safe - emit() will pass to correctly-typed handlers
         this.emit(eventType, event.data as Parameters<EventHandlers[typeof eventType][number]>[0]);
       }
-    } catch (error) {
+    } catch (_error) {
       this.emit('error', new Error(`Failed to parse message: ${data}`));
     }
   }
