@@ -1353,7 +1353,7 @@ class TestProductOperations:
     @pytest.mark.asyncio
     async def test_get_product_not_found(self, connector):
         """get_product returns None on error."""
-        connector._request = AsyncMock(side_effect=Exception("404"))
+        connector._request = AsyncMock(side_effect=ConnectorAPIError("404", connector_name="shopify"))
         product = await connector.get_product("9999")
         assert product is None
 
@@ -1523,7 +1523,7 @@ class TestCustomerOperations:
     @pytest.mark.asyncio
     async def test_get_customer_not_found(self, connector):
         """get_customer returns None on error."""
-        connector._request = AsyncMock(side_effect=Exception("Not found"))
+        connector._request = AsyncMock(side_effect=ConnectorAPIError("Not found", connector_name="shopify"))
         customer = await connector.get_customer("9999")
         assert customer is None
 

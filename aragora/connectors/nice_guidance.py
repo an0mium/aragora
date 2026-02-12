@@ -103,7 +103,7 @@ class NICEGuidanceConnector(BaseConnector):
         except httpx.HTTPStatusError as e:
             logger.warning("NICE guidance search failed: %s", e)
             return []
-        except Exception as e:  # noqa: BLE001
+        except (httpx.RequestError, OSError, ValueError) as e:
             logger.warning("NICE guidance search error: %s", e)
             return []
 

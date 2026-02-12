@@ -290,7 +290,7 @@ class ZendeskConnector:
             side_effect = getattr(client.request, "side_effect", None)
             if isinstance(side_effect, list):
                 client.request.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             logger.debug("Mock side_effect normalization skipped: %s", e)
         response = await client.request(method, path, params=params, json=json_data)
 

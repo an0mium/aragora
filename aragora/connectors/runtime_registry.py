@@ -270,7 +270,7 @@ class ConnectorRegistry:
             metadata["importable"] = False
             metadata["import_error"] = str(exc)
             logger.debug("Connector %s not importable: %s", name, exc)
-        except Exception as exc:  # noqa: BLE001
+        except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as exc:
             status = ConnectorStatus.DEGRADED
             metadata["importable"] = False
             metadata["import_error"] = str(exc)
@@ -359,7 +359,7 @@ class ConnectorRegistry:
             info.status = ConnectorStatus.UNHEALTHY
             info.metadata["importable"] = False
             info.metadata["import_error"] = str(exc)
-        except Exception as exc:  # noqa: BLE001
+        except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as exc:
             logger.warning("Health check error for %s: %s", name, exc)
             info.status = ConnectorStatus.DEGRADED
             info.metadata["health_error"] = str(exc)
@@ -401,7 +401,7 @@ def _extract_config_status(module: Any) -> tuple[bool | None, dict[str, Any] | N
             if isinstance(config_meta, dict):
                 configured = config_meta.get("configured")
                 return configured, config_meta
-        except Exception as exc:  # noqa: BLE001
+        except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as exc:
             return None, {"error": str(exc)}
 
     required = getattr(module, "CONFIG_ENV_VARS", None)

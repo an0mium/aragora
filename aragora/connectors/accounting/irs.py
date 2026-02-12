@@ -164,7 +164,7 @@ class IRSConnector(BaseConnector):
                     )
                 response.raise_for_status()
                 data = response.json()
-        except Exception as e:  # noqa: BLE001
+        except (httpx.HTTPStatusError, httpx.RequestError, OSError, ValueError) as e:
             logger.warning("IRS search failed: %s", e)
             return []
 

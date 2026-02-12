@@ -150,7 +150,7 @@ class GenericTaxConnector(BaseConnector):
                     response = await client.get(search_url, params=params, headers=self._headers())
                 response.raise_for_status()
                 data = response.json()
-        except Exception as e:  # noqa: BLE001
+        except (httpx.HTTPStatusError, httpx.RequestError, OSError, ValueError) as e:
             logger.warning("Tax search failed (%s): %s", self.jurisdiction, e)
             return []
 

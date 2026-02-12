@@ -214,7 +214,7 @@ def _init_metrics() -> bool:
                 ]
             ):
                 _init_noop_metrics()
-        except Exception:
+        except (ValueError, TypeError, RuntimeError):
             logger.debug("Prometheus metrics validation failed, using no-op metrics", exc_info=True)
             _init_noop_metrics()
 

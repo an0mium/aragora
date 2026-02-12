@@ -337,7 +337,7 @@ class DocuSignConnector:
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    raise Exception(f"JWT auth failed: {error_text}")
+                    raise RuntimeError(f"JWT auth failed: {error_text}")
 
                 data = await response.json()
 
@@ -363,7 +363,7 @@ class DocuSignConnector:
     async def _get_user_info(self) -> dict[str, Any]:
         """Get user info including accounts."""
         if not self._credentials:
-            raise Exception("Not authenticated")
+            raise RuntimeError("Not authenticated")
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -381,7 +381,7 @@ class DocuSignConnector:
     ) -> Any:
         """Make authenticated API request."""
         if not self._credentials:
-            raise Exception("Not authenticated")
+            raise RuntimeError("Not authenticated")
 
         if self._credentials.is_expired:
             await self.authenticate_jwt()
@@ -410,7 +410,7 @@ class DocuSignConnector:
 
                 if response.status >= 400:
                     error = response_data.get("message", "Unknown error")
-                    raise Exception(f"DocuSign API error: {error}")
+                    raise RuntimeError(f"DocuSign API error: {error}")
 
                 return response_data
 
@@ -571,7 +571,7 @@ class DocuSignConnector:
                     else None
                 ),
             )
-        except Exception as e:
+        except (aiohttp.ClientError, OSError, RuntimeError, ValueError, KeyError) as e:
             logger.error(f"Failed to get envelope {envelope_id}: {e}")
             return None
 

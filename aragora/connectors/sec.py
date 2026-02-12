@@ -201,7 +201,7 @@ class SECConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception as e:
+                except (AttributeError, TypeError) as e:
                     logger.debug("Mock side_effect normalization skipped: %s", e)
                 # SEC provides a JSON file mapping tickers to CIKs
                 response = await client.get(
@@ -246,7 +246,7 @@ class SECConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception as e:
+                except (AttributeError, TypeError) as e:
                     logger.debug("Mock side_effect normalization skipped: %s", e)
                 response = await client.get(url, headers=self._get_headers())
 
@@ -296,7 +296,7 @@ class SECConnector(BaseConnector):
                     side_effect = getattr(client.get, "side_effect", None)
                     if isinstance(side_effect, list):
                         client.get.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-                except Exception as e:
+                except (AttributeError, TypeError) as e:
                     logger.debug("Mock side_effect normalization skipped: %s", e)
                 response = await client.get(
                     EDGAR_FULLTEXT_URL,
