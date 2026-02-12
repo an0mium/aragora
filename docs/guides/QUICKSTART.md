@@ -101,7 +101,7 @@ curl -X POST http://localhost:8080/api/v1/debates \
 | Stream events in real time | Connect via WebSocket -- see [WebSocket Events](../streaming/WEBSOCKET_EVENTS.md) |
 | Stress-test a decision | Use `aragora gauntlet "your question"` -- see [Gauntlet](../debate/GAUNTLET.md) |
 | Use the Python SDK | `pip install aragora-sdk` -- see [SDK Guide](../SDK_GUIDE.md) |
-| Use the TypeScript SDK | `npm install aragora-sdk` -- see [TypeScript SDK](SDK_TYPESCRIPT.md) |
+| Use the TypeScript SDK | `npm install @aragora/sdk` -- see [TypeScript SDK](SDK_TYPESCRIPT.md) |
 | Full onboarding | [Getting Started](GETTING_STARTED.md) |
 | API cookbook with 20 patterns | [API Cookbook](API_COOKBOOK.md) |
 

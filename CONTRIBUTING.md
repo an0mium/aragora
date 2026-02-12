@@ -221,15 +221,15 @@ aragora/
 
 | Package | Purpose | Install | Import |
 |---------|---------|---------|--------|
-| `aragora` | Full control plane + SDK | `pip install aragora` | `from aragora.client import AragoraClient` |
-| `aragora-client` | Lightweight async SDK | `pip install aragora-client` | `from aragora_client import AragoraClient` |
-| `aragora-sdk` | Deprecated | _avoid_ | _deprecated_ |
+| `aragora` | Full control plane (server + CLI + framework internals) | `pip install aragora` | `from aragora import Arena` |
+| `aragora-sdk` | Blessed Python SDK client (remote API; sync + async + streaming) | `pip install aragora-sdk` | `from aragora_sdk import AragoraClient` |
+| `aragora-client` | Legacy async-only SDK (deprecated) | `pip install aragora-client` | `from aragora_client import AragoraClient` |
 
 ```python
-# Full control plane package
-from aragora.client import AragoraClient
+# Blessed Python SDK client
+from aragora_sdk import AragoraClient
 
-# Lightweight SDK (async)
+# Legacy SDK (deprecated)
 from aragora_client import AragoraClient as AragoraAsyncClient
 ```
 

@@ -465,12 +465,13 @@ aragora context --preview --rlm
 | Package | Purpose | Installation |
 |---------|---------|--------------|
 | **`aragora`** | Full control plane (server, CLI, SDK) | `pip install aragora` |
-| **`aragora-sdk`** | Lightweight async client (remote API only) | `pip install aragora-sdk` |
+| **`aragora-sdk`** | Official Python SDK (remote HTTP API; sync + async + streaming) | `pip install aragora-sdk` |
 | **`@aragora/sdk`** | TypeScript/Node.js SDK (140 namespaces) | `npm install @aragora/sdk` |
 
-**Deprecated packages** (do not use):
-- `aragora-client` -- Use `aragora-sdk` instead
+**Deprecated packages** (avoid for new integrations):
+- `aragora-client` -- Legacy async client. Migrate to `aragora-sdk`.
 - `aragora-js` -- Use `@aragora/sdk` instead
+- `@aragora/client` -- Use `@aragora/sdk` instead
 
 See [SDK_COMPARISON.md](SDK_COMPARISON.md) for detailed feature comparison.
 
