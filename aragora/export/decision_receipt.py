@@ -27,6 +27,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from aragora.core_types import Verdict
+
 if TYPE_CHECKING:
     from aragora.core_types import DebateResult
     from aragora.export.audit_trail import AuditTrail
@@ -107,10 +109,11 @@ class DecisionReceipt:
     input_summary: str = ""
     input_type: str = "spec"
 
-    # Core verdict
-    verdict: str = (
-        "NEEDS_REVIEW"  # "APPROVED", "APPROVED_WITH_CONDITIONS", "NEEDS_REVIEW", "REJECTED"
-    )
+    # Schema version for forward compatibility
+    schema_version: str = "1.0"
+
+    # Core verdict - uses Verdict enum values; accepts plain strings for backward compat
+    verdict: str = Verdict.NEEDS_REVIEW.value  # See aragora.core_types.Verdict
     confidence: float = 0.0
     risk_level: str = "MEDIUM"  # "LOW", "MEDIUM", "HIGH", "CRITICAL"
     risk_score: float = 0.0
@@ -186,6 +189,7 @@ class DecisionReceipt:
             "timestamp": self.timestamp,
             "input_summary": self.input_summary,
             "input_type": self.input_type,
+            "schema_version": self.schema_version,
             "verdict": self.verdict,
             "confidence": self.confidence,
             "risk_level": self.risk_level,
@@ -421,12 +425,15 @@ class DecisionReceipt:
 
     def to_html(self) -> str:
         """Export as self-contained HTML document."""
-        verdict_color = {
-            "APPROVED": "#28a745",
-            "APPROVED_WITH_CONDITIONS": "#ffc107",
-            "NEEDS_REVIEW": "#fd7e14",
-            "REJECTED": "#dc3545",
-        }.get(self.verdict, "#6c757d")
+        _verdict_colors = {
+            Verdict.APPROVED.value: "#28a745",
+            Verdict.APPROVED_WITH_CONDITIONS.value: "#ffc107",
+            Verdict.NEEDS_REVIEW.value: "#fd7e14",
+            Verdict.REJECTED.value: "#dc3545",
+        }
+        verdict_color = _verdict_colors.get(
+            self.verdict.lower() if self.verdict else "", "#6c757d"
+        )
 
         findings_html = ""
         for f in self.findings:
@@ -974,15 +981,15 @@ class DecisionReceipt:
 
         receipt_id = f"rcpt_{uuid.uuid4().hex[:12]}"
 
-        # Map confidence to verdict
+        # Map confidence to verdict (use canonical Verdict enum values)
         if result.confidence >= 0.9:
-            verdict = "APPROVED"
+            verdict = Verdict.APPROVED.value
         elif result.confidence >= 0.7:
-            verdict = "APPROVED_WITH_CONDITIONS"
+            verdict = Verdict.APPROVED_WITH_CONDITIONS.value
         elif result.confidence >= 0.5:
-            verdict = "NEEDS_REVIEW"
+            verdict = Verdict.NEEDS_REVIEW.value
         else:
-            verdict = "REJECTED"
+            verdict = Verdict.REJECTED.value
 
         # Map confidence to risk (inverse relationship)
         risk_score = 1.0 - result.confidence

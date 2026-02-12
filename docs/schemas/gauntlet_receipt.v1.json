@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aragora.ai/schemas/gauntlet_receipt.v1.json",
+  "title": "Aragora Gauntlet Decision Receipt",
+  "description": "Cryptographic audit-ready receipt from gauntlet adversarial validation. Defined in aragora.gauntlet.receipt_models.DecisionReceipt.",
+  "type": "object",
+  "required": [
+    "receipt_id",
+    "gauntlet_id",
+    "timestamp",
+    "input_summary",
+    "input_hash",
+    "risk_summary",
+    "attacks_attempted",
+    "attacks_successful",
+    "probes_run",
+    "vulnerabilities_found",
+    "verdict",
+    "confidence",
+    "robustness_score"
+  ],
+  "properties": {
+    "receipt_id": {
+      "type": "string",
+      "description": "Unique identifier for this receipt."
+    },
+    "gauntlet_id": {
+      "type": "string",
+      "description": "Identifier of the gauntlet run that produced this receipt."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of receipt generation."
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version for forward compatibility.",
+      "const": "1.0"
+    },
+    "input_summary": {
+      "type": "string",
+      "description": "Brief description of what was tested."
+    },
+    "input_hash": {
+      "type": "string",
+      "description": "SHA-256 hash of the input for integrity verification."
+    },
+    "risk_summary": {
+      "type": "object",
+      "description": "Counts of findings by severity level.",
+      "properties": {
+        "critical": { "type": "integer", "default": 0 },
+        "high": { "type": "integer", "default": 0 },
+        "medium": { "type": "integer", "default": 0 },
+        "low": { "type": "integer", "default": 0 },
+        "total": { "type": "integer", "default": 0 }
+      }
+    },
+    "attacks_attempted": {
+      "type": "integer",
+      "description": "Number of red-team attacks attempted."
+    },
+    "attacks_successful": {
+      "type": "integer",
+      "description": "Number of red-team attacks that succeeded."
+    },
+    "probes_run": {
+      "type": "integer",
+      "description": "Number of capability probes executed."
+    },
+    "vulnerabilities_found": {
+      "type": "integer",
+      "description": "Total vulnerabilities discovered."
+    },
+    "vulnerability_details": {
+      "type": "array",
+      "description": "Detailed vulnerability records for critical/high findings.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "category": { "type": "string" },
+          "severity": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "recommendations": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "default": []
+    },
+    "verdict": {
+      "type": "string",
+      "description": "Final verdict. Gauntlet uses PASS/CONDITIONAL/FAIL; maps to aragora.core_types.Verdict values.",
+      "enum": ["PASS", "CONDITIONAL", "FAIL", "approved", "approved_with_conditions", "needs_review", "rejected"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Confidence in the verdict (0.0-1.0)."
+    },
+    "robustness_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Overall robustness score from adversarial testing."
+    },
+    "verdict_reasoning": {
+      "type": "string",
+      "description": "Explanation of the verdict decision.",
+      "default": ""
+    },
+    "dissenting_views": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Views from agents that disagreed with the verdict.",
+      "default": []
+    },
+    "consensus_proof": {
+      "oneOf": [
+        { "$ref": "#/$defs/ConsensusProof" },
+        { "type": "null" }
+      ],
+      "description": "Proof of agent consensus.",
+      "default": null
+    },
+    "provenance_chain": {
+      "type": "array",
+      "description": "Ordered chain of provenance records for auditability.",
+      "items": {
+        "$ref": "#/$defs/ProvenanceRecord"
+      },
+      "default": []
+    },
+    "artifact_hash": {
+      "type": "string",
+      "description": "Content-addressable SHA-256 hash of the entire receipt.",
+      "default": ""
+    },
+    "config_used": {
+      "type": "object",
+      "description": "Configuration used for this gauntlet run.",
+      "default": {}
+    },
+    "signature": {
+      "type": ["string", "null"],
+      "description": "Base64-encoded cryptographic signature (if signed).",
+      "default": null
+    },
+    "signature_algorithm": {
+      "type": ["string", "null"],
+      "description": "Algorithm used for signing (e.g. HMAC-SHA256).",
+      "default": null
+    },
+    "signature_key_id": {
+      "type": ["string", "null"],
+      "description": "Identifier of the signing key.",
+      "default": null
+    },
+    "signed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the receipt was signed.",
+      "default": null
+    }
+  },
+  "$defs": {
+    "ProvenanceRecord": {
+      "type": "object",
+      "required": ["timestamp", "event_type"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "description": "ISO 8601 timestamp of the event."
+        },
+        "event_type": {
+          "type": "string",
+          "description": "Type of event (attack, probe, scenario, verdict, finding, message, vote, etc.)."
+        },
+        "agent": {
+          "type": ["string", "null"],
+          "description": "Agent that performed the action.",
+          "default": null
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the event.",
+          "default": ""
+        },
+        "evidence_hash": {
+          "type": "string",
+          "description": "SHA-256 hash of the evidence (first 16 hex chars).",
+          "default": ""
+        }
+      }
+    },
+    "ConsensusProof": {
+      "type": "object",
+      "required": ["reached", "confidence"],
+      "properties": {
+        "reached": {
+          "type": "boolean",
+          "description": "Whether consensus was reached."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Confidence level of consensus."
+        },
+        "supporting_agents": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Agents that supported the verdict.",
+          "default": []
+        },
+        "dissenting_agents": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Agents that dissented.",
+          "default": []
+        },
+        "method": {
+          "type": "string",
+          "description": "Consensus method used (majority, adversarial_validation, etc.).",
+          "default": "majority"
+        },
+        "evidence_hash": {
+          "type": "string",
+          "description": "Hash of consensus evidence.",
+          "default": ""
+        }
+      }
+    }
+  }
+}

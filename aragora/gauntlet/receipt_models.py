@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from html import escape
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.core_types import Verdict  # noqa: F401 - re-exported for receipt consumers
+
 if TYPE_CHECKING:
     from .result import GauntletResult
     from .signing import ReceiptSigner
@@ -109,6 +111,9 @@ class DecisionReceipt:
     dissenting_views: list[str] = field(default_factory=list)
     consensus_proof: ConsensusProof | None = None
     provenance_chain: list[ProvenanceRecord] = field(default_factory=list)
+
+    # Schema version for forward compatibility
+    schema_version: str = "1.0"
 
     # Integrity
     artifact_hash: str = ""  # Content-addressable hash of entire receipt
@@ -1199,6 +1204,7 @@ class DecisionReceipt:
             "dissenting_views": self.dissenting_views,
             "consensus_proof": self.consensus_proof.to_dict() if self.consensus_proof else None,
             "provenance_chain": [p.to_dict() for p in self.provenance_chain],
+            "schema_version": self.schema_version,
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
         }
@@ -1240,6 +1246,7 @@ class DecisionReceipt:
             dissenting_views=data.get("dissenting_views", []) or [],
             consensus_proof=consensus,
             provenance_chain=provenance,
+            schema_version=data.get("schema_version", "1.0"),
             artifact_hash=data.get("artifact_hash", ""),
             config_used=data.get("config_used", {}) or {},
             # Signature fields

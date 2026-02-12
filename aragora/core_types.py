@@ -31,6 +31,28 @@ class TaskComplexity(Enum):
     UNKNOWN = "unknown"  # Fallback when classification is uncertain
 
 
+class Verdict(str, Enum):
+    """Canonical verdict for decision receipts and gauntlet results.
+
+    Unified verdict taxonomy used across:
+    - ``aragora.export.decision_receipt.DecisionReceipt``
+    - ``aragora.gauntlet.receipt_models.DecisionReceipt``
+    - ``aragora.gauntlet.types.Verdict`` (extends with PASS/FAIL/CONDITIONAL aliases)
+
+    Because this inherits from ``str``, verdict values can be compared
+    directly with plain strings for backward compatibility::
+
+        verdict = Verdict.APPROVED
+        assert verdict == "approved"
+        assert verdict.value == "approved"
+    """
+
+    APPROVED = "approved"
+    APPROVED_WITH_CONDITIONS = "approved_with_conditions"
+    NEEDS_REVIEW = "needs_review"
+    REJECTED = "rejected"
+
+
 @dataclass
 class Message:
     """A message in a debate."""

@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aragora.ai/schemas/decision_receipt.v1.json",
+  "title": "Aragora Decision Receipt (Export)",
+  "description": "Audit-ready decision receipt from Gauntlet stress-tests or debate results. Defined in aragora.export.decision_receipt.DecisionReceipt.",
+  "type": "object",
+  "required": [
+    "receipt_id",
+    "gauntlet_id",
+    "timestamp",
+    "verdict",
+    "confidence",
+    "schema_version"
+  ],
+  "properties": {
+    "receipt_id": {
+      "type": "string",
+      "description": "Unique identifier for this receipt."
+    },
+    "gauntlet_id": {
+      "type": "string",
+      "description": "Identifier of the gauntlet run or debate that produced this receipt."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of receipt generation."
+    },
+    "input_summary": {
+      "type": "string",
+      "description": "Brief description of what was tested.",
+      "default": ""
+    },
+    "input_type": {
+      "type": "string",
+      "description": "Type of input (spec, debate, architecture, etc.).",
+      "default": "spec"
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version for forward compatibility.",
+      "const": "1.0"
+    },
+    "verdict": {
+      "type": "string",
+      "description": "Final recommendation. Values from aragora.core_types.Verdict.",
+      "enum": ["approved", "approved_with_conditions", "needs_review", "rejected"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Confidence in the verdict (0.0-1.0)."
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+      "description": "Overall risk classification.",
+      "default": "MEDIUM"
+    },
+    "risk_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Numeric risk score (0.0-1.0).",
+      "default": 0.0
+    },
+    "robustness_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Robustness score from stress testing.",
+      "default": 0.0
+    },
+    "coverage_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Coverage score of validation.",
+      "default": 0.0
+    },
+    "verification_coverage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Fraction of claims formally verified.",
+      "default": 0.0
+    },
+    "findings": {
+      "type": "array",
+      "description": "All findings from the stress-test.",
+      "items": {
+        "$ref": "#/$defs/ReceiptFinding"
+      },
+      "default": []
+    },
+    "critical_count": {
+      "type": "integer",
+      "description": "Number of critical findings.",
+      "default": 0
+    },
+    "high_count": {
+      "type": "integer",
+      "description": "Number of high-severity findings.",
+      "default": 0
+    },
+    "medium_count": {
+      "type": "integer",
+      "description": "Number of medium-severity findings.",
+      "default": 0
+    },
+    "low_count": {
+      "type": "integer",
+      "description": "Number of low-severity findings.",
+      "default": 0
+    },
+    "mitigations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Recommended mitigations.",
+      "default": []
+    },
+    "dissenting_views": {
+      "type": "array",
+      "description": "Agents who disagreed with the verdict.",
+      "items": {
+        "$ref": "#/$defs/ReceiptDissent"
+      },
+      "default": []
+    },
+    "unresolved_tensions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Issues not fully resolved during analysis.",
+      "default": []
+    },
+    "verified_claims": {
+      "type": "array",
+      "description": "Claims that were formally verified.",
+      "items": {
+        "$ref": "#/$defs/ReceiptVerification"
+      },
+      "default": []
+    },
+    "unverified_claims": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Claims that could not be verified.",
+      "default": []
+    },
+    "agents_involved": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Which agents participated.",
+      "default": []
+    },
+    "rounds_completed": {
+      "type": "integer",
+      "description": "How many rounds of analysis.",
+      "default": 0
+    },
+    "duration_seconds": {
+      "type": "number",
+      "description": "Total analysis time in seconds.",
+      "default": 0.0
+    },
+    "audit_trail_id": {
+      "type": ["string", "null"],
+      "description": "Cross-reference to linked audit trail.",
+      "default": null
+    },
+    "checksum": {
+      "type": "string",
+      "description": "SHA-256 integrity checksum (first 16 hex chars).",
+      "default": ""
+    },
+    "cost_usd": {
+      "type": "number",
+      "description": "Total API cost in USD.",
+      "default": 0.0
+    },
+    "tokens_used": {
+      "type": "integer",
+      "description": "Total tokens consumed.",
+      "default": 0
+    },
+    "budget_limit_usd": {
+      "type": ["number", "null"],
+      "description": "Budget cap in USD if set.",
+      "default": null
+    }
+  },
+  "$defs": {
+    "ReceiptFinding": {
+      "type": "object",
+      "required": ["id", "severity", "category", "title", "description"],
+      "properties": {
+        "id": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+        },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "mitigation": { "type": ["string", "null"], "default": null },
+        "source": { "type": "string", "default": "" },
+        "verified": { "type": "boolean", "default": false }
+      }
+    },
+    "ReceiptDissent": {
+      "type": "object",
+      "required": ["agent", "type", "severity", "reasons"],
+      "properties": {
+        "agent": { "type": "string" },
+        "type": { "type": "string" },
+        "severity": { "type": "number" },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "alternative": { "type": ["string", "null"], "default": null }
+      }
+    },
+    "ReceiptVerification": {
+      "type": "object",
+      "required": ["claim", "verified", "method"],
+      "properties": {
+        "claim": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "method": { "type": "string" },
+        "proof_hash": { "type": ["string", "null"], "default": null }
+      }
+    }
+  }
+}
