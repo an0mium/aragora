@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -74,11 +75,12 @@ def test_create_bead_store_resolves_default(monkeypatch, tmp_path):
 
     orig_cwd = Path.cwd()
     monkeypatch.chdir(tmp_path)
+    loop = asyncio.new_event_loop()
     try:
-        loop = __import__("asyncio").get_event_loop()
         store = loop.run_until_complete(create_bead_store())
         assert store.bead_dir == resolve_store_dir()
     finally:
+        loop.close()
         monkeypatch.chdir(orig_cwd)
 
 
