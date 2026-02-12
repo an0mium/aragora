@@ -216,7 +216,18 @@ class KnowledgeMound:
                 all_items.extend(query_result)
 
         # Sort by importance/relevance and limit
-        all_items.sort(key=lambda x: x.importance or 0, reverse=True)
+        def _importance(item: KnowledgeItem) -> float:
+            value = getattr(item, "importance", None)
+            if value is None:
+                return 0.0
+            if isinstance(value, (int, float)):
+                return float(value)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
+
+        all_items.sort(key=_importance, reverse=True)
         all_items = all_items[:limit]
 
         # Optionally include linked items

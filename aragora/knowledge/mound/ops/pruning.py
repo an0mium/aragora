@@ -130,8 +130,8 @@ class PruningOperationsMixin:
     ) -> None:
         await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[misc]
 
-    async def _delete_node(self, node_id: str) -> None:
-        await super()._delete_node(node_id)  # type: ignore[misc]
+    async def _delete_node(self, node_id: str) -> bool:
+        return await super()._delete_node(node_id)  # type: ignore[misc]
 
     async def _get_node(self, node_id: str) -> Any:
         return await super()._get_node(node_id)  # type: ignore[misc]

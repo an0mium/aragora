@@ -9,6 +9,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_calibration_fusion_singleton() -> None:
+    """Prevent cross-test contamination from the calibration fusion singleton."""
+    try:
+        import aragora.knowledge.mound.ops.calibration_fusion as cf
+
+        cf._calibration_fusion_engine = None
+    except Exception:
+        # If the module can't be imported, tests that need it will fail normally.
+        pass
+
 class MockMetaStore:
     """Mock metadata store for testing."""
 

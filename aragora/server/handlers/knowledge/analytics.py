@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, TypedDict
 
-from aragora.knowledge.mound import get_knowledge_mound
+import aragora.knowledge.mound as knowledge_mound
 from aragora.knowledge.mound.notifications import get_notification_store
 from aragora.knowledge.mound.ops.federation_scheduler import get_federation_scheduler
 from aragora.memory.continuum import get_continuum_memory
@@ -209,7 +209,7 @@ class AnalyticsHandler(BaseHandler):
         try:
             # Try to get stats from the knowledge mound
             try:
-                mound = get_knowledge_mound(workspace_id or "default")
+                mound = knowledge_mound.get_knowledge_mound(workspace_id or "default")
                 stats = await mound.get_stats(workspace_id)
 
                 return json_response(

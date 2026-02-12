@@ -33,7 +33,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 
 class _AutoCurationOpsProtocol(Protocol):
@@ -256,7 +256,15 @@ class CurationHistory:
     trigger: str  # "scheduled", "manual", "threshold"
 
 
-class AutoCurationMixin(_AutoCurationOpsProtocol):
+# Use Protocol as a base class only for type checking; at runtime, inheriting
+# from Protocol inserts stub methods into the MRO and breaks delegation via super().
+if TYPE_CHECKING:
+    _AutoCurationMixinBase = _AutoCurationOpsProtocol
+else:
+    _AutoCurationMixinBase = object
+
+
+class AutoCurationMixin(_AutoCurationMixinBase):
     """Mixin providing auto-curation operations for Knowledge Mound."""
 
     # Policies stored per workspace

@@ -46,15 +46,19 @@ class _MoundOpsProtocol(Protocol):
         self, node_id: str, workspace_id: str, reason: str
     ) -> None: ...
 
-    async def _delete_node(self, node_id: str) -> None: ...
+    async def _delete_node(self, node_id: str) -> bool: ...
 
     async def _get_nodes_by_content_hash(self, workspace_id: str) -> dict[str, list[str]]: ...
 
     async def _get_node(self, node_id: str) -> Any: ...
 
 
+# Use Protocol as a base class only for type checking; at runtime, inheriting
+# from Protocol inserts stub methods into the MRO and breaks delegation via super().
 if TYPE_CHECKING:
-    pass
+    _DedupMixinBase = _MoundOpsProtocol
+else:
+    _DedupMixinBase = object
 
 
 @dataclass
@@ -102,7 +106,7 @@ class DedupReport:
     estimated_reduction_percent: float
 
 
-class DedupOperationsMixin(_MoundOpsProtocol):
+class DedupOperationsMixin(_DedupMixinBase):
     """Mixin providing deduplication operations for Knowledge Mound.
 
     Type stubs for mixin - actual implementation provided by composed class.
@@ -154,8 +158,8 @@ class DedupOperationsMixin(_MoundOpsProtocol):
     ) -> None:
         await super()._archive_node_with_reason(node_id, workspace_id, reason)  # type: ignore[misc]
 
-    async def _delete_node(self, node_id: str) -> None:
-        await super()._delete_node(node_id)  # type: ignore[misc]
+    async def _delete_node(self, node_id: str) -> bool:
+        return await super()._delete_node(node_id)  # type: ignore[misc]
 
     async def _get_nodes_by_content_hash(self, workspace_id: str) -> dict[str, list[str]]:
         return await super()._get_nodes_by_content_hash(workspace_id)  # type: ignore[misc]
