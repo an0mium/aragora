@@ -21,7 +21,7 @@ class TestEventType:
 
     def test_string_enum(self):
         assert EventType.PROPOSAL == "proposal"
-        assert str(EventType.DEBATE_START) == "EventType.debate_start"
+        assert str(EventType.DEBATE_START) == "EventType.DEBATE_START"
 
 
 class TestDebateEvent:
