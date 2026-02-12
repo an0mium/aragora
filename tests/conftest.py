@@ -1891,6 +1891,11 @@ def reset_lazy_globals():
       - sme_usage_dashboard._dashboard_limiter
       - transcription (_audio/_youtube_limiter)
       - payments (_payment_write/_payment_read/_webhook_limiter)
+    - aragora.rbac.checker._permission_checker (PermissionChecker singleton)
+    - aragora.observability.decision_metrics (11 metric globals + _initialized)
+    - aragora.observability.slo (3 SLO metric globals + _slo_metrics_initialized)
+    - aragora.observability.otel (_initialized, _tracer_provider, _tracers)
+    - aragora.events.dispatcher (_event_rate_limiter, _dispatcher)
     """
     _reset_lazy_globals_impl()  # Reset BEFORE test
     yield

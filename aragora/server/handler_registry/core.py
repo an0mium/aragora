@@ -609,6 +609,28 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
         handler_class.__name__ for _, handler_class in handler_registry if handler_class is not None
     }
 
+    # Also include intended registrations from _safe_import calls in registry files.
+    # This prevents false positives when a handler fails to import at runtime
+    # (e.g. due to missing env vars) but is properly listed in the registry.
+    registry_dir = os.path.dirname(__file__)
+    for registry_file in glob_mod.glob(os.path.join(registry_dir, "*.py")):
+        if os.path.basename(registry_file) in ("__init__.py", "core.py"):
+            continue
+        try:
+            with open(registry_file) as rf:
+                reg_tree = ast.parse(rf.read(), filename=registry_file)
+            for node in ast.walk(reg_tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "_safe_import"
+                    and len(node.args) >= 2
+                    and isinstance(node.args[1], ast.Constant)
+                ):
+                    registered_names.add(node.args[1].value)
+        except (SyntaxError, OSError):
+            continue
+
     # Also include base/abstract classes that shouldn't be registered
     skip_names = {
         "BaseHandler",
@@ -662,6 +684,8 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
         )
         for name, path in sorted(unregistered):
             logger.warning(f"[handlers]   - {name} ({path})")
+    else:
+        logger.info("[handlers] All handler classes are registered or skip-listed")
 
 
 def validate_handlers_on_init(
