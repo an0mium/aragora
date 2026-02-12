@@ -45,6 +45,7 @@ def mock_audit_store():
     """Create a mock audit store."""
     store = MagicMock()
     store.log_event = MagicMock()
+    store.get_log = MagicMock(return_value=[])
     store.get_recent_activity = MagicMock(return_value=[])
     return store
 
@@ -87,16 +88,6 @@ def mock_ccpa_request_store():
     return store
 
 
-@pytest.fixture
-def mock_consent_manager():
-    """Create a mock consent manager."""
-    manager = MagicMock()
-    manager.get_opt_out_status = MagicMock(return_value=False)
-    manager.set_opt_out = MagicMock()
-    manager.export_consent_data = MagicMock()
-    return manager
-
-
 # ============================================================================
 # Right to Know (Disclosure) Tests
 # ============================================================================
@@ -106,13 +97,13 @@ class TestCCPADisclosure:
     """Tests for CCPA Right to Know disclosure endpoint."""
 
     @pytest.mark.asyncio
-    async def test_disclosure_requires_consumer_id(self, ccpa_handler):
-        """Disclosure fails without consumer_id parameter."""
+    async def test_disclosure_requires_user_id(self, ccpa_handler):
+        """Disclosure fails without user_id parameter."""
         result = await ccpa_handler._ccpa_disclosure({})
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "consumer_id" in body.get("error", "").lower()
+        assert "user_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_disclosure_categories_default(
@@ -130,13 +121,13 @@ class TestCCPADisclosure:
             ),
         ):
             result = await ccpa_handler._ccpa_disclosure(
-                {"consumer_id": "consumer-123", "disclosure_type": "categories"}
+                {"user_id": "consumer-123", "disclosure_type": "categories"}
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["consumer_id"] == "consumer-123"
-        assert "categories" in body
+        assert body["user_id"] == "consumer-123"
+        assert "categories_collected" in body
         assert "request_id" in body
 
     @pytest.mark.asyncio
@@ -160,7 +151,7 @@ class TestCCPADisclosure:
             ),
         ):
             result = await ccpa_handler._ccpa_disclosure(
-                {"consumer_id": "consumer-123", "disclosure_type": "specific"}
+                {"user_id": "consumer-123", "disclosure_type": "specific"}
             )
 
         assert result.status_code == 200
@@ -172,7 +163,7 @@ class TestCCPADisclosure:
     async def test_disclosure_includes_sources(
         self, ccpa_handler, mock_receipt_store, mock_audit_store
     ):
-        """Disclosure includes sources when requested."""
+        """Specific disclosure includes sources of PI."""
         with (
             patch(
                 "aragora.server.handlers.compliance.ccpa.get_receipt_store",
@@ -184,7 +175,7 @@ class TestCCPADisclosure:
             ),
         ):
             result = await ccpa_handler._ccpa_disclosure(
-                {"consumer_id": "consumer-123", "include_sources": True}
+                {"user_id": "consumer-123", "disclosure_type": "specific"}
             )
 
         assert result.status_code == 200
@@ -195,7 +186,7 @@ class TestCCPADisclosure:
     async def test_disclosure_includes_business_purpose(
         self, ccpa_handler, mock_receipt_store, mock_audit_store
     ):
-        """Disclosure includes business/commercial purpose."""
+        """Category disclosure includes business/commercial purpose."""
         with (
             patch(
                 "aragora.server.handlers.compliance.ccpa.get_receipt_store",
@@ -207,7 +198,7 @@ class TestCCPADisclosure:
             ),
         ):
             result = await ccpa_handler._ccpa_disclosure(
-                {"consumer_id": "consumer-123", "include_purpose": True}
+                {"user_id": "consumer-123", "disclosure_type": "categories"}
             )
 
         assert result.status_code == 200
@@ -218,7 +209,7 @@ class TestCCPADisclosure:
     async def test_disclosure_includes_third_parties(
         self, ccpa_handler, mock_receipt_store, mock_audit_store
     ):
-        """Disclosure includes third parties PI was shared with."""
+        """Specific disclosure includes third parties PI was shared with."""
         with (
             patch(
                 "aragora.server.handlers.compliance.ccpa.get_receipt_store",
@@ -230,7 +221,7 @@ class TestCCPADisclosure:
             ),
         ):
             result = await ccpa_handler._ccpa_disclosure(
-                {"consumer_id": "consumer-123", "include_third_parties": True}
+                {"user_id": "consumer-123", "disclosure_type": "specific"}
             )
 
         assert result.status_code == 200
@@ -252,7 +243,7 @@ class TestCCPADisclosure:
                 return_value=mock_audit_store,
             ),
         ):
-            await ccpa_handler._ccpa_disclosure({"consumer_id": "consumer-123"})
+            await ccpa_handler._ccpa_disclosure({"user_id": "consumer-123"})
 
         assert mock_audit_store.log_event.called
 
@@ -266,13 +257,22 @@ class TestCCPADelete:
     """Tests for CCPA Right to Delete endpoint."""
 
     @pytest.mark.asyncio
-    async def test_delete_requires_consumer_id(self, ccpa_handler):
-        """Delete fails without consumer_id."""
+    async def test_delete_requires_user_id(self, ccpa_handler):
+        """Delete fails without user_id."""
         result = await ccpa_handler._ccpa_delete({})
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "consumer_id" in body.get("error", "").lower()
+        assert "user_id" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_delete_requires_verification(self, ccpa_handler):
+        """Delete fails without verification_method and verification_code."""
+        result = await ccpa_handler._ccpa_delete({"user_id": "consumer-123"})
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "verification" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_delete_schedules_deletion(
@@ -304,7 +304,13 @@ class TestCCPADelete:
                 return_value=mock_audit_store,
             ),
         ):
-            result = await ccpa_handler._ccpa_delete({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_delete(
+                {
+                    "user_id": "consumer-123",
+                    "verification_method": "email",
+                    "verification_code": "123456",
+                }
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -331,25 +337,31 @@ class TestCCPADelete:
                 return_value=mock_legal_hold_manager,
             ),
         ):
-            result = await ccpa_handler._ccpa_delete({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_delete(
+                {
+                    "user_id": "consumer-123",
+                    "verification_method": "email",
+                    "verification_code": "123456",
+                }
+            )
 
+        assert result.status_code == 409
         body = json.loads(result.body)
-        assert body["status"] == "failed"
         assert "legal hold" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_delete_with_verification(
+    async def test_delete_with_retain_exceptions(
         self,
         ccpa_handler,
         mock_deletion_scheduler,
         mock_legal_hold_manager,
         mock_audit_store,
     ):
-        """Delete requires identity verification."""
+        """Delete accepts retain_for_exceptions to keep specific data categories."""
         mock_deletion_request = MagicMock()
         mock_deletion_request.request_id = "del-123"
         mock_deletion_request.scheduled_for = datetime.now(timezone.utc) + timedelta(days=45)
-        mock_deletion_request.status = MagicMock(value="pending_verification")
+        mock_deletion_request.status = MagicMock(value="pending")
         mock_deletion_request.created_at = datetime.now(timezone.utc)
         mock_deletion_scheduler.schedule_deletion.return_value = mock_deletion_request
 
@@ -368,12 +380,17 @@ class TestCCPADelete:
             ),
         ):
             result = await ccpa_handler._ccpa_delete(
-                {"consumer_id": "consumer-123", "require_verification": True}
+                {
+                    "user_id": "consumer-123",
+                    "verification_method": "email",
+                    "verification_code": "123456",
+                    "retain_for_exceptions": ["legal_obligations"],
+                }
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert "verification" in body.get("status", "") or "request_id" in body
+        assert body["retained_categories"] == ["legal_obligations"]
 
     @pytest.mark.asyncio
     async def test_delete_respects_ccpa_45_day_timeline(
@@ -405,10 +422,16 @@ class TestCCPADelete:
                 return_value=mock_audit_store,
             ),
         ):
-            result = await ccpa_handler._ccpa_delete({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_delete(
+                {
+                    "user_id": "consumer-123",
+                    "verification_method": "email",
+                    "verification_code": "123456",
+                }
+            )
 
         body = json.loads(result.body)
-        assert "response_deadline" in body or "scheduled_for" in body
+        assert "response_deadline" in body or "deletion_scheduled" in body
 
 
 # ============================================================================
@@ -420,124 +443,87 @@ class TestCCPAOptOut:
     """Tests for CCPA Right to Opt-Out endpoint."""
 
     @pytest.mark.asyncio
-    async def test_opt_out_requires_consumer_id(self, ccpa_handler):
-        """Opt-out fails without consumer_id."""
+    async def test_opt_out_requires_user_id(self, ccpa_handler):
+        """Opt-out fails without user_id."""
         result = await ccpa_handler._ccpa_opt_out({})
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "consumer_id" in body.get("error", "").lower()
+        assert "user_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_opt_out_sale_success(self, ccpa_handler, mock_consent_manager, mock_audit_store):
+    async def test_opt_out_sale_success(self, ccpa_handler, mock_audit_store):
         """Opt-out of sale successfully."""
-        with (
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-                return_value=mock_consent_manager,
-            ),
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_audit_store",
-                return_value=mock_audit_store,
-            ),
+        with patch(
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
             result = await ccpa_handler._ccpa_opt_out(
-                {"consumer_id": "consumer-123", "opt_out_type": "sale"}
+                {"user_id": "consumer-123", "opt_out_type": "sale"}
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["opt_out_type"] == "sale"
-        assert body["status"] == "opted_out"
+        assert body["status"] == "confirmed"
 
     @pytest.mark.asyncio
-    async def test_opt_out_sharing_success(
-        self, ccpa_handler, mock_consent_manager, mock_audit_store
-    ):
+    async def test_opt_out_sharing_success(self, ccpa_handler, mock_audit_store):
         """Opt-out of sharing successfully."""
-        with (
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-                return_value=mock_consent_manager,
-            ),
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_audit_store",
-                return_value=mock_audit_store,
-            ),
+        with patch(
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
             result = await ccpa_handler._ccpa_opt_out(
-                {"consumer_id": "consumer-123", "opt_out_type": "sharing"}
+                {"user_id": "consumer-123", "opt_out_type": "sharing"}
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["opt_out_type"] == "sharing"
-        assert body["status"] == "opted_out"
+        assert body["status"] == "confirmed"
 
     @pytest.mark.asyncio
-    async def test_opt_out_both_sale_and_sharing(
-        self, ccpa_handler, mock_consent_manager, mock_audit_store
-    ):
+    async def test_opt_out_both_sale_and_sharing(self, ccpa_handler, mock_audit_store):
         """Opt-out of both sale and sharing."""
-        with (
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-                return_value=mock_consent_manager,
-            ),
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_audit_store",
-                return_value=mock_audit_store,
-            ),
+        with patch(
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
             result = await ccpa_handler._ccpa_opt_out(
-                {"consumer_id": "consumer-123", "opt_out_type": "both"}
+                {"user_id": "consumer-123", "opt_out_type": "both"}
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["status"] == "opted_out"
+        assert body["status"] == "confirmed"
 
     @pytest.mark.asyncio
-    async def test_opt_out_logs_audit_event(
-        self, ccpa_handler, mock_consent_manager, mock_audit_store
-    ):
+    async def test_opt_out_logs_audit_event(self, ccpa_handler, mock_audit_store):
         """Opt-out logs audit event."""
-        with (
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-                return_value=mock_consent_manager,
-            ),
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_audit_store",
-                return_value=mock_audit_store,
-            ),
+        with patch(
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
-            await ccpa_handler._ccpa_opt_out({"consumer_id": "consumer-123"})
+            await ccpa_handler._ccpa_opt_out({"user_id": "consumer-123"})
 
         assert mock_audit_store.log_event.called
 
     @pytest.mark.asyncio
-    async def test_opt_in_after_opt_out(self, ccpa_handler, mock_consent_manager, mock_audit_store):
-        """Consumer can opt back in after opting out."""
-        mock_consent_manager.get_opt_out_status.return_value = True
-
-        with (
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-                return_value=mock_consent_manager,
-            ),
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_audit_store",
-                return_value=mock_audit_store,
-            ),
+    async def test_opt_out_sensitive_pi_limit(self, ccpa_handler, mock_audit_store):
+        """Opt-out with sensitive PI limit (CPRA addition)."""
+        with patch(
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
             result = await ccpa_handler._ccpa_opt_out(
-                {"consumer_id": "consumer-123", "action": "opt_in"}
+                {"user_id": "consumer-123", "sensitive_pi_limit": True}
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["status"] == "opted_in"
+        assert body["sensitive_pi_limit"] is True
+        assert "sensitive personal information" in body["message"].lower()
 
 
 # ============================================================================
@@ -549,18 +535,18 @@ class TestCCPACorrect:
     """Tests for CCPA Right to Correct endpoint."""
 
     @pytest.mark.asyncio
-    async def test_correct_requires_consumer_id(self, ccpa_handler):
-        """Correct fails without consumer_id."""
+    async def test_correct_requires_user_id(self, ccpa_handler):
+        """Correct fails without user_id."""
         result = await ccpa_handler._ccpa_correct({})
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "consumer_id" in body.get("error", "").lower()
+        assert "user_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_correct_requires_corrections(self, ccpa_handler):
         """Correct fails without corrections data."""
-        result = await ccpa_handler._ccpa_correct({"consumer_id": "consumer-123"})
+        result = await ccpa_handler._ccpa_correct({"user_id": "consumer-123"})
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -568,22 +554,25 @@ class TestCCPACorrect:
 
     @pytest.mark.asyncio
     async def test_correct_success(self, ccpa_handler, mock_audit_store):
-        """Correct successfully updates PI."""
+        """Correct successfully submits correction request."""
         with patch(
             "aragora.server.handlers.compliance.ccpa.get_audit_store",
             return_value=mock_audit_store,
         ):
             result = await ccpa_handler._ccpa_correct(
                 {
-                    "consumer_id": "consumer-123",
-                    "corrections": {"email": "new@example.com", "phone": "+1234567890"},
+                    "user_id": "consumer-123",
+                    "corrections": [
+                        {"field": "email", "current_value": "old@example.com", "corrected_value": "new@example.com"},
+                        {"field": "phone", "current_value": "+1111111111", "corrected_value": "+1234567890"},
+                    ],
                 }
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["status"] == "corrected"
-        assert "corrections_applied" in body
+        assert body["status"] == "pending_review"
+        assert body["corrections_requested"] == 2
 
     @pytest.mark.asyncio
     async def test_correct_with_documentation(self, ccpa_handler, mock_audit_store):
@@ -594,15 +583,17 @@ class TestCCPACorrect:
         ):
             result = await ccpa_handler._ccpa_correct(
                 {
-                    "consumer_id": "consumer-123",
-                    "corrections": {"name": "John Doe"},
-                    "documentation": "proof_of_name_change.pdf",
+                    "user_id": "consumer-123",
+                    "corrections": [
+                        {"field": "name", "current_value": "Jane Doe", "corrected_value": "John Doe"},
+                    ],
+                    "supporting_documentation": "proof_of_name_change.pdf",
                 }
             )
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["status"] == "corrected"
+        assert body["status"] == "pending_review"
 
     @pytest.mark.asyncio
     async def test_correct_logs_audit_event(self, ccpa_handler, mock_audit_store):
@@ -613,8 +604,10 @@ class TestCCPACorrect:
         ):
             await ccpa_handler._ccpa_correct(
                 {
-                    "consumer_id": "consumer-123",
-                    "corrections": {"email": "new@example.com"},
+                    "user_id": "consumer-123",
+                    "corrections": [
+                        {"field": "email", "current_value": "old@example.com", "corrected_value": "new@example.com"},
+                    ],
                 }
             )
 
@@ -630,76 +623,86 @@ class TestCCPARequestStatus:
     """Tests for CCPA request status endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_status_requires_request_id(self, ccpa_handler):
-        """Get status fails without request_id."""
+    async def test_get_status_requires_user_id(self, ccpa_handler):
+        """Get status fails without user_id."""
         result = await ccpa_handler._ccpa_get_status({})
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "request_id" in body.get("error", "").lower()
+        assert "user_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_get_status_success(self, ccpa_handler, mock_ccpa_request_store):
-        """Get status returns request details."""
-        mock_request = MagicMock()
-        mock_request.request_id = "req-123"
-        mock_request.request_type = "disclosure"
-        mock_request.status = "completed"
-        mock_request.created_at = datetime.now(timezone.utc)
-        mock_request.completed_at = datetime.now(timezone.utc)
-        mock_request.to_dict = MagicMock(
-            return_value={
-                "request_id": "req-123",
-                "request_type": "disclosure",
-                "status": "completed",
-            }
-        )
-        mock_ccpa_request_store.get_request.return_value = mock_request
+    async def test_get_status_success(self, ccpa_handler, mock_audit_store):
+        """Get status returns CCPA request details for user."""
+        mock_audit_store.get_log.return_value = [
+            {
+                "resource_id": "consumer-123",
+                "action": "ccpa_disclosure_request",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "metadata": {
+                    "request_id": "ccpa-disc-consumer-123-20260211",
+                    "status": "completed",
+                },
+            },
+        ]
 
         with patch(
-            "aragora.server.handlers.compliance.ccpa.get_ccpa_request_store",
-            return_value=mock_ccpa_request_store,
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
-            result = await ccpa_handler._ccpa_get_status({"request_id": "req-123"})
+            result = await ccpa_handler._ccpa_get_status({"user_id": "consumer-123"})
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["request"]["request_id"] == "req-123"
+        assert body["user_id"] == "consumer-123"
+        assert body["count"] == 1
+        assert len(body["requests"]) == 1
 
     @pytest.mark.asyncio
-    async def test_get_status_not_found(self, ccpa_handler, mock_ccpa_request_store):
-        """Get status returns 404 when request not found."""
-        mock_ccpa_request_store.get_request.return_value = None
+    async def test_get_status_empty(self, ccpa_handler, mock_audit_store):
+        """Get status returns empty list when no CCPA requests found."""
+        mock_audit_store.get_log.return_value = []
 
         with patch(
-            "aragora.server.handlers.compliance.ccpa.get_ccpa_request_store",
-            return_value=mock_ccpa_request_store,
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
-            result = await ccpa_handler._ccpa_get_status({"request_id": "nonexistent"})
+            result = await ccpa_handler._ccpa_get_status({"user_id": "nonexistent"})
 
-        assert result.status_code == 404
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 0
+        assert body["requests"] == []
 
     @pytest.mark.asyncio
-    async def test_list_requests_by_consumer(self, ccpa_handler, mock_ccpa_request_store):
-        """List all CCPA requests for a consumer."""
-        mock_request = MagicMock()
-        mock_request.to_dict.return_value = {
-            "request_id": "req-123",
-            "request_type": "disclosure",
-            "status": "completed",
-        }
-        mock_ccpa_request_store.list_requests.return_value = [mock_request]
+    async def test_get_status_filter_by_request_type(self, ccpa_handler, mock_audit_store):
+        """Get status filters by request_type when specified."""
+        mock_audit_store.get_log.return_value = [
+            {
+                "resource_id": "consumer-123",
+                "action": "ccpa_disclosure_request",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "metadata": {"request_id": "req-1", "status": "completed"},
+            },
+            {
+                "resource_id": "consumer-123",
+                "action": "ccpa_deletion_request",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "metadata": {"request_id": "req-2", "status": "pending"},
+            },
+        ]
 
         with patch(
-            "aragora.server.handlers.compliance.ccpa.get_ccpa_request_store",
-            return_value=mock_ccpa_request_store,
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
-            result = await ccpa_handler._ccpa_list_requests({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_get_status(
+                {"user_id": "consumer-123", "request_type": "disclosure"}
+            )
 
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["count"] == 1
-        assert len(body["requests"]) == 1
 
 
 # ============================================================================
@@ -763,7 +766,7 @@ class TestCCPAErrorHandling:
                 return_value=mock_audit_store,
             ),
         ):
-            result = await ccpa_handler._ccpa_disclosure({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_disclosure({"user_id": "consumer-123"})
 
         # Should return error or gracefully degrade
         assert result.status_code in (200, 500)
@@ -786,23 +789,31 @@ class TestCCPAErrorHandling:
                 return_value=mock_legal_hold_manager,
             ),
         ):
-            result = await ccpa_handler._ccpa_delete({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_delete(
+                {
+                    "user_id": "consumer-123",
+                    "verification_method": "email",
+                    "verification_code": "123456",
+                }
+            )
 
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_opt_out_handles_consent_manager_error(self, ccpa_handler):
-        """Opt-out handles consent manager errors."""
-        mock_consent_manager = MagicMock()
-        mock_consent_manager.set_opt_out.side_effect = RuntimeError("Consent service down")
+    async def test_opt_out_handles_store_error(self, ccpa_handler):
+        """Opt-out handles audit store errors."""
+        mock_audit_store = MagicMock()
+        mock_audit_store.log_event.side_effect = RuntimeError("Store service down")
 
         with patch(
-            "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-            return_value=mock_consent_manager,
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
-            result = await ccpa_handler._ccpa_opt_out({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_opt_out({"user_id": "consumer-123"})
 
-        assert result.status_code == 500
+        # The handler catches exceptions in _store_ccpa_preference and _log_ccpa_request
+        # so it should still return 200 (graceful degradation)
+        assert result.status_code == 200
 
 
 # ============================================================================
@@ -830,35 +841,25 @@ class TestCCPAEdgeCases:
                 return_value=mock_audit_store,
             ),
         ):
-            result = await ccpa_handler._ccpa_disclosure({"consumer_id": "new-consumer"})
+            result = await ccpa_handler._ccpa_disclosure({"user_id": "new-consumer"})
 
         assert result.status_code == 200
         body = json.loads(result.body)
         # Should still return valid response with empty or minimal data
-        assert "consumer_id" in body
+        assert "user_id" in body
 
     @pytest.mark.asyncio
-    async def test_duplicate_opt_out_is_idempotent(
-        self, ccpa_handler, mock_consent_manager, mock_audit_store
-    ):
+    async def test_duplicate_opt_out_is_idempotent(self, ccpa_handler, mock_audit_store):
         """Duplicate opt-out request is idempotent."""
-        mock_consent_manager.get_opt_out_status.return_value = True
-
-        with (
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-                return_value=mock_consent_manager,
-            ),
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_audit_store",
-                return_value=mock_audit_store,
-            ),
+        with patch(
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
-            result = await ccpa_handler._ccpa_opt_out({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_opt_out({"user_id": "consumer-123"})
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["status"] in ("opted_out", "already_opted_out")
+        assert body["status"] == "confirmed"
 
     @pytest.mark.asyncio
     async def test_correct_with_no_changes(self, ccpa_handler, mock_audit_store):
@@ -868,7 +869,7 @@ class TestCCPAEdgeCases:
             return_value=mock_audit_store,
         ):
             result = await ccpa_handler._ccpa_correct(
-                {"consumer_id": "consumer-123", "corrections": {}}
+                {"user_id": "consumer-123", "corrections": {}}
             )
 
         # Should either reject or accept with no changes
@@ -890,7 +891,7 @@ class TestCCPAEdgeCases:
             ),
         ):
             result = await ccpa_handler._ccpa_disclosure(
-                {"consumer_id": "consumer-123", "disclosure_type": "invalid_type"}
+                {"user_id": "consumer-123", "disclosure_type": "invalid_type"}
             )
 
         # Should handle gracefully (either 400 or default to categories)
@@ -920,33 +921,26 @@ class TestCCPATimelines:
                 return_value=mock_audit_store,
             ),
         ):
-            result = await ccpa_handler._ccpa_disclosure({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_disclosure({"user_id": "consumer-123"})
 
         body = json.loads(result.body)
-        # Response should be immediate for disclosure
+        # Response should include the 45-day deadline
         assert result.status_code == 200
+        assert "response_deadline" in body
 
     @pytest.mark.asyncio
-    async def test_opt_out_processed_within_15_days(
-        self, ccpa_handler, mock_consent_manager, mock_audit_store
-    ):
+    async def test_opt_out_processed_immediately(self, ccpa_handler, mock_audit_store):
         """Opt-out is processed immediately (CCPA requires within 15 days)."""
-        with (
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_consent_manager",
-                return_value=mock_consent_manager,
-            ),
-            patch(
-                "aragora.server.handlers.compliance.ccpa.get_audit_store",
-                return_value=mock_audit_store,
-            ),
+        with patch(
+            "aragora.server.handlers.compliance.ccpa.get_audit_store",
+            return_value=mock_audit_store,
         ):
-            result = await ccpa_handler._ccpa_opt_out({"consumer_id": "consumer-123"})
+            result = await ccpa_handler._ccpa_opt_out({"user_id": "consumer-123"})
 
         assert result.status_code == 200
         body = json.loads(result.body)
         # Opt-out should be effective immediately
-        assert body["status"] == "opted_out"
+        assert body["status"] == "confirmed"
 
 
 __all__ = [

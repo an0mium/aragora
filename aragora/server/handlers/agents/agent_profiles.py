@@ -31,11 +31,14 @@ logger = logging.getLogger(__name__)
 
 
 class AgentProfilesMixin:
-    """Mixin providing agent profile and per-agent stat endpoints."""
+    """Mixin providing agent profile and per-agent stat endpoints.
 
-    # Stub methods expected from the composing class
-    def get_elo_system(self) -> "EloSystem | None": ...
-    def get_nomic_dir(self) -> Path: ...
+    Expects the composing class to provide:
+    - get_elo_system() -> EloSystem | None
+    - get_nomic_dir() -> Path | None
+
+    These are provided by BaseHandler.
+    """
 
     @api_endpoint(
         method="GET",

@@ -203,10 +203,15 @@ class TestSecurityHandlerPathTraversal:
 
     @pytest.fixture
     def handler(self):
-        """Create SecurityHandler instance."""
+        """Create SecurityHandler instance with mock auth that grants all permissions."""
         from aragora.server.handlers.codebase.security.handler import SecurityHandler
 
-        return SecurityHandler(ctx={})
+        mock_auth = MagicMock()
+        mock_auth.user_id = "test-user"
+        handler = SecurityHandler(ctx={"auth_context": mock_auth})
+        # Bypass RBAC permission check to focus on repo_id validation
+        handler._check_permission = lambda perm: None
+        return handler
 
     @pytest.mark.asyncio
     async def test_handle_post_scan_rejects_path_traversal(self, handler):
@@ -951,10 +956,15 @@ class TestInputValidation:
 
     @pytest.fixture
     def handler(self):
-        """Create SecurityHandler instance."""
+        """Create SecurityHandler instance with mock auth that grants all permissions."""
         from aragora.server.handlers.codebase.security.handler import SecurityHandler
 
-        return SecurityHandler(ctx={})
+        mock_auth = MagicMock()
+        mock_auth.user_id = "test-user"
+        handler = SecurityHandler(ctx={"auth_context": mock_auth})
+        # Bypass RBAC permission check to focus on input validation
+        handler._check_permission = lambda perm: None
+        return handler
 
     @pytest.mark.asyncio
     async def test_post_scan_requires_repo_path(self, handler):

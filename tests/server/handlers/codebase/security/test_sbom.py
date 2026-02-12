@@ -18,12 +18,21 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aragora.analysis.codebase import SBOMFormat
 from aragora.server.handlers.base import HandlerResult
 
 
 # ============================================================================
 # Mock Classes
 # ============================================================================
+
+
+_FORMAT_MAP = {
+    "cyclonedx-json": SBOMFormat.CYCLONEDX_JSON,
+    "cyclonedx-xml": SBOMFormat.CYCLONEDX_XML,
+    "spdx-json": SBOMFormat.SPDX_JSON,
+    "spdx-tv": SBOMFormat.SPDX_TV,
+}
 
 
 class MockSBOMResult:
@@ -35,8 +44,7 @@ class MockSBOMResult:
         format_value: str = "cyclonedx-json",
     ):
         self.sbom_id = sbom_id
-        self.format = MagicMock()
-        self.format.value = format_value
+        self.format = _FORMAT_MAP.get(format_value, SBOMFormat.CYCLONEDX_JSON)
         self.filename = f"sbom.{format_value.split('-')[-1]}"
         self.component_count = 150
         self.vulnerability_count = 5
@@ -410,7 +418,6 @@ class TestSBOMDownload:
         from aragora.server.handlers.codebase.security.sbom import handle_download_sbom
 
         sbom = MockSBOMResult(sbom_id="sbom_123", format_value="cyclonedx-xml")
-        sbom.format.value = "cyclonedx-xml"
 
         with patch(
             "aragora.server.handlers.codebase.security.sbom.get_or_create_sbom_results",

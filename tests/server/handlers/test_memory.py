@@ -97,6 +97,8 @@ class MockContinuumMemory:
         limit: int = 10,
         min_importance: float = 0.0,
         tenant_id: str | None = None,
+        enforce_tenant_isolation: bool = False,
+        **kwargs: Any,
     ) -> list[MockMemory]:
         """Retrieve memories matching criteria."""
         result = self.memories.copy()
@@ -141,7 +143,7 @@ class MockContinuumMemory:
         """Get current memory pressure."""
         return 0.65
 
-    def delete(self, memory_id: str) -> bool:
+    def delete(self, memory_id: str, tenant_id: str | None = None, **kwargs: Any) -> bool:
         """Delete a memory."""
         for i, m in enumerate(self.memories):
             if m.id == memory_id:

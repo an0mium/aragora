@@ -134,7 +134,10 @@ class TestSlackOAuthInstall:
     @pytest.mark.asyncio
     async def test_install_redirect(self, oauth_handler, oauth_state_store):
         """Test install redirects to Slack OAuth."""
-        with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"),
+            patch("aragora.server.handlers.social.slack_oauth.ARAGORA_ENV", "test"),
+        ):
             result = await oauth_handler.handle("GET", "/api/integrations/slack/install")
 
         assert result.status_code == 302
@@ -147,7 +150,10 @@ class TestSlackOAuthInstall:
         """Test install generates state token."""
         initial_count = len(oauth_state_store._states)
 
-        with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"),
+            patch("aragora.server.handlers.social.slack_oauth.ARAGORA_ENV", "test"),
+        ):
             result = await oauth_handler.handle("GET", "/api/integrations/slack/install")
 
         assert len(oauth_state_store._states) == initial_count + 1
@@ -401,6 +407,12 @@ class TestSlackOAuthCallback:
 
 class TestSlackOAuthUninstall:
     """Tests for uninstall webhook endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def _set_test_env(self):
+        """Set ARAGORA_ENV=test so uninstall handler skips signing secret checks."""
+        with patch.dict(os.environ, {"ARAGORA_ENV": "test"}):
+            yield
 
     @pytest.mark.asyncio
     async def test_uninstall_app_uninstalled_event(self, oauth_handler):

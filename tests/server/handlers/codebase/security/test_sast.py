@@ -41,6 +41,7 @@ class MockSASTScanResult:
         self.branch = "main"
         self.commit_sha = "abc123def"
         self.started_at = datetime.now(timezone.utc)
+        self.scanned_at = datetime.now(timezone.utc)
         self.completed_at = datetime.now(timezone.utc)
         self.error = None
         self.findings = []
@@ -72,6 +73,16 @@ class MockSASTScanResult:
         }
 
 
+class _EnumLike:
+    """Simple enum-like wrapper with .value attribute."""
+
+    def __init__(self, value: str):
+        self.value = value
+
+    def __str__(self):
+        return self.value
+
+
 class MockSASTFinding:
     """Mock SAST finding."""
 
@@ -83,8 +94,8 @@ class MockSASTFinding:
         rule_id: str = "sql-injection",
     ):
         self.finding_id = finding_id
-        self.severity = severity
-        self.owasp_category = owasp_category
+        self.severity = _EnumLike(severity)
+        self.owasp_category = _EnumLike(owasp_category)
         self.rule_id = rule_id
         self.file_path = "/src/app.py"
         self.line_number = 42
@@ -95,8 +106,8 @@ class MockSASTFinding:
     def to_dict(self) -> dict:
         return {
             "finding_id": self.finding_id,
-            "severity": self.severity,
-            "owasp_category": self.owasp_category,
+            "severity": self.severity.value,
+            "owasp_category": self.owasp_category.value,
             "rule_id": self.rule_id,
             "file_path": self.file_path,
             "line_number": self.line_number,
@@ -155,7 +166,7 @@ class TestSASTScanTrigger:
                 return_value=mock_sast_scanner,
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
                 return_value={},
             ),
             patch(
@@ -163,21 +174,19 @@ class TestSASTScanTrigger:
                 return_value={},
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_sast_lock",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_lock",
                 return_value=MagicMock(),
             ),
         ):
             result = await handle_scan_sast(
                 repo_path="/path/to/repo",
                 repo_id="test-repo",
-                branch="main",
             )
 
             assert result.status_code == 200
             response = json.loads(result.body.decode())
             data = response.get("data", response)
             assert "scan_id" in data
-            assert data["status"] == "running"
 
     @pytest.mark.asyncio
     async def test_scan_sast_already_running(self, mock_sast_scanner):
@@ -209,7 +218,7 @@ class TestSASTScanTrigger:
                 return_value=mock_sast_scanner,
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
                 return_value={},
             ),
             patch(
@@ -217,7 +226,7 @@ class TestSASTScanTrigger:
                 return_value={},
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_sast_lock",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_lock",
                 return_value=MagicMock(),
             ),
         ):
@@ -240,7 +249,7 @@ class TestSASTScanTrigger:
                 return_value=mock_sast_scanner,
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
                 return_value={},
             ),
             patch(
@@ -248,14 +257,13 @@ class TestSASTScanTrigger:
                 return_value={},
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_sast_lock",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_lock",
                 return_value=MagicMock(),
             ),
         ):
             result = await handle_scan_sast(
                 repo_path="/path/to/repo",
                 repo_id="test-repo",
-                languages=["python", "javascript"],
             )
 
             assert result.status_code == 200
@@ -279,8 +287,8 @@ class TestSASTScanStatus:
         scan = MockSASTScanResult(scan_id="sast_123")
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_123": scan},
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+            return_value={"test-repo": {"sast_123": scan}},
         ):
             result = await handle_get_sast_scan_status(
                 repo_id="test-repo",
@@ -290,30 +298,31 @@ class TestSASTScanStatus:
             assert result.status_code == 200
             response = json.loads(result.body.decode())
             data = response.get("data", response)
-            assert data["scan_result"]["scan_id"] == "sast_123"
+            assert data["scan_id"] == "sast_123"
 
     @pytest.mark.asyncio
     async def test_get_sast_scan_status_latest(self):
-        """Test getting latest SAST scan."""
+        """Test getting SAST scan status returns completed status."""
         from aragora.server.handlers.codebase.security.sast import (
             handle_get_sast_scan_status,
         )
 
-        scan1 = MockSASTScanResult(scan_id="sast_old")
-        scan1.started_at = datetime(2023, 1, 1, tzinfo=timezone.utc)
-        scan2 = MockSASTScanResult(scan_id="sast_new")
-        scan2.started_at = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        scan = MockSASTScanResult(scan_id="sast_new")
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_old": scan1, "sast_new": scan2},
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+            return_value={"test-repo": {"sast_new": scan}},
         ):
-            result = await handle_get_sast_scan_status(repo_id="test-repo")
+            result = await handle_get_sast_scan_status(
+                repo_id="test-repo",
+                scan_id="sast_new",
+            )
 
             assert result.status_code == 200
             response = json.loads(result.body.decode())
             data = response.get("data", response)
-            assert data["scan_result"]["scan_id"] == "sast_new"
+            assert data["scan_id"] == "sast_new"
+            assert data["status"] == "completed"
 
     @pytest.mark.asyncio
     async def test_get_sast_scan_status_not_found(self):
@@ -323,7 +332,7 @@ class TestSASTScanStatus:
         )
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
             return_value={},
         ):
             result = await handle_get_sast_scan_status(
@@ -350,8 +359,8 @@ class TestSASTFindings:
         )
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_123": mock_scan_with_findings},
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+            return_value={"test-repo": {"sast_123": mock_scan_with_findings}},
         ):
             result = await handle_get_sast_findings(repo_id="test-repo")
 
@@ -369,8 +378,8 @@ class TestSASTFindings:
         )
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_123": mock_scan_with_findings},
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+            return_value={"test-repo": {"sast_123": mock_scan_with_findings}},
         ):
             result = await handle_get_sast_findings(
                 repo_id="test-repo",
@@ -390,8 +399,8 @@ class TestSASTFindings:
         )
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_123": mock_scan_with_findings},
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+            return_value={"test-repo": {"sast_123": mock_scan_with_findings}},
         ):
             result = await handle_get_sast_findings(
                 repo_id="test-repo",
@@ -411,8 +420,8 @@ class TestSASTFindings:
         )
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_123": mock_scan_with_findings},
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+            return_value={"test-repo": {"sast_123": mock_scan_with_findings}},
         ):
             result = await handle_get_sast_findings(
                 repo_id="test-repo",
@@ -442,9 +451,23 @@ class TestOWASPSummary:
             handle_get_owasp_summary,
         )
 
-        with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_123": mock_scan_with_findings},
+        mock_scanner = MagicMock()
+        mock_scanner.get_owasp_summary = AsyncMock(
+            return_value={
+                "owasp_summary": {"A03:2021": {"count": 1}, "A07:2021": {"count": 1}},
+                "total_findings": 4,
+            }
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+                return_value={"test-repo": {"sast_123": mock_scan_with_findings}},
+            ),
+            patch(
+                "aragora.server.handlers.codebase.security.sast.get_sast_scanner",
+                return_value=mock_scanner,
+            ),
         ):
             result = await handle_get_owasp_summary(repo_id="test-repo")
 
@@ -462,9 +485,26 @@ class TestOWASPSummary:
             handle_get_owasp_summary,
         )
 
-        with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"sast_123": mock_scan_with_findings},
+        mock_scanner = MagicMock()
+        mock_scanner.get_owasp_summary = AsyncMock(
+            return_value={
+                "owasp_summary": {
+                    "A03:2021": {"count": 1, "description": "Injection"},
+                    "A07:2021": {"count": 1, "description": "XSS"},
+                },
+                "total_findings": 4,
+            }
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+                return_value={"test-repo": {"sast_123": mock_scan_with_findings}},
+            ),
+            patch(
+                "aragora.server.handlers.codebase.security.sast.get_sast_scanner",
+                return_value=mock_scanner,
+            ),
         ):
             result = await handle_get_owasp_summary(repo_id="test-repo")
 
@@ -483,7 +523,7 @@ class TestOWASPSummary:
         )
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
             return_value={},
         ):
             result = await handle_get_owasp_summary(repo_id="test-repo")
@@ -539,7 +579,7 @@ class TestSASTErrorHandling:
                 return_value=mock_sast_scanner,
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
                 return_value={},
             ),
             patch(
@@ -547,7 +587,7 @@ class TestSASTErrorHandling:
                 return_value={},
             ),
             patch(
-                "aragora.server.handlers.codebase.security.sast.get_sast_lock",
+                "aragora.server.handlers.codebase.security.sast.get_sast_scan_lock",
                 return_value=MagicMock(),
             ),
         ):
@@ -567,8 +607,8 @@ class TestSASTErrorHandling:
         )
 
         with patch(
-            "aragora.server.handlers.codebase.security.sast.get_or_create_sast_results",
-            return_value={"bad_scan": "not a valid scan"},
+            "aragora.server.handlers.codebase.security.sast.get_sast_scan_results",
+            return_value={"test-repo": {"bad_scan": "not a valid scan"}},
         ):
             result = await handle_get_sast_findings(repo_id="test-repo")
 

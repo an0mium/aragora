@@ -27,12 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class AgentFlipsMixin:
-    """Mixin providing agent flip detection endpoints."""
+    """Mixin providing agent flip detection endpoints.
 
-    # Stub method provided by the main handler class
-    def get_nomic_dir(self) -> Path | None:
-        """Return the nomic directory path. Implemented by main handler."""
-        ...
+    Expects the composing class to provide:
+    - get_nomic_dir() -> Path | None
+
+    This is provided by BaseHandler.
+    """
 
     @api_endpoint(
         method="GET",

@@ -1813,7 +1813,7 @@ class TestSlashCommandDebate:
         assert mock_start.called is True
         kwargs = mock_start.call_args.kwargs
         decision_integrity = kwargs.get("decision_integrity") or {}
-        assert decision_integrity["execution_engine"] == "computer_use"
+        assert decision_integrity["execution_engine"] == "hybrid"
         assert decision_integrity["execution_mode"] == "execute"
 
     @pytest.mark.asyncio
@@ -1864,7 +1864,7 @@ class TestSlashCommandDebate:
             {
                 "command": "/aragora",
                 "text": f"debate {long_topic}",
-                "user_id": "U123",
+                "user_id": "U_TOPIC_LONG",
                 "channel_id": "C123",
             }
         )
@@ -1889,6 +1889,8 @@ class TestSlashCommandDebate:
                 signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
+            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -1904,7 +1906,7 @@ class TestSlashCommandDebate:
             {
                 "command": "/aragora",
                 "text": 'debate "Should AI be regulated?"',
-                "user_id": "U123",
+                "user_id": "U_VALID_TOPIC",
                 "channel_id": "C123",
                 "response_url": "https://hooks.slack.com/commands/T123/456/token",
             }
@@ -1931,6 +1933,8 @@ class TestSlashCommandDebate:
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch("aragora.server.handlers.social._slack_impl.create_tracked_task"),
+            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
+            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -1956,7 +1960,7 @@ class TestSlashCommandGauntlet:
             {
                 "command": "/aragora",
                 "text": "gauntlet",
-                "user_id": "U123",
+                "user_id": "U_GAUNTLET_NO_STMT",
                 "channel_id": "C123",
             }
         )
@@ -1981,6 +1985,8 @@ class TestSlashCommandGauntlet:
                 signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
+            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -1997,7 +2003,7 @@ class TestSlashCommandGauntlet:
             {
                 "command": "/aragora",
                 "text": "gauntlet test",
-                "user_id": "U123",
+                "user_id": "U_GAUNTLET_SHORT",
                 "channel_id": "C123",
             }
         )
@@ -2022,6 +2028,8 @@ class TestSlashCommandGauntlet:
                 signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
+            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -2046,7 +2054,7 @@ class TestSlashCommandLeaderboard:
             {
                 "command": "/aragora",
                 "text": "leaderboard",
-                "user_id": "U123",
+                "user_id": "U_LEADERBOARD",
                 "channel_id": "C123",
             }
         )
@@ -2082,6 +2090,8 @@ class TestSlashCommandLeaderboard:
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
+            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
+            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)

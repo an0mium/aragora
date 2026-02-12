@@ -250,6 +250,7 @@ class MemoryHandler(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route DELETE memory requests to appropriate methods with auth."""
+        self._auth_context = getattr(handler, "_auth_context", None)
         path = self._normalize_path(path)
         from aragora.billing.jwt_auth import extract_user_from_request
 

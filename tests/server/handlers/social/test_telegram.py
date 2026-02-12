@@ -658,11 +658,11 @@ class TestCommands:
         assert kwargs["mode_label"] == "implementation plan"
 
     def test_handle_command_implement_with_computer_use(self, handler):
-        """Test /implement with --computer-use overrides execution engine."""
+        """Test /implement always uses hybrid engine (--computer-use flag removed)."""
         with patch.object(handler, "_command_debate", return_value={"ok": True}) as mock_cmd:
             handler._handle_command(123, 456, "user", "/implement Update docs --computer-use")
         kwargs = mock_cmd.call_args.kwargs
-        assert kwargs["decision_integrity"]["execution_engine"] == "computer_use"
+        assert kwargs["decision_integrity"]["execution_engine"] == "hybrid"
         assert kwargs["decision_integrity"]["execution_mode"] == "execute"
         assert kwargs["decision_integrity"]["requested_by"] == "telegram:456"
 

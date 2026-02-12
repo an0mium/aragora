@@ -30,20 +30,15 @@ logger = logging.getLogger(__name__)
 
 
 class AgentIntelligenceMixin:
-    """Mixin providing agent intelligence and analysis endpoints."""
+    """Mixin providing agent intelligence and analysis endpoints.
 
-    # Stub methods provided by the main handler class
-    def get_nomic_dir(self) -> Path | None:
-        """Return the nomic directory path. Implemented by main handler."""
-        ...
+    Expects the composing class to provide:
+    - get_nomic_dir() -> Path | None
+    - get_elo_system() -> EloSystem | None
+    - get_storage() -> PostgresStore | None
 
-    def get_elo_system(self) -> "EloSystem | None":
-        """Return the ELO system instance. Implemented by main handler."""
-        ...
-
-    def get_storage(self) -> "PostgresStore | None":
-        """Return the storage instance. Implemented by main handler."""
-        ...
+    These are provided by BaseHandler.
+    """
 
     @api_endpoint(
         method="GET",
