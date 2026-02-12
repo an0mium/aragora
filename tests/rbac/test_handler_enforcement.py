@@ -231,6 +231,7 @@ ALLOWED_WITHOUT_RBAC = {
     "costs/models",
     "costs/routes",
     "debates/__init__",
+    "debates/cost_estimation",
     "debates/response_formatting",
     "decisions/__init__",
     "email/__init__",

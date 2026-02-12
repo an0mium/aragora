@@ -230,7 +230,7 @@ def mock_decorators():
         ),
         patch(
             "aragora.server.handlers.knowledge_base.mound.federation._run_async",
-            lambda coro: __import__("asyncio").get_event_loop().run_until_complete(coro)
+            lambda coro: __import__("asyncio").new_event_loop().run_until_complete(coro)
             if hasattr(coro, "__await__")
             else coro,
         ),

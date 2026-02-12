@@ -901,6 +901,23 @@ def authenticated_http_handler(mock_http_handler):
 # ============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Reset all rate limiter state between tests.
+
+    Rate limiters use module-level singletons that persist across tests.
+    Without this fixture, earlier tests consume the rate limit budget,
+    causing later tests to receive 429 responses.
+    """
+    yield
+    try:
+        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+        clear_all_limiters()
+    except ImportError:
+        pass
+
+
 @pytest.fixture
 def disable_rate_limiting():
     """Disable rate limiting for tests.

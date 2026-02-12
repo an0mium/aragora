@@ -199,72 +199,76 @@ class RBACMiddlewareConfig:
 
 
 # Default route permission rules
+# Note: Route patterns use (?:v1/)? to match both /api/ and /api/v1/ prefixes,
+# since the frontend uses versioned endpoints (e.g., /api/v1/debates) and the
+# handler_registry normalizes them. Without this, versioned paths fall through
+# to the default policy instead of being properly permission-checked.
 DEFAULT_ROUTE_PERMISSIONS = [
-    # Debates
-    RoutePermission(r"^/api/debates?$", "POST", "debates.create"),
-    RoutePermission(r"^/api/debates?$", "GET", "debates.read"),
-    RoutePermission(r"^/api/debates?/([^/]+)$", "GET", "debates.read", 1),
-    RoutePermission(r"^/api/debates?/([^/]+)$", "PUT", "debates.update", 1),
-    RoutePermission(r"^/api/debates?/([^/]+)$", "PATCH", "debates.update", 1),
-    RoutePermission(r"^/api/debates?/([^/]+)$", "DELETE", "debates.delete", 1),
-    RoutePermission(r"^/api/debates?/([^/]+)/run$", "POST", "debates.run", 1),
-    RoutePermission(r"^/api/debates?/([^/]+)/stop$", "POST", "debates.stop", 1),
-    RoutePermission(r"^/api/debates?/([^/]+)/fork$", "POST", "debates.fork", 1),
-    # Agents
-    RoutePermission(r"^/api/agents?$", "GET", "agents.read"),
-    RoutePermission(r"^/api/agents?$", "POST", "agents.create"),
-    RoutePermission(r"^/api/agents?/([^/]+)$", "GET", "agents.read", 1),
-    RoutePermission(r"^/api/agents?/([^/]+)$", "PUT", "agents.update", 1),
-    RoutePermission(r"^/api/agents?/([^/]+)$", "DELETE", "agents.delete", 1),
-    # Workflows
-    RoutePermission(r"^/api/workflows?$", "GET", "workflows.read"),
-    RoutePermission(r"^/api/workflows?$", "POST", "workflows.create"),
-    RoutePermission(r"^/api/workflows?/([^/]+)$", "GET", "workflows.read", 1),
-    RoutePermission(r"^/api/workflows?/([^/]+)$", "DELETE", "workflows.delete", 1),
-    RoutePermission(r"^/api/workflows?/([^/]+)/execute$", "POST", "workflows.run", 1),
+    # Debates (matches both /api/debates and /api/v1/debates)
+    RoutePermission(r"^/api/(?:v1/)?debates?$", "POST", "debates.create"),
+    RoutePermission(r"^/api/(?:v1/)?debates?$", "GET", "debates.read"),
+    RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)$", "GET", "debates.read", 1),
+    RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)$", "PUT", "debates.update", 1),
+    RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)$", "PATCH", "debates.update", 1),
+    RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)$", "DELETE", "debates.delete", 1),
+    RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/run$", "POST", "debates.run", 1),
+    RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/stop$", "POST", "debates.stop", 1),
+    RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/fork$", "POST", "debates.fork", 1),
+    # Agents (matches both /api/agents and /api/v1/agents)
+    RoutePermission(r"^/api/(?:v1/)?agents?$", "GET", "agents.read"),
+    RoutePermission(r"^/api/(?:v1/)?agents?$", "POST", "agents.create"),
+    RoutePermission(r"^/api/(?:v1/)?agents?/([^/]+)$", "GET", "agents.read", 1),
+    RoutePermission(r"^/api/(?:v1/)?agents?/([^/]+)$", "PUT", "agents.update", 1),
+    RoutePermission(r"^/api/(?:v1/)?agents?/([^/]+)$", "DELETE", "agents.delete", 1),
+    # Workflows (matches both /api/workflows and /api/v1/workflows)
+    RoutePermission(r"^/api/(?:v1/)?workflows?$", "GET", "workflows.read"),
+    RoutePermission(r"^/api/(?:v1/)?workflows?$", "POST", "workflows.create"),
+    RoutePermission(r"^/api/(?:v1/)?workflows?/([^/]+)$", "GET", "workflows.read", 1),
+    RoutePermission(r"^/api/(?:v1/)?workflows?/([^/]+)$", "DELETE", "workflows.delete", 1),
+    RoutePermission(r"^/api/(?:v1/)?workflows?/([^/]+)/execute$", "POST", "workflows.run", 1),
     # Memory
-    RoutePermission(r"^/api/memory", "GET", "memory.read"),
-    RoutePermission(r"^/api/memory", "POST", "memory.update"),
-    RoutePermission(r"^/api/memory", "DELETE", "memory.delete"),
+    RoutePermission(r"^/api/(?:v1/)?memory", "GET", "memory.read"),
+    RoutePermission(r"^/api/(?:v1/)?memory", "POST", "memory.update"),
+    RoutePermission(r"^/api/(?:v1/)?memory", "DELETE", "memory.delete"),
     # Analytics
-    RoutePermission(r"^/api/analytics", "GET", "analytics.read"),
-    RoutePermission(r"^/api/analytics/export", "POST", "analytics.export_data"),
+    RoutePermission(r"^/api/(?:v1/)?analytics", "GET", "analytics.read"),
+    RoutePermission(r"^/api/(?:v1/)?analytics/export", "POST", "analytics.export_data"),
     # Training
-    RoutePermission(r"^/api/training", "GET", "training.read"),
-    RoutePermission(r"^/api/training/export", "POST", "training.create"),
+    RoutePermission(r"^/api/(?:v1/)?training", "GET", "training.read"),
+    RoutePermission(r"^/api/(?:v1/)?training/export", "POST", "training.create"),
     # Evidence
-    RoutePermission(r"^/api/evidence", "GET", "evidence.read"),
-    RoutePermission(r"^/api/evidence", "POST", "evidence.create"),
+    RoutePermission(r"^/api/(?:v1/)?evidence", "GET", "evidence.read"),
+    RoutePermission(r"^/api/(?:v1/)?evidence", "POST", "evidence.create"),
     # Connectors
-    RoutePermission(r"^/api/connectors?$", "GET", "connectors.read"),
-    RoutePermission(r"^/api/connectors?$", "POST", "connectors.create"),
-    RoutePermission(r"^/api/connectors?/([^/]+)$", "DELETE", "connectors.delete", 1),
+    RoutePermission(r"^/api/(?:v1/)?connectors?$", "GET", "connectors.read"),
+    RoutePermission(r"^/api/(?:v1/)?connectors?$", "POST", "connectors.create"),
+    RoutePermission(r"^/api/(?:v1/)?connectors?/([^/]+)$", "DELETE", "connectors.delete", 1),
     # Webhooks
-    RoutePermission(r"^/api/webhooks?$", "GET", "webhooks.read"),
-    RoutePermission(r"^/api/webhooks?$", "POST", "webhooks.create"),
-    RoutePermission(r"^/api/webhooks?/([^/]+)$", "DELETE", "webhooks.delete", 1),
+    RoutePermission(r"^/api/(?:v1/)?webhooks?$", "GET", "webhooks.read"),
+    RoutePermission(r"^/api/(?:v1/)?webhooks?$", "POST", "webhooks.create"),
+    RoutePermission(r"^/api/(?:v1/)?webhooks?/([^/]+)$", "DELETE", "webhooks.delete", 1),
     # Checkpoints
-    RoutePermission(r"^/api/checkpoints?$", "GET", "checkpoints.read"),
-    RoutePermission(r"^/api/checkpoints?$", "POST", "checkpoints.create"),
-    RoutePermission(r"^/api/checkpoints?/([^/]+)$", "DELETE", "checkpoints.delete", 1),
+    RoutePermission(r"^/api/(?:v1/)?checkpoints?$", "GET", "checkpoints.read"),
+    RoutePermission(r"^/api/(?:v1/)?checkpoints?$", "POST", "checkpoints.create"),
+    RoutePermission(r"^/api/(?:v1/)?checkpoints?/([^/]+)$", "DELETE", "checkpoints.delete", 1),
     # Admin routes - require admin permission
-    RoutePermission(r"^/api/admin", "*", "admin.*"),
+    RoutePermission(r"^/api/(?:v1/)?admin", "*", "admin.*"),
     # User management
-    RoutePermission(r"^/api/users?$", "GET", "users.read"),
-    RoutePermission(r"^/api/users?/invite$", "POST", "users.invite"),
-    RoutePermission(r"^/api/users?/([^/]+)$", "DELETE", "users.remove", 1),
-    RoutePermission(r"^/api/users?/([^/]+)/role$", "PUT", "users.change_role", 1),
+    RoutePermission(r"^/api/(?:v1/)?users?$", "GET", "users.read"),
+    RoutePermission(r"^/api/(?:v1/)?users?/invite$", "POST", "users.invite"),
+    RoutePermission(r"^/api/(?:v1/)?users?/([^/]+)$", "DELETE", "users.remove", 1),
+    RoutePermission(r"^/api/(?:v1/)?users?/([^/]+)/role$", "PUT", "users.change_role", 1),
     # Organization
-    RoutePermission(r"^/api/org", "GET", "organization.read"),
-    RoutePermission(r"^/api/org", "PUT", "organization.update"),
-    RoutePermission(r"^/api/org", "PATCH", "organization.update"),
-    RoutePermission(r"^/api/org/billing", "*", "organization.manage_billing"),
-    RoutePermission(r"^/api/org/audit", "GET", "organization.view_audit"),
-    RoutePermission(r"^/api/org/export", "POST", "organization.export_data"),
+    RoutePermission(r"^/api/(?:v1/)?org", "GET", "organization.read"),
+    RoutePermission(r"^/api/(?:v1/)?org", "PUT", "organization.update"),
+    RoutePermission(r"^/api/(?:v1/)?org", "PATCH", "organization.update"),
+    RoutePermission(r"^/api/(?:v1/)?org/billing", "*", "organization.manage_billing"),
+    RoutePermission(r"^/api/(?:v1/)?org/audit", "GET", "organization.view_audit"),
+    RoutePermission(r"^/api/(?:v1/)?org/export", "POST", "organization.export_data"),
     # API keys
-    RoutePermission(r"^/api/keys?$", "GET", "api.generate_key"),
-    RoutePermission(r"^/api/keys?$", "POST", "api.generate_key"),
-    RoutePermission(r"^/api/keys?/([^/]+)$", "DELETE", "api.revoke_key", 1),
+    RoutePermission(r"^/api/(?:v1/)?keys?$", "GET", "api.generate_key"),
+    RoutePermission(r"^/api/(?:v1/)?keys?$", "POST", "api.generate_key"),
+    RoutePermission(r"^/api/(?:v1/)?keys?/([^/]+)$", "DELETE", "api.revoke_key", 1),
     # Auth routes - allow unauthenticated
     RoutePermission(r"^/api/auth/login", "POST", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/auth/register", "POST", "", allow_unauthenticated=True),

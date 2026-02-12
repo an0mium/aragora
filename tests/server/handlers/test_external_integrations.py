@@ -339,6 +339,19 @@ def get_body(result) -> dict:
     return {}
 
 
+def get_error_message(body: dict) -> str:
+    """Extract error message string from either simple or structured error format.
+
+    Handles both:
+      - Simple: {"error": "message string"}
+      - Structured: {"error": {"code": "CODE", "message": "message string"}}
+    """
+    error = body.get("error", "")
+    if isinstance(error, dict):
+        return error.get("message", "")
+    return str(error)
+
+
 def mock_check_permission_allowed(*args, **kwargs):
     """Mock check_permission that always allows."""
     return MockPermissionDecision(allowed=True)
@@ -507,7 +520,7 @@ class TestZapierCRUDOperations:
         assert get_status(result) == 400
         body = get_body(result)
         assert "error" in body
-        assert "workspace_id" in body["error"]
+        assert "workspace_id" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_delete_zapier_app_success(self, integrations_handler):
@@ -583,7 +596,7 @@ class TestZapierTriggerOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "app_id" in body.get("error", "")
+        assert "app_id" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_subscribe_trigger_missing_trigger_type(self, integrations_handler):
@@ -600,7 +613,7 @@ class TestZapierTriggerOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "trigger_type" in body.get("error", "")
+        assert "trigger_type" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_subscribe_trigger_missing_webhook_url(self, integrations_handler):
@@ -617,7 +630,7 @@ class TestZapierTriggerOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "webhook_url" in body.get("error", "")
+        assert "webhook_url" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_unsubscribe_trigger_success(self, integrations_handler):
@@ -696,7 +709,7 @@ class TestMakeCRUDOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "workspace_id" in body.get("error", "")
+        assert "workspace_id" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_delete_make_connection_success(self, integrations_handler):
@@ -760,7 +773,7 @@ class TestMakeWebhookOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "connection_id" in body.get("error", "")
+        assert "connection_id" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_register_webhook_missing_module_type(self, integrations_handler):
@@ -777,7 +790,7 @@ class TestMakeWebhookOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "module_type" in body.get("error", "")
+        assert "module_type" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_unregister_webhook_success(self, integrations_handler):
@@ -871,7 +884,7 @@ class TestN8nCRUDOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "workspace_id" in body.get("error", "")
+        assert "workspace_id" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_delete_n8n_credential_success(self, integrations_handler):
@@ -930,7 +943,7 @@ class TestN8nWebhookOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "credential_id" in body.get("error", "")
+        assert "credential_id" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_register_n8n_webhook_missing_events(self, integrations_handler):
@@ -943,7 +956,7 @@ class TestN8nWebhookOperations:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "events" in body.get("error", "")
+        assert "events" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_unregister_n8n_webhook_success(self, integrations_handler):
@@ -1028,7 +1041,7 @@ class TestIntegrationTestEndpoints:
         assert result is not None
         assert get_status(result) == 400
         body = get_body(result)
-        assert "Unknown platform" in body.get("error", "")
+        assert "Unknown platform" in get_error_message(body)
 
 
 # ===========================================================================

@@ -199,12 +199,22 @@ class ConsensusRecord:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ConsensusRecord":
+        try:
+            strength = ConsensusStrength(data.get("strength", "moderate"))
+        except (ValueError, KeyError):
+            strength = ConsensusStrength.MODERATE
+
+        try:
+            timestamp = datetime.fromisoformat(data["timestamp"])
+        except (KeyError, ValueError, TypeError):
+            timestamp = datetime.now()
+
         return cls(
-            id=data["id"],
-            topic=data["topic"],
-            topic_hash=data["topic_hash"],
-            conclusion=data["conclusion"],
-            strength=ConsensusStrength(data["strength"]),
+            id=data.get("id", ""),
+            topic=data.get("topic", ""),
+            topic_hash=data.get("topic_hash", ""),
+            conclusion=data.get("conclusion", ""),
+            strength=strength,
             confidence=data.get("confidence", 0.0),
             participating_agents=data.get("participating_agents", []),
             agreeing_agents=data.get("agreeing_agents", []),
@@ -214,7 +224,7 @@ class ConsensusRecord:
             dissent_ids=data.get("dissent_ids", []),
             domain=data.get("domain", "general"),
             tags=data.get("tags", []),
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            timestamp=timestamp,
             debate_duration_seconds=data.get("debate_duration_seconds", 0.0),
             rounds=data.get("rounds", 0),
             supersedes=data.get("supersedes"),

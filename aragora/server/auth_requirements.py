@@ -80,6 +80,35 @@ PUBLIC_ENDPOINTS = [
         AuthLevel.PUBLIC,
         description="Pending breakpoints",
     ),
+    # Metrics - public dashboard monitoring (matches AUTH_EXEMPT_GET_PREFIXES)
+    EndpointAuth("/api/metrics/health", "get", AuthLevel.PUBLIC, description="Metrics health"),
+    EndpointAuth("/api/metrics/cache", "get", AuthLevel.PUBLIC, description="Cache metrics"),
+    EndpointAuth("/api/metrics/system", "get", AuthLevel.PUBLIC, description="System metrics"),
+    # Consensus - public read-only dashboard data (matches AUTH_EXEMPT_GET_PREFIXES)
+    EndpointAuth(
+        "/api/consensus/contrarian-views",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Contrarian views",
+    ),
+    EndpointAuth(
+        "/api/consensus/risk-warnings",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Risk warnings",
+    ),
+    EndpointAuth(
+        "/api/consensus/dissents", "get", AuthLevel.PUBLIC, description="Recent dissents"
+    ),
+    EndpointAuth(
+        "/api/consensus/similar", "get", AuthLevel.PUBLIC, description="Find similar debates"
+    ),
+    EndpointAuth(
+        "/api/consensus/settled", "get", AuthLevel.PUBLIC, description="Settled topics"
+    ),
+    EndpointAuth(
+        "/api/consensus/stats", "get", AuthLevel.PUBLIC, description="Consensus stats"
+    ),
 ]
 
 # =============================================================================
@@ -118,16 +147,8 @@ AUTHENTICATED_ENDPOINTS = [
     # Memory operations
     EndpointAuth("/api/memory/query", "post", AuthLevel.AUTHENTICATED, description="Query memory"),
     EndpointAuth("/api/memory/store", "post", AuthLevel.AUTHENTICATED, description="Store memory"),
-    # Consensus operations
-    EndpointAuth(
-        "/api/consensus/similar", "get", AuthLevel.AUTHENTICATED, description="Find similar"
-    ),
-    EndpointAuth(
-        "/api/consensus/settled", "get", AuthLevel.AUTHENTICATED, description="Settled questions"
-    ),
-    EndpointAuth(
-        "/api/consensus/stats", "get", AuthLevel.AUTHENTICATED, description="Consensus stats"
-    ),
+    # Note: Consensus read endpoints moved to PUBLIC_ENDPOINTS
+    # (they are exempt via AUTH_EXEMPT_GET_PREFIXES in auth_checks.py)
     # Knowledge operations
     EndpointAuth(
         "/api/knowledge/query", "post", AuthLevel.AUTHENTICATED, description="Query knowledge"

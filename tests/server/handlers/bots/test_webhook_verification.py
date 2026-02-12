@@ -296,7 +296,7 @@ class TestDiscordWebhookVerification:
 
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.new_event_loop().run_until_complete(
             discord_handler._handle_interactions(handler)
         )
 
@@ -316,7 +316,7 @@ class TestDiscordWebhookVerification:
 
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.new_event_loop().run_until_complete(
             discord_handler._handle_interactions(handler)
         )
 
@@ -344,7 +344,7 @@ class TestDiscordWebhookVerification:
         try:
             import asyncio
 
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.new_event_loop().run_until_complete(
                 discord_handler._handle_interactions(handler)
             )
 
@@ -374,7 +374,7 @@ class TestDiscordWebhookVerification:
         try:
             import asyncio
 
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.new_event_loop().run_until_complete(
                 discord_handler._handle_interactions(handler)
             )
 
@@ -507,7 +507,7 @@ class TestTeamsWebhookVerification:
 
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(_verify_teams_token("", "test_app_id"))
+        result = asyncio.new_event_loop().run_until_complete(_verify_teams_token("", "test_app_id"))
 
         assert result is False
 
@@ -518,7 +518,7 @@ class TestTeamsWebhookVerification:
         import asyncio
 
         # Missing "Bearer " prefix
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.new_event_loop().run_until_complete(
             _verify_teams_token("InvalidToken", "test_app_id")
         )
 
@@ -557,7 +557,7 @@ class TestTeamsWebhookVerification:
             # The handler should verify token before processing
             import asyncio
 
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.new_event_loop().run_until_complete(
                 teams_handler._handle_messages(handler)
             )
 
@@ -663,7 +663,7 @@ class TestZoomWebhookVerification:
 
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(zoom_handler._handle_events(handler))
+        result = asyncio.new_event_loop().run_until_complete(zoom_handler._handle_events(handler))
 
         # Should return 401 for missing signature
         assert result.status_code == 401
@@ -690,7 +690,7 @@ class TestZoomWebhookVerification:
         try:
             import asyncio
 
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.new_event_loop().run_until_complete(
                 zoom_handler._handle_events(handler)
             )
 
@@ -729,7 +729,7 @@ class TestZoomWebhookVerification:
         try:
             import asyncio
 
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.new_event_loop().run_until_complete(
                 zoom_handler._handle_events(handler)
             )
 

@@ -143,6 +143,7 @@ class MockReceiptStore:
         self,
         limit: int = 20,
         offset: int = 0,
+        debate_id: str | None = None,
         verdict: str | None = None,
         risk_level: str | None = None,
         date_from: float | None = None,
@@ -152,6 +153,8 @@ class MockReceiptStore:
         order: str = "desc",
     ) -> builtins.list[MockStoredReceipt]:
         results = list(self.receipts.values())
+        if debate_id:
+            results = [r for r in results if r.debate_id == debate_id]
         if verdict:
             results = [r for r in results if r.verdict == verdict]
         if risk_level:
@@ -162,6 +165,7 @@ class MockReceiptStore:
 
     def count(
         self,
+        debate_id: str | None = None,
         verdict: str | None = None,
         risk_level: str | None = None,
         date_from: float | None = None,
@@ -169,6 +173,8 @@ class MockReceiptStore:
         signed_only: bool = False,
     ) -> int:
         results = list(self.receipts.values())
+        if debate_id:
+            results = [r for r in results if r.debate_id == debate_id]
         if verdict:
             results = [r for r in results if r.verdict == verdict]
         if risk_level:

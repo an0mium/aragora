@@ -187,10 +187,15 @@ class TestConsensusHandlerRouting:
 
 
 class TestAuthentication:
-    """Test authentication requirement for consensus endpoints."""
+    """Test authentication requirement for consensus endpoints.
+
+    Note: Only seed-demo (a mutating operation) requires authentication.
+    Read-only consensus endpoints are public dashboard data and skip auth
+    (listed in AUTH_EXEMPT_GET_PREFIXES).
+    """
 
     def test_unauthenticated_request_returns_401(self, consensus_handler, mock_http_handler):
-        """Unauthenticated requests get 401."""
+        """Unauthenticated requests to seed-demo get 401."""
         from aragora.server.handlers.base import error_response as _err
 
         err_result = _err("Authentication required", 401)
@@ -198,20 +203,35 @@ class TestAuthentication:
         with patch.object(
             ConsensusHandler, "require_auth_or_error", return_value=(None, err_result)
         ):
-            result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
+            result = consensus_handler.handle("/api/v1/consensus/seed-demo", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 401
 
     def test_auth_exception_returns_401(self, consensus_handler, mock_http_handler):
-        """Auth errors return 401."""
+        """Auth exception on seed-demo returns 401."""
         with patch.object(
             ConsensusHandler, "require_auth_or_error", side_effect=RuntimeError("token expired")
         ):
-            result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
+            result = consensus_handler.handle("/api/v1/consensus/seed-demo", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 401
         body = parse_response(result)
         assert "Authentication required" in body["error"]
+
+    def test_read_endpoints_skip_auth(self, consensus_handler, mock_http_handler):
+        """Read-only endpoints do not require authentication."""
+        with patch.object(
+            ConsensusHandler,
+            "require_auth_or_error",
+            side_effect=AssertionError("should not be called for read endpoints"),
+        ):
+            # Stats endpoint should not call require_auth_or_error.
+            # It will hit _get_consensus_stats which checks CONSENSUS_MEMORY_AVAILABLE.
+            with patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False):
+                result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
+            # Should reach the endpoint (503 because feature unavailable), not 401
+            assert result is not None
+            assert result.status_code == 503
 
 
 # ===================================================================
@@ -220,10 +240,15 @@ class TestAuthentication:
 
 
 class TestRBACPermissions:
-    """Test RBAC permission checks."""
+    """Test RBAC permission checks.
+
+    Note: Only seed-demo (a mutating operation) enforces RBAC via
+    _check_memory_permission in handle(). Read-only consensus endpoints are
+    public dashboard data and skip RBAC entirely.
+    """
 
     def test_rbac_denied_returns_403(self, consensus_handler, mock_http_handler):
-        """RBAC denial returns 403."""
+        """RBAC denial on seed-demo returns 403."""
         mock_user = _make_mock_user()
         denied = _make_auth_decision(allowed=False, reason="Insufficient permissions")
         checker = MagicMock()
@@ -233,7 +258,7 @@ class TestRBACPermissions:
             patch.object(ConsensusHandler, "require_auth_or_error", return_value=(mock_user, None)),
             patch("aragora.server.handlers.consensus.get_permission_checker", return_value=checker),
         ):
-            result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
+            result = consensus_handler.handle("/api/v1/consensus/seed-demo", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 403
         body = parse_response(result)
@@ -258,25 +283,27 @@ class TestRBACPermissions:
         call_args = checker.check_permission.call_args
         assert call_args[0][1] == "memory.update"
 
-    def test_read_endpoints_require_read_permission(self, consensus_handler, mock_http_handler):
-        """Read endpoints request memory.read permission."""
-        mock_user = _make_mock_user()
+    def test_read_endpoints_skip_rbac(self, consensus_handler, mock_http_handler):
+        """Read-only endpoints do not enforce RBAC checks."""
         checker = MagicMock()
-        allowed = _make_auth_decision(allowed=True)
-        checker.check_permission.return_value = allowed
+        checker.check_permission.side_effect = AssertionError(
+            "should not be called for read endpoints"
+        )
 
         with (
-            patch.object(ConsensusHandler, "require_auth_or_error", return_value=(mock_user, None)),
             patch("aragora.server.handlers.consensus.get_permission_checker", return_value=checker),
             patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False),
         ):
-            consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
+            result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
 
-        call_args = checker.check_permission.call_args
-        assert call_args[0][1] == "memory.read"
+        # Should reach the endpoint (503 because feature unavailable), not 403
+        assert result is not None
+        assert result.status_code == 503
+        # Permission checker was never consulted
+        checker.check_permission.assert_not_called()
 
     def test_rbac_check_exception_returns_500(self, consensus_handler, mock_http_handler):
-        """RBAC check failure returns 500."""
+        """RBAC check failure on seed-demo returns 500."""
         mock_user = _make_mock_user()
         checker = MagicMock()
         checker.check_permission.side_effect = RuntimeError("checker down")
@@ -285,20 +312,15 @@ class TestRBACPermissions:
             patch.object(ConsensusHandler, "require_auth_or_error", return_value=(mock_user, None)),
             patch("aragora.server.handlers.consensus.get_permission_checker", return_value=checker),
         ):
-            result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
+            result = consensus_handler.handle("/api/v1/consensus/seed-demo", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 500
         body = parse_response(result)
         assert "Authorization check failed" in body["error"]
 
     def test_rbac_user_with_dict_attributes(self, consensus_handler, mock_http_handler):
-        """RBAC works when user is a dict rather than an object."""
+        """RBAC works on seed-demo when user is a dict rather than an object."""
         user_dict = {"id": "user-2", "org_id": "org-2", "roles": ["admin"]}
-        # Replace mock user with dict-like mock
-        mock_user = MagicMock(spec=[])  # no attributes
-        mock_user.get = user_dict.get
-        # Remove hasattr returning True for id/org_id/roles
-        type(mock_user).__iter__ = MagicMock(return_value=iter([]))
 
         checker = MagicMock()
         checker.check_permission.return_value = _make_auth_decision(allowed=True)
@@ -306,12 +328,33 @@ class TestRBACPermissions:
         with (
             patch.object(ConsensusHandler, "require_auth_or_error", return_value=(user_dict, None)),
             patch("aragora.server.handlers.consensus.get_permission_checker", return_value=checker),
-            patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False),
+            patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True),
+            patch("aragora.server.handlers.consensus.extract_user_from_request") as mock_extract,
+            patch("aragora.server.handlers.consensus.ConsensusMemory") as mock_mem_cls,
         ):
-            result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
-        # Should reach the endpoint (503 because feature unavailable)
+            # seed-demo also checks extract_user_from_request for a second auth layer
+            mock_user_ctx = MagicMock()
+            mock_user_ctx.authenticated = True
+            mock_extract.return_value = mock_user_ctx
+
+            mock_memory = MagicMock()
+            mock_memory.db_path = "/tmp/test.db"
+            mock_memory.get_statistics.side_effect = [
+                {"total_consensus": 0},
+                {"total_consensus": 5},
+            ]
+            mock_mem_cls.return_value = mock_memory
+
+            with patch.dict(
+                "sys.modules",
+                {"aragora.fixtures": MagicMock(load_demo_consensus=MagicMock(return_value=5))},
+            ):
+                result = consensus_handler.handle(
+                    "/api/v1/consensus/seed-demo", {}, mock_http_handler
+                )
+        # Should succeed through the RBAC check (200 from seeding)
         assert result is not None
-        assert result.status_code == 503
+        assert result.status_code == 200
 
 
 # ===================================================================

@@ -309,7 +309,8 @@ def mock_followup_tracker():
     # Add a sample follow-up
     import asyncio
 
-    asyncio.get_event_loop().run_until_complete(
+    _loop = asyncio.new_event_loop()
+    _loop.run_until_complete(
         tracker.mark_awaiting_reply(
             email_id="email_001",
             thread_id="thread_001",
