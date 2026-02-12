@@ -558,6 +558,113 @@ class TestBlockchainHealth:
 
 
 # =============================================================================
+# Test handle_list_agents / handle_register_agent
+# =============================================================================
+
+
+class TestListAndRegisterAgents:
+    """Tests for blockchain agent list/register endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_agents_success(self, mock_provider, mock_circuit_breaker):
+        """Should list agents with pagination."""
+        mock_contract = MagicMock()
+        mock_contract.get_total_supply.return_value = 3
+        mock_contract.get_agent.side_effect = [
+            MockAgentIdentity(token_id=1),
+            MockAgentIdentity(token_id=2),
+            MockAgentIdentity(token_id=3),
+        ]
+
+        with (
+            patch.object(erc8004, "_get_provider", return_value=mock_provider),
+            patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
+            patch(
+                "aragora.blockchain.contracts.identity.IdentityRegistryContract",
+                return_value=mock_contract,
+            ),
+        ):
+            result = await erc8004.handle_list_agents(skip=0, limit=2)
+
+        assert result["status"] == 200
+        data = json.loads(result["body"])
+        assert data["total"] == 3
+        assert data["count"] == 2
+        assert data["agents"][0]["token_id"] == 1
+        assert data["agents"][1]["token_id"] == 2
+
+    @pytest.mark.asyncio
+    async def test_list_agents_requires_identity_registry(self, mock_circuit_breaker):
+        """Should return 501 when identity registry is not configured."""
+        provider = MockProvider(config=MockChainConfig(identity_registry_address=None))
+
+        with (
+            patch.object(erc8004, "_get_provider", return_value=provider),
+            patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
+        ):
+            result = await erc8004.handle_list_agents()
+
+        assert result["status"] == 501
+
+    @pytest.mark.asyncio
+    async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
+        """Should register an agent and return 201."""
+        mock_contract = MagicMock()
+        mock_contract.register_agent.return_value = 42
+        mock_signer = MagicMock()
+        mock_signer.address = "0xSignerAddress"
+
+        with (
+            patch.object(erc8004, "_get_provider", return_value=mock_provider),
+            patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
+            patch(
+                "aragora.blockchain.contracts.identity.IdentityRegistryContract",
+                return_value=mock_contract,
+            ),
+            patch("aragora.blockchain.wallet.WalletSigner.from_env", return_value=mock_signer),
+        ):
+            result = await erc8004.handle_register_agent(
+                agent_uri="ipfs://QmAgent",
+                metadata={"role": "critic", "score": 99},
+            )
+
+        assert result["status"] == 201
+        data = json.loads(result["body"])
+        assert data["token_id"] == 42
+        assert data["owner"] == "0xSignerAddress"
+        call_args = mock_contract.register_agent.call_args
+        assert call_args is not None
+        metadata_entries = call_args.args[2]
+        assert metadata_entries[0].key == "role"
+        assert metadata_entries[0].value == b"critic"
+
+    @pytest.mark.asyncio
+    async def test_register_agent_requires_wallet_credentials(
+        self,
+        mock_provider,
+        mock_circuit_breaker,
+    ):
+        """Should return 400 when wallet credentials are missing."""
+        mock_contract = MagicMock()
+
+        with (
+            patch.object(erc8004, "_get_provider", return_value=mock_provider),
+            patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
+            patch(
+                "aragora.blockchain.contracts.identity.IdentityRegistryContract",
+                return_value=mock_contract,
+            ),
+            patch(
+                "aragora.blockchain.wallet.WalletSigner.from_env",
+                side_effect=ValueError("No wallet credentials configured"),
+            ),
+        ):
+            result = await erc8004.handle_register_agent(agent_uri="ipfs://QmAgent")
+
+        assert result["status"] == 400
+
+
+# =============================================================================
 # Test ERC8004Handler class routing
 # =============================================================================
 
@@ -630,10 +737,42 @@ class TestERC8004HandlerRouting:
         result = handler_instance.handle("/api/v1/blockchain/unknown", {}, mock_handler)
         assert result["status"] == 400
 
-    def test_handle_agents_listing_not_implemented(self, handler_instance, mock_handler):
-        """Should return 501 for agent listing."""
-        result = handler_instance.handle("/api/v1/blockchain/agents", {}, mock_handler)
-        assert result["status"] == 501
+    def test_handle_agents_listing_route(self, handler_instance, mock_handler):
+        """Should route agent listing path correctly."""
+        with patch.object(erc8004, "handle_list_agents") as mock_fn:
+            mock_fn.return_value = {"status": 200, "body": "{}"}
+            handler_instance.handle(
+                "/api/v1/blockchain/agents",
+                {"skip": ["2"], "limit": ["5"]},
+                mock_handler,
+            )
+            mock_fn.assert_called_once_with(skip=2, limit=5)
+
+    def test_handle_agents_listing_invalid_pagination(self, handler_instance, mock_handler):
+        """Should return 400 for invalid pagination query params."""
+        result = handler_instance.handle(
+            "/api/v1/blockchain/agents",
+            {"skip": ["oops"]},
+            mock_handler,
+        )
+        assert result["status"] == 400
+
+    def test_handle_agents_register_route(self, handler_instance):
+        """Should route agent registration path correctly."""
+        post_handler = MockHandler(command="POST", body={})
+        with (
+            patch.object(handler_instance, "read_json_body", return_value={
+                "agent_uri": "ipfs://QmAgent",
+                "metadata": {"role": "critic"},
+            }),
+            patch.object(erc8004, "handle_register_agent") as mock_fn,
+        ):
+            mock_fn.return_value = {"status": 201, "body": "{}"}
+            handler_instance.handle("/api/v1/blockchain/agents", {}, post_handler)
+            mock_fn.assert_called_once_with(
+                agent_uri="ipfs://QmAgent",
+                metadata={"role": "critic"},
+            )
 
 
 # =============================================================================
@@ -693,3 +832,18 @@ class TestQueryParamExtraction:
         """Should return default for None value."""
         result = erc8004._get_query_param({"tag": None}, "tag", "default")
         assert result == "default"
+
+    def test_get_int_query_param(self):
+        """Should parse integer query params."""
+        result = erc8004._get_int_query_param({"skip": ["10"]}, "skip", 0, min_value=0)
+        assert result == 10
+
+    def test_get_int_query_param_invalid(self):
+        """Should raise for non-integer query params."""
+        with pytest.raises(ValueError):
+            erc8004._get_int_query_param({"skip": ["abc"]}, "skip", 0, min_value=0)
+
+    def test_get_int_query_param_below_min(self):
+        """Should raise for values below minimum."""
+        with pytest.raises(ValueError):
+            erc8004._get_int_query_param({"skip": ["-1"]}, "skip", 0, min_value=0)

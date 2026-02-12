@@ -584,7 +584,7 @@ class TestRabbitMQErrorHandling:
         connector = RabbitMQConnector(config)
 
         mock_aio_pika = MagicMock()
-        mock_aio_pika.connect_robust = AsyncMock(side_effect=Exception("Connection refused"))
+        mock_aio_pika.connect_robust = AsyncMock(side_effect=ConnectionError("Connection refused"))
 
         with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.connect()
@@ -603,7 +603,7 @@ class TestRabbitMQErrorHandling:
         connector = RabbitMQConnector(config)
 
         mock_exchange = AsyncMock()
-        mock_exchange.publish = AsyncMock(side_effect=Exception("Channel closed"))
+        mock_exchange.publish = AsyncMock(side_effect=ConnectionError("Channel closed"))
 
         mock_channel = AsyncMock()
         mock_channel.default_exchange = mock_exchange
