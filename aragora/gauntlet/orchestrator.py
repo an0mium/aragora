@@ -525,7 +525,7 @@ class GauntletOrchestrator:
             GauntletFinding as PipelineFinding,
             PhaseResult,
         )
-        from aragora.gauntlet.types import GauntletPhase, SeverityLevel
+        from aragora.gauntlet.types import GauntletPhase
 
         start_ms = int(_time.time() * 1000)
 
