@@ -29,9 +29,6 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
   const [nomicState, setNomicState] = useState<NomicState | null>(null);
 
   const fetchNomicState = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) return;
-
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (tokens?.access_token) {
@@ -45,23 +42,20 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
     } catch (err) {
       logger.error('Failed to fetch nomic state:', err);
     }
-  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, tokens?.access_token]);
 
   // Use ref to store latest fetch function to avoid stale closures in interval
   const fetchRef = useRef(fetchNomicState);
   fetchRef.current = fetchNomicState;
 
   useEffect(() => {
-    // Don't start polling until auth is ready
-    if (authLoading) return;
-
     fetchNomicState();
     // Poll every 10 seconds for updates, using ref to get latest function
     const interval = setInterval(() => {
       fetchRef.current();
     }, 10000);
     return () => clearInterval(interval);
-  }, [fetchNomicState, authLoading]);
+  }, [fetchNomicState]);
   type PhaseStatusType = 'pending' | 'active' | 'complete' | 'failed';
 
   // Get phase statuses from events

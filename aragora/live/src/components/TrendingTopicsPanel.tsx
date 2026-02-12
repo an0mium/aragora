@@ -33,9 +33,6 @@ export function TrendingTopicsPanel({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchTrending = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) return;
-
     setLoading(true);
     setError(null);
     try {
@@ -56,7 +53,7 @@ export function TrendingTopicsPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, tokens?.access_token]);
 
   useEffect(() => {
     if (expanded) {

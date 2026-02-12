@@ -75,8 +75,6 @@ export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProp
   // Fetch evidence from API when debateId is available
   const fetchEvidence = useCallback(async () => {
     if (!debateId || !apiBase) return;
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) return;
 
     setLoading(true);
     try {
@@ -129,7 +127,7 @@ export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProp
     } finally {
       setLoading(false);
     }
-  }, [debateId, apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [debateId, apiBase, tokens?.access_token]);
 
   // Fetch evidence when debateId changes
   useEffect(() => {

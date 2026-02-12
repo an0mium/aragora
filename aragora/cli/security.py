@@ -4,6 +4,9 @@ CLI commands for security operations.
 Commands:
     aragora security status - Show encryption and key status
     aragora security rotate-key - Rotate encryption key
+    aragora security rotate-token - Rotate a service token (PyPI, npm, GitHub PAT)
+    aragora security list-tokens - List managed service tokens
+    aragora security verify-token - Verify a service token works
     aragora security migrate - Migrate plaintext to encrypted
     aragora security health - Check encryption health
 """

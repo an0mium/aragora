@@ -39,12 +39,6 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Tou
   const [error, setError] = useState<string | null>(null);
 
   const fetchTournaments = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       const headers: HeadersInit = { 'Content-Type': 'application/json' };

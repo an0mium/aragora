@@ -26,6 +26,7 @@ from aragora.server.startup.redis import (
     init_redis_state_backend,
 )
 from aragora.server.startup.observability import (
+    check_otlp_connectivity,
     init_error_monitoring,
     init_opentelemetry,
     init_otlp_exporter,
