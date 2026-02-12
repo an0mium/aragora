@@ -23,7 +23,7 @@ export OPENAI_API_KEY="your-key"
 pytest tests/debate/test_orchestrator.py -v
 
 # 5. Start the server
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Project Structure

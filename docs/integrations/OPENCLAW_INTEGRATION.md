@@ -43,7 +43,7 @@ export OPENCLAW_REQUIRE_APPROVAL=false           # Default approval mode
 ### 2. Start the Server
 
 ```bash
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 The OpenClaw gateway is available at `/api/gateway/openclaw/` and `/api/v1/openclaw/`.

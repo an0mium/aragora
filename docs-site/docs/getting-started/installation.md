@@ -65,7 +65,7 @@ cd aragora/live
 npm install
 
 # Start the server
-python -m aragora.server.unified_server
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ### Python Package

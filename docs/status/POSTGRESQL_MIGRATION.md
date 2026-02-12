@@ -493,7 +493,7 @@ export ARAGORA_ENV=production
 
 # Start application
 cd /opt/aragora
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 #### 4. Security Group Rules

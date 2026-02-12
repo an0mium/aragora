@@ -28,7 +28,7 @@ Start the Aragora server (self-hosted or use a hosted API). For local dev:
 
 ```bash
 # Terminal 1: Start the server
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 Set API keys for at least one provider:

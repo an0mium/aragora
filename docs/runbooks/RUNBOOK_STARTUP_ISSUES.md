@@ -94,7 +94,7 @@ grep -i "failed to initialize" /var/log/aragora/server.log
 3. Check required environment variables for the component
 4. Restart with verbose logging:
    ```bash
-   ARAGORA_LOG_LEVEL=DEBUG python -m aragora.server.unified_server
+   ARAGORA_LOG_LEVEL=DEBUG aragora serve --api-port 8080 --ws-port 8765
    ```
 
 ### 3. Degraded Mode

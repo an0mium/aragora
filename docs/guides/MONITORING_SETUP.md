@@ -395,7 +395,7 @@ When an alert fires:
 # Start metrics server
 export METRICS_ENABLED=true
 export METRICS_PORT=9090
-python -m aragora.server.unified_server
+aragora serve --api-port 8080 --ws-port 8765
 
 # View metrics
 curl http://localhost:9090/metrics

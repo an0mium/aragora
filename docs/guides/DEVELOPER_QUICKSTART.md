@@ -139,7 +139,7 @@ python -c "import aragora"
 
 ```bash
 # Start server
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # Run nomic loop
 python scripts/run_nomic_with_stream.py run --cycles 3

@@ -193,7 +193,7 @@ ngrok http 8080
 export GITHUB_WEBHOOK_SECRET=your-dev-secret
 
 # Start Aragora server
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Related Documentation

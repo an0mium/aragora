@@ -33,7 +33,7 @@ python scripts/init_postgres_db.py
 python scripts/init_postgres_db.py --verify
 
 # 5. Start server
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Configuration
@@ -148,7 +148,7 @@ RUN pip install -e ".[postgres]"
 
 # Initialize database on startup
 CMD python scripts/init_postgres_db.py && \
-    python -m aragora.server.unified_server --port 8080
+    aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ### Option 2: Systemd Service
@@ -164,7 +164,7 @@ Type=simple
 User=aragora
 WorkingDirectory=/opt/aragora
 EnvironmentFile=/opt/aragora/.env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.server.unified_server --port 8080
+ExecStart=/opt/aragora/venv/bin/aragora serve --api-port 8080 --ws-port 8765
 Restart=always
 RestartSec=5
 
@@ -182,7 +182,7 @@ services:
     name: aragora
     env: python
     buildCommand: pip install -e ".[postgres]" && python scripts/init_postgres_db.py
-    startCommand: python -m aragora.server.unified_server --port $PORT
+    startCommand: aragora serve --api-port $PORT --ws-port 8765
     envVars:
       - key: ARAGORA_POSTGRES_DSN
         sync: false
@@ -193,7 +193,7 @@ services:
 **Railway:**
 ```bash
 # Procfile
-web: python scripts/init_postgres_db.py && python -m aragora.server.unified_server --port $PORT
+web: python scripts/init_postgres_db.py && aragora serve --api-port $PORT --ws-port 8765
 ```
 
 ## Health Checks
@@ -268,7 +268,7 @@ python scripts/init_postgres_db.py --verify
 
 ```bash
 # Enable debug logging
-ARAGORA_LOG_LEVEL=DEBUG python -m aragora.server.unified_server
+ARAGORA_LOG_LEVEL=DEBUG aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Security Checklist

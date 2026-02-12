@@ -20,7 +20,7 @@ The migration system provides:
 Set the environment variable before starting the server:
 
 ```bash
-ARAGORA_AUTO_MIGRATE_ON_STARTUP=true python -m aragora.server.unified_server
+ARAGORA_AUTO_MIGRATE_ON_STARTUP=true aragora serve --api-port 8080 --ws-port 8765
 ```
 
 This runs pending migrations for both PostgreSQL and SQLite backends. Failures are logged but do not block server startup.

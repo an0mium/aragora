@@ -169,7 +169,7 @@ sqlite3 .nomic/core.db < aragora/persistence/schemas/core.sql
 curl http://localhost:8080/api/v1/health/startup | jq
 
 # Skip schema validation temporarily
-ARAGORA_SKIP_SCHEMA_VALIDATION=1 python -m aragora.server.unified_server
+ARAGORA_SKIP_SCHEMA_VALIDATION=1 aragora serve --api-port 8080 --ws-port 8765
 
 # Fix schema issues and remove skip flag
 ```
