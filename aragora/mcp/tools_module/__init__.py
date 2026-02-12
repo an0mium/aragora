@@ -44,6 +44,8 @@ from aragora.mcp.tools_module.verification import (
     get_consensus_proofs_tool,
     verify_consensus_tool,
     generate_proof_tool,
+    verify_plan_tool,
+    get_receipt_tool,
 )
 from aragora.mcp.tools_module.evidence import (
     search_evidence_tool,
@@ -163,6 +165,9 @@ __all__ = [
     "get_consensus_proofs_tool",
     "verify_consensus_tool",
     "generate_proof_tool",
+    # Decision verification tools
+    "verify_plan_tool",
+    "get_receipt_tool",
     # Evidence tools
     "search_evidence_tool",
     "cite_evidence_tool",

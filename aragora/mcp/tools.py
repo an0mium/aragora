@@ -37,6 +37,9 @@ from aragora.mcp.tools_module import (
     get_consensus_proofs_tool,
     verify_consensus_tool,
     generate_proof_tool,
+    # Decision verification tools
+    verify_plan_tool,
+    get_receipt_tool,
     # Evidence tools
     search_evidence_tool,
     cite_evidence_tool,
@@ -305,6 +308,58 @@ TOOLS_METADATA = [
             "claim": {"type": "string", "required": True},
             "output_format": {"type": "string", "default": "lean4"},
             "context": {"type": "string", "default": ""},
+        },
+    },
+    # Decision verification tools
+    {
+        "name": "verify_plan",
+        "description": "Run multi-model debate to verify a proposed plan or decision. "
+        "Returns a verification result with verdict, confidence, findings, and receipt.",
+        "function": verify_plan_tool,
+        "parameters": {
+            "plan": {
+                "type": "string",
+                "required": True,
+                "description": "The plan, proposal, or decision to verify",
+            },
+            "context": {
+                "type": "string",
+                "default": "",
+                "description": "Additional context about the domain or constraints",
+            },
+            "agents": {
+                "type": "string",
+                "default": "",
+                "description": "Comma-separated agent types (default: auto-detect from API keys)",
+            },
+            "rounds": {
+                "type": "integer",
+                "default": 2,
+                "description": "Number of debate rounds",
+            },
+            "focus": {
+                "type": "string",
+                "default": "security,quality",
+                "description": "Focus areas for review (e.g., security,quality,performance)",
+            },
+        },
+    },
+    {
+        "name": "get_receipt",
+        "description": "Retrieve a previously generated decision receipt by ID. "
+        "Supports JSON, Markdown, and SARIF output formats.",
+        "function": get_receipt_tool,
+        "parameters": {
+            "receipt_id": {
+                "type": "string",
+                "required": True,
+                "description": "The receipt ID to look up",
+            },
+            "format": {
+                "type": "string",
+                "default": "json",
+                "description": "Output format (json, markdown, sarif)",
+            },
         },
     },
     # Evidence tools
@@ -780,6 +835,9 @@ __all__ = [
     # Verification tools
     "verify_consensus_tool",
     "generate_proof_tool",
+    # Decision verification tools
+    "verify_plan_tool",
+    "get_receipt_tool",
     # Evidence tools
     "search_evidence_tool",
     "cite_evidence_tool",
