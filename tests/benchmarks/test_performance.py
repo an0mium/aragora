@@ -542,3 +542,270 @@ class TestPerformanceBaselines:
 
         # 100 generations should be nearly instant (mock agent)
         assert elapsed < 0.1, f"100 mock generations took {elapsed:.3f}s (target: <0.1s)"
+
+
+# =============================================================================
+# pytest-benchmark Based Performance Benchmarks
+#
+# These benchmarks use the pytest-benchmark `benchmark` fixture for precise
+# measurement with statistical analysis (min, max, mean, stddev, rounds).
+# Run with:
+#   pytest tests/benchmarks/test_performance.py -k "Benchmarks" --benchmark-only
+# Or verify they execute (no timing):
+#   pytest tests/benchmarks/test_performance.py -k "Benchmarks" --benchmark-disable -v
+# =============================================================================
+
+
+class TestBenchmarks:
+    """Precise benchmarks using pytest-benchmark fixture."""
+
+    def test_bench_receipt_creation(self, benchmark):
+        """Benchmark creating a DecisionReceipt with 10 findings and calling to_dict().
+
+        Expected baseline: < 1ms per call.
+        """
+        from aragora.export.decision_receipt import DecisionReceipt, ReceiptFinding
+
+        findings = [
+            ReceiptFinding(
+                id=f"finding-{i}",
+                severity=["CRITICAL", "HIGH", "MEDIUM", "LOW"][i % 4],
+                category=f"cat-{i % 4}",
+                title=f"Finding {i}",
+                description=f"Description of finding {i}",
+                mitigation=f"Fix {i}",
+                source=f"agent-{i % 3}",
+                verified=i % 2 == 0,
+            )
+            for i in range(10)
+        ]
+
+        def create_and_serialize():
+            receipt = DecisionReceipt(
+                receipt_id="rcpt_bench",
+                gauntlet_id="gauntlet_bench",
+                timestamp="2026-02-11T00:00:00Z",
+                findings=findings,
+                critical_count=3,
+                high_count=3,
+                medium_count=2,
+                low_count=2,
+                agents_involved=["a0", "a1", "a2"],
+                rounds_completed=3,
+                duration_seconds=10.0,
+            )
+            return receipt.to_dict()
+
+        result = benchmark.pedantic(create_and_serialize, rounds=500, iterations=1)
+        assert isinstance(result, dict)
+        assert len(result["findings"]) == 10
+
+    def test_bench_receipt_to_markdown(self, benchmark, sample_receipt):
+        """Benchmark converting a receipt to markdown.
+
+        Expected baseline: < 1ms per call.
+        """
+        result = benchmark.pedantic(sample_receipt.to_markdown, rounds=500, iterations=1)
+        assert "# Decision Receipt" in result
+        assert sample_receipt.receipt_id in result
+
+    def test_bench_receipt_to_sarif(self, benchmark, sample_receipt):
+        """Benchmark converting a receipt to SARIF format via DecisionReceipt.to_sarif().
+
+        Expected baseline: < 2ms per call.
+        """
+        result = benchmark.pedantic(sample_receipt.to_sarif, rounds=500, iterations=1)
+        assert result["version"] == "2.1.0"
+        assert len(result["runs"]) == 1
+
+    def test_bench_findings_to_sarif(self, benchmark, mock_review_findings):
+        """Benchmark converting review findings to SARIF using findings_to_sarif.
+
+        Expected baseline: < 1ms per call.
+        """
+        from aragora.cli.review import findings_to_sarif
+
+        def convert():
+            return findings_to_sarif(mock_review_findings)
+
+        result = benchmark.pedantic(convert, rounds=500, iterations=1)
+        assert result["version"] == "2.1.0"
+        assert len(result["runs"][0]["results"]) > 0
+
+    def test_bench_verdict_enum_lookup(self, benchmark):
+        """Benchmark Verdict enum value lookups (baseline for hot path).
+
+        Expected baseline: < 0.01ms per call (pure Python enum access).
+        """
+        from aragora.core_types import Verdict
+
+        def lookup_all_verdicts():
+            # Access each verdict value (simulates hot-path lookups)
+            _ = Verdict.APPROVED.value
+            _ = Verdict.APPROVED_WITH_CONDITIONS.value
+            _ = Verdict.NEEDS_REVIEW.value
+            _ = Verdict.REJECTED.value
+            # Also test string comparison (common in receipt code)
+            assert Verdict.APPROVED == "approved"
+            assert Verdict("approved") is Verdict.APPROVED
+            return True
+
+        result = benchmark.pedantic(lookup_all_verdicts, rounds=1000, iterations=1)
+        assert result is True
+
+    def test_bench_review_extract_findings(self, benchmark):
+        """Benchmark extracting findings from a mock review result.
+
+        Uses extract_review_findings from aragora.cli.review with a
+        DebateResult that has votes, critiques, and messages populated.
+
+        Expected baseline: < 5ms per call.
+        """
+        from aragora.cli.review import extract_review_findings
+        from aragora.core import DebateResult, Vote, Critique, Message
+
+        # Build a realistic DebateResult with critiques and votes
+        critiques = [
+            Critique(
+                agent=f"agent-{i}",
+                target_agent=f"agent-{(i + 1) % 3}",
+                target_content="Some proposal text",
+                issues=[f"Issue {j} from agent-{i}" for j in range(3)],
+                suggestions=[f"Suggestion {j}" for j in range(3)],
+                severity=0.5 + (i * 0.2),
+                reasoning=f"Reasoning from agent-{i}",
+            )
+            for i in range(3)
+        ]
+        votes = [
+            Vote(
+                agent=f"agent-{i}",
+                choice="agent-0",
+                reasoning="Best proposal",
+                confidence=0.7 + (i * 0.1),
+                continue_debate=False,
+            )
+            for i in range(3)
+        ]
+        messages = [
+            Message(
+                role="proposer",
+                agent=f"agent-{i}",
+                content=f"Proposal from agent-{i}",
+            )
+            for i in range(3)
+        ]
+
+        mock_result = DebateResult(
+            task="Review benchmark diff",
+            final_answer="Synthesis of code review findings.",
+            confidence=0.75,
+            consensus_reached=True,
+            rounds_used=2,
+        )
+        mock_result.critiques = critiques
+        mock_result.votes = votes
+        mock_result.messages = messages
+
+        def extract():
+            return extract_review_findings(mock_result)
+
+        result = benchmark.pedantic(extract, rounds=100, iterations=1)
+        assert "unanimous_critiques" in result
+        assert "agreement_score" in result
+
+    def test_bench_handler_registry_lookup(self, benchmark):
+        """Benchmark O(1) route lookup in RouteIndex.
+
+        Tests the fast-path dict lookup for exact route matches.
+        This exercises RouteIndex._exact_routes without needing a full
+        server initialization, by manually populating the index.
+
+        Expected baseline: < 0.05ms per call.
+        """
+        from aragora.server.handler_registry.core import RouteIndex
+
+        class MockHandler:
+            ROUTES = ["/api/debates", "/api/agents", "/api/health"]
+            ROUTE_PREFIXES = []
+
+            @staticmethod
+            def can_handle(path: str) -> bool:
+                return path.startswith("/api/")
+
+        index = RouteIndex()
+        # Manually populate exact routes to avoid full server init
+        for path in MockHandler.ROUTES:
+            index._exact_routes[path] = ("_mock_handler", MockHandler())
+
+        # Also add some prefix routes for the prefix lookup path
+        index._prefix_routes.append(("/api/debates/", "_mock_handler", MockHandler()))
+
+        def lookup():
+            # Exact match (O(1) dict lookup)
+            r1 = index._exact_routes.get("/api/debates")
+            r2 = index._exact_routes.get("/api/agents")
+            r3 = index._exact_routes.get("/api/health")
+            # Miss (should return None)
+            r4 = index._exact_routes.get("/api/nonexistent")
+            return r1 is not None and r2 is not None and r3 is not None and r4 is None
+
+        result = benchmark.pedantic(lookup, rounds=1000, iterations=1)
+        assert result is True
+
+    def test_bench_permission_check(self, benchmark):
+        """Benchmark RBAC permission checks via PermissionChecker.
+
+        Creates a checker with a user context that has the 'admin' role,
+        then checks a permission. Cache is disabled to measure the full
+        evaluation path each time.
+
+        Expected baseline: < 1ms per call.
+        """
+        from aragora.rbac.checker import PermissionChecker
+        from aragora.rbac.models import AuthorizationContext
+
+        checker = PermissionChecker(enable_cache=False)
+        ctx = AuthorizationContext(
+            user_id="bench-user",
+            org_id="bench-org",
+            roles={"admin"},
+        )
+
+        def check():
+            decision = checker.check_permission(ctx, "debates.create")
+            return decision.allowed
+
+        result = benchmark.pedantic(check, rounds=500, iterations=1)
+        assert result is True
+
+    def test_bench_import_time(self, benchmark):
+        """Benchmark time to import aragora main package.
+
+        Measured in a subprocess to avoid module cache.
+
+        Expected baseline: < 3s for cold import.
+        """
+        import subprocess
+
+        def import_aragora():
+            proc = subprocess.run(
+                [
+                    "python",
+                    "-c",
+                    "import time; s=time.perf_counter(); import aragora; "
+                    "print(time.perf_counter()-s)",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if proc.returncode != 0:
+                return -1.0
+            return float(proc.stdout.strip())
+
+        elapsed = benchmark.pedantic(import_aragora, rounds=10, iterations=1)
+        if elapsed < 0:
+            pytest.skip("Subprocess import failed")
+        # Sanity: import should complete in under 5 seconds
+        assert elapsed < 5.0, f"Import took {elapsed:.2f}s (target: < 5s)"

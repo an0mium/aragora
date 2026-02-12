@@ -153,3 +153,150 @@ def simple_benchmark():
 def benchmark_environment() -> Environment:
     """Simple environment for benchmarking."""
     return Environment(task="Benchmark task", context="")
+
+
+# =============================================================================
+# Decision Receipt Fixtures
+# =============================================================================
+
+
+def _make_receipt_findings(count: int = 10) -> list:
+    """Create a list of ReceiptFinding objects for benchmarking."""
+    from aragora.export.decision_receipt import ReceiptFinding
+
+    severities = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+    return [
+        ReceiptFinding(
+            id=f"finding-{i}",
+            severity=severities[i % len(severities)],
+            category=f"category-{i % 4}",
+            title=f"Finding {i}: Potential issue in component",
+            description=f"Detailed description of finding {i} with enough text to be realistic.",
+            mitigation=f"Apply fix {i} to resolve this issue.",
+            source=f"agent-{i % 3}",
+            verified=i % 2 == 0,
+        )
+        for i in range(count)
+    ]
+
+
+def _make_receipt_dissents(count: int = 2) -> list:
+    """Create a list of ReceiptDissent objects for benchmarking."""
+    from aragora.export.decision_receipt import ReceiptDissent
+
+    return [
+        ReceiptDissent(
+            agent=f"agent-{i}",
+            type="philosophical",
+            severity=0.6 + i * 0.1,
+            reasons=[f"Reason {j} for dissent" for j in range(2)],
+            alternative=f"Alternative approach {i}",
+        )
+        for i in range(count)
+    ]
+
+
+def _make_receipt_verifications(count: int = 3) -> list:
+    """Create a list of ReceiptVerification objects for benchmarking."""
+    from aragora.export.decision_receipt import ReceiptVerification
+
+    return [
+        ReceiptVerification(
+            claim=f"Claim {i}: The system handles edge case correctly",
+            verified=i % 2 == 0,
+            method="formal" if i % 2 == 0 else "heuristic",
+            proof_hash=f"sha256:{i:064x}" if i % 2 == 0 else None,
+        )
+        for i in range(count)
+    ]
+
+
+@pytest.fixture
+def sample_receipt():
+    """Pre-built DecisionReceipt with 10 findings for benchmark use."""
+    from aragora.export.decision_receipt import DecisionReceipt
+
+    findings = _make_receipt_findings(10)
+    return DecisionReceipt(
+        receipt_id="rcpt_bench_0001",
+        gauntlet_id="gauntlet_bench_0001",
+        timestamp="2026-02-11T00:00:00Z",
+        input_summary="Benchmark test input for performance measurement",
+        input_type="spec",
+        verdict="approved_with_conditions",
+        confidence=0.82,
+        risk_level="MEDIUM",
+        risk_score=0.18,
+        robustness_score=0.85,
+        coverage_score=0.90,
+        verification_coverage=0.75,
+        findings=findings,
+        critical_count=3,
+        high_count=3,
+        medium_count=2,
+        low_count=2,
+        mitigations=["Apply security patch", "Add input validation", "Enable rate limiting"],
+        dissenting_views=_make_receipt_dissents(2),
+        unresolved_tensions=["Tension between performance and security"],
+        verified_claims=_make_receipt_verifications(3),
+        unverified_claims=["Claim about scalability", "Claim about fault tolerance"],
+        agents_involved=["agent-0", "agent-1", "agent-2"],
+        rounds_completed=3,
+        duration_seconds=12.5,
+    )
+
+
+@pytest.fixture
+def mock_review_findings() -> dict:
+    """Mock review findings dict matching the shape of extract_review_findings output."""
+    return {
+        "unanimous_critiques": [
+            "SQL injection vulnerability in user search",
+            "Missing input validation on file upload endpoint",
+        ],
+        "split_opinions": [
+            ("Add request rate limiting", ["anthropic-api", "openai-api"], ["gemini-api"]),
+        ],
+        "risk_areas": [
+            "Error handling in payment flow may expose sensitive data",
+        ],
+        "agreement_score": 0.75,
+        "agent_alignment": {
+            "anthropic-api": {"openai-api": 0.8},
+        },
+        "critical_issues": [
+            {
+                "agent": "anthropic-api",
+                "issue": "SQL injection in search_users()",
+                "target": "api/users.py:45",
+                "suggestions": ["Use parameterized queries"],
+            },
+        ],
+        "high_issues": [
+            {
+                "agent": "openai-api",
+                "issue": "Missing CSRF protection on POST endpoints",
+                "target": "api/routes.py",
+                "suggestions": ["Add CSRF token middleware"],
+            },
+        ],
+        "medium_issues": [
+            {
+                "agent": "gemini-api",
+                "issue": "Unbounded query results - add pagination",
+                "target": "api/products.py:102",
+                "suggestions": [],
+            },
+        ],
+        "low_issues": [
+            {
+                "agent": "openai-api",
+                "issue": "Consider adding debug logging",
+                "target": "api/utils.py",
+                "suggestions": [],
+            },
+        ],
+        "all_critiques": [],
+        "final_summary": "Multi-agent review found 1 critical and 1 high severity issue.",
+        "agents_used": ["anthropic-api", "openai-api", "gemini-api"],
+    }
