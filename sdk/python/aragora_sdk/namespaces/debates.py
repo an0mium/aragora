@@ -774,6 +774,42 @@ class DebatesAPI:
             json={"agent": agent, "weight": weight},
         )
 
+    def run(
+        self,
+        task: str,
+        agents: _List[str] | None = None,
+        timeout: float = 300,
+        poll_interval: float = 2.0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Create a debate and wait for it to complete.
+
+        Convenience method that calls ``create()`` then polls ``get()``
+        until the debate reaches a terminal state.
+
+        Args:
+            task: The topic or question to debate
+            agents: List of agent names to participate
+            timeout: Maximum seconds to wait
+            poll_interval: Seconds between status polls
+            **kwargs: Additional debate options
+
+        Returns:
+            The completed debate record
+        """
+        import time
+
+        result = self.create(task=task, agents=agents, **kwargs)
+        debate_id = result.get("debate_id") or result.get("id", "")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            debate = self.get(debate_id)
+            status = debate.get("status", "")
+            if status in ("completed", "failed", "cancelled"):
+                return debate
+            time.sleep(poll_interval)
+        return self.get(debate_id)
+
 
 class AsyncDebatesAPI:
     """
@@ -1512,3 +1548,40 @@ class AsyncDebatesAPI:
             f"/api/v1/debates/{debate_id}/intervention/weights",
             json={"agent": agent, "weight": weight},
         )
+
+    async def run(
+        self,
+        task: str,
+        agents: _List[str] | None = None,
+        timeout: float = 300,
+        poll_interval: float = 2.0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Create a debate and wait for it to complete.
+
+        Async convenience method that calls ``create()`` then polls ``get()``
+        until the debate reaches a terminal state.
+
+        Args:
+            task: The topic or question to debate
+            agents: List of agent names to participate
+            timeout: Maximum seconds to wait
+            poll_interval: Seconds between status polls
+            **kwargs: Additional debate options
+
+        Returns:
+            The completed debate record
+        """
+        import asyncio
+
+        result = await self.create(task=task, agents=agents, **kwargs)
+        debate_id = result.get("debate_id") or result.get("id", "")
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + timeout
+        while loop.time() < deadline:
+            debate = await self.get(debate_id)
+            status = debate.get("status", "")
+            if status in ("completed", "failed", "cancelled"):
+                return debate
+            await asyncio.sleep(poll_interval)
+        return await self.get(debate_id)

@@ -185,6 +185,8 @@ _EXPORT_MAP = {
     "DebateTracer": ("aragora.debate.traces", "DebateTracer"),
     "DebuggerMode": ("aragora.modes", "DebuggerMode"),
     "DecisionMemo": ("aragora.pipeline", "DecisionMemo"),
+    "DecisionReceipt": ("aragora.receipts", "DecisionReceipt"),
+    "LegacyDecisionReceipt": ("aragora.receipts", "LegacyDecisionReceipt"),
     "DeepAuditConfig": ("aragora.modes", "DeepAuditConfig"),
     "DeepAuditOrchestrator": ("aragora.modes", "DeepAuditOrchestrator"),
     "DeepAuditVerdict": ("aragora.modes", "DeepAuditVerdict"),
@@ -734,6 +736,8 @@ __all__ = [
     # Pipeline
     "PRGenerator",
     "DecisionMemo",
+    "DecisionReceipt",
+    "LegacyDecisionReceipt",
     "PatchPlan",
     "RiskRegister",
     "Risk",

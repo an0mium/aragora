@@ -77,8 +77,9 @@ class DecisionPlanFactory:
             A fully populated DecisionPlan ready for approval/execution.
         """
         merged_metadata: dict[str, Any] = {}
-        if isinstance(result.metadata, dict):
-            merged_metadata.update(result.metadata)
+        result_metadata = getattr(result, "metadata", None)
+        if isinstance(result_metadata, dict):
+            merged_metadata.update(result_metadata)
         if isinstance(metadata, dict):
             merged_metadata.update(metadata)
 

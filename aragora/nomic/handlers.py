@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Any, Optional
 from collections.abc import Callable, Coroutine
 
+from aragora.nomic.sica_settings import load_sica_settings
+
 from .events import Event
 from .recovery import RecoveryManager, recovery_handler as core_recovery_handler
 from .states import NomicState, StateContext
@@ -68,7 +70,8 @@ async def _run_sica_cycle(
     log_fn: Callable[[str], None],
 ) -> dict[str, Any]:
     """Run the SICA improvement cycle if enabled via env."""
-    if os.environ.get("NOMIC_SICA_ENABLED", "0") != "1":
+    settings = load_sica_settings()
+    if not settings.enabled:
         return {"status": "disabled"}
 
     try:
@@ -81,14 +84,7 @@ async def _run_sica_cycle(
         log_fn(f"[sica] Unavailable: {exc}")
         return {"status": "unavailable", "error": str(exc)}
 
-    raw_types = [
-        t.strip()
-        for t in os.environ.get(
-            "NOMIC_SICA_IMPROVEMENT_TYPES",
-            "reliability,testability,readability",
-        ).split(",")
-        if t.strip()
-    ]
+    raw_types = [t.strip() for t in settings.improvement_types_csv.split(",") if t.strip()]
     improvement_types: list[ImprovementType] = []
     for raw in raw_types:
         try:
@@ -96,22 +92,7 @@ async def _run_sica_cycle(
         except Exception:
             log_fn(f"[sica] Unknown improvement type '{raw}', skipping")
 
-    generator_model = os.environ.get("NOMIC_SICA_GENERATOR_MODEL", "codex")
-    require_approval = os.environ.get("NOMIC_SICA_REQUIRE_APPROVAL", "1") == "1"
-    run_tests = os.environ.get("NOMIC_SICA_RUN_TESTS", "1") == "1"
-    run_typecheck = os.environ.get("NOMIC_SICA_RUN_TYPECHECK", "1") == "1"
-    run_lint = os.environ.get("NOMIC_SICA_RUN_LINT", "1") == "1"
-
-    test_command = os.environ.get("NOMIC_SICA_TEST_COMMAND", "pytest")
-    typecheck_command = os.environ.get("NOMIC_SICA_TYPECHECK_COMMAND", "mypy")
-    lint_command = os.environ.get("NOMIC_SICA_LINT_COMMAND", "ruff check")
-    validation_timeout = float(
-        os.environ.get("NOMIC_SICA_VALIDATION_TIMEOUT", "300")
-    )
-    max_opportunities = int(os.environ.get("NOMIC_SICA_MAX_OPPORTUNITIES", "5"))
-    max_rollbacks = int(os.environ.get("NOMIC_SICA_MAX_ROLLBACKS", "3"))
-
-    agent = _select_sica_agent(agents, generator_model)
+    agent = _select_sica_agent(agents, settings.generator_model)
 
     async def query_fn(model: str, prompt: str, max_tokens: int) -> str:
         if not agent:
@@ -120,20 +101,20 @@ async def _run_sica_cycle(
 
     config = SICAConfig(
         improvement_types=improvement_types or None,
-        generator_model=generator_model,
-        require_human_approval=require_approval,
-        run_tests=run_tests,
-        run_typecheck=run_typecheck,
-        run_lint=run_lint,
-        test_command=test_command,
-        typecheck_command=typecheck_command,
-        lint_command=lint_command,
-        validation_timeout_seconds=validation_timeout,
-        max_opportunities_per_cycle=max_opportunities,
-        max_rollbacks_per_cycle=max_rollbacks,
+        generator_model=settings.generator_model,
+        require_human_approval=settings.require_approval,
+        run_tests=settings.run_tests,
+        run_typecheck=settings.run_typecheck,
+        run_lint=settings.run_lint,
+        test_command=settings.test_command,
+        typecheck_command=settings.typecheck_command,
+        lint_command=settings.lint_command,
+        validation_timeout_seconds=settings.validation_timeout,
+        max_opportunities_per_cycle=settings.max_opportunities,
+        max_rollbacks_per_cycle=settings.max_rollbacks,
     )
 
-    if require_approval:
+    if settings.require_approval:
 
         async def approve(patch):
             if not sys.stdin.isatty():
@@ -446,7 +427,7 @@ async def verify_handler(
         if sica_agents is None:
             sica_agents = []
 
-        if os.environ.get("NOMIC_SICA_ENABLED", "0") == "1":
+        if load_sica_settings().enabled:
             sica_result = await _run_sica_cycle(repo_path, sica_agents, logger.info)
 
             if sica_result.get("status") == "success":
@@ -500,7 +481,7 @@ async def recovery_state_handler(
     sica_result: dict[str, Any] | None = None
     if (
         failed_state in (NomicState.IMPLEMENT, NomicState.VERIFY)
-        and os.environ.get("NOMIC_SICA_ENABLED", "0") == "1"
+        and load_sica_settings().enabled
     ):
         sica_result = await _run_sica_cycle(repo_path, sica_agents, logger.info)
         if sica_result.get("status") == "success":

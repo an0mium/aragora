@@ -202,6 +202,18 @@ from .hierarchy import (
     set_hierarchy_registry,
 )
 
+# Resource Ownership (implicit owner permissions)
+from .ownership import (
+    OwnershipRecord,
+    OwnershipManager,
+    get_ownership_manager,
+    set_ownership_manager,
+    set_resource_owner,
+    get_resource_owner,
+    is_resource_owner,
+    check_owner_permission,
+)
+
 __all__ = [
     # Legacy Types (backward compatible)
     "ResourceType",
@@ -336,4 +348,13 @@ __all__ = [
     "HierarchyRegistry",
     "get_hierarchy_registry",
     "set_hierarchy_registry",
+    # Resource Ownership (Implicit Owner Permissions)
+    "OwnershipRecord",
+    "OwnershipManager",
+    "get_ownership_manager",
+    "set_ownership_manager",
+    "set_resource_owner",
+    "get_resource_owner",
+    "is_resource_owner",
+    "check_owner_permission",
 ]

@@ -303,15 +303,23 @@ class ApprovalRequired(Exception):
 
     def __init__(
         self,
-        gate_type: GateType,
+        gate_type: GateType | str,
         message: str,
         artifact: str | None = None,
         recoverable: bool = True,
     ):
-        self.gate_type = gate_type
+        if isinstance(gate_type, GateType):
+            normalized_gate_type = gate_type
+        else:
+            try:
+                normalized_gate_type = GateType(gate_type)
+            except Exception:
+                normalized_gate_type = GateType.COMMIT
+
+        self.gate_type = normalized_gate_type
         self.artifact = artifact
         self.recoverable = recoverable
-        super().__init__(f"[{gate_type.value}] Approval required: {message}")
+        super().__init__(f"[{normalized_gate_type.value}] Approval required: {message}")
 
 
 class ApprovalGate(ABC):

@@ -114,6 +114,7 @@ class ScopeLimiter:
         """
         evaluation = ScopeEvaluation()
         design_lower = design.lower()
+        protected_violation = False
 
         # Calculate complexity score from patterns
         complexity = 0.0
@@ -130,34 +131,52 @@ class ScopeLimiter:
 
         # Count affected files
         file_matches = re.findall(
-            r'(?:create|modify|update|change|edit|add\s+to)\s+[`"]?([a-zA-Z0-9_/]+\.py)[`"]?',
+            r'(?:create|modify|update|change|edit|add\s+to)\s+[`"]?([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)[`"]?',
             design,
             re.IGNORECASE,
         )
         # Also check for file paths mentioned
-        file_paths = re.findall(r"[a-zA-Z_][a-zA-Z0-9_/]+\.py", design)
+        file_paths = re.findall(r"[a-zA-Z_][a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+", design)
         all_files = set(file_matches + file_paths)
         evaluation.file_count = len(all_files)
 
         # Check for protected files
         for f in all_files:
             for protected in self.protected_files:
-                if protected in f:
+                if protected.lower() in f.lower():
                     evaluation.risk_factors.append(
                         f"Attempts to modify protected file: {protected}"
                     )
                     evaluation.is_implementable = False
+                    protected_violation = True
+
+        # Also detect protected references in free-form text (e.g., ".env", "CLAUDE.md")
+        for protected in self.protected_files:
+            if protected.lower() in design_lower and not any(
+                protected.lower() in risk.lower() for risk in evaluation.risk_factors
+            ):
+                evaluation.risk_factors.append(
+                    f"Attempts to modify protected file: {protected}"
+                )
+                evaluation.is_implementable = False
+                protected_violation = True
 
         # Determine implementability
-        if evaluation.complexity_score > self.max_complexity:
+        if protected_violation:
+            evaluation.is_implementable = False
+            evaluation.reason = "Design attempts to modify protected files"
+        elif evaluation.complexity_score > self.max_complexity:
             evaluation.is_implementable = False
             evaluation.reason = f"Complexity score {evaluation.complexity_score:.2f} exceeds limit {self.max_complexity}"
             evaluation.suggested_simplifications = self._suggest_simplifications(design, evaluation)
         elif evaluation.file_count > self.max_files:
             evaluation.is_implementable = False
             evaluation.reason = f"Affects {evaluation.file_count} files, limit is {self.max_files}"
+            split_hint = "Break into smaller changes"
+            if self.max_files > 0:
+                split_hint = f"Break into {evaluation.file_count // self.max_files + 1} smaller changes"
             evaluation.suggested_simplifications = [
-                f"Break into {evaluation.file_count // self.max_files + 1} smaller changes",
+                split_hint,
                 "Focus on one module/component per cycle",
                 "Defer tests/documentation to follow-up cycle",
             ]

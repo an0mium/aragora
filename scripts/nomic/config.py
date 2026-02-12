@@ -11,6 +11,8 @@ Environment variables for CI/automation support:
 import os
 from pathlib import Path
 
+from aragora.nomic.sica_settings import load_sica_settings
+
 
 # =============================================================================
 # AUTOMATION FLAGS - Environment variables for CI/automation support
@@ -150,34 +152,20 @@ NOMIC_TESTFIXER_CRITIQUE_TIMEOUT = float(os.environ.get("NOMIC_TESTFIXER_CRITIQU
 # SICA FLAGS - Self-Improving Code Assistant integration
 # =============================================================================
 
-# Enable SICA integration in the nomic loop (default OFF)
-NOMIC_SICA_ENABLED = os.environ.get("NOMIC_SICA_ENABLED", "0") == "1"
-
-# Improvement types to target (comma-separated)
-NOMIC_SICA_IMPROVEMENT_TYPES = os.environ.get(
-    "NOMIC_SICA_IMPROVEMENT_TYPES",
-    "reliability,testability,readability",
-)
-
-# SICA generator model (agent type identifier)
-NOMIC_SICA_GENERATOR_MODEL = os.environ.get("NOMIC_SICA_GENERATOR_MODEL", "codex")
-
-# Require human approval for patches
-NOMIC_SICA_REQUIRE_APPROVAL = os.environ.get("NOMIC_SICA_REQUIRE_APPROVAL", "1") == "1"
-
-# Validation controls
-NOMIC_SICA_RUN_TESTS = os.environ.get("NOMIC_SICA_RUN_TESTS", "1") == "1"
-NOMIC_SICA_RUN_TYPECHECK = os.environ.get("NOMIC_SICA_RUN_TYPECHECK", "1") == "1"
-NOMIC_SICA_RUN_LINT = os.environ.get("NOMIC_SICA_RUN_LINT", "1") == "1"
-
-NOMIC_SICA_TEST_COMMAND = os.environ.get("NOMIC_SICA_TEST_COMMAND", "pytest")
-NOMIC_SICA_TYPECHECK_COMMAND = os.environ.get("NOMIC_SICA_TYPECHECK_COMMAND", "mypy")
-NOMIC_SICA_LINT_COMMAND = os.environ.get("NOMIC_SICA_LINT_COMMAND", "ruff check")
-NOMIC_SICA_VALIDATION_TIMEOUT = float(os.environ.get("NOMIC_SICA_VALIDATION_TIMEOUT", "300"))
-
-# Limits
-NOMIC_SICA_MAX_OPPORTUNITIES = int(os.environ.get("NOMIC_SICA_MAX_OPPORTUNITIES", "5"))
-NOMIC_SICA_MAX_ROLLBACKS = int(os.environ.get("NOMIC_SICA_MAX_ROLLBACKS", "3"))
+_SICA_SETTINGS = load_sica_settings()
+NOMIC_SICA_ENABLED = _SICA_SETTINGS.enabled
+NOMIC_SICA_IMPROVEMENT_TYPES = _SICA_SETTINGS.improvement_types_csv
+NOMIC_SICA_GENERATOR_MODEL = _SICA_SETTINGS.generator_model
+NOMIC_SICA_REQUIRE_APPROVAL = _SICA_SETTINGS.require_approval
+NOMIC_SICA_RUN_TESTS = _SICA_SETTINGS.run_tests
+NOMIC_SICA_RUN_TYPECHECK = _SICA_SETTINGS.run_typecheck
+NOMIC_SICA_RUN_LINT = _SICA_SETTINGS.run_lint
+NOMIC_SICA_TEST_COMMAND = _SICA_SETTINGS.test_command
+NOMIC_SICA_TYPECHECK_COMMAND = _SICA_SETTINGS.typecheck_command
+NOMIC_SICA_LINT_COMMAND = _SICA_SETTINGS.lint_command
+NOMIC_SICA_VALIDATION_TIMEOUT = _SICA_SETTINGS.validation_timeout
+NOMIC_SICA_MAX_OPPORTUNITIES = _SICA_SETTINGS.max_opportunities
+NOMIC_SICA_MAX_ROLLBACKS = _SICA_SETTINGS.max_rollbacks
 
 # Default backup directory name
 DEFAULT_BACKUP_DIR = ".nomic_backups"

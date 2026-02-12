@@ -201,7 +201,7 @@ def _safe_write_text(path: Path, content: str) -> None:
 
 
 def _safe_write_json(path: Path, payload: dict[str, Any]) -> None:
-    _safe_write_text(path, json.dumps(payload, indent=2, ensure_ascii=False))
+    _safe_write_text(path, json.dumps(payload, indent=2, ensure_ascii=False, default=str))
 
 
 def _run_command(command: list[str], cwd: Path | None = None) -> str | None:

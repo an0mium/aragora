@@ -671,6 +671,7 @@ async def run_debate(
 
     # Assign default roles based on position if not explicitly specified
     agents = []
+    failed_agents: list[str] = []
     for i, spec in enumerate(agent_specs):
         role = spec.role
         # If role is None (not explicitly specified), assign based on position
@@ -683,12 +684,16 @@ async def run_debate(
             else:
                 role = "critic"
 
-        agent = create_agent(
-            model_type=cast(AgentType, spec.provider),
-            name=spec.name or f"{spec.provider}_{role}",
-            role=role,
-            model=spec.model,  # Pass model from spec
-        )
+        try:
+            agent = create_agent(
+                model_type=cast(AgentType, spec.provider),
+                name=spec.name or f"{spec.provider}_{role}",
+                role=role,
+                model=spec.model,  # Pass model from spec
+            )
+        except (ValueError, ImportError, RuntimeError) as e:
+            failed_agents.append(f"{spec.provider} ({e})")
+            continue
 
         # Apply persona as system prompt if specified
         if spec.persona:
@@ -726,6 +731,26 @@ async def run_debate(
         if mode_system_prompt:
             agent.system_prompt = mode_system_prompt
         agents.append(agent)
+
+    if failed_agents:
+        print(
+            f"Warning: {len(failed_agents)} agent(s) unavailable:",
+            file=sys.stderr,
+        )
+        for fa in failed_agents:
+            print(f"  - {fa}", file=sys.stderr)
+    if not agents:
+        print(
+            "Error: No agents available. Set at least one API key.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    if len(agents) < 2:
+        print(
+            f"Warning: Only {len(agents)} agent available. "
+            "Multi-agent debate requires 2+ agents for meaningful consensus.",
+            file=sys.stderr,
+        )
 
     agents = _maybe_add_vertical_specialist_local(
         task=task,

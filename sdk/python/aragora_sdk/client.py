@@ -39,11 +39,12 @@ class AragoraClient:
 
     def __init__(
         self,
-        base_url: str,
+        base_url: str = "http://localhost:8080",
         api_key: str | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        demo: bool = False,
     ):
         """
         Initialize the Aragora client.
@@ -54,17 +55,23 @@ class AragoraClient:
             timeout: Request timeout in seconds (default: 30)
             max_retries: Maximum number of retries for failed requests (default: 3)
             retry_delay: Base delay between retries in seconds (default: 1.0)
+            demo: If True, return mock responses without connecting to a server.
+                  No API keys or running server required.
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.demo = demo
 
-        self._client = httpx.Client(
-            timeout=timeout,
-            headers=self._build_headers(),
-        )
+        if not demo:
+            self._client = httpx.Client(
+                timeout=timeout,
+                headers=self._build_headers(),
+            )
+        else:
+            self._client = None  # type: ignore[assignment]
 
         # Initialize namespace APIs
         self._init_namespaces()
@@ -78,6 +85,7 @@ class AragoraClient:
         timeout: float | None = None,
         max_retries: int | None = None,
         retry_delay: float | None = None,
+        demo: bool | None = None,
     ) -> AragoraClient:
         """
         Create a client configured from environment variables.
@@ -88,19 +96,34 @@ class AragoraClient:
             ARAGORA_TIMEOUT: Request timeout in seconds (default: 30)
             ARAGORA_MAX_RETRIES: Max retries (default: 3)
             ARAGORA_RETRY_DELAY: Base retry delay in seconds (default: 1.0)
+            ARAGORA_DEMO: Set to "1" or "true" for demo mode (no server required)
 
         Explicit keyword arguments override environment variables.
 
         Example:
             >>> client = AragoraClient.from_env()
-            >>> client = AragoraClient.from_env(timeout=60.0)
+            >>> client = AragoraClient.from_env(demo=True)
         """
+        if demo is None:
+            demo = os.environ.get("ARAGORA_DEMO", "").lower() in ("1", "true", "yes")
         return cls(
             base_url=base_url or os.environ.get("ARAGORA_API_URL", "http://localhost:8080"),
             api_key=api_key or os.environ.get("ARAGORA_API_KEY"),
             timeout=timeout if timeout is not None else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
             max_retries=max_retries if max_retries is not None else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
             retry_delay=retry_delay if retry_delay is not None else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
+            demo=demo,
+        )
+
+    @property
+    def namespaces(self) -> list[str]:
+        """List available API namespace names."""
+        return sorted(
+            name for name in dir(self)
+            if not name.startswith("_")
+            and name not in ("base_url", "api_key", "timeout", "max_retries", "retry_delay",
+                             "demo", "close", "request", "namespaces")
+            and hasattr(getattr(self, name, None), "_client")
         )
 
     def _build_headers(self) -> dict[str, str]:
@@ -383,6 +406,8 @@ class AragoraClient:
         """
         Make an HTTP request to the Aragora API.
 
+        In demo mode, returns mock data without making network calls.
+
         Args:
             method: HTTP method (GET, POST, PUT, DELETE, etc.)
             path: API path (e.g., "/api/v1/debates")
@@ -396,6 +421,11 @@ class AragoraClient:
         Raises:
             AragoraError: For API errors
         """
+        if self.demo:
+            from .demo import demo_request
+
+            return demo_request(method, path, params=params, json=json, headers=headers)
+
         url = urljoin(self.base_url, path)
         request_headers = {**self._build_headers(), **(headers or {})}
 
@@ -522,7 +552,8 @@ class AragoraClient:
 
     def close(self) -> None:
         """Close the HTTP client."""
-        self._client.close()
+        if self._client is not None:
+            self._client.close()
 
     def __enter__(self) -> AragoraClient:
         return self
@@ -543,12 +574,13 @@ class AragoraAsyncClient:
 
     def __init__(
         self,
-        base_url: str,
+        base_url: str = "http://localhost:8080",
         api_key: str | None = None,
         ws_url: str | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        demo: bool = False,
     ):
         """
         Initialize the async Aragora client.
@@ -560,6 +592,7 @@ class AragoraAsyncClient:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries
             retry_delay: Base delay between retries
+            demo: If True, return mock responses without connecting to a server.
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
@@ -567,11 +600,15 @@ class AragoraAsyncClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.demo = demo
 
-        self._client = httpx.AsyncClient(
-            timeout=timeout,
-            headers=self._build_headers(),
-        )
+        if not demo:
+            self._client = httpx.AsyncClient(
+                timeout=timeout,
+                headers=self._build_headers(),
+            )
+        else:
+            self._client = None  # type: ignore[assignment]
 
         # WebSocket client (created lazily)
         self._stream: AragoraWebSocket | None = None
@@ -589,6 +626,7 @@ class AragoraAsyncClient:
         timeout: float | None = None,
         max_retries: int | None = None,
         retry_delay: float | None = None,
+        demo: bool | None = None,
     ) -> AragoraAsyncClient:
         """
         Create an async client configured from environment variables.
@@ -600,13 +638,16 @@ class AragoraAsyncClient:
             ARAGORA_TIMEOUT: Request timeout in seconds (default: 30)
             ARAGORA_MAX_RETRIES: Max retries (default: 3)
             ARAGORA_RETRY_DELAY: Base retry delay in seconds (default: 1.0)
+            ARAGORA_DEMO: Set to "1" or "true" for demo mode
 
         Explicit keyword arguments override environment variables.
 
         Example:
-            >>> async with AragoraAsyncClient.from_env() as client:
+            >>> async with AragoraAsyncClient.from_env(demo=True) as client:
             ...     debate = await client.debates.create(task="Evaluate options")
         """
+        if demo is None:
+            demo = os.environ.get("ARAGORA_DEMO", "").lower() in ("1", "true", "yes")
         return cls(
             base_url=base_url or os.environ.get("ARAGORA_API_URL", "http://localhost:8080"),
             api_key=api_key or os.environ.get("ARAGORA_API_KEY"),
@@ -614,6 +655,7 @@ class AragoraAsyncClient:
             timeout=timeout if timeout is not None else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
             max_retries=max_retries if max_retries is not None else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
             retry_delay=retry_delay if retry_delay is not None else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
+            demo=demo,
         )
 
     def _build_headers(self) -> dict[str, str]:
@@ -896,6 +938,8 @@ class AragoraAsyncClient:
         """
         Make an async HTTP request to the Aragora API.
 
+        In demo mode, returns mock data without making network calls.
+
         Args:
             method: HTTP method
             path: API path
@@ -906,6 +950,11 @@ class AragoraAsyncClient:
         Returns:
             Parsed JSON response as a dictionary.
         """
+        if self.demo:
+            from .demo import demo_request
+
+            return demo_request(method, path, params=params, json=json, headers=headers)
+
         import asyncio
 
         url = urljoin(self.base_url, path)
@@ -1049,7 +1098,8 @@ class AragoraAsyncClient:
         if self._stream is not None:
             await self._stream.close()
             self._stream = None
-        await self._client.aclose()
+        if self._client is not None:
+            await self._client.aclose()
 
     async def __aenter__(self) -> AragoraAsyncClient:
         return self

@@ -19,6 +19,7 @@ import json
 import tempfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch
 
 import pytest
@@ -89,9 +90,17 @@ def mock_http_handler():
         roles={"owner", "admin"},
         permissions={
             "admin:debug", "admin:maintenance", "admin:write",
+            "admin:security", "admin:system",
+            "admin.debug", "admin.maintenance", "admin.write",
+            "admin.security", "admin.system",
             "monitoring:metrics", "monitoring:resilience",
-            "docs:read", "nomic:read", "nomic:admin",
-            "health:read", "system:read", "auth:read", "auth:write",
+            "monitoring.metrics", "monitoring.resilience",
+            "docs:read", "docs.read",
+            "nomic:read", "nomic:admin", "nomic.read", "nomic.admin",
+            "health:read", "health.read",
+            "system:read", "system.read",
+            "auth:read", "auth:write", "auth.read", "auth.write",
+            "introspection:export_history", "history:read",
         },
     )
     return handler
@@ -197,8 +206,8 @@ class TestKubernetesProbes:
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["status"] == "ready"
-        assert body["checks"]["storage"] is True
-        assert body["checks"]["elo_system"] is True
+        assert body["checks"]["storage_initialized"] is True
+        assert body["checks"]["elo_initialized"] is True
 
     def test_readiness_probe_with_no_storage(
         self, mock_elo_system, temp_nomic_dir, mock_http_handler
@@ -243,7 +252,7 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = _run(handler.handle("/api/health", {}, mock_http_handler))
+        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -266,7 +275,7 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = _run(handler.handle("/api/health", {}, mock_http_handler))
+        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         body = json.loads(result.body)
         assert "database" in body["checks"]
@@ -283,7 +292,13 @@ class TestHealthEndpoints:
         }
         handler = HealthHandler(ctx)
 
-        result = _run(handler.handle("/api/health/detailed", {}, mock_http_handler))
+        # Patch auth for protected health endpoints
+        async def mock_auth_ctx(req, require_auth=True):
+            return mock_http_handler._auth_context
+
+        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
+             patch.object(handler, "check_permission", return_value=None):
+            result = _run(handler.handle("/api/v1/health/detailed", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -305,7 +320,12 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = _run(handler.handle("/api/health/deep", {}, mock_http_handler))
+        async def mock_auth_ctx(req, require_auth=True):
+            return mock_http_handler._auth_context
+
+        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
+             patch.object(handler, "check_permission", return_value=None):
+            result = _run(handler.handle("/api/v1/health/deep", {}, mock_http_handler))
 
         assert result is not None
         # Deep health can return 200 or 503 depending on env
@@ -454,7 +474,7 @@ class TestHistoryEndpoints:
     def test_get_history_cycles(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that /api/history/cycles returns cycle history."""
         # Disable auth for this test
-        with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+        with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
             mock_user = Mock()
             mock_user.is_authenticated = True
             mock_auth.return_value = mock_user
@@ -474,7 +494,7 @@ class TestHistoryEndpoints:
         self, temp_nomic_dir_with_files, mock_http_handler
     ):
         """Test that /api/history/cycles filters by loop_id."""
-        with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+        with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
             mock_user = Mock()
             mock_user.is_authenticated = True
             mock_auth.return_value = mock_user
@@ -491,7 +511,7 @@ class TestHistoryEndpoints:
 
     def test_get_history_events(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that /api/history/events returns event history."""
-        with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+        with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
             mock_user = Mock()
             mock_user.is_authenticated = True
             mock_auth.return_value = mock_user
@@ -510,15 +530,15 @@ class TestHistoryEndpoints:
         self, mock_storage, mock_elo_system, temp_nomic_dir_with_files, mock_http_handler
     ):
         """Test that /api/history/debates returns debate history."""
-        with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+        with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
             mock_user = Mock()
             mock_user.is_authenticated = True
             mock_auth.return_value = mock_user
 
-            # Ensure list_recent returns a sliceable list
+            # list_recent returns objects with __dict__ (handler uses vars())
             mock_storage.list_recent.return_value = [
-                {"id": "d1", "task": "Test debate"},
-                {"id": "d2", "task": "Another debate"},
+                SimpleNamespace(id="d1", task="Test debate"),
+                SimpleNamespace(id="d2", task="Another debate"),
             ]
 
             ctx = {
@@ -539,7 +559,7 @@ class TestHistoryEndpoints:
         self, mock_storage, mock_elo_system, temp_nomic_dir_with_files, mock_http_handler
     ):
         """Test that /api/history/summary returns summary stats."""
-        with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+        with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
             mock_user = Mock()
             mock_user.is_authenticated = True
             mock_auth.return_value = mock_user
@@ -568,7 +588,7 @@ class TestHistoryEndpoints:
             mock_config.api_token = "secret"
             mock_config.validate_token.return_value = False
 
-            with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+            with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
                 mock_user = Mock()
                 mock_user.is_authenticated = False
                 mock_auth.return_value = mock_user
@@ -706,7 +726,7 @@ class TestOpenAPI:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = _run(handler.handle("/api/openapi", {}, mock_http_handler))
+            result = _run(handler.handle("/api/v1/openapi", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -720,7 +740,7 @@ class TestOpenAPI:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = _run(handler.handle("/api/openapi.yaml", {}, mock_http_handler))
+            result = _run(handler.handle("/api/v1/openapi.yaml", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -731,7 +751,7 @@ class TestOpenAPI:
         ctx = {}
         handler = DocsHandler(ctx)
 
-        result = _run(handler.handle("/api/docs", {}, mock_http_handler))
+        result = _run(handler.handle("/api/v1/docs", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -1253,7 +1273,7 @@ class TestValidation:
 
     def test_invalid_loop_id_format_cycles(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that invalid loop_id format is rejected for cycles."""
-        with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+        with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
             mock_user = Mock()
             mock_user.is_authenticated = True
             mock_auth.return_value = mock_user
@@ -1273,7 +1293,7 @@ class TestValidation:
 
     def test_invalid_loop_id_format_events(self, temp_nomic_dir_with_files, mock_http_handler):
         """Test that invalid loop_id format is rejected for events."""
-        with patch("aragora.server.handlers.system.extract_user_from_request") as mock_auth:
+        with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
             mock_user = Mock()
             mock_user.is_authenticated = True
             mock_auth.return_value = mock_user
@@ -1322,10 +1342,10 @@ class TestValidation:
 class TestHealthDegradation:
     """Tests for health status degradation scenarios (HealthHandler)."""
 
-    def test_health_degraded_when_storage_fails(
+    def test_health_warning_when_storage_fails(
         self, mock_elo_system, temp_nomic_dir, mock_http_handler
     ):
-        """Test health is degraded when storage query fails."""
+        """Test health includes warning when storage query fails (non-critical)."""
         mock_storage = Mock()
         mock_storage.list_recent.side_effect = RuntimeError("Database connection lost")
 
@@ -1337,12 +1357,14 @@ class TestHealthDegradation:
         handler = HealthHandler(ctx)
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = _run(handler.handle("/api/health", {}, mock_http_handler))
+        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
-        assert result.status_code == 503
+        # Database errors are non-critical - health remains healthy with warning
+        assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["status"] == "degraded"
+        assert body["status"] == "healthy"
+        assert "warning" in body["checks"]["database"]
 
     def test_health_warning_when_elo_fails(self, mock_storage, temp_nomic_dir, mock_http_handler):
         """Test health includes warning when ELO query fails (ELO is non-critical)."""
@@ -1357,7 +1379,7 @@ class TestHealthDegradation:
         handler = HealthHandler(ctx)
         mock_storage.list_recent.return_value = []
 
-        result = _run(handler.handle("/api/health", {}, mock_http_handler))
+        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
         # ELO is non-critical, so health remains healthy with warning
@@ -1450,7 +1472,7 @@ class TestOpenAPIEdgeCases:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = _run(handler.handle("/api/openapi.json", {}, mock_http_handler))
+            result = _run(handler.handle("/api/v1/openapi.json", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 200
@@ -1462,7 +1484,7 @@ class TestOpenAPIEdgeCases:
             ctx = {}
             handler = DocsHandler(ctx)
 
-            result = _run(handler.handle("/api/openapi", {}, mock_http_handler))
+            result = _run(handler.handle("/api/v1/openapi", {}, mock_http_handler))
 
             assert result is not None
             assert result.status_code == 503
@@ -1472,7 +1494,7 @@ class TestOpenAPIEdgeCases:
         ctx = {}
         handler = DocsHandler(ctx)
 
-        result = _run(handler.handle("/api/docs/", {}, mock_http_handler))
+        result = _run(handler.handle("/api/v1/docs/", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200

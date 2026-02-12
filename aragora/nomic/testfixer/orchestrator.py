@@ -14,6 +14,7 @@ Continues until tests pass or maximum iterations reached.
 from __future__ import annotations
 
 import json
+import inspect
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -39,6 +40,7 @@ from aragora.nomic.testfixer.proposer import (
     CodeGenerator,
 )
 from aragora.nomic.testfixer.store import TestFixerAttemptStore
+from aragora.events.types import StreamEvent, StreamEventType
 
 
 logger = logging.getLogger(__name__)
@@ -198,6 +200,7 @@ class TestFixerOrchestrator:
         config: FixLoopConfig | None = None,
         generators: list[CodeGenerator] | None = None,
         test_timeout: float = 300.0,
+        event_emitter: Callable[[StreamEvent], Any] | None = None,
     ):
         """Initialize the orchestrator.
 
@@ -207,11 +210,13 @@ class TestFixerOrchestrator:
             config: Loop configuration
             generators: AI code generators for proposals
             test_timeout: Timeout for test execution
+            event_emitter: Optional callback for StreamEvent notifications
         """
         self.repo_path = Path(repo_path)
         self.test_command = test_command
         self.config = config or FixLoopConfig()
         self.run_id = self.config.run_id or uuid.uuid4().hex
+        self._event_emitter = event_emitter
 
         # Initialize components
         self.runner = TestRunner(
@@ -279,6 +284,25 @@ class TestFixerOrchestrator:
         # State
         self._failure_history: list[str] = []  # Track failure patterns to detect loops
         self._applied_patches: list[tuple[PatchProposal, Path]] = []
+
+    async def _emit_event(self, event_type: StreamEventType, data: dict[str, Any]) -> None:
+        """Emit TestFixer event if emitter is configured."""
+        if not self._event_emitter:
+            return
+        payload = dict(data)
+        payload.setdefault("run_id", self.run_id)
+        payload.setdefault("timestamp", datetime.now().isoformat())
+        event = StreamEvent(
+            type=event_type,
+            data=payload,
+            loop_id=self.run_id,
+        )
+        try:
+            maybe_awaitable = self._event_emitter(event)
+            if inspect.isawaitable(maybe_awaitable):
+                await maybe_awaitable
+        except Exception as exc:
+            logger.warning("testfixer.event_emit_failed run_id=%s error=%s", self.run_id, exc)
 
     async def run_fix_loop(
         self,
@@ -371,6 +395,16 @@ class TestFixerOrchestrator:
                     failure.test_name,
                     failure.test_file,
                     failure.error_type,
+                )
+                await self._emit_event(
+                    StreamEventType.TESTFIXER_FAILURE_DETECTED,
+                    {
+                        "iteration": iteration,
+                        "test_name": failure.test_name,
+                        "test_file": failure.test_file,
+                        "error_type": failure.error_type,
+                        "error_message": failure.error_message,
+                    },
                 )
 
                 # Check for stuck loop
@@ -652,6 +686,17 @@ class TestFixerOrchestrator:
             result.total_iterations,
             result.fixes_applied,
             result.fixes_successful,
+        )
+        await self._emit_event(
+            StreamEventType.TESTFIXER_LOOP_COMPLETE,
+            {
+                "status": result.status.value,
+                "total_iterations": result.total_iterations,
+                "fixes_applied": result.fixes_applied,
+                "fixes_successful": result.fixes_successful,
+                "failed_patterns": result.failed_patterns,
+                "successful_patterns": result.successful_patterns,
+            },
         )
         if self.config.attempt_store:
             self.config.attempt_store.record_run(result)

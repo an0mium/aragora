@@ -38,6 +38,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import date
@@ -97,6 +98,9 @@ class DeprecatedEndpoint:
         return "warning"
 
 
+MAX_TRACKED_ENDPOINTS = 500  # Prevent unbounded growth of per-endpoint stats
+
+
 @dataclass
 class DeprecationStats:
     """Statistics for deprecation tracking."""
@@ -111,6 +115,11 @@ class DeprecationStats:
         self.total_deprecated_calls += 1
         key = f"{method}:{path}"
         self.calls_by_endpoint[key] = self.calls_by_endpoint.get(key, 0) + 1
+        # Evict lowest-count entries if tracking too many unique endpoints
+        if len(self.calls_by_endpoint) > MAX_TRACKED_ENDPOINTS:
+            sorted_keys = sorted(self.calls_by_endpoint, key=self.calls_by_endpoint.get)  # type: ignore[arg-type]
+            for k in sorted_keys[: len(self.calls_by_endpoint) - MAX_TRACKED_ENDPOINTS]:
+                del self.calls_by_endpoint[k]
 
     def record_blocked(self) -> None:
         """Record a blocked sunset call."""
@@ -354,20 +363,25 @@ class DeprecationEnforcer:
 # ---------------------------------------------------------------------------
 
 _enforcer: DeprecationEnforcer | None = None
+_enforcer_lock = threading.Lock()
 
 
 def get_deprecation_enforcer() -> DeprecationEnforcer:
     """Get or create the global deprecation enforcer."""
     global _enforcer
-    if _enforcer is None:
-        _enforcer = DeprecationEnforcer()
-    return _enforcer
+    if _enforcer is not None:
+        return _enforcer
+    with _enforcer_lock:
+        if _enforcer is None:
+            _enforcer = DeprecationEnforcer()
+        return _enforcer
 
 
 def reset_deprecation_enforcer() -> None:
     """Reset the global deprecation enforcer (for testing)."""
     global _enforcer
-    _enforcer = None
+    with _enforcer_lock:
+        _enforcer = None
 
 
 def register_deprecated_endpoint(

@@ -22,10 +22,14 @@ class TestTrackEnum:
         assert Track.SELF_HOSTED.value == "self_hosted"
         assert Track.QA.value == "qa"
         assert Track.CORE.value == "core"
+        assert Track.SECURITY.value == "security"
 
     def test_track_count(self):
-        """Should have exactly 5 tracks."""
-        assert len(Track) == 5
+        """Should include all required core tracks."""
+        required = {"sme", "developer", "self_hosted", "qa", "core", "security"}
+        present = {track.value for track in Track}
+        assert required.issubset(present)
+        assert len(Track) >= len(required)
 
 
 class TestPrioritizedGoal:

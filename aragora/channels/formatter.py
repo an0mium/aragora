@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.export.decision_receipt import DecisionReceipt
+    from aragora.receipts import DecisionReceipt
 
 
 class ReceiptFormatter(ABC):

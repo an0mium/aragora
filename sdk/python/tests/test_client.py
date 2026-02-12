@@ -373,3 +373,168 @@ class TestAragoraAsyncClientFromEnv:
         """Async from_env() returns an AragoraAsyncClient instance."""
         client = AragoraAsyncClient.from_env()
         assert isinstance(client, AragoraAsyncClient)
+
+
+class TestDemoMode:
+    """Tests for demo mode (no server required)."""
+
+    def test_demo_mode_creates_client_without_httpx(self) -> None:
+        """Demo client initializes without creating an HTTP connection."""
+        client = AragoraClient(demo=True)
+        assert client.demo is True
+        assert client._client is None
+        client.close()  # should not raise
+
+    def test_demo_debates_create(self) -> None:
+        """Demo mode returns mock debate data."""
+        client = AragoraClient(demo=True)
+        result = client.request("POST", "/api/v1/debates", json={"task": "Test topic"})
+        assert "debate_id" in result
+        assert result["task"] == "Test topic"
+        assert result["consensus"]["reached"] is True
+        assert result["consensus"]["confidence"] > 0
+        assert len(result["messages"]) > 0
+        client.close()
+
+    def test_demo_debates_list(self) -> None:
+        """Demo mode returns a list of debates."""
+        client = AragoraClient(demo=True)
+        result = client.request("GET", "/api/v1/debates")
+        assert "debates" in result
+        assert len(result["debates"]) > 0
+        assert result["total"] > 0
+        client.close()
+
+    def test_demo_health(self) -> None:
+        """Demo mode returns health status."""
+        client = AragoraClient(demo=True)
+        result = client.request("GET", "/api/v1/health")
+        assert result["status"] == "healthy"
+        assert result["mode"] == "demo"
+        client.close()
+
+    def test_demo_agents_list(self) -> None:
+        """Demo mode returns agent list."""
+        client = AragoraClient(demo=True)
+        result = client.request("GET", "/api/v1/agents")
+        assert "agents" in result
+        assert len(result["agents"]) == 4
+        agent_names = [a["name"] for a in result["agents"]]
+        assert "claude" in agent_names
+        assert "gpt-4" in agent_names
+        client.close()
+
+    def test_demo_rankings(self) -> None:
+        """Demo mode returns rankings."""
+        client = AragoraClient(demo=True)
+        result = client.request("GET", "/api/v1/rankings")
+        assert "rankings" in result
+        assert result["rankings"][0]["rank"] == 1
+        assert result["rankings"][0]["elo"] > 0
+        client.close()
+
+    def test_demo_gauntlet(self) -> None:
+        """Demo mode returns gauntlet results with receipt."""
+        client = AragoraClient(demo=True)
+        result = client.request("POST", "/api/v1/gauntlet", json={"task": "Test"})
+        assert "gauntlet_id" in result
+        assert "findings" in result
+        assert "receipt" in result
+        assert result["receipt"]["algorithm"] == "sha256"
+        assert len(result["receipt"]["hash"]) == 64
+        client.close()
+
+    def test_demo_unknown_endpoint(self) -> None:
+        """Demo mode returns empty response for unknown endpoints."""
+        client = AragoraClient(demo=True)
+        result = client.request("GET", "/api/v1/nonexistent")
+        assert "message" in result
+        client.close()
+
+    def test_demo_from_env(self) -> None:
+        """from_env() supports ARAGORA_DEMO env var."""
+        with patch.dict(os.environ, {"ARAGORA_DEMO": "1"}):
+            client = AragoraClient.from_env()
+            assert client.demo is True
+            client.close()
+
+    def test_demo_from_env_true_string(self) -> None:
+        """from_env() accepts 'true' for ARAGORA_DEMO."""
+        with patch.dict(os.environ, {"ARAGORA_DEMO": "true"}):
+            client = AragoraClient.from_env()
+            assert client.demo is True
+            client.close()
+
+    def test_demo_from_env_kwarg_override(self) -> None:
+        """demo=True kwarg overrides ARAGORA_DEMO env var."""
+        with patch.dict(os.environ, {}, clear=True):
+            client = AragoraClient.from_env(demo=True)
+            assert client.demo is True
+            client.close()
+
+    def test_demo_context_manager(self) -> None:
+        """Demo client works as context manager."""
+        with AragoraClient(demo=True) as client:
+            result = client.request("GET", "/api/v1/health")
+            assert result["status"] == "healthy"
+
+    def test_demo_receipts(self) -> None:
+        """Demo mode returns receipts with cryptographic hashes."""
+        client = AragoraClient(demo=True)
+        result = client.request("GET", "/api/v1/receipts")
+        assert "receipts" in result
+        for receipt in result["receipts"]:
+            assert len(receipt["hash"]) == 64
+            assert receipt["algorithm"] == "sha256"
+        client.close()
+
+    def test_demo_knowledge_query(self) -> None:
+        """Demo mode returns knowledge query results."""
+        client = AragoraClient(demo=True)
+        result = client.request("POST", "/api/v1/knowledge/query", json={"query": "microservices"})
+        assert "results" in result
+        assert len(result["results"]) > 0
+        assert result["results"][0]["confidence"] > 0
+        client.close()
+
+
+class TestNamespacesProperty:
+    """Tests for the namespaces discovery property."""
+
+    def test_namespaces_returns_list(self) -> None:
+        """namespaces property returns a list of strings."""
+        client = AragoraClient(demo=True)
+        ns = client.namespaces
+        assert isinstance(ns, list)
+        assert len(ns) > 0
+        assert all(isinstance(n, str) for n in ns)
+        client.close()
+
+    def test_namespaces_contains_core(self) -> None:
+        """namespaces includes core API namespaces."""
+        client = AragoraClient(demo=True)
+        ns = client.namespaces
+        assert "debates" in ns
+        assert "agents" in ns
+        assert "health" in ns
+        assert "gauntlet" in ns
+        assert "knowledge" in ns
+        client.close()
+
+    def test_namespaces_is_sorted(self) -> None:
+        """namespaces are returned in alphabetical order."""
+        client = AragoraClient(demo=True)
+        ns = client.namespaces
+        assert ns == sorted(ns)
+        client.close()
+
+    def test_namespaces_excludes_internals(self) -> None:
+        """namespaces does not include internal attributes."""
+        client = AragoraClient(demo=True)
+        ns = client.namespaces
+        assert "base_url" not in ns
+        assert "api_key" not in ns
+        assert "demo" not in ns
+        assert "close" not in ns
+        assert "request" not in ns
+        client.close()

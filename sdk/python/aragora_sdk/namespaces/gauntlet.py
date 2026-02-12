@@ -222,6 +222,37 @@ class GauntletAPI:
             "GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export", params={"format": format}
         )
 
+    def run_and_wait(
+        self,
+        timeout: float = 300,
+        poll_interval: float = 2.0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Run a Gauntlet validation and wait for the result.
+
+        Convenience method that calls ``run()`` then polls ``get_result()``
+        until a terminal state is reached.
+
+        Args:
+            timeout: Maximum seconds to wait
+            poll_interval: Seconds between status polls
+            **kwargs: Arguments forwarded to ``run()``
+
+        Returns:
+            The completed gauntlet result
+        """
+        import time
+
+        result = self.run(**kwargs)
+        gauntlet_id = result.get("gauntlet_id") or result.get("id", "")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status = self.get_result(gauntlet_id)
+            if status.get("status") in ("completed", "failed"):
+                return status
+            time.sleep(poll_interval)
+        return self.get_result(gauntlet_id)
+
 
 class AsyncGauntletAPI:
     """
@@ -350,3 +381,35 @@ class AsyncGauntletAPI:
         return await self._client.request(
             "GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export", params={"format": format}
         )
+
+    async def run_and_wait(
+        self,
+        timeout: float = 300,
+        poll_interval: float = 2.0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Run a Gauntlet validation and wait for the result.
+
+        Async convenience method that calls ``run()`` then polls
+        ``get_result()`` until a terminal state is reached.
+
+        Args:
+            timeout: Maximum seconds to wait
+            poll_interval: Seconds between status polls
+            **kwargs: Arguments forwarded to ``run()``
+
+        Returns:
+            The completed gauntlet result
+        """
+        import asyncio
+
+        result = await self.run(**kwargs)
+        gauntlet_id = result.get("gauntlet_id") or result.get("id", "")
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + timeout
+        while loop.time() < deadline:
+            status = await self.get_result(gauntlet_id)
+            if status.get("status") in ("completed", "failed"):
+                return status
+            await asyncio.sleep(poll_interval)
+        return await self.get_result(gauntlet_id)

@@ -11,7 +11,7 @@ from typing import Any, Optional, TYPE_CHECKING
 from .formatter import ReceiptFormatter, register_formatter
 
 if TYPE_CHECKING:
-    from aragora.export.decision_receipt import DecisionReceipt
+    from aragora.receipts import DecisionReceipt
 
 
 @register_formatter

@@ -174,6 +174,18 @@ from .stability import (
 # Re-export centralized timeout configuration
 from .timeouts import Timeouts
 
+# Re-export feature flag registry
+from .feature_flags import (
+    FeatureFlagRegistry,
+    FlagCategory,
+    FlagDefinition,
+    FlagStatus,
+    get_flag_registry,
+    reset_flag_registry,
+    is_enabled,
+    get_flag,
+)
+
 # Re-export performance SLO configuration
 # Performance SLOs are lazily imported via __getattr__ below.
 _SLO_NAMES: set[str] = {

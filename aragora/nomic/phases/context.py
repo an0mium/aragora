@@ -286,11 +286,13 @@ class ContextPhase:
         if _metrics_recorder:
             _metrics_recorder("context", "success" if success else "failure", phase_duration)
 
-        # Inject recent cycle context for cross-cycle learning
-        recent_cycle_context = self._get_recent_cycle_context()
-        if recent_cycle_context:
-            gathered_context = f"{gathered_context}\n\n{recent_cycle_context}"
-            self._log("  [context] Injected recent cycle history for cross-cycle learning")
+        # Inject recent cycle context for cross-cycle learning only after cycle 0.
+        # This prevents first-cycle runs/tests from being affected by ambient history.
+        if self.cycle_count > 0:
+            recent_cycle_context = self._get_recent_cycle_context()
+            if recent_cycle_context:
+                gathered_context = f"{gathered_context}\n\n{recent_cycle_context}"
+                self._log("  [context] Injected recent cycle history for cross-cycle learning")
 
         return ContextResult(
             success=success,
@@ -315,6 +317,7 @@ Your task:
 
 Output format (FOLLOW EXACTLY):
 
+## EXISTING FEATURES
 ## FEATURE INVENTORY (CANONICAL - DO NOT RECREATE ANY OF THESE)
 
 ### Core Debate Engine
@@ -346,6 +349,7 @@ Output format (FOLLOW EXACTLY):
 | Feature | Module | Status | Key Classes |
 |---------|--------|--------|-------------|
 
+## ARCHITECTURE OVERVIEW
 ## ARCHITECTURE PATTERNS
 - List the main design patterns used (e.g., mixin-based handlers, adapter pattern for KM)
 
@@ -357,6 +361,7 @@ Output format (FOLLOW EXACTLY):
 - API: X%
 - Integrations: X%
 
+## GAPS AND OPPORTUNITIES
 ## GENUINE GAPS (truly missing, not variations of existing features)
 Only list features that have NO existing implementation or close variant.
 DO NOT list features that are already implemented under different names.

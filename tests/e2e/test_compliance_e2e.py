@@ -24,6 +24,7 @@ import pytest
 import pytest_asyncio
 
 from aragora.audit.log import AuditEvent, AuditLog, AuditCategory
+from aragora.rbac.models import AuthorizationContext
 from aragora.storage.audit_store import get_audit_store
 from aragora.storage.receipt_store import get_receipt_store
 from aragora.server.handlers.compliance.handler import ComplianceHandler
@@ -37,6 +38,36 @@ pytestmark = [pytest.mark.e2e, pytest.mark.compliance]
 # ============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _bypass_rbac_for_compliance_e2e(monkeypatch):
+    """Bypass RBAC permission checks for compliance E2E tests.
+
+    The ComplianceHandler.handle() is decorated with @require_permission
+    which requires an AuthorizationContext. This fixture patches the
+    context extraction to return an admin context when none is found,
+    matching the pattern used in tests/server/handlers/conftest.py.
+    """
+    from aragora.rbac import decorators
+
+    mock_auth_ctx = AuthorizationContext(
+        user_id="test-user-001",
+        user_email="test@example.com",
+        org_id="test-org-001",
+        roles={"admin", "owner"},
+        permissions={"*"},
+    )
+
+    original_get_context = decorators._get_context_from_args
+
+    def patched_get_context_from_args(args, kwargs, context_param):
+        result = original_get_context(args, kwargs, context_param)
+        if result is None:
+            return mock_auth_ctx
+        return result
+
+    monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context_from_args)
+
+
 @pytest.fixture
 def mock_server_context():
     """Create a mock server context for handlers."""
@@ -44,6 +75,21 @@ def mock_server_context():
     context.get_user_id = MagicMock(return_value="test-user-123")
     context.get_org_id = MagicMock(return_value="test-org-456")
     return context
+
+
+def _make_http_handler(method: str = "GET", body: dict | None = None) -> MagicMock:
+    """Create a mock HTTP handler with the given method and optional body."""
+    handler = MagicMock()
+    handler.command = method
+    handler.headers = {}
+    handler.rfile = MagicMock()
+    if body is not None:
+        handler.rfile.read.return_value = json.dumps(body).encode()
+        handler.headers["Content-Length"] = str(len(json.dumps(body)))
+    else:
+        handler.rfile.read.return_value = b""
+        handler.headers["Content-Length"] = "0"
+    return handler
 
 
 @pytest.fixture
@@ -132,9 +178,9 @@ class TestSOC2Report:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/soc2-report",
-                query_params={},
+                "/api/v2/compliance/soc2-report",
+                {},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -159,9 +205,9 @@ class TestSOC2Report:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/soc2-report",
-                query_params={"start_date": start_date, "end_date": end_date},
+                "/api/v2/compliance/soc2-report",
+                {"start_date": start_date, "end_date": end_date},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -191,8 +237,9 @@ class TestSOC2Report:
                 }
 
                 result = await compliance_handler.handle(
-                    method="GET",
-                    path="/api/v2/compliance/soc2-report",
+                    "/api/v2/compliance/soc2-report",
+                    {},
+                    _make_http_handler("GET"),
                 )
 
                 assert result["status"] == 200
@@ -229,9 +276,9 @@ class TestGDPRExport:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/gdpr-export",
-                query_params={"user_id": user_id},
+                "/api/v2/compliance/gdpr-export",
+                {"user_id": user_id},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -254,9 +301,9 @@ class TestGDPRExport:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/gdpr-export",
-                query_params={"user_id": "test-user", "anonymize": "true"},
+                "/api/v2/compliance/gdpr-export",
+                {"user_id": "test-user", "anonymize": "true"},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -278,9 +325,9 @@ class TestGDPRExport:
                 }
 
                 result = await compliance_handler.handle(
-                    method="GET",
-                    path="/api/v2/compliance/gdpr-export",
-                    query_params={"user_id": "test-user", "format": fmt},
+                    "/api/v2/compliance/gdpr-export",
+                    {"user_id": "test-user", "format": fmt},
+                    _make_http_handler("GET"),
                 )
 
                 assert result["status"] == 200
@@ -311,9 +358,9 @@ class TestAuditIntegrity:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/audit-verify",
-                body={},
+                "/api/v2/compliance/audit-verify",
+                {},
+                _make_http_handler("POST", body={}),
             )
 
             assert result["status"] == 200
@@ -336,9 +383,9 @@ class TestAuditIntegrity:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/audit-verify",
-                body={},
+                "/api/v2/compliance/audit-verify",
+                {},
+                _make_http_handler("POST", body={}),
             )
 
             assert result["status"] == 200
@@ -363,9 +410,9 @@ class TestAuditIntegrity:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/audit-verify",
-                body={"start_date": start, "end_date": end},
+                "/api/v2/compliance/audit-verify",
+                {},
+                _make_http_handler("POST", body={"start_date": start, "end_date": end}),
             )
 
             assert result["status"] == 200
@@ -395,9 +442,9 @@ class TestAuditQuery:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/audit-events",
-                query_params={"limit": "5"},
+                "/api/v2/compliance/audit-events",
+                {"limit": "5"},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -420,9 +467,9 @@ class TestAuditQuery:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/audit-events",
-                query_params={"start_date": start, "end_date": end},
+                "/api/v2/compliance/audit-events",
+                {"start_date": start, "end_date": end},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -443,9 +490,9 @@ class TestAuditQuery:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/audit-events",
-                query_params={"user_id": user_id},
+                "/api/v2/compliance/audit-events",
+                {"user_id": user_id},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -464,9 +511,9 @@ class TestAuditQuery:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/audit-events",
-                query_params={"category": "auth"},
+                "/api/v2/compliance/audit-events",
+                {"category": "auth"},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -502,8 +549,9 @@ class TestComplianceStatus:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/status",
+                "/api/v2/compliance/status",
+                {},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -525,8 +573,9 @@ class TestComplianceStatus:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/status",
+                "/api/v2/compliance/status",
+                {},
+                _make_http_handler("GET"),
             )
 
             assert result["status"] == 200
@@ -546,8 +595,9 @@ class TestComplianceErrorHandling:
     async def test_invalid_endpoint_handled(self, compliance_handler):
         """Test that invalid endpoints are handled gracefully."""
         result = await compliance_handler.handle(
-            method="GET",
-            path="/api/v2/compliance/invalid-endpoint",
+            "/api/v2/compliance/invalid-endpoint",
+            {},
+            _make_http_handler("GET"),
         )
 
         # Handler returns a result for unknown paths (not None)
@@ -578,9 +628,9 @@ class TestComplianceErrorHandling:
             }
 
             result = await compliance_handler.handle(
-                method="GET",
-                path="/api/v2/compliance/gdpr-export",
-                query_params={},  # Missing user_id
+                "/api/v2/compliance/gdpr-export",
+                {},  # Missing user_id
+                _make_http_handler("GET"),
             )
 
             # Should return error status
@@ -605,9 +655,9 @@ class TestRightToBeForgotten:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/gdpr/right-to-be-forgotten",
-                body={},  # Missing user_id
+                "/api/v2/compliance/gdpr/right-to-be-forgotten",
+                {},
+                _make_http_handler("POST", body={}),
             )
 
             assert result["status"] == 400
@@ -636,9 +686,9 @@ class TestRightToBeForgotten:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/gdpr/right-to-be-forgotten",
-                body={"user_id": user_id},
+                "/api/v2/compliance/gdpr/right-to-be-forgotten",
+                {},
+                _make_http_handler("POST", body={"user_id": user_id}),
             )
 
             assert result["status"] == 200
@@ -662,9 +712,9 @@ class TestRightToBeForgotten:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/gdpr/right-to-be-forgotten",
-                body={"user_id": "user-123", "grace_period_days": 60},
+                "/api/v2/compliance/gdpr/right-to-be-forgotten",
+                {},
+                _make_http_handler("POST", body={"user_id": "user-123", "grace_period_days": 60}),
             )
 
             assert result["status"] == 200
@@ -688,9 +738,9 @@ class TestRightToBeForgotten:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/gdpr/right-to-be-forgotten",
-                body={"user_id": "user-456", "include_export": False},
+                "/api/v2/compliance/gdpr/right-to-be-forgotten",
+                {},
+                _make_http_handler("POST", body={"user_id": "user-456", "include_export": False}),
             )
 
             assert result["status"] == 200
@@ -720,12 +770,12 @@ class TestRightToBeForgotten:
             }
 
             result = await compliance_handler.handle(
-                method="POST",
-                path="/api/v2/compliance/gdpr/right-to-be-forgotten",
-                body={
+                "/api/v2/compliance/gdpr/right-to-be-forgotten",
+                {},
+                _make_http_handler("POST", body={
                     "user_id": "user-789",
                     "reason": "User requested account deletion",
-                },
+                }),
             )
 
             assert result["status"] == 200
