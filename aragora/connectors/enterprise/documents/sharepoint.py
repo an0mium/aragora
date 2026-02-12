@@ -288,7 +288,7 @@ class SharePointConnector(EnterpriseConnector):
 
             return sites
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
             logger.warning(f"[{self.name}] Failed to get subsites: {e}")
             return []
 
@@ -428,7 +428,7 @@ class SharePointConnector(EnterpriseConnector):
                     logger.debug(f"[{self.name}] Text decode failed, using base64: {e}")
                     return base64.b64encode(response.content).decode()[:1000] + "..."
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, UnicodeDecodeError) as e:
             logger.warning(f"[{self.name}] Failed to get file content: {e}")
             return ""
 
@@ -570,7 +570,7 @@ class SharePointConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -607,13 +607,13 @@ class SharePointConnector(EnterpriseConnector):
                         created_at=data.get("createdDateTime"),
                         confidence=0.8,
                     )
-                except Exception as e:
+                except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
                     logger.debug(f"[{self.name}] Failed to create fetch result: {e}")
                     continue
 
             return None
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
