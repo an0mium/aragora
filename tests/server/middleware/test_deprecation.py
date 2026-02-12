@@ -20,6 +20,15 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
+try:
+    import aiohttp  # noqa: F401
+
+    _HAS_AIOHTTP = True
+except ImportError:
+    _HAS_AIOHTTP = False
+
+_REQUIRES_AIOHTTP = "aiohttp not installed (pip install aiohttp)"
+
 
 # =============================================================================
 # Test V1 Path Detection
@@ -465,16 +474,14 @@ class TestAddV1HeadersToHandler:
 # =============================================================================
 
 
+@pytest.mark.skipif(not _HAS_AIOHTTP, reason=_REQUIRES_AIOHTTP)
 class TestAiohttpMiddleware:
     """Tests for aiohttp v1_sunset_middleware."""
 
     @pytest.mark.asyncio
     async def test_middleware_skips_non_v1(self):
         """Should pass through non-v1 requests without modification."""
-        try:
-            from aragora.server.middleware.deprecation import v1_sunset_middleware
-        except RuntimeError:
-            pytest.skip("aiohttp not available")
+        from aragora.server.middleware.deprecation import v1_sunset_middleware
 
         mock_request = MagicMock()
         mock_request.path = "/api/v2/debates"
@@ -490,13 +497,10 @@ class TestAiohttpMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_adds_headers_for_v1(self):
         """Should add deprecation headers for v1 requests."""
-        try:
-            from aragora.server.middleware.deprecation import (
-                reset_v1_usage_tracker,
-                v1_sunset_middleware,
-            )
-        except RuntimeError:
-            pytest.skip("aiohttp not available")
+        from aragora.server.middleware.deprecation import (
+            reset_v1_usage_tracker,
+            v1_sunset_middleware,
+        )
 
         reset_v1_usage_tracker()
 
@@ -521,14 +525,11 @@ class TestAiohttpMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_tracks_usage(self):
         """Should track v1 usage."""
-        try:
-            from aragora.server.middleware.deprecation import (
-                get_v1_usage_tracker,
-                reset_v1_usage_tracker,
-                v1_sunset_middleware,
-            )
-        except RuntimeError:
-            pytest.skip("aiohttp not available")
+        from aragora.server.middleware.deprecation import (
+            get_v1_usage_tracker,
+            reset_v1_usage_tracker,
+            v1_sunset_middleware,
+        )
 
         reset_v1_usage_tracker()
 
@@ -553,10 +554,7 @@ class TestAiohttpMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_skips_when_disabled(self):
         """Should skip when disabled via env var."""
-        try:
-            from aragora.server.middleware.deprecation import v1_sunset_middleware
-        except RuntimeError:
-            pytest.skip("aiohttp not available")
+        from aragora.server.middleware.deprecation import v1_sunset_middleware
 
         mock_request = MagicMock()
         mock_request.path = "/api/v1/debates"
@@ -572,18 +570,16 @@ class TestAiohttpMiddleware:
         assert "Sunset" not in result.headers
 
 
+@pytest.mark.skipif(not _HAS_AIOHTTP, reason=_REQUIRES_AIOHTTP)
 class TestCreateV1SunsetMiddleware:
     """Tests for create_v1_sunset_middleware factory."""
 
     def test_returns_middleware_function(self):
         """Should return the middleware function."""
-        try:
-            from aragora.server.middleware.deprecation import (
-                create_v1_sunset_middleware,
-                v1_sunset_middleware,
-            )
-        except RuntimeError:
-            pytest.skip("aiohttp not available")
+        from aragora.server.middleware.deprecation import (
+            create_v1_sunset_middleware,
+            v1_sunset_middleware,
+        )
 
         middleware = create_v1_sunset_middleware()
         assert middleware is v1_sunset_middleware

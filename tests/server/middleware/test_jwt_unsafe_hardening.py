@@ -137,7 +137,7 @@ class TestInsecureJwtAuditLogging:
         mock_module.audit_security = mock_audit
 
         with patch.dict("sys.modules", {"aragora.audit.unified": mock_module}):
-            result = validator.validate_token(token)
+            result = validator.validate_jwt(token)
 
         # The user should be returned (insecure decode succeeds in dev)
         assert result is not None
@@ -176,7 +176,7 @@ class TestInsecureJwtAuditLogging:
             # Ensure the import will fail
             sys.modules["aragora.audit.unified"] = None  # type: ignore[assignment]
             with caplog.at_level(logging.WARNING, logger="aragora.server.middleware.user_auth"):
-                validator.validate_token(token)
+                validator.validate_jwt(token)
         finally:
             if orig is not None:
                 sys.modules["aragora.audit.unified"] = orig
@@ -203,6 +203,8 @@ class TestStartupInsecureJwtValidation:
         {
             "ARAGORA_ALLOW_INSECURE_JWT": "true",
             "ARAGORA_ENV": "production",
+            "ARAGORA_SECRETS_STRICT": "false",
+            "ARAGORA_ENCRYPTION_KEY": "a" * 64,
         },
     )
     def test_production_warning_for_insecure_jwt(self, caplog):
@@ -239,7 +241,11 @@ class TestStartupInsecureJwtValidation:
 
     @patch.dict(
         "os.environ",
-        {"ARAGORA_ENV": "production"},
+        {
+            "ARAGORA_ENV": "production",
+            "ARAGORA_SECRETS_STRICT": "false",
+            "ARAGORA_ENCRYPTION_KEY": "a" * 64,
+        },
         clear=False,
     )
     def test_no_warning_when_not_set(self, caplog):
