@@ -486,7 +486,7 @@ class TestSpeechHandlerImports:
         handler = SpeechHandler(mock_context)
 
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test"}):
-            result = handler.handle("/api/speech/providers", {}, None)
+            result = handler.handle("/api/v1/speech/providers", {}, None)
 
         assert result is not None
 
