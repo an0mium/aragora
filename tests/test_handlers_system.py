@@ -371,7 +371,7 @@ class TestNomicEndpoints:
             ctx = {"nomic_dir": nomic_dir}
             handler = NomicHandler(ctx)
 
-            result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+            result = _run(handler.handle("/api/nomic/health", {}, mock_http_handler))
 
             assert result is not None
             body = json.loads(result.body)

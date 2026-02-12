@@ -29,12 +29,6 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
   const [, _setSelectedAction] = useState<Record<string, string>>({});
 
   const fetchBreakpoints = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (tokens?.access_token) {
@@ -52,23 +46,20 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
     } finally {
       setLoading(false);
     }
-  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [apiBase, tokens?.access_token]);
 
   // Use ref to store latest fetch function to avoid stale closures in interval
   const fetchRef = useRef(fetchBreakpoints);
   fetchRef.current = fetchBreakpoints;
 
   useEffect(() => {
-    // Don't start polling until auth is ready
-    if (authLoading) return;
-
     fetchBreakpoints();
     // Poll for updates every 10 seconds, using ref to get latest function
     const interval = setInterval(() => {
       fetchRef.current();
     }, 10000);
     return () => clearInterval(interval);
-  }, [fetchBreakpoints, authLoading]);
+  }, [fetchBreakpoints]);
 
   const resolveBreakpoint = async (id: string, action: string) => {
     if (!tokens?.access_token) return;
