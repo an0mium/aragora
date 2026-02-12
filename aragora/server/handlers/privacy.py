@@ -424,7 +424,7 @@ class PrivacyHandler(SecureHandler):
             }
         )
 
-    def _perform_account_deletion(self, user_store, user, reason: str) -> dict:
+    def _perform_account_deletion(self, user_store: Any, user: Any, reason: str) -> dict[str, Any]:
         """Perform the actual account deletion with data anonymization."""
         import uuid
 

@@ -51,7 +51,7 @@ class HandlerResult:
         """Alias for status_code for compatibility with aiohttp-like responses."""
         return self.status_code
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Return a structured dict with status and decoded JSON body."""
         try:
             body_data = json.loads(self.body.decode("utf-8")) if self.body else {}

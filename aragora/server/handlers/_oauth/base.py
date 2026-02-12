@@ -154,7 +154,7 @@ class OAuthHandler(
         return path in self.ROUTES
 
     def handle(
-        self, path: str, query_params: dict, handler: Any, method: str = "GET"
+        self, path: str, query_params: dict[str, Any], handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
         """Route OAuth requests to appropriate methods."""
         # Extract provider from path for tracing

@@ -42,7 +42,7 @@ class DebateAnalyticsMixin:
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_overview")
     @handle_errors("get debates overview")
     def _get_debates_overview(
-        self, query_params: dict, auth_context: Any | None = None
+        self, query_params: dict[str, Any], auth_context: Any | None = None
     ) -> HandlerResult:
         """
         Get debate overview statistics.
@@ -201,7 +201,7 @@ class DebateAnalyticsMixin:
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_trends")
     @handle_errors("get debates trends")
     def _get_debates_trends(
-        self, query_params: dict, auth_context: Any | None = None
+        self, query_params: dict[str, Any], auth_context: Any | None = None
     ) -> HandlerResult:
         """
         Get debate trends over time.
@@ -321,7 +321,7 @@ class DebateAnalyticsMixin:
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_topics")
     @handle_errors("get debates topics")
     def _get_debates_topics(
-        self, query_params: dict, auth_context: Any | None = None
+        self, query_params: dict[str, Any], auth_context: Any | None = None
     ) -> HandlerResult:
         """
         Get topic distribution for debates.
@@ -457,7 +457,7 @@ class DebateAnalyticsMixin:
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_outcomes")
     @handle_errors("get debates outcomes")
     def _get_debates_outcomes(
-        self, query_params: dict, auth_context: Any | None = None
+        self, query_params: dict[str, Any], auth_context: Any | None = None
     ) -> HandlerResult:
         """
         Get debate outcome distribution (win/loss/draw).

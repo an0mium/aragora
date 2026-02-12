@@ -503,7 +503,7 @@ class TranscriptionHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=60)
     @require_permission("transcription:read")
-    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any = None) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/transcription/config":
             return self._get_config()
@@ -517,7 +517,7 @@ class TranscriptionHandler(BaseHandler):
     @rate_limit(requests_per_minute=10)
     @require_permission("transcription:create")
     async def handle_post(
-        self, path: str, query_params: dict, handler: Any = None
+        self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
         """Handle POST requests."""
         client_ip = get_client_ip(handler)

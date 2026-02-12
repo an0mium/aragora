@@ -417,7 +417,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         summary="List Zapier apps",
         tags=["Integrations"],
     )
-    def _handle_list_zapier_apps(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_zapier_apps(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/zapier/apps - list Zapier apps."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "connectors.read")
@@ -633,7 +633,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         summary="List Make connections",
         tags=["Integrations"],
     )
-    def _handle_list_make_connections(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_make_connections(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/make/connections - list connections."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "connectors.read")
@@ -843,7 +843,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         summary="List n8n credentials",
         tags=["Integrations"],
     )
-    def _handle_list_n8n_credentials(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_n8n_credentials(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/n8n/credentials - list credentials."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "connectors.read")

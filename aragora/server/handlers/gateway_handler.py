@@ -290,7 +290,7 @@ class GatewayHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=60, limiter_name="gateway_list_devices")
     @handle_errors("list devices")
-    def _handle_list_devices(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_devices(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/devices."""
         # RBAC check
         if error := self._check_rbac_permission(handler, "gateway:devices:read"):
@@ -450,7 +450,7 @@ class GatewayHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=60, limiter_name="gateway_list_channels")
     @handle_errors("list channels")
-    def _handle_list_channels(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_channels(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/channels."""
         # RBAC check
         if error := self._check_rbac_permission(handler, "gateway:channels:read"):

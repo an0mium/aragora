@@ -69,7 +69,7 @@ class MetricsHandler(BaseHandler):
         path = strip_version_prefix(path)
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route metrics requests to appropriate methods (public dashboard data)."""
         path = strip_version_prefix(path)
         # Rate limit check

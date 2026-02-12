@@ -74,7 +74,7 @@ class EvaluationHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("evaluation:read")
-    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any = None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -90,7 +90,7 @@ class EvaluationHandler(BaseHandler):
 
     @require_permission("evaluation:create")
     async def handle_post(
-        self, path: str, query_params: dict, handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         # Rate limit check

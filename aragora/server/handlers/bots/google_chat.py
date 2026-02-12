@@ -86,7 +86,7 @@ def _verify_google_chat_token(auth_header: str) -> bool:
     Returns:
         True if token is valid or verification is unavailable, False if invalid.
     """
-    if not auth_header.startswith("Bearer "):
+    if not auth_header or not auth_header.startswith("Bearer "):
         return False
 
     token = auth_header[7:]  # Remove "Bearer " prefix

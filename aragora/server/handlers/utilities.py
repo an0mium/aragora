@@ -135,9 +135,9 @@ def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
 
 
 def agent_to_dict(
-    agent: dict | AgentRating | Any | None,
+    agent: dict[str, Any] | AgentRating | Any | None,
     include_name: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Convert agent object or dict to standardized dict with ELO fields.
 
     Handles the common pattern where agent data might be either a dict
@@ -187,7 +187,7 @@ def agent_to_dict(
     return result
 
 
-def normalize_agent_names(agents: list) -> list:
+def normalize_agent_names(agents: list[Any]) -> list[str]:
     """Normalize a list of agent names or objects to lowercase strings.
 
     Useful for consistent agent comparison and lookups.

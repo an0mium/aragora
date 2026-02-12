@@ -802,8 +802,8 @@ class AuditingHandler(SecureHandler):
             )
 
     def _analyze_proposal_for_redteam(
-        self, proposal: str, attack_types: list, debate_data: dict
-    ) -> list:
+        self, proposal: str, attack_types: list[Any], debate_data: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Analyze a proposal for potential vulnerabilities."""
         try:
             from aragora.modes.redteam import AttackType

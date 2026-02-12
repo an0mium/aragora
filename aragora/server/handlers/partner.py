@@ -54,7 +54,7 @@ class PartnerHandler(BaseHandler):
 
     @require_permission("partner:read")
     @rate_limit(requests_per_minute=30)
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route requests to appropriate methods."""
         method = handler.command
 
@@ -343,7 +343,7 @@ class PartnerHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get usage")
-    def _get_usage(self, query_params: dict, handler, user=None) -> HandlerResult:
+    def _get_usage(self, query_params: dict[str, Any], handler: Any, user: Any = None) -> HandlerResult:
         """
         Get usage statistics.
 
