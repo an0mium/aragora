@@ -21,7 +21,7 @@ Aragora is a **1.5M LOC Decision Integrity Platform** with genuine technical dep
 | Dimension | Claim | Verified | Evidence |
 |-----------|-------|----------|----------|
 | Source code | 3,000+ modules | **3,297 files, 1,483,217 LOC** | Verified by file count |
-| Tests | 136K+ | **131,671 test methods, 259,971 asserts** | Real but somewhat inflated by mock variations; ~40-50K meaningful scenarios |
+| Tests | 136K+ | **131,671 test methods, 259,971 asserts** | Real functions exist, but only ~13,500 collectible locally (full count requires all optional deps in CI). ~15-20% are config-default validators. 99.7% pass rate on cold run. |
 | API operations | 2,000+ | **~1,813 SDK endpoints** | Near-complete server coverage |
 | Connectors | Broad | **204 connector files, 122,979 LOC** | Real API integrations, not stubs |
 | KM adapters | 28 | **36 adapter files** | All wired into Knowledge Mound |
@@ -364,7 +364,7 @@ git push -u origin reconcile/2026-02-12
 | Memory tiers | 4 (fast, medium, slow, glacial) |
 | Bare excepts | 1 (down from hundreds) |
 | TODOs/FIXMEs | 8 total |
-| type:ignore | 359 (0.24/KLOC -- excellent) |
+| type:ignore | 7 (quality-analyst verified) to 359 (grep count includes comments) |
 | Code quality score | 8/10 |
 
 ---
