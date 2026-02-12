@@ -339,6 +339,34 @@ class MemoryConfig:
 
 
 @dataclass
+class SupermemoryConfig:
+    """Supermemory (external cross-session memory) configuration.
+
+    Groups all supermemory_* parameters into a single config object.
+
+    Example::
+
+        supermemory_config = SupermemoryConfig(
+            enable_supermemory=True,
+            supermemory_max_context_items=20,
+        )
+        arena = Arena(env, agents, supermemory_config=supermemory_config)
+    """
+
+    enable_supermemory: bool = False
+    supermemory_adapter: Any | None = None
+    supermemory_inject_on_start: bool = True
+    supermemory_max_context_items: int = 10
+    supermemory_context_container_tag: str | None = None
+    supermemory_sync_on_conclusion: bool = True
+    supermemory_min_confidence_for_sync: float = 0.7
+    supermemory_outcome_container_tag: str | None = None
+    supermemory_enable_privacy_filter: bool = True
+    supermemory_enable_resilience: bool = True
+    supermemory_enable_km_adapter: bool = False
+
+
+@dataclass
 class KnowledgeConfig:
     """Knowledge Mound configuration."""
 
@@ -459,6 +487,7 @@ class TranslationConfig:
 # Legacy config classes tuple (preserved for compatibility)
 LEGACY_CONFIG_CLASSES = (
     KnowledgeConfig,
+    SupermemoryConfig,
     MLConfig,
     RLMConfig,
     TelemetryConfig,
@@ -482,6 +511,7 @@ __all__ = [
     "PRIMARY_CONFIG_CLASSES",
     # Legacy config classes
     "MemoryConfig",
+    "SupermemoryConfig",
     "KnowledgeConfig",
     "MLConfig",
     "RLMConfig",

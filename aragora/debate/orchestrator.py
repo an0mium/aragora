@@ -331,6 +331,11 @@ class Arena(ArenaDelegatesMixin):
         memory_config: Optional["MemoryConfig"] = None,
         streaming_config: Optional["StreamingConfig"] = None,
         observability_config: Optional["ObservabilityConfig"] = None,
+        # Focused Config Objects (override individual params in their group)
+        knowledge_config: Optional["KnowledgeConfig"] = None,
+        supermemory_config: Optional["SupermemoryConfig"] = None,
+        evolution_config: Optional["EvolutionConfig"] = None,
+        ml_config: Optional["MLConfig"] = None,
         # Individual Parameters (Legacy)
         memory: Any = None,
         event_hooks: Optional[dict[str, Any]] = None,
@@ -453,6 +458,10 @@ class Arena(ArenaDelegatesMixin):
             memory_config=memory_config,
             streaming_config=streaming_config,
             observability_config=observability_config,
+            knowledge_config=knowledge_config,
+            supermemory_config=supermemory_config,
+            evolution_config=evolution_config,
+            ml_config=ml_config,
             protocol=protocol,
             enable_adaptive_rounds=enable_adaptive_rounds,
             debate_strategy=debate_strategy,
@@ -749,6 +758,10 @@ class Arena(ArenaDelegatesMixin):
         memory_config: Optional["MemoryConfig"] = None,
         streaming_config: Optional["StreamingConfig"] = None,
         observability_config: Optional["ObservabilityConfig"] = None,
+        knowledge_config: Optional["KnowledgeConfig"] = None,
+        supermemory_config: Optional["SupermemoryConfig"] = None,
+        evolution_config: Optional["EvolutionConfig"] = None,
+        ml_config: Optional["MLConfig"] = None,
     ) -> "Arena":
         """Create an Arena from grouped config objects."""
         return cls(
@@ -760,6 +773,10 @@ class Arena(ArenaDelegatesMixin):
             memory_config=memory_config,
             streaming_config=streaming_config,
             observability_config=observability_config,
+            knowledge_config=knowledge_config,
+            supermemory_config=supermemory_config,
+            evolution_config=evolution_config,
+            ml_config=ml_config,
         )
 
     @classmethod

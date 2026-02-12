@@ -18,6 +18,12 @@ if TYPE_CHECKING:
         ObservabilityConfig,
         StreamingConfig,
     )
+    from aragora.debate.arena_primary_configs import (
+        EvolutionConfig,
+        KnowledgeConfig,
+        MLConfig,
+        SupermemoryConfig,
+    )
     from aragora.debate.protocol import DebateProtocol
 
 
@@ -256,6 +262,11 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     memory_config: Optional["MemoryConfig"],
     streaming_config: Optional["StreamingConfig"],
     observability_config: Optional["ObservabilityConfig"],
+    # Focused config objects (override individual params in their group)
+    knowledge_config: Optional["KnowledgeConfig"] = None,
+    supermemory_config: Optional["SupermemoryConfig"] = None,
+    evolution_config: Optional["EvolutionConfig"] = None,
+    ml_config: Optional["MLConfig"] = None,
     # Individual params (defaults from __init__ signature)
     protocol: Optional["DebateProtocol"],
     enable_adaptive_rounds: bool,
@@ -510,6 +521,55 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         enable_post_debate_workflow = observability_config.enable_post_debate_workflow
         post_debate_workflow_threshold = observability_config.post_debate_workflow_threshold
         initial_messages = observability_config.initial_messages or initial_messages
+
+    # Merge focused config objects (override individual params in their group)
+    if knowledge_config is not None:
+        knowledge_mound = knowledge_config.knowledge_mound or knowledge_mound
+        auto_create_knowledge_mound = knowledge_config.auto_create_knowledge_mound
+        enable_knowledge_retrieval = knowledge_config.enable_knowledge_retrieval
+        enable_knowledge_ingestion = knowledge_config.enable_knowledge_ingestion
+        enable_knowledge_extraction = knowledge_config.enable_knowledge_extraction
+        extraction_min_confidence = knowledge_config.extraction_min_confidence
+        enable_auto_revalidation = knowledge_config.enable_auto_revalidation
+        revalidation_staleness_threshold = knowledge_config.revalidation_staleness_threshold
+        revalidation_check_interval_seconds = knowledge_config.revalidation_check_interval_seconds
+        revalidation_scheduler = knowledge_config.revalidation_scheduler or revalidation_scheduler
+        enable_belief_guidance = knowledge_config.enable_belief_guidance
+
+    if supermemory_config is not None:
+        enable_supermemory = supermemory_config.enable_supermemory
+        supermemory_adapter = supermemory_config.supermemory_adapter or supermemory_adapter
+        supermemory_inject_on_start = supermemory_config.supermemory_inject_on_start
+        supermemory_max_context_items = supermemory_config.supermemory_max_context_items
+        supermemory_context_container_tag = (
+            supermemory_config.supermemory_context_container_tag
+            or supermemory_context_container_tag
+        )
+        supermemory_sync_on_conclusion = supermemory_config.supermemory_sync_on_conclusion
+        supermemory_min_confidence_for_sync = supermemory_config.supermemory_min_confidence_for_sync
+        supermemory_outcome_container_tag = (
+            supermemory_config.supermemory_outcome_container_tag
+            or supermemory_outcome_container_tag
+        )
+        supermemory_enable_privacy_filter = supermemory_config.supermemory_enable_privacy_filter
+        supermemory_enable_resilience = supermemory_config.supermemory_enable_resilience
+        supermemory_enable_km_adapter = supermemory_config.supermemory_enable_km_adapter
+
+    if evolution_config is not None:
+        population_manager = evolution_config.population_manager or population_manager
+        auto_evolve = evolution_config.auto_evolve
+        breeding_threshold = evolution_config.breeding_threshold
+        prompt_evolver = evolution_config.prompt_evolver or prompt_evolver
+        enable_prompt_evolution = evolution_config.enable_prompt_evolution
+
+    if ml_config is not None:
+        enable_ml_delegation = ml_config.enable_ml_delegation
+        ml_delegation_strategy = ml_config.ml_delegation_strategy or ml_delegation_strategy
+        ml_delegation_weight = ml_config.ml_delegation_weight
+        enable_quality_gates = ml_config.enable_quality_gates
+        quality_gate_threshold = ml_config.quality_gate_threshold
+        enable_consensus_estimation = ml_config.enable_consensus_estimation
+        consensus_early_termination_threshold = ml_config.consensus_early_termination_threshold
 
     # Emit deprecation warnings when individual params are used for groups
     # that belong in config objects. Only warn when no config object was provided
