@@ -275,6 +275,20 @@ class MockRedis:
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_leader_singleton():
+    """Reset the module-level singleton before and after each test.
+
+    Prevents state leaking between tests when running in the full suite.
+    """
+    import aragora.control_plane.leader as _leader_mod
+
+    original = _leader_mod._regional_leader_election
+    _leader_mod._regional_leader_election = None
+    yield
+    _leader_mod._regional_leader_election = original
+
+
 @pytest.fixture
 def mock_redis():
     """Create a mock Redis client."""

@@ -222,6 +222,23 @@ class MockRedis:
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_leader_singleton():
+    """Reset the module-level singleton before and after each test.
+
+    The leader.py module has a global ``_regional_leader_election`` singleton
+    that persists across tests when running in the full suite.  Without this
+    fixture, a test that calls ``init_regional_leader_election`` (or any code
+    path that sets the singleton) will pollute subsequent tests.
+    """
+    import aragora.control_plane.leader as _leader_mod
+
+    original = _leader_mod._regional_leader_election
+    _leader_mod._regional_leader_election = None
+    yield
+    _leader_mod._regional_leader_election = original
+
+
 @pytest.fixture
 def mock_redis():
     """Create a mock Redis client."""
