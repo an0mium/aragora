@@ -353,6 +353,39 @@ ALLOWED_WITHOUT_RBAC = {
     "workflows/execution",
     "workflows/templates",
     "workflows/versions",
+    # Admin dashboard views and actions (protected by admin middleware)
+    "admin/dashboard_actions",
+    "admin/dashboard_views",
+    # Agent management modules (middleware-protected)
+    "agents/agent_flips",
+    "agents/agent_intelligence",
+    "agents/agent_profiles",
+    "agents/agent_rankings",
+    # Billing internals (helper utilities and webhook verification)
+    "billing/core_helpers",
+    "billing/core_webhooks",
+    # Connector management modules (middleware-protected)
+    "connectors/management",
+    "connectors/shared",
+    # Evolution handler (delegates to RBAC-protected mixins)
+    "evolution/handler",
+    # Feature modules (middleware-protected)
+    "features/features",
+    # Inbox modules (middleware-protected)
+    "inbox_actions",
+    "inbox_services",
+    # Integrations (webhook verification, not direct user handler)
+    "integrations/email_webhook",
+    # Replay handler (middleware-protected)
+    "replays",
+    # Reviews handler (middleware-protected)
+    "reviews",
+    # Infrastructure management (streaming subsystem)
+    "streaming/__init__",
+    "streaming/handler",
+    # Task routing and execution (RBAC checked at execution layer)
+    "tasks/__init__",
+    "tasks/execution",
 }
 
 
