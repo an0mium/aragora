@@ -1,12 +1,13 @@
 """
 Tests for SDK Coverage Expansion (Phase 3).
 
-Validates the 5 new/registered SDK namespaces:
+Validates coverage-oriented SDK namespaces:
 - Receipts (pre-existing, verified)
 - Approvals (new)
 - Audit Trail (new)
 - Voice (newly registered)
-- OpenClaw (newly registered)
+- OpenClaw (contract-aligned gateway surface)
+- Blockchain (new namespace for ERC-8004 endpoints)
 """
 
 from __future__ import annotations
@@ -261,7 +262,7 @@ class TestVoiceNamespace:
 
 
 # =========================================================================
-# OpenClaw (existing namespace, newly registered)
+# OpenClaw (gateway-aligned namespace)
 # =========================================================================
 
 
@@ -273,55 +274,104 @@ class TestOpenclawNamespace:
         assert hasattr(client, "openclaw")
         assert type(client.openclaw).__name__ == "OpenclawAPI"
 
-    def test_search_cases(self, mock_sync_client):
+    def test_list_sessions(self, mock_sync_client):
         from aragora_sdk.namespaces.openclaw import OpenclawAPI
 
         api = OpenclawAPI(mock_sync_client)
-        api.search_cases("contract breach")
+        api.list_sessions(status="active", limit=10)
         args = mock_sync_client.request.call_args
         assert args[0][0] == "GET"
-        assert args[0][1] == "/api/v1/openclaw/cases/search"
+        assert args[0][1] == "/api/v1/openclaw/sessions"
 
-    def test_get_case(self, mock_sync_client):
+    def test_create_session(self, mock_sync_client):
         from aragora_sdk.namespaces.openclaw import OpenclawAPI
 
         api = OpenclawAPI(mock_sync_client)
-        api.get_case("case-1")
-        args = mock_sync_client.request.call_args
-        assert args[0][1] == "/api/v1/openclaw/cases/case-1"
-
-    def test_analyze_document(self, mock_sync_client):
-        from aragora_sdk.namespaces.openclaw import OpenclawAPI
-
-        api = OpenclawAPI(mock_sync_client)
-        api.analyze_document("This is a contract...", analysis_type="legal")
+        api.create_session(config={"workspace_id": "/workspace"})
         args = mock_sync_client.request.call_args
         assert args[0][0] == "POST"
-        assert args[0][1] == "/api/v1/openclaw/analyze"
+        assert args[0][1] == "/api/v1/openclaw/sessions"
 
-    def test_verify_citation(self, mock_sync_client):
+    def test_execute_action(self, mock_sync_client):
         from aragora_sdk.namespaces.openclaw import OpenclawAPI
 
         api = OpenclawAPI(mock_sync_client)
-        api.verify_citation("Smith v. Jones, 123 F.3d 456")
+        api.execute_action("sess_123", "shell", {"command": "echo hi"})
         args = mock_sync_client.request.call_args
         assert args[0][0] == "POST"
-        assert args[0][1] == "/api/v1/openclaw/citations/verify"
+        assert args[0][1] == "/api/v1/openclaw/actions"
 
-    def test_list_jurisdictions(self, mock_sync_client):
+    def test_get_policy_rules(self, mock_sync_client):
         from aragora_sdk.namespaces.openclaw import OpenclawAPI
 
         api = OpenclawAPI(mock_sync_client)
-        api.list_jurisdictions()
+        api.get_policy_rules()
         args = mock_sync_client.request.call_args
-        assert args[0][1] == "/api/v1/openclaw/jurisdictions"
+        assert args[0][1] == "/api/v1/openclaw/policy/rules"
+
+    def test_health(self, mock_sync_client):
+        from aragora_sdk.namespaces.openclaw import OpenclawAPI
+
+        api = OpenclawAPI(mock_sync_client)
+        api.health()
+        args = mock_sync_client.request.call_args
+        assert args[0][1] == "/api/v1/openclaw/health"
 
     @pytest.mark.asyncio()
-    async def test_async_search_cases(self, mock_async_client):
+    async def test_async_list_sessions(self, mock_async_client):
         from aragora_sdk.namespaces.openclaw import AsyncOpenclawAPI
 
         api = AsyncOpenclawAPI(mock_async_client)
-        await api.search_cases("test query")
+        await api.list_sessions()
+        mock_async_client.request.assert_awaited_once()
+
+
+# =========================================================================
+# Blockchain (new namespace)
+# =========================================================================
+
+
+class TestBlockchainNamespace:
+    def test_blockchain_registered(self):
+        from aragora_sdk.client import AragoraClient
+
+        client = AragoraClient(base_url="http://localhost")
+        assert hasattr(client, "blockchain")
+        assert type(client.blockchain).__name__ == "BlockchainAPI"
+
+    def test_get_config(self, mock_sync_client):
+        from aragora_sdk.namespaces.blockchain import BlockchainAPI
+
+        api = BlockchainAPI(mock_sync_client)
+        api.get_config()
+        args = mock_sync_client.request.call_args
+        assert args[0][0] == "GET"
+        assert args[0][1] == "/api/v1/blockchain/config"
+
+    def test_sync(self, mock_sync_client):
+        from aragora_sdk.namespaces.blockchain import BlockchainAPI
+
+        api = BlockchainAPI(mock_sync_client)
+        api.sync(agent_ids=[1, 2, 3])
+        args = mock_sync_client.request.call_args
+        assert args[0][0] == "POST"
+        assert args[0][1] == "/api/v1/blockchain/sync"
+
+    def test_get_agent(self, mock_sync_client):
+        from aragora_sdk.namespaces.blockchain import BlockchainAPI
+
+        api = BlockchainAPI(mock_sync_client)
+        api.get_agent(42)
+        args = mock_sync_client.request.call_args
+        assert args[0][0] == "GET"
+        assert args[0][1] == "/api/v1/blockchain/agents/42"
+
+    @pytest.mark.asyncio()
+    async def test_async_get_health(self, mock_async_client):
+        from aragora_sdk.namespaces.blockchain import AsyncBlockchainAPI
+
+        api = AsyncBlockchainAPI(mock_async_client)
+        await api.get_health()
         mock_async_client.request.assert_awaited_once()
 
 
@@ -331,7 +381,7 @@ class TestOpenclawNamespace:
 
 
 class TestAllNamespacesRegistered:
-    """Verify all 5 namespaces are accessible from both sync and async clients."""
+    """Verify all coverage-expansion namespaces are accessible from both clients."""
 
     EXPECTED_NAMESPACES = [
         ("receipts", "ReceiptsAPI"),
@@ -339,6 +389,7 @@ class TestAllNamespacesRegistered:
         ("audit_trail", "AuditTrailAPI"),
         ("voice", "VoiceAPI"),
         ("openclaw", "OpenclawAPI"),
+        ("blockchain", "BlockchainAPI"),
     ]
 
     def test_sync_client_has_all(self):

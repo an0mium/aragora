@@ -22,6 +22,7 @@ from .batch import AsyncBatchAPI, BatchAPI
 from .belief import AsyncBeliefAPI, BeliefAPI
 from .belief_network import AsyncBeliefNetworkAPI, BeliefNetworkAPI
 from .billing import AsyncBillingAPI, BillingAPI
+from .blockchain import AsyncBlockchainAPI, BlockchainAPI
 from .bots import AsyncBotsAPI, BotsAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .calibration import AsyncCalibrationAPI, CalibrationAPI
@@ -84,6 +85,7 @@ from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .oauth import AsyncOAuthAPI, OAuthAPI
 from .oauth_wizard import AsyncOAuthWizardAPI, OAuthWizardAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
+from .openclaw import AsyncOpenclawAPI, OpenclawAPI
 from .openapi import AsyncOpenApiAPI, OpenApiAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .outlook import AsyncOutlookAPI, OutlookAPI
@@ -173,6 +175,8 @@ __all__ = [
     "AsyncBeliefNetworkAPI",
     "BillingAPI",
     "AsyncBillingAPI",
+    "BlockchainAPI",
+    "AsyncBlockchainAPI",
     "BudgetsAPI",
     "AsyncBudgetsAPI",
     "CalibrationAPI",
@@ -297,6 +301,8 @@ __all__ = [
     "AsyncOAuthWizardAPI",
     "OnboardingAPI",
     "AsyncOnboardingAPI",
+    "OpenclawAPI",
+    "AsyncOpenclawAPI",
     "OrganizationsAPI",
     "AsyncOrganizationsAPI",
     "OutlookAPI",

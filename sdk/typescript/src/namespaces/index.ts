@@ -1552,7 +1552,7 @@ export {
 // Autonomous (Self-Learning)
 export {
   AutonomousNamespace,
-  type ApprovalRequest,
+  type ApprovalRequest as AutonomousApprovalRequest,
   type Trigger as AutonomousTrigger,
   type AutonomousAlert,
   type AutonomousMetrics,
@@ -1582,6 +1582,12 @@ export {
   type OpenClawCredential,
   type CreateSessionRequest,
 } from './openclaw';
+
+// Blockchain (ERC-8004)
+export {
+  BlockchainNamespace,
+  type BlockchainSyncRequest,
+} from './blockchain';
 
 // DevOps (Incident Management)
 export {

@@ -280,6 +280,7 @@ import {
   AuditTrailAPI,
   VoiceNamespace,
   OpenClawNamespace,
+  BlockchainNamespace,
 } from './namespaces';
 
 interface RequestOptions {
@@ -867,8 +868,11 @@ export class AragoraClient {
   /** Voice API - Text-to-speech synthesis and voice session management. */
   readonly voice: VoiceNamespace;
 
-  /** OpenClaw API - Legal analysis gateway, sessions, and actions. */
+  /** OpenClaw API - Policy-gated action execution gateway. */
   readonly openclaw: OpenClawNamespace;
+
+  /** Blockchain API - ERC-8004 identity, reputation, and validation endpoints. */
+  readonly blockchain: BlockchainNamespace;
 
   constructor(config: AragoraConfig) {
     this.config = {
@@ -1021,6 +1025,7 @@ export class AragoraClient {
     this.auditTrail = new AuditTrailAPI(this);
     this.voice = new VoiceNamespace(this);
     this.openclaw = new OpenClawNamespace(this);
+    this.blockchain = new BlockchainNamespace(this);
   }
 
   // ===========================================================================

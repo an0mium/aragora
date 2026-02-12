@@ -102,6 +102,7 @@ class AragoraClient:
         from .namespaces.billing import BillingAPI
         from .namespaces.bots import BotsAPI
         from .namespaces.budgets import BudgetsAPI
+        from .namespaces.blockchain import BlockchainAPI
         from .namespaces.calibration import CalibrationAPI
         from .namespaces.canvas import CanvasAPI
         from .namespaces.chat import ChatAPI
@@ -229,6 +230,7 @@ class AragoraClient:
         self.bots = BotsAPI(self)
         self.billing = BillingAPI(self)
         self.budgets = BudgetsAPI(self)
+        self.blockchain = BlockchainAPI(self)
         self.calibration = CalibrationAPI(self)
         self.canvas = CanvasAPI(self)
         self.chat = ChatAPI(self)
@@ -576,6 +578,7 @@ class AragoraAsyncClient:
         from .namespaces.billing import AsyncBillingAPI
         from .namespaces.bots import AsyncBotsAPI
         from .namespaces.budgets import AsyncBudgetsAPI
+        from .namespaces.blockchain import AsyncBlockchainAPI
         from .namespaces.calibration import AsyncCalibrationAPI
         from .namespaces.canvas import AsyncCanvasAPI
         from .namespaces.chat import AsyncChatAPI
@@ -703,6 +706,7 @@ class AragoraAsyncClient:
         self.bots = AsyncBotsAPI(self)
         self.billing = AsyncBillingAPI(self)
         self.budgets = AsyncBudgetsAPI(self)
+        self.blockchain = AsyncBlockchainAPI(self)
         self.calibration = AsyncCalibrationAPI(self)
         self.canvas = AsyncCanvasAPI(self)
         self.chat = AsyncChatAPI(self)
