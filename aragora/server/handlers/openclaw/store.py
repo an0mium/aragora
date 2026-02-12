@@ -462,9 +462,22 @@ class OpenClawPersistentStore:
 
             return encrypt_value(value)
         except ImportError:
-            # Fallback: base64 encoding (not secure, for dev only)
+            # SECURITY: base64 is NOT encryption. Log a critical warning so
+            # operators know secrets are stored without confidentiality protection.
             import base64
+            import os
 
+            logger.critical(
+                "cryptography library unavailable — credential secrets are stored "
+                "with base64 encoding only (NOT encrypted). Install the "
+                "'cryptography' package to enable AES-256-GCM encryption."
+            )
+            if os.environ.get("ARAGORA_ENV", "").lower() in ("production", "prod"):
+                raise RuntimeError(
+                    "Encryption library unavailable in production. "
+                    "Install the 'cryptography' package or set "
+                    "ARAGORA_ENV to a non-production value."
+                )
             return base64.b64encode(value.encode()).decode()
 
     def _decrypt_secret(self, encrypted: str) -> str:
@@ -476,6 +489,10 @@ class OpenClawPersistentStore:
         except ImportError:
             import base64
 
+            logger.warning(
+                "Decrypting credential with base64 fallback — "
+                "secret was stored without real encryption."
+            )
             return base64.b64decode(encrypted.encode()).decode()
 
     def _cache_session(self, session: Session) -> None:
