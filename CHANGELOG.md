@@ -3,6 +3,51 @@
 
 ## [Unreleased]
 
+### aragora-debate v0.2.0
+- Evidence quality analysis (regex-based citation, data, reasoning detection)
+- Hollow consensus detection (detects agents agreeing without substantive evidence)
+- Convergence tracking (`difflib.SequenceMatcher` for proposal similarity)
+- Evidence-powered trickster (challenge injection on hollow consensus)
+- Cross-proposal analysis (shared evidence, contradictions, evidence gaps)
+- Event/callback system (sync+async `EventEmitter`, 10 event types)
+- Mistral and Gemini provider agents (optional deps)
+- CLI `--trickster` and `--convergence` flags
+
+### Features
+- SDK `from_env()` factory for `AragoraClient` and `AragoraAsyncClient`
+- Token rotation CLI (`aragora security rotate-token/list-tokens/verify-token`)
+- OpenClaw standalone gateway body size and header count limits
+- OTLP protocol/headers configuration and connectivity health checks
+- Self-hosted production stack with installer script
+- API v1 to v2 migration guide with sunset timeline
+- aragora-debate CI test gate and PyPI publishing workflow
+- 34 new RBAC route permissions (auditing, belief, billing, consensus, etc.)
+
+### Security
+- Webhook verification defaults to production (fail-closed) when `ARAGORA_ENV` unset
+- Telegram connector rejects webhooks without `TELEGRAM_WEBHOOK_SECRET` in production
+- JWT insecure mode warnings in startup validation
+- OAuth rate limiting with exponential backoff and per-endpoint limits
+
+### Bug Fixes
+- OAuth rate limiter fixture uses `reset_oauth_limiter()` (API changed from `_buckets`)
+- Convergence cache patch target fixed (`convergence.cache.MAX_SIMILARITY_CACHES`)
+- Impersonation test fixture disables persistence (prevents flaky failures)
+- Token rotation `stores_override` uses `is not None` (allows empty list)
+- Live UI: removed unused auth destructuring from 8 components
+
+### Infrastructure
+- Arena refactoring: extracted factory and init helpers
+- Deprecation enforcer middleware enhanced
+- TypeScript SDK migrated to ESLint 9 flat config
+- EU AI Act compliance artifacts (Articles 12, 13, 14 with SHA-256 integrity)
+- Contract parity tests (TypeScript OpenClaw SDK 22/22 endpoints)
+- Blockchain 501 stubs upgraded to full implementation (8 endpoints, 45 tests)
+
+---
+
+## [Pre-v0.2.0] - 2026-02-09
+
 ### Features
 - Knowledge Mound: compliance, debate, and workflow adapters with factory registration
 - Security Debate API: multi-agent vulnerability debate at `/api/v1/audit/security/debate`
