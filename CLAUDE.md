@@ -402,9 +402,15 @@ See `docs/STATUS.md` for 74+ detailed feature statuses.
 | Document | Purpose |
 |----------|---------|
 | `docs/EXTENDED_README.md` | Comprehensive technical reference (five pillars, all features) |
-| `docs/COMMERCIAL_OVERVIEW.md` | Commercial positioning, 90% readiness assessment |
-| `docs/ENTERPRISE_FEATURES.md` | Enterprise capabilities reference |
+| `docs/COMMERCIAL_OVERVIEW.md` | Commercial positioning and readiness assessment |
+| `docs/WHY_ARAGORA.md` | "Why Aragora" positioning and competitive differentiation |
+| `docs/enterprise/ENTERPRISE_FEATURES.md` | Enterprise capabilities reference |
 | `docs/FEATURE_DISCOVERY.md` | Complete feature catalog (180+ features) |
 | `docs/STATUS.md` | Detailed feature implementation status |
-| `docs/API_REFERENCE.md` | REST API documentation |
+| `docs/api/API_REFERENCE.md` | REST API documentation |
+| `docs/SDK_GUIDE.md` | Python and TypeScript SDK usage guide |
+| `docs/compliance/EU_AI_ACT_GUIDE.md` | EU AI Act compliance guide and artifact generation |
+| `docs/verticals/HEALTHCARE.md` | Healthcare vertical guide (HIPAA, FHIR, clinical decisions) |
+| `docs/verticals/FINANCIAL.md` | Financial services vertical guide (risk, SOX, audit) |
+| `docs/verticals/LEGAL.md` | Legal vertical guide (contracts, due diligence, litigation) |
 | `docs/resilience/RESILIENCE_PATTERNS.md` | Circuit breakers, retry, timeout, health monitoring |

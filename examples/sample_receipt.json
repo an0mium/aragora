@@ -1,7 +1,7 @@
 {
-  "receipt_id": "rcpt_ae41e07ae7d6",
-  "gauntlet_id": "3e637599-48dc-4aba-aad7-d0e78c8997a1",
-  "timestamp": "2026-02-12T18:01:26.016123+00:00",
+  "receipt_id": "rcpt_d3b9fe0a1b8d",
+  "gauntlet_id": "58302776-1073-4dd1-b6e3-a5a723a2978f",
+  "timestamp": "2026-02-12T23:20:07.207931+00:00",
   "input_summary": "What are the three most important principles for designing a reliable API?",
   "input_type": "debate",
   "schema_version": "1.0",
@@ -27,9 +27,9 @@
     "demo-beta"
   ],
   "rounds_completed": 2,
-  "duration_seconds": 2.6734619140625,
+  "duration_seconds": 5.48570704460144,
   "audit_trail_id": null,
-  "checksum": "318d187c816375d1",
+  "checksum": "23a1db156142c457",
   "cost_usd": 0.0,
   "tokens_used": 0,
   "budget_limit_usd": null
