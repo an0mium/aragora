@@ -855,10 +855,37 @@ class ShutdownPhaseBuilder:
         # Phase 13: Shutdown HTTP servers
         self._phase_shutdown_servers(sequence)
 
-        # Phase 14: Final cleanup
+        # Phase 14: Shutdown registered daemon threads
+        self._phase_shutdown_thread_registry(sequence)
+
+        # Phase 15: Final cleanup
         self._phase_cleanup(sequence)
 
         return sequence
+
+    def _phase_shutdown_thread_registry(self, sequence: ShutdownSequence) -> None:
+        """Add phase to shut down all ThreadRegistry-managed threads."""
+
+        async def shutdown_thread_registry():
+            try:
+                from aragora.server.lifecycle import get_thread_registry
+
+                registry = get_thread_registry()
+                results = registry.shutdown_all(timeout=8.0)
+                stopped = sum(1 for v in results.values() if v)
+                logger.info(
+                    f"ThreadRegistry shutdown: {stopped}/{len(results)} threads stopped"
+                )
+            except ImportError:
+                pass
+
+        sequence.add_phase(
+            ShutdownPhase(
+                name="Shutdown thread registry",
+                execute=shutdown_thread_registry,
+                timeout=10.0,
+            )
+        )
 
 
 def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:

@@ -486,6 +486,18 @@ class BackgroundTaskManager:
         self._thread.start()
         logger.info("BackgroundTaskManager started")
 
+        # Register with lifecycle ThreadRegistry for coordinated shutdown
+        try:
+            from aragora.server.lifecycle import get_thread_registry
+
+            get_thread_registry().register(
+                "background-task-manager",
+                self._thread,
+                shutdown_fn=self.stop,
+            )
+        except ImportError:
+            pass
+
         # Run startup tasks
         with self._lock:
             for task in self._tasks.values():

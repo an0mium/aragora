@@ -246,6 +246,18 @@ class ConnectionPoolManager:
         self._health_check_thread.start()
         logger.debug("Health check thread started")
 
+        # Register with lifecycle ThreadRegistry for coordinated shutdown
+        try:
+            from aragora.server.lifecycle import get_thread_registry
+
+            get_thread_registry().register(
+                "redis-health-check",
+                self._health_check_thread,
+                shutdown_fn=lambda: self._stop_health_check.set(),
+            )
+        except ImportError:
+            pass
+
     def _perform_health_check(self) -> None:
         """Perform health check on pool."""
         client = self._client

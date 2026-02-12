@@ -339,7 +339,15 @@ class UnifiedHandler(  # type: ignore[misc]
 
         # Health check endpoints (non-API paths routed to HealthHandler)
         # These are required by Kubernetes probes and load balancers
-        if path in ("/healthz", "/readyz", "/health", "/ready", "/metrics"):
+        if path in ("/healthz", "/readyz", "/health", "/ready", "/metrics", "/health/threads"):
+            if path == "/health/threads":
+                try:
+                    from aragora.server.lifecycle import get_thread_registry
+
+                    self._send_json(get_thread_registry().health())
+                except ImportError:
+                    self._send_json({"error": "lifecycle module not available"}, status=503)
+                return
             if self._try_modular_handler(path, query):
                 return
             # Fallback: return simple OK if handler not available
