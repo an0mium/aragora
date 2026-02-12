@@ -58,6 +58,7 @@ from aragora.nomic.handlers import (
     create_design_handler,
     create_handlers,
     create_implement_handler,
+    create_recovery_handler,
     create_verify_handler,
 )
 
@@ -360,6 +361,7 @@ __all__ = [
     "create_design_handler",
     "create_implement_handler",
     "create_verify_handler",
+    "create_recovery_handler",
     "create_commit_handler",
     # Legacy Integration
     "NomicIntegration",

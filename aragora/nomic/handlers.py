@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable, Coroutine, Optional
 
 from .events import Event
+from .recovery import RecoveryManager, recovery_handler as core_recovery_handler
 from .states import NomicState, StateContext
 
 logger = logging.getLogger(__name__)
@@ -477,6 +478,52 @@ async def verify_handler(
         raise
 
 
+async def recovery_state_handler(
+    context: StateContext,
+    event: Event,
+    *,
+    recovery_manager: RecoveryManager,
+    repo_path: Path,
+    sica_agents: list[Any] | None = None,
+) -> tuple[NomicState, dict[str, Any]]:
+    """
+    Handler for the RECOVERY state.
+
+    Uses standard recovery strategies and can optionally run a SICA
+    improvement cycle before deciding the recovery transition.
+    """
+    if sica_agents is None:
+        sica_agents = []
+
+    failed_state = context.previous_state
+    sica_result: dict[str, Any] | None = None
+    if (
+        failed_state in (NomicState.IMPLEMENT, NomicState.VERIFY)
+        and os.environ.get("NOMIC_SICA_ENABLED", "0") == "1"
+    ):
+        sica_result = await _run_sica_cycle(repo_path, sica_agents, logger.info)
+        if sica_result.get("status") == "success":
+            # SICA may have changed code directly; re-run verification next.
+            return NomicState.VERIFY, {
+                "decision": {
+                    "strategy": "SICA_REPAIR",
+                    "target_state": NomicState.VERIFY.name,
+                    "reason": f"SICA recovered from {failed_state.name if failed_state else 'unknown'}",
+                },
+                "recovered_from": failed_state.name if failed_state else "UNKNOWN",
+                "sica": sica_result,
+            }
+
+    next_state, data = await core_recovery_handler(
+        context=context,
+        event=event,
+        recovery_manager=recovery_manager,
+    )
+    if sica_result is not None:
+        data["sica"] = sica_result
+    return next_state, data
+
+
 async def commit_handler(
     context: StateContext,
     event: Event,
@@ -638,6 +685,36 @@ def create_verify_handler(
             context,
             event,
             verify_phase=verify_phase,
+            repo_path=repo_path,
+            sica_agents=sica_agents,
+        )
+
+    return handler
+
+
+def create_recovery_handler(
+    recovery_manager: RecoveryManager,
+    *,
+    repo_path: Path,
+    sica_agents: list[Any] | None = None,
+) -> StateHandler:
+    """
+    Create a recovery handler bound to a RecoveryManager instance.
+
+    Args:
+        recovery_manager: Recovery manager instance
+        repo_path: Repository path for optional SICA recovery
+        sica_agents: Candidate agents for SICA prompts
+
+    Returns:
+        Bound handler function
+    """
+
+    async def handler(context: StateContext, event: Event) -> tuple[NomicState, dict[str, Any]]:
+        return await recovery_state_handler(
+            context,
+            event,
+            recovery_manager=recovery_manager,
             repo_path=repo_path,
             sica_agents=sica_agents,
         )
@@ -852,6 +929,7 @@ def create_handlers(
     for agent in (codex_agent, claude_agent, *agents):
         if agent and agent not in sica_agents:
             sica_agents.append(agent)
+    recovery_manager = RecoveryManager()
 
     # Create and return bound handlers
     return {
@@ -865,6 +943,11 @@ def create_handlers(
             sica_agents=sica_agents,
         ),
         NomicState.COMMIT: create_commit_handler(commit_phase),
+        NomicState.RECOVERY: create_recovery_handler(
+            recovery_manager,
+            repo_path=aragora_path,
+            sica_agents=sica_agents,
+        ),
     }
 
 
@@ -875,6 +958,7 @@ __all__ = [
     "create_design_handler",
     "create_implement_handler",
     "create_verify_handler",
+    "create_recovery_handler",
     "create_commit_handler",
     # Main factory
     "create_handlers",
@@ -884,5 +968,6 @@ __all__ = [
     "design_handler",
     "implement_handler",
     "verify_handler",
+    "recovery_state_handler",
     "commit_handler",
 ]
