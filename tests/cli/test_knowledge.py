@@ -505,20 +505,28 @@ class TestCmdFacts:
         captured = capsys.readouterr()
         assert "fact_id required" in captured.out
 
-    def test_facts_verify_not_implemented(self, facts_args, capsys):
-        """Test verify action returns not implemented."""
+    def test_facts_verify_runs_verification(self, facts_args, capsys):
+        """Test verify action attempts fact verification."""
         facts_args.action = "verify"
         facts_args.fact_id = "fact-123"
 
         mock_knowledge = MagicMock()
+        mock_fact = MagicMock()
+        mock_fact.statement = "Test statement"
+        mock_fact.confidence = 0.85
+        mock_fact.validation_status.value = "majority_agreed"
+        mock_store = mock_knowledge.InMemoryFactStore.return_value
+        mock_store.get_fact.return_value = mock_fact
 
         with patch.dict("sys.modules", {"aragora.knowledge": mock_knowledge}):
             with patch.dict("sys.modules", {"aragora.knowledge.types": MagicMock()}):
+                # The verify action now tries to import KnowledgeQueryEngine;
+                # if the import fails (mocked modules), it returns 1 with an error
                 result = cmd_facts(facts_args)
 
-        assert result == 1
         captured = capsys.readouterr()
-        assert "Verification not yet implemented" in captured.out
+        # Should show the "Verifying fact:" header since the fact was found
+        assert "Verifying fact" in captured.out
 
     def test_facts_verify_missing_id(self, facts_args, capsys):
         """Test verify action without fact_id."""

@@ -630,7 +630,7 @@ class TestGetMessages:
         async def mock_api_request(endpoint, **kwargs):
             msg_id = endpoint.split("/")[-1]
             if msg_id == "msg_2":
-                raise Exception("API error for msg_2")
+                raise RuntimeError("API error for msg_2")
             return {**sample_gmail_message, "id": msg_id}
 
         with patch.object(messages_mixin, "_api_request", side_effect=mock_api_request):
@@ -681,7 +681,7 @@ class TestGetMessages:
         """Test get_messages returns empty list when all fail."""
 
         async def mock_api_request(endpoint, **kwargs):
-            raise Exception("All fail")
+            raise RuntimeError("All fail")
 
         with patch.object(messages_mixin, "_api_request", side_effect=mock_api_request):
             messages = await messages_mixin.get_messages(["msg_1", "msg_2"])
@@ -693,7 +693,7 @@ class TestGetMessages:
 
         async def mock_api_request(endpoint, **kwargs):
             if "msg_2" in endpoint:
-                raise Exception("API error")
+                raise RuntimeError("API error")
             return sample_gmail_message
 
         with patch.object(messages_mixin, "_api_request", side_effect=mock_api_request):

@@ -1236,13 +1236,52 @@ class TestListTemplates:
     """Tests for _handle_list_templates."""
 
     @pytest.mark.asyncio
-    async def test_list_templates_placeholder(self, handler_with_ctx, mock_request):
-        """Test template listing returns placeholder response."""
-        result = await handler_with_ctx._handle_list_templates(mock_request, "test_tenant")
+    async def test_list_templates_no_connector(self, handler_with_ctx, mock_request):
+        """Test template listing returns 503 when DocuSign is not configured."""
+        with patch(
+            "aragora.server.handlers.features.legal.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            result = await handler_with_ctx._handle_list_templates(mock_request, "test_tenant")
+        assert result.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_list_templates_success(self, handler_with_ctx, mock_request):
+        """Test template listing returns templates from DocuSign API."""
+        mock_connector = AsyncMock()
+        mock_connector.is_authenticated = True
+        mock_connector._request = AsyncMock(
+            return_value={
+                "envelopeTemplates": [
+                    {
+                        "templateId": "tpl-1",
+                        "name": "NDA Template",
+                        "description": "Standard NDA",
+                        "created": "2025-01-01",
+                        "lastModified": "2025-06-01",
+                        "owner": {"userName": "Admin"},
+                        "shared": "true",
+                        "folderName": "Templates",
+                    }
+                ],
+                "resultSetSize": 1,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.features.legal.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=mock_connector,
+        ):
+            result = await handler_with_ctx._handle_list_templates(mock_request, "test_tenant")
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert body["data"]["templates"] == []
-        assert "not yet implemented" in body["data"]["message"].lower()
+        templates = body["data"]["templates"]
+        assert len(templates) == 1
+        assert templates[0]["template_id"] == "tpl-1"
+        assert templates[0]["name"] == "NDA Template"
+        assert templates[0]["shared"] is True
 
 
 # =============================================================================

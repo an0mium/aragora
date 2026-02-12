@@ -704,7 +704,7 @@ class TestBatchMessageFetching:
             if "msg_1" in endpoint:
                 return msg_1
             elif "msg_2" in endpoint:
-                raise Exception("API error for msg_2")
+                raise RuntimeError("API error for msg_2")
             elif "msg_3" in endpoint:
                 return msg_3
             return sample_gmail_message
@@ -764,7 +764,7 @@ class TestBatchMessageFetching:
         """Test get_messages returns empty list when all fetches fail."""
 
         async def mock_api_request(endpoint, **kwargs):
-            raise Exception("All API calls fail")
+            raise RuntimeError("All API calls fail")
 
         with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
             messages = await authenticated_connector.get_messages(["msg_1", "msg_2", "msg_3"])
@@ -782,7 +782,7 @@ class TestBatchMessageFetching:
             if "msg_1" in endpoint:
                 return msg_1
             elif "msg_2" in endpoint:
-                raise Exception("API error for msg_2")
+                raise RuntimeError("API error for msg_2")
             return sample_gmail_message
 
         with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
@@ -1075,7 +1075,7 @@ class TestHistoryApi:
     async def test_get_history_expired(self, authenticated_connector):
         """Test handling expired history ID."""
         with patch.object(authenticated_connector, "_api_request") as mock_request:
-            mock_request.side_effect = Exception("404 historyId expired")
+            mock_request.side_effect = RuntimeError("404 historyId expired")
 
             history, next_token, new_id = await authenticated_connector.get_history("old_id")
 

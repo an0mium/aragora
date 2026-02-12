@@ -971,7 +971,7 @@ class TestCleanup:
     async def test_cleanup_handles_error(self, connector):
         """Test that cleanup handles client close errors gracefully."""
         mock_client = AsyncMock()
-        mock_client.aclose = AsyncMock(side_effect=Exception("Close error"))
+        mock_client.aclose = AsyncMock(side_effect=OSError("Close error"))
         connector._http_client = mock_client
 
         # Should not raise

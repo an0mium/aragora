@@ -5,6 +5,7 @@ Tests the Twitter API v2 integration for searching tweets,
 fetching tweet details, and retrieving user timelines.
 """
 
+import httpx
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -413,7 +414,9 @@ class TestTwitterSearch:
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 500
-            mock_response.raise_for_status.side_effect = Exception("Server Error")
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+                "Server Error", request=MagicMock(), response=mock_response
+            )
 
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
