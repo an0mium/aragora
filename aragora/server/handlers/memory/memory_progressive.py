@@ -234,7 +234,11 @@ class MemoryProgressiveMixin:
                 return error_response("Tenant/workspace context required for memory access", 400)
 
         if not hasattr(continuum, "get_timeline_entries"):
-            return error_response("Timeline retrieval not supported", 501)
+            return error_response(
+                "Timeline retrieval not supported by this continuum backend. "
+                "Ensure the memory system is configured with a backend that supports timeline queries.",
+                501,
+            )
 
         timeline = continuum.get_timeline_entries(
             anchor_id=anchor_id,
@@ -303,7 +307,11 @@ class MemoryProgressiveMixin:
             return error_response("Missing required parameter: ids", 400)
 
         if not hasattr(continuum, "get_many"):
-            return error_response("Bulk entry retrieval not supported", 501)
+            return error_response(
+                "Bulk entry retrieval not supported by this continuum backend. "
+                "Ensure the memory system is configured with a backend that supports batch queries.",
+                501,
+            )
 
         try:
             from aragora.memory.access import (

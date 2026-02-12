@@ -370,7 +370,13 @@ class SSOHandler(SecureHandler):
         provider = self._resolve_provider()
         if not provider:
             return self._format_response(
-                handler, error_response("SSO not configured", 501, code="SSO_NOT_CONFIGURED")
+                handler,
+                error_response(
+                    "SSO not configured. Set ARAGORA_SSO_* environment variables to enable single sign-on.",
+                    501,
+                    code="SSO_NOT_CONFIGURED",
+                    suggestion="Configure SSO in environment variables (ARAGORA_SSO_PROVIDER, ARAGORA_SSO_CLIENT_ID, etc.)",
+                ),
             )
 
         # SECURITY: Enforce HTTPS for callbacks in production
@@ -638,7 +644,13 @@ class SSOHandler(SecureHandler):
         provider = self._resolve_provider()
         if not provider:
             return self._format_response(
-                handler, error_response("SSO not configured", 501, code="SSO_NOT_CONFIGURED")
+                handler,
+                error_response(
+                    "SSO not configured. Set ARAGORA_SSO_* environment variables to enable single sign-on.",
+                    501,
+                    code="SSO_NOT_CONFIGURED",
+                    suggestion="Configure SSO in environment variables (ARAGORA_SSO_PROVIDER, ARAGORA_SSO_CLIENT_ID, etc.)",
+                ),
             )
 
         # Check if SAML provider

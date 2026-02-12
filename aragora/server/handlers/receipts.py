@@ -1209,7 +1209,11 @@ class ReceiptsHandler(BaseHandler):
                     failed_count += 1
 
         except ImportError:
-            return error_response("Signing module not available", 501)
+            return error_response(
+                "Signing module not available. Install cryptographic dependencies with: "
+                "pip install aragora[crypto]",
+                501,
+            )
 
         return json_response(
             {

@@ -340,7 +340,11 @@ class MemoryContinuumMixin:
 
         # Check if delete method exists on continuum
         if not hasattr(continuum, "delete"):
-            return error_response("Memory deletion not supported", 501)
+            return error_response(
+                "Memory deletion not supported by this continuum backend. "
+                "Upgrade to a tier that supports deletion or use a different storage backend.",
+                501,
+            )
 
         try:
             try:

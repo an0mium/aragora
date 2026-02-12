@@ -1085,4 +1085,8 @@ class RLMContextHandler(BaseHandler):
             except (ImportError, AttributeError, TypeError):
                 pass
 
-            return error_response("Streaming module not available", 501)
+            return error_response(
+                "RLM streaming module not available. "
+                "Install streaming dependencies with: pip install aragora[streaming]",
+                501,
+            )
