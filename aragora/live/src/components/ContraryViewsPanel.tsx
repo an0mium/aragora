@@ -27,12 +27,6 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
   const baseUrl = apiBase || API_BASE_URL;
 
   const fetchViews = useCallback(async () => {
-    // Skip if not authenticated
-    if (!isAuthenticated || authLoading) {
-      setLoading(false);
-      return;
-    }
-
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (tokens?.access_token) {
@@ -50,7 +44,7 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, isAuthenticated, authLoading, tokens?.access_token]);
+  }, [baseUrl, tokens?.access_token]);
 
   useEffect(() => {
     fetchViews();
