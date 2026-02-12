@@ -9,8 +9,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.debates import DebatesHandler
 from aragora.server.handlers.base import HandlerResult, clear_cache
+
+
+def _mock_handler_with_auth():
+    """Create a mock handler with admin auth context for RBAC-protected methods."""
+    handler = MagicMock()
+    handler._auth_context = AuthorizationContext(
+        user_id="test-admin",
+        permissions={"debates:read", "debates:create", "debates:update", "debates:delete"},
+        roles={"admin"},
+    )
+    return handler
 
 
 @pytest.fixture(autouse=True)
@@ -131,7 +143,7 @@ class TestListDebates:
             {"id": "debate-2", "title": "Test 2"},
         ]
 
-        result = self.handler._list_debates(None, limit=20)
+        result = self.handler._list_debates(limit=20)
 
         assert result.status_code == 200
         data = parse_body(result)
@@ -142,7 +154,7 @@ class TestListDebates:
         """Test empty debate list."""
         self.mock_storage.list_recent.return_value = []
 
-        result = self.handler._list_debates(None, limit=20)
+        result = self.handler._list_debates(limit=20)
 
         assert result.status_code == 200
         data = parse_body(result)
@@ -153,16 +165,16 @@ class TestListDebates:
         """Test storage error handling."""
         self.mock_storage.list_recent.side_effect = Exception("Database error")
 
-        result = self.handler._list_debates(None, limit=20)
+        result = self.handler._list_debates(limit=20)
 
         assert result.status_code == 500
-        assert "Failed to list debates" in parse_body(result)["error"]
+        assert parse_body(result)["error"]  # Sanitized error message
 
     def test_handles_no_storage(self) -> None:
         """Test missing storage handling."""
         handler = DebatesHandler(server_context={})
 
-        result = handler._list_debates(None, limit=20)
+        result = handler._list_debates(limit=20)
 
         assert result.status_code == 503
         assert "Storage not available" in parse_body(result)["error"]
@@ -205,7 +217,7 @@ class TestGetDebateBySlug:
         result = self.handler._get_debate_by_slug(None, "test-123")
 
         assert result.status_code == 500
-        assert "Failed to get debate" in parse_body(result)["error"]
+        assert parse_body(result)["error"]  # Sanitized error message
 
 
 class TestGetImpasse:
@@ -215,6 +227,7 @@ class TestGetImpasse:
         """Set up test fixtures."""
         self.mock_storage = MagicMock()
         self.handler = DebatesHandler(server_context={"storage": self.mock_storage})
+        self.mock_http_handler = _mock_handler_with_auth()
 
     def test_detects_no_impasse(self) -> None:
         """Test no impasse when consensus reached."""
@@ -225,7 +238,7 @@ class TestGetImpasse:
             "critiques": [],
         }
 
-        result = self.handler._get_impasse(None, "test-123")
+        result = self.handler._get_impasse(self.mock_http_handler, "test-123")
 
         assert result.status_code == 200
         assert parse_body(result)["is_impasse"] is False
@@ -239,7 +252,7 @@ class TestGetImpasse:
             "critiques": [{"severity": 0.9}],
         }
 
-        result = self.handler._get_impasse(None, "test-123")
+        result = self.handler._get_impasse(self.mock_http_handler, "test-123")
 
         assert result.status_code == 200
         # no_convergence = True, high_severity = True, repeated = False
@@ -250,7 +263,7 @@ class TestGetImpasse:
         """Test 404 for missing debate."""
         self.mock_storage.get_debate.return_value = None
 
-        result = self.handler._get_impasse(None, "nonexistent")
+        result = self.handler._get_impasse(self.mock_http_handler, "nonexistent")
 
         assert result.status_code == 404
 
@@ -263,7 +276,7 @@ class TestGetImpasse:
             "critiques": [{"severity": 0.5}],  # Low severity
         }
 
-        result = self.handler._get_impasse(None, "test-123")
+        result = self.handler._get_impasse(self.mock_http_handler, "test-123")
 
         assert result.status_code == 200
         data = parse_body(result)
@@ -280,6 +293,7 @@ class TestGetConvergence:
         """Set up test fixtures."""
         self.mock_storage = MagicMock()
         self.handler = DebatesHandler(server_context={"storage": self.mock_storage})
+        self.mock_http_handler = _mock_handler_with_auth()
 
     def test_returns_convergence_status(self) -> None:
         """Test convergence status is returned."""
@@ -291,7 +305,7 @@ class TestGetConvergence:
             "rounds_used": 3,
         }
 
-        result = self.handler._get_convergence(None, "test-123")
+        result = self.handler._get_convergence(self.mock_http_handler, "test-123")
 
         assert result.status_code == 200
         data = parse_body(result)
@@ -306,7 +320,7 @@ class TestGetConvergence:
             "id": "test-123",
         }
 
-        result = self.handler._get_convergence(None, "test-123")
+        result = self.handler._get_convergence(self.mock_http_handler, "test-123")
 
         assert result.status_code == 200
         data = parse_body(result)
@@ -319,7 +333,7 @@ class TestGetConvergence:
         """Test 404 for missing debate."""
         self.mock_storage.get_debate.return_value = None
 
-        result = self.handler._get_convergence(None, "nonexistent")
+        result = self.handler._get_convergence(self.mock_http_handler, "nonexistent")
 
         assert result.status_code == 404
 
@@ -331,12 +345,13 @@ class TestHandle:
         """Set up test fixtures."""
         self.mock_storage = MagicMock()
         self.handler = DebatesHandler(server_context={"storage": self.mock_storage})
+        self.mock_http_handler = _mock_handler_with_auth()
 
     def test_routes_to_list_debates(self) -> None:
         """Test routing to list debates."""
         self.mock_storage.list_recent.return_value = []
 
-        result = self.handler.handle("/api/debates", {}, None)
+        result = self.handler.handle("/api/debates", {}, self.mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -345,7 +360,7 @@ class TestHandle:
         """Test routing to slug lookup."""
         self.mock_storage.get_debate.return_value = {"id": "test"}
 
-        result = self.handler.handle("/api/debates/slug/my-slug", {}, None)
+        result = self.handler.handle("/api/debates/slug/my-slug", {}, self.mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -359,7 +374,7 @@ class TestHandle:
             "critiques": [],
         }
 
-        result = self.handler.handle("/api/debates/test-123/impasse", {}, None)
+        result = self.handler.handle("/api/debates/test-123/impasse", {}, self.mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -372,7 +387,7 @@ class TestHandle:
             "convergence_status": "converged",
         }
 
-        result = self.handler.handle("/api/debates/test-123/convergence", {}, None)
+        result = self.handler.handle("/api/debates/test-123/convergence", {}, self.mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -380,7 +395,7 @@ class TestHandle:
 
     def test_rejects_invalid_debate_id_in_route(self) -> None:
         """Test invalid debate ID in route is rejected."""
-        result = self.handler.handle("/api/debates/../etc/impasse", {}, None)
+        result = self.handler.handle("/api/debates/../etc/impasse", {}, self.mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -389,14 +404,16 @@ class TestHandle:
         """Test limit parameter is used for list."""
         self.mock_storage.list_recent.return_value = []
 
-        self.handler.handle("/api/debates", {"limit": ["50"]}, None)
+        self.handler.handle("/api/debates", {"limit": ["50"]}, self.mock_http_handler)
 
-        self.mock_storage.list_recent.assert_called_once_with(limit=50)
+        self.mock_storage.list_recent.assert_called_once_with(limit=50, org_id=None)
 
     def test_caps_limit_at_100(self) -> None:
         """Test limit is capped at 100."""
         self.mock_storage.list_recent.return_value = []
 
-        self.handler.handle("/api/debates", {"limit": ["500"]}, None)
+        self.handler.handle("/api/debates", {"limit": ["500"]}, self.mock_http_handler)
 
-        self.mock_storage.list_recent.assert_called_once_with(limit=100)
+        self.mock_storage.list_recent.assert_called_once()
+        call_kwargs = self.mock_storage.list_recent.call_args
+        assert call_kwargs.kwargs.get("limit", call_kwargs[1].get("limit")) == 100

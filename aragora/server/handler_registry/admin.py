@@ -303,6 +303,11 @@ UnifiedApprovalsHandler = _safe_import(
 )
 RBACHandler = _safe_import("aragora.server.handlers.rbac", "RBACHandler")
 
+# Emergency break-glass access
+EmergencyAccessHandler = _safe_import(
+    "aragora.server.handlers.admin.emergency_access", "EmergencyAccessHandler"
+)
+
 # Cost dashboard
 CostDashboardHandler = _safe_import(
     "aragora.server.handlers.billing.cost_dashboard", "CostDashboardHandler"
@@ -463,6 +468,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Approvals, RBAC, and management
     ("_unified_approvals_handler", UnifiedApprovalsHandler),
     ("_rbac_handler", RBACHandler),
+    ("_emergency_access_handler", EmergencyAccessHandler),
     ("_cost_dashboard_handler", CostDashboardHandler),
     ("_gastown_dashboard_handler", GasTownDashboardHandler),
     ("_connector_management_handler", ConnectorManagementHandler),
@@ -603,6 +609,7 @@ __all__ = [
     # Approvals, RBAC, and management
     "UnifiedApprovalsHandler",
     "RBACHandler",
+    "EmergencyAccessHandler",
     "CostDashboardHandler",
     "GasTownDashboardHandler",
     "ConnectorManagementHandler",

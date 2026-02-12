@@ -724,6 +724,10 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/(v1/)?billing", "GET", "billing.read"),
     RoutePermission(r"^/api/(v1/)?billing", "POST", "billing.write"),
     RoutePermission(r"^/api/(v1/)?billing", "PUT", "billing.write"),
+    # ── Emergency break-glass access ──
+    RoutePermission(r"^/api/(v1/)?admin/emergency/activate$", "POST", "admin.*"),
+    RoutePermission(r"^/api/(v1/)?admin/emergency/deactivate$", "POST", "admin.*"),
+    RoutePermission(r"^/api/(v1/)?admin/emergency/status$", "GET", "admin.*"),
 ]
 
 
@@ -806,6 +810,32 @@ class RBACMiddleware:
             # Empty permission key means authenticated access is sufficient
             if not rule.permission_key:
                 return True, "Authenticated access", None
+
+            # Check for active break-glass emergency session BEFORE normal RBAC.
+            # If the authenticated user has an active emergency session, bypass
+            # the permission check but log a warning for audit purposes.
+            try:
+                from .emergency import get_break_glass_access
+
+                _emergency = get_break_glass_access()
+                if _emergency and _emergency._active_records:
+                    # Quick synchronous check: iterate active records for this user
+                    user_id = getattr(context, "user_id", None)
+                    if user_id:
+                        record_ids = _emergency._by_user.get(user_id, [])
+                        for rid in reversed(record_ids):
+                            record = _emergency._active_records.get(rid)
+                            if record and record.is_active:
+                                logger.warning(
+                                    "Emergency break-glass access: user=%s bypassing RBAC "
+                                    "for permission=%s path=%s",
+                                    user_id,
+                                    rule.permission_key,
+                                    path,
+                                )
+                                return True, "Emergency break-glass access", rule.permission_key
+            except ImportError:
+                pass  # emergency module not available
 
             # Check permission
             decision = self._checker.check_permission(

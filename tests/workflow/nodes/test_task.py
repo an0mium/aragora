@@ -237,6 +237,19 @@ class TestHTTPExecution:
             step_outputs=step_outputs or {},
         )
 
+    def _make_mock_pool(self, mock_client):
+        """Build a mock HTTPClientPool whose get_session yields *mock_client*."""
+        from contextlib import asynccontextmanager
+
+        mock_pool = MagicMock()
+
+        @asynccontextmanager
+        async def _get_session(provider):
+            yield mock_client
+
+        mock_pool.get_session = _get_session
+        return mock_pool
+
     @pytest.mark.asyncio
     async def test_http_get_success(self):
         """Test successful HTTP GET request."""
@@ -253,20 +266,17 @@ class TestHTTPExecution:
         ctx = self._make_context()
 
         mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.text = AsyncMock(return_value='{"key": "value"}')
+        mock_response.status_code = 200
+        mock_response.text = '{"key": "value"}'
         mock_response.headers = {"Content-Type": "application/json"}
 
-        mock_session = MagicMock()
-        mock_session.request = MagicMock(
-            return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
-            )
-        )
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_client = MagicMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=self._make_mock_pool(mock_client),
+        ):
             result = await step.execute(ctx)
 
         assert result["success"] is True
@@ -291,26 +301,23 @@ class TestHTTPExecution:
         ctx = self._make_context(inputs={"user_name": "John", "api_token": "secret123"})
 
         mock_response = MagicMock()
-        mock_response.status = 201
-        mock_response.text = AsyncMock(return_value='{"id": "123"}')
+        mock_response.status_code = 201
+        mock_response.text = '{"id": "123"}'
         mock_response.headers = {"Content-Type": "application/json"}
 
-        mock_session = MagicMock()
-        mock_session.request = MagicMock(
-            return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
-            )
-        )
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_client = MagicMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=self._make_mock_pool(mock_client),
+        ):
             result = await step.execute(ctx)
 
         assert result["success"] is True
         assert result["status_code"] == 201
         # Verify the request was made with interpolated values
-        call_kwargs = mock_session.request.call_args
+        call_kwargs = mock_client.request.call_args
         assert call_kwargs[0][0] == "POST"
 
     @pytest.mark.asyncio
@@ -329,20 +336,17 @@ class TestHTTPExecution:
         ctx = self._make_context()
 
         mock_response = MagicMock()
-        mock_response.status = 404
-        mock_response.text = AsyncMock(return_value='{"error": "not found"}')
+        mock_response.status_code = 404
+        mock_response.text = '{"error": "not found"}'
         mock_response.headers = {}
 
-        mock_session = MagicMock()
-        mock_session.request = MagicMock(
-            return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
-            )
-        )
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_client = MagicMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=self._make_mock_pool(mock_client),
+        ):
             result = await step.execute(ctx)
 
         assert result["success"] is False
@@ -351,7 +355,6 @@ class TestHTTPExecution:
     @pytest.mark.asyncio
     async def test_http_timeout(self):
         """Test HTTP request timeout."""
-        import sys
         from aragora.workflow.nodes.task import TaskStep
 
         step = TaskStep(
@@ -365,30 +368,13 @@ class TestHTTPExecution:
         )
         ctx = self._make_context()
 
-        # Create mock aiohttp module with session that raises timeout on request
-        mock_aiohttp = MagicMock()
+        mock_client = MagicMock()
+        mock_client.request = AsyncMock(side_effect=asyncio.TimeoutError())
 
-        class RaisingRequestCM:
-            async def __aenter__(self):
-                raise asyncio.TimeoutError()
-
-            async def __aexit__(self, *args):
-                pass
-
-        class MockSession:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *args):
-                pass
-
-            def request(self, *args, **kwargs):
-                return RaisingRequestCM()
-
-        mock_aiohttp.ClientSession = MockSession
-        mock_aiohttp.ClientTimeout = MagicMock(return_value={})
-
-        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=self._make_mock_pool(mock_client),
+        ):
             result = await step.execute(ctx)
 
         assert result["success"] is False
@@ -397,7 +383,6 @@ class TestHTTPExecution:
     @pytest.mark.asyncio
     async def test_http_connection_error(self):
         """Test HTTP connection error handling."""
-        import sys
         from aragora.workflow.nodes.task import TaskStep
 
         step = TaskStep(
@@ -410,30 +395,13 @@ class TestHTTPExecution:
         )
         ctx = self._make_context()
 
-        # Create mock aiohttp module with session that raises connection error on request
-        mock_aiohttp = MagicMock()
+        mock_client = MagicMock()
+        mock_client.request = AsyncMock(side_effect=ConnectionError("Connection refused"))
 
-        class RaisingRequestCM:
-            async def __aenter__(self):
-                raise ConnectionError("Connection refused")
-
-            async def __aexit__(self, *args):
-                pass
-
-        class MockSession:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *args):
-                pass
-
-            def request(self, *args, **kwargs):
-                return RaisingRequestCM()
-
-        mock_aiohttp.ClientSession = MockSession
-        mock_aiohttp.ClientTimeout = MagicMock(return_value={})
-
-        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=self._make_mock_pool(mock_client),
+        ):
             result = await step.execute(ctx)
 
         assert result["success"] is False
@@ -455,32 +423,29 @@ class TestHTTPExecution:
         ctx = self._make_context()
 
         mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.text = AsyncMock(return_value="Plain text response")
+        mock_response.status_code = 200
+        mock_response.text = "Plain text response"
         mock_response.headers = {"Content-Type": "text/plain"}
 
-        mock_session = MagicMock()
-        mock_session.request = MagicMock(
-            return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
-            )
-        )
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_client = MagicMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=self._make_mock_pool(mock_client),
+        ):
             result = await step.execute(ctx)
 
         assert result["success"] is True
         assert result["response"] == "Plain text response"
 
     @pytest.mark.asyncio
-    async def test_http_aiohttp_not_installed(self):
-        """Test HTTP task when aiohttp is not installed."""
+    async def test_http_pool_unavailable(self):
+        """Test HTTP task when the HTTP pool is unavailable."""
         from aragora.workflow.nodes.task import TaskStep
 
         step = TaskStep(
-            name="HTTP No aiohttp",
+            name="HTTP No Pool",
             config={
                 "task_type": "http",
                 "url": "https://api.example.com/data",
@@ -488,22 +453,14 @@ class TestHTTPExecution:
         )
         ctx = self._make_context()
 
-        with patch.dict("sys.modules", {"aiohttp": None}):
-            # Patch the import inside the method
-            original_import = (
-                __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
-            )
-
-            def mock_import(name, *args, **kwargs):
-                if name == "aiohttp":
-                    raise ImportError("No module named 'aiohttp'")
-                return original_import(name, *args, **kwargs)
-
-            with patch("builtins.__import__", side_effect=mock_import):
-                result = await step.execute(ctx)
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            side_effect=RuntimeError("HTTPClientPool has been closed"),
+        ):
+            result = await step.execute(ctx)
 
         assert result["success"] is False
-        assert "aiohttp not installed" in result["error"]
+        assert "HTTPClientPool" in result["error"]
 
 
 # ============================================================================

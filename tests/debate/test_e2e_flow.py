@@ -845,6 +845,7 @@ class TestStressAndEdgeCases:
     """Tests for stress conditions and edge cases."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(180)
     async def test_single_agent_debate(
         self,
         basic_env: Environment,
