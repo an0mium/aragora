@@ -294,6 +294,32 @@ MonitoringHandler = _safe_import(
     "aragora.server.handlers.autonomous.monitoring", "MonitoringHandler"
 )
 
+# Approvals and RBAC handlers
+UnifiedApprovalsHandler = _safe_import(
+    "aragora.server.handlers.approvals_inbox", "UnifiedApprovalsHandler"
+)
+RBACHandler = _safe_import("aragora.server.handlers.rbac", "RBACHandler")
+
+# Cost dashboard
+CostDashboardHandler = _safe_import(
+    "aragora.server.handlers.billing.cost_dashboard", "CostDashboardHandler"
+)
+
+# Gas Town dashboard
+GasTownDashboardHandler = _safe_import(
+    "aragora.server.handlers.gastown_dashboard", "GasTownDashboardHandler"
+)
+
+# Connector management
+ConnectorManagementHandler = _safe_import(
+    "aragora.server.handlers.connectors.management", "ConnectorManagementHandler"
+)
+
+# Task execution
+TaskExecutionHandler = _safe_import(
+    "aragora.server.handlers.tasks.execution", "TaskExecutionHandler"
+)
+
 # Base handler result (for backward compatibility)
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 
@@ -431,6 +457,13 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_approval_handler", ApprovalHandler),
     ("_trigger_handler", TriggerHandler),
     ("_monitoring_handler", MonitoringHandler),
+    # Approvals, RBAC, and management
+    ("_unified_approvals_handler", UnifiedApprovalsHandler),
+    ("_rbac_handler", RBACHandler),
+    ("_cost_dashboard_handler", CostDashboardHandler),
+    ("_gastown_dashboard_handler", GasTownDashboardHandler),
+    ("_connector_management_handler", ConnectorManagementHandler),
+    ("_task_execution_handler", TaskExecutionHandler),
 ]
 
 __all__ = [
@@ -562,6 +595,13 @@ __all__ = [
     "ApprovalHandler",
     "TriggerHandler",
     "MonitoringHandler",
+    # Approvals, RBAC, and management
+    "UnifiedApprovalsHandler",
+    "RBACHandler",
+    "CostDashboardHandler",
+    "GasTownDashboardHandler",
+    "ConnectorManagementHandler",
+    "TaskExecutionHandler",
     # Handler result
     "HandlerResult",
     # Registry

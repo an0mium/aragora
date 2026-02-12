@@ -78,6 +78,11 @@ HybridDebateHandler = _safe_import(
 # Email debate handler
 EmailDebateHandler = _safe_import("aragora.server.handlers.email_debate", "EmailDebateHandler")
 
+# Security debate handler
+SecurityDebateHandler = _safe_import(
+    "aragora.server.handlers.security_debate", "SecurityDebateHandler"
+)
+
 # =============================================================================
 # Debate Handler Registry Entries
 # =============================================================================
@@ -115,6 +120,8 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_gauntlet_templates_list_handler", GauntletTemplatesListHandler),
     ("_gauntlet_receipt_export_handler", GauntletReceiptExportHandler),
     ("_gauntlet_heatmap_export_handler", GauntletHeatmapExportHandler),
+    # Security debate
+    ("_security_debate_handler", SecurityDebateHandler),
 ]
 
 __all__ = [
@@ -156,6 +163,7 @@ __all__ = [
     # Other debate handlers
     "HybridDebateHandler",
     "EmailDebateHandler",
+    "SecurityDebateHandler",
     # Registry
     "DEBATE_HANDLER_REGISTRY",
 ]

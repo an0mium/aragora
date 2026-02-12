@@ -327,6 +327,31 @@ class RouteIndex:
             "_computer_use_handler": [
                 "/api/v1/computer-use/",
             ],
+            "_unified_approvals_handler": [
+                "/api/v1/approvals",
+            ],
+            "_rbac_handler": [
+                "/api/v1/rbac/",
+            ],
+            "_cost_dashboard_handler": [
+                "/api/v1/billing/dashboard",
+            ],
+            "_gastown_dashboard_handler": [
+                "/api/v1/dashboard/gastown/",
+            ],
+            "_connector_management_handler": [
+                "/api/v1/connectors/",
+            ],
+            "_task_execution_handler": [
+                "/api/v2/tasks",
+                "/api/v2/tasks/",
+            ],
+            "_security_debate_handler": [
+                "/api/v1/audit/security/debate",
+            ],
+            "_autonomous_learning_handler": [
+                "/api/v2/learning/",
+            ],
         }
 
         for attr_name, _ in handler_registry:
@@ -606,6 +631,9 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
         "MyHandler",
         "MyResourceHandler",
         "MyBotHandler",
+        # ABCs and aliased handlers (registered under different names)
+        "GauntletSecureHandler",
+        "IntelligenceHandler",
     }
 
     handler_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "handlers")

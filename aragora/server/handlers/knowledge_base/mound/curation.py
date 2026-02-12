@@ -183,7 +183,11 @@ class CurationOperationsMixin:
             )
 
         except ImportError:
-            return error_response("Curation module not available", 501)
+            return error_response(
+                "Curation module not available. "
+                "Install knowledge management dependencies with: pip install aragora[knowledge]",
+                501,
+            )
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error getting curation policy: %s", e)
             return error_response("Failed to get curation policy", 500)
@@ -245,7 +249,11 @@ class CurationOperationsMixin:
             )
 
         except ImportError:
-            return error_response("Curation module not available", 501)
+            return error_response(
+                "Curation module not available. "
+                "Install knowledge management dependencies with: pip install aragora[knowledge]",
+                501,
+            )
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error setting curation policy: %s", e)
             return error_response(f"Failed to set curation policy: {e}", 500)
@@ -473,7 +481,11 @@ class CurationOperationsMixin:
             )
 
         except ImportError:
-            return error_response("Curation module not available", 501)
+            return error_response(
+                "Curation module not available. "
+                "Install knowledge management dependencies with: pip install aragora[knowledge]",
+                501,
+            )
         except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.exception("Error getting tier distribution: %s", e)
             return error_response("Failed to get tier distribution", 500)

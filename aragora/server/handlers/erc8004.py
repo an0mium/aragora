@@ -448,9 +448,17 @@ class ERC8004Handler(BaseHandler):
 
         if path == "/api/v1/blockchain/agents":
             if method == "GET":
-                return error_response("Agent listing not implemented", status=501)
+                return error_response(
+                    "Blockchain agent listing is not yet implemented. "
+                    "Use /api/v1/blockchain/agents/{token_id} to query individual agents.",
+                    status=501,
+                )
             if method == "POST":
-                return error_response("Agent registration not implemented", status=501)
+                return error_response(
+                    "On-chain agent registration is not yet implemented. "
+                    "Agents are currently registered via the control plane at /api/v1/control-plane/agents.",
+                    status=501,
+                )
             return error_response(f"Method {method} not allowed", status=405)
 
         if path.startswith("/api/v1/blockchain/agents/"):

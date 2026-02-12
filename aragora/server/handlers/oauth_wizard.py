@@ -862,7 +862,11 @@ class OAuthWizardHandler(SecureHandler):
                 # SMTP email doesn't have OAuth tokens - just remove config
                 result = {"success": True, "message": "Email configuration cleared"}
             else:
-                return error_response(f"Disconnect not implemented for {provider_id}", 501)
+                return error_response(
+                    f"Disconnect not implemented for provider '{provider_id}'. "
+                    "Supported providers: slack, discord, gmail, email.",
+                    501,
+                )
 
             return json_response(
                 {
