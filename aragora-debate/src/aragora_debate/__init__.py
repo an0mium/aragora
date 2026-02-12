@@ -51,10 +51,26 @@ from aragora_debate.types import (
 from aragora_debate.arena import Arena
 from aragora_debate.receipt import ReceiptBuilder
 
+# --- Analysis & Detection ---
+from aragora_debate.evidence import (
+    EvidenceQualityAnalyzer,
+    EvidenceQualityScore,
+    HollowConsensusAlert,
+    HollowConsensusDetector,
+)
+from aragora_debate.convergence import ConvergenceDetector, ConvergenceResult
+from aragora_debate.events import EventEmitter, EventType, DebateEvent
+from aragora_debate.trickster import (
+    EvidencePoweredTrickster,
+    TricksterConfig,
+    TricksterIntervention,
+)
+from aragora_debate.cross_analysis import CrossProposalAnalyzer, CrossProposalAnalysis
+
 # --- Mock agent (always available) ---
 from aragora_debate._mock import MockAgent
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Optional provider agents (require extra dependencies)
 try:
@@ -66,6 +82,16 @@ try:
     from aragora_debate.agents import OpenAIAgent
 except ImportError:
     OpenAIAgent = None  # type: ignore[assignment,misc]
+
+try:
+    from aragora_debate.agents import MistralAgent
+except ImportError:
+    MistralAgent = None  # type: ignore[assignment,misc]
+
+try:
+    from aragora_debate.agents import GeminiAgent
+except ImportError:
+    GeminiAgent = None  # type: ignore[assignment,misc]
 
 __all__ = [
     # High-level API
@@ -88,9 +114,26 @@ __all__ = [
     "Message",
     "MockAgent",
     "OpenAIAgent",
+    "MistralAgent",
+    "GeminiAgent",
     "Phase",
     "Proposal",
     "ReceiptBuilder",
     "Verdict",
     "Vote",
+    # Analysis & Detection
+    "EvidenceQualityAnalyzer",
+    "EvidenceQualityScore",
+    "HollowConsensusAlert",
+    "HollowConsensusDetector",
+    "ConvergenceDetector",
+    "ConvergenceResult",
+    "EventEmitter",
+    "EventType",
+    "DebateEvent",
+    "EvidencePoweredTrickster",
+    "TricksterConfig",
+    "TricksterIntervention",
+    "CrossProposalAnalyzer",
+    "CrossProposalAnalysis",
 ]

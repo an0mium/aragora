@@ -43,6 +43,16 @@ class Debate:
         ``"judge"``, or ``"weighted"``.
     early_stopping : bool
         Stop early when consensus is reached.
+    enable_trickster : bool
+        Enable hollow-consensus detection and challenge injection.
+    enable_convergence : bool
+        Enable convergence tracking across rounds.
+    convergence_threshold : float
+        Similarity threshold for convergence detection (0.0-1.0).
+    trickster_sensitivity : float
+        Sensitivity for trickster interventions (0.0-1.0).
+    on_event : callable | None
+        Callback invoked for every debate event.
 
     Example
     -------
@@ -63,14 +73,24 @@ class Debate:
         rounds: int = 3,
         consensus: str = "majority",
         early_stopping: bool = True,
+        enable_trickster: bool = False,
+        enable_convergence: bool = False,
+        convergence_threshold: float = 0.85,
+        trickster_sensitivity: float = 0.5,
+        on_event: Any = None,
     ) -> None:
         self.topic = topic
         self.context = context
+        self._on_event = on_event
         self._agents: list[Agent] = []
         self._config = DebateConfig(
             rounds=rounds,
             consensus_method=ConsensusMethod(consensus),
             early_stopping=early_stopping,
+            enable_trickster=enable_trickster,
+            enable_convergence=enable_convergence,
+            convergence_threshold=convergence_threshold,
+            trickster_sensitivity=trickster_sensitivity,
         )
 
     def add_agent(self, agent: Agent) -> Debate:
@@ -96,6 +116,7 @@ class Debate:
             agents=self._agents,
             config=self._config,
             context=self.context,
+            on_event=self._on_event,
         )
         return await arena.run()
 
@@ -136,8 +157,8 @@ def create_agent(
     Parameters
     ----------
     provider : str
-        Provider name: ``"anthropic"`` (Claude), ``"openai"`` (GPT), or
-        ``"mock"`` (deterministic, for testing).
+        Provider name: ``"anthropic"`` (Claude), ``"openai"`` (GPT),
+        ``"mistral"``, ``"gemini"``, or ``"mock"`` (deterministic, for testing).
     name : str | None
         Agent display name. Auto-generated if not provided.
     model : str | None
@@ -191,6 +212,30 @@ def create_agent(
             **kwargs,
         )
 
+    if prov == "mistral":
+        from aragora_debate.agents import MistralAgent
+
+        return MistralAgent(
+            name=agent_name,
+            model=model or "mistral-large-latest",
+            api_key=api_key,
+            system_prompt=system_prompt,
+            stance=stance,  # type: ignore[arg-type]
+            **kwargs,
+        )
+
+    if prov == "gemini":
+        from aragora_debate.agents import GeminiAgent
+
+        return GeminiAgent(
+            name=agent_name,
+            model=model or "gemini-2.0-flash",
+            api_key=api_key,
+            system_prompt=system_prompt,
+            stance=stance,  # type: ignore[arg-type]
+            **kwargs,
+        )
+
     if prov == "mock":
         from aragora_debate._mock import MockAgent
 
@@ -198,5 +243,5 @@ def create_agent(
 
     raise ValueError(
         f"Unknown provider {provider!r}. "
-        f"Supported: 'anthropic', 'openai', 'mock'"
+        f"Supported: 'anthropic', 'openai', 'mistral', 'gemini', 'mock'"
     )

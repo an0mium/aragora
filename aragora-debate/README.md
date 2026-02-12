@@ -27,7 +27,9 @@ pip install aragora-debate
 # With provider SDKs
 pip install aragora-debate[anthropic]    # Claude
 pip install aragora-debate[openai]       # GPT
-pip install aragora-debate[all]          # Both
+pip install aragora-debate[mistral]      # Mistral
+pip install aragora-debate[gemini]       # Gemini
+pip install aragora-debate[all]          # All providers
 ```
 
 ## Quick start
@@ -107,6 +109,81 @@ Each round has three phases:
 Early stopping kicks in when consensus is reached before all rounds complete.
 The final **decision receipt** captures who agreed, who dissented and why,
 the confidence level, and a cryptographic signature for audit purposes.
+
+## Evidence quality & hollow consensus detection
+
+Not all agreement is meaningful. `aragora-debate` detects when models agree
+*without substantive evidence* — a pattern called **hollow consensus**.
+
+```python
+from aragora_debate import EvidenceQualityAnalyzer, HollowConsensusDetector
+
+analyzer = EvidenceQualityAnalyzer()
+score = analyzer.analyze("According to a 2024 Gartner report, 73% of enterprises...")
+print(f"Evidence quality: {score.overall:.2f}")  # 0.0–1.0
+
+# Detect hollow consensus across agents
+detector = HollowConsensusDetector()
+alert = detector.check(
+    responses={"claude": "I agree, this is great", "gpt4": "I also think it's great"},
+    convergence_similarity=0.95,
+)
+if alert.detected:
+    print(f"Hollow consensus: {alert.challenge}")
+```
+
+The **Trickster** system uses this automatically during debates to inject
+challenge prompts when it detects agents converging without evidence:
+
+```python
+from aragora_debate import Debate, create_agent
+
+debate = Debate(
+    "Should we adopt microservices?",
+    enable_trickster=True,       # Inject challenges on hollow consensus
+    enable_convergence=True,     # Track proposal similarity across rounds
+    trickster_sensitivity=0.7,   # Higher = more interventions
+)
+debate.add_agent(create_agent("mock", name="analyst"))
+debate.add_agent(create_agent("mock", name="critic"))
+result = await debate.run()
+print(f"Trickster interventions: {result.trickster_interventions}")
+print(f"Convergence detected: {result.convergence_detected}")
+```
+
+## Events & callbacks
+
+Monitor debates in real-time with the event system:
+
+```python
+from aragora_debate import EventEmitter, EventType
+
+def on_event(event):
+    print(f"[{event.event_type.value}] round={event.round_num} {event.data}")
+
+debate = Debate("Should we use Kafka?", on_event=on_event)
+# Events: debate_start, round_start, proposal, critique, vote,
+#         consensus_check, convergence_detected, trickster_intervention,
+#         round_end, debate_end
+```
+
+## Cross-proposal analysis
+
+Analyze evidence patterns across all proposals:
+
+```python
+from aragora_debate import CrossProposalAnalyzer
+
+analyzer = CrossProposalAnalyzer()
+analysis = analyzer.analyze({
+    "claude": "According to Smith (2024), Kafka handles 1M msgs/sec...",
+    "gpt4": "RabbitMQ has better delivery guarantees per Jones (2023)...",
+})
+print(f"Shared evidence: {len(analysis.shared_evidence)}")
+print(f"Contradictions: {len(analysis.contradictions)}")
+print(f"Evidence gaps: {len(analysis.evidence_gaps)}")
+print(f"Weakest agent: {analysis.weakest_agent}")
+```
 
 ## Decision receipts
 

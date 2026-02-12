@@ -5,6 +5,7 @@ Usage::
     python -m aragora_debate
     python -m aragora_debate --topic "Should we use Kubernetes?"
     python -m aragora_debate --topic "Kafka vs RabbitMQ?" --rounds 2
+    python -m aragora_debate --trickster --convergence
 """
 
 from __future__ import annotations
@@ -44,14 +45,19 @@ def _c(text: str, color: str, bold: bool = False) -> str:
 
 
 def _header(text: str) -> str:
-    return f"\n{_BOLD}{text}{_RESET}\n" + "─" * len(text)
+    return f"\n{_BOLD}{text}{_RESET}\n" + "\u2500" * len(text)
 
 
 # ---------------------------------------------------------------------------
 # Demo runner
 # ---------------------------------------------------------------------------
 
-async def _run_demo(topic: str, rounds: int) -> None:
+async def _run_demo(
+    topic: str,
+    rounds: int,
+    enable_trickster: bool = False,
+    enable_convergence: bool = False,
+) -> None:
     agents = [
         StyledMockAgent("analyst", style="supportive"),
         StyledMockAgent("critic", style="critical"),
@@ -66,9 +72,36 @@ async def _run_demo(topic: str, rounds: int) -> None:
     print(f"  Agents:  {', '.join(_c(a.name, color_map[a.name]) for a in agents)}")
     print(f"  Rounds:  {rounds}")
     print(f"  Method:  majority consensus")
+    if enable_trickster:
+        print(f"  Trickster: {_c('enabled', 'yellow')}")
+    if enable_convergence:
+        print(f"  Convergence: {_c('enabled', 'yellow')}")
 
-    config = DebateConfig(rounds=rounds, early_stopping=True)
-    arena = Arena(question=topic, agents=agents, config=config)
+    config = DebateConfig(
+        rounds=rounds,
+        early_stopping=True,
+        enable_trickster=enable_trickster,
+        enable_convergence=enable_convergence,
+    )
+
+    def on_event(event: object) -> None:
+        """Print live event updates."""
+        if hasattr(event, "event_type"):
+            etype = event.event_type.value if hasattr(event.event_type, "value") else str(event.event_type)
+            if etype in ("trickster_intervention", "convergence_detected"):
+                print(f"  {_c(f'[{etype}]', 'magenta')}", end="")
+                if hasattr(event, "data") and event.data:
+                    detail = event.data.get("type", "") or f"sim={event.data.get('similarity', '')}"
+                    print(f" {_DIM}{detail}{_RESET}")
+                else:
+                    print()
+
+    arena = Arena(
+        question=topic,
+        agents=agents,
+        config=config,
+        on_event=on_event if (enable_trickster or enable_convergence) else None,
+    )
     result = await arena.run()
 
     # --- Show round-by-round highlights ---
@@ -87,15 +120,20 @@ async def _run_demo(topic: str, rounds: int) -> None:
             for line in content.split("\n"):
                 print(f"    {_DIM}{line}{_RESET}")
 
+        if msg.role == "trickster":
+            print(f"\n  {_c('trickster', 'magenta', bold=True)} challenges:")
+            for line in msg.content[:200].split("\n"):
+                print(f"    {_c(line, 'magenta')}")
+
     # --- Critiques summary ---
     if result.critiques:
         print(_header("Critiques"))
         for crit in result.critiques[:6]:
             src = _c(crit.agent, color_map.get(crit.agent, "cyan"))
             tgt = _c(crit.target_agent, color_map.get(crit.target_agent, "cyan"))
-            print(f"  {src} → {tgt}  (severity {crit.severity}/10)")
+            print(f"  {src} \u2192 {tgt}  (severity {crit.severity}/10)")
             for issue in crit.issues[:2]:
-                print(f"    • {_DIM}{issue}{_RESET}")
+                print(f"    \u2022 {_DIM}{issue}{_RESET}")
 
     # --- Votes ---
     if result.votes:
@@ -103,7 +141,15 @@ async def _run_demo(topic: str, rounds: int) -> None:
         for vote in result.votes:
             voter = _c(vote.agent, color_map.get(vote.agent, "cyan"))
             chosen = _c(vote.choice, color_map.get(vote.choice, "cyan"), bold=True)
-            print(f"  {voter} → {chosen}  (confidence {vote.confidence:.0%})")
+            print(f"  {voter} \u2192 {chosen}  (confidence {vote.confidence:.0%})")
+
+    # --- Analysis ---
+    if result.trickster_interventions > 0 or result.convergence_detected:
+        print(_header("Analysis"))
+        if result.trickster_interventions > 0:
+            print(f"  Trickster interventions: {result.trickster_interventions}")
+        if result.convergence_detected:
+            print(f"  Convergence detected (similarity: {result.final_similarity:.2f})")
 
     # --- Receipt ---
     print(_header("Decision Receipt"))
@@ -118,7 +164,7 @@ async def _run_demo(topic: str, rounds: int) -> None:
     status_color = "green" if result.consensus_reached else "yellow"
     print(
         _c(
-            f"✓ Debate complete in {result.duration_seconds:.2f}s "
+            f"\u2713 Debate complete in {result.duration_seconds:.2f}s "
             f"({result.rounds_used} round{'s' if result.rounds_used != 1 else ''})",
             status_color,
         )
@@ -145,8 +191,23 @@ def main() -> None:
         default=2,
         help="Number of debate rounds (default: 2)",
     )
+    parser.add_argument(
+        "--trickster",
+        action="store_true",
+        help="Enable hollow-consensus detection and challenge injection",
+    )
+    parser.add_argument(
+        "--convergence",
+        action="store_true",
+        help="Enable convergence tracking across rounds",
+    )
     args = parser.parse_args()
-    asyncio.run(_run_demo(args.topic, args.rounds))
+    asyncio.run(_run_demo(
+        args.topic,
+        args.rounds,
+        enable_trickster=args.trickster,
+        enable_convergence=args.convergence,
+    ))
 
 
 if __name__ == "__main__":

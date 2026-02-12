@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aragora-debate"
-version = "0.1.0"
+version = "0.2.0"
 description = "Adversarial multi-model debate engine with decision receipts"
 readme = "README.md"
 license = "MIT"
@@ -19,6 +19,9 @@ keywords = [
     "llm",
     "consensus",
     "audit-trail",
+    "hollow-consensus",
+    "evidence-quality",
+    "convergence-detection",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -35,7 +38,14 @@ dependencies = []
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.20.0"]
 openai = ["openai>=1.0.0"]
-all = ["anthropic>=0.20.0", "openai>=1.0.0"]
+mistral = ["mistralai>=1.0.0"]
+gemini = ["google-genai>=1.0.0"]
+all = [
+    "anthropic>=0.20.0",
+    "openai>=1.0.0",
+    "mistralai>=1.0.0",
+    "google-genai>=1.0.0",
+]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 [project.urls]
