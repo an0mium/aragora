@@ -1,7 +1,9 @@
-"""SDK missing endpoints for Analytics.
+"""SDK missing endpoints: Planned analytics query/reporting endpoints (partially implemented).
 
-This module contains endpoint definitions for analytics, reporting,
-and performance monitoring features.
+This module contains endpoint definitions for analytics features that are
+planned or partially implemented: agent performance metrics, analytics provider
+connections, custom analytics queries, report generation, and analytics data
+management.
 """
 
 from aragora.server.openapi.endpoints.sdk_missing_core import (

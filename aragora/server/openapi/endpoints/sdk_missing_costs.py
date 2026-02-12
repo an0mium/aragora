@@ -1,9 +1,12 @@
-"""SDK missing endpoints for Accounting features.
+"""SDK missing endpoints: Planned AP/AR/invoice/expense features (not yet implemented).
 
 This module contains endpoint definitions for advanced accounting features
-(AP/AR, invoices, expenses) that are not yet implemented.
+that are planned but not yet implemented: accounts payable batch operations,
+accounts receivable aging/collections, invoice management, expense approval
+workflows, and accounting system integrations.
 
-NOTE: Costs and Payments endpoints have been removed - they are now fully implemented in:
+NOTE: Basic costs and payments endpoints have been removed - they are now
+fully implemented in:
 - aragora/server/handlers/costs/ (registered via register_routes)
 - aragora/server/handlers/payments/ (registered via register_payment_routes)
 """

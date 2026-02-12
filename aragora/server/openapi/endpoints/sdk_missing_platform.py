@@ -1,14 +1,19 @@
-"""SDK missing endpoints: Platform services (keys, knowledge, personas, skills, users, SCIM, etc).
+"""SDK missing endpoints: Planned platform services (not yet implemented).
 
-Contains OpenAPI schema definitions for:
-- API key management
-- Knowledge Mound nodes and relationships
-- Personas configuration
-- Skills management
+Contains OpenAPI schema definitions for genuinely unimplemented endpoints:
+- Knowledge Mound node management and relationships
+- Personas configuration and options
+- Skills detail lookup
 - User profiles, preferences, and debates
-- SCIM 2.0 provisioning (Groups, Users)
-- Connectors, workspaces, verticals
-- Evolution, privacy, policies, RLM, ML, probes, analytics, uncertainty
+- Connectors detail, verticals, evolution
+- Privacy, policies, RLM, ML, probes, uncertainty
+
+Removed (now covered by proper handler implementations):
+- API key management → handlers/auth/api_keys.py
+- SCIM 2.0 provisioning → handlers/scim_handler.py
+- Workspace management → workspace handler
+- Teams install → integrations handler
+- Analytics v1 paths → sdk_missing_analytics.py
 """
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
@@ -313,40 +318,6 @@ _UPDATE_PROFILE_REQUEST = {
 # =============================================================================
 
 SDK_MISSING_PLATFORM_ENDPOINTS: dict = {
-    "/api/keys": {
-        "get": {
-            "tags": ["Keys"],
-            "summary": "List API keys",
-            "description": "List all API keys for the current user or workspace",
-            "operationId": "getKeys",
-            "responses": {
-                "200": _ok_response("List of API keys", _API_KEYS_LIST_SCHEMA),
-            },
-        },
-    },
-    "/api/keys/{id}": {
-        "delete": {
-            "tags": ["Keys"],
-            "summary": "Delete API key",
-            "description": "Revoke and delete an API key",
-            "operationId": "deleteKeys",
-            "parameters": [
-                {
-                    "name": "id",
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": "string"},
-                    "description": "Key ID",
-                }
-            ],
-            "responses": {
-                "200": _ok_response(
-                    "Key deleted", {"deleted": {"type": "boolean"}, "id": {"type": "string"}}
-                ),
-                "404": STANDARD_ERRORS["404"],
-            },
-        },
-    },
     "/api/knowledge/mound/nodes/{id}": {
         "get": {
             "tags": ["Knowledge"],
@@ -520,68 +491,6 @@ SDK_MISSING_PLATFORM_ENDPOINTS: dict = {
             },
         },
     },
-    "/scim/v2/Groups": {
-        "get": {
-            "tags": ["SCIM"],
-            "summary": "List SCIM groups",
-            "description": "List groups according to SCIM 2.0 protocol",
-            "operationId": "getV2Groups",
-            "parameters": [
-                {
-                    "name": "filter",
-                    "in": "query",
-                    "schema": {"type": "string"},
-                    "description": "SCIM filter expression",
-                },
-                {
-                    "name": "startIndex",
-                    "in": "query",
-                    "schema": {"type": "integer"},
-                    "description": "Start index for pagination",
-                },
-                {
-                    "name": "count",
-                    "in": "query",
-                    "schema": {"type": "integer"},
-                    "description": "Number of results",
-                },
-            ],
-            "responses": {
-                "200": _ok_response("SCIM groups list", _SCIM_GROUPS_SCHEMA),
-            },
-        },
-    },
-    "/scim/v2/Users": {
-        "get": {
-            "tags": ["SCIM"],
-            "summary": "List SCIM users",
-            "description": "List users according to SCIM 2.0 protocol",
-            "operationId": "getV2Users",
-            "parameters": [
-                {
-                    "name": "filter",
-                    "in": "query",
-                    "schema": {"type": "string"},
-                    "description": "SCIM filter expression",
-                },
-                {
-                    "name": "startIndex",
-                    "in": "query",
-                    "schema": {"type": "integer"},
-                    "description": "Start index for pagination",
-                },
-                {
-                    "name": "count",
-                    "in": "query",
-                    "schema": {"type": "integer"},
-                    "description": "Number of results",
-                },
-            ],
-            "responses": {
-                "200": _ok_response("SCIM users list", _SCIM_USERS_SCHEMA),
-            },
-        },
-    },
 }
 
 
@@ -743,28 +652,6 @@ SDK_MISSING_PLATFORM_ADDITIONAL: dict = {
             "RLM", "POST", "Set stream mode", op_id="postRlmStreamModesV1", has_body=True
         ),
     },
-    "/api/v1/analytics/connect": {
-        "get": _method_stub(
-            "Analytics", "GET", "Get analytics connection", op_id="getAnalyticsConnectV1"
-        ),
-    },
-    "/api/v1/analytics/query": {
-        "get": _method_stub("Analytics", "GET", "Query analytics", op_id="getAnalyticsQueryV1"),
-    },
-    "/api/v1/analytics/reports/generate": {
-        "get": _method_stub(
-            "Analytics", "GET", "Generate analytics report", op_id="getAnalyticsReportsGenerateV1"
-        ),
-    },
-    "/api/v1/analytics/{id}": {
-        "get": _method_stub(
-            "Analytics",
-            "GET",
-            "Get analytics by ID",
-            op_id="getAnalyticsByIdV1",
-            has_path_param=True,
-        ),
-    },
     "/api/v1/cross-pollination/km/staleness-check": {
         "get": _method_stub(
             "Cross-Pollination", "GET", "Check KM staleness", op_id="getCrossPollinationStalenessV1"
@@ -835,15 +722,6 @@ SDK_MISSING_PLATFORM_ADDITIONAL: dict = {
             "Probes", "POST", "Submit probe report", op_id="postProbesReportsV1", has_body=True
         ),
     },
-    "/scim/v2/Groups": {
-        "post": _method_stub("SCIM", "POST", "Create group", op_id="postScimGroups", has_body=True),
-    },
-    "/scim/v2/Users": {
-        "post": _method_stub("SCIM", "POST", "Create user", op_id="postScimUsers", has_body=True),
-    },
-    "/api/integrations/teams/install": {
-        "get": _method_stub("Teams", "GET", "Get Teams install link", op_id="getTeamsInstall"),
-    },
     "/api/v1/uncertainty/estimate": {
         "post": _method_stub(
             "Uncertainty",
@@ -859,38 +737,6 @@ SDK_MISSING_PLATFORM_ADDITIONAL: dict = {
             "POST",
             "Get followup questions",
             op_id="postUncertaintyFollowupsV1",
-            has_body=True,
-        ),
-    },
-    "/api/workspaces/{id}": {
-        "delete": _method_stub(
-            "Workspace",
-            "DELETE",
-            "Delete workspace",
-            op_id="deleteWorkspaceById",
-            has_path_param=True,
-        ),
-        "get": _method_stub(
-            "Workspace", "GET", "Get workspace", op_id="getWorkspaceById", has_path_param=True
-        ),
-    },
-    "/api/workspaces/{id}/members": {
-        "post": _method_stub(
-            "Workspace",
-            "POST",
-            "Add workspace member",
-            op_id="postWorkspaceMembers",
-            has_path_param=True,
-            has_body=True,
-        ),
-    },
-    "/api/workspaces/{id}/members/{member_id}": {
-        "put": _method_stub(
-            "Workspace",
-            "PUT",
-            "Update workspace member",
-            op_id="putWorkspaceMember",
-            has_path_param=True,
             has_body=True,
         ),
     },
