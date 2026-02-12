@@ -87,24 +87,33 @@ class _JWTModuleProtocol(Protocol):
     ) -> dict[str, Any]: ...
 
 
-# JWT validation (PyJWT always available)
-import jwt
+# JWT validation (PyJWT optional; auth fails closed if unavailable)
+try:
+    import jwt as _jwt  # type: ignore[import-not-found]
 
-_jwt_module: _JWTModuleProtocol | None = cast(_JWTModuleProtocol, jwt)
-HAS_JWT = True
+    _jwt_module: _JWTModuleProtocol | None = cast(_JWTModuleProtocol, _jwt)
+    HAS_JWT = True
 
-# Use real exception classes from jwt
-from jwt.exceptions import DecodeError as _RealDecodeError
-from jwt.exceptions import ExpiredSignatureError as _RealExpiredSignatureError
-from jwt.exceptions import InvalidAudienceError as _RealInvalidAudienceError
-from jwt.exceptions import InvalidSignatureError as _RealInvalidSignatureError
-from jwt.exceptions import InvalidTokenError as _RealInvalidTokenError
+    # Use real exception classes from jwt
+    from jwt.exceptions import DecodeError as _RealDecodeError
+    from jwt.exceptions import ExpiredSignatureError as _RealExpiredSignatureError
+    from jwt.exceptions import InvalidAudienceError as _RealInvalidAudienceError
+    from jwt.exceptions import InvalidSignatureError as _RealInvalidSignatureError
+    from jwt.exceptions import InvalidTokenError as _RealInvalidTokenError
 
-ExpiredSignatureError: type[Exception] = _RealExpiredSignatureError
-InvalidSignatureError: type[Exception] = _RealInvalidSignatureError
-DecodeError: type[Exception] = _RealDecodeError
-InvalidTokenError: type[Exception] = _RealInvalidTokenError
-InvalidAudienceError: type[Exception] = _RealInvalidAudienceError
+    ExpiredSignatureError: type[Exception] = _RealExpiredSignatureError
+    InvalidSignatureError: type[Exception] = _RealInvalidSignatureError
+    DecodeError: type[Exception] = _RealDecodeError
+    InvalidTokenError: type[Exception] = _RealInvalidTokenError
+    InvalidAudienceError: type[Exception] = _RealInvalidAudienceError
+except ImportError:
+    _jwt_module = None
+    HAS_JWT = False
+    ExpiredSignatureError = _ExpiredSignatureError
+    InvalidSignatureError = _InvalidSignatureError
+    DecodeError = _DecodeError
+    InvalidTokenError = _InvalidTokenError
+    InvalidAudienceError = _InvalidAudienceError
 
 logger = logging.getLogger(__name__)
 
