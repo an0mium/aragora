@@ -369,7 +369,6 @@ class TestTypeScriptSDKParity:
             "rotateCredential should use new_value field"
         )
 
-    @pytest.mark.xfail(reason="TS SDK field may be pending merge from worktree", strict=False)
     def test_audit_has_filter_options(self) -> None:
         """audit() must accept event_type, user_id, session_id, start_time, end_time."""
         if not _TS_SDK.exists():
