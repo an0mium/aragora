@@ -8,7 +8,7 @@ Tests the matrix debates API endpoints including:
 """
 
 import json
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

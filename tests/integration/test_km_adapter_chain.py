@@ -11,7 +11,7 @@ Tests the complete adapter chain including:
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 @dataclass

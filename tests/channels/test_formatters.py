@@ -7,7 +7,7 @@ Tests the Slack, Teams, Discord, and Email formatters for decision receipts.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pytest
 

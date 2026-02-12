@@ -18,7 +18,7 @@ import gc
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

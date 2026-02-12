@@ -17,7 +17,7 @@ Tests the connectors API endpoints including:
 import asyncio
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

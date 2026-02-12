@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Optional
 
 from aragora.billing.calibration_cost_bridge import (
     CalibrationCostBridge,

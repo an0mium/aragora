@@ -11,7 +11,7 @@ import pytest
 # Mark all tests as load/integration tests
 pytestmark = [pytest.mark.slow, pytest.mark.load, pytest.mark.integration]
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from typing import List, Dict, Any, Tuple
+from typing import Any
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 

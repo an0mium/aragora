@@ -6,7 +6,7 @@ Tests authentication flows for SAML and OIDC SSO providers.
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from typing import Any, Dict
+from typing import Any
 
 # Import the handler
 from aragora.server.handlers.sso import SSOHandler

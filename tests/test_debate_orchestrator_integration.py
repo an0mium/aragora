@@ -12,7 +12,6 @@ Tests:
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import List
 
 from aragora.debate.orchestrator import Arena, ArenaConfig
 from aragora.core import (

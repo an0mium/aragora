@@ -14,7 +14,6 @@ import logging
 import os
 import time
 import uuid
-from typing import List
 
 
 def _parse_capabilities(raw: str) -> list[str]:

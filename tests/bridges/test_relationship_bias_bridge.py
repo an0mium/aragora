@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Optional
 
 from aragora.debate.relationship_bias_bridge import (
     RelationshipBiasBridge,

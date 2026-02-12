@@ -10,7 +10,7 @@ Tests the SQL Server integration including:
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

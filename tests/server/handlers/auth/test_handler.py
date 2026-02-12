@@ -23,7 +23,7 @@ import asyncio
 import hashlib
 import json
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest

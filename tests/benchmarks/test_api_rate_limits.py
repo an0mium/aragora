@@ -8,7 +8,7 @@ and stress tests the rate limiting infrastructure.
 import asyncio
 import time
 import pytest
-from typing import Dict, List, Any, Tuple
+from typing import Any
 from dataclasses import dataclass
 import threading
 

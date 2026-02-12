@@ -12,7 +12,7 @@ Tests the Teams Graph API integration including:
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any, List
+from typing import Any
 
 from aragora.connectors.enterprise.collaboration.teams import (
     TeamsEnterpriseConnector,

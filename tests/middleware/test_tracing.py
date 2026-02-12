@@ -18,7 +18,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest

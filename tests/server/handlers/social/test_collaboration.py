@@ -36,7 +36,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest

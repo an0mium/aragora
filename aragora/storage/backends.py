@@ -28,7 +28,8 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
 from queue import Empty, Full, Queue
-from typing import Any, ContextManager, cast
+from typing import Any, cast
+from contextlib import AbstractContextManager
 from collections.abc import Generator
 
 from aragora.config import resolve_db_path

@@ -24,7 +24,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 
 def decompress_file(compressed_path: Path, output_path: Path) -> None:

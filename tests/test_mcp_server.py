@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any, Dict
+from typing import Any
 
 pytest.importorskip("mcp")
 

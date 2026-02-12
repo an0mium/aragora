@@ -22,7 +22,7 @@ Common patterns:
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest

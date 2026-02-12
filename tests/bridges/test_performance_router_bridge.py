@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 from unittest.mock import MagicMock, AsyncMock
 
 from aragora.ml.performance_router_bridge import (

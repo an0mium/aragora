@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -109,6 +109,7 @@ def mock_workspace_store():
     store = MagicMock()
     store.get.return_value = None
     store.get_by_tenant.return_value = []
+    store.get_by_org.return_value = []
     store.deactivate.return_value = True
     return store
 
@@ -190,6 +191,7 @@ class TestListWorkspaces:
             MockSlackWorkspace(workspace_id="T2"),
         ]
         mock_workspace_store.get_by_tenant.return_value = workspaces
+        mock_workspace_store.get_by_org.return_value = workspaces
 
         request = MockRequest(command="GET")
         result = handler._list_workspaces(request, {}, user=MockUser())

@@ -166,3 +166,50 @@ who need AI-assisted decisions with audit trails before the EU AI Act deadline
 | **Team adopting** | `pip install aragora` | Core platform |
 | **Enterprise deploying** | `pip install aragora[enterprise,gateway]` | Full stack |
 | **Web3 organization** | `pip install aragora[blockchain]` | Trust portability |
+
+---
+
+## Install Validation
+
+Tier isolation is enforced by `tests/packaging/test_tiers.py` (51 tests):
+
+| Test Class | What It Validates |
+|-----------|-------------------|
+| `TestTier1Core` | Core debate/gauntlet/ranking/knowledge imports (always succeed) |
+| `TestTier2Gateway` | OpenClaw gateway imports with zero extra deps |
+| `TestTier3Blockchain` | Blockchain module imports; web3 is lazy |
+| `TestTier4Enterprise` | Auth/RBAC/security/compliance imports |
+| `TestTier5Connectors` | Streaming connectors import even without aiokafka/aio-pika |
+| `TestTier6Experimental` | Genesis/introspection/visualization imports |
+| `TestTierIsolation` | Core tier does NOT require web3, playwright, or python3-saml |
+| `TestDependencyGroups` | pyproject.toml declares all 5 tier groups |
+
+Run the tier tests:
+
+```bash
+pytest tests/packaging/test_tiers.py -v
+```
+
+### Dependency Graph
+
+```
+                    ┌──────────────┐
+                    │   aragora    │ (core: debate, gauntlet, ranking, knowledge)
+                    └──────┬───────┘
+          ┌────────────────┼────────────────┬──────────────────┐
+          ▼                ▼                ▼                  ▼
+   ┌──────────┐    ┌──────────────┐  ┌────────────┐    ┌──────────────┐
+   │ gateway  │    │  enterprise  │  │ blockchain │    │  connectors  │
+   │ (no deps)│    │  saml,redis  │  │  web3      │    │  kafka,amqp  │
+   └──────────┘    │ prometheus   │  └────────────┘    │  twilio      │
+                   └──────────────┘                    └──────────────┘
+                                                              │
+                                                       ┌──────────────┐
+                                                       │ experimental │
+                                                       │  playwright  │
+                                                       │  networkx    │
+                                                       └──────────────┘
+```
+
+Each tier is independently installable. No tier forces another tier's
+dependencies into your environment.

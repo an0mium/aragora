@@ -11,7 +11,7 @@ Tests the full lifecycle of:
 
 import asyncio
 import time
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

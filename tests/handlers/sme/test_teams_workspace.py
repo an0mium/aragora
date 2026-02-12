@@ -6,7 +6,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -117,6 +117,7 @@ def mock_workspace_store():
     store = MagicMock()
     store.get.return_value = None
     store.get_by_aragora_tenant.return_value = []
+    store.get_by_org.return_value = []
     store.deactivate.return_value = True
     return store
 
@@ -198,6 +199,7 @@ class TestListWorkspaces:
             MockTeamsWorkspace(tenant_id="tenant-2"),
         ]
         mock_workspace_store.get_by_aragora_tenant.return_value = workspaces
+        mock_workspace_store.get_by_org.return_value = workspaces
 
         request = MockRequest(command="GET")
         result = handler._list_workspaces(request, {}, user=MockUser())
@@ -211,6 +213,7 @@ class TestListWorkspaces:
         """Test listing workspaces with pagination."""
         workspaces = [MockTeamsWorkspace(tenant_id=f"tenant-{i}") for i in range(10)]
         mock_workspace_store.get_by_aragora_tenant.return_value = workspaces
+        mock_workspace_store.get_by_org.return_value = workspaces
 
         # Mock query params
         request = MockRequest(command="GET")

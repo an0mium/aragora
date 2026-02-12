@@ -23,7 +23,7 @@ import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import Any
 import statistics
 
 # Ensure imports work

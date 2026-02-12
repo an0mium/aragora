@@ -35,7 +35,7 @@ for _mod_name in (
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest

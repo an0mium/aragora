@@ -5,7 +5,7 @@ Tests insight extraction from debate results.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import pytest
 

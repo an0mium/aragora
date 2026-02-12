@@ -11,7 +11,7 @@ Tests cover:
 
 import asyncio
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

@@ -29,7 +29,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from aragora.nomic.autonomous_orchestrator import (
     AutonomousOrchestrator,

@@ -11,7 +11,7 @@ Install real RLM: pip install aragora[rlm]
 import asyncio
 import pytest
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.debate.cognitive_limiter_rlm import (

@@ -13,7 +13,7 @@ Note: Phase implementations are currently in the main NomicLoop class.
 This package provides type definitions and helpers for future extraction.
 """
 
-from typing import TypedDict, Optional, List
+from typing import TypedDict, Optional
 
 
 class PhaseResult(TypedDict, total=False):

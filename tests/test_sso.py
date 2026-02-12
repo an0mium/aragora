@@ -14,7 +14,7 @@ from __future__ import annotations
 import base64
 import time
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional
 from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest

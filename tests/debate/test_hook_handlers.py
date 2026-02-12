@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any
 from unittest.mock import Mock, AsyncMock
 
 from aragora.debate.hooks import HookManager, HookType, HookPriority, create_hook_manager

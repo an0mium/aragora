@@ -16,7 +16,6 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
 
 SUNSET_DATE = "2026-06-01"
 V1_PATTERN = re.compile(r'["\']\/api\/v1\/([^"\']+)["\']')

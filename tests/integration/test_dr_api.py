@@ -11,7 +11,7 @@ Tests the DR management functionality:
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, AsyncMock
-from typing import Dict, Any
+from typing import Any
 
 
 class TestDRAPIEndpoints:

@@ -13,7 +13,7 @@ Tests the sender history service including:
 
 import pytest
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any
 
 from aragora.services.sender_history import (
     SenderHistoryService,

@@ -12,7 +12,7 @@ Tests the full repository crawling with:
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
 

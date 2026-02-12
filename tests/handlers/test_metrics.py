@@ -12,7 +12,7 @@ Tests the operational metrics API endpoints including:
 import json
 import time
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -13,7 +13,7 @@ import base64
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import httpx

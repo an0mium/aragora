@@ -366,6 +366,7 @@ class AsyncOpenclawAPI:
         name: str,
         credential_type: str,
         value: str,
+        expires_at: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Store a credential."""
@@ -374,16 +375,18 @@ class AsyncOpenclawAPI:
             "credential_type": credential_type,
             "value": value,
         }
+        if expires_at is not None:
+            payload["expires_at"] = expires_at
         if metadata is not None:
             payload["metadata"] = metadata
         return await self._client.request("POST", "/api/v1/openclaw/credentials", json=payload)
 
-    async def rotate_credential(self, credential_id: str, value: str) -> dict[str, Any]:
-        """Rotate a credential value."""
+    async def rotate_credential(self, credential_id: str, new_value: str) -> dict[str, Any]:
+        """Rotate a credential with a new value."""
         return await self._client.request(
             "POST",
             f"/api/v1/openclaw/credentials/{credential_id}/rotate",
-            json={"value": value},
+            json={"new_value": new_value},
         )
 
     async def delete_credential(self, credential_id: str) -> dict[str, Any]:
@@ -399,12 +402,31 @@ class AsyncOpenclawAPI:
         """Get OpenClaw gateway metrics."""
         return await self._client.request("GET", "/api/v1/openclaw/metrics")
 
-    async def audit(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    async def audit(
+        self,
+        event_type: str | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
         """Get OpenClaw audit events."""
+        params: dict[str, Any] = {"limit": limit}
+        if event_type:
+            params["event_type"] = event_type
+        if user_id:
+            params["user_id"] = user_id
+        if session_id:
+            params["session_id"] = session_id
+        if start_time:
+            params["start_time"] = start_time
+        if end_time:
+            params["end_time"] = end_time
         return await self._client.request(
             "GET",
             "/api/v1/openclaw/audit",
-            params={"limit": limit, "offset": offset},
+            params=params,
         )
 
     async def stats(self) -> dict[str, Any]:

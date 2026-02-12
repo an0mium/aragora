@@ -12,7 +12,7 @@ Tests the Google Sheets API integration including:
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any, List
+from typing import Any
 
 from aragora.connectors.enterprise.documents.gsheets import (
     GoogleSheetsConnector,

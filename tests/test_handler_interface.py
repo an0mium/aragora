@@ -10,7 +10,7 @@ Tests cover:
 - is_handler and is_authenticated_handler functions
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 from unittest.mock import MagicMock
 
 import pytest

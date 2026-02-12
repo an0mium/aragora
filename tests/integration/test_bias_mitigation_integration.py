@@ -11,7 +11,7 @@ Tests the bias mitigation features in realistic debate scenarios:
 
 import pytest
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
+from typing import Optional, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.debate.protocol import DebateProtocol

@@ -31,7 +31,7 @@ import os
 import random
 import string
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from locust import HttpUser, TaskSet, between, task, events
 from locust.runners import MasterRunner

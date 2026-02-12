@@ -13,7 +13,7 @@ Tests cover:
 
 import asyncio
 import os
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

@@ -5,6 +5,7 @@ This module handles:
 - Graceful shutdown with resource cleanup
 - Signal handler setup
 - Component shutdown sequencing
+- Thread lifecycle management via ThreadRegistry
 """
 
 from __future__ import annotations
@@ -13,14 +14,252 @@ import asyncio
 import logging
 import signal
 import sqlite3
+import threading
 import time
-from typing import TYPE_CHECKING, Optional
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.server.stream.server import GauntletStreamServer
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Prometheus metrics (lazy; None when prometheus_client not installed)
+# ---------------------------------------------------------------------------
+try:
+    from prometheus_client import Gauge, Histogram
+
+    REGISTERED_THREADS_GAUGE: Gauge | None = Gauge(
+        "aragora_registered_threads",
+        "Number of threads registered with the lifecycle manager",
+    )
+    SHUTDOWN_DURATION_HISTOGRAM: Histogram | None = Histogram(
+        "aragora_shutdown_duration_seconds",
+        "Time taken to shut down all registered threads",
+        buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+    )
+except ImportError:
+    REGISTERED_THREADS_GAUGE = None
+    SHUTDOWN_DURATION_HISTOGRAM = None
+
+
+# ============================================================================
+# ThreadRegistry -- central daemon thread tracking
+# ============================================================================
+
+
+@dataclass
+class _ThreadEntry:
+    """Internal bookkeeping for a registered thread."""
+
+    thread: threading.Thread
+    shutdown_fn: Callable[[], None]
+    registered_at: float = field(default_factory=time.time)
+
+
+class ThreadRegistry:
+    """Central registry for daemon threads with coordinated shutdown.
+
+    Keeps a {name: (thread, shutdown_fn)} mapping and exposes
+    shutdown_all() to stop every thread within a timeout budget.
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[str, _ThreadEntry] = {}
+        self._lock = threading.Lock()
+        self._shutdown_called = False
+
+    def register(
+        self,
+        name: str,
+        thread: threading.Thread,
+        shutdown_fn: Callable[[], None],
+    ) -> None:
+        """Register a thread for lifecycle management."""
+        with self._lock:
+            self._entries[name] = _ThreadEntry(
+                thread=thread,
+                shutdown_fn=shutdown_fn,
+            )
+            logger.debug("Thread registered: %s (alive=%s)", name, thread.is_alive())
+            if REGISTERED_THREADS_GAUGE is not None:
+                REGISTERED_THREADS_GAUGE.set(len(self._entries))
+
+    def unregister(self, name: str) -> bool:
+        """Remove a thread from the registry."""
+        with self._lock:
+            removed = self._entries.pop(name, None) is not None
+            if removed:
+                logger.debug("Thread unregistered: %s", name)
+                if REGISTERED_THREADS_GAUGE is not None:
+                    REGISTERED_THREADS_GAUGE.set(len(self._entries))
+            return removed
+
+    def shutdown_all(self, timeout: float = 10.0) -> dict[str, bool]:
+        """Gracefully shut down every registered thread."""
+        start = time.monotonic()
+        self._shutdown_called = True
+
+        with self._lock:
+            snapshot = dict(self._entries)
+
+        if not snapshot:
+            logger.debug("ThreadRegistry.shutdown_all: no threads registered")
+            return {}
+
+        count = len(snapshot)
+        logger.info(
+            "Shutting down %d registered thread(s) (timeout=%.1fs)", count, timeout
+        )
+
+        # Phase 1: signal all threads to stop
+        for name, entry in snapshot.items():
+            try:
+                entry.shutdown_fn()
+                logger.debug("Shutdown signal sent: %s", name)
+            except Exception as exc:
+                logger.warning("Error signalling thread %s: %s", name, exc)
+
+        # Phase 2: join threads with fair timeout sharing
+        results: dict[str, bool] = {}
+        remaining_threads = [
+            (name, entry)
+            for name, entry in snapshot.items()
+            if entry.thread.is_alive()
+        ]
+
+        for idx, (name, entry) in enumerate(remaining_threads):
+            elapsed = time.monotonic() - start
+            remaining_time = max(0.0, timeout - elapsed)
+            if remaining_time <= 0:
+                logger.warning(
+                    "Timeout budget exhausted; skipping join for %s", name
+                )
+                results[name] = not entry.thread.is_alive()
+                continue
+
+            threads_left = len(remaining_threads) - idx
+            share = remaining_time / max(1, threads_left)
+            entry.thread.join(timeout=share)
+            stopped = not entry.thread.is_alive()
+            results[name] = stopped
+            if not stopped:
+                logger.warning("Thread %s did not stop within %.1fs", name, share)
+
+        # Threads that were already dead before join phase
+        for name in snapshot:
+            if name not in results:
+                results[name] = True
+
+        elapsed_total = time.monotonic() - start
+        succeeded = sum(1 for v in results.values() if v)
+        logger.info(
+            "Thread shutdown complete: %d/%d stopped in %.2fs",
+            succeeded,
+            count,
+            elapsed_total,
+        )
+
+        if SHUTDOWN_DURATION_HISTOGRAM is not None:
+            SHUTDOWN_DURATION_HISTOGRAM.observe(elapsed_total)
+
+        return results
+
+    def health(self) -> dict[str, Any]:
+        """Return health status for all registered threads."""
+        with self._lock:
+            snapshot = dict(self._entries)
+
+        threads: list[dict[str, Any]] = []
+        alive_count = 0
+        for name, entry in snapshot.items():
+            alive = entry.thread.is_alive()
+            if alive:
+                alive_count += 1
+            threads.append(
+                {
+                    "name": name,
+                    "alive": alive,
+                    "daemon": entry.thread.daemon,
+                    "registered_at": entry.registered_at,
+                }
+            )
+
+        return {
+            "total": len(threads),
+            "alive": alive_count,
+            "shutdown_called": self._shutdown_called,
+            "threads": threads,
+        }
+
+    @property
+    def names(self) -> list[str]:
+        """List of registered thread names."""
+        with self._lock:
+            return list(self._entries.keys())
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._entries)
+
+
+# ---------------------------------------------------------------------------
+# Singleton access
+# ---------------------------------------------------------------------------
+
+_registry: ThreadRegistry | None = None
+_registry_lock = threading.Lock()
+
+
+def get_thread_registry() -> ThreadRegistry:
+    """Get the global ThreadRegistry singleton."""
+    global _registry
+    if _registry is None:
+        with _registry_lock:
+            if _registry is None:
+                _registry = ThreadRegistry()
+    return _registry
+
+
+def reset_thread_registry() -> None:
+    """Reset the singleton (for testing)."""
+    global _registry
+    with _registry_lock:
+        _registry = None
+
+
+# ---------------------------------------------------------------------------
+# Signal handler integration
+# ---------------------------------------------------------------------------
+
+
+def register_lifecycle_signal_handlers() -> None:
+    """Install SIGTERM/SIGINT handlers that trigger shutdown_all().
+
+    Must be called from the main thread.
+    """
+
+    def _handle_signal(signum: int, _frame: Any) -> None:
+        signame = signal.Signals(signum).name
+        logger.info("Received %s -- shutting down registered threads", signame)
+        registry = get_thread_registry()
+        registry.shutdown_all(timeout=10.0)
+
+    try:
+        signal.signal(signal.SIGTERM, _handle_signal)
+        signal.signal(signal.SIGINT, _handle_signal)
+        logger.debug(
+            "Thread lifecycle signal handlers registered (SIGTERM, SIGINT)"
+        )
+    except (ValueError, OSError) as exc:
+        logger.warning("Could not register lifecycle signal handlers: %s", exc)
+
+
+# ============================================================================
+# ServerLifecycleManager -- existing server lifecycle coordination
+# ============================================================================
 
 
 class ServerLifecycleManager:
@@ -42,12 +281,7 @@ class ServerLifecycleManager:
         stream_server: GauntletStreamServer | None = None,
         get_active_debates: Callable | None = None,
     ):
-        """Initialize lifecycle manager.
-
-        Args:
-            stream_server: WebSocket server to shut down
-            get_active_debates: Function to get active debates dict
-        """
+        """Initialize lifecycle manager."""
         self.stream_server = stream_server
         self._get_active_debates = get_active_debates
         self._shutting_down = False
@@ -59,11 +293,7 @@ class ServerLifecycleManager:
         return self._shutting_down
 
     def register_shutdown_callback(self, callback: Callable) -> None:
-        """Register a callback to run during shutdown.
-
-        Args:
-            callback: Async or sync callable to run during shutdown
-        """
+        """Register a callback to run during shutdown."""
         self._shutdown_callbacks.append(callback)
 
     def setup_signal_handlers(self) -> None:
@@ -74,56 +304,25 @@ class ServerLifecycleManager:
             logger.info(f"Received {signame}, initiating graceful shutdown...")
             asyncio.create_task(self.graceful_shutdown())
 
-        # Register handlers for common termination signals
         try:
             signal.signal(signal.SIGTERM, signal_handler)
             signal.signal(signal.SIGINT, signal_handler)
             logger.debug("Signal handlers registered for graceful shutdown")
         except (ValueError, OSError) as e:
-            # Signal handling may not work in all contexts (e.g., non-main thread)
             logger.debug(f"Could not register signal handlers: {e}")
 
     async def graceful_shutdown(self, timeout: float = 30.0) -> None:
-        """Gracefully shut down the server.
-
-        Steps:
-        1. Stop accepting new debates
-        2. Wait for in-flight debates to complete (with timeout)
-        3. Persist circuit breaker states
-        4. Stop background tasks
-        5. Close WebSocket connections
-        6. Close shared HTTP connector
-        7. Close database connections (connection pool cleanup)
-        8. Run registered shutdown callbacks
-
-        Args:
-            timeout: Maximum seconds to wait for in-flight debates
-        """
+        """Gracefully shut down the server."""
         logger.info("Starting graceful shutdown...")
         shutdown_start = time.time()
 
-        # 1. Stop accepting new debates by setting flag
         self._shutting_down = True
-
-        # 2. Wait for in-flight debates to complete
         await self._wait_for_debates(timeout)
-
-        # 3. Persist circuit breaker states
         self._persist_circuit_breakers()
-
-        # 4. Stop background tasks
         await self._stop_background_tasks()
-
-        # 5. Close WebSocket connections
         await self._close_websockets()
-
-        # 6. Close shared HTTP connector
         await self._close_http_connector()
-
-        # 7. Close database connections
         self._close_database_connections()
-
-        # 8. Run registered shutdown callbacks
         await self._run_shutdown_callbacks()
 
         elapsed = time.time() - shutdown_start
@@ -186,7 +385,6 @@ class ServerLifecycleManager:
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug(f"Background task shutdown: {e}")
 
-        # Stop pulse scheduler if running
         try:
             from aragora.server.handlers.pulse import get_pulse_scheduler
 
@@ -239,4 +437,10 @@ class ServerLifecycleManager:
                 logger.warning(f"Shutdown callback error: {e}")
 
 
-__all__ = ["ServerLifecycleManager"]
+__all__ = [
+    "ServerLifecycleManager",
+    "ThreadRegistry",
+    "get_thread_registry",
+    "reset_thread_registry",
+    "register_lifecycle_signal_handlers",
+]

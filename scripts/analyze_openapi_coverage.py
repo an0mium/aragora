@@ -195,6 +195,12 @@ def main():
     parser = argparse.ArgumentParser(description="Analyze OpenAPI schema coverage")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show all missing endpoints")
+    parser.add_argument(
+        "--fail-threshold",
+        type=float,
+        default=None,
+        help="Fail (exit 1) if response coverage is below this percentage (0-100)",
+    )
     args = parser.parse_args()
 
     spec = load_openapi_spec()
@@ -207,6 +213,16 @@ def main():
     else:
         print_report(analysis, verbose=args.verbose)
 
+    if args.fail_threshold is not None:
+        coverage = analysis["summary"]["response_coverage_pct"]
+        if coverage < args.fail_threshold:
+            print(
+                f"\n::error::OpenAPI coverage {coverage:.1f}% is below threshold {args.fail_threshold:.1f}%",
+                file=sys.stderr,
+            )
+            return 1
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

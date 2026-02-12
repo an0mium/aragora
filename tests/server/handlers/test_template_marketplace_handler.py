@@ -14,7 +14,7 @@ Tests the template marketplace API handlers for:
 import json
 import time
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -13,7 +13,7 @@ Tests the evidence API endpoints including:
 
 import json
 from unittest.mock import MagicMock, patch, AsyncMock
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pytest
 

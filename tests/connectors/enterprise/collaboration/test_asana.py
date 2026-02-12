@@ -13,7 +13,7 @@ Tests the Asana API integration including:
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.connectors.enterprise.collaboration.asana import (
     AsanaConnector,

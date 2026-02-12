@@ -840,6 +840,32 @@ jobs:
           PYTHONPATH: .
 
   # Test Analytics - Generate flakiness report
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [test-fast, test]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: RBAC coverage audit
+        run: python scripts/audit_rbac_coverage.py
+
+      - name: Handler structure audit
+        run: python scripts/audit_handler_structure.py
+
   test-analytics:
     name: Test Analytics
     runs-on: ubuntu-latest

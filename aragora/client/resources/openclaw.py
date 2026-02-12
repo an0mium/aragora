@@ -393,17 +393,19 @@ class OpenClawAPI:
         )
         return response.get("success", False)
 
-    def rotate_credential(self, credential_id: str) -> Credential:
-        """Rotate a credential."""
+    def rotate_credential(self, credential_id: str, new_value: str) -> Credential:
+        """Rotate a credential with a new value."""
         response = self._client._post(
-            f"/api/v1/openclaw/credentials/{credential_id}/rotate"
+            f"/api/v1/openclaw/credentials/{credential_id}/rotate",
+            json={"new_value": new_value},
         )
         return self._parse_credential(response)
 
-    async def rotate_credential_async(self, credential_id: str) -> Credential:
-        """Rotate a credential (async)."""
+    async def rotate_credential_async(self, credential_id: str, new_value: str) -> Credential:
+        """Rotate a credential with a new value (async)."""
         response = await self._client._post_async(
-            f"/api/v1/openclaw/credentials/{credential_id}/rotate"
+            f"/api/v1/openclaw/credentials/{credential_id}/rotate",
+            json={"new_value": new_value},
         )
         return self._parse_credential(response)
 
@@ -531,11 +533,12 @@ class OpenClawAPI:
 
     def query_audit(
         self,
+        event_type: str | None = None,
         user_id: str | None = None,
         session_id: str | None = None,
-        event_type: str | None = None,
-        tenant_id: str | None = None,
-        limit: int = 50,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        limit: int = 100,
     ) -> builtins.list[AuditRecord]:
         """Query the audit trail."""
         params: dict[str, Any] = {"limit": limit}
@@ -545,19 +548,22 @@ class OpenClawAPI:
             params["session_id"] = session_id
         if event_type:
             params["event_type"] = event_type
-        if tenant_id:
-            params["tenant_id"] = tenant_id
+        if start_time:
+            params["start_time"] = start_time
+        if end_time:
+            params["end_time"] = end_time
 
         response = self._client._get("/api/v1/openclaw/audit", params=params)
         return [self._parse_audit_record(r) for r in response.get("records", [])]
 
     async def query_audit_async(
         self,
+        event_type: str | None = None,
         user_id: str | None = None,
         session_id: str | None = None,
-        event_type: str | None = None,
-        tenant_id: str | None = None,
-        limit: int = 50,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        limit: int = 100,
     ) -> builtins.list[AuditRecord]:
         """Query the audit trail (async)."""
         params: dict[str, Any] = {"limit": limit}
@@ -567,8 +573,10 @@ class OpenClawAPI:
             params["session_id"] = session_id
         if event_type:
             params["event_type"] = event_type
-        if tenant_id:
-            params["tenant_id"] = tenant_id
+        if start_time:
+            params["start_time"] = start_time
+        if end_time:
+            params["end_time"] = end_time
 
         response = await self._client._get_async("/api/v1/openclaw/audit", params=params)
         return [self._parse_audit_record(r) for r in response.get("records", [])]

@@ -21,7 +21,7 @@ import json
 import os
 import time
 from io import BytesIO
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlencode
 

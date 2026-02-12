@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import sys
 from types import SimpleNamespace
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, AsyncMock, patch, PropertyMock
 
 import pytest

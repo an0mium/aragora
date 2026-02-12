@@ -10,7 +10,7 @@ Tests the end-to-end flow of:
 
 import pytest
 from unittest.mock import Mock, MagicMock, patch
-from typing import List, Optional
+from typing import Optional
 
 from aragora.agents.cv import (
     AgentCV,

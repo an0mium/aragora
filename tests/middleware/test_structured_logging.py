@@ -22,7 +22,7 @@ import logging
 import sys
 import time
 from io import StringIO
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest

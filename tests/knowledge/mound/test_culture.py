@@ -8,7 +8,7 @@ StigmergicSignal, and StigmergyManager implementations.
 import pytest
 from datetime import datetime, timedelta
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 from unittest.mock import MagicMock, AsyncMock
 
 from aragora.knowledge.mound.culture.patterns import (

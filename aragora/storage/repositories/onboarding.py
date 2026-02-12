@@ -12,7 +12,8 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, ContextManager, Optional
+from typing import Any, Optional
+from contextlib import AbstractContextManager
 from collections.abc import Callable
 
 from aragora.config import resolve_db_path

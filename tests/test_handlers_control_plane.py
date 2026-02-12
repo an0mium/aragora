@@ -9,7 +9,7 @@ Tests the REST API endpoints for the enterprise control plane:
 """
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

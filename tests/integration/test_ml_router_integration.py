@@ -10,7 +10,7 @@ Tests the feedback loop between:
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass

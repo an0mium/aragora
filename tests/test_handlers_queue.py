@@ -10,7 +10,7 @@ Tests the REST API endpoints for job queue management:
 
 import json
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 from enum import Enum
 

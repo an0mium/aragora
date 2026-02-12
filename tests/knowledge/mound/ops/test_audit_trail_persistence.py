@@ -26,7 +26,6 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest

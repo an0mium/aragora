@@ -10,7 +10,7 @@ Tests the PostgreSQL integration including:
 
 import json
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 import hashlib
 

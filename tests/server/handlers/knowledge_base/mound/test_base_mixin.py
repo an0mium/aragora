@@ -35,7 +35,7 @@ for _mod_name in (
         sys.modules[_mod_name] = _m
 
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock
 
 import pytest

@@ -22,7 +22,7 @@ import os
 import statistics
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from tests.load.profiles import LoadProfile, SLOThresholds, get_profile
 

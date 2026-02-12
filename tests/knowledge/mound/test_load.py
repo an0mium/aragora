@@ -9,7 +9,6 @@ import asyncio
 import statistics
 import tempfile
 import time
-from typing import List
 from unittest.mock import AsyncMock, MagicMock
 import uuid
 

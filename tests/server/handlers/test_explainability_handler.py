@@ -14,7 +14,7 @@ import pytest
 import time
 from unittest.mock import MagicMock, patch, AsyncMock
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.explainability import (
     _get_cached_decision,

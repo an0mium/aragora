@@ -22,7 +22,7 @@ import json
 import sys
 import types as _types_mod
 from io import BytesIO
-from typing import Any, Dict, Optional, Set
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest

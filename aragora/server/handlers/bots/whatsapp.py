@@ -450,7 +450,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
         try:
             from aragora.connectors.chat.registry import get_connector
-        except Exception as e:
+        except ImportError as e:
             logger.debug("WhatsApp connector unavailable for downloads: %s", e)
             return attachments
 

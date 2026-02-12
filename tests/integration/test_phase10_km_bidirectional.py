@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional
+from typing import Any, Optional
 
 
 class TestPhase10CoreComponents:

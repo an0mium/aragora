@@ -33,7 +33,7 @@ for _mod_name in (
         sys.modules[_mod_name] = _m
 
 import json
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch, AsyncMock
 from pathlib import Path
 

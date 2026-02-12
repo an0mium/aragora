@@ -17,7 +17,7 @@ import pytest
 pytestmark = pytest.mark.slow
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
-from typing import Optional, Dict, List
+from typing import Optional
 
 from aragora.core import (
     Agent,

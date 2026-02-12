@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock
 
 from aragora.debate.subsystem_coordinator import SubsystemCoordinator, SubsystemConfig

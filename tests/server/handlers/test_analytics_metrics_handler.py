@@ -9,7 +9,7 @@ Tests the analytics metrics API handlers for:
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest

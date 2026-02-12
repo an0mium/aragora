@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any
 
 from aragora.knowledge.unified import (
     UnifiedKnowledgeStore,

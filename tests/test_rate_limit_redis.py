@@ -17,7 +17,7 @@ import os
 import time
 import pytest
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch, PropertyMock
 
 from aragora.server.rate_limit_redis import (

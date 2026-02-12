@@ -544,7 +544,7 @@ class EnterpriseConnector(BaseConnector):
                     side_effect = getattr(ingest, "side_effect", None)
                     if isinstance(side_effect, list):
                         ingest.side_effect = iter(side_effect)
-            except (ImportError, RuntimeError, AttributeError) as e:
+            except (ImportError, TypeError, AttributeError) as e:
                 logger.debug("Mock side_effect normalization skipped: %s", e)
 
             async for item in self.sync_items(state, batch_size):

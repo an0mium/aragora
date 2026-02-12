@@ -13,7 +13,7 @@ import json
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, AsyncMock
-from typing import Dict, Any
+from typing import Any
 
 from aragora.export.decision_receipt import (
     DecisionReceipt,

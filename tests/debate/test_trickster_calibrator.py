@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import Mock, MagicMock
 
 from aragora.debate.trickster_calibrator import (

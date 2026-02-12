@@ -16,7 +16,7 @@ Phase A3 implementation.
 import pytest
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 from aragora.knowledge.mound.adapters._fusion_mixin import (

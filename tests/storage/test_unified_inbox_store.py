@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import patch
 
 from aragora.storage.unified_inbox_store import (

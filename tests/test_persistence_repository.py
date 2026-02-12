@@ -7,7 +7,7 @@ Tests the BaseRepository class and SQL injection protection utilities.
 import sqlite3
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 

@@ -8,7 +8,7 @@ This reduces frontend latency by 80% (1 request instead of 6 separate endpoints)
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest

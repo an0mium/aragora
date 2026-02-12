@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import ContextManager
+from contextlib import AbstractContextManager
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)

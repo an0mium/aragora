@@ -21,7 +21,7 @@ This module is part of Wave 3 extraction from nomic_loop.py.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from collections.abc import Callable
 
 if TYPE_CHECKING:

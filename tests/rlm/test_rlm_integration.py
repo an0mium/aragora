@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import pytest
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 

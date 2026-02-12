@@ -13,7 +13,7 @@ import os
 import shutil
 import sqlite3
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)

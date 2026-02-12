@@ -34,7 +34,7 @@ for _mod_name in (
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest

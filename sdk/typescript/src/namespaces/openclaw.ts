@@ -139,8 +139,12 @@ export class OpenClawNamespace {
   }
 
   /** Get policy rules. */
-  async getPolicyRules(): Promise<Record<string, unknown>> {
-    return this.client.request<Record<string, unknown>>('GET', '/api/v1/openclaw/policy/rules');
+  async getPolicyRules(options?: {
+    enabled?: boolean;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>('GET', '/api/v1/openclaw/policy/rules', {
+      params: options,
+    });
   }
 
   /** Add a policy rule. */
@@ -194,7 +198,7 @@ export class OpenClawNamespace {
   }
 
   /** List stored credentials (metadata only). */
-  async listCredentials(options?: { limit?: number; offset?: number }): Promise<{
+  async listCredentials(options?: { credential_type?: string; limit?: number; offset?: number }): Promise<{
     credentials: OpenClawCredential[];
     total?: number;
   }> {
@@ -210,6 +214,7 @@ export class OpenClawNamespace {
     name: string;
     credential_type: string;
     value: string;
+    expires_at?: string;
     metadata?: Record<string, unknown>;
   }): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>('POST', '/api/v1/openclaw/credentials', {
@@ -248,7 +253,15 @@ export class OpenClawNamespace {
   }
 
   /** OpenClaw audit entries. */
-  async audit(options?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+  async audit(options?: {
+    event_type?: string;
+    user_id?: string;
+    session_id?: string;
+    start_time?: string;
+    end_time?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>('GET', '/api/v1/openclaw/audit', {
       params: options,
     });

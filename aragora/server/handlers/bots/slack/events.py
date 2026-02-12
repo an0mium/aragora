@@ -98,7 +98,7 @@ async def _hydrate_slack_attachments(
 
     try:
         from aragora.connectors.chat.registry import get_connector
-    except Exception as e:
+    except ImportError as e:
         logger.debug("Slack connector unavailable for downloads: %s", e)
         return attachments
 

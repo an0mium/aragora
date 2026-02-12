@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import math
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

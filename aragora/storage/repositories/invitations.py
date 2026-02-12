@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, ContextManager, Optional
+from typing import TYPE_CHECKING, Optional
+from contextlib import AbstractContextManager
 from collections.abc import Callable
 
 if TYPE_CHECKING:

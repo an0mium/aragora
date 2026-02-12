@@ -10,7 +10,7 @@ Tests for:
 import asyncio
 import pytest
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 from aragora.debate.event_bus import (

@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
+from typing import Optional, Any
 
 from aragora.memory.continuum import ContinuumMemory, MemoryTier, ContinuumMemoryEntry
 from aragora.memory.tier_manager import TierManager, get_tier_manager, reset_tier_manager

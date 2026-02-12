@@ -8,7 +8,7 @@ import hashlib
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 

@@ -6,7 +6,7 @@ Tests multi-tenant workspace isolation, plan limits, and access control.
 
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

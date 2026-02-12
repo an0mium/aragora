@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 from unittest.mock import MagicMock
 
 from aragora.debate.outcome_complexity_bridge import (

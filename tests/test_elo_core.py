@@ -14,7 +14,7 @@ import math
 import pytest
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
 
 from aragora.ranking.elo_core import (
     DEFAULT_ELO,

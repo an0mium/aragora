@@ -9,7 +9,7 @@ Tests the deliberations (vetted decisionmaking) API endpoints including:
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

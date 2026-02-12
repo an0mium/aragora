@@ -12,7 +12,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import SyncState, SyncStatus

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 from aragora.debate.novelty_selection_bridge import (
     NoveltySelectionBridge,

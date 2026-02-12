@@ -12,7 +12,6 @@ Tests actual WebSocket connections:
 import asyncio
 import json
 import pytest
-from typing import List
 
 from aragora.server.stream.control_plane_stream import (
     ControlPlaneStreamServer,

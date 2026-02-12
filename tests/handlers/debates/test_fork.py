@@ -11,7 +11,7 @@ Tests the fork mixin endpoints including:
 import json
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest

@@ -261,7 +261,7 @@ class RecoveryStrategy:
 
                 return result
 
-            except Exception as e:  # Intentionally broad: wraps arbitrary async callables in recovery framework
+            except Exception as e:  # Safety net for unexpected errors: wraps arbitrary async callables
                 last_error = e
                 self._consecutive_failures += 1
                 self._last_error_time = time.time()

@@ -34,7 +34,7 @@ for _mod_name in (
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest

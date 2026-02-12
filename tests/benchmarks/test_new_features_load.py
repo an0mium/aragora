@@ -6,7 +6,7 @@ These tests measure throughput and latency under load for the new feature worker
 
 import asyncio
 import time
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

@@ -11,7 +11,7 @@ ideas but implementations fail due to scope mismatch.
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

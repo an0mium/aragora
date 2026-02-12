@@ -8,7 +8,7 @@ agent selection feedback loop.
 import pytest
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
 from unittest.mock import MagicMock
 
 from aragora.rlm.rlm_selection_bridge import (

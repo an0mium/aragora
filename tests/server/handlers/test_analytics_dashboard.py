@@ -20,7 +20,7 @@ import json
 import sys
 from dataclasses import dataclass, field
 from types import ModuleType
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
