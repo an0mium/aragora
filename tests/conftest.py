@@ -1813,6 +1813,63 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Reset RBAC PermissionChecker singleton
+    try:
+        import aragora.rbac.checker as _rbac_checker
+
+        _rbac_checker._permission_checker = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset decision metrics singleton state
+    try:
+        import aragora.observability.decision_metrics as _dm
+
+        _dm._initialized = False
+        _dm.DECISION_REQUESTS = None
+        _dm.DECISION_RESULTS = None
+        _dm.DECISION_LATENCY = None
+        _dm.DECISION_CONFIDENCE = None
+        _dm.DECISION_CACHE_HITS = None
+        _dm.DECISION_CACHE_MISSES = None
+        _dm.DECISION_DEDUP_HITS = None
+        _dm.DECISION_ACTIVE = None
+        _dm.DECISION_ERRORS = None
+        _dm.DECISION_CONSENSUS_RATE = None
+        _dm.DECISION_AGENTS_USED = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset SLO metrics singleton state
+    try:
+        import aragora.observability.slo as _slo
+
+        _slo._slo_metrics_initialized = False
+        _slo.SLO_COMPLIANCE = None
+        _slo.SLO_ERROR_BUDGET = None
+        _slo.SLO_BURN_RATE = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset OTel tracing state
+    try:
+        import aragora.observability.otel as _otel
+
+        _otel._initialized = False
+        _otel._tracer_provider = None
+        _otel._tracers.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset event dispatcher singletons
+    try:
+        import aragora.events.dispatcher as _evt
+
+        _evt._event_rate_limiter = None
+        _evt._dispatcher = None
+    except (ImportError, AttributeError):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def reset_lazy_globals():

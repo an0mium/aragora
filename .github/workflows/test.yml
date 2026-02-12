@@ -264,7 +264,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        seed: [12345, 54321]
+        seed: [12345, 54321, 99999]
 
     steps:
       - name: Checkout
@@ -288,6 +288,7 @@ jobs:
       - name: Run randomized-order guard (seed=${{ matrix.seed }})
         run: |
           pytest tests/debate tests/knowledge tests/server/handlers tests/control_plane tests/agents tests/memory \
+            tests/rbac tests/events tests/observability tests/workflow tests/compliance tests/gauntlet tests/cli \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
             --timeout=60 \
             -x \
@@ -301,6 +302,7 @@ jobs:
       - name: Run randomized-order guard (dynamic seed=${{ steps.dynamic-seed.outputs.seed }})
         run: |
           pytest tests/debate tests/knowledge tests/server/handlers tests/control_plane tests/agents tests/memory \
+            tests/rbac tests/events tests/observability tests/workflow tests/compliance tests/gauntlet tests/cli \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
             --timeout=60 \
             -x \
