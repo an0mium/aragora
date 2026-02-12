@@ -1,0 +1,447 @@
+# =============================================================================
+# Aragora Production Docker Compose
+# =============================================================================
+#
+# Full production stack with PostgreSQL, Redis, Nginx reverse proxy, and
+# optional monitoring/worker profiles.
+#
+# Quick start:
+#   bash scripts/install.sh        (from repo root)
+#
+# Manual start:
+#   docker compose -f deploy/docker-compose.production.yml --env-file deploy/.env up -d
+#
+# With monitoring:
+#   docker compose -f deploy/docker-compose.production.yml --env-file deploy/.env \
+#     --profile monitoring up -d
+#
+# With workers:
+#   docker compose -f deploy/docker-compose.production.yml --env-file deploy/.env \
+#     --profile workers up -d
+#
+# Full stack:
+#   docker compose -f deploy/docker-compose.production.yml --env-file deploy/.env \
+#     --profile monitoring --profile workers --profile backup up -d
+#
+# =============================================================================
+
+services:
+
+  # ===========================================================================
+  # Nginx Reverse Proxy (TLS termination + WebSocket upgrade)
+  # ===========================================================================
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: aragora-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      aragora:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/nginx-health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/run:mode=1777,size=8M
+      - /tmp:mode=1777,size=16M
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+
+  # ===========================================================================
+  # Aragora API + WebSocket Server
+  # ===========================================================================
+
+  aragora:
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: aragora-api
+    expose:
+      - "8080"
+      - "8765"
+      - "9090"
+    entrypoint: ["/bin/bash", "/app/scripts/docker-entrypoint.sh"]
+    command: >
+      python -m aragora.server
+      --host 0.0.0.0
+      --http-port 8080
+      --ws-port 8765
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aragora}
+      ARAGORA_DB_BACKEND: postgres
+      ARAGORA_POSTGRES_DSN: postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aragora}
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      ARAGORA_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      # AI Providers
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      # Security
+      ARAGORA_JWT_SECRET: ${ARAGORA_JWT_SECRET}
+      ARAGORA_API_TOKEN: ${ARAGORA_API_TOKEN:-}
+      ARAGORA_RECEIPT_SIGNING_KEY: ${ARAGORA_RECEIPT_SIGNING_KEY:-}
+      ARAGORA_ALLOWED_ORIGINS: ${ARAGORA_ALLOWED_ORIGINS:-*}
+      ARAGORA_TRUSTED_PROXIES: ${ARAGORA_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      ARAGORA_COOKIE_SECURE: ${ARAGORA_COOKIE_SECURE:-true}
+      ARAGORA_COOKIE_HTTPONLY: ${ARAGORA_COOKIE_HTTPONLY:-true}
+      ARAGORA_COOKIE_SAMESITE: ${ARAGORA_COOKIE_SAMESITE:-Strict}
+      # Environment
+      ARAGORA_ENV: ${ARAGORA_ENV:-production}
+      ARAGORA_LOG_LEVEL: ${ARAGORA_LOG_LEVEL:-INFO}
+      ARAGORA_LOG_FORMAT: ${ARAGORA_LOG_FORMAT:-json}
+      ARAGORA_RATE_LIMIT: ${ARAGORA_RATE_LIMIT:-100}
+      # Data
+      ARAGORA_CANONICAL_STORE_PERSIST: "1"
+      ARAGORA_STORE_DIR: /app/data/.aragora_beads
+      ARAGORA_DATA_DIR: /app/data
+      # Performance
+      ARAGORA_MAX_CONCURRENT_DEBATES: ${ARAGORA_MAX_CONCURRENT_DEBATES:-10}
+      # Metrics
+      ARAGORA_METRICS_ENABLED: ${ARAGORA_METRICS_ENABLED:-true}
+      ARAGORA_METRICS_PORT: "9090"
+      # Audit
+      ARAGORA_AUDIT_ENABLED: ${ARAGORA_AUDIT_ENABLED:-true}
+    volumes:
+      - aragora-data:/app/data
+      - aragora-logs:/app/logs
+      - ../deploy/scripts/docker-entrypoint.sh:/app/scripts/docker-entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    labels:
+      - "prometheus.scrape=true"
+      - "prometheus.port=9090"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=256M
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ===========================================================================
+  # PostgreSQL
+  # ===========================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aragora-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aragora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-aragora}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../aragora/db/schema/postgres_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../deploy/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aragora} -d ${POSTGRES_DB:-aragora}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 256mb
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ===========================================================================
+  # Redis
+  # ===========================================================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: aragora-redis
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory ${REDIS_MAXMEMORY:-512mb}
+      --maxmemory-policy volatile-lru
+      --tcp-keepalive 300
+      --save 60 1000
+      --save 300 100
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64M
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ===========================================================================
+  # Debate Queue Workers (--profile workers)
+  # ===========================================================================
+
+  debate-worker:
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: python -m scripts.queue_worker --concurrency ${WORKER_CONCURRENCY:-3}
+    depends_on:
+      aragora:
+        condition: service_healthy
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aragora}
+      ARAGORA_CANONICAL_STORE_PERSIST: "1"
+      ARAGORA_STORE_DIR: /app/data/.aragora_beads
+      ARAGORA_ENV: ${ARAGORA_ENV:-production}
+      ARAGORA_LOG_LEVEL: ${ARAGORA_LOG_LEVEL:-INFO}
+      ARAGORA_LOG_FORMAT: ${ARAGORA_LOG_FORMAT:-json}
+      SKIP_MIGRATIONS: "1"
+    volumes:
+      - aragora-data:/app/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=128M
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    profiles:
+      - workers
+    networks:
+      - aragora-net
+
+  # ===========================================================================
+  # Prometheus (--profile monitoring)
+  # ===========================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: aragora-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    expose:
+      - "9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ===========================================================================
+  # Grafana (--profile monitoring)
+  # ===========================================================================
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: aragora-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: https://${ARAGORA_DOMAIN:-localhost}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_STRICT_TRANSPORT_SECURITY: "true"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./self-hosted/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    expose:
+      - "3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # ===========================================================================
+  # Database Backup (--profile backup)
+  # ===========================================================================
+
+  backup:
+    image: postgres:16-alpine
+    container_name: aragora-backup
+    entrypoint: /bin/sh
+    command: >
+      -c "while true; do
+        echo \"[backup] Starting database backup...\";
+        BACKUP_FILE=/backups/aragora-$$(date +%Y%m%d_%H%M%S).sql.gz;
+        pg_dump -h postgres -U ${POSTGRES_USER:-aragora} ${POSTGRES_DB:-aragora} | gzip > $$BACKUP_FILE;
+        BACKUP_SIZE=$$(du -h $$BACKUP_FILE | cut -f1);
+        echo \"[backup] Created $$BACKUP_FILE ($$BACKUP_SIZE)\";
+        find /backups -name '*.sql.gz' -mtime +${BACKUP_RETENTION_DAYS:-7} -delete;
+        echo \"[backup] Cleaned up backups older than ${BACKUP_RETENTION_DAYS:-7} days\";
+        echo \"[backup] Next backup in ${BACKUP_INTERVAL:-86400}s\";
+        sleep ${BACKUP_INTERVAL:-86400};
+      done"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - backup
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+# =============================================================================
+# Volumes
+# =============================================================================
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  aragora-data:
+    driver: local
+  aragora-logs:
+    driver: local
+  nginx-cache:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+
+networks:
+  aragora-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
