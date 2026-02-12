@@ -303,6 +303,17 @@ PERM_EXPLAINABILITY_BATCH = _permission(
     "Process batch explanation jobs",
 )
 
+# ============================================================================
+# BREAKPOINT PERMISSIONS (Admin-only - controls debate flow)
+# ============================================================================
+
+PERM_BREAKPOINT_READ = _permission(
+    ResourceType.BREAKPOINT, Action.READ, "View Breakpoints", "View pending breakpoints and their status"
+)
+PERM_BREAKPOINT_UPDATE = _permission(
+    ResourceType.BREAKPOINT, Action.UPDATE, "Resolve Breakpoints", "Approve or reject breakpoint resolutions"
+)
+
 # All debate-related permission exports
 __all__ = [
     # Debate
@@ -375,4 +386,7 @@ __all__ = [
     # Explainability
     "PERM_EXPLAINABILITY_READ",
     "PERM_EXPLAINABILITY_BATCH",
+    # Breakpoints
+    "PERM_BREAKPOINT_READ",
+    "PERM_BREAKPOINT_UPDATE",
 ]

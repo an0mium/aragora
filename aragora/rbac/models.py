@@ -116,6 +116,9 @@ class ResourceType(str, Enum):
     # Replay management
     REPLAY = "replays"  # Debate replay recordings
 
+    # Breakpoint management
+    BREAKPOINT = "breakpoints"  # Debate breakpoint handling (admin-only)
+
     # User feedback and engagement
     FEEDBACK = "feedback"  # User feedback and NPS data
 

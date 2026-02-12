@@ -452,6 +452,9 @@ from .permissions import (
     PERM_ALERTS_READ,
     PERM_ALERTS_WRITE,
     PERM_ALERTS_ADMIN,
+    # Breakpoints
+    PERM_BREAKPOINT_READ,
+    PERM_BREAKPOINT_UPDATE,
 )
 
 
@@ -904,6 +907,9 @@ _ALL_PERMISSIONS = [
     PERM_ALERTS_READ,
     PERM_ALERTS_WRITE,
     PERM_ALERTS_ADMIN,
+    # Breakpoints
+    PERM_BREAKPOINT_READ,
+    PERM_BREAKPOINT_UPDATE,
 ]
 
 # Build SYSTEM_PERMISSIONS dictionary

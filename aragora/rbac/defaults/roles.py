@@ -98,6 +98,9 @@ from .permissions import (
     PERM_DEVICE_READ,
     PERM_DEVICE_WRITE,
     PERM_DEVICE_NOTIFY,
+    # Breakpoints (admin-only)
+    PERM_BREAKPOINT_READ,
+    PERM_BREAKPOINT_UPDATE,
     # Repository
     PERM_REPOSITORY_READ,
     PERM_REPOSITORY_CREATE,
@@ -381,6 +384,9 @@ ROLE_ADMIN = Role(
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,
         PERM_CHECKPOINT_DELETE.key,
+        # Breakpoints (admin-only - controls debate flow)
+        PERM_BREAKPOINT_READ.key,
+        PERM_BREAKPOINT_UPDATE.key,
         # Gauntlet (all operations)
         PERM_GAUNTLET_RUN.key,
         PERM_GAUNTLET_READ.key,

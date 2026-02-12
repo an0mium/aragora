@@ -87,7 +87,7 @@ class BreakpointsHandler(BaseHandler):
             return True
         return bool(self.BREAKPOINT_PATTERN.match(path))
 
-    @require_permission("breakpoint:read")
+    @require_permission("breakpoints:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route breakpoint requests to appropriate methods."""
         # Rate limit check
@@ -120,7 +120,7 @@ class BreakpointsHandler(BaseHandler):
 
         return None
 
-    @require_permission("breakpoint:update")
+    @require_permission("breakpoints:update")
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for breakpoint resolution."""
         match = self.BREAKPOINT_PATTERN.match(path)

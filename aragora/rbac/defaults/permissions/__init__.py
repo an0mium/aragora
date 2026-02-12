@@ -207,6 +207,8 @@ from .debate import (
     PERM_WORKFLOW_DELETE,
     PERM_WORKFLOW_READ,
     PERM_WORKFLOW_RUN,
+    PERM_BREAKPOINT_READ,
+    PERM_BREAKPOINT_UPDATE,
 )
 
 # Integration permissions
@@ -612,6 +614,9 @@ __all__ = [
     "PERM_DECISION_UPDATE",
     "PERM_EXPLAINABILITY_READ",
     "PERM_EXPLAINABILITY_BATCH",
+    # Breakpoints
+    "PERM_BREAKPOINT_READ",
+    "PERM_BREAKPOINT_UPDATE",
     # Integrations
     "PERM_CONNECTOR_READ",
     "PERM_CONNECTOR_CREATE",
