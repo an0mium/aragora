@@ -23,7 +23,7 @@ interface DebateListPanelProps {
 }
 
 export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [debates, setDebates] = useState<DebateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -43,6 +43,10 @@ class StandaloneGatewayServer:
     - Policy management via YAML rules
     """
 
+    # Security limits (F03, F04 — see docs/security/OPENCLAW_AUDIT.md)
+    MAX_BODY_SIZE = 1_048_576  # 1 MB
+    MAX_HEADER_COUNT = 100
+
     def __init__(
         self,
         host: str = DEFAULT_HOST,
