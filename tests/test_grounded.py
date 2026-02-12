@@ -575,7 +575,7 @@ class TestRelationshipTracker:
 
         # gemini should be a rival (high disagreement, competitive)
         if rivals:
-            assert rivals[0][0] == "gemini"
+            assert rivals[0].agent_b == "gemini"
 
     def test_get_allies(self, tracker):
         """Test getting top allies."""
@@ -593,7 +593,7 @@ class TestRelationshipTracker:
 
         # gemini should be an ally
         if allies:
-            assert allies[0][0] == "gemini"
+            assert allies[0].agent_b == "gemini"
 
     def test_get_influence_network(self, tracker):
         """Test getting influence network."""
