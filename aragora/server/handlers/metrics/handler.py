@@ -69,9 +69,8 @@ class MetricsHandler(BaseHandler):
         path = strip_version_prefix(path)
         return path in self.ROUTES
 
-    @require_permission("metrics:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
-        """Route metrics requests to appropriate methods."""
+        """Route metrics requests to appropriate methods (public dashboard data)."""
         path = strip_version_prefix(path)
         # Rate limit check
         client_ip = get_client_ip(handler)

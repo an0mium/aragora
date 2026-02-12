@@ -1,0 +1,50 @@
+name: Core Suites (Decision Integrity)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - 'scripts/ci_core_suites.sh'
+      - '.github/workflows/core-suites.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - 'scripts/ci_core_suites.sh'
+      - '.github/workflows/core-suites.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: core-suites-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  core-suites:
+    name: Core Suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install (dev)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run core suites
+        run: bash scripts/ci_core_suites.sh
+

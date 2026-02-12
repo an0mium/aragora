@@ -105,17 +105,27 @@ class DissentRecord:
 
     @classmethod
     def from_dict(cls, data: dict) -> "DissentRecord":
+        try:
+            dissent_type = DissentType(data.get("dissent_type", "minor_quibble"))
+        except (ValueError, KeyError):
+            dissent_type = DissentType.MINOR_QUIBBLE
+
+        try:
+            timestamp = datetime.fromisoformat(data["timestamp"])
+        except (KeyError, ValueError, TypeError):
+            timestamp = datetime.now()
+
         return cls(
-            id=data["id"],
-            debate_id=data["debate_id"],
-            agent_id=data["agent_id"],
-            dissent_type=DissentType(data["dissent_type"]),
-            content=data["content"],
-            reasoning=data["reasoning"],
+            id=data.get("id", ""),
+            debate_id=data.get("debate_id", ""),
+            agent_id=data.get("agent_id", "unknown"),
+            dissent_type=dissent_type,
+            content=data.get("content", ""),
+            reasoning=data.get("reasoning", ""),
             confidence=data.get("confidence", 0.0),
             acknowledged=data.get("acknowledged", False),
             rebuttal=data.get("rebuttal", ""),
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            timestamp=timestamp,
             metadata=data.get("metadata", {}),
         )
 

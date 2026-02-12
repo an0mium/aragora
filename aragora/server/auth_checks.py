@@ -101,6 +101,12 @@ class AuthChecksMixin:
             "/api/v1/verticals",
             "/api/evolution",
             "/api/v1/evolution",
+            # Metrics (public dashboard monitoring)
+            "/api/metrics",
+            "/api/v1/metrics",
+            # Nomic state (public dashboard data)
+            "/api/nomic/state",
+            "/api/v1/nomic/state",
         ]
     )
 
@@ -150,6 +156,12 @@ class AuthChecksMixin:
         "/api/v1/gauntlet/personas",  # Public gauntlet personas list (v1)
         "/api/debates/",  # Public debate browsing
         "/api/v1/debates/",  # Public debate browsing (v1)
+        "/api/metrics/",  # Public metrics dashboards
+        "/api/v1/metrics/",  # Public metrics dashboards (v1)
+        "/api/breakpoints/",  # Public breakpoints status
+        "/api/v1/breakpoints/",  # Public breakpoints status (v1)
+        "/api/nomic/",  # Public nomic state
+        "/api/v1/nomic/",  # Public nomic state (v1)
     )
 
     # Type stubs for attributes expected from parent class

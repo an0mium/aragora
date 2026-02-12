@@ -87,9 +87,8 @@ class BreakpointsHandler(BaseHandler):
             return True
         return bool(self.BREAKPOINT_PATTERN.match(path))
 
-    @require_permission("breakpoints:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
-        """Route breakpoint requests to appropriate methods."""
+        """Route breakpoint requests to appropriate methods (public dashboard data)."""
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _breakpoints_limiter.is_allowed(client_ip):

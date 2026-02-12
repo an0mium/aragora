@@ -164,23 +164,20 @@ class ConsensusHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for consensus endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Require authentication for consensus endpoints
-        try:
-            user, err = self.require_auth_or_error(handler)
-            if err:
-                return err
-        except Exception as e:
-            logger.warning(f"Authentication failed for consensus endpoint: {e}")
-            return error_response("Authentication required", 401)
-
-        # Check RBAC permission for memory operations
-        # seed-demo requires update permission, all others require read
+        # Authentication: only require for mutating operations (seed-demo).
+        # Read-only consensus endpoints are public dashboard data
+        # (listed in AUTH_EXEMPT_GET_PREFIXES).
         if path == "/api/consensus/seed-demo":
+            try:
+                user, err = self.require_auth_or_error(handler)
+                if err:
+                    return err
+            except Exception as e:
+                logger.warning(f"Authentication failed for consensus endpoint: {e}")
+                return error_response("Authentication required", 401)
             rbac_err = self._check_memory_permission(handler, user, "update")
-        else:
-            rbac_err = self._check_memory_permission(handler, user, "read")
-        if rbac_err:
-            return rbac_err
+            if rbac_err:
+                return rbac_err
 
         if path == "/api/consensus/similar":
             # Validate raw topic length before truncation
@@ -470,8 +467,12 @@ class ConsensusHandler(BaseHandler):
         memory = ConsensusMemory()
 
         if topic and DissentRetriever is not None:
-            retriever = DissentRetriever(memory)
-            records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
+            try:
+                retriever = DissentRetriever(memory)
+                records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
+            except Exception as e:
+                logger.warning("DissentRetriever.find_contrarian_views failed: %s", e)
+                records = []
         else:
             with get_db_connection(memory.db_path) as conn:
                 cursor = conn.cursor()
@@ -522,8 +523,12 @@ class ConsensusHandler(BaseHandler):
         memory = ConsensusMemory()
 
         if topic and DissentRetriever is not None:
-            retriever = DissentRetriever(memory)
-            records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
+            try:
+                retriever = DissentRetriever(memory)
+                records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
+            except Exception as e:
+                logger.warning("DissentRetriever.find_risk_warnings failed: %s", e)
+                records = []
         else:
             with get_db_connection(memory.db_path) as conn:
                 cursor = conn.cursor()

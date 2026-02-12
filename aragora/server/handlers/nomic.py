@@ -179,14 +179,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         return path in self.ROUTES or path.startswith("/api/nomic/")
 
     @rate_limit(requests_per_minute=30)
-    @require_permission("nomic:read", handler_arg=2)
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Route nomic endpoint requests.
-
-        Requires nomic:read permission (enforced by @require_permission decorator).
-        """
+        """Route nomic endpoint requests (public dashboard data)."""
         path = strip_version_prefix(path)
         handlers = {
             "/api/nomic/state": self._get_nomic_state,

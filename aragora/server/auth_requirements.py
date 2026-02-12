@@ -66,8 +66,20 @@ PUBLIC_ENDPOINTS = [
     EndpointAuth("/api/auth/oauth/callback", "get", AuthLevel.PUBLIC, description="OAuth callback"),
     # Public API info
     EndpointAuth("/api/modes", "get", AuthLevel.PUBLIC, description="List operational modes"),
-    # Nomic health - public for monitoring
+    # Nomic - public for dashboard
     EndpointAuth("/api/nomic/health", "get", AuthLevel.PUBLIC, description="Nomic loop health"),
+    EndpointAuth("/api/nomic/state", "get", AuthLevel.PUBLIC, description="Nomic state"),
+    # Leaderboard - public dashboard data
+    EndpointAuth(
+        "/api/leaderboard-view", "get", AuthLevel.PUBLIC, description="Leaderboard view"
+    ),
+    # Breakpoints - public read-only
+    EndpointAuth(
+        "/api/breakpoints/pending",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Pending breakpoints",
+    ),
 ]
 
 # =============================================================================
@@ -282,7 +294,7 @@ ADMIN_ENDPOINTS = [
         "/api/admin/metrics/detailed", "get", AuthLevel.ADMIN, description="Detailed metrics"
     ),
     # Nomic loop management
-    EndpointAuth("/api/nomic/state", "get", AuthLevel.ADMIN, description="Nomic state"),
+    # /api/nomic/state moved to PUBLIC_ENDPOINTS for dashboard access
     EndpointAuth("/api/nomic/log", "get", AuthLevel.ADMIN, description="Nomic logs"),
     EndpointAuth("/api/nomic/risk-register", "get", AuthLevel.ADMIN, description="Risk register"),
     # Control plane
