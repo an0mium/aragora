@@ -43,6 +43,25 @@ from aragora.control_plane.leader import (
 
 
 # =============================================================================
+# Helpers
+# =============================================================================
+
+
+async def poll_until(predicate, *, timeout: float = 3.0, interval: float = 0.05):
+    """Poll until predicate() is truthy, raising on timeout.
+
+    Replaces brittle ``await asyncio.sleep(N)`` + assert patterns
+    so that tests pass reliably under load (xdist, CI, etc.).
+    """
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        if predicate():
+            return
+        await asyncio.sleep(interval)
+    raise AssertionError(f"Condition not met within {timeout}s")
+
+
+# =============================================================================
 # Mock Redis Implementation
 # =============================================================================
 
@@ -587,9 +606,9 @@ class TestElectionFlow:
 
         try:
             # Should start as follower, then try to become leader
-            await asyncio.sleep(0.1)
-            # Should either be leader or follower (candidate is transient)
-            assert election.state in {LeaderState.LEADER, LeaderState.FOLLOWER}
+            await poll_until(
+                lambda: election.state in {LeaderState.LEADER, LeaderState.FOLLOWER}
+            )
         finally:
             await election.stop()
 
@@ -632,8 +651,8 @@ class TestElectionFlow:
         await election.start()
 
         try:
-            await asyncio.sleep(0.2)
-            if election.is_leader and received_node_ids:
+            await poll_until(lambda: election.is_leader)
+            if received_node_ids:
                 assert "test-node" in received_node_ids
         finally:
             await election.stop()
@@ -660,8 +679,7 @@ class TestHeartbeatHandling:
         await election.start()
 
         try:
-            await asyncio.sleep(0.2)
-            assert election.is_leader
+            await poll_until(lambda: election.is_leader)
 
             # Check that expire operations are being called
             expire_ops = [op for op in mock_redis._operation_log if op["op"] == "expire"]
@@ -683,16 +701,14 @@ class TestHeartbeatHandling:
         await election.start()
 
         try:
-            await asyncio.sleep(0.2)
-            assert election.is_leader
+            await poll_until(lambda: election.is_leader)
 
             # Expire the lock manually
             mock_redis.expire_key_now(f"{config.key_prefix}lock")
 
-            # Wait for election loop to detect
+            # Wait for election loop to detect and potentially re-acquire
             await asyncio.sleep(0.2)
 
-            # Should have detected loss
             # Note: election might re-acquire immediately since it's still running
         finally:
             await election.stop()
@@ -709,12 +725,12 @@ class TestHeartbeatHandling:
         await election.start()
 
         try:
-            await asyncio.sleep(0.2)
-            if election.is_leader:
-                first_heartbeat = election.current_leader.last_heartbeat
-                await asyncio.sleep(0.1)
-                # The leader info should be updated
-                assert election.current_leader is not None
+            await poll_until(lambda: election.is_leader)
+            assert election.current_leader is not None
+            first_heartbeat = election.current_leader.last_heartbeat
+            await asyncio.sleep(0.1)
+            # The leader info should be updated
+            assert election.current_leader is not None
         finally:
             await election.stop()
 
@@ -742,7 +758,8 @@ class TestSplitBrainDetection:
             nodes.append(election)
 
         await asyncio.gather(*[n.start() for n in nodes])
-        await asyncio.sleep(0.5)
+
+        await poll_until(lambda: sum(1 for n in nodes if n.is_leader) == 1)
 
         leaders = [n for n in nodes if n.is_leader]
         assert len(leaders) == 1
@@ -760,16 +777,14 @@ class TestSplitBrainDetection:
         election = LeaderElection(config=config, redis_client=mock_redis)
 
         await election.start()
-        await asyncio.sleep(0.2)
-        assert election.is_leader
+        await poll_until(lambda: election.is_leader)
 
         # Another node "steals" the lock
         mock_redis.corrupt_value("test:leader:lock", "rogue-node")
 
         # Wait for detection
-        await asyncio.sleep(0.2)
+        await poll_until(lambda: not election.is_leader)
 
-        assert not election.is_leader
         assert election.state == LeaderState.FOLLOWER
 
         await election.stop()
@@ -795,7 +810,9 @@ class TestSplitBrainDetection:
         await election2.start()
 
         try:
-            await asyncio.sleep(0.2)
+            await poll_until(
+                lambda: election1.is_leader or election2.is_leader,
+            )
 
             leaders = []
             if election1.is_leader:
@@ -835,8 +852,7 @@ class TestFailoverScenarios:
         election2 = LeaderElection(config=config2, redis_client=mock_redis)
 
         await election1.start()
-        await asyncio.sleep(0.2)
-        assert election1.is_leader
+        await poll_until(lambda: election1.is_leader)
 
         await election2.start()
         await asyncio.sleep(0.1)
@@ -846,7 +862,7 @@ class TestFailoverScenarios:
         await election1.stop()
 
         # Wait for election2 to detect and become leader
-        await asyncio.sleep(0.3)
+        await poll_until(lambda: election2.is_leader)
 
         assert election2.is_leader
 
@@ -872,17 +888,15 @@ class TestFailoverScenarios:
         election2 = LeaderElection(config=config2, redis_client=mock_redis)
 
         await election1.start()
-        await asyncio.sleep(0.2)
-        assert election1.is_leader
+        await poll_until(lambda: election1.is_leader)
 
         # Expire the lock
         mock_redis.expire_key_now("test:leader:lock")
 
         await election2.start()
-        await asyncio.sleep(0.3)
 
         # One of them should be leader
-        assert election1.is_leader or election2.is_leader
+        await poll_until(lambda: election1.is_leader or election2.is_leader)
 
         await election1.stop()
         await election2.stop()
@@ -905,15 +919,12 @@ class TestFailoverScenarios:
         election.on_lose_leader(on_lose)
 
         await election.start()
-        await asyncio.sleep(0.2)
-        assert election.is_leader
+        await poll_until(lambda: election.is_leader)
 
         # Simulate another node taking over
         mock_redis.corrupt_value("test:leader:lock", "other-node")
 
-        await asyncio.sleep(0.2)
-
-        assert callback_fired.is_set()
+        await poll_until(lambda: callback_fired.is_set())
 
         await election.stop()
 
@@ -1400,7 +1411,9 @@ class TestMultiRegionElection:
         await election2.start()
 
         try:
-            await asyncio.sleep(0.2)
+            await poll_until(
+                lambda: election1.is_regional_leader or election2.is_regional_leader,
+            )
             # Both should be able to become leaders (different regions)
             # At least one should be a leader
         finally:
@@ -1428,7 +1441,9 @@ class TestMultiRegionElection:
         await election2.start()
 
         try:
-            await asyncio.sleep(0.2)
+            await poll_until(
+                lambda: election1.is_regional_leader or election2.is_regional_leader,
+            )
 
             leaders = []
             if election1.is_regional_leader:
@@ -1455,11 +1470,9 @@ class TestMultiRegionElection:
         await election.start()
 
         try:
-            await asyncio.sleep(0.3)
-            if election.is_regional_leader:
-                # Should attempt to become global coordinator
-                # May or may not succeed in test environment
-                pass
+            await poll_until(lambda: election.is_regional_leader)
+            # Should attempt to become global coordinator
+            # May or may not succeed in test environment
         finally:
             await election.stop()
 
@@ -1493,9 +1506,7 @@ class TestRedisConnectionFailures:
         mock_redis.set = tracking_set
 
         await election.start()
-        await asyncio.sleep(0.15)
-
-        assert set_attempts["count"] >= 1
+        await poll_until(lambda: set_attempts["count"] >= 1)
 
         await election.stop()
 
