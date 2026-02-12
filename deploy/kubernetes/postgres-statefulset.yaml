@@ -15,7 +15,7 @@
 # - Google Cloud SQL with HA (recommended for GCP)
 # - Azure Database for PostgreSQL Flexible Server
 # - Supabase (managed PostgreSQL)
-# - CloudNativePG operator (self-managed K8s) - see deploy/k8s/cnpg-cluster.yaml
+# - CloudNativePG operator (self-managed K8s) - see deploy/kubernetes/cnpg-cluster.yaml
 #
 # See docs/POSTGRES_HA.md for detailed HA configuration guide.
 #

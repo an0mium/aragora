@@ -1,19 +1,26 @@
----
-# Aragora Persistent Volume Claim
-# Storage for SQLite databases and checkpoints
-# Note: For production, migrate to PostgreSQL (Supabase)
+# Aragora Persistent Volume Claims
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: aragora-data
+  name: aragora-data-pvc
   namespace: aragora
-  labels:
-    app.kubernetes.io/name: aragora
-    app.kubernetes.io/component: storage
 spec:
   accessModes:
-    - ReadWriteOnce  # SQLite requires single-writer
-  storageClassName: gp3  # AWS EBS gp3 (adjust for your cloud)
+    - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aragora-knowledge-pvc
+  namespace: aragora
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard

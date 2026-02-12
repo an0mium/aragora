@@ -5,7 +5,7 @@
 #
 # Usage:
 #   # Run migrations
-#   kubectl apply -f deploy/k8s/migration-job.yaml
+#   kubectl apply -f deploy/kubernetes/migration-job.yaml
 #
 #   # Check status
 #   kubectl -n aragora logs job/aragora-migrate

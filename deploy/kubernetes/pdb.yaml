@@ -1,6 +1,5 @@
----
 # Aragora Pod Disruption Budget
-# Ensures high availability during cluster maintenance
+# Ensures at least 1 pod is always available during voluntary disruptions
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -8,9 +7,7 @@ metadata:
   namespace: aragora
   labels:
     app.kubernetes.io/name: aragora
-    app.kubernetes.io/component: availability
 spec:
-  # Ensure at least 1 pod is always available
   minAvailable: 1
   selector:
     matchLabels:

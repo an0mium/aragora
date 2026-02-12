@@ -1,6 +1,5 @@
----
-# Kustomization
-# Use with: kubectl apply -k deploy/kubernetes/
+# Kustomization for Aragora Kubernetes Deployment
+# Usage: kubectl apply -k deploy/kubernetes/
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -9,15 +8,28 @@ namespace: aragora
 resources:
   - namespace.yaml
   - rbac.yaml
+  - cert-manager.yaml      # ClusterIssuers for TLS certificates
   - configmap.yaml
-  - secrets.yaml
-  - pvc.yaml
-  - network-policy.yaml  # Zero-trust network segmentation
+  - secret.yaml
+  - secrets.yaml           # Application secrets template
+  - network-policy.yaml    # Zero-trust network segmentation
+  - resourcequota.yaml     # Namespace resource quotas
+  - limitrange.yaml        # Container resource defaults and limits
+  # Database (use managed service in production)
+  - postgres-statefulset.yaml  # Self-hosted PostgreSQL (dev/small deployments)
+  # Redis for shared state and caching
+  - redis/statefulset.yaml
+  - redis/service.yaml
+  # - redis/cluster.yaml   # Uncomment for Redis Cluster deployment
+  # Application
   - deployment.yaml
   - service.yaml
-  - hpa.yaml
-  - pdb.yaml
   - ingress.yaml
+  - hpa.yaml
+  # - hpa-custom-metrics.yaml  # Uncomment when Prometheus Adapter is installed
+  - pdb.yaml
+  - pvc.yaml
+  # Logging and backups
   - fluentbit-config.yaml
   - backup-cronjob.yaml
   # External Secrets Operator - configure secret-store.yaml for your provider first
@@ -25,10 +37,14 @@ resources:
   # - secret-store.yaml
   # - external-secret.yaml
 
-labels:
-  - pairs:
-      app.kubernetes.io/managed-by: kustomize
-      app.kubernetes.io/part-of: aragora
+commonLabels:
+  app.kubernetes.io/part-of: aragora
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: aragora
+    newName: your-registry/aragora
+    newTag: latest
 
 # For different environments, create overlays:
 # deploy/kubernetes/overlays/staging/kustomization.yaml

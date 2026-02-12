@@ -1,6 +1,4 @@
----
 # Aragora Service
-# Exposes the aragora deployment internally
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,63 +18,23 @@ spec:
     app.kubernetes.io/name: aragora
     app.kubernetes.io/component: server
 ---
-# Aragora Ingress
-# External access with TLS termination
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+# Headless service for WebSocket sticky sessions (optional)
+apiVersion: v1
+kind: Service
 metadata:
-  name: aragora
+  name: aragora-headless
   namespace: aragora
   labels:
     app.kubernetes.io/name: aragora
-    app.kubernetes.io/component: ingress
-  annotations:
-    # For AWS ALB Ingress Controller
-    # kubernetes.io/ingress.class: alb
-    # alb.ingress.kubernetes.io/scheme: internet-facing
-    # alb.ingress.kubernetes.io/target-type: ip
-
-    # For nginx ingress controller
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-
-    # WebSocket support
-    nginx.ingress.kubernetes.io/websocket-services: "aragora"
-    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
-
-    # TLS with cert-manager
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-
-    # Rate limiting
-    nginx.ingress.kubernetes.io/limit-rps: "50"
-    nginx.ingress.kubernetes.io/limit-connections: "20"
+    app.kubernetes.io/component: server
 spec:
-  tls:
-    - hosts:
-        - aragora.ai
-        - api.aragora.ai
-      secretName: aragora-tls
-  rules:
-    - host: aragora.ai
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: aragora
-                port:
-                  name: http
-    - host: api.aragora.ai
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: aragora
-                port:
-                  name: http
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: server

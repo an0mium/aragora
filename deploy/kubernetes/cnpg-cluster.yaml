@@ -6,7 +6,7 @@
 #   kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.22/releases/cnpg-1.22.0.yaml
 #
 # Usage:
-#   kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+#   kubectl apply -f deploy/kubernetes/cnpg-cluster.yaml
 #
 # See docs/POSTGRES_HA.md for detailed configuration guide.
 #

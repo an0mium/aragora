@@ -1,6 +1,4 @@
----
 # Aragora Deployment
-# Main application deployment with health checks, resource limits, and security
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,22 +7,8 @@ metadata:
   labels:
     app.kubernetes.io/name: aragora
     app.kubernetes.io/component: server
-    app.kubernetes.io/version: "1.0.0"
-  annotations:
-    # Rollback configuration
-    # Kubernetes maintains revision history for rollbacks
-    kubernetes.io/change-cause: "Initial deployment"
-    # Health-based rollback: if readiness probe fails 3x, pod is marked unhealthy
-    # Combined with PodDisruptionBudget, this prevents bad deploys from completing
-    aragora.io/health-rollback-enabled: "true"
-    aragora.io/health-rollback-threshold: "3"
-    # Monitor these metrics for automated rollback decisions
-    aragora.io/rollback-metrics: "http_error_rate,latency_p99,memory_usage"
 spec:
   replicas: 2
-  # Keep 10 revision history for rollback capability
-  # Rollback command: kubectl rollout undo deployment/aragora -n aragora
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
       app.kubernetes.io/name: aragora
@@ -32,13 +16,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # Conservative rollout: only 1 new pod at a time
       maxSurge: 1
-      # Never allow unavailable pods during rollout (combined with readiness check)
       maxUnavailable: 0
-  # minReadySeconds ensures pod is stable before marking as ready
-  # If pod fails within this window, rollout pauses
-  minReadySeconds: 30
   template:
     metadata:
       labels:
@@ -46,201 +25,17 @@ spec:
         app.kubernetes.io/component: server
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
+        prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: aragora
-      # Allow 45s for graceful shutdown: 5s preStop + 30s server shutdown + 10s buffer
-      terminationGracePeriodSeconds: 45
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-
-      containers:
-        - name: aragora
-          image: aragora/aragora:0.8.0
-          imagePullPolicy: IfNotPresent
-
-          ports:
-            - name: http
-              containerPort: 8080
-              protocol: TCP
-            - name: metrics
-              containerPort: 9090
-              protocol: TCP
-
-          env:
-            # OpenTelemetry configuration
-            - name: OTEL_ENABLED
-              value: "true"
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://jaeger-collector.observability:4317"
-            - name: OTEL_SERVICE_NAME
-              value: "aragora"
-            - name: OTEL_SAMPLE_RATE
-              value: "0.1"
-            # Prometheus metrics
-            - name: METRICS_ENABLED
-              value: "true"
-            - name: METRICS_PORT
-              value: "9090"
-
-          envFrom:
-            - configMapRef:
-                name: aragora-config
-            - secretRef:
-                name: aragora-secrets
-
-          resources:
-            requests:
-              cpu: "250m"
-              memory: "512Mi"
-            limits:
-              cpu: "2000m"
-              memory: "4Gi"
-
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: http
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: http
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 3
-
-          startupProbe:
-            httpGet:
-              path: /healthz
-              port: http
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 30
-
-          volumeMounts:
-            - name: data
-              mountPath: /data
-            - name: tmp
-              mountPath: /tmp
-            - name: varlog
-              mountPath: /var/log/aragora
-
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-
-          # Graceful shutdown - allow in-flight requests to complete
-          lifecycle:
-            preStop:
-              exec:
-                # Give time for load balancer to drain connections before SIGTERM
-                # Server has 30s graceful shutdown sequence built-in
-                command:
-                  - /bin/sh
-                  - -c
-                  - "sleep 5"
-
-        # Fluent Bit sidecar for log aggregation
-        - name: fluent-bit
-          image: fluent/fluent-bit:2.2
-          imagePullPolicy: IfNotPresent
-          ports:
-            - name: fb-http
-              containerPort: 2020
-              protocol: TCP
-          env:
-            - name: CLUSTER_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: ENVIRONMENT
-              value: "production"
-            - name: LOKI_HOST
-              value: "loki-gateway.observability.svc.cluster.local"
-            - name: LOKI_PORT
-              value: "3100"
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "200m"
-              memory: "256Mi"
-          volumeMounts:
-            - name: fluentbit-config
-              mountPath: /fluent-bit/etc/
-            - name: fluent-bit-scripts
-              mountPath: /fluent-bit/scripts/
-            - name: varlog
-              mountPath: /var/log
-            - name: fluentbit-state
-              mountPath: /var/log/fluentbit
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-          livenessProbe:
-            httpGet:
-              path: /api/v1/health
-              port: fb-http
-            initialDelaySeconds: 10
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /api/v1/health
-              port: fb-http
-            initialDelaySeconds: 5
-            periodSeconds: 10
-
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: aragora-data
-        - name: tmp
-          emptyDir: {}
-        - name: varlog
-          emptyDir: {}
-        - name: fluentbit-state
-          emptyDir: {}
-        - name: fluentbit-config
-          configMap:
-            name: aragora-fluentbit-config
-            items:
-              - key: fluent-bit.conf
-                path: fluent-bit.conf
-              - key: parsers.conf
-                path: parsers.conf
-        - name: fluent-bit-scripts
-          configMap:
-            name: aragora-fluentbit-config
-            items:
-              - key: detect_level.lua
-                path: detect_level.lua
-
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -250,11 +45,85 @@ spec:
                   matchLabels:
                     app.kubernetes.io/name: aragora
                 topologyKey: kubernetes.io/hostname
-
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: aragora
+      containers:
+        - name: aragora
+          image: aragora:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: aragora-config
+            - secretRef:
+                name: aragora-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: aragora-data
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+---
+# Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aragora
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+---
+# PersistentVolumeClaim for debate data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aragora-data
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard  # Adjust for your cluster
