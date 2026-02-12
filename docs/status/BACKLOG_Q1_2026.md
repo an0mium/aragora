@@ -4,6 +4,14 @@
 **Start Date:** Week of Jan 27, 2026
 **Tracks:** SME Starter Pack | Developer Platform | Self-Hosted Deployment
 
+Execution order (stability gates): `docs/status/NEXT_STEPS_CANONICAL.md`
+
+Implementation map (owners + files): `docs/status/BACKLOG_Q1_2026_IMPLEMENTATION_MAP.md`
+
+Design partner loop (interviews + scorecard): `docs/status/DESIGN_PARTNER_PROGRAM.md`, `docs/status/PMF_SCORECARD.md`
+
+Sprint 2 PR plan: `docs/status/BACKLOG_Q1_2026_SPRINT_2_PR_PLAN.md`
+
 ---
 
 ## Executive Summary
