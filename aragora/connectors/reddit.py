@@ -16,7 +16,7 @@ import asyncio
 import logging
 from datetime import datetime
 
-from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.base import BaseConnector, ConnectorError, Evidence
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)
@@ -211,7 +211,7 @@ class RedditConnector(BaseConnector):
             logger.info(f"Reddit search '{query}' returned {len(results)} results")
             return results
 
-        except (httpx.HTTPError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
+        except (httpx.HTTPError, ConnectorError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
             logger.debug(f"Reddit search failed: {e}")
             return []
 
@@ -255,7 +255,7 @@ class RedditConnector(BaseConnector):
                 self._cache_put(evidence_id, evidence)
             return evidence
 
-        except (httpx.HTTPError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
+        except (httpx.HTTPError, ConnectorError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
             logger.debug(f"Reddit fetch failed for {evidence_id}: {e}")
             return None
 
@@ -449,7 +449,7 @@ class RedditConnector(BaseConnector):
             logger.info(f"Reddit r/{subreddit}/{sort} returned {len(results)} results")
             return results
 
-        except (httpx.HTTPError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
+        except (httpx.HTTPError, ConnectorError, ConnectionError, TimeoutError, ValueError, KeyError, TypeError) as e:
             logger.debug(f"Reddit get_subreddit failed for r/{subreddit}: {e}")
             return []
 
