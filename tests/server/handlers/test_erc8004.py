@@ -43,6 +43,18 @@ class MockChainConfig:
     validation_registry_address: str | None = "0x9876543210fedcba"
     block_confirmations: int = 12
 
+    @property
+    def has_identity_registry(self) -> bool:
+        return bool(self.identity_registry_address)
+
+    @property
+    def has_reputation_registry(self) -> bool:
+        return bool(self.reputation_registry_address)
+
+    @property
+    def has_validation_registry(self) -> bool:
+        return bool(self.validation_registry_address)
+
 
 @dataclass
 class MockAgentIdentity:

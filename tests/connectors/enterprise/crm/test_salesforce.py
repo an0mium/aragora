@@ -331,7 +331,7 @@ class TestSearch:
         connector = SalesforceConnector()
         connector._access_token = "test_token"
 
-        with patch.object(connector, "_api_request", side_effect=Exception("API Error")):
+        with patch.object(connector, "_api_request", side_effect=RuntimeError("API Error")):
             results = await connector.search("test")
 
             assert results == []
@@ -376,7 +376,7 @@ class TestFetch:
         connector = SalesforceConnector()
         connector._access_token = "test_token"
 
-        with patch.object(connector, "_api_request", side_effect=Exception("Not Found")):
+        with patch.object(connector, "_api_request", side_effect=RuntimeError("Not Found")):
             result = await connector.fetch("sf-Account-nonexistent")
 
             assert result is None
