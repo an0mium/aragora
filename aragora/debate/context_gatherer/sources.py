@@ -60,7 +60,19 @@ class SourceGatheringMixin:
     # Method from CompressionMixin
     async def _compress_with_rlm(
         self, content: str, source_type: str = "documentation", max_chars: int = 3000
-    ) -> str: ...
+    ) -> str:
+        """
+        Delegate compression to CompressionMixin implementation.
+
+        This method intentionally forwards to the next class in MRO so
+        SourceGatheringMixin can call `_compress_with_rlm` without shadowing
+        CompressionMixin's concrete logic.
+        """
+        return await super()._compress_with_rlm(  # type: ignore[misc]
+            content=content,
+            source_type=source_type,
+            max_chars=max_chars,
+        )
 
     def _get_task_hash(self, task: str) -> str:
         """Generate a cache key from task to prevent cache leaks between debates."""
