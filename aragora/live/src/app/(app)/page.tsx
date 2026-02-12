@@ -22,6 +22,7 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { FeaturesProvider } from '@/context/FeaturesContext';
 import { FeatureGuard } from '@/components/FeatureGuard';
+import { AdminOnly } from '@/components/shared/AdminOnly';
 import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { useProgressiveMode } from '@/context/ProgressiveModeContext';
@@ -723,9 +724,11 @@ export default function Home() {
                   <LaboratoryPanel apiBase={apiBase} events={events} />
                 </PanelErrorBoundary>
               </FeatureGuard>
-              <PanelErrorBoundary panelName="Breakpoints">
-                <BreakpointsPanel apiBase={apiBase} />
-              </PanelErrorBoundary>
+              <AdminOnly>
+                <PanelErrorBoundary panelName="Breakpoints">
+                  <BreakpointsPanel apiBase={apiBase} />
+                </PanelErrorBoundary>
+              </AdminOnly>
               <PanelErrorBoundary panelName="Batch Debates">
                 <BatchDebatePanel />
               </PanelErrorBoundary>
@@ -809,9 +812,11 @@ export default function Home() {
               <PanelErrorBoundary panelName="Analytics">
                 <AnalyticsPanel apiBase={apiBase} events={events} />
               </PanelErrorBoundary>
-              <PanelErrorBoundary panelName="Server Metrics">
-                <MetricsPanel apiBase={apiBase} />
-              </PanelErrorBoundary>
+              <AdminOnly>
+                <PanelErrorBoundary panelName="Server Metrics">
+                  <MetricsPanel apiBase={apiBase} />
+                </PanelErrorBoundary>
+              </AdminOnly>
               <PanelErrorBoundary panelName="Consensus KB">
                 <ConsensusKnowledgeBase apiBase={apiBase} events={events} />
               </PanelErrorBoundary>

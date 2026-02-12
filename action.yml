@@ -39,6 +39,18 @@ inputs:
     description: 'Maximum diff size in bytes'
     required: false
     default: '50000'
+  failure-threshold:
+    description: 'Fail workflow if total issues exceed this count (0 = disabled)'
+    required: false
+    default: '0'
+  output-format:
+    description: 'Additional output format besides PR comment (sarif, json, none)'
+    required: false
+    default: 'none'
+  sarif-upload:
+    description: 'Upload SARIF to GitHub Security tab'
+    required: false
+    default: 'false'
 
 outputs:
   review-path:
@@ -80,6 +92,9 @@ outputs:
   agreement-score:
     description: 'Agent agreement score (0-1)'
     value: ${{ steps.review.outputs.agreement_score }}
+  sarif-path:
+    description: 'Path to SARIF output file (if generated)'
+    value: ${{ steps.review.outputs.sarif_path }}
 
 runs:
   using: 'composite'
@@ -141,6 +156,27 @@ runs:
           --rounds ${{ inputs.rounds }} \
           --focus "${{ inputs.focus }}" \
           > /dev/null 2>> ./aragora-artifacts/review.log || true
+
+        # Generate SARIF output if requested
+        if [ "${{ inputs.output-format }}" = "sarif" ]; then
+          aragora review \
+            --diff-file pr.diff \
+            --output-format json \
+            --output-dir ./aragora-artifacts \
+            --agents "${{ inputs.agents }}" \
+            --rounds ${{ inputs.rounds }} \
+            --focus "${{ inputs.focus }}" \
+            --sarif ./aragora-artifacts/review.sarif \
+            > /dev/null 2>> ./aragora-artifacts/review.log || true
+
+          if [ -f "./aragora-artifacts/review.sarif" ]; then
+            echo "sarif_path=./aragora-artifacts/review.sarif" >> $GITHUB_OUTPUT
+          else
+            echo "sarif_path=" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "sarif_path=" >> $GITHUB_OUTPUT
+        fi
 
         if [ -f "./aragora-artifacts/comment.md" ] && [ -s "./aragora-artifacts/comment.md" ]; then
           echo "review_path=./aragora-artifacts/comment.md" >> $GITHUB_OUTPUT
@@ -209,12 +245,29 @@ PY
       env:
         GH_TOKEN: ${{ github.token }}
 
+    - name: Upload SARIF
+      if: inputs.sarif-upload == 'true' && steps.review.outputs.sarif_path != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.review.outputs.sarif_path }}
+
     - name: Check for critical issues
       if: inputs.fail-on-critical == 'true' && steps.review.outputs.critical_count != '0'
       shell: bash
       run: |
         echo "::error::Critical issues found in code review"
         exit 1
+
+    - name: Check failure threshold
+      if: inputs.failure-threshold != '0'
+      shell: bash
+      run: |
+        TOTAL=${{ steps.review.outputs.total_count }}
+        THRESHOLD=${{ inputs.failure-threshold }}
+        if [ "$TOTAL" -ge "$THRESHOLD" ]; then
+          echo "::error::Issue count ($TOTAL) exceeds threshold ($THRESHOLD)"
+          exit 1
+        fi
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

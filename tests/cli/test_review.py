@@ -398,7 +398,8 @@ class TestFormatGithubComment:
 
         comment = format_github_comment(None, findings)
 
-        assert "### Unanimous Issues" in comment
+        assert "Unanimous Issues" in comment
+        assert "<details" in comment
         assert "SQL injection found" in comment
 
     def test_includes_critical_issues(self):
@@ -416,7 +417,8 @@ class TestFormatGithubComment:
 
         comment = format_github_comment(None, findings)
 
-        assert "### Critical & High Severity Issues" in comment
+        assert "Critical & High Severity Issues" in comment
+        assert "<details" in comment
         assert "CRITICAL" in comment
 
     def test_includes_split_opinions_table(self):
@@ -436,7 +438,8 @@ class TestFormatGithubComment:
 
         comment = format_github_comment(None, findings)
 
-        assert "### Split Opinions" in comment
+        assert "Split Opinions" in comment
+        assert "<details" in comment
         assert "Add rate limiting" in comment
         assert "| Topic |" in comment  # Table header
 

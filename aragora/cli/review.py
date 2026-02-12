@@ -363,37 +363,39 @@ def format_github_comment(result: DebateResult | None, findings: dict[str, Any])
     if unanimous:
         lines.extend(
             [
-                "### Unanimous Issues",
-                "> All AI models agree - address these first",
+                "<details open>",
+                "<summary><strong>Unanimous Issues</strong> - All AI models agree</summary>",
                 "",
             ]
         )
         for issue in unanimous[:5]:  # Limit to top 5
             lines.append(f"- {issue}")
-        lines.append("")
+        lines.extend(["", "</details>", ""])
 
     # Critical/High issues
     critical = findings.get("critical_issues", [])
     high = findings.get("high_issues", [])
     if critical or high:
+        count = len(critical) + len(high)
         lines.extend(
             [
-                "### Critical & High Severity Issues",
+                "<details open>",
+                f"<summary><strong>Critical & High Severity Issues</strong> ({count} found)</summary>",
                 "",
             ]
         )
         for issue in (critical + high)[:5]:
             severity = "CRITICAL" if issue in critical else "HIGH"
             lines.append(f"- **{severity}**: {issue['issue'][:200]}")
-        lines.append("")
+        lines.extend(["", "</details>", ""])
 
     # Split opinions
     split = findings.get("split_opinions", [])
     if split:
         lines.extend(
             [
-                "### Split Opinions",
-                "> Agents disagree - your call on the tradeoff",
+                "<details>",
+                "<summary><strong>Split Opinions</strong> - Agents disagree on these</summary>",
                 "",
                 "| Topic | For | Against |",
                 "|-------|-----|---------|",
@@ -402,30 +404,33 @@ def format_github_comment(result: DebateResult | None, findings: dict[str, Any])
         for desc, majority, minority in split[:3]:
             topic = desc[:50] + "..." if len(desc) > 50 else desc
             lines.append(f"| {topic} | {', '.join(majority)} | {', '.join(minority)} |")
-        lines.append("")
+        lines.extend(["", "</details>", ""])
 
     # Risk areas
     risks = findings.get("risk_areas", [])
     if risks:
         lines.extend(
             [
-                "### Risk Areas",
-                "> Low confidence - manual review recommended",
+                "<details>",
+                "<summary><strong>Risk Areas</strong> - Manual review recommended</summary>",
                 "",
             ]
         )
         for risk in risks[:3]:
             lines.append(f"- {risk}")
-        lines.append("")
+        lines.extend(["", "</details>", ""])
 
     # Summary if available
     summary = findings.get("final_summary", "")
     if summary and len(summary) > 50:
         lines.extend(
             [
-                "### Summary",
+                "<details>",
+                "<summary><strong>Summary</strong></summary>",
                 "",
                 summary[:500] + ("..." if len(summary) > 500 else ""),
+                "",
+                "</details>",
                 "",
             ]
         )
@@ -947,6 +952,17 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
             logger.debug("SARIF export error details", exc_info=True)
 
+    # CI mode exit codes
+    if getattr(args, "ci", False):
+        critical = len(findings.get("critical_issues", []))
+        high = len(findings.get("high_issues", []))
+        if critical > 0:
+            print(f"CI: {critical} critical issues found", file=sys.stderr)
+            return 1
+        if high > 0:
+            print(f"CI: {high} high severity issues found", file=sys.stderr)
+            return 2
+
     return 0
 
 
@@ -1016,6 +1032,14 @@ def create_review_parser(subparsers) -> None:
         default=False,
         help="Run adversarial gauntlet stress-test after review debate. "
         "Uses the CODE_REVIEW gauntlet template for deeper vulnerability analysis.",
+    )
+
+    parser.add_argument(
+        "--ci",
+        action="store_true",
+        default=False,
+        help="CI mode: exit with non-zero code based on findings severity. "
+        "Exit 1 if critical issues, exit 2 if high issues found.",
     )
 
     parser.add_argument(
