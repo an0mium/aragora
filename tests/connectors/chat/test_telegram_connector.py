@@ -390,13 +390,19 @@ class TestWebhookHandling:
 class TestWebhookVerification:
     """Test webhook signature verification."""
 
-    def test_verify_webhook_telegram_always_true(self, connector):
-        """Telegram uses secret token in URL, not signature verification."""
-        # Telegram doesn't use HMAC signatures like Slack - it uses
-        # a secret_token query parameter set when configuring webhook
+    def test_verify_webhook_no_secret_dev_mode(self, connector, monkeypatch):
+        """Without TELEGRAM_WEBHOOK_SECRET in dev mode, verification is skipped."""
+        monkeypatch.setenv("ARAGORA_ENV", "development")
+        monkeypatch.delenv("TELEGRAM_WEBHOOK_SECRET", raising=False)
         result = connector.verify_webhook(headers={}, body=b"test")
-        # Should return True as Telegram verification is done differently
         assert result is True
+
+    def test_verify_webhook_no_secret_production_rejects(self, connector, monkeypatch):
+        """Without TELEGRAM_WEBHOOK_SECRET in production, verification fails closed."""
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        monkeypatch.delenv("TELEGRAM_WEBHOOK_SECRET", raising=False)
+        result = connector.verify_webhook(headers={}, body=b"test")
+        assert result is False
 
 
 class TestRespondToCommand:

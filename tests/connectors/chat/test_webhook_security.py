@@ -58,14 +58,14 @@ class TestWebhookVerificationError:
 class TestGetEnvironment:
     """Tests for get_environment function."""
 
-    def test_default_development(self):
-        """Should default to development environment."""
+    def test_default_production(self):
+        """Should default to production environment (secure default)."""
         from aragora.connectors.chat.webhook_security import get_environment
 
         with patch.dict("os.environ", {}, clear=True):
             env = get_environment()
 
-        assert env == "development"
+        assert env == "production"
 
     def test_reads_env_var(self):
         """Should read ARAGORA_ENV variable."""
@@ -125,11 +125,11 @@ class TestIsProductionEnvironment:
             assert is_production_environment() is False
 
     def test_default(self):
-        """Should default to non-production."""
+        """Should default to production (secure default)."""
         from aragora.connectors.chat.webhook_security import is_production_environment
 
         with patch.dict("os.environ", {}, clear=True):
-            assert is_production_environment() is False
+            assert is_production_environment() is True
 
 
 class TestIsWebhookVerificationRequired:
