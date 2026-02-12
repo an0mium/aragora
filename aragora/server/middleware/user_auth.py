@@ -640,6 +640,8 @@ async def authenticate_request(handler: Any) -> User | None:
     Authenticate a request and return user.
 
     Tries JWT first, then API key.
+    Optionally records auth events for anomaly detection when the
+    anomaly detection service is enabled (``ARAGORA_ANOMALY_DETECTION=1``).
 
     Args:
         handler: HTTP request handler
@@ -651,10 +653,22 @@ async def authenticate_request(handler: Any) -> User | None:
     if not token:
         return None
 
+    client_ip = extract_client_ip(handler)
+    user_agent: str | None = None
+    if hasattr(handler, "headers"):
+        user_agent = handler.headers.get("User-Agent")
+
     # Try JWT first
     jwt_validator = get_jwt_validator()
     user = jwt_validator.validate_jwt(token)
     if user:
+        # Record successful auth for baseline learning
+        await _record_auth_anomaly(
+            user_id=user.id,
+            success=True,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
         return user
 
     # Try API key
@@ -662,9 +676,63 @@ async def authenticate_request(handler: Any) -> User | None:
         api_validator = get_api_key_validator()
         user = await api_validator.validate_key(token)
         if user:
+            await _record_auth_anomaly(
+                user_id=user.id,
+                success=True,
+                ip_address=client_ip,
+                user_agent=user_agent,
+            )
             return user
 
+    # Auth failed -- record for brute-force / credential-stuffing detection.
+    # We don't know the user_id, so use the IP for tracking.
+    await _record_auth_anomaly(
+        user_id=f"unknown:{client_ip or 'no-ip'}",
+        success=False,
+        ip_address=client_ip,
+        user_agent=user_agent,
+    )
+
     return None
+
+
+async def _record_auth_anomaly(
+    user_id: str,
+    success: bool,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> None:
+    """Fire-and-forget anomaly detection check for an auth event.
+
+    This is intentionally non-blocking: anomaly detection must never
+    break the authentication flow.  The function is a no-op unless
+    ``ARAGORA_ANOMALY_DETECTION`` is set to ``1`` in the environment.
+    """
+    try:
+        if not os.getenv("ARAGORA_ANOMALY_DETECTION"):
+            return
+
+        from aragora.security.anomaly_detection import get_anomaly_detector
+
+        detector = get_anomaly_detector()
+        result = await detector.check_auth_event(
+            user_id=user_id,
+            success=success,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        if result.is_anomalous:
+            logger.warning(
+                "Auth anomaly detected: type=%s severity=%s ip=%s user=%s desc=%s",
+                result.anomaly_type.value if result.anomaly_type else "unknown",
+                result.severity.value,
+                ip_address,
+                user_id,
+                result.description,
+            )
+    except (ImportError, RuntimeError, OSError, TypeError, ValueError) as exc:
+        # Anomaly detection is optional -- never let it break auth
+        logger.debug("Anomaly detection unavailable during auth: %s", exc)
 
 
 def get_current_user(handler: Any) -> User | None:

@@ -3,10 +3,11 @@ Quickstart CLI command: zero-to-receipt onboarding in one command.
 
 Guides new users through their first adversarial debate:
 1. Checks for API keys (loads .env if present)
-2. Accepts a question via --question or interactive prompt
+2. Accepts a question via --question or interactive prompt (default provided)
 3. Runs a 2-round demo debate with auto-detected or mock agents
-4. Displays verdict with confidence
-5. Optionally saves the decision receipt
+4. Displays verdict with confidence and elapsed time
+5. Generates HTML receipt and opens in browser (unless --no-browser)
+6. Optionally saves the decision receipt
 """
 
 from __future__ import annotations
@@ -17,10 +18,15 @@ import json
 import logging
 import os
 import sys
+import tempfile
+import time
+import webbrowser
 from pathlib import Path
 from typing import Any, cast
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_QUESTION = "Should we adopt microservices or keep our monolith?"
 
 
 def add_quickstart_parser(subparsers: Any) -> None:
@@ -32,20 +38,21 @@ def add_quickstart_parser(subparsers: Any) -> None:
 Run your first adversarial debate in under 60 seconds.
 
 Automatically detects available API keys, picks agents, runs a fast
-2-round debate, and shows the decision receipt. No configuration needed.
+2-round debate, and opens the decision receipt in your browser.
+No configuration needed.
 
 Examples:
-  aragora quickstart
+  aragora quickstart --demo                              # Zero-config demo
   aragora quickstart --question "Should we use Kubernetes?"
   aragora quickstart --question "Migrate to TypeScript?" --output receipt.json
-  aragora quickstart --demo  # No API keys required
+  aragora quickstart --demo --no-browser                 # CI/headless mode
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     qs_parser.add_argument(
         "--question",
         "-q",
-        help="The question to debate (prompted interactively if omitted)",
+        help="The question to debate (uses a default if omitted with --demo)",
     )
     qs_parser.add_argument(
         "--output",
@@ -70,6 +77,11 @@ Examples:
         choices=["json", "md", "html"],
         default="json",
         help="Receipt output format (default: json)",
+    )
+    qs_parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Don't open receipt in browser (for CI/headless environments)",
     )
     qs_parser.set_defaults(func=cmd_quickstart)
 
@@ -119,9 +131,13 @@ def _detect_agents() -> list[tuple[str, str | None]]:
 
 
 def _get_question(args: argparse.Namespace) -> str | None:
-    """Get the debate question from args or interactive prompt."""
+    """Get the debate question from args, default, or interactive prompt."""
     if args.question:
         return args.question
+
+    # In demo mode, use the default question instead of prompting
+    if getattr(args, "demo", False):
+        return _DEFAULT_QUESTION
 
     # Interactive prompt
     try:
@@ -135,15 +151,17 @@ def _get_question(args: argparse.Namespace) -> str | None:
 
 def _save_receipt(receipt_data: dict[str, Any], path: str, fmt: str) -> None:
     """Save receipt to file in the specified format."""
+    from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
+
     output_path = Path(path)
 
     if fmt == "json" or output_path.suffix == ".json":
         output_path.write_text(json.dumps(receipt_data, indent=2, default=str))
     elif fmt == "md" or output_path.suffix == ".md":
-        md = _receipt_to_markdown(receipt_data)
+        md = receipt_to_markdown(receipt_data)
         output_path.write_text(md)
     elif fmt == "html" or output_path.suffix == ".html":
-        html = _receipt_to_html(receipt_data)
+        html = receipt_to_html(receipt_data)
         output_path.write_text(html)
     else:
         output_path.write_text(json.dumps(receipt_data, indent=2, default=str))
@@ -151,49 +169,24 @@ def _save_receipt(receipt_data: dict[str, Any], path: str, fmt: str) -> None:
     print(f"\nReceipt saved to: {output_path}")
 
 
-def _receipt_to_markdown(data: dict[str, Any]) -> str:
-    """Convert receipt dict to markdown."""
-    lines = [
-        f"# Decision Receipt: {data.get('question', 'N/A')}",
-        "",
-        f"**Verdict:** {data.get('verdict', 'N/A')}",
-        f"**Confidence:** {data.get('confidence', 0):.0%}",
-        f"**Rounds:** {data.get('rounds', 0)}",
-        f"**Agents:** {', '.join(data.get('agents', []))}",
-        "",
-        "## Summary",
-        "",
-        data.get("summary", "No summary available."),
-        "",
-        "## Dissent",
-        "",
-    ]
-    dissent = data.get("dissent", [])
-    if dissent:
-        for d in dissent:
-            lines.append(f"- **{d.get('agent', '?')}:** {d.get('reason', 'N/A')}")
-    else:
-        lines.append("No dissent recorded.")
+def _open_receipt_in_browser(receipt_data: dict[str, Any]) -> str | None:
+    """Generate HTML receipt and open in browser.
 
-    return "\n".join(lines)
+    Returns the path to the saved HTML file, or None on failure.
+    """
+    from aragora.cli.receipt_formatter import receipt_to_html
 
-
-def _receipt_to_html(data: dict[str, Any]) -> str:
-    """Convert receipt dict to minimal HTML."""
-    return f"""<!DOCTYPE html>
-<html><head><title>Decision Receipt</title>
-<style>body{{font-family:system-ui;max-width:700px;margin:2em auto;padding:0 1em}}
-.verdict{{font-size:1.4em;font-weight:bold;color:#2563eb}}
-.confidence{{color:#059669}}</style></head>
-<body>
-<h1>Decision Receipt</h1>
-<p><strong>Question:</strong> {data.get('question', 'N/A')}</p>
-<p class="verdict">Verdict: {data.get('verdict', 'N/A')}</p>
-<p class="confidence">Confidence: {data.get('confidence', 0):.0%}</p>
-<p><strong>Agents:</strong> {', '.join(data.get('agents', []))}</p>
-<h2>Summary</h2>
-<p>{data.get('summary', 'No summary available.')}</p>
-</body></html>"""
+    try:
+        html = receipt_to_html(receipt_data)
+        # Create a persistent temp file (not auto-deleted)
+        fd, path = tempfile.mkstemp(suffix=".html", prefix="aragora-receipt-")
+        with os.fdopen(fd, "w") as f:
+            f.write(html)
+        webbrowser.open(f"file://{path}")
+        return path
+    except Exception as e:
+        logger.debug("Failed to open receipt in browser: %s", e)
+        return None
 
 
 async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
@@ -315,6 +308,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print(f"[*] Running {rounds}-round debate...\n")
 
     # Step 4: Run debate
+    start_time = time.monotonic()
     try:
         if use_demo:
             result = asyncio.run(_run_demo_debate(question, rounds))
@@ -326,6 +320,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         print("    Try: aragora quickstart --demo")
         sys.exit(1)
 
+    elapsed = time.monotonic() - start_time
+    result["elapsed_seconds"] = elapsed
+
     # Step 5: Display results
     print("=" * 60)
     print("  RESULT")
@@ -334,6 +331,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print(f"  Confidence: {result['confidence']:.0%}")
     print(f"  Agents:     {', '.join(result['agents'])}")
     print(f"  Rounds:     {result['rounds']}")
+    print(f"  Elapsed:    {elapsed:.1f}s")
 
     if result.get("summary"):
         print(f"\n  Summary:\n  {result['summary'][:500]}")
@@ -351,8 +349,17 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
 
     if output_path:
         _save_receipt(result, output_path, fmt)
-    else:
-        print("\nTip: Save receipt with --output receipt.json")
+
+    # Step 7: Open receipt in browser
+    no_browser = getattr(args, "no_browser", False)
+    if not no_browser:
+        receipt_path = _open_receipt_in_browser(result)
+        if receipt_path:
+            print(f"\nReceipt opened in browser. Saved to {receipt_path}")
+        else:
+            print("\nCould not open browser. Save receipt with --output receipt.html")
+    elif not output_path:
+        print("\nTip: Save receipt with --output receipt.html")
 
     print("\nNext steps:")
     print("  aragora ask 'Your question' --agents anthropic-api,openai-api  # Full debate")

@@ -15,6 +15,9 @@ Aragora orchestrates 30+ agent types in structured adversarial debates -- forcin
 ## Try It Now
 
 ```bash
+# Zero-config demo — runs a debate and opens the receipt in your browser
+aragora quickstart --demo
+
 # Review your current changes against main
 git diff main | aragora review --demo
 
@@ -22,10 +25,11 @@ git diff main | aragora review --demo
 aragora review --pr https://github.com/org/repo/pull/123 --demo
 ```
 
-> **What just happened?** Three AI models independently analyzed your code,
-> debated the findings, and produced a signed [Decision Receipt](docs/QUICKSTART_DEVELOPER.md)
-> with unanimous issues, split opinions, and a confidence score.
-> [Full quickstart →](docs/QUICKSTART_DEVELOPER.md)
+> **What happens when you run `quickstart --demo`?** Three mock agents (analyst, critic,
+> synthesizer) debate your question through structured rounds, then a styled
+> [Decision Receipt](docs/QUICKSTART_DEVELOPER.md) opens in your browser showing the
+> verdict, confidence score, consensus proof, and full provenance chain.
+> No API keys needed. [Full quickstart →](docs/QUICKSTART_DEVELOPER.md)
 
 ```bash
 # Stress-test a specification
@@ -106,19 +110,19 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 
 ## Quick Start
 
-### 1. Install and Review Code (30 seconds)
+### 1. Install and Try It (30 seconds)
 
 ```bash
 pip install aragora
 
-# Review your uncommitted changes -- no API keys needed in demo mode
-git diff main | aragora review --demo
+# Run a zero-config demo debate — opens receipt in your browser
+aragora quickstart --demo
 
-# Review a GitHub PR
-aragora review --pr https://github.com/org/repo/pull/123 --demo
+# Or review your uncommitted changes — no API keys needed in demo mode
+git diff main | aragora review --demo
 ```
 
-See [docs/QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) for the full AI code review tutorial.
+See [docs/QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) for the full developer quickstart.
 
 ### 2. Run Debates and Start the Server
 

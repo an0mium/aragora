@@ -1154,9 +1154,13 @@ class TestRegisterKMAdaptersDeep:
         """Test _register_km_adapters registers all 6 adapter types when called manually."""
         mock_km_coord = Mock()
 
-        # Pre-set km_coordinator so __post_init__ skips auto-init
+        # Disable all auto-inits to isolate the test from module-level state
+        # that prior tests may have modified (SDPO imports, bridge factories, etc.)
         coord = SubsystemCoordinator(
             km_coordinator=mock_km_coord,
+            enable_km_coordinator=False,
+            enable_km_bidirectional=False,
+            enable_sdpo=False,
             km_continuum_adapter=Mock(),
             km_elo_adapter=Mock(),
             km_belief_adapter=Mock(),
@@ -1165,9 +1169,9 @@ class TestRegisterKMAdaptersDeep:
             km_pulse_adapter=Mock(),
         )
 
-        # __post_init__ skips _auto_init_km_coordinator when km_coordinator already set
-        # So call _register_km_adapters manually to test
-        mock_km_coord.register_adapter.reset_mock()
+        # No calls should have happened during __post_init__
+        assert mock_km_coord.register_adapter.call_count == 0
+
         coord._register_km_adapters()
 
         assert mock_km_coord.register_adapter.call_count == 6
@@ -1187,12 +1191,16 @@ class TestRegisterKMAdaptersDeep:
 
         coord = SubsystemCoordinator(
             km_coordinator=mock_km_coord,
+            enable_km_coordinator=False,
+            enable_km_bidirectional=False,
+            enable_sdpo=False,
             km_continuum_adapter=Mock(),
             km_elo_adapter=Mock(),
         )
 
-        # Call manually
-        mock_km_coord.register_adapter.reset_mock()
+        # No calls during __post_init__
+        assert mock_km_coord.register_adapter.call_count == 0
+
         coord._register_km_adapters()
 
         assert mock_km_coord.register_adapter.call_count == 2
@@ -1200,15 +1208,21 @@ class TestRegisterKMAdaptersDeep:
     def test_register_adapters_handles_registration_error(self):
         """Test _register_km_adapters handles adapter registration failure."""
         mock_km_coord = Mock()
-        mock_km_coord.register_adapter.side_effect = RuntimeError("Registration failed")
 
+        # Disable all auto-inits to isolate the test from module-level state
+        # that prior tests may have modified (SDPO imports, bridge factories, etc.)
         coord = SubsystemCoordinator(
             km_coordinator=mock_km_coord,
+            enable_km_coordinator=False,
+            enable_km_bidirectional=False,
+            enable_sdpo=False,
             km_continuum_adapter=Mock(),
         )
 
-        # Call manually
-        mock_km_coord.register_adapter.reset_mock()
+        # No calls should have happened during __post_init__
+        assert mock_km_coord.register_adapter.call_count == 0
+
+        # Now set up the error side_effect and call manually
         mock_km_coord.register_adapter.side_effect = RuntimeError("Registration failed")
 
         # Should not raise
@@ -1221,10 +1235,16 @@ class TestRegisterKMAdaptersDeep:
         """Test _register_km_adapters is no-op without coordinator."""
         coord = SubsystemCoordinator(
             km_coordinator=None,
+            enable_km_coordinator=False,
+            enable_km_bidirectional=False,
+            enable_sdpo=False,
             km_continuum_adapter=Mock(),
         )
 
-        # Calling _register_km_adapters should be a no-op
+        # km_coordinator should remain None since auto-init is disabled
+        assert coord.km_coordinator is None
+
+        # Calling _register_km_adapters should be a no-op (early return)
         coord._register_km_adapters()
 
         # No error and adapter field is present but not registered via coordinator

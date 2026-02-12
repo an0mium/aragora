@@ -793,12 +793,16 @@ class UnifiedServer:
         # Initialize DecisionRouter for unified decision routing
         self._init_decision_router()
 
+        # Initialize Anomaly Detection (opt-in via environment variable)
+        self._init_anomaly_detection()
+
         # Log subsystem initialization summary
         subsystems = {
             "cross_debate_memory": getattr(UnifiedHandler, "cross_debate_memory", None) is not None,
             "knowledge_mound": getattr(UnifiedHandler, "knowledge_mound", None) is not None,
             "decision_router": getattr(UnifiedHandler, "decision_router", None) is not None,
             "continuum_memory": getattr(UnifiedHandler, "continuum_memory", None) is not None,
+            "anomaly_detector": getattr(UnifiedHandler, "anomaly_detector", None) is not None,
         }
         active = sum(1 for v in subsystems.values() if v)
         total = len(subsystems)
@@ -834,6 +838,49 @@ class UnifiedServer:
             logger.debug(f"DecisionRouter not available: {e}")
         except (TypeError, ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Failed to initialize DecisionRouter: {e}")
+
+    def _init_anomaly_detection(self) -> None:
+        """Initialize Anomaly Detection service if configured.
+
+        Anomaly detection is opt-in: set ``ARAGORA_ANOMALY_DETECTION=1``
+        in the environment to enable it.  When enabled, the detector
+        monitors authentication events for brute-force attacks,
+        credential stuffing, and behavioral anomalies.  The auth
+        middleware in ``user_auth.py`` records events automatically.
+        """
+        import os as _os
+
+        if not _os.environ.get("ARAGORA_ANOMALY_DETECTION"):
+            logger.debug("[init] Anomaly detection disabled (set ARAGORA_ANOMALY_DETECTION=1 to enable)")
+            UnifiedHandler.anomaly_detector = None
+            return
+
+        try:
+            from aragora.security.anomaly_detection import (
+                AnomalyDetector,
+                AnomalyDetectorConfig,
+                get_anomaly_detector,
+            )
+
+            # Use a file-backed database when nomic_dir is available,
+            # otherwise use an in-memory database.
+            storage_path: str | None = None
+            if self.nomic_dir:
+                storage_path = str(self.nomic_dir / "anomaly_detection.db")
+
+            config = AnomalyDetectorConfig(storage_path=storage_path)
+            detector = get_anomaly_detector(config)
+            UnifiedHandler.anomaly_detector = detector
+            logger.info(
+                "[init] Anomaly detection initialized (storage=%s)",
+                storage_path or ":memory:",
+            )
+        except ImportError as e:
+            logger.warning("[init] Anomaly detection unavailable: %s", e)
+            UnifiedHandler.anomaly_detector = None
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.warning("[init] Anomaly detection initialization failed: %s", e)
+            UnifiedHandler.anomaly_detector = None
 
     @property
     def emitter(self) -> SyncEventEmitter:

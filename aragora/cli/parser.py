@@ -141,6 +141,7 @@ Examples:
     _add_verify_parser(subparsers)
     _add_healthcare_parser(subparsers)
     add_quickstart_parser(subparsers)
+    _add_receipt_parser(subparsers)
     _add_compliance_parser(subparsers)
 
     return parser
@@ -1247,6 +1248,13 @@ def _add_healthcare_parser(subparsers) -> None:
     from aragora.cli.commands.healthcare import add_healthcare_parser
 
     add_healthcare_parser(subparsers)
+
+
+def _add_receipt_parser(subparsers) -> None:
+    """Add the 'receipt' subcommand parser for receipt management."""
+    from aragora.cli.commands.receipt import add_receipt_parser
+
+    add_receipt_parser(subparsers)
 
 
 def _add_compliance_parser(subparsers) -> None:

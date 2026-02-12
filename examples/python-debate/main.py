@@ -31,18 +31,28 @@ try:
 except ImportError:
     pass
 
-from aragora_sdk import (
-    AragoraClient,
+from contextlib import asynccontextmanager
+
+from aragora_sdk import AragoraClient
+from aragora_sdk.exceptions import (
     AragoraError,
-    AragoraAuthenticationError,
-    AragoraConnectionError,
+    AuthenticationError,
+    ConnectionError as AragoraConnectionError,
 )
 from aragora_sdk.websocket import stream_debate
 
 
-async def get_client_async(base_url: str = "http://localhost:8080") -> AragoraClient:
-    """Create an async Aragora client."""
-    return AragoraClient(base_url=base_url)
+@asynccontextmanager
+async def get_client(args: argparse.Namespace):
+    """Create an Aragora client, respecting --demo flag."""
+    if getattr(args, "demo", False):
+        client = AragoraClient(demo=True)
+    else:
+        client = AragoraClient(base_url=args.server)
+    try:
+        yield client
+    finally:
+        client.close()
 
 
 # =============================================================================
@@ -52,7 +62,7 @@ async def get_client_async(base_url: str = "http://localhost:8080") -> AragoraCl
 
 async def cmd_debate_async(args: argparse.Namespace) -> int:
     """Run a debate and wait for completion."""
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         print("\nCreating debate...")
         print(f"  Topic: {args.topic}")
         print(f"  Agents: {', '.join(args.agents)}")
@@ -148,7 +158,7 @@ async def cmd_gauntlet_async(args: argparse.Namespace) -> int:
     print(f"  Persona: {args.persona}")
     print(f"  Profile: {args.profile}")
 
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             receipt = await client.gauntlet.run_and_wait(
                 input_content=content,
@@ -194,7 +204,7 @@ async def cmd_rankings_async(args: argparse.Namespace) -> int:
     print("\nAgent Rankings:")
     print("-" * 50)
 
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             rankings = await client.leaderboard.list(limit=args.limit)
 
@@ -232,7 +242,7 @@ async def cmd_tournament_async(args: argparse.Namespace) -> int:
     print(f"  Participants: {', '.join(args.agents)}")
     print(f"  Format: {args.format}")
 
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             tournament = await client.tournaments.create(
                 name=args.name,
@@ -274,7 +284,7 @@ def cmd_tournament(args: argparse.Namespace) -> int:
 
 async def cmd_tournament_list_async(args: argparse.Namespace) -> int:
     """List tournaments."""
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             tournaments = await client.tournaments.list(limit=args.limit)
 
@@ -311,7 +321,7 @@ async def cmd_login_async(args: argparse.Namespace) -> int:
 
     print(f"\nLogging in as {email}...")
 
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             token = await client.auth.login(email, password)
             print("\nLogin successful!")
@@ -326,7 +336,7 @@ async def cmd_login_async(args: argparse.Namespace) -> int:
 
             return 0
 
-        except AragoraAuthenticationError as e:
+        except AuthenticationError as e:
             print(f"\nLogin failed: {e}", file=sys.stderr)
             return 1
         except AragoraError as e:
@@ -341,7 +351,7 @@ def cmd_login(args: argparse.Namespace) -> int:
 
 async def cmd_logout_async(args: argparse.Namespace) -> int:
     """Logout from Aragora."""
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             await client.auth.logout()
             print("\nLogged out successfully.")
@@ -365,7 +375,7 @@ def cmd_logout(args: argparse.Namespace) -> int:
 
 async def cmd_apikey_list_async(args: argparse.Namespace) -> int:
     """List API keys."""
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             keys = await client.auth.list_api_keys()
 
@@ -397,7 +407,7 @@ async def cmd_apikey_create_async(args: argparse.Namespace) -> int:
     """Create an API key."""
     print(f"\nCreating API key: {args.name}")
 
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             result = await client.auth.create_api_key(
                 name=args.name,
@@ -431,7 +441,7 @@ def cmd_apikey_create(args: argparse.Namespace) -> int:
 
 async def cmd_onboarding_async(args: argparse.Namespace) -> int:
     """Start or continue onboarding."""
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             # Check for existing flow
             flow = await client.onboarding.get_flow()
@@ -490,7 +500,7 @@ async def cmd_health_async(args: argparse.Namespace) -> int:
     """Check server health."""
     print(f"\nChecking server at {args.server}...")
 
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             health = await client.health.check()
             print(f"  Status: {health.status}")
@@ -517,7 +527,7 @@ def cmd_health(args: argparse.Namespace) -> int:
 
 async def cmd_memory_async(args: argparse.Namespace) -> int:
     """View memory analytics."""
-    async with AragoraClient(base_url=args.server) as client:
+    async with get_client(args) as client:
         try:
             analytics = await client.memory.get_analytics()
 
@@ -560,6 +570,11 @@ def main() -> int:
         "--server",
         default="http://localhost:8080",
         help="Aragora server URL (default: http://localhost:8080)",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run with mock data (no server or API keys needed)",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")

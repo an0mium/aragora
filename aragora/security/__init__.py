@@ -113,8 +113,11 @@ from .anomaly_detection import (
     AnomalyDetector,
     AnomalyDetectorConfig,
     AnomalyResult,
+    AnomalyStorage,
     AnomalyType,
     AnomalySeverity,
+    check_auth_anomaly,
+    check_rate_anomaly,
     get_anomaly_detector,
 )
 
@@ -179,7 +182,10 @@ __all__ = [
     "AnomalyDetector",
     "AnomalyDetectorConfig",
     "AnomalyResult",
+    "AnomalyStorage",
     "AnomalyType",
     "AnomalySeverity",
+    "check_auth_anomaly",
+    "check_rate_anomaly",
     "get_anomaly_detector",
 ]

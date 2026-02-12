@@ -191,21 +191,49 @@ class AnomalyStorage:
         """
         self._db_path = db_path or ":memory:"
         self._connections: list[sqlite3.Connection] = []
+        # For :memory: databases every ``sqlite3.connect(":memory:")`` creates
+        # a completely independent database, so ContextVar-based per-context
+        # connections would each see empty tables.  We pin a single shared
+        # connection for :memory: to avoid this.
+        self._shared_conn: sqlite3.Connection | None = None
+        if self._db_path == ":memory:":
+            self._shared_conn = sqlite3.connect(":memory:", check_same_thread=False)
+            self._shared_conn.row_factory = sqlite3.Row
+            self._connections.append(self._shared_conn)
         self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get context-local connection."""
+        """Get a connection to the database.
+
+        For :memory: databases, always returns the single shared connection
+        (since each ``sqlite3.connect(":memory:")`` is independent).
+        For file-backed databases, uses a ContextVar so each async context
+        or thread gets its own connection to the same underlying file.
+        """
+        # In-memory: always use the shared connection
+        if self._shared_conn is not None:
+            return self._shared_conn
+
+        # File-backed: per-context connection
         conn = self._conn_var.get()
         if conn is None:
             conn = sqlite3.connect(self._db_path, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             self._conn_var.set(conn)
             self._connections.append(conn)
+            # Ensure schema exists on every new connection.  For file-backed
+            # databases the schema is shared across connections, but
+            # CREATE TABLE IF NOT EXISTS is cheap and ensures correctness.
+            self._ensure_schema(conn)
         return conn
 
-    def _init_schema(self) -> None:
-        """Initialize database schema."""
-        conn = self._get_conn()
+    def _ensure_schema(self, conn: sqlite3.Connection) -> None:
+        """Ensure the schema exists on *conn*.
+
+        Safe to call multiple times thanks to ``CREATE TABLE IF NOT EXISTS``.
+        Separated from ``_init_schema`` so that ``_get_conn`` can bootstrap
+        new per-context connections without re-entering ``_get_conn``.
+        """
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS auth_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -262,6 +290,11 @@ class AnomalyStorage:
             CREATE INDEX IF NOT EXISTS idx_anomalies_ts ON detected_anomalies(timestamp);
             """)
         conn.commit()
+
+    def _init_schema(self) -> None:
+        """Initialize database schema on the current context's connection."""
+        conn = self._get_conn()
+        self._ensure_schema(conn)
 
     def record_auth_event(
         self,
